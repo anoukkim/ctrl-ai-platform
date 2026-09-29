@@ -4,6 +4,8 @@
 [tool.pytest.ini_options]
 # `testpaths` lets you simply run `pytest` from the backend/ directory.
 testpaths = ["tests"]
+# Alembic's versions/ files are scripts, not tests.
+norecursedirs = ["alembic"]
 # Makes `from app...` imports work without installing the package.
 pythonpath = ["."]
 addopts = "-q"
