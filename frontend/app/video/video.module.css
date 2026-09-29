@@ -1,0 +1,395 @@
+/* Video Generator 전용 스타일.
+   공통 골격은 components/workspace.module.css에 있습니다. */
+
+/* ---------- 왼쪽: 프롬프트와 설정 ---------- */
+
+.left {
+  flex: 0 0 19rem;
+}
+
+.promptArea {
+  width: 100%;
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.promptMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.settings {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+}
+
+.settingRow {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.settingLabel {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.chip {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chipActive {
+  background: var(--accent-soft);
+  border-color: rgba(167, 139, 250, 0.4);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.actions {
+  display: grid;
+  gap: 0.4rem;
+}
+
+/* ---------- 가운데: 영상 미리보기 ---------- */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.9rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.08), transparent 60%),
+    var(--bg);
+}
+
+/* 세로 9:16 화면. Shorts 중심이라 세로가 기본입니다. */
+.player {
+  position: relative;
+  flex: 0 1 auto;
+  aspect-ratio: 9 / 16;
+  /* 남은 높이에 맞춰 줄어들되, 너무 작아지지 않게 합니다. */
+  height: min(100%, 34rem);
+  min-height: 15rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+
+.playerArt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  color: #fff;
+  text-align: center;
+}
+
+.playerLabel {
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+}
+
+.playerSub {
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* 재생 중 화면이 살아 있다는 느낌을 주는 아주 느린 움직임. */
+.playerArtPlaying {
+  animation: drift 9s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playerArtPlaying {
+    animation: none;
+  }
+}
+
+.playOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.playOverlayGlyph {
+  display: grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: rgba(10, 10, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 1.05rem;
+  backdrop-filter: blur(2px);
+}
+
+/* 생성 중 표시 */
+.generating {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  background: rgba(8, 10, 15, 0.78);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: 0 auto 0.5rem;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}
+
+/* 재생 막대 */
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  background: linear-gradient(transparent, rgba(6, 8, 12, 0.85) 40%);
+}
+
+.timeline {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.timelineFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #fff;
+}
+
+.controlBtn {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.controlBtn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.time {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
+
+.controlSpacer {
+  flex: 1 1 auto;
+}
+
+.stageMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: none;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* ---------- 오른쪽: Claude ---------- */
+
+.right {
+  flex: 0 0 19rem;
+}
+
+.rightInner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* .btn은 inline-flex라서 그대로 두면 문장 끝에 붙어 흐릅니다.
+   항상 줄을 바꿔 아래에 놓이도록 합니다. */
+.applyBtn {
+  display: flex;
+  width: fit-content;
+  margin-top: 0.45rem;
+}
+
+/* ---------- 아래: 버전 ---------- */
+
+.versionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.versionList {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  list-style: none;
+}
+
+.version {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.3rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.version:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.versionActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.versionThumb {
+  width: 1.1rem;
+  height: 1.7rem;
+  border-radius: 3px;
+  flex: none;
+}
+
+.versionMeta {
+  display: grid;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.versionTime {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--text-dim);
+}
+
+.versionSpacer {
+  flex: 1 1 auto;
+}
+
+.versionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* ---------- 좁은 화면 ---------- */
+
+@media (max-width: 75rem) {
+  .left,
+  .right {
+    flex: 1 1 auto;
+  }
+
+  .stage {
+    padding: 1rem;
+  }
+
+  .player {
+    height: auto;
+    width: min(100%, 17rem);
+  }
+}

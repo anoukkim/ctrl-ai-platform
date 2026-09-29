@@ -1,0 +1,11 @@
+# Runtime dependencies for the Ctrl AI backend.
+# Install with:  pip install -r requirements.txt -r requirements-dev.txt
+
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0
+# `[email]` pulls in email-validator, used by the EmailStr schema type.
+pydantic[email]>=2.9,<3.0
+pydantic-settings>=2.6,<3.0
+sqlalchemy>=2.0,<3.0
+# psycopg 3 with pre-built binaries, so no local C compiler is required.
+psycopg[binary]>=3.2,<4.0

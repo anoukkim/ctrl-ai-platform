@@ -1,0 +1,71 @@
+/* Admin — 회원/시즌/크레딧 관리. 표 중심이지만 어두운 테마에 맞춥니다. */
+
+.stats {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  margin-bottom: 1.1rem;
+}
+
+.stat {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.65rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.statValue {
+  font-family: var(--mono);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.statLabel {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.statAccent {
+  border-left: 2px solid var(--accent);
+}
+
+.rowActions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.memberName {
+  display: grid;
+  line-height: 1.35;
+}
+
+.memberHandle {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.allocationPanel {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 22rem;
+}
+
+.fieldRow {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.fieldLabel {
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.sections {
+  display: grid;
+  gap: 1.3rem;
+}

@@ -1,0 +1,219 @@
+/* Profile — 계정, 시즌, 연결한 서비스, 내가 만든 것들. */
+
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.identityText {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.displayName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.username {
+  font-family: var(--mono);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+/* ---------- 시즌 카드 ---------- */
+
+.season {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+  padding: 0.9rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.seasonTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.seasonName {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.seasonGrid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.seasonCell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.seasonLabel {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.seasonValue {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+}
+
+.seasonDday {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+
+.seasonNote {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.seasonHistory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- 본문 ---------- */
+
+.columns {
+  display: grid;
+  gap: 0.9rem;
+  margin-bottom: 1.1rem;
+}
+
+.rows {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+}
+
+.row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.rowLabel {
+  color: var(--text-muted);
+}
+
+.connection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.connection:last-of-type {
+  border-bottom: none;
+}
+
+.connectionName {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.connectionHint {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+}
+
+.connectionRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ---------- 내가 만든 것 ---------- */
+
+.lists {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.list {
+  display: grid;
+  gap: 0.3rem;
+  list-style: none;
+}
+
+.listItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.83rem;
+}
+
+.listLink {
+  color: var(--text);
+}
+
+.listLink:hover {
+  color: var(--accent);
+}
+
+@media (min-width: 52rem) {
+  .columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}

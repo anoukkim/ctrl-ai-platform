@@ -1,0 +1,210 @@
+/* CtrlAITube — 영상 피드. 카드가 주인공이 되도록 구성합니다. */
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  color: var(--text);
+}
+
+.thumbnail {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition:
+    border-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.thumbnail::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(transparent 55%, rgba(6, 8, 12, 0.6)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.05) 0 1px,
+      transparent 1px 9px
+    );
+}
+
+.card:hover .thumbnail {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.playGlyph {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: rgba(8, 10, 15, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.8rem;
+  transition: background-color 0.14s ease;
+}
+
+.card:hover .playGlyph {
+  background: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.duration {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  z-index: 1;
+  padding: 0.02rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(6, 8, 12, 0.8);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+
+.cardBody {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.title {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+/* ---------- 상세 ---------- */
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.detailLayout {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.player {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: #fff;
+  text-align: center;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.player::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0 1px,
+    transparent 1px 9px
+  );
+}
+
+.playerInner {
+  position: relative;
+  z-index: 1;
+}
+
+.playerNote {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.detailRows {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.9rem 0;
+  padding: 0.7rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.detailRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.83rem;
+}
+
+.detailRow:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.detailLabel {
+  color: var(--text-muted);
+}
+
+.prompt {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+
+.sections {
+  display: grid;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+}
+
+/* YouTube 댓글 영역은 Ctrl AI 댓글과 헷갈리지 않도록 눈에 띄게 구분합니다. */
+.youtubeSection {
+  padding: 0.85rem 0.95rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.youtubeNote {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}

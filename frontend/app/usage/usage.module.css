@@ -1,0 +1,125 @@
+/* Usage — 시즌 사용량. Claude와 영상 생성은 단위가 달라 끝까지 분리합니다. */
+
+.seasonBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.seasonName {
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.seasonRange {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
+.seasonSpacer {
+  flex: 1 1 auto;
+}
+
+.seasonDday {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.seasonDdayValue {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ---------- 제공자별 카드 ---------- */
+
+.allocations {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  margin-bottom: 1.2rem;
+}
+
+.allocation {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+.allocationHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.provider {
+  font-size: 0.98rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.resource {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+/* 큰 숫자 한 줄. 650K / 2M 사용 */
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--mono);
+}
+
+.headlineUsed {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.headlineTotal {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.headlineSuffix {
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.remaining {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.remainingValue {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.note {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}

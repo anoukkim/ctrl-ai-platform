@@ -1,0 +1,332 @@
+.shell {
+  min-height: 100vh;
+}
+
+/* ---------- 좁은 화면용 위쪽 막대 ---------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-rail);
+  border-bottom: 1px solid var(--border);
+}
+
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* 제품 표시. 아이콘 라이브러리 없이 CSS로만 그립니다. */
+.brandGlyph {
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.brandPhase {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.menuButton {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* ---------- 사이드바 ---------- */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.85rem 0.7rem;
+  background: var(--bg-rail);
+  border-bottom: 1px solid var(--border);
+}
+
+.navBrand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.15rem 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.navScroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.navGroupLabel {
+  padding: 0 0.45rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.navList {
+  display: grid;
+  gap: 0.1rem;
+  list-style: none;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  /* 선택된 항목에 왼쪽 표시선을 두되, 자리는 항상 차지하게 해서
+     항목이 좌우로 흔들리지 않게 합니다. */
+  border-left: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.navLink:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.navLinkActive {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.navGlyph {
+  width: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+/* ---------- 회원 상태 블록 ---------- */
+
+.member {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.memberTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.memberSeason {
+  font-size: 0.83rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.memberRange {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.memberDday {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.memberMeters {
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.15rem;
+}
+
+.meterRow {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.meterLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.meterValue {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.memberLink {
+  display: block;
+  padding: 0.3rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: center;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.memberLink:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- 사이드바 바닥 ---------- */
+
+.navFooter {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.6rem 0.45rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.navUser {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.navAvatar {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.navHint {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+/* ---------- 본문 ---------- */
+
+.main {
+  padding: 1.1rem 1rem 3rem;
+}
+
+.mainInner {
+  max-width: 68rem;
+  margin: 0 auto;
+}
+
+/* 작업 공간 화면(Project Builder, Video Generator)은 여백 없이 화면을
+   가득 채웁니다. */
+.mainWorkspace {
+  padding: 0;
+}
+
+.mainWorkspace .mainInner {
+  max-width: none;
+  margin: 0;
+}
+
+/* ---------- 데스크톱 ---------- */
+
+@media (min-width: 60rem) {
+  .shell {
+    display: grid;
+    grid-template-columns: var(--rail-width) 1fr;
+    align-items: start;
+  }
+
+  .topbar {
+    display: none;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    padding: 0.9rem 0.7rem;
+  }
+
+  .main {
+    padding: 1.4rem 1.6rem 3rem;
+  }
+
+  /* 작업 공간은 화면 높이를 고정하고, 스크롤은 각 판 안에서만 생깁니다. */
+  .mainWorkspace {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .mainWorkspace .mainInner {
+    height: 100%;
+  }
+}
+
+@media (max-width: 59.99rem) {
+  .navBrand {
+    display: none;
+  }
+
+  .navHidden {
+    display: none;
+  }
+}

@@ -1,0 +1,121 @@
+/* CtrlAI Apps와 CtrlAITube가 함께 쓰는 커뮤니티 요소:
+   만든 사람 표시, 반응, 댓글과 답글. */
+
+.creator {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.79rem;
+  color: var(--text-muted);
+}
+
+.creatorName {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.reaction:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.reactionCount {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.comments {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.comment {
+  padding: 0.65rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.commentHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.commentDate {
+  font-family: var(--mono);
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.commentBody {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.replies {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border-strong);
+}
+
+.reply {
+  padding: 0.5rem 0.65rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.commentEmpty {
+  padding: 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 0.83rem;
+  text-align: center;
+}
+
+.commentComposer {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.composerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}

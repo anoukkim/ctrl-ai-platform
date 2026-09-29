@@ -1,0 +1,39 @@
+# Local development infrastructure for Ctrl AI.
+#
+# Phase 0 only runs PostgreSQL here. The backend and frontend are run
+# directly on the host (uvicorn / npm run dev) so that code reloading is
+# fast and errors are easy to read while developing.
+#
+# Usage:
+#   docker compose up -d        # start PostgreSQL in the background
+#   docker compose ps           # check it is healthy
+#   docker compose down         # stop it (data is kept)
+#   docker compose down -v      # stop it and DELETE all local data
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ctrlai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ctrlai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ctrlai}
+      POSTGRES_DB: ${POSTGRES_DB:-ctrlai}
+    ports:
+      # Published on localhost only, so the database is not reachable
+      # from other machines on the network.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # `docker compose ps` reports "healthy" once this succeeds, which is
+      # how you know the database is actually ready to accept connections.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ctrlai} -d ${POSTGRES_DB:-ctrlai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    name: ctrlai_postgres_data

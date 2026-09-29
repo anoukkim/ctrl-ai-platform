@@ -1,0 +1,9 @@
+# Tool configuration for the Ctrl AI backend.
+# Dependencies live in requirements.txt / requirements-dev.txt.
+
+[tool.pytest.ini_options]
+# `testpaths` lets you simply run `pytest` from the backend/ directory.
+testpaths = ["tests"]
+# Makes `from app...` imports work without installing the package.
+pythonpath = ["."]
+addopts = "-q"

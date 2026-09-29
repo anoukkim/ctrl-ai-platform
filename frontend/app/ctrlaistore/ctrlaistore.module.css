@@ -1,0 +1,210 @@
+/* CtrlAI Apps — 커뮤니티 쪽 화면이라 작업 공간보다 조금 더 여유 있게,
+   그러나 관리자 대시보드처럼 보이지 않도록 카드 중심으로 구성합니다. */
+
+.grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  color: var(--text);
+  transition:
+    border-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.artwork {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: center;
+  padding: 0.9rem;
+}
+
+/* 썸네일 위에 옅은 격자를 얹어 밋밋함을 줄입니다. */
+.artwork::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(transparent 60%, rgba(6, 8, 12, 0.45)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.05) 0 1px,
+      transparent 1px 9px
+    );
+}
+
+.artworkText {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+
+.category {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(8, 10, 15, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e6e9f2;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.body {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem 0.8rem 0.8rem;
+}
+
+.name {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.tagline {
+  color: var(--text-muted);
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.15rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ---------- 상세 ---------- */
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.heroArtwork {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 6;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.heroArtwork::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 9px
+  );
+}
+
+.heroMeta {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.detailRows {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.9rem 0;
+  padding: 0.7rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.detailRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.83rem;
+}
+
+.detailRow:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.detailLabel {
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.sections {
+  display: grid;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+}
+
+@media (min-width: 60rem) {
+  .hero {
+    grid-template-columns: 20rem 1fr;
+    align-items: center;
+  }
+
+  .heroArtwork {
+    aspect-ratio: 16 / 10;
+  }
+}

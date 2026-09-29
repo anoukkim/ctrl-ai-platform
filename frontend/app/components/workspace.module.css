@@ -1,0 +1,228 @@
+/* Project Builder와 Video Generator가 함께 쓰는 작업 공간 골격.
+ *
+ * 두 화면은 형제 같은 작업 공간입니다. 위쪽 막대는 낮게, 가운데 작업 영역은
+ * 화면 대부분을 차지하도록 만듭니다. 세부 구성은 각 화면이 따로 정합니다.
+ *
+ * 높이 규칙: AppShell이 작업 공간 화면에서 100vh를 고정해 주므로, 여기서는
+ * flex로 남은 높이를 나눠 가집니다. 스크롤은 각 판(pane) 안에서만 생깁니다. */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* ---------- 위쪽 막대 ---------- */
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.topbarTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.topbarDivider {
+  width: 1px;
+  height: 1.1rem;
+  background: var(--border-strong);
+}
+
+.topbarProject {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.topbarProjectName {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbarSpacer {
+  flex: 1 1 auto;
+}
+
+.topbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ---------- 가운데 본문 ---------- */
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 하나의 판(pane). 세로로 머리말 + 내용. */
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+}
+
+.paneLast {
+  border-right: none;
+}
+
+.paneCenter {
+  flex: 1 1 auto;
+  background: var(--bg);
+}
+
+.paneHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.paneHeadTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.paneBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.6rem 0.7rem;
+}
+
+/* 여백 없이 꽉 채우는 내용(코드, 영상)에 씁니다. */
+.paneBodyFlush {
+  padding: 0;
+}
+
+/* ---------- 아래쪽 막대 ---------- */
+
+.bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.bottomHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+/* ---------- Claude 대화 ---------- */
+
+.chatThread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chatMessage {
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.chatUser {
+  align-self: flex-end;
+  max-width: 95%;
+  background: var(--accent-soft);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+}
+
+.chatAssistant {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.chatRole {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.chatComposer {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem 0.7rem;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+/* ---------- 상태 점 ---------- */
+
+.dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* ---------- 좁은 화면 ---------- */
+
+/* 데스크톱이 우선입니다. 좁은 화면에서는 판을 세로로 쌓고, 고정 높이를
+   풀어 페이지 전체가 스크롤되게 합니다. */
+@media (max-width: 75rem) {
+  .body {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .pane {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .paneBody {
+    overflow-y: visible;
+  }
+}

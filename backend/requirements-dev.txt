@@ -1,0 +1,6 @@
+# Development / test dependencies for the Ctrl AI backend.
+
+pytest>=8.3,<9.0
+# httpx2 powers FastAPI's TestClient. Current Starlette versions warn if
+# the older `httpx` is used instead.
+httpx2>=2.0,<3.0
