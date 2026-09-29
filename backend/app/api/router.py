@@ -6,8 +6,11 @@ registering it here, rather than touching `main.py`.
 
 from fastapi import APIRouter
 
-from app.api.routes import health, users
+from app.api.routes import admin, builder, health, users, video
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
 api_router.include_router(users.router)
+api_router.include_router(builder.router)
+api_router.include_router(video.router)
+api_router.include_router(admin.router)
