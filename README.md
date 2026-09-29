@@ -11,65 +11,152 @@ The platform combines cloud-hosted AI infrastructure with external AI APIs so me
 
 **Phase 0 (product shell) is complete.** The repository contains a working local
 slice of the product: a Next.js frontend with the full navigation and every
-screen present as mock UI, a FastAPI backend, and PostgreSQL via Docker Compose.
+screen present, a FastAPI backend, and PostgreSQL via Docker Compose.
 
 **Chat is the opening screen.** Ctrl AI is aimed at members who may not code, so
 the entry point is a conversation, not a dashboard.
+
+**The interface is Korean-first** with English product names. See
+[Language](#language).
 
 > **Note on this document.** `CLAUDE.md` is the current product definition. The
 > older vision sections further down this README predate it and use earlier
 > working names (Ctrl Code, Ctrl Apps). Where the two disagree, `CLAUDE.md` wins.
 
-| Area                  | State                                                     |
-| --------------------- | --------------------------------------------------------- |
-| Navigation & shell    | Built — sidebar on desktop, menu button on mobile          |
-| Chat (default page)   | Mock UI with shortcut cards and local keyword routing      |
-| Project Builder       | Mock workspace: files, editor, Claude panel, preview       |
-| Video Generator       | Mock five-step provider flow, all controls disabled        |
-| CtrlAIStore           | Mock listings plus detail pages with reactions/comments    |
+| Area                  | State                                                                            |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Navigation & shell    | Built — sidebar with seasonal member status; menu button on narrow screens        |
+| Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
+| Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
+| Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
+| CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; Ctrl AI comments kept separate from YouTube comments |
-| Usage                 | Mock per-provider balances in their own units              |
-| Profile               | Mock account, season, and connected-account placeholders   |
-| Admin                 | Mock members/seasons/allocation, plus live backend status  |
-| Backend `/api/health` | Real and working                                           |
-| PostgreSQL            | Real, via Docker Compose                                   |
-| Authentication        | Not started (Phase 1)                                      |
-| Claude / Higgsfield   | Not started (Phases 2 and 6)                               |
-| GitHub / YouTube      | Not started (Phases 4 and 7)                               |
+| Usage                 | Mock per-provider balances, each in its own unit                                  |
+| Profile               | Mock account, season with expiry countdown, connected-account placeholders        |
+| Admin                 | Mock members/seasons/allocation, plus the live backend status card                |
+| Backend `/api/health` | Real and working                                                                  |
+| PostgreSQL            | Real, via Docker Compose                                                          |
+| Authentication        | Not started (Phase 1)                                                             |
+| Claude / Higgsfield   | Not started (Phases 2 and 6)                                                      |
+| GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
-Everything labelled "mock" renders a **Mock** badge in the interface, so the
-shell is never mistaken for working functionality.
+Everything that is not built yet renders a **준비 중** badge, and its controls are
+disabled, so the shell is never mistaken for working functionality.
 
 ## Routes
 
-| Route                | Screen           | Notes                                       |
-| -------------------- | ---------------- | ------------------------------------------- |
-| `/`                  | Chat             | Default landing page                        |
-| `/builder`           | Project Builder  | Mock project workspace                      |
-| `/video`             | Video Generator  | Mock generation flow                        |
-| `/ctrlaistore`       | CtrlAIStore      | Community app listings                      |
-| `/ctrlaistore/[slug]`| App detail       | Reactions and threaded comments             |
-| `/ctrlaitube`        | CtrlAITube       | Community video feed                        |
-| `/ctrlaitube/[id]`   | Video detail     | Ctrl AI comments + separate YouTube section |
-| `/usage`             | Usage            | Per-provider seasonal balances              |
-| `/profile`           | Profile          | Account, season, connected accounts         |
-| `/admin`             | Admin            | Members, seasons, allocation, system health |
+| Route                 | Screen          | Notes                                        |
+| --------------------- | --------------- | -------------------------------------------- |
+| `/`                   | Chat            | Default landing page                         |
+| `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
+| `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
+| `/ctrlaistore`        | CtrlAI Apps     | Community app listings                       |
+| `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
+| `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
+| `/ctrlaitube/[id]`    | Video detail    | Ctrl AI comments + separate YouTube section  |
+| `/usage`              | Usage           | Per-provider seasonal balances               |
+| `/profile`            | Profile         | Account, season expiry, connected accounts   |
+| `/admin`              | Admin           | Members, seasons, allocation, system health  |
+
+The App Store route is still `/ctrlaistore` although the screen is now called
+**CtrlAI Apps**; the path was kept so existing links do not break.
+
+Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
+generated API documentation.
+
+## The two creation workspaces
+
+Project Builder and Video Generator are sibling workspaces. Both use the full
+viewport with a compact top bar, side tools, a persistent Claude panel, and a
+preview — closer to a desktop application than a web page. They share their
+frame in `frontend/app/components/workspace.module.css`.
+
+**Project Builder** — selecting a file changes the editor contents. Nothing
+generates or runs code: that is Phase 3, and member code will never execute on
+the Ctrl AI backend.
+
+**Video Generator** is deliberately not a one-shot form. It models the loop a
+real creator works in:
+
+```text
+아이디어 → 생성 → 미리보기 → Claude와 상의 → 프롬프트 수정
+        → 다시 생성 → 버전 비교 → 최종본 선택 → YouTube에 게시
+```
+
+For demonstration, the following actually work in the browser (mock state only,
+reset on refresh): editing the Korean prompt, asking Claude for a revision and
+applying it, generating a new version, switching between versions, replaying the
+9:16 preview, and marking a version as final. No provider is contacted.
 
 ## Language
 
 The interface is **Korean-first**. Product and feature names stay in English
-(Ctrl AI, Chat, Project Builder, Video Generator, CtrlAIStore, CtrlAITube,
+(Ctrl AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube,
 Usage, Profile, Admin), as do external service names (Claude, Higgsfield,
 GitHub, YouTube) and technical terms such as file names, code and repository
 names. Everything a member reads or writes — prompts, conversations, helper
-text, comments, error messages — is Korean. Members never need to write
-English prompts.
+text, comments, error messages — is Korean. Members never need to write English
+prompts.
+
+Three details matter for Korean text and are already handled:
+
+- `word-break: keep-all`, so Korean words are not split across lines
+- a Hangul-first font stack, so Korean never falls back to a substituted glyph
+- IME composition is checked before Enter sends a message, so a half-formed
+  syllable is never submitted
 
 All user-facing Korean strings live either in `frontend/lib/mock-data.ts` or
 directly in the page that shows them.
 
-Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
-generated API documentation.
+## Design
+
+A single dark theme, inspired by developer tools rather than a generic
+dashboard. Every colour is a token in `frontend/app/globals.css`; no component
+hard-codes one. There is deliberately no light theme, so the prototype looks the
+same for everyone reviewing it.
+
+Shared classes (`.card`, `.btn`, `.badge`, `.field`, `.meter`, `.table`) also
+live in `globals.css`. Anything used by one screen only lives in that screen's
+CSS module.
+
+---
+
+# Deployment
+
+Nothing is deployed yet, and no cloud resource has been created.
+
+## Frontend — Vercel
+
+The frontend deploys **with no code changes**. Every route is static or
+prerendered, and the production build passes.
+
+| Setting                    | Value       | Why                                             |
+| -------------------------- | ----------- | ----------------------------------------------- |
+| Root Directory             | `frontend`  | This is a monorepo; do not build from the root  |
+| Framework                  | Next.js     | Auto-detected                                   |
+| `NEXT_PUBLIC_API_BASE_URL` | leave unset | Only the Admin status card calls the backend    |
+
+## Backend — not needed for UI review
+
+Only the status card on `/admin` calls the backend. Every other screen is static
+and renders identically without it, so a frontend-only deploy is enough for
+gathering feedback on the product concept.
+
+If the backend is deployed later (Render or similar), it needs these changes —
+none of which exist yet:
+
+- bind to the platform's port: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- set `CORS_ALLOW_ORIGINS` to the deployed frontend's domain
+- point `DATABASE_URL` at a managed PostgreSQL instance
+- replace `create_all` with Alembic migrations (Phase 1)
+
+## When the backend is unavailable
+
+This is the normal case for a frontend-only deploy, and it is handled:
+
+- every screen except `/admin` is unaffected
+- the status card fails fast (8-second timeout) and shows **연결 안 됨**
+- the card explains, in Korean, that the rest of the prototype works without it
 
 ---
 
@@ -146,13 +233,14 @@ Only one `next dev` may run at a time. If a previous one is still running,
 Next.js says so and prints the command to stop it; two dev servers sharing the
 same `.next` folder cause confusing build errors.
 
-The live backend status card is at the bottom of **Admin** (`/admin`):
+The live backend status card is at the bottom of **Admin** (`/admin`). It is the
+only thing in the prototype that makes a network call:
 
-| Card shows  | Meaning                                 |
-| ----------- | --------------------------------------- |
-| Operational | Backend and database both reachable     |
-| Degraded    | Backend is up, PostgreSQL is not        |
-| Unreachable | The backend itself is not running       |
+| Card shows    | Meaning                             |
+| ------------- | ----------------------------------- |
+| 정상          | Backend and database both reachable  |
+| 일부 장애      | Backend is up, PostgreSQL is not     |
+| 연결 안 됨     | The backend itself is not reachable  |
 
 Useful extra URLs:
 
@@ -224,19 +312,27 @@ A few decisions worth knowing if you are new to this kind of stack:
   Higgsfield in video credits, so allocations are tracked separately rather
   than merged into one invented currency.
 
-## Membership terminology
+## Seasons and membership
 
-Ctrl AI runs in seasons, and someone who stops participating does not lose
-their published work:
+**A season is four months, not a quarter.** Never call it a quarter in the
+interface. The current season and its end date appear in the sidebar, on
+Profile, and on Usage.
 
-| Status            | Meaning                                                      |
-| ----------------- | ------------------------------------------------------------ |
-| Active Member     | Participating this season; can use paid creation features     |
-| Inactive Member   | Account exists, not enrolled this season; work is preserved   |
-| Former Member     | Has left the community; published work keeps their attribution |
+Someone who stops participating does not lose their published work:
 
-"Former Member" is used rather than "Deleted Member", because attribution on
-published apps and videos must continue to exist.
+| Status      | UI label   | Meaning                                                        |
+| ----------- | ---------- | -------------------------------------------------------------- |
+| `active`    | 활동 회원   | Participating this season; can use paid creation features       |
+| `inactive`  | 비활동 회원 | Account exists, not enrolled this season; work is preserved     |
+| `former`    | 탈퇴 회원   | Has left the community; published work keeps their attribution  |
+
+"탈퇴 회원" is used rather than anything meaning "deleted", because attribution
+on published apps and videos must continue to exist.
+
+Season dates and the day countdown come from one place — `SEASON_RANGE` in
+`frontend/lib/mock-data.ts`. It carries a fixed `today` so the server and the
+browser always compute the same number. When real seasons exist, replacing that
+constant is the only change needed.
 
 ## Environment files
 
@@ -273,10 +369,15 @@ ctrl-ai-platform/
 │  └─ requirements*.txt
 ├─ frontend/
 │  ├─ app/
-│  │  ├─ components/          # AppShell, ChatWorkspace, Community, BackendStatus
-│  │  ├─ builder/             # Project Builder mock workspace
-│  │  ├─ video/               # Video Generator mock flow
-│  │  ├─ ctrlaistore/         # listings + [slug] detail
+│  │  ├─ components/
+│  │  │  ├─ AppShell.tsx           # sidebar, member status, workspace detection
+│  │  │  ├─ ChatWorkspace.tsx      # Chat thread, composer, quick actions
+│  │  │  ├─ Community.tsx          # creator line, reactions, comment threads
+│  │  │  ├─ BackendStatus.tsx      # the one live network call
+│  │  │  └─ workspace.module.css   # frame shared by the two workspaces
+│  │  ├─ builder/             # page.tsx + BuilderWorkspace.tsx
+│  │  ├─ video/               # page.tsx + VideoWorkspace.tsx
+│  │  ├─ ctrlaistore/         # CtrlAI Apps: listings + [slug] detail
 │  │  ├─ ctrlaitube/          # feed + [id] detail
 │  │  ├─ usage/               # Usage
 │  │  ├─ profile/             # Profile
@@ -300,8 +401,8 @@ real, its data moves to the backend and the matching export there is deleted.
 
 | Symptom                                 | Fix                                                                                          |
 | --------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Backend status says **Unreachable**     | The backend is not running. Start uvicorn in `backend/`.                                      |
-| Backend status says **Degraded**        | PostgreSQL is not running. Run `docker compose up -d` from the root.                          |
+| Status card shows **연결 안 됨**          | The backend is not running. Start uvicorn in `backend/`. Every other screen still works.      |
+| Status card shows **일부 장애**           | PostgreSQL is not running. Run `docker compose up -d` from the root.                          |
 | `docker compose up` cannot connect      | Docker Desktop is not started. Launch it and wait for it to finish starting.                  |
 | `relation "users" does not exist`       | Run `.\.venv\Scripts\python.exe -m app.db.init_db` from `backend/`.                           |
 | "Another next dev server is running"    | Stop the old one first; the message prints its PID and the command to stop it.                |
