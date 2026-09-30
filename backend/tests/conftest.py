@@ -59,6 +59,40 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture
+def dev_user(db_session: Session):
+    """The seeded development user that `get_current_user` resolves.
+
+    Routes look this user up by email rather than taking an id from the
+    request, so the tests seed it the same way the real script does.
+    """
+    from app.db.init_db import seed_dev_user
+
+    return seed_dev_user(db_session)
+
+
+@pytest.fixture
+def other_user(db_session: Session):
+    """A second member, used to prove one member cannot reach another's rows."""
+    from app.models import User, UserRole
+
+    user = User(email="other@ctrl.ai", display_name="Other Member", role=UserRole.MEMBER)
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def video_models(db_session: Session):
+    """The seeded video catalogue: two member-visible, one hidden."""
+    from app.db.init_db import seed_video_models
+    from app.models import VideoModel
+
+    seed_video_models(db_session)
+    return list(db_session.query(VideoModel).order_by(VideoModel.sort_order))
+
+
+@pytest.fixture
 def client_without_database() -> Generator[TestClient, None, None]:
     """An HTTP client whose database session always fails.
 

@@ -29,7 +29,6 @@ def upgrade() -> None:
     sa.Column('status', sa.Enum('upcoming', 'active', 'closed', name='seasonstatus', native_enum=False, create_constraint=True, length=20), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("status IN ('upcoming', 'active', 'closed')", name='seasonstatus'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -41,7 +40,6 @@ def upgrade() -> None:
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("role IN ('admin', 'member')", name='userrole'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
@@ -69,7 +67,6 @@ def upgrade() -> None:
     sa.Column('github_repo', sa.String(length=200), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("status IN ('draft', 'building', 'ready', 'published', 'archived')", name='builderprojectstatus'),
     sa.ForeignKeyConstraint(['owner_user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -99,7 +96,6 @@ def upgrade() -> None:
     sa.Column('status', sa.Enum('active', 'inactive', 'former', name='membershipstatus', native_enum=False, create_constraint=True, length=20), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("status IN ('active', 'inactive', 'former')", name='membershipstatus'),
     sa.ForeignKeyConstraint(['season_id'], ['seasons.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
@@ -117,7 +113,6 @@ def upgrade() -> None:
     sa.Column('final_version_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("status IN ('draft', 'generating', 'ready', 'published', 'archived')", name='videoprojectstatus'),
     sa.ForeignKeyConstraint(['owner_user_id'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['selected_model_id'], ['video_models.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
@@ -134,7 +129,6 @@ def upgrade() -> None:
     sa.Column('status', sa.Enum('queued', 'generating', 'ready', 'failed', name='videoversionstatus', native_enum=False, create_constraint=True, length=20), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("status IN ('queued', 'generating', 'ready', 'failed')", name='videoversionstatus'),
     sa.ForeignKeyConstraint(['project_id'], ['video_projects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
