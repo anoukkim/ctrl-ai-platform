@@ -11,6 +11,7 @@
 import type { Metadata } from "next";
 
 import BackendStatus from "@/app/components/BackendStatus";
+import VideoModelCatalog from "./VideoModelCatalog";
 import {
   CURRENT_SEASON,
   MEMBERSHIP_LABEL,
@@ -165,6 +166,8 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+
+        <VideoModelCatalog />
 
         <section className="card">
           <h2 className="section-title">크레딧 관리</h2>

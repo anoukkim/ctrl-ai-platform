@@ -393,3 +393,44 @@
     width: min(100%, 17rem);
   }
 }
+
+/* ---------- Phase 1에서 추가된 것들 ---------- */
+
+.savingHint {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.settingHint {
+  margin-top: 0.15rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/* 버전이 하나도 없을 때의 가운데 안내 */
+.noVersions {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  max-width: 24rem;
+  text-align: center;
+}
+
+.noVersionsTitle {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.noVersionsText {
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+
+.noVersionsText strong {
+  color: var(--text);
+  font-weight: 600;
+}

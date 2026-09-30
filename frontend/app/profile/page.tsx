@@ -19,15 +19,13 @@ import {
   MEMBERSHIP_DESCRIPTION,
   MEMBERSHIP_LABEL,
   MOCK_APPS,
-  MOCK_PROJECTS,
-  MOCK_VIDEOS,
-  PROJECT_STATUS_LABEL,
   ROLE_LABEL,
   SEASON_RANGE,
   formatDate,
   seasonDaysRemaining,
 } from "@/lib/mock-data";
 
+import ProjectSummary from "./ProjectSummary";
 import styles from "./profile.module.css";
 
 export const metadata: Metadata = {
@@ -35,7 +33,6 @@ export const metadata: Metadata = {
 };
 
 const myApps = MOCK_APPS.filter((app) => app.creator.username === CURRENT_USER.username);
-const myVideos = MOCK_VIDEOS.filter((video) => video.creator.username === CURRENT_USER.username);
 
 export default function ProfilePage() {
   // 한국어 이름은 성이 앞에 오므로 첫 글자를 그대로 씁니다.
@@ -173,20 +170,7 @@ export default function ProfilePage() {
       </div>
 
       <div className={styles.lists}>
-        <section className="card">
-          <h2 className="section-title">내 프로젝트 {MOCK_PROJECTS.length}개</h2>
-          <ul className={styles.list}>
-            {MOCK_PROJECTS.map((project) => (
-              <li className={styles.listItem} key={project.id}>
-                {project.name}
-                <span className="badge badge-muted">{PROJECT_STATUS_LABEL[project.status]}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="small dim" style={{ marginTop: "0.5rem" }}>
-            프로젝트는 나만 볼 수 있습니다.
-          </p>
-        </section>
+        <ProjectSummary />
 
         <section className="card">
           <h2 className="section-title">내가 만든 앱 {myApps.length}개</h2>
@@ -206,23 +190,6 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="card">
-          <h2 className="section-title">내가 만든 영상 {myVideos.length}개</h2>
-          {myVideos.length > 0 ? (
-            <ul className={styles.list}>
-              {myVideos.map((video) => (
-                <li className={styles.listItem} key={video.id}>
-                  <Link className={styles.listLink} href={`/ctrlaitube/${video.id}`}>
-                    {video.title}
-                  </Link>
-                  <span className="badge badge-muted">{video.duration}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="small dim">아직 만든 영상이 없습니다.</p>
-          )}
-        </section>
       </div>
     </>
   );

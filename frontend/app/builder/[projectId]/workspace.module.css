@@ -1,0 +1,303 @@
+/* Project Builder 작업 공간 전용 스타일.
+   공통 골격(위쪽 막대, 판, 대화)은 components/workspace.module.css. */
+
+/* ---------- 왼쪽: 파일만 ---------- */
+
+.left {
+  flex: 0 0 14rem;
+}
+
+.fileList {
+  display: grid;
+  gap: 0.05rem;
+  list-style: none;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.22rem 0.4rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fileRow:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.fileRowActive {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.folderRow {
+  color: var(--text);
+  font-weight: 600;
+  cursor: default;
+}
+
+.folderRow:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+.fileGlyph {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+}
+
+/* ---------- 가운데: 코드 / 미리보기 ---------- */
+
+.center {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.modeTabs {
+  display: flex;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.modeTab {
+  padding: 0.2rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.modeTab:hover {
+  color: var(--text);
+}
+
+.modeTabActive {
+  background: var(--accent-soft);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.modeSpacer {
+  flex: 1 1 auto;
+}
+
+.splitToggle {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+/* 코드와 미리보기를 함께 볼 때 */
+.centerBody {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.codeSide {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.previewSide {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+}
+
+.tabs {
+  display: flex;
+  gap: 1px;
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  padding: 0.3rem 0.8rem;
+  border: none;
+  border-top: 2px solid transparent;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: var(--bg);
+  border-top-color: var(--accent);
+  color: var(--text);
+}
+
+.codeScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.code {
+  display: flex;
+  margin: 0;
+  min-height: 100%;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+
+.gutter {
+  flex: none;
+  padding: 0.7rem 0.6rem 0.7rem 0.9rem;
+  border-right: 1px solid var(--border);
+  color: var(--text-dim);
+  text-align: right;
+  user-select: none;
+  white-space: pre;
+}
+
+.codeText {
+  padding: 0.7rem 1rem;
+  white-space: pre;
+  color: #c9d3e6;
+}
+
+/* ---------- 미리보기 ---------- */
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* 크게 보기: 화면 전체를 덮습니다. */
+.previewFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+}
+
+.previewBar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.previewBarTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.previewBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.previewPlaceholder {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.4rem;
+  height: 100%;
+  min-height: 9rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.previewTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.previewText {
+  max-width: 26rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.previewMeta {
+  margin-top: 0.3rem;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+/* ---------- 오른쪽: Claude ---------- */
+
+.right {
+  flex: 0 0 18rem;
+}
+
+.rightInner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.hint {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+/* ---------- 상태 ---------- */
+
+@media (max-width: 75rem) {
+  .left,
+  .right {
+    flex: 1 1 auto;
+  }
+
+  .centerBody {
+    flex-direction: column;
+  }
+
+  .previewSide {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    min-height: 14rem;
+  }
+
+  .codeScroll {
+    max-height: 20rem;
+  }
+}

@@ -1,0 +1,225 @@
+"use client";
+
+/**
+ * Project Builder — 내 프로젝트 목록.
+ *
+ * 메인 내비게이션에서 Project Builder를 누르면 작업 공간이 아니라 이
+ * 화면이 먼저 열립니다. 프로젝트를 고르면 /builder/{id}로 들어갑니다.
+ *
+ * 목록은 백엔드에서 가져옵니다. 백엔드가 꺼져 있어도 화면이 깨지지 않고
+ * 무엇을 하면 되는지 한국어로 안내합니다.
+ */
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+
+import {
+  BUILDER_STATUS_BADGE,
+  BUILDER_STATUS_LABEL,
+  createBuilderProject,
+  describeError,
+  formatRelative,
+  listBuilderProjects,
+  type BuilderProject,
+} from "@/lib/projects";
+
+import styles from "@/app/components/library.module.css";
+
+type State =
+  | { phase: "loading" }
+  | { phase: "ready"; projects: BuilderProject[] }
+  | { phase: "error"; message: string };
+
+export default function BuilderLibrary() {
+  const [state, setState] = useState<State>({ phase: "loading" });
+  const [reloadKey, setReloadKey] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listBuilderProjects()
+      .then((projects) => {
+        if (!cancelled) setState({ phase: "ready", projects });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setState({ phase: "error", message: describeError(error) });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const reload = useCallback(() => {
+    setState({ phase: "loading" });
+    setReloadKey((key) => key + 1);
+  }, []);
+
+  const create = useCallback(async () => {
+    const name = newName.trim();
+    if (!name) return;
+
+    setBusy(true);
+    try {
+      await createBuilderProject({ name });
+      setNewName("");
+      setCreating(false);
+      reload();
+    } catch (error) {
+      setState({ phase: "error", message: describeError(error) });
+    } finally {
+      setBusy(false);
+    }
+  }, [newName, reload]);
+
+  return (
+    <>
+      <header className={styles.head}>
+        <h1 className={styles.title}>Project Builder</h1>
+        <p className={styles.subtitle}>
+          만들고 싶은 것을 한국어로 설명하면 Claude가 프로젝트를 만들어 줍니다.
+        </p>
+        <div className={styles.headActions}>
+          <button
+            className="btn btn-primary btn-sm"
+            type="button"
+            onClick={() => setCreating((open) => !open)}
+          >
+            + 새 프로젝트
+          </button>
+        </div>
+      </header>
+
+      {creating && (
+        <div className={styles.createForm}>
+          <label className="section-title" htmlFor="new-builder-project">
+            새 프로젝트 이름
+          </label>
+          <div className={styles.createRow}>
+            <input
+              className={`field ${styles.createInput}`}
+              id="new-builder-project"
+              type="text"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              onKeyDown={(event) => {
+                // 한글 조합 중 Enter가 눌리면 글자가 잘리므로 조합이 끝난
+                // 뒤에만 보냅니다.
+                if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  void create();
+                }
+              }}
+              placeholder="예: 습관 관리 앱"
+              autoFocus
+            />
+            <button
+              className="btn btn-primary btn-sm"
+              type="button"
+              onClick={() => void create()}
+              disabled={!newName.trim() || busy}
+            >
+              {busy ? "만드는 중…" : "만들기"}
+            </button>
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => {
+                setCreating(false);
+                setNewName("");
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p className={styles.sectionLabel}>
+        내 프로젝트
+        {state.phase === "ready" && (
+          <span className={styles.count}>{state.projects.length}개</span>
+        )}
+      </p>
+
+      {state.phase === "loading" && (
+        <div className={styles.skeletonGrid} aria-busy="true" aria-label="불러오는 중">
+          <div className={styles.skeleton} />
+          <div className={styles.skeleton} />
+          <div className={styles.skeleton} />
+        </div>
+      )}
+
+      {state.phase === "error" && (
+        <div className={styles.error}>
+          <p className={styles.errorTitle}>프로젝트를 불러오지 못했습니다</p>
+          <p className={styles.errorText}>
+            {state.message}. 백엔드가 실행 중인지 확인해 주세요. <code>backend</code> 폴더에서{" "}
+            <code>uvicorn app.main:app --reload --port 8000</code>을 실행하면 됩니다.
+          </p>
+          <button className="btn btn-sm" type="button" onClick={reload}>
+            다시 시도
+          </button>
+        </div>
+      )}
+
+      {state.phase === "ready" && state.projects.length === 0 && !creating && (
+        <div className={styles.empty}>
+          <p className={styles.emptyTitle}>아직 만든 프로젝트가 없습니다</p>
+          <p className={styles.emptyText}>
+            첫 프로젝트를 만들어 보세요. 이름만 정하면 바로 시작할 수 있습니다.
+          </p>
+          <button
+            className="btn btn-primary btn-sm"
+            type="button"
+            onClick={() => setCreating(true)}
+          >
+            + 새 프로젝트
+          </button>
+        </div>
+      )}
+
+      {state.phase === "ready" && state.projects.length > 0 && (
+        <div className={styles.grid}>
+          {state.projects.map((project) => (
+            <Link className={styles.card} href={`/builder/${project.id}`} key={project.id}>
+              <div className={styles.cardTop}>
+                <span className={styles.cardName}>{project.name}</span>
+                <span className={`badge ${BUILDER_STATUS_BADGE[project.status]}`}>
+                  {BUILDER_STATUS_LABEL[project.status]}
+                </span>
+              </div>
+              <p className={styles.cardDescription}>
+                {project.description || "설명이 아직 없습니다."}
+              </p>
+              <p className={styles.cardMeta}>
+                <span className={styles.metaTime}>{formatRelative(project.updated_at)}</span>
+                <span className={styles.metaDot} aria-hidden="true">
+                  ·
+                </span>
+                <span>
+                  {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
+                </span>
+              </p>
+            </Link>
+          ))}
+
+          <button
+            className={styles.newCard}
+            type="button"
+            onClick={() => setCreating(true)}
+          >
+            <span className={styles.newCardGlyph} aria-hidden="true">
+              +
+            </span>
+            <span className={styles.newCardLabel}>새 프로젝트</span>
+            <span className={styles.newCardHint}>이름만 정하면 시작합니다</span>
+          </button>
+        </div>
+      )}
+    </>
+  );
+}

@@ -73,15 +73,21 @@ const ADMIN_GROUP: NavGroup = {
   items: [{ href: "/admin", label: "Admin", glyph: "⚙" }],
 };
 
-/** 화면 전체를 작업 공간으로 쓰는 경로. 여백과 최대 너비를 없앱니다. */
-const WORKSPACE_ROUTES = ["/builder", "/video"];
+/**
+ * 화면 전체를 작업 공간으로 쓰는 경로.
+ *
+ * /builder 와 /video 는 프로젝트 목록이라 보통 화면처럼 여백을 둡니다.
+ * 그 아래 /builder/{id}, /video/{id} 만 작업 공간이라 여백과 최대 너비를
+ * 없애고 높이를 화면에 맞춥니다.
+ */
+const WORKSPACE_PATTERN = /^\/(builder|video)\/[^/]+/;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const groups = CURRENT_USER.role === "admin" ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
-  const isWorkspace = WORKSPACE_ROUTES.some((route) => pathname.startsWith(route));
+  const isWorkspace = WORKSPACE_PATTERN.test(pathname);
 
   return (
     <div className={styles.shell}>

@@ -1,18 +1,18 @@
 /**
- * Project Builder — 작업 공간 화면.
+ * Project Builder — 프로젝트 목록 화면.
  *
- * 이 화면은 화면 전체를 작업 공간으로 씁니다. AppShell이 `/builder`를
- * 작업 공간 경로로 알고 있어 여백과 최대 너비를 없애 줍니다.
+ * 메인 내비게이션의 Project Builder는 이제 작업 공간이 아니라 이 목록을
+ * 엽니다. 개별 작업 공간은 /builder/[projectId]에 있습니다.
  */
 
 import type { Metadata } from "next";
 
-import BuilderWorkspace from "./BuilderWorkspace";
+import BuilderLibrary from "./BuilderLibrary";
 
 export const metadata: Metadata = {
   title: "Project Builder — Ctrl AI",
 };
 
-export default function BuilderPage() {
-  return <BuilderWorkspace />;
+export default function BuilderLibraryPage() {
+  return <BuilderLibrary />;
 }
