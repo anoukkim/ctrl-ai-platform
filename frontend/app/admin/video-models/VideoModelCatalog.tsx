@@ -1,17 +1,17 @@
 "use client";
 
 /**
- * Admin — Video Models.
+ * Admin — 영상 모델 (/admin/video-models)
  *
  * 회원에게 어떤 영상 모델을 열어 줄지 정하는 화면입니다. 목록은
  * 데이터베이스에 있고, 프런트엔드에는 모델 이름을 적어 두지 않습니다.
  * 제공자의 모델 목록은 바뀌기 때문입니다.
  *
  * 스위치는 두 개이고 뜻이 다릅니다.
- *   Enabled        — CTRL+AI가 이 모델을 호출해도 되는가
- *   Member visible — 회원이 직접 고를 수 있는가
- * 회원에게는 둘 다 켜진 모델만 보입니다. Enabled를 끄면 백엔드가
- * Member visible도 함께 끕니다.
+ *   사용 가능       — CTRL+AI가 이 모델을 호출해도 되는가
+ *   회원에게 공개   — 회원이 직접 고를 수 있는가
+ * 회원에게는 둘 다 켜진 모델만 보입니다. 사용 가능을 끄면 백엔드가
+ * 회원에게 공개도 함께 끕니다.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -25,7 +25,7 @@ import {
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 
-import styles from "./admin.module.css";
+import styles from "../admin.module.css";
 
 type State =
   | { phase: "loading" }
@@ -87,7 +87,13 @@ export default function VideoModelCatalog() {
 
   return (
     <section>
-      <h2 className="section-title">Video Models</h2>
+      <header className="page-header page-header-stacked">
+        <h1 className="page-title">영상 모델</h1>
+        <p className="page-subtitle">
+          회원에게 어떤 영상 모델을 열어 줄지 정합니다. 목록은 데이터베이스에 있고, 화면에
+          모델 이름을 적어 두지 않습니다 — 제공자의 모델 목록은 바뀌기 때문입니다.
+        </p>
+      </header>
 
       {state.phase === "loading" && <p className="small muted">모델 목록을 불러오는 중…</p>}
 
@@ -130,8 +136,8 @@ export default function VideoModelCatalog() {
                   <th scope="col">모델</th>
                   <th scope="col">제공자</th>
                   <th scope="col">모델 ID</th>
-                  <th scope="col">Enabled</th>
-                  <th scope="col">회원 공개</th>
+                  <th scope="col">사용 가능</th>
+                  <th scope="col">회원에게 공개</th>
                   <th scope="col">순서</th>
                 </tr>
               </thead>
@@ -160,7 +166,7 @@ export default function VideoModelCatalog() {
                         disabled={busyId === model.id}
                         aria-pressed={model.enabled}
                       >
-                        {model.enabled ? "Enabled" : "Disabled"}
+                        {model.enabled ? "사용 가능" : "사용 안 함"}
                       </button>
                     </td>
                     <td>
@@ -175,10 +181,10 @@ export default function VideoModelCatalog() {
                         title={
                           model.enabled
                             ? undefined
-                            : "먼저 Enabled로 바꿔야 회원에게 공개할 수 있습니다"
+                            : "먼저 사용 가능으로 바꿔야 회원에게 공개할 수 있습니다"
                         }
                       >
-                        {model.member_visible ? "Visible" : "Hidden"}
+                        {model.member_visible ? "회원에게 공개" : "숨김"}
                       </button>
                     </td>
                     <td className="numeric">{model.sort_order}</td>
@@ -189,9 +195,9 @@ export default function VideoModelCatalog() {
           </div>
 
           <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            회원에게는 Enabled와 회원 공개가 모두 켜진 모델만 보입니다. Enabled를 끄면 회원
-            공개도 함께 꺼집니다. 모델 ID는 여기서 바꾸지 않습니다 — 이미 만들어진 버전이
-            가리키는 값이기 때문입니다.
+            회원에게는 사용 가능과 회원에게 공개가 모두 켜진 모델만 보입니다. 사용 가능을
+            끄면 회원에게 공개도 함께 꺼집니다. 모델 ID는 여기서 바꾸지 않습니다 — 이미
+            만들어진 버전이 가리키는 값이기 때문입니다.
           </p>
         </>
       )}

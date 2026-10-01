@@ -52,3 +52,26 @@ def recent(db: Session, limit: int = 100) -> list[AuditLog]:
             select(AuditLog).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limit)
         )
     )
+
+
+def for_member(db: Session, user_id: int, username: str, limit: int = 50) -> list[AuditLog]:
+    """Every entry about one member, newest first.
+
+    Two conditions rather than one because a member is the *target* of
+    changes recorded under four different `target_type` values. Only
+    `membership.set`, `role.set` and `usage.simulated` store the user's
+    own id; an application, top-up or allocation row stores that object's
+    id and carries the member in `target_label`. Matching on the label as
+    well is what keeps "이 회원에게 무슨 일이 있었나" complete.
+    """
+    return list(
+        db.scalars(
+            select(AuditLog)
+            .where(
+                ((AuditLog.target_type == "user") & (AuditLog.target_id == user_id))
+                | (AuditLog.target_label == username)
+            )
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .limit(limit)
+        )
+    )

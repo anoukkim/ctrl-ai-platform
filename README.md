@@ -39,7 +39,7 @@ principles.
 | CtrlAITube            | Mock feed plus detail pages; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
-| Admin                 | **Live** — real member list, enrolment, KRW credit panel, audit log               |
+| Admin                 | **Live** — section hub, member/application/quarter figures, KRW budgets, audit log |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
@@ -69,7 +69,21 @@ disabled, so the shell is never mistaken for working functionality.
 | `/usage`              | Usage           | Community support and personal balance, in KRW |
 | `/profile`            | Profile         | Quarter participation, application, accounts |
 | `/issues`             | 문제 신고        | Bug reports and ideas, via GitHub Issues     |
-| `/admin`              | Admin           | Members, quarters, applications, video models |
+| `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
+| `/admin/members`      | 회원             | Search, filter, sort; row opens the member    |
+| `/admin/members/[id]` | 회원 상세        | Participation history, budgets, audit trail   |
+| `/admin/applications` | 신청 승인        | Approve or reject, with stat cards and tabs   |
+| `/admin/quarters`     | 분기 설정        | Quarter list with figures; create a quarter   |
+| `/admin/topups`       | 충전 신청        | Confirm personal top-up deposits              |
+| `/admin/video-models` | 영상 모델        | Which models members may pick                 |
+| `/admin/audit`        | 감사 로그        | Every admin change, read-only                 |
+| `/admin/system`       | 시스템           | Server health and external service status     |
+| `/admin/dev`          | 개발 도구        | Usage simulator; development only             |
+
+`/admin/budget` and `/admin/content` exist in the code but are hidden from
+the navigation until budget-by-provider and Phases 5/8 fill them — a menu
+item that always leads to an empty screen is in the way. Turning one on is
+deleting its `hidden: true` in `frontend/app/admin/sections.ts`.
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAI Apps**; the path was kept so existing links do not break.
@@ -324,14 +338,31 @@ Only one `next dev` may run at a time. If a previous one is still running,
 Next.js says so and prints the command to stop it; two dev servers sharing the
 same `.next` folder cause confusing build errors.
 
-The live backend status card is at the bottom of **Admin** (`/admin`). It is the
-only thing in the prototype that makes a network call:
+The live backend status card is on **Admin → 시스템** (`/admin/system`):
 
 | Card shows    | Meaning                             |
 | ------------- | ----------------------------------- |
 | 정상          | Backend and database both reachable  |
 | 일부 장애      | Backend is up, PostgreSQL is not     |
 | 연결 안 됨     | The backend itself is not reachable  |
+
+## External services
+
+Every provider sits behind an interface with a mock implementation, chosen
+by a `*_PROVIDER` variable, and **mock is the default** — so the platform
+runs with no keys (CLAUDE.md section 20).
+
+**Admin → 시스템** shows one card per provider: mock or real, whether a key
+is configured, when it last worked, and why it last failed in Korean. The
+**연결 확인** button runs a check only when pressed, using the cheapest
+request available — in mock mode nothing leaves the process, and for Claude
+the real check lists models, which validates the key without spending a
+token. Where a real adapter does not exist yet, the check says so rather
+than showing a green light that means nothing.
+
+**No route returns a credential.** The screen asks only whether a key is
+present. `backend/tests/test_admin_providers.py` searches every response
+for the configured secret.
 
 Useful extra URLs:
 
@@ -345,14 +376,17 @@ Useful extra URLs:
 # Backend tests (backend/) - no database required
 .\.venv\Scripts\python.exe -m pytest
 
-# Frontend type check, lint, and production build (frontend/)
+# Frontend tests, type check, lint, and production build (frontend/)
+npm test
 npx tsc --noEmit
 npm run lint
 npm run build
 ```
 
 The backend tests run against a temporary in-memory SQLite database, so they
-pass whether or not Docker is running.
+pass whether or not Docker is running. The frontend tests run in `jsdom` and
+never call the backend, for the same reason: a test that needs a server
+running proves less, not more.
 
 ## Stopping
 
@@ -484,9 +518,11 @@ its own screen needs:
 | Video Generator | project name, prompt | status |
 | CtrlAI Apps | app name, description, creator | category, sort |
 | CtrlAITube | title, description, creator | creator, sort |
-| Admin — members | name, username | membership status |
-| Admin — applications | member name, username | application status |
-| Admin — video models | model name, provider, model id | — |
+| Admin — 회원 | name, username | role, account status, membership status, sort |
+| Admin — 신청 승인 | member name, username | status tabs + stat cards |
+| Admin — 충전 신청 | member name, username | top-up status |
+| Admin — 감사 로그 | summary, admin, action, target | action |
+| Admin — 영상 모델 | model name, provider, model id | — |
 
 Filtering currently happens in the browser, because the data is small and
 each screen already holds its list. `SearchBar` only lifts the query out, so
@@ -521,7 +557,7 @@ ctrl-ai-platform/
 │  │  ├─ db/                  # base.py, session.py, init_db.py
 │  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
-│  │  ├─ services/            # budget split, wallet helpers
+│  │  ├─ services/            # budget split, wallet, admin stats, providers
 │  │  └─ main.py              # FastAPI app, CORS
 │  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite
@@ -542,15 +578,20 @@ ctrl-ai-platform/
 │  │  ├─ ctrlaitube/          # feed + [id] detail
 │  │  ├─ usage/               # Usage
 │  │  ├─ profile/             # Profile
-│  │  ├─ admin/               # Admin
+│  │  ├─ admin/               # Admin: layout.tsx + one folder per section
+│  │  │  ├─ sections.ts            # the section list — sidebar, tabs and cards read it
+│  │  │  ├─ AdminQuarterProvider.tsx  # the quarter being viewed, kept in ?quarter=
+│  │  │  └─ components/            # AdminTable, ConfirmDialog, RowMenu, badges
 │  │  ├─ globals.css          # design tokens + shared classes
 │  │  ├─ layout.tsx           # wraps every page in AppShell
 │  │  └─ page.tsx             # Chat — the default landing page
+│  ├─ __tests__/              # Vitest + Testing Library (jsdom, no backend)
 │  └─ lib/
 │     ├─ api.ts               # base URL and health client
 │     ├─ http.ts              # shared request helper, timeout, error text
 │     ├─ projects.ts          # Builder and Video project clients
 │     ├─ quarters.ts          # quarters, applications, wallet
+│     ├─ admin.ts             # Admin dashboard and member detail (read-only)
 │     └─ mock-data.ts         # remaining mock content (Korean)
 ├─ docs/
 │  ├─ BACKLOG.md              # ordered queue of upcoming work

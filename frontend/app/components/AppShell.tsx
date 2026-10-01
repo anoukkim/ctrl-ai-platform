@@ -28,8 +28,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
+
 import BrandMark from "./BrandMark";
 
+import { useAdminNav } from "./AdminNavProvider";
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
 import { useMyQuarter } from "./MyQuarterProvider";
 
@@ -91,12 +94,16 @@ const PERSONAL_GROUP: NavGroup = {
   ],
 };
 
-/** 관리자에게만 보입니다. 회원 자격과 크레딧이 시즌 단위로 관리되므로
- *  Admin은 숨겨진 설정 화면이 아니라 독립된 영역입니다. */
-const ADMIN_GROUP: NavGroup = {
-  label: "관리",
-  items: [{ href: "/admin", label: "Admin", Icon: Shield }],
-};
+/**
+ * 관리자에게만 보입니다. 회원 자격과 크레딧이 분기 단위로 관리되므로
+ * Admin은 숨겨진 설정 화면이 아니라 독립된 영역입니다.
+ *
+ * Admin은 다른 항목과 달리 눌렀을 때 아래로 펼쳐집니다. 구역이 아홉
+ * 개여서, 사이드바에서 바로 원하는 구역으로 가는 쪽이 대시보드를 한 번
+ * 거치는 것보다 빠릅니다. 접고 펼친 상태는 기억합니다 — 화면을 옮길
+ * 때마다 다시 펼치게 만들지 않도록.
+ */
+const ADMIN_STORAGE_KEY = "ctrlai.admin-nav-open";
 
 /**
  * 화면 전체를 작업 공간으로 쓰는 경로.
@@ -134,10 +141,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const user = state.user;
-  // Admin 메뉴는 관리자에게만 보입니다. 보이지 않게 하는 것은 편의일 뿐이고,
-  // 실제 차단은 백엔드의 require_admin이 합니다.
-  // Admin은 위쪽 묶음에 붙입니다. 아래쪽은 "내 정보"와 계정 영역 전용입니다.
-  const topGroups = user.is_admin ? [...TOP_GROUPS, ADMIN_GROUP] : TOP_GROUPS;
   const isWorkspace = WORKSPACE_PATTERN.test(pathname);
   const isChat = pathname === CHAT_PATH;
 
@@ -176,7 +179,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className={styles.navScroll}>
           <div className={styles.navTop}>
-            {topGroups.map((group) => (
+            {TOP_GROUPS.map((group) => (
               <NavGroupBlock
                 group={group}
                 key={group.label}
@@ -184,6 +187,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 onNavigate={() => setMenuOpen(false)}
               />
             ))}
+
+            {/* Admin 메뉴는 관리자에게만 보입니다. 보이지 않게 하는 것은
+                편의일 뿐이고, 실제 차단은 백엔드의 require_admin이 합니다.
+                위쪽 묶음에 붙입니다 — 아래쪽은 "내 정보"와 계정 영역
+                전용입니다. */}
+            {user.is_admin && (
+              <AdminNavBlock pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+            )}
           </div>
 
           {/* 위아래 묶음 사이의 빈 공간. 화면이 길면 늘어납니다. */}
@@ -259,6 +270,124 @@ function NavGroupBlock({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * 사이드바의 Admin 묶음 — 눌러서 펼칩니다.
+ *
+ * 다른 묶음(만들기, 둘러보기)은 제목이 글자일 뿐이고 항목이 두세 개
+ * 입니다. Admin은 구역이 아홉 개라, 묶음 제목 자체를 누를 수 있는 단추로
+ * 두고 아래에 구역을 폅니다.
+ *
+ * 펼친 상태는 브라우저에 남겨 둡니다. 회원마다 쓰는 구역이 다르고,
+ * 화면을 옮길 때마다 다시 펼치게 하면 두 번 누르는 메뉴가 됩니다.
+ *
+ * 숫자 배지는 손이 필요한 구역에만 붙습니다 — 심사를 기다리는 신청과
+ * 확인을 기다리는 충전입니다. 둘 다 사람이 움직이지 않으면 회원이 기다리게
+ * 되는 일입니다.
+ */
+function AdminNavBlock({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const { pendingApplications, pendingTopUps, isDevelopment } = useAdminNav();
+
+  /**
+   * 처음 펼쳐져 있는지: Admin 안에 있으면 펼치고, 아니면 지난번에 둔
+   * 대로 둡니다.
+   *
+   * 효과가 아니라 처음 값에서 읽습니다. 효과로 읽으면 접힌 상태로 한 번
+   * 그린 뒤 펼쳐져 메뉴가 깜빡입니다. 사이드바는 로그인을 확인한 뒤에만
+   * 그려지므로 — 그 확인 자체가 브라우저에서 일어납니다 — 서버가 그린
+   * HTML과 어긋날 일이 없습니다.
+   */
+  const [open, setOpen] = useState(() => {
+    if (pathname.startsWith("/admin")) return true;
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(ADMIN_STORAGE_KEY) === "1";
+    } catch {
+      /* 저장소를 막아 둔 브라우저에서는 기억하지 않습니다 */
+      return false;
+    }
+  });
+
+  function toggle() {
+    setOpen((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(ADMIN_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* 기억하지 못해도 메뉴는 동작합니다 */
+      }
+      return next;
+    });
+  }
+
+  const sections = visibleSections(isDevelopment);
+  const pending: Record<string, number> = {
+    applications: pendingApplications,
+    topups: pendingTopUps,
+  };
+  const totalPending = pendingApplications + pendingTopUps;
+  const insideAdmin = pathname.startsWith("/admin");
+
+  return (
+    <div>
+      <button
+        className={`${styles.navLink} ${styles.navToggle} ${
+          insideAdmin ? styles.navLinkActive : ""
+        }`}
+        type="button"
+        aria-expanded={open}
+        aria-controls="admin-subnav"
+        onClick={toggle}
+      >
+        <Shield className={styles.navIcon} aria-hidden="true" />
+        <span className={styles.navToggleLabel}>Admin</span>
+        {!open && totalPending > 0 && (
+          <span className={styles.navCount}>{totalPending}</span>
+        )}
+        <span aria-hidden="true" className={styles.navCaret}>
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+
+      {open && (
+        <ul className={`${styles.navList} ${styles.navSubList}`} id="admin-subnav">
+          {sections.map((section) => {
+            // 가장 긴 경로가 이깁니다 — /admin 이 모든 구역을 먹지 않도록.
+            const isActive =
+              [...ADMIN_SECTIONS]
+                .sort((a, b) => b.href.length - a.href.length)
+                .find(
+                  (candidate) =>
+                    pathname === candidate.href || pathname.startsWith(`${candidate.href}/`),
+                )?.key === section.key;
+
+            return (
+              <li key={section.key}>
+                <Link
+                  className={`${styles.navSubLink} ${isActive ? styles.navSubLinkActive : ""}`}
+                  href={section.href}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={onNavigate}
+                >
+                  {section.label}
+                  {pending[section.key] > 0 && (
+                    <span className={styles.navCount}>{pending[section.key]}</span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

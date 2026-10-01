@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
@@ -154,9 +154,19 @@ def list_applications(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> list[ApplicationWithMember]:
+    """Every application for one quarter, with the applicant and reviewer.
+
+    Two joins to `users`: the applicant, and whoever reviewed it. The
+    second is a LEFT join and aliased — an application that nobody has
+    decided yet still has to appear, and it is the pending ones the
+    screen is mainly about.
+    """
+    reviewer = aliased(User)
+
     rows = db.execute(
-        select(QuarterApplication, User)
+        select(QuarterApplication, User, reviewer)
         .join(User, User.id == QuarterApplication.user_id)
+        .outerjoin(reviewer, reviewer.id == QuarterApplication.reviewed_by)
         .where(QuarterApplication.quarter_id == quarter_id)
         .order_by(QuarterApplication.id)
     ).all()
@@ -164,10 +174,16 @@ def list_applications(
     return [
         ApplicationWithMember(
             **ApplicationRead.model_validate(application).model_dump(),
-            username=member.email.split("@")[0],
+            # The stored username, not a guess from the email address.
+            # Deriving it from the email showed "@test" for a member whose
+            # username is "testmember2" — the same person with two
+            # different handles depending on the screen.
+            username=member.username,
             display_name=member.display_name,
+            reviewed_by_username=reviewed_by.username if reviewed_by else "",
+            reviewed_by_display_name=reviewed_by.display_name if reviewed_by else "",
         )
-        for application, member in rows
+        for application, member, reviewed_by in rows
     ]
 
 

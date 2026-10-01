@@ -315,6 +315,16 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/video-models"): "require_admin",
     ("PATCH", "/api/admin/video-models/{model_id}"): "require_admin",
     ("GET", "/api/admin/audit"): "require_admin",
+    # Read-only Admin screens: the dashboard and the member detail page.
+    ("GET", "/api/admin/dashboard"): "require_admin",
+    ("GET", "/api/admin/members/{user_id}"): "require_admin",
+    ("GET", "/api/admin/stats/applications"): "require_admin",
+    ("GET", "/api/admin/stats/members"): "require_admin",
+    ("GET", "/api/admin/quarters-with-stats"): "require_admin",
+    # External services. The check writes (it records the outcome), so it
+    # is a POST — and it is still admin-only, not participation-gated.
+    ("GET", "/api/admin/providers"): "require_admin",
+    ("POST", "/api/admin/providers/{provider}/check"): "require_admin",
     ("POST", "/api/admin/simulate-usage"): "require_admin",
 }
 
