@@ -522,7 +522,7 @@ default. Going live is deliberately last.
 | ----- | ----- | ----- |
 | **0** | Product shell — navigation, every screen, `/api/health`, PostgreSQL | ✅ Complete |
 | **1a** | Username/password auth, Alembic replacing `create_all`, Next.js `/api/*` rewrite for same-origin HttpOnly cookies | ← **Next.** Alembic done; auth and the proxy remain |
-| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | Mostly built; status enforcement needs 1a |
+| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | Quarters and applications done; **membership statuses not built at all** |
 | **1c** | QuarterAllocation, PersonalBalance/TopUp, UsageEvent, Usage on real data, admin member list, enrolment, allocation, audit log | Allocations and wallet built; Usage, member list and audit log outstanding |
 | **2** | Chat — Claude adapter behind `CLAUDE_PROVIDER`, conversations, usage recording, budget checks | Not started |
 | **3** | Builder MVP — projects from a prompt, generated files, editor, history | Not started |

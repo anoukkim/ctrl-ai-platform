@@ -25,6 +25,11 @@ next-env.d.ts
 !.env.example
 !.env.local.example
 
+# ---------- Claude Code ----------
+# .claude/skills/ and other shared project config ARE committed, so the
+# whole team gets them. Per-developer settings are not.
+.claude/settings.local.json
+
 # ---------- Editors / OS ----------
 .vscode/
 .idea/

@@ -1166,34 +1166,44 @@ exists on disk.
 
 ### Phase 1a — Auth and the foundations underneath it ← **next**
 
-- **username/password auth** — registration, login, logout, password
-  hashing (never plaintext), server-side session or token
-- **Alembic migrations replace `create_all`** — Alembic owns the schema from
-  here on. `create_all` must not be reintroduced; every schema change is a
-  migration, and migrations are what run in production in Phase 9.
-- **Next.js rewrites proxy `/api/*` to FastAPI** — so the browser sees one
-  origin. This is what makes **HttpOnly cookies** work: a cookie set by the
+- ✅ **Alembic migrations replace `create_all`** — **done.** Alembic owns the
+  schema (`alembic upgrade head`, then `python -m app.db.init_db` to seed).
+  `create_all` is gone from application code; it survives only in
+  `tests/conftest.py`, which builds a throwaway in-memory SQLite schema.
+  `create_all` must not be reintroduced: every schema change is a migration,
+  and migrations are what run in production in Phase 9.
+- ❌ **username/password auth** — registration, login, logout, password
+  hashing (never plaintext), server-side session or token. **Not started.**
+  `User` currently has no `username` and no `password_hash` column.
+- ❌ **Next.js rewrites proxy `/api/*` to FastAPI** — **not started**;
+  `next.config.ts` is still empty. The point is that the browser sees one
+  origin, which is what makes **HttpOnly cookies** work: a cookie set by the
   backend is same-origin to the frontend, so it is sent automatically and is
   unreadable from JavaScript. The same arrangement holds in production,
   which is why it is worth doing now rather than retrofitting CORS and
   cross-site cookie flags later.
 
-Already in place: Alembic is installed and owns the schema (`alembic upgrade
-head` then `python -m app.db.init_db`); `create_all` is gone. Still to do:
-auth itself and the rewrite proxy. Until auth lands, `get_current_user`
-returns a fixed development user and refuses to run outside development.
+Until auth lands, `get_current_user` in `api/deps.py` returns a fixed
+development user and refuses to run outside development. Phase 1a replaces
+that stub; it is a placeholder, not a design.
 
 ### Phase 1b — Quarters and membership
 
-- `Quarter`
-- `QuarterApplication` — one live application per member per quarter
-- active / inactive / former behaviour, enforced in the backend
+- ✅ `Quarter` — **done**
+- ✅ `QuarterApplication` — **done.** One live application per member per
+  quarter, and the Build/Video split must total exactly 100%
+- ❌ active / inactive / former behaviour, enforced in the backend —
+  **not built**
 
-Largely built. Quarters, applications, the Build/Video split rule (must
-total exactly 100%) and admin review all work end to end. What remains is
-enforcing participation status: an inactive or former member must lose paid
-creation access, and that check does not exist yet because there is no
-real signed-in user to check (see 1a).
+The quarter half is finished: quarters, applications, the split rule and
+admin review all work end to end.
+
+**The membership half does not exist.** There is no participation-status
+model, no enum and no column for it — `User.is_active` is a bare boolean
+with no `former` state. The three statuses appear only as Korean labels in
+`frontend/lib/mock-data.ts`. Nothing anywhere stops an inactive or former
+member from using paid creation features. Phase 1a introduces an
+`account_status` field that this sub-phase extends.
 
 ### Phase 1c — Allocation, usage and administration
 
@@ -1237,11 +1247,20 @@ Simple explicit routing/actions are enough.
 
 ## Phase 3 — Builder MVP
 
+> **Groundwork already exists — extend it, do not rebuild it.** The Phase 1
+> branch built `BuilderProject` (model, schema, `routes/builder.py` with full
+> CRUD and per-owner access), the project library at `/builder`, and the
+> `/builder/[projectId]` workspace with its file tree, editor pane, Claude
+> panel and `PreviewPane`. All of it persists to PostgreSQL and is covered by
+> tests. **What is missing is the provider**: nothing calls Claude, no project
+> files are generated, and `PreviewPane` renders a `MockRuntime` behind a
+> documented adapter boundary. Phase 3 fills that in.
+
 Implement:
-- Projects
+- Projects — *extend the existing `BuilderProject`*
 - create project from prompt
 - Claude generates/edits text project files
-- project file browser
+- project file browser — *the UI shell exists; give it real files*
 - simple text/code editor
 - project history/save
 - no arbitrary live code execution yet
@@ -1275,13 +1294,23 @@ Implement:
 
 ## Phase 6 — Video Generator
 
+> **Groundwork already exists — extend it, do not rebuild it.** The Phase 1
+> branch built `VideoProject`, `VideoVersion` and the `VideoModel` catalogue
+> (with an admin allowlist enforced in the backend: a hidden or disabled model
+> is refused), `routes/video.py`, the library at `/video`, and the
+> `/video/[projectId]` workspace with its iterative version loop — generate,
+> compare versions, mark a final. Versions persist and are covered by tests.
+> **What is missing is the provider**: creating a version records a row and
+> returns a placeholder; Higgsfield is never contacted and nothing is charged.
+> Phase 6 fills that in.
+
 Implement:
 - Claude prompt/script assistance
 - Higgsfield provider adapter **behind `VIDEO_PROVIDER`, mock by default**
 - generation request
 - generation status
 - final result
-- Video record
+- Video record — *extend the existing `VideoProject` / `VideoVersion`*
 - usage tracking / credit deduction
 
 The mock video provider returns a placeholder asset after a simulated delay,
