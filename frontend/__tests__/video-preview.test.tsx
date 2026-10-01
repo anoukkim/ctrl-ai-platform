@@ -1,0 +1,241 @@
+/**
+ * 미리보기가 버전의 사실을 보여 주는지.
+ *
+ * 테스트에서 찾은 세 가지를 고정합니다.
+ *
+ *   1. 16:9를 고르면 재생 틀이 미리보기 칸을 넘어 양옆 패널을 덮었습니다.
+ *   2. 설정에는 "Auto — 추천"이라고 적혀 있는데 미리보기 머리글에는
+ *      `kling-3.0-pro`라는 날 id가 떠 있었습니다.
+ *   3. 10초로 만든 버전이 0:15로 재생됐습니다.
+ *
+ * 넘침은 **jsdom에서 증명할 수 없습니다** — 레이아웃 엔진이 없어 모든
+ * 상자의 크기가 0입니다. 그래서 여기서는 크기를 정하는 *재료*가 맞게
+ * 들어가는지만 봅니다: 재생 틀이 레터박스 칸 안에 있고, 비율이 고른
+ * 값대로 `--player-ar`로 전달되는지. 실제로 넘치지 않는지는 브라우저에서
+ * 세 가지 너비로 확인했고, 그 방법은 docs/BACKLOG.md에 적어 두었습니다.
+ *
+ * 길이와 모델 이름은 순수한 계산이므로 여기서 제대로 증명됩니다.
+ */
+
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+import type { VideoModel, VideoProjectDetail, VideoVersion } from "@/lib/projects";
+
+const KLING: VideoModel = {
+  id: 1,
+  provider: "higgsfield",
+  model_id: "kling-3.0-pro",
+  display_name: "Kling 3.0 Pro",
+  description: "인물과 움직임 표현이 안정적입니다.",
+  sort_order: 10,
+  capabilities: {
+    durations: [5, 10, 15],
+    aspect_ratios: ["9:16", "16:9", "1:1"],
+    sound: true,
+  },
+};
+
+/** 10초·16:9로 만든 버전. 화면의 숫자는 전부 여기서 나와야 합니다. */
+function version(overrides: Partial<VideoVersion> = {}): VideoVersion {
+  return {
+    id: 1,
+    label: "v1",
+    provider: "higgsfield",
+    model_id: "kling-3.0-pro",
+    provider_job_id: null,
+    asset_url: null,
+    prompt_snapshot: "비 오는 밤 서울",
+    status: "ready",
+    created_at: "2026-10-01T10:00:00Z",
+    duration_seconds: 10,
+    aspect_ratio: "16:9",
+    sound: true,
+    auto_selected: true,
+    ...overrides,
+  };
+}
+
+function project(versions: VideoVersion[]): VideoProjectDetail {
+  return {
+    id: 3,
+    name: "프로젝트1",
+    prompt: "비 오는 밤 서울",
+    status: "draft",
+    selected_model_id: null,
+    final_version_id: null,
+    created_at: "2026-10-01T00:00:00Z",
+    updated_at: "2026-10-01T00:00:00Z",
+    versions,
+    selected_model: null,
+  };
+}
+
+const getVideoProject = vi.fn();
+
+vi.mock("@/lib/projects", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/projects")>();
+  return {
+    ...actual,
+    getVideoProject: (...args: unknown[]) => getVideoProject(...args),
+    listVideoModels: vi.fn().mockResolvedValue([KLING]),
+    listVideoProjects: vi.fn().mockResolvedValue([]),
+  };
+});
+
+vi.mock("@/app/components/MyQuarterProvider", () => ({
+  useMayCreate: () => true,
+  useMyQuarter: () => ({ quarter: null, loading: false }),
+  default: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// CSS 모듈은 jsdom에서 이름만 돌려 줍니다. 클래스 이름으로 찾을 수 있게
+// 키를 그대로 값으로 씁니다.
+vi.mock("@/app/components/workspace.module.css", () => ({
+  default: new Proxy({}, { get: (_t, key) => String(key) }),
+}));
+vi.mock("@/app/video/[projectId]/workspace.module.css", () => ({
+  default: new Proxy({}, { get: (_t, key) => String(key) }),
+}));
+
+const { default: VideoWorkspace } = await import("@/app/video/[projectId]/VideoWorkspace");
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+/** 그려진 재생 틀. 클래스 이름으로 찾습니다. */
+function playerEl(): HTMLElement {
+  const el = document.querySelector(".player");
+  if (!el) throw new Error("재생 틀을 찾지 못했습니다");
+  return el as HTMLElement;
+}
+
+describe("미리보기 재생 틀", () => {
+  test.each([
+    ["16:9", "16 / 9"],
+    ["9:16", "9 / 16"],
+    ["1:1", "1 / 1"],
+  ])("%s 버전은 레터박스 칸 안에 그 비율로 들어간다", async (aspect, ratio) => {
+    getVideoProject.mockResolvedValue(project([version({ aspect_ratio: aspect })]));
+
+    render(<VideoWorkspace projectId="3" />);
+    await waitFor(() => playerEl());
+
+    const player = playerEl();
+
+    // 1. 재생 틀은 레터박스 칸 안에 있습니다. 칸이 남는 자리를 채우고,
+    //    영상은 그 안에서만 커집니다 — 이것이 양옆 패널을 덮지 않는 이유입니다.
+    expect(player.parentElement?.className).toContain("playerFrame");
+
+    // 2. 비율은 고른 값 그대로 전달됩니다. CSS가 이 값으로 너비를
+    //    "칸의 너비"와 "칸의 높이 × 비율" 중 작은 쪽으로 정합니다.
+    expect(player.style.getPropertyValue("--player-ar")).toBe(ratio);
+  });
+
+  test("버전이 들고 있는 비율이 지금 고른 비율보다 우선한다", async () => {
+    // 9:16으로 만든 버전을 보고 있으면, 왼쪽 설정이 무엇이든 미리보기는
+    // 그 버전의 비율로 그려져야 합니다.
+    getVideoProject.mockResolvedValue(project([version({ aspect_ratio: "9:16" })]));
+
+    render(<VideoWorkspace projectId="3" />);
+    await waitFor(() => playerEl());
+
+    expect(playerEl().style.getPropertyValue("--player-ar")).toBe("9 / 16");
+  });
+});
+
+describe("길이", () => {
+  test("10초로 만든 버전은 0:10으로 재생된다", async () => {
+    getVideoProject.mockResolvedValue(project([version({ duration_seconds: 10 })]));
+
+    render(<VideoWorkspace projectId="3" />);
+
+    // 예전에는 PREVIEW_SECONDS가 15로 박혀 있어 항상 0:15였습니다.
+    await waitFor(() => expect(screen.getByText("0:00 / 0:10")).toBeDefined());
+    expect(screen.queryByText("0:00 / 0:15")).toBeNull();
+  });
+
+  test("5초 버전은 0:05", async () => {
+    getVideoProject.mockResolvedValue(project([version({ duration_seconds: 5 })]));
+
+    render(<VideoWorkspace projectId="3" />);
+
+    await waitFor(() => expect(screen.getByText("0:00 / 0:05")).toBeDefined());
+  });
+
+  test("길이를 모르는 옛 버전은 지금 고른 값으로 메우지 않는다", async () => {
+    // 칸이 생기기 전에 만들어진 버전입니다. 알 수 없는 것을 아는 척하지
+    // 않고 기본값으로 재생합니다.
+    getVideoProject.mockResolvedValue(project([version({ duration_seconds: null })]));
+
+    render(<VideoWorkspace projectId="3" />);
+
+    await waitFor(() => expect(screen.getByText("0:00 / 0:15")).toBeDefined());
+  });
+});
+
+describe("모델 이름", () => {
+  test("Auto로 만든 버전은 무엇으로 이어졌는지까지 보여 준다", async () => {
+    getVideoProject.mockResolvedValue(project([version({ auto_selected: true })]));
+
+    render(<VideoWorkspace projectId="3" />);
+
+    await waitFor(() => expect(screen.getAllByText("Auto → Kling 3.0 Pro").length).toBeGreaterThan(0));
+    // provider의 날 id는 어디에도 보이지 않습니다.
+    expect(screen.queryByText("kling-3.0-pro")).toBeNull();
+  });
+
+  test("직접 고른 모델은 이름만 보여 준다", async () => {
+    getVideoProject.mockResolvedValue(project([version({ auto_selected: false })]));
+
+    render(<VideoWorkspace projectId="3" />);
+
+    await waitFor(() => expect(screen.getAllByText("Kling 3.0 Pro").length).toBeGreaterThan(0));
+    expect(screen.queryByText("Auto → Kling 3.0 Pro")).toBeNull();
+  });
+
+  test("목록에 없는 모델이라도 날 id를 그대로 띄우지 않는다", async () => {
+    // 관리자가 모델을 목록에서 내리면 지난 버전이 가리키는 모델이 목록에
+    // 없을 수 있습니다. 그래도 읽을 수 있는 이름으로 보여 줍니다.
+    getVideoProject.mockResolvedValue(
+      project([version({ model_id: "wan-3.0", auto_selected: false })]),
+    );
+
+    render(<VideoWorkspace projectId="3" />);
+
+    await waitFor(() => expect(screen.getAllByText("Wan 3.0").length).toBeGreaterThan(0));
+    expect(screen.queryByText("wan-3.0")).toBeNull();
+  });
+});
+
+describe("Claude 칸", () => {
+  test("새 프로젝트는 예시 대화 없이 시작한다", async () => {
+    getVideoProject.mockResolvedValue(project([]));
+
+    render(<VideoWorkspace projectId="3" />);
+
+    await waitFor(() => expect(screen.getByText(/영상 아이디어를 Claude와 다듬어/)).toBeDefined());
+    // 예전에 미리 들어 있던 예시 대화.
+    expect(screen.queryByText(/조금 더 어두운 분위기로 바꿔줘/)).toBeNull();
+  });
+});
+
+describe("버전 조각", () => {
+  test("조각은 그 버전의 길이·비율·모델을 보여 준다", async () => {
+    getVideoProject.mockResolvedValue(
+      project([version({ duration_seconds: 10, aspect_ratio: "16:9" })]),
+    );
+
+    render(<VideoWorkspace projectId="3" />);
+
+    const list = await waitFor(() => {
+      const el = document.querySelector(".versionList");
+      if (!el) throw new Error("버전 목록을 찾지 못했습니다");
+      return el as HTMLElement;
+    });
+
+    expect(within(list).getByText("10초 · 16:9")).toBeDefined();
+    expect(within(list).getByText("Auto → Kling 3.0 Pro")).toBeDefined();
+  });
+});
