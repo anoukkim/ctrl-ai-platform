@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- CTRL+AI 파비콘. app/components/BrandMark.tsx 와 같은 모양입니다.
+       파비콘은 CSS 변수를 읽을 수 없으므로 토큰의 값을 그대로 적습니다
+       (--logo-from #3485fe, --logo-to #bb33ff). 색을 바꾸면 둘 다 고쳐야
+       합니다. -->
+  <defs>
+    <linearGradient id="m" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3485fe"/>
+      <stop offset="1" stop-color="#bb33ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#m)"/>
+  <path d="M16 9.5V22.5M9.5 16H22.5" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -10,6 +10,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import BrandMark from "@/app/components/BrandMark";
 import { useId, useState } from "react";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
@@ -49,10 +51,8 @@ export default function LoginForm() {
     <div className={styles.screen}>
       <div className={styles.card}>
         <span className={styles.brand}>
-          <span className={styles.brandGlyph} aria-hidden="true">
-            AI
-          </span>
-          Ctrl AI
+          <BrandMark size={28} />
+          CTRL+AI
         </span>
 
         <div>

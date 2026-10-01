@@ -10,6 +10,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import BrandMark from "@/app/components/BrandMark";
 import { useId, useState } from "react";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
@@ -64,16 +66,14 @@ export default function SignupForm() {
     <div className={styles.screen}>
       <div className={styles.card}>
         <span className={styles.brand}>
-          <span className={styles.brandGlyph} aria-hidden="true">
-            AI
-          </span>
-          Ctrl AI
+          <BrandMark size={28} />
+          CTRL+AI
         </span>
 
         <div>
           <h1 className={styles.title}>회원가입</h1>
           <p className={styles.subtitle}>
-            Ctrl AI에서 앱과 영상을 만들어 보세요. 몇 가지만 입력하면 됩니다.
+            CTRL+AI에서 앱과 영상을 만들어 보세요. 몇 가지만 입력하면 됩니다.
           </p>
         </div>
 
