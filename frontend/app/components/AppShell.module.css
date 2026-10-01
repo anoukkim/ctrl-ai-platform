@@ -174,6 +174,87 @@
   opacity: 1;
 }
 
+/* ---------- 사이드바의 Admin 묶음 (접히는 하위 메뉴) ---------- */
+
+/* 묶음 제목을 누를 수 있게 만든 단추. 모양은 .navLink를 그대로 쓰되,
+   단추의 기본 모양(테두리·배경·가운데 정렬)만 지웁니다. */
+.navToggle {
+  width: 100%;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.navToggleLabel {
+  flex: 1;
+}
+
+.navCaret {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.navToggle:hover .navCaret {
+  color: var(--text);
+}
+
+/* 하위 구역. 왼쪽에 얇은 선을 두어 Admin에 딸린 목록임을 보여 줍니다. */
+.navSubList {
+  margin: 0.15rem 0 0.2rem 0.95rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.navSubLink {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.navSubLink:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.navSubLinkActive,
+.navSubLinkActive:hover {
+  background: var(--panel-2);
+  color: var(--accent);
+}
+
+.navSubLinkDisabled {
+  color: var(--text-dim);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* 손이 필요한 수. 사이드바에서는 더 작게. */
+.navCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.22rem;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #ffffff;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
 /* ---------- 회원 상태 블록 ---------- */
 
 /* 카드 전체가 Usage로 가는 링크입니다. */

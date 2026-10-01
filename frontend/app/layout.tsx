@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import AdminNavProvider from "@/app/components/AdminNavProvider";
 import AppShell from "@/app/components/AppShell";
 import CurrentUserProvider from "@/app/components/CurrentUserProvider";
 import MyQuarterProvider from "@/app/components/MyQuarterProvider";
@@ -21,7 +22,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <CurrentUserProvider>
           <MyQuarterProvider>
-            <AppShell>{children}</AppShell>
+            {/* 사이드바의 Admin 묶음이 쓰는 숫자. 관리자가 아니면 아무것도
+                부르지 않습니다. */}
+            <AdminNavProvider>
+              <AppShell>{children}</AppShell>
+            </AdminNavProvider>
           </MyQuarterProvider>
         </CurrentUserProvider>
       </body>
