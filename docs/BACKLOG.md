@@ -39,8 +39,11 @@ joined the queue — **ui-tube-watch** at 2 and **usage-analytics** at 4.
    and a real comment section. Spec saved verbatim below.
 
 3. **budget-by-provider** · branch `feat-budget-by-provider`
-   Spec saved verbatim below, including the **Application flow** section
-   added on 2026-10-01.
+   Spec saved verbatim below, including **Application flow** and
+   **Application and purchase model (decided)**, both added on
+   2026-10-01. The latter wins where the two disagree: approval is
+   automatic, and both providers are prepaid, so the item also owns
+   purchase records, club balances and carry-over.
 
 4. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
@@ -329,6 +332,10 @@ Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
 
 Added 2026-10-01. Saved exactly as written by the developer.
 
+**Point 4's approval path is superseded** by "Application and purchase
+model (decided)" below: approval is automatic, and these tools serve
+수동 승인 mode and exceptions. Everything else here still stands.
+
 > Goal: member applications feed the club's funding application to the company.
 >
 > 1. Application form: presets 균형 50/50, Claude 중심 70/30, 영상 중심 30/70, or a custom split, within the quarter's per-member limit. Show a rough plain-language meaning of each budget (e.g. approximate video seconds at the default model's price).
@@ -337,6 +344,55 @@ Added 2026-10-01. Saved exactly as written by the developer.
 > 4. Approving: single approve, approve with adjustment (changed split or amount, required reason, written to the audit log), bulk approve with one confirmation, reject with a reason the member sees on Profile.
 > 5. Active status and budget go together: a member becomes active for a quarter through an approved application, or through admin enrolment that also sets an allocation. If an admin sets a member active without any allocation, show a warning in Admin, and the member's sidebar says clearly that no budget is approved yet. (Currently testmember2 shows 활동 회원 with "승인된 지원금이 없습니다".)
 > 6. Tests: totals match applications; the suggested request includes the reserve on top; the proportional cut never exceeds the pool; adjustments and bulk approvals are audited; rejected members see the reason; active-without-allocation shows the warning.
+
+### Application and purchase model (decided)
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+**This section wins where it conflicts with Application flow above.**
+Auto-approval is the normal path: a member presses "이번 분기 참여" and the
+allocation exists immediately, with no admin step in between. The approval
+tools in Application flow point 4 — single approve, approve with
+adjustment, bulk approve, reject with a reason — are all kept, but they
+serve **수동 승인** mode and the exceptions named in point 1 below
+(requests above the per-member limit, late applications, reserve
+requests), not the ordinary case.
+
+**Why this reshapes the item.** Both providers are prepaid. The money is
+spent *before* any member uses it, and credits cannot be moved between
+providers once bought — so the club must know the per-provider split in
+time to buy. That turns the application period into a purchasing
+deadline rather than a review queue, and it adds three things the
+original spec has nowhere to put: purchase records, club-level provider
+balance tracking, and carry-over between quarters.
+
+**Still to settle:** Application flow point 3 assumes allocations are
+created *after* the company decides, which is what makes its proportional
+cut preview possible. Under auto-approval the allocations already exist by
+then, so a pool smaller than the requests has to cut allocations that
+members can already see. The cut preview itself is unaffected; when it
+runs, and what a member is told when their approved budget drops, is not
+decided here.
+
+**`docs/deployment.md` does not exist** — `docs/` holds `BACKLOG.md`,
+`architecture.md` and `ui-requests/` — so point 6 creates
+`docs/operations.md`.
+
+> Context: Claude API and Higgsfield are both prepaid. Credits must be bought per provider before use and cannot be moved between providers afterwards, so the club needs each quarter's split before buying.
+>
+> 1. One-click application with auto-approval:
+>    - During the application period, a member presses "이번 분기 참여". The split is pre-filled with a default (admin-set per quarter: 50/50, or last quarter's club-wide ratio) and the member may adjust it with the presets or a custom split, within the per-member limit.
+>    - Applications are approved automatically. The admin can switch a quarter to "수동 승인" mode if needed; in that mode the existing 신청 승인 flow applies.
+>    - Exceptions still reach the admin: requests above the limit, late applications, and reserve requests.
+> 2. Purchase planning (Admin › 예산), after the application period closes:
+>    - Suggested purchase per provider = member totals + reserve (default 20%, on top) − usable balance carried over from earlier purchases.
+>    - Shows the KRW total and, for Claude, the USD equivalent at the current rate setting.
+> 3. Purchase records: the admin records each actual purchase (provider, date, amount paid in KRW and original currency, credits received, expiry date). Claude credits expire one year after purchase; the app warns 30 days before any purchased credits expire.
+> 4. Provider balance tracking: per provider, purchased − used = remaining club balance, shown on the 예산 page and the dashboard. If a provider's remaining club balance falls below the reserve, show a warning card.
+> 5. Carry-over: unused, unexpired balance carries into the next quarter and reduces that quarter's suggested purchase.
+> 6. Docs: add a short operator note to docs/deployment.md (or a new docs/operations.md): keep auto-reload OFF in the Anthropic Console and any Higgsfield equivalent, and top up manually from the reserve, because the club budget is fixed.
+>
+> Tests: auto-approval creates allocations immediately; manual mode routes to 신청 승인; the suggested purchase includes the reserve and subtracts carry-over; balances equal purchases minus usage; expiry warnings appear 30 days before.
 
 ---
 
