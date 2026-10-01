@@ -110,8 +110,8 @@ function mockReply(input: string): Message {
     return {
       id,
       role: "assistant",
-      body: "다른 회원들이 만든 앱은 CtrlAI Apps에서, 영상은 CtrlAITube에서 볼 수 있어요.",
-      suggestion: { label: "CtrlAI Apps 둘러보기", href: "/ctrlaistore" },
+      body: "다른 회원들이 만든 앱은 CtrlAIApps에서, 영상은 CtrlAITube에서 볼 수 있어요.",
+      suggestion: { label: "CtrlAIApps 둘러보기", href: "/ctrlaistore" },
     };
   }
 

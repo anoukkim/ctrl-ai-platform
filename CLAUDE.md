@@ -30,7 +30,7 @@ The main product areas are:
 1. Chat
 2. Builder — screen name **Project Builder**
 3. Video Generator
-4. **CtrlAI Apps** — the community app store (route stays `/ctrlaistore`)
+4. **CtrlAIApps** — the community app store (route stays `/ctrlaistore`)
 5. CtrlAITube
 6. **Usage**
 7. Profile
@@ -43,12 +43,12 @@ answered them, and they are no longer up for debate:
 
 | Decision | Settled as |
 | -------- | ---------- |
-| Interface language | **Korean-first.** Product names (Ctrl AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube, Usage, Profile, Admin) and external service names (Claude, Higgsfield, GitHub, YouTube) stay in English. Everything a member reads or writes is Korean. |
-| App store screen name | **CtrlAI Apps.** The route stays `/ctrlaistore` so existing links do not break. |
+| Interface language | **Korean-first.** Product names (Ctrl AI, Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and external service names (Claude, Higgsfield, GitHub, YouTube) stay in English. Everything a member reads or writes is Korean. |
+| App store screen name | **CtrlAIApps.** The route stays `/ctrlaistore` so existing links do not break. |
 | Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
 | Roles | **`admin` and `member` only.** |
-| Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
+| Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
 
 Remaining names in this document are working names and may still change.
 
@@ -64,7 +64,7 @@ The desired experience is:
 
 For apps:
 
-`Chat/Idea -> Builder -> Claude-assisted project -> GitHub -> Publish -> CtrlAI Apps`
+`Chat/Idea -> Builder -> Claude-assisted project -> GitHub -> Publish -> CtrlAIApps`
 
 For videos:
 
@@ -247,15 +247,15 @@ Builder should eventually support:
 
 Do NOT ask members to paste personal access tokens into CTRL+AI.
 
-### 4.5 Publishing to CtrlAI Apps
+### 4.5 Publishing to CtrlAIApps
 
 When a project is ready:
 
 `Builder project -> Publish`
 
-Publishing creates or updates a CtrlAI Apps listing.
+Publishing creates or updates a CtrlAIApps listing.
 
-The Builder project and CtrlAI Apps listing should be related but not identical.
+The Builder project and CtrlAIApps listing should be related but not identical.
 
 Project = private/working development object.
 
@@ -263,9 +263,9 @@ App = community-facing published object.
 
 ---
 
-# 5. CtrlAI Apps
+# 5. CtrlAIApps
 
-Screen name: **CtrlAI Apps** (settled in Phase 0). The route is
+Screen name: **CtrlAIApps** (settled in Phase 0). The route is
 `/ctrlaistore`, kept from the earlier "App Store" working name so existing
 links do not break.
 
@@ -916,7 +916,7 @@ Project Builder
 Video Generator
 
 Explore
-  CtrlAI Apps
+  CtrlAIApps
   CtrlAITube
 
 Usage
@@ -1130,7 +1130,7 @@ Build:
 - Chat as opening/default page
 - Builder mock page
 - Video Generator mock page
-- CtrlAI Apps mock page
+- CtrlAIApps mock page
 - CtrlAITube mock page
 - Usage mock page
 - Profile mock page
@@ -1328,7 +1328,7 @@ the Profile connection flow and the Builder push action are built without a
 registered GitHub App. Use a **localhost callback URL** during development;
 the production callback is registered in Phase 9.
 
-## Phase 5 — CtrlAI Apps
+## Phase 5 — CtrlAIApps
 
 Implement:
 - publish Builder project as App

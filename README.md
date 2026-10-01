@@ -35,7 +35,7 @@ principles.
 | Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
-| CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
+| CtrlAIApps           | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
@@ -47,7 +47,7 @@ principles.
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
 No mock data remains anywhere money is involved. What is still mock: the
-CtrlAI Apps and CtrlAITube listings (Phases 5 and 8) and the Chat replies
+CtrlAIApps and CtrlAITube listings (Phases 5 and 8) and the Chat replies
 (Phase 2).
 
 Everything that is not built yet renders a **준비 중** badge, and its controls are
@@ -62,7 +62,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/`                   | Chat            | Default landing page (requires sign-in)      |
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
-| `/ctrlaistore`        | CtrlAI Apps     | Community app listings                       |
+| `/ctrlaistore`        | CtrlAIApps     | Community app listings                       |
 | `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
@@ -86,7 +86,7 @@ item that always leads to an empty screen is in the way. Turning one on is
 deleting its `hidden: true` in `frontend/app/admin/sections.ts`.
 
 The App Store route is still `/ctrlaistore` although the screen is now called
-**CtrlAI Apps**; the path was kept so existing links do not break.
+**CtrlAIApps**; the path was kept so existing links do not break.
 
 ## Name
 
@@ -95,7 +95,7 @@ the Chat welcome and in the page title. The repository, the database and
 the code keep their existing `ctrl-ai` / `ctrlai` spellings: renaming them
 would break remotes and connection strings for a change nobody can see.
 
-Product names (Chat, Project Builder, Video Generator, CtrlAI Apps,
+Product names (Chat, Project Builder, Video Generator, CtrlAIApps,
 CtrlAITube, Usage, Profile, Admin) are unchanged, as are all routes.
 
 Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
@@ -128,7 +128,7 @@ applying it, generating a new version, switching between versions, replaying the
 ## Language
 
 The interface is **Korean-first**. Product and feature names stay in English
-(CTRL+AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube,
+(CTRL+AI, Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube,
 Usage, Profile, Admin), as do external service names (Claude, Higgsfield,
 GitHub, YouTube) and technical terms such as file names, code and repository
 names. Everything a member reads or writes — prompts, conversations, helper
@@ -516,7 +516,7 @@ its own screen needs:
 | ------ | --------- | ------- |
 | Project Builder | project name, description | status |
 | Video Generator | project name, prompt | status |
-| CtrlAI Apps | app name, description, creator | category, sort |
+| CtrlAIApps | app name, description, creator | category, sort |
 | CtrlAITube | title, description, creator | creator, sort |
 | Admin — 회원 | name, username | role, account status, membership status, sort |
 | Admin — 신청 승인 | member name, username | status tabs + stat cards |
@@ -574,7 +574,7 @@ ctrl-ai-platform/
 │  │  │  └─ workspace.module.css   # frame shared by the two workspaces
 │  │  ├─ builder/             # page.tsx + BuilderWorkspace.tsx
 │  │  ├─ video/               # page.tsx + VideoWorkspace.tsx
-│  │  ├─ ctrlaistore/         # CtrlAI Apps: listings + [slug] detail
+│  │  ├─ ctrlaistore/         # CtrlAIApps: listings + [slug] detail
 │  │  ├─ ctrlaitube/          # feed + [id] detail
 │  │  ├─ usage/               # Usage
 │  │  ├─ profile/             # Profile
@@ -639,7 +639,7 @@ default. Going live is deliberately last.
 | **2** | Chat — Claude adapter behind `CLAUDE_PROVIDER`, conversations, usage recording, budget checks | ← **Next** |
 | **3** | Builder MVP — projects from a prompt, generated files, editor, history | Not started |
 | **4** | GitHub integration — GitHub App, repository selection, push (localhost callback) | Not started |
-| **5** | CtrlAI Apps — publish a project, listings, reactions, threaded comments | Not started |
+| **5** | CtrlAIApps — publish a project, listings, reactions, threaded comments | Not started |
 | **6** | Video Generator — Higgsfield adapter behind `VIDEO_PROVIDER`, generation, budget deduction | Not started |
 | **7** | YouTube integration — Google OAuth, channel connection, upload (localhost callback) | Not started |
 | **8** | CtrlAITube — community feed, entries from a **pasted YouTube URL**, CTRL+AI comments kept separate from YouTube's | Not started |

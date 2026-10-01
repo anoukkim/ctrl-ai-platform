@@ -206,7 +206,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             disabled
             title="Phase 5에서 제공됩니다"
           >
-            CtrlAI Apps에 게시
+            CtrlAIApps에 게시
           </button>
         </span>
       </div>
