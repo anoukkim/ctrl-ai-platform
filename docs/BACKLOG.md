@@ -53,6 +53,16 @@ the same branch at the developer's request:
 - **A new project opened with a scripted Claude conversation** already in
   it. The panel starts empty with one line of Korean.
 
+**A navigation fix followed**, also on this branch: the Video workspace's
+top-right "내 영상" button opened Profile rather than the video library.
+Since it would now duplicate the back link, the **back link is the one
+kept** — in both workspaces, first in the bar, same class, a lucide
+ArrowLeft, labelled with the screen it returns to ("Video Generator" /
+"Project Builder"). Project Builder deliberately gets no matching
+top-right button. Chat's router no longer sends 내 영상 and 내 프로젝트
+to Profile; only account matters go there. Everything else already
+pointed at the libraries.
+
 **This took per-version generation settings out of
 project-video-management.** `video_versions` now carries
 `duration_seconds`, `aspect_ratio`, `sound` and `auto_selected`
