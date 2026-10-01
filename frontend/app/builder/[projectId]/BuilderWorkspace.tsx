@@ -54,36 +54,37 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
   const switcherRef = useRef<HTMLDivElement | null>(null);
 
+  // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
+  // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
+  // 실행은 밀려났다"고 표시하고 먼저 도착한 응답을 버렸는데, 뒤에 선
+  // 요청이 끝내 도착하지 않으면 화면을 "불러오는 중"에서 꺼내 줄 것이
+  // 아무것도 남지 않았습니다. Video 작업 공간에서 실제로 그렇게 멈췄고,
+  // 같은 모양이 여기에도 있었습니다.
+  //
+  // 한 인스턴스가 보는 프로젝트는 처음부터 끝까지 하나이므로
+  // (page.tsx가 projectId마다 다른 key를 줍니다) 도착한 응답을 그대로
+  // 씁니다.
   useEffect(() => {
-    let cancelled = false;
-
     getBuilderProject(projectId)
-      .then((project) => {
-        if (!cancelled) setState({ phase: "ready", project });
-      })
+      .then((project) => setState({ phase: "ready", project }))
       .catch((error: unknown) => {
-        if (!cancelled) setState({ phase: "error", message: describeError(error) });
+        // 이미 받아 둔 뒤라면 잘 보이던 화면을 오류로 덮지 않습니다.
+        setState((current) =>
+          current.phase === "ready"
+            ? current
+            : { phase: "error", message: describeError(error) },
+        );
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [projectId]);
 
   // 전환 메뉴에 쓸 목록. 실패해도 작업 공간은 그대로 쓸 수 있어야 하므로
   // 조용히 넘어갑니다.
   useEffect(() => {
-    let cancelled = false;
     listBuilderProjects()
-      .then((projects) => {
-        if (!cancelled) setSiblings(projects);
-      })
+      .then(setSiblings)
       .catch(() => {
         /* 전환 메뉴만 비어 있게 둡니다 */
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // 바깥을 누르면 전환 메뉴를 닫습니다.

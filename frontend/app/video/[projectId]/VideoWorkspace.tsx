@@ -151,47 +151,44 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     }
   }, [applyProject, projectId]);
 
-  // 효과 본문에서 바로 상태를 바꾸지 않도록, 약속이 끝난 뒤에만 반영합니다.
+  // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
+  // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
+  // 실행은 밀려났다"고 표시하고 먼저 도착한 응답을 버렸는데, 뒤에 선
+  // 요청이 끝내 도착하지 않으면 화면을 "불러오는 중"에서 꺼내 줄 것이
+  // 아무것도 남지 않았습니다. 멀쩡히 받아 둔 200 응답을 버린 셈입니다.
+  //
+  // 그래서 지금은 도착한 응답을 그대로 씁니다. 한 인스턴스가 보는
+  // 프로젝트는 처음부터 끝까지 하나이므로(page.tsx가 projectId마다 다른
+  // key를 줍니다) 늦게 온 응답이 다른 프로젝트의 것일 수는 없습니다.
   useEffect(() => {
-    let cancelled = false;
-
     getVideoProject(projectId)
-      .then((project) => {
-        if (!cancelled) applyProject(project);
-      })
+      .then(applyProject)
       .catch((error: unknown) => {
-        if (!cancelled) setState({ phase: "error", message: describeError(error) });
+        // 이미 프로젝트를 받아 둔 뒤라면 — 두 번째 요청만 실패한
+        // 경우입니다 — 잘 보이던 화면을 오류로 덮지 않습니다.
+        setState((current) =>
+          current.phase === "ready"
+            ? current
+            : { phase: "error", message: describeError(error) },
+        );
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [applyProject, projectId]);
 
+  // 위와 같은 이유로 밀려난 실행의 응답도 버리지 않습니다.
   useEffect(() => {
-    let cancelled = false;
-
     // 모델 목록은 백엔드가 정합니다. 프런트엔드에 모델 이름을 적어 두지
     // 않으므로, 관리자가 목록을 바꾸면 여기에 그대로 반영됩니다.
     listVideoModels()
-      .then((list) => {
-        if (!cancelled) setModels(list);
-      })
+      .then(setModels)
       .catch(() => {
         /* 모델을 못 받으면 Auto만 남습니다 */
       });
 
     listVideoProjects()
-      .then((list) => {
-        if (!cancelled) setSiblings(list);
-      })
+      .then(setSiblings)
       .catch(() => {
         /* 전환 메뉴만 비어 있게 둡니다 */
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   /* ---------- 재생 ---------- */
