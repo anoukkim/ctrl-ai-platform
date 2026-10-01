@@ -152,12 +152,8 @@ Branch `fix-membership-access`. Saved exactly as written by the developer.
 Branch `ui-admin-restructure`. Saved exactly as written by the developer.
 
 **Before:** [`docs/ui-requests/admin-before.png`](ui-requests/admin-before.png)
-— the current single-page Admin screen this item replaces.
-
-> ⚠️ **The file is not in the repository yet.** The screenshot was attached
-> to the request but did not reach the session that wrote this entry, so
-> only the path is reserved. Re-send the image and it drops into exactly
-> this path, and the link above starts working with no edit here.
+— the current single-page Admin screen this item replaces: ten sections
+stacked on one route, from 회원 관리 down to 시스템.
 
 > Problem: Admin is one very long page with ten unrelated sections, mixed English/Korean labels, and small inline action buttons that are easy to misclick.
 >

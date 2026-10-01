@@ -10,8 +10,8 @@ Keep them small. A screenshot is documentation, not an asset the product
 loads, so a PNG at normal window width is enough — nothing here is served
 to a member.
 
-## Expected, not yet here
+## What is here
 
-| File | Referenced by | Note |
-| ---- | ------------- | ---- |
-| `admin-before.png` | `admin-restructure` | Attached to the request, but the image did not reach the session that wrote the entry. Re-send it and save it at this exact path; the backlog link then works untouched. |
+| File | Referenced by | Shows |
+| ---- | ------------- | ----- |
+| `admin-before.png` | `admin-restructure` | The single-page Admin screen before the restructure: ten sections on one route, mixed English and Korean labels, small inline action buttons. |
