@@ -51,7 +51,10 @@ def _allowed_models(db: Session) -> list[VideoModel]:
 
 
 @router.get("/models", response_model=list[VideoModelRead], summary="Models I may use")
-def list_models(db: Session = Depends(get_db)) -> list[VideoModel]:
+def list_models(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> list[VideoModel]:
     return _allowed_models(db)
 
 

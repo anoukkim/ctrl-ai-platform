@@ -16,8 +16,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
+
 import {
-  CURRENT_USER,
   MOCK_COMMUNITY_BUDGETS,
   QUARTER_RANGE,
   formatDate,
@@ -84,8 +85,29 @@ const WORKSPACE_PATTERN = /^\/(builder|video)\/[^/]+/;
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { state, signOut } = useCurrentUser();
 
-  const groups = CURRENT_USER.role === "admin" ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
+  // 로그인/회원가입 화면에는 사이드바를 두지 않습니다.
+  if (isPublicPath(pathname)) {
+    return <div className={styles.bare}>{children}</div>;
+  }
+
+  // 아직 확인 중이거나 로그인하지 않았다면 본문을 그리지 않습니다.
+  // 로그인하지 않은 경우의 이동은 CurrentUserProvider가 맡습니다.
+  if (state.phase !== "authenticated") {
+    return (
+      <div className={styles.bare}>
+        <p className="small muted" style={{ padding: "2rem", textAlign: "center" }}>
+          {state.phase === "loading" ? "불러오는 중…" : "로그인 화면으로 이동합니다…"}
+        </p>
+      </div>
+    );
+  }
+
+  const user = state.user;
+  // Admin 메뉴는 관리자에게만 보입니다. 보이지 않게 하는 것은 편의일 뿐이고,
+  // 실제 차단은 백엔드의 require_admin이 합니다.
+  const groups = user.is_admin ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
   const isWorkspace = WORKSPACE_PATTERN.test(pathname);
 
   return (
@@ -122,7 +144,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             Ctrl AI
           </span>
-          <span className={styles.brandPhase}>Phase 0 — 화면 미리보기</span>
+          <span className={styles.brandPhase}>Phase 1 — 개발 중</span>
         </div>
 
         <div className={styles.navScroll}>
@@ -161,11 +183,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={styles.navFooter}>
           <span className={styles.navUser}>
             <span className={styles.navAvatar} aria-hidden="true">
-              {CURRENT_USER.displayName.slice(0, 1)}
+              {user.display_name.slice(0, 1)}
             </span>
-            {CURRENT_USER.displayName}
+            <span className={styles.navUserNames}>
+              {user.display_name}
+              <span className={styles.navUserHandle}>@{user.username}</span>
+            </span>
           </span>
-          <span className={styles.navHint}>로그인 기능은 아직 준비 중입니다</span>
+          <button className={styles.signOut} type="button" onClick={() => void signOut()}>
+            로그아웃
+          </button>
         </div>
       </nav>
 

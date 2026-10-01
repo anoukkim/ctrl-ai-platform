@@ -1,11 +1,30 @@
-"""User model and role enumeration."""
+"""User model, role and account status enumerations."""
 
 import enum
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin, status_enum
+
+
+class AccountStatus(str, enum.Enum):
+    """Whether an account may use the platform at all.
+
+    This replaces the Phase 0 `is_active` boolean, which could only say
+    yes or no. A boolean has no room for "left the community", and that
+    distinction matters: a former member keeps their name on everything
+    they published, so the account is never deleted.
+
+    Phase 1b extends this with the participation rules — an inactive or
+    former member must lose access to paid creation features. Phase 1a
+    only establishes the field and blocks sign-in for anything that is
+    not `active`.
+    """
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    FORMER = "former"
 
 
 class UserRole(str, enum.Enum):
@@ -26,15 +45,19 @@ class UserRole(str, enum.Enum):
 class User(TimestampMixin, Base):
     """A Ctrl AI member.
 
-    Phase 0 deliberately contains no password or credential columns.
-    Accounts, seasons and seasonal membership status (active / inactive /
-    former) are Phase 1, and are shown as mock data in the UI until then.
+    `username` and `email` are both unique: a member signs in with their
+    username, and the email is how they are reached. `password_hash` is
+    an Argon2 hash and is never exposed — no response schema includes it.
     """
 
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    # Never returned by the API. `UserRead` and every other response
+    # schema omit it, which is why models and schemas are kept apart.
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[UserRole] = mapped_column(
         # `native_enum=False` stores the role as VARCHAR with a CHECK
@@ -52,7 +75,16 @@ class User(TimestampMixin, Base):
         default=UserRole.MEMBER,
         nullable=False,
     )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    account_status: Mapped[AccountStatus] = mapped_column(
+        status_enum(AccountStatus, "account_status"),
+        default=AccountStatus.ACTIVE,
+        nullable=False,
+    )
+
+    @property
+    def can_sign_in(self) -> bool:
+        """Only an active account may hold a session."""
+        return self.account_status is AccountStatus.ACTIVE
 
     def __repr__(self) -> str:
-        return f"<User id={self.id} email={self.email!r} role={self.role.value}>"
+        return f"<User id={self.id} username={self.username!r} role={self.role.value}>"

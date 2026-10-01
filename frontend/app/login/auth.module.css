@@ -1,0 +1,95 @@
+/* 로그인 / 회원가입 화면. 사이드바 없이 가운데 한 장의 카드만 둡니다. */
+
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1.75rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.brandGlyph {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #0b0e14;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+/* 오류는 색만으로 알리지 않고 문장으로도 설명합니다. */
+.error {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--danger, #7f1d1d);
+  border-radius: var(--radius-sm);
+  background: rgba(127, 29, 29, 0.15);
+  color: #fca5a5;
+  font-size: 0.82rem;
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.footerLink {
+  color: var(--accent);
+  font-weight: 600;
+}

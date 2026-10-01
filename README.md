@@ -38,11 +38,11 @@ principles.
 | CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; Ctrl AI comments kept separate from YouTube comments |
 | Usage                 | **Still mock** — real usage data is Phase 1c                                      |
-| Profile               | Live quarter participation and application form; connected-account placeholders   |
+| Profile               | Live signed-in member, quarter participation and application form                 |
 | Admin                 | Live quarters, application review, video model catalogue; member list still mock  |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
-| Authentication        | Not started (Phase 1a — the next task)                                            |
+| Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
 | Claude / Higgsfield   | Not started (Phases 2 and 6)                                                      |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
@@ -56,7 +56,9 @@ disabled, so the shell is never mistaken for working functionality.
 
 | Route                 | Screen          | Notes                                        |
 | --------------------- | --------------- | -------------------------------------------- |
-| `/`                   | Chat            | Default landing page                         |
+| `/login`              | 로그인          | Korean sign-in; logged-out visitors land here |
+| `/signup`             | 회원가입        | Korean sign-up                                |
+| `/`                   | Chat            | Default landing page (requires sign-in)      |
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
 | `/ctrlaistore`        | CtrlAI Apps     | Community app listings                       |
@@ -141,10 +143,15 @@ What follows is only about an optional **frontend-only preview deploy** for
 gathering feedback on the product concept. It is not Phase 9 and does not
 replace it.
 
+> **No longer true since Phase 1a.** The app now requires sign-in, and the
+> browser reaches the backend through the Next.js `/api/*` rewrite. A
+> frontend-only deploy shows the login screen and nothing else. Reviewing
+> the product now means running both halves locally, or doing the full
+> Phase 9 deployment.
+
 ## Frontend — Vercel
 
-The frontend deploys **with no code changes**. Every route is static or
-prerendered, and the production build passes.
+Every route still builds, and the production build passes.
 
 | Setting                    | Value       | Why                                             |
 | -------------------------- | ----------- | ----------------------------------------------- |
@@ -152,17 +159,18 @@ prerendered, and the production build passes.
 | Framework                  | Next.js     | Auto-detected                                   |
 | `NEXT_PUBLIC_API_BASE_URL` | leave unset | Only the Admin status card calls the backend    |
 
-## Backend — not needed for UI review
+## Backend — now required
 
-Only the status card on `/admin` calls the backend. Every other screen is static
-and renders identically without it, so a frontend-only deploy is enough for
-gathering feedback on the product concept.
+Since Phase 1a the backend is no longer optional: sign-in, every project
+list and every admin screen go through it.
 
 Deploying the backend properly is Phase 9. In outline it needs:
 
 - bind to the platform's port: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- set `BACKEND_ORIGIN` so the frontend's `/api/*` rewrite reaches it
 - set `CORS_ALLOW_ORIGINS` to the deployed frontend's origin
 - point `DATABASE_URL` at a managed PostgreSQL instance
+- set `SESSION_COOKIE_SECURE=true`
 - run `alembic upgrade head` as part of deployment
 
 Alembic already owns the schema and `create_all` is gone, so that last point
@@ -238,6 +246,54 @@ user (`dev@ctrl.ai`, role `admin`), three quarters with 2026 Q4 accepting
 applications, an empty personal wallet, and the video model catalogue. It
 is safe to run more than once — existing rows are left alone, so a re-run
 cannot undo an admin's changes.
+
+## Signing in
+
+Phase 1a added accounts, so the first thing the app asks for is a login.
+
+The seed creates a development administrator:
+
+| Field | Value |
+| ----- | ----- |
+| 아이디 | `dev` |
+| 비밀번호 | `devpassword` |
+
+That password is a local development convenience. `python -m app.db.init_db`
+refuses to run unless `APP_ENV` is a development value, so it cannot create
+this account anywhere real.
+
+To seed your own administrator instead, set these in `.env` and re-run the
+seed. They are read only by the seed script, the password is hashed with
+Argon2 before it is stored, and `.env` is git-ignored:
+
+```env
+ADMIN_USERNAME=
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
+```
+
+Leaving them blank creates no administrator — there is deliberately no
+default password in the code.
+
+Anyone else can register at `/signup`, which creates an ordinary member.
+
+### How sign-in works
+
+```text
+Browser  ->  Next.js :3000  --/api/* rewrite-->  FastAPI :8000
+                 ^                                    |
+                 +--------- HttpOnly cookie ----------+
+```
+
+The browser only ever talks to port 3000. Next.js forwards `/api/*` to
+FastAPI, so frontend and backend are the **same origin** as far as the
+browser is concerned. That is what lets the session cookie be `HttpOnly` —
+no script on the page can read it, there is no token in `localStorage`, and
+no cross-origin cookie configuration is needed. The same arrangement is
+what gets deployed in Phase 9.
+
+Sessions are rows in `user_sessions`, not self-contained tokens, so logging
+out ends the session immediately rather than waiting for an expiry.
 
 ## Running the portal
 
@@ -524,8 +580,8 @@ default. Going live is deliberately last.
 | Phase | Scope | State |
 | ----- | ----- | ----- |
 | **0** | Product shell — navigation, every screen, `/api/health`, PostgreSQL | ✅ Complete |
-| **1a** | Username/password auth, Alembic replacing `create_all`, Next.js `/api/*` rewrite for same-origin HttpOnly cookies | ← **Next.** Alembic done; auth and the proxy remain |
-| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | Quarters and applications done; **membership statuses not built at all** |
+| **1a** | Username/password auth, Alembic replacing `create_all`, Next.js `/api/*` rewrite for same-origin HttpOnly cookies | ✅ Complete (branch `phase-1a-auth`) |
+| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | ← **Next.** Quarters done; `account_status` exists, participation rules do not |
 | **1c** | QuarterAllocation, PersonalBalance/TopUp, UsageEvent, Usage on real data, admin member list, enrolment, allocation, audit log | Allocations and wallet built; Usage, member list and audit log outstanding |
 | **2** | Chat — Claude adapter behind `CLAUDE_PROVIDER`, conversations, usage recording, budget checks | Not started |
 | **3** | Builder MVP — projects from a prompt, generated files, editor, history | Not started |

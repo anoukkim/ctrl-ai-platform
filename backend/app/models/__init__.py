@@ -15,7 +15,8 @@ from app.models.quarter import (
     QuarterStatus,
 )
 from app.models.usage import FundingSource, UsageEvent
-from app.models.user import User, UserRole
+from app.models.session import UserSession
+from app.models.user import AccountStatus, User, UserRole
 from app.models.video import (
     VideoModel,
     VideoProject,
@@ -39,8 +40,10 @@ __all__ = [
     "QuarterStatus",
     "TopUpStatus",
     "UsageEvent",
+    "AccountStatus",
     "User",
     "UserRole",
+    "UserSession",
     "VideoModel",
     "VideoProject",
     "VideoProjectStatus",

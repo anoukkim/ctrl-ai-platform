@@ -14,8 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.security import UNUSABLE_PASSWORD_HASH, hash_password
 from app.db.session import SessionLocal, engine
 from app.models import (
+    AccountStatus,
     PersonalBalance,
     Quarter,
     QuarterStatus,
@@ -25,6 +27,7 @@ from app.models import (
 )
 
 DEV_USER_EMAIL = "dev@ctrl.ai"
+DEV_USER_USERNAME = "dev"
 
 # Ctrl AI runs by calendar quarter. The application window opens before the
 # quarter starts, because members apply for the quarter ahead.
@@ -112,21 +115,72 @@ SEED_VIDEO_MODELS = [
 ]
 
 
-def seed_dev_user(db: Session) -> User:
+def seed_dev_user(db: Session, password: str = "devpassword") -> User:
+    """The development account.
+
+    Kept so the existing local database and the tests keep working. The
+    password is a development convenience and only ever reaches a database
+    seeded by this script, which refuses to run outside development.
+    """
     user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
     if user is not None:
+        # The Phase 1a migration backfills pre-existing rows with the
+        # unusable-password sentinel, which would lock this account out of
+        # a database that predates sign-in. Give it the development
+        # password back — but only if no real one has been set, so this
+        # can never overwrite a password somebody chose.
+        if user.password_hash == UNUSABLE_PASSWORD_HASH:
+            user.password_hash = hash_password(password)
+            db.commit()
+            db.refresh(user)
         return user
 
     user = User(
+        username=DEV_USER_USERNAME,
         email=DEV_USER_EMAIL,
+        password_hash=hash_password(password),
         display_name="Ctrl AI Developer",
         role=UserRole.ADMIN,
-        is_active=True,
+        account_status=AccountStatus.ACTIVE,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
+
+
+def seed_admin(db: Session) -> User | None:
+    """The administrator described by ADMIN_* in `.env`.
+
+    Returns None when the variables are blank, which is the default: an
+    admin account is never created from values baked into the code. An
+    existing account with the same username or email is left untouched,
+    so re-running the seed never resets a password.
+    """
+    settings = get_settings()
+    username = settings.admin_username.strip()
+    email = settings.admin_email.strip()
+    password = settings.admin_password
+
+    if not (username and email and password):
+        return None
+
+    existing = db.scalar(select(User).where((User.username == username) | (User.email == email)))
+    if existing is not None:
+        return existing
+
+    admin = User(
+        username=username,
+        email=email,
+        password_hash=hash_password(password),
+        display_name=username,
+        role=UserRole.ADMIN,
+        account_status=AccountStatus.ACTIVE,
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+    return admin
 
 
 def seed_quarters(db: Session) -> int:
@@ -207,11 +261,18 @@ def main() -> None:
 
     with SessionLocal() as db:
         user = seed_dev_user(db)
+        admin = seed_admin(db)
         quarters = seed_quarters(db)
         seed_wallet(db, user)
+        if admin is not None:
+            seed_wallet(db, admin)
         models = seed_video_models(db)
 
-    print(f"Development user: {user.email} (role={user.role.value}, id={user.id})")
+    print(f"Development user: {user.username} / {user.email} (role={user.role.value})")
+    if admin is None:
+        print("Administrator:    none (set ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD in .env)")
+    else:
+        print(f"Administrator:    {admin.username} / {admin.email}")
     print(f"Quarters:         {quarters} created")
     print(f"Video models:     {models} created")
     print(f"Subsidy limit:    {settings.quarterly_subsidy_limit_krw:,} KRW per member per quarter")
