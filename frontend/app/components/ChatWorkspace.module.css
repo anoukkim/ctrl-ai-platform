@@ -1,140 +1,275 @@
-/* Chat — 첫 화면. 초보자를 위해 일부러 단순하게 둡니다.
-   가운데 입력창이 가장 눈에 띄고, 그 아래에 바로가기가 있습니다. */
+/* Chat — 대화 화면.
+ *
+ * 구조는 대화 앱의 기본형입니다.
+ *
+ *   .chat            화면 높이를 꽉 채우는 세로 칸
+ *   .threadScroll    남은 높이를 전부 가져가고 그 안에서만 스크롤
+ *   .composerArea    바닥에 고정, 절대 밀려나지 않음
+ *
+ * 글줄은 720px 안쪽으로 묶습니다. 넓은 화면에서 한 줄이 끝까지 늘어나면
+ * 눈이 다음 줄 첫 글자를 찾기 어려워집니다.
+ */
 
-.workspace {
-  display: grid;
-  gap: 1rem;
-  max-width: 48rem;
+.chat {
+  display: flex;
+  flex-direction: column;
+  /* 부모(.mainChat .mainInner)가 높이를 정해 줍니다. */
+  height: 100%;
+  min-height: 0;
+}
+
+.threadScroll {
+  flex: 1 1 auto;
+  /* flex 자식이 내용 때문에 늘어나지 않도록. 이게 없으면 목록이 부모를
+     밀어내고 입력창이 화면 밖으로 나갑니다. */
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.2rem 1rem 0.5rem;
+}
+
+.threadInner {
+  max-width: 46rem; /* 약 736px */
   margin: 0 auto;
 }
 
-.thread {
-  display: grid;
-  gap: 0.6rem;
-  align-content: start;
-  min-height: 9rem;
-  max-height: 22rem;
-  overflow-y: auto;
-  padding: 0.9rem 1rem;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+/* ---------- 메시지 ---------- */
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  /* 말풍선 사이를 넉넉히 띄워 누가 말했는지 바로 보이게 합니다. */
+  gap: 1.1rem;
+  list-style: none;
+  padding-bottom: 0.5rem;
 }
 
-.message {
-  max-width: 90%;
-  padding: 0.55rem 0.8rem;
-  border-radius: var(--radius);
-  font-size: 0.88rem;
-  line-height: 1.6;
+.row {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
 }
 
-.messageAssistant {
-  justify-self: start;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+.rowUser {
+  align-self: flex-end;
+  align-items: flex-end;
 }
 
-.messageUser {
-  justify-self: end;
-  background: var(--accent-soft);
-  border: 1px solid rgba(167, 139, 250, 0.22);
+.rowAssistant {
+  align-self: flex-start;
+  align-items: flex-start;
 }
 
 .messageRole {
-  display: block;
-  margin-bottom: 0.15rem;
-  font-size: 0.68rem;
+  margin-bottom: 0.25rem;
+  padding: 0 0.2rem;
+  font-size: 0.7rem;
   font-weight: 650;
   color: var(--text-dim);
+}
+
+.bubble {
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  /* 한글은 글자가 빽빽해 라틴 문자보다 줄 간격이 더 필요합니다. */
+  line-height: 1.75;
+}
+
+.rowUser .bubble {
+  background: var(--panel-2);
+  border-color: var(--border-strong);
 }
 
 .suggestion {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin-top: 0.5rem;
+  margin-top: 0.6rem;
   padding: 0.25rem 0.7rem;
-  border: 1px solid rgba(167, 139, 250, 0.35);
+  border: 1px solid var(--accent);
   border-radius: 999px;
-  background: var(--panel);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.8rem;
   font-weight: 600;
-  transition: background-color 0.12s ease;
 }
 
 .suggestion:hover {
-  background: var(--accent-soft);
+  background: var(--panel-2);
 }
 
-/* ---------- 입력창 ---------- */
+/* ---------- 아직 대화가 없을 때 ---------- */
 
-.composer {
+.empty {
   display: grid;
+  justify-items: center;
+  text-align: center;
   gap: 0.5rem;
-  padding: 0.75rem;
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  /* 이 화면의 중심이라는 것이 보이도록 살짝 강조합니다. */
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.08);
+  padding: 2rem 0 1rem;
 }
 
-.input {
-  min-height: 4.5rem;
-  resize: vertical;
-  font-size: 0.92rem;
-  line-height: 1.6;
+.emptyTitle {
+  margin-top: 0.4rem;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
-.composerRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+.emptyText {
+  max-width: 34rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.7;
 }
-
-/* ---------- 바로가기 ---------- */
 
 .shortcuts {
   display: grid;
   gap: 0.6rem;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  width: 100%;
+  margin-top: 1.2rem;
+  text-align: left;
 }
 
 .shortcut {
   display: grid;
   gap: 0.2rem;
   align-content: start;
-  padding: 0.7rem 0.8rem;
+  padding: 0.8rem 0.85rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  color: var(--text);
+  color: inherit;
   transition:
     border-color 0.12s ease,
     background-color 0.12s ease;
 }
 
 .shortcut:hover {
+  border-color: var(--border-strong);
   background: var(--panel-2);
-  border-color: var(--accent);
 }
 
-.shortcutGlyph {
-  font-size: 0.9rem;
+.shortcutIcon {
+  width: 1.15rem;
+  height: 1.15rem;
+  stroke-width: 1.75;
   color: var(--accent);
+  margin-bottom: 0.25rem;
 }
 
 .shortcutTitle {
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .shortcutDescription {
-  color: var(--text-muted);
-  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+/* ---------- 입력창 ---------- */
+
+.composerArea {
+  flex: 0 0 auto;
+  padding: 0.6rem 1rem 1rem;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.composerInner {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.45rem 0.45rem 0.45rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  transition: border-color 0.12s ease;
+}
+
+.composer:focus-within {
+  border-color: var(--focus);
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* 높이는 자바스크립트가 줄 수에 맞춰 조절합니다. */
+  resize: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  padding: 0.35rem 0;
+}
+
+.input:focus {
+  /* 테두리는 바깥 .composer 가 그립니다. */
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-dim);
+}
+
+.send {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--accent-strong-edge);
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition:
+    opacity 0.12s ease,
+    background-color 0.12s ease;
+}
+
+.send:hover:not(:disabled) {
+  background: var(--accent-strong-edge);
+}
+
+.send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin-top: 0.45rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
   line-height: 1.5;
+}
+
+/* ---------- 좁은 화면 ---------- */
+
+@media (max-width: 40rem) {
+  .threadScroll {
+    padding: 0.9rem 0.75rem 0.4rem;
+  }
+
+  .composerArea {
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+
+  .row {
+    max-width: 92%;
+  }
+
+  .empty {
+    padding-top: 1.2rem;
+  }
 }

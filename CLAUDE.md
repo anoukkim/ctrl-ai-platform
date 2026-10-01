@@ -1,10 +1,16 @@
-# Ctrl AI — Product + Claude Code Project Instructions
+# CTRL+AI — Product + Claude Code Project Instructions
 
 ## 1. Product Summary
 
-Repository: `anoukkim/ctrl-ai-platform`
+Repository: `anoukkim/ctrl-ai-platform` (the repository name stays as it is)
 
-Ctrl AI is a beginner-friendly AI creation community.
+The community is called **CTRL+AI**. That is the name members see — in the
+sidebar, on the Chat welcome, and in the page title. The repository, the
+database and the code keep their existing `ctrl-ai` / `ctrlai` spellings;
+renaming them would break remotes and connection strings for a change
+nobody can see.
+
+CTRL+AI is a beginner-friendly AI creation community.
 
 Most users are expected to be entry-level users who may not know how to code, use APIs, configure development environments, or work with AI tools directly.
 
@@ -14,10 +20,10 @@ The opening screen is **Chat**.
 
 Chat is the main entry point where users can:
 - ask general questions
-- ask for help using Ctrl AI
+- ask for help using CTRL+AI
 - describe something they want to build
 - describe a video they want to make
-- be routed into the correct Ctrl AI workspace
+- be routed into the correct CTRL+AI workspace
 
 The main product areas are:
 
@@ -42,6 +48,7 @@ answered them, and they are no longer up for debate:
 | Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
 | Roles | **`admin` and `member` only.** |
+| Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
 
 Remaining names in this document are working names and may still change.
 
@@ -53,7 +60,7 @@ Users should not need to understand technical architecture.
 
 The desired experience is:
 
-`I describe what I want -> Ctrl AI helps me create it -> I can publish/share it`
+`I describe what I want -> CTRL+AI helps me create it -> I can publish/share it`
 
 For apps:
 
@@ -61,7 +68,7 @@ For apps:
 
 For videos:
 
-`Chat/Idea -> Video Generator -> Claude assists prompt/script -> Higgsfield generates -> Ctrl AI library -> YouTube -> CtrlAITube`
+`Chat/Idea -> Video Generator -> Claude assists prompt/script -> Higgsfield generates -> CTRL+AI library -> YouTube -> CtrlAITube`
 
 The platform should hide unnecessary infrastructure complexity from normal members.
 
@@ -74,14 +81,14 @@ Chat is the default home screen after login.
 It is both:
 
 1. a general Claude chat
-2. a natural-language router into Ctrl AI features
+2. a natural-language router into CTRL+AI features
 
 Examples:
 
 User:
 > Make me a simple expense tracker app.
 
-Ctrl AI can suggest:
+CTRL+AI can suggest:
 - Start this in Builder
 - Create a new project
 - Continue discussing requirements in Chat
@@ -89,7 +96,7 @@ Ctrl AI can suggest:
 User:
 > I want to make a 20-second short about Tokyo at night.
 
-Ctrl AI can suggest:
+CTRL+AI can suggest:
 - Open Video Generator
 - Draft a prompt/script with Claude
 - Generate with Higgsfield
@@ -97,7 +104,7 @@ Ctrl AI can suggest:
 User:
 > How many credits do I have left?
 
-Ctrl AI can show:
+CTRL+AI can show:
 - Claude credits
 - Higgsfield/video credits
 - current quarter allocation
@@ -106,7 +113,7 @@ Ctrl AI can show:
 User:
 > Show me the apps I made last quarter.
 
-Ctrl AI can route to:
+CTRL+AI can route to:
 - Profile -> My Projects / My Apps
 
 Chat should NOT require users to know feature names.
@@ -206,7 +213,7 @@ Possible layout:
 +------------------------------------------------------+
 ```
 
-However, do NOT run arbitrary member code directly on the main Ctrl AI backend.
+However, do NOT run arbitrary member code directly on the main CTRL+AI backend.
 
 A secure isolated execution/sandbox system is a later milestone.
 
@@ -221,8 +228,8 @@ Each user should be able to connect their own GitHub account.
 
 Preferred long-term approach:
 - GitHub App
-- user authorizes Ctrl AI
-- Ctrl AI receives only the repository permissions needed
+- user authorizes CTRL+AI
+- CTRL+AI receives only the repository permissions needed
 
 GitHub recommends GitHub Apps over classic OAuth apps in many cases because permissions can be more fine-grained and users have better control over repository access.
 
@@ -238,7 +245,7 @@ Builder should eventually support:
 - show repository URL
 - sync project status
 
-Do NOT ask members to paste personal access tokens into Ctrl AI.
+Do NOT ask members to paste personal access tokens into CTRL+AI.
 
 ### 4.5 Publishing to CtrlAI Apps
 
@@ -328,7 +335,7 @@ Higgsfield
 - generate short/video
    |
    v
-Ctrl AI video library
+CTRL+AI video library
    |
    +----> Publish to CtrlAITube
    |
@@ -382,14 +389,14 @@ Flow:
 
 `Profile -> Connect YouTube -> Google OAuth -> authorized channel`
 
-Ctrl AI should later allow:
+CTRL+AI should later allow:
 - see connected channel
 - upload a generated/final video to that channel
 - set title
 - description
 - privacy
 - save returned YouTube video ID
-- embed published video in Ctrl AI
+- embed published video in CTRL+AI
 
 YouTube uploads require OAuth authorization.
 
@@ -412,7 +419,7 @@ CtrlAITube is the community video feed.
 A video can be:
 - created using Higgsfield
 - uploaded/published to the creator's YouTube channel
-- represented in Ctrl AI using its YouTube video ID/link
+- represented in CTRL+AI using its YouTube video ID/link
 
 The feed shows embedded YouTube videos rather than trying to replace YouTube hosting.
 
@@ -424,12 +431,12 @@ Members can:
 - comment
 - reply to comments
 
-## Important: Ctrl AI Comments vs YouTube Comments
+## Important: CTRL+AI Comments vs YouTube Comments
 
-CtrlAITube should have its OWN Ctrl AI community discussion.
+CtrlAITube should have its OWN CTRL+AI community discussion.
 
 That means:
-- Ctrl AI reactions/comments are stored in Ctrl AI PostgreSQL
+- CTRL+AI reactions/comments are stored in CTRL+AI PostgreSQL
 - YouTube comments remain separate
 
 Optionally show a separate section such as:
@@ -497,7 +504,7 @@ Admin can choose what simplified units members see.
 
 # 10. Quarterly Participation
 
-Ctrl AI operates by calendar quarter. A quarter is normally three months.
+CTRL+AI operates by calendar quarter. A quarter is normally three months.
 (The earlier four-month "Season" concept is no longer used anywhere.)
 
 Examples:
@@ -607,7 +614,7 @@ If privacy/legal requirements later require account deletion, design a separate 
 
 # 11. Authentication and Profile
 
-Users should be able to create a Ctrl AI account.
+Users should be able to create a CTRL+AI account.
 
 Initial fields:
 - username
@@ -622,15 +629,15 @@ Security:
 - enforce unique username/email
 - server-side sessions or secure token-based auth
 
-Connected accounts are separate from Ctrl AI login:
+Connected accounts are separate from CTRL+AI login:
 
 ```text
-Ctrl AI account
+CTRL+AI account
 ├── GitHub connection
 └── YouTube/Google connection
 ```
 
-A user should not be required to use GitHub or Google as their primary login just to use Ctrl AI.
+A user should not be required to use GitHub or Google as their primary login just to use CTRL+AI.
 
 ## Profile
 
@@ -947,7 +954,7 @@ Use for:
 
 Application provider calls must use backend APIs.
 
-A user's Claude subscription is NOT the same thing as the Ctrl AI application's Anthropic API access.
+A user's Claude subscription is NOT the same thing as the CTRL+AI application's Anthropic API access.
 
 ## Higgsfield
 
@@ -1202,7 +1209,7 @@ hang off it are Phase 1b.
 
 Participation is a real model, `QuarterMembership`, with one row per
 member per quarter. It is per quarter rather than a single flag on the
-user because Ctrl AI runs by quarter: someone may be active in Q1, sit out
+user because CTRL+AI runs by quarter: someone may be active in Q1, sit out
 Q2 and return in Q3, and that history is what attribution depends on.
 
 **A missing row means "not participating."** No inactive row is written
@@ -1212,7 +1219,7 @@ Two statuses answer two different questions and must not be confused:
 
 | Column | Question it answers |
 | ------ | ------------------- |
-| `User.account_status` | May this person use Ctrl AI at all? |
+| `User.account_status` | May this person use CTRL+AI at all? |
 | `QuarterMembership.status` | Are they participating in *this* quarter? |
 
 The rules, as enforced:
@@ -1366,7 +1373,7 @@ Implement:
 - upload selected generated video
 - title/description/privacy
 - save YouTube ID
-- embed in Ctrl AI
+- embed in CTRL+AI
 
 Use a **localhost callback URL** during development. Note that YouTube API
 projects which have not passed Google's audit may have uploaded videos
@@ -1379,13 +1386,13 @@ Implement:
 - **entries created from a pasted YouTube URL**
 - YouTube embeds
 - creator attribution
-- Ctrl AI reactions
-- Ctrl AI comments
+- CTRL+AI reactions
+- CTRL+AI comments
 - threaded replies
 - optionally show YouTube comments in a separate labeled area
 
 **Phase 8 does not depend on Phase 7.** A member can paste the URL of a
-video they uploaded to YouTube themselves; Ctrl AI extracts the video ID and
+video they uploaded to YouTube themselves; CTRL+AI extracts the video ID and
 creates the entry. Automatic publishing from Phase 7 is a convenience on top
 of this, not a prerequisite — so the community feed can be built and filled
 with real videos before any Google OAuth work exists.
@@ -1598,8 +1605,9 @@ real database, with no provider connected.
   real `get_current_user` / `require_admin`. Merged.
 - **Phase 1b** — membership: per-quarter `QuarterMembership`,
   `require_active_member` on paid creation. Merged.
-- **Phase 1c** — usage ledger and audit log, on branch
-  `phase-1c-usage-audit`. Not yet merged.
+- **Phase 1c** — usage ledger and audit log: charging and the
+  `UsageEvent` row in one locked transaction, the real admin member list,
+  the append-only audit log. Merged.
 
 **The next task is Phase 2 — Chat** (section 20):
 
@@ -1611,8 +1619,8 @@ real database, with no provider connected.
 > `charge()` service, and check the budget before calling the provider,
 > never after.
 
-`docs/BACKLOG.md` holds the order of work, including the `ui-brand-refresh`
-batch queued after Phase 1c.
+`docs/BACKLOG.md` holds the order of work. The `ui-brand-refresh` UI batch
+is built and waiting on review ahead of Phase 2.
 
 No mock data remains in the money path. What is still mock: the CtrlAI
 Apps and CtrlAITube listings (Phases 5 and 8) and the Chat replies

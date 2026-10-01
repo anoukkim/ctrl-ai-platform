@@ -14,8 +14,8 @@
   width: 2.8rem;
   height: 2.8rem;
   border-radius: 50%;
-  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--on-accent);
   font-size: 1.05rem;
   font-weight: 700;
 }

@@ -5,7 +5,7 @@
  * Claude / Higgsfield / GitHub / YouTube 중 어느 것도 연결되어 있지 않습니다.
  *
  * 언어 규칙:
- * - 제품/기능 이름(Ctrl AI, Chat, Project Builder, Video Generator,
+ * - 제품/기능 이름(CTRL+AI, Chat, Project Builder, Video Generator,
  *   CtrlAI Apps, CtrlAITube, Usage, Profile, Admin)과 외부 서비스 이름
  *   (Claude, Higgsfield, GitHub, YouTube)은 영어를 유지합니다.
  * - 그 외 사용자가 읽고 쓰는 모든 텍스트는 한국어로 작성합니다.
@@ -52,8 +52,9 @@ export interface ShortcutAction {
   title: string;
   description: string;
   href: string;
-  /** 카드에 표시할 기호. 아이콘 라이브러리를 쓰지 않기 위해 문자로 둡니다. */
-  glyph: string;
+  /** 카드에 쓸 lucide 아이콘 이름. 화면이 이 이름을 아이콘으로 바꿉니다.
+   *  데이터 파일에는 컴포넌트를 두지 않으려고 이름만 적습니다. */
+  icon: "build" | "video" | "apps" | "tube";
 }
 
 export const CHAT_SHORTCUTS: ShortcutAction[] = [
@@ -61,25 +62,25 @@ export const CHAT_SHORTCUTS: ShortcutAction[] = [
     title: "앱 만들기",
     description: "만들고 싶은 것을 이야기하면 Project Builder에서 시작합니다.",
     href: "/builder",
-    glyph: "◆",
+    icon: "build",
   },
   {
     title: "영상 만들기",
     description: "떠오르는 장면을 적으면 짧은 영상으로 만들어 봅니다.",
     href: "/video",
-    glyph: "▶",
+    icon: "video",
   },
   {
     title: "CtrlAI Apps 둘러보기",
     description: "다른 회원들이 만든 앱을 구경해 보세요.",
     href: "/ctrlaistore",
-    glyph: "▣",
+    icon: "apps",
   },
   {
     title: "CtrlAITube 보기",
     description: "커뮤니티에서 만든 영상을 감상해 보세요.",
     href: "/ctrlaitube",
-    glyph: "◉",
+    icon: "tube",
   },
 ];
 
@@ -181,8 +182,8 @@ export const MOCK_FILE_CONTENTS: Record<string, string> = {
   );
 }`,
   "globals.css": `body {
-  background: #0b0e14;
-  color: #e4e8f0;
+  background: #001433;
+  color: #f2f2f2;
   font-family: "Pretendard", system-ui, sans-serif;
 }`,
   "HabitForm.tsx": `export function HabitForm({ onAdd }: HabitFormProps) {
@@ -215,7 +216,7 @@ export const MOCK_FILE_CONTENTS: Record<string, string> = {
   "README.md": `# 습관 한눈에
 
 매일 습관을 체크하고 한 주의 달성률을 확인하는 앱입니다.
-Ctrl AI의 Project Builder로 만들었습니다.`,
+CTRL+AI의 Project Builder로 만들었습니다.`,
 };
 
 export const MOCK_BUILDER_CHAT: { role: "user" | "assistant"; body: string }[] = [
@@ -264,7 +265,7 @@ export const VIDEO_STEPS: VideoStep[] = [
   {
     label: "결과 확인",
     detail: "완성된 영상이 내 보관함에 저장됩니다.",
-    provider: "Ctrl AI",
+    provider: "CTRL+AI",
   },
   {
     label: "YouTube에 게시",
@@ -569,7 +570,7 @@ export interface CommunityVideo {
   prompt: string;
   artwork: [string, string];
   reactions: Record<ReactionType, number>;
-  /** Ctrl AI에 저장되는 커뮤니티 댓글. YouTube 댓글과 섞지 않습니다. */
+  /** CTRL+AI에 저장되는 커뮤니티 댓글. YouTube 댓글과 섞지 않습니다. */
   comments: Comment[];
   /** 별도 영역에 따로 표시되는 YouTube 댓글 수. */
   youtubeCommentCount: number;
@@ -656,7 +657,7 @@ export function findVideo(id: string): CommunityVideo | undefined {
  * 사용 내역 한 줄.
  *
  * 금액(원)과 어느 주머니에서 나갔는지를 함께 적습니다. 제공자가 실제로
- * 청구한 금액과 Ctrl AI가 예산에서 차감한 금액은 다를 수 있어, 백엔드의
+ * 청구한 금액과 CTRL+AI가 예산에서 차감한 금액은 다를 수 있어, 백엔드의
  * UsageEvent는 둘을 따로 보관합니다.
  */
 export interface UsageEvent {

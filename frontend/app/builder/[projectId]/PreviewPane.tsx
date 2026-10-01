@@ -22,7 +22,7 @@
  * 필요 없어 Vercel 배포를 건드리지 않습니다. 대신 Node가 없어 Next.js 같은
  * 서버 앱은 미리볼 수 없습니다.
  *
- * 절대 지켜야 할 것: 회원이 만든 코드를 Ctrl AI 백엔드에서 실행하지
+ * 절대 지켜야 할 것: 회원이 만든 코드를 CTRL+AI 백엔드에서 실행하지
  * 않습니다. 미리보기는 브라우저 안에서만 격리되어 돌아갑니다.
  */
 
@@ -66,7 +66,7 @@ const MockRuntime: PreviewRuntime = {
       <p className={styles.previewTitle}>미리보기는 아직 실행되지 않습니다</p>
       <p className={styles.previewText}>
         만든 앱을 이 자리에서 바로 확인할 수 있게 준비하고 있습니다. 브라우저 안에서만
-        안전하게 실행되며, 회원이 만든 코드가 Ctrl AI 서버에서 돌아가는 일은 없습니다.
+        안전하게 실행되며, 회원이 만든 코드가 CTRL+AI 서버에서 돌아가는 일은 없습니다.
       </p>
       <p className={styles.previewMeta}>
         시작 파일 <code>{entry}</code> · 파일 {Object.keys(files).length}개 준비됨

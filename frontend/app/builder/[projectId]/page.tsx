@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 import BuilderWorkspace from "./BuilderWorkspace";
 
 export const metadata: Metadata = {
-  title: "Project Builder — Ctrl AI",
+  title: "Project Builder — CTRL+AI",
 };
 
 interface Props {

@@ -7,9 +7,9 @@ import MyQuarterProvider from "@/app/components/MyQuarterProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ctrl AI",
+  title: "CTRL+AI",
   description:
-    "누구나 쉽게 시작하는 AI 창작 커뮤니티. 이야기하듯 앱을 만들고 영상을 만들어 공유하세요.",
+    "CTRL+AI — 함께 만들고 함께 나누는 AI 창작 커뮤니티. 이야기하듯 앱을 만들고 영상을 만들어 공유하세요.",
 };
 
 // `children` is typed explicitly rather than with Next's generated

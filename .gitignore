@@ -30,6 +30,13 @@ next-env.d.ts
 # whole team gets them. Per-developer settings are not.
 .claude/settings.local.json
 
+# Transcript exports. Claude Code writes them into whichever directory it
+# was started from, named <date>-<time>-<slug>.txt, and they can be over a
+# megabyte of session log. Keep them out of git. Only the date-prefixed
+# name is ignored, so an ordinary .txt file still commits normally.
+/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
+/frontend/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
+
 # ---------- Editors / OS ----------
 .vscode/
 .idea/

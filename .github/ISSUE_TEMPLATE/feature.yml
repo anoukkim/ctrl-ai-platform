@@ -1,0 +1,27 @@
+name: 기능 제안
+description: 있었으면 하는 기능을 알려 주세요.
+title: "[제안] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        여기에 적는 내용은 **누구나 볼 수 있습니다.**
+        개인 정보는 쓰지 마세요.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: 어떤 기능이었으면 하나요
+      placeholder: 예) 만든 영상을 폴더로 묶어서 정리하고 싶습니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: 그게 있으면 무엇이 좋아지나요
+      description: 지금은 어떻게 하고 계신지 함께 적어 주시면 도움이 됩니다.
+      placeholder: 예) 영상이 스무 개가 넘으니 찾는 데 시간이 오래 걸립니다.
+    validations:
+      required: true

@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 import UsageView from "./UsageView";
 
 export const metadata: Metadata = {
-  title: "Usage — Ctrl AI",
+  title: "Usage — CTRL+AI",
 };
 
 export default function UsagePage() {

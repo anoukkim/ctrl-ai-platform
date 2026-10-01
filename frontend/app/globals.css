@@ -1,4 +1,4 @@
-/* Ctrl AI — 디자인 시스템
+/* CTRL+AI — 디자인 시스템
  *
  * 개발 도구(코드 에디터)에서 영감을 받은 어두운 테마입니다. 색은 여기에서
  * 토큰으로 한 번만 정의하고, 각 화면은 토큰만 사용합니다.
@@ -13,34 +13,91 @@
 :root {
   color-scheme: dark;
 
-  /* 배경: 사이드바가 가장 어둡고, 작업 영역이 그다음, 카드가 가장 밝습니다. */
-  --bg-rail: #080a0f;
-  --bg: #0b0e14;
-  --panel: #10141d;
-  --panel-2: #151a25;
-  --elevated: #1a202d;
+  /*
+   * 색은 모두 여기에서만 정합니다. 화면 파일에는 색을 직접 쓰지 않습니다.
+   *
+   * 바탕은 중립 회색입니다. 개발 도구(VS Code, GitHub, Linear)처럼 배경은
+   * 색을 거의 갖지 않고, 회사 색은 강조에만 씁니다. 배경까지 색을 입히면
+   * 정작 강조해야 할 곳이 묻힙니다.
+   *
+   * 쓰지 않는 색:
+   *   #003c71, 브랜드 그라데이션 — 회사 로고 전용입니다.
+   *   남색 계열 배경(#001433 등) — 바탕은 중립 회색만 씁니다.
+   * 회사 로고 자체도 제품 화면에는 넣지 않습니다.
+   */
 
-  --border: #1e2431;
-  --border-strong: #2b3446;
+  /* ---------- 바탕 (중립 회색, 어두운 쪽에서 밝은 쪽으로) ---------- */
+  --bg: #0a0a0b;
+  --bg-rail: #111113;
+  --panel: #161618;
+  --panel-2: #1c1c1f;
+  --elevated: #1c1c1f;
 
-  --text: #e4e8f0;
-  --text-muted: #8a93a8;
-  --text-dim: #626b7f;
+  /* ---------- 선 ----------
+   * --border 는 칸을 나누는 장식용 선입니다. 장식이라 대비 기준이 없습니다.
+   * --border-strong 은 입력칸·버튼처럼 조작하는 요소의 테두리입니다.
+   * 그런 요소의 윤곽은 배경과 3:1 이상이어야 하는데, #2a2a2e 는 가장 밝은
+   * 바탕 위에서 1.19:1 밖에 되지 않아 따로 밝은 값을 둡니다. */
+  --border: #2a2a2e;
+  --border-strong: #6e6e78;
 
-  /* 강조색은 아껴서 씁니다. 보라가 기본, 파랑/청록은 보조입니다. */
-  --accent: #a78bfa;
-  --accent-strong: #8b5cf6;
-  --accent-soft: rgba(167, 139, 250, 0.14);
-  --blue: #60a5fa;
-  --blue-soft: rgba(96, 165, 250, 0.14);
-  --cyan: #22d3ee;
+  /* ---------- 글자 ---------- */
+  --text: #f2f2f2;
+  --text-muted: #cccccc;
+  --text-dim: #999999;
 
-  --ok: #4ade80;
-  --ok-soft: rgba(74, 222, 128, 0.13);
-  --warn: #fbbf24;
-  --warn-soft: rgba(251, 191, 36, 0.13);
-  --error: #f87171;
-  --error-soft: rgba(248, 113, 113, 0.13);
+  /* ---------- 강조 ----------
+   * 회사 색은 여기부터입니다. 바탕이 중립이라 적게 써도 충분히 보입니다. */
+  --accent: #9ac2fe;
+  --accent-soft: rgba(154, 194, 254, 0.12);
+  /* 고른 상태의 칩·탭 테두리. --accent 를 그대로 쓰면 가리키기만 한
+   * 상태와 구분이 되지 않아, 같은 색을 옅게 깐 값을 따로 둡니다. */
+  --accent-border: rgba(154, 194, 254, 0.4);
+
+  /* 기본 버튼의 채움색. 어두운 바탕 위의 글자색으로는 쓰지 않습니다 —
+   * 바탕과 2.68:1 밖에 되지 않습니다. 버튼 윤곽이 보이도록 테두리에는
+   * 한 단계 밝은 파랑을 씁니다. */
+  --accent-strong: #0153cc;
+  --accent-strong-edge: #3485fe;
+  --on-accent: #ffffff;
+  /* 초점 표시선. 키보드로 이동할 때 어디에 있는지 보여 줍니다. */
+  --focus: #3485fe;
+
+  /* ---------- 영역별 강조색 ---------- */
+  --build: #bb33ff;
+  --build-text: #dd99ff;
+  --build-soft: rgba(187, 51, 255, 0.14);
+  --video: #00eeff;
+  --video-text: #00eeff;
+  --video-soft: rgba(0, 238, 255, 0.12);
+  /* 영상 미리보기 무대 위쪽의 옅은 빛. 장식이라 글자가 올라가지 않습니다. */
+  --video-glow: rgba(0, 238, 255, 0.08);
+
+  /* 영상 버전의 자리 그림. 실제 영상이 아니라 목록에서 버전을 구분하기
+   * 위한 색이고, 네 가지를 돌려 씁니다. 모두 --video(#00eeff)를 어둡게
+   * 한 단계들이어서 영상 영역의 색에서 벗어나지 않습니다. 그림 위에는
+   * 흰 글자가 올라가므로 어두운 쪽 값만 씁니다. */
+  --video-art-1: linear-gradient(150deg, #081619, #0b6b76);
+  --video-art-2: linear-gradient(150deg, #0a1b1f, #107f8b);
+  --video-art-3: linear-gradient(150deg, #071317, #0a5460);
+  --video-art-4: linear-gradient(150deg, #0b1d20, #13929f);
+
+  /* ---------- 상태 ----------
+   * 성공과 주의는 원본 팔레트에 없어 중립 바탕에 맞게 골랐습니다. */
+  --ok: #4ec98b;
+  --ok-text: #7ee0b0;
+  --ok-soft: rgba(78, 201, 139, 0.13);
+  --warn: #e0a722;
+  --warn-text: #f0c35c;
+  --warn-soft: rgba(224, 167, 34, 0.13);
+  --error: #e64d54;
+  --error-text: #f2a6aa;
+  --error-soft: rgba(230, 77, 84, 0.13);
+
+  /* ---------- 로고 ----------
+   * 화면 전체에서 유일한 그라데이션입니다. + 표식에만 씁니다. */
+  --logo-from: #3485fe;
+  --logo-to: #bb33ff;
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -114,7 +171,7 @@ code {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -226,21 +283,21 @@ code {
 }
 
 .badge-ok {
-  color: var(--ok);
+  color: var(--ok-text);
   background: var(--ok-soft);
-  border-color: rgba(74, 222, 128, 0.25);
+  border-color: rgba(93, 219, 164, 0.3);
 }
 
 .badge-warn {
-  color: var(--warn);
+  color: var(--warn-text);
   background: var(--warn-soft);
-  border-color: rgba(251, 191, 36, 0.25);
+  border-color: rgba(240, 180, 41, 0.3);
 }
 
 .badge-error {
-  color: var(--error);
+  color: var(--error-text);
   background: var(--error-soft);
-  border-color: rgba(248, 113, 113, 0.25);
+  border-color: rgba(230, 77, 84, 0.35);
 }
 
 .badge-muted {
@@ -252,7 +309,7 @@ code {
 .badge-accent {
   color: var(--accent);
   background: var(--accent-soft);
-  border-color: rgba(167, 139, 250, 0.25);
+  border-color: rgba(154, 194, 254, 0.3);
 }
 
 /* 아직 동작하지 않는 자리를 표시합니다. */
@@ -295,15 +352,17 @@ code {
 
 .btn-primary {
   background: var(--accent-strong);
-  border-color: var(--accent-strong);
-  color: #0a0a12;
+  /* 테두리를 한 단계 밝게 둡니다. 채움색만으로는 버튼의 윤곽이 배경과
+     2.71:1 이라 조작 요소 기준(3:1)에 못 미칩니다. */
+  border-color: var(--accent-strong-edge);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent);
+  background: var(--accent-strong-edge);
   border-color: var(--accent);
-  color: #0a0a12;
+  color: var(--on-accent);
 }
 
 .btn-sm {
@@ -363,11 +422,11 @@ code {
 .meter-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  background: linear-gradient(90deg, var(--build), var(--build-text));
 }
 
 .meter-fill-blue {
-  background: linear-gradient(90deg, #3b82f6, var(--cyan));
+  background: linear-gradient(90deg, var(--video), #7df6ff);
 }
 
 /* ---------- 공용 ---------- */

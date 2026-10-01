@@ -24,6 +24,7 @@
   color: var(--text);
 }
 
+/* 로고 표식과 이름을 한 줄로 */
 .brandMark {
   display: inline-flex;
   align-items: center;
@@ -33,18 +34,6 @@
 }
 
 /* 제품 표시. 아이콘 라이브러리 없이 CSS로만 그립니다. */
-.brandGlyph {
-  display: grid;
-  place-items: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
 .brandPhase {
   font-size: 0.68rem;
   font-weight: 600;
@@ -151,18 +140,38 @@
   color: var(--text);
 }
 
+/* 선택된 항목: 옅은 배경 + 왼쪽 표시선 + 링크색. 글자를 굵게 하면 폭이
+   바뀌어 목록이 흔들리므로 굵기는 그대로 둡니다. */
+/* 선택된 항목.
+ *
+ * 바탕은 중립 회색 한 단계만 올리고, 색은 왼쪽 막대와 아이콘에만 씁니다.
+ * 바탕까지 파랗게 칠하면 사이드바에서 그 줄만 떠 보입니다. 글자 굵기는
+ * 바꾸지 않습니다 — 폭이 달라져 목록이 흔들립니다. */
 .navLinkActive {
-  background: var(--accent-soft);
+  background: var(--panel-2);
   border-left-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--text);
 }
 
-.navGlyph {
-  width: 1rem;
-  text-align: center;
-  font-size: 0.78rem;
-  opacity: 0.85;
+.navLinkActive .navIcon {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* 아이콘은 한 벌(lucide)만 쓰고, 크기와 선 굵기를 여기서 한 번만 정합니다.
+   항목마다 다르게 두면 줄이 미세하게 어긋나 보입니다. */
+.navIcon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+  /* 글자의 가운데선에 맞춰 살짝 올립니다. */
+  margin-top: -1px;
+  opacity: 0.9;
+}
+
+.navLinkActive .navIcon {
+  opacity: 1;
 }
 
 /* ---------- 회원 상태 블록 ---------- */
@@ -216,6 +225,7 @@
   font-family: var(--mono);
   font-size: 0.72rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 
@@ -234,13 +244,16 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.4rem;
+  /* 이름과 값이 붙지 않도록 최소 간격을 둡니다. */
+  gap: 0.6rem;
   font-size: 0.72rem;
   color: var(--text-muted);
 }
 
 .meterValue {
+  font-family: var(--mono);
   font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
 
@@ -267,8 +280,8 @@
   width: 1.35rem;
   height: 1.35rem;
   border-radius: 50%;
-  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--on-accent);
   font-size: 0.68rem;
   font-weight: 700;
 }
@@ -287,6 +300,16 @@
 .mainInner {
   max-width: 68rem;
   margin: 0 auto;
+}
+
+/* Chat: 여백은 ChatWorkspace가 직접 두고, 바깥은 높이만 정합니다. */
+.mainChat {
+  padding: 0;
+}
+
+.mainChat .mainInner {
+  max-width: none;
+  margin: 0;
 }
 
 /* 작업 공간 화면(Project Builder, Video Generator)은 여백 없이 화면을
@@ -328,12 +351,14 @@
   }
 
   /* 작업 공간은 화면 높이를 고정하고, 스크롤은 각 판 안에서만 생깁니다. */
-  .mainWorkspace {
+  .mainWorkspace,
+  .mainChat {
     height: 100vh;
     overflow: hidden;
   }
 
-  .mainWorkspace .mainInner {
+  .mainWorkspace .mainInner,
+  .mainChat .mainInner {
     height: 100%;
   }
 }
@@ -390,4 +415,17 @@
   border-color: var(--border-strong);
   color: var(--text);
   background: var(--panel-2);
+}
+
+/* 좁은 화면에서도 Chat은 화면 높이를 씁니다. 위쪽 막대 높이만큼 뺍니다.
+   이게 없으면 입력창이 페이지와 함께 스크롤되어 밀려납니다. */
+@media (max-width: 59.99rem) {
+  .mainChat {
+    height: calc(100dvh - 3.2rem);
+    overflow: hidden;
+  }
+
+  .mainChat .mainInner {
+    height: 100%;
+  }
 }

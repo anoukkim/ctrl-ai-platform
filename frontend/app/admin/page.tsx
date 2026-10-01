@@ -16,7 +16,7 @@ import AdminWorkspace from "./AdminWorkspace";
 import styles from "./admin.module.css";
 
 export const metadata: Metadata = {
-  title: "Admin — Ctrl AI",
+  title: "Admin — CTRL+AI",
 };
 
 export default function AdminPage() {
@@ -25,7 +25,7 @@ export default function AdminPage() {
       <header className="page-header page-header-stacked">
         <h1 className="page-title">Admin</h1>
         <p className="page-subtitle">
-          회원 관리, 분기 관리, 지원금 관리를 담당합니다. 제공자 이용 권한은 Ctrl AI가 갖고
+          회원 관리, 분기 관리, 지원금 관리를 담당합니다. 제공자 이용 권한은 CTRL+AI가 갖고
           회원별 사용량을 기록하므로, 회원이 직접 API 키를 보관하지 않습니다.
         </p>
       </header>

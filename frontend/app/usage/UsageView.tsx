@@ -139,7 +139,13 @@ export default function UsageView() {
                   <span className={styles.remainingLabel}>남음</span>
                 </p>
 
-                <div className="meter">
+                {/* 막대가 비율을 보여 주므로 "% 사용" 배지는 두지 않습니다.
+                    대신 화면 낭독기를 위해 같은 내용을 이름으로 남깁니다. */}
+                <div
+                  className="meter"
+                  role="img"
+                  aria-label={`${item.category === "build" ? "Build" : "Video"} 지원금 중 ${percent}% 사용`}
+                >
                   <div
                     className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
                     style={{ width: `${percent}%` }}

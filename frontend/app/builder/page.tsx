@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 import BuilderLibrary from "./BuilderLibrary";
 
 export const metadata: Metadata = {
-  title: "Project Builder — Ctrl AI",
+  title: "Project Builder — CTRL+AI",
 };
 
 export default function BuilderLibraryPage() {

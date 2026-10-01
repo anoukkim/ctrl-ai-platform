@@ -11,7 +11,7 @@ import { MOCK_APPS } from "@/lib/mock-data";
 import AppGrid from "./AppGrid";
 
 export const metadata: Metadata = {
-  title: "CtrlAI Apps — Ctrl AI",
+  title: "CtrlAI Apps — CTRL+AI",
 };
 
 export default function CtrlAIStorePage() {

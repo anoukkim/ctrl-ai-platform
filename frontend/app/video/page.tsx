@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 import VideoLibrary from "./VideoLibrary";
 
 export const metadata: Metadata = {
-  title: "Video Generator — Ctrl AI",
+  title: "Video Generator — CTRL+AI",
 };
 
 export default function VideoLibraryPage() {

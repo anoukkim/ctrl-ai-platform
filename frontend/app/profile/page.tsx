@@ -22,7 +22,7 @@ import QuarterParticipation from "./QuarterParticipation";
 import styles from "./profile.module.css";
 
 export const metadata: Metadata = {
-  title: "Profile — Ctrl AI",
+  title: "Profile — CTRL+AI",
 };
 
 // 게시된 앱 목록은 아직 목업입니다(Phase 5).
@@ -74,7 +74,7 @@ export default function ProfilePage() {
             </span>
           </div>
           <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            Ctrl AI는 개인 접근 토큰을 붙여넣어 달라고 요청하지 않습니다.
+            CTRL+AI는 개인 접근 토큰을 붙여넣어 달라고 요청하지 않습니다.
           </p>
         </section>
       </div>

@@ -14,6 +14,7 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
+import { Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -38,21 +39,39 @@ import {
   type VideoChatMessage,
 } from "@/lib/mock-data";
 
+import VideoSettings, {
+  ALL_ASPECTS,
+  ALL_DURATIONS,
+  ASPECT_LABEL,
+  ASPECT_RATIO_CSS,
+  type Aspect,
+} from "./VideoSettings";
 import styles from "./workspace.module.css";
+
+/** 한 버전을 만들 때 쓴 설정. 백엔드는 아직 이것을 저장하지 않으므로
+ *  (VideoVersion에 길이·비율·소리 칸이 없습니다) 이번 세션에서 만든
+ *  버전만 여기에 기억해 둡니다. 저장은 docs/BACKLOG.md의
+ *  project-video-management 항목으로 넘겼습니다. */
+interface VersionSettings {
+  duration: number;
+  aspect: Aspect;
+  sound: boolean;
+}
 
 /** 미리보기 길이(초). 실제 영상이 아니라 재생 느낌만 흉내 냅니다. */
 const PREVIEW_SECONDS = 15;
 const TICK_MS = 150;
 
-/** 버전마다 다른 색을 주어 목록에서 구분되게 합니다. */
-const VERSION_ARTWORK: [string, string][] = [
-  ["#1e1b4b", "#7c3aed"],
-  ["#0f172a", "#6d28d9"],
-  ["#0c1222", "#4338ca"],
-  ["#0b1020", "#5b21b6"],
+/** 버전마다 다른 색을 주어 목록에서 구분되게 합니다. 색 자체는
+ *  globals.css의 토큰이고, 여기에는 토큰 이름만 둡니다. */
+const VERSION_ARTWORK = [
+  "var(--video-art-1)",
+  "var(--video-art-2)",
+  "var(--video-art-3)",
+  "var(--video-art-4)",
 ];
 
-function artworkFor(index: number): [string, string] {
+function artworkFor(index: number): string {
   return VERSION_ARTWORK[index % VERSION_ARTWORK.length];
 }
 
@@ -89,6 +108,14 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState<null | "saving" | "saved">(null);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // 생성 설정. 기본값은 모델이 지원하는 것 중 첫 번째로, 아래 효과가
+  // 모델이 바뀔 때마다 다시 맞춥니다.
+  const [duration, setDuration] = useState(10);
+  const [aspect, setAspect] = useState<Aspect>("9:16");
+  const [sound, setSound] = useState(true);
+  // 이번 세션에서 만든 버전의 설정. 백엔드가 아직 저장하지 않습니다.
+  const [versionSettings, setVersionSettings] = useState<Record<number, VersionSettings>>({});
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
 
@@ -177,6 +204,37 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     return () => clearInterval(timer);
   }, [isPlaying]);
 
+  /* ---------- 모델에 맞춘 실제 설정 ---------- */
+
+  // 고친 값을 저장하지 않고 그때그때 계산합니다. 회원이 고른 값은 그대로
+  // 두고, 지금 모델이 지원하지 않을 때만 가장 가까운 값으로 바꿔서 씁니다.
+  // 그래서 지원하는 모델로 되돌리면 원래 고른 값이 그대로 돌아옵니다.
+  const capabilities =
+    state.phase === "ready" ? (state.project.selected_model?.capabilities ?? null) : null;
+  const capDurations = capabilities?.durations ?? [];
+  const capAspects = capabilities?.aspect_ratios ?? [];
+  const capSound = capabilities?.sound ?? true;
+
+  const durations = capDurations.length > 0 ? capDurations : ALL_DURATIONS;
+  const aspects = capAspects.length > 0 ? capAspects : ALL_ASPECTS;
+
+  const effectiveDuration = durations.includes(duration)
+    ? duration
+    : durations.reduce((best, value) =>
+        Math.abs(value - duration) < Math.abs(best - duration) ? value : best,
+      );
+  const effectiveAspect: Aspect = aspects.includes(aspect) ? aspect : (aspects[0] as Aspect);
+  const effectiveSound = capSound ? sound : false;
+
+  // 바뀐 것이 있으면 왜 바뀌었는지 한 줄로 알려 줍니다. 조용히 바꾸면
+  // 생성 결과가 예상과 달라집니다.
+  const adjustments: string[] = [];
+  if (effectiveDuration !== duration) adjustments.push(`길이를 ${effectiveDuration}초로`);
+  if (effectiveAspect !== aspect) adjustments.push(`비율을 ${ASPECT_LABEL[effectiveAspect]}로`);
+  if (effectiveSound !== sound) adjustments.push("소리를 끔으로");
+  const settingNotice =
+    adjustments.length > 0 ? `이 모델에 맞춰 ${adjustments.join(", ")} 바꿨습니다.` : null;
+
   /* ---------- 바깥 클릭으로 전환 메뉴 닫기 ---------- */
 
   useEffect(() => {
@@ -236,6 +294,16 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
       // 프롬프트를 먼저 저장해야 버전에 지금 내용이 기록됩니다.
       await updateVideoProject(projectId, { prompt });
       const version = await createVideoVersion(projectId);
+      // 백엔드는 길이·비율·소리를 아직 저장하지 않으므로, 이번 세션에서
+      // 만든 버전에 한해 여기에 기억해 둡니다.
+      setVersionSettings((current) => ({
+        ...current,
+        [version.id]: {
+          duration: effectiveDuration,
+          aspect: effectiveAspect,
+          sound: effectiveSound,
+        },
+      }));
       await load();
       setSelectedVersionId(version.id);
     } catch (error) {
@@ -243,7 +311,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [generating, load, projectId, prompt]);
+  }, [effectiveAspect, effectiveDuration, effectiveSound, generating, load, projectId, prompt]);
 
   const markFinal = useCallback(async () => {
     if (!selectedVersionId) return;
@@ -312,6 +380,8 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   const selectedIndex = versions.findIndex((v) => v.id === selectedVersionId);
   const selected = selectedIndex >= 0 ? versions[selectedIndex] : null;
   const artwork = artworkFor(selectedIndex >= 0 ? selectedIndex : 0);
+  /** 이 버전을 만들 때 쓴 설정. 이번 세션에서 만든 것만 알 수 있습니다. */
+  const selectedSettings = selected ? versionSettings[selected.id] : undefined;
   const elapsed = (progress / 100) * PREVIEW_SECONDS;
   const isFinal = selected !== null && project.final_version_id === selected.id;
 
@@ -413,7 +483,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   value={project.selected_model_id ?? "auto"}
                   onChange={(event) => void chooseModel(event.target.value)}
                 >
-                  {/* Auto는 Ctrl AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
+                  {/* Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
                   <option value="auto">Auto — 추천</option>
                   {models.map((model) => (
                     <option key={model.id} value={model.id}>
@@ -424,33 +494,41 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 <p className={styles.settingHint}>
                   {project.selected_model
                     ? project.selected_model.description
-                    : "Ctrl AI가 알맞은 모델을 고릅니다."}
+                    : "CTRL+AI가 알맞은 모델을 고릅니다."}
                 </p>
               </div>
 
-              {/* 모델마다 지원하는 설정이 다르므로, 고른 모델이 알려 준
-                  것만 보여 줍니다. 고정된 목록을 적어 두지 않습니다. */}
-              {project.selected_model?.capabilities && (
-                <div className={styles.settingRow}>
-                  <span className={styles.settingLabel}>이 모델이 지원하는 설정</span>
-                  <div className={styles.chips}>
-                    {(project.selected_model.capabilities.durations ?? []).map((d) => (
-                      <span className={styles.chip} key={`d-${d}`}>
-                        {d}초
-                      </span>
-                    ))}
-                    {(project.selected_model.capabilities.aspect_ratios ?? []).map((r) => (
-                      <span className={styles.chip} key={`r-${r}`}>
-                        {r}
-                      </span>
-                    ))}
-                    <span className={styles.chip}>
-                      소리 {project.selected_model.capabilities.sound ? "지원" : "미지원"}
-                    </span>
-                  </div>
-                </div>
+              <VideoSettings
+                duration={effectiveDuration}
+                aspect={effectiveAspect}
+                sound={effectiveSound}
+                supportedDurations={capDurations}
+                supportedAspects={capAspects}
+                supportsSound={capSound}
+                onDuration={setDuration}
+                onAspect={setAspect}
+                onSound={setSound}
+              />
+
+              {settingNotice && (
+                <p className={styles.settingNotice} role="status">
+                  {settingNotice}
+                </p>
               )}
             </div>
+
+            {/* 생성 전에 무엇으로 만드는지 한 줄로 확인합니다. */}
+            <p className={styles.summary}>
+              <span className={styles.summaryModel}>
+                {project.selected_model?.display_name ?? "Auto"}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>{effectiveDuration}초</span>
+              <span aria-hidden="true">·</span>
+              <span>{ASPECT_LABEL[effectiveAspect]}</span>
+              <span aria-hidden="true">·</span>
+              <span>{capSound ? (effectiveSound ? "소리 켬" : "소리 끔") : "소리 없음"}</span>
+            </p>
 
             <div className={styles.actions}>
               <button
@@ -481,6 +559,14 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
             <span className={ws.paneHeadTitle}>
               미리보기
               {selected && <span className="badge badge-muted">{selected.label}</span>}
+              {/* 이 버전을 만들 때의 설정. 아직 백엔드가 저장하지 않아
+                  이번 세션에서 만든 버전에만 표시됩니다. */}
+              {selectedSettings && (
+                <span className={styles.previewSettings}>
+                  {selectedSettings.duration}초 · {ASPECT_LABEL[selectedSettings.aspect]}
+                  {selectedSettings.sound ? " · 소리 켬" : ""}
+                </span>
+              )}
               {isFinal && <span className="badge badge-ok">최종본</span>}
             </span>
             <span>{selected ? selected.model_id : "버전 없음"}</span>
@@ -497,11 +583,16 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               </div>
             ) : (
               <>
-                <div className={styles.player}>
+                <div
+                  className={styles.player}
+                  style={{
+                    aspectRatio: ASPECT_RATIO_CSS[selectedSettings?.aspect ?? effectiveAspect],
+                  }}
+                >
                   <div
                     className={`${styles.playerArt} ${isPlaying ? styles.playerArtPlaying : ""}`}
                     style={{
-                      background: `linear-gradient(150deg, ${artwork[0]}, ${artwork[1]})`,
+                      background: artwork,
                     }}
                   >
                     <div>
@@ -522,7 +613,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                       }}
                     >
                       <span className={styles.playOverlayGlyph} aria-hidden="true">
-                        ▶
+                        <Play size={16} aria-hidden="true" />
                       </span>
                       <span className="sr-only">재생</span>
                     </button>
@@ -559,7 +650,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                         }}
                         aria-label={isPlaying ? "일시정지" : "재생"}
                       >
-                        {isPlaying ? "❚❚" : "▶"}
+                        {isPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
                       </button>
                       <button
                         className={styles.controlBtn}
@@ -688,15 +779,22 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                     <span
                       className={styles.versionThumb}
                       style={{
-                        background: `linear-gradient(150deg, ${artworkFor(index)[0]}, ${
-                          artworkFor(index)[1]
-                        })`,
+                        background: artworkFor(index),
                       }}
                       aria-hidden="true"
                     />
                     <span className={styles.versionMeta}>
                       <span>{version.label}</span>
-                      <span className={styles.versionTime}>{formatClock(version.created_at)}</span>
+                      {versionSettings[version.id] ? (
+                        <span className={styles.versionTime}>
+                          {versionSettings[version.id].duration}초 ·{" "}
+                          {versionSettings[version.id].aspect}
+                        </span>
+                      ) : (
+                        <span className={styles.versionTime}>
+                          {formatClock(version.created_at)}
+                        </span>
+                      )}
                     </span>
                     {project.final_version_id === version.id && (
                       <span className="badge badge-ok">최종</span>

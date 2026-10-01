@@ -1,15 +1,15 @@
-# Ctrl AI
+# CTRL+AI
 
 A beginner-friendly AI creation community. Members describe what they want
-in Korean, and Ctrl AI helps them build an app or make a short video, then
+in Korean, and CTRL+AI helps them build an app or make a short video, then
 share it with the community.
 
 Most members are not expected to code, use APIs or configure a development
-environment, so the product hides that complexity. Ctrl AI owns provider
+environment, so the product hides that complexity. CTRL+AI owns provider
 access — members never hold API keys — and records usage per member and
 quarter.
 
-`내가 원하는 것을 말한다 → Ctrl AI가 만들어 준다 → 공유한다`
+`내가 원하는 것을 말한다 → CTRL+AI가 만들어 준다 → 공유한다`
 
 # Current Status
 
@@ -17,7 +17,7 @@ quarter.
 slice of the product: a Next.js frontend with the full navigation and every
 screen present, a FastAPI backend, and PostgreSQL via Docker Compose.
 
-**Chat is the opening screen.** Ctrl AI is aimed at members who may not code, so
+**Chat is the opening screen.** CTRL+AI is aimed at members who may not code, so
 the entry point is a conversation, not a dashboard.
 
 **The interface is Korean-first** with English product names. See
@@ -36,7 +36,7 @@ principles.
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
 | CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
-| CtrlAITube            | Mock feed plus detail pages; Ctrl AI comments kept separate from YouTube comments |
+| CtrlAITube            | Mock feed plus detail pages; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
 | Admin                 | **Live** — real member list, enrolment, KRW credit panel, audit log               |
@@ -65,13 +65,24 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore`        | CtrlAI Apps     | Community app listings                       |
 | `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
-| `/ctrlaitube/[id]`    | Video detail    | Ctrl AI comments + separate YouTube section  |
+| `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
 | `/usage`              | Usage           | Community support and personal balance, in KRW |
 | `/profile`            | Profile         | Quarter participation, application, accounts |
+| `/issues`             | 문제 신고        | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Members, quarters, applications, video models |
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAI Apps**; the path was kept so existing links do not break.
+
+## Name
+
+The community is **CTRL+AI** — that is what members see in the sidebar, on
+the Chat welcome and in the page title. The repository, the database and
+the code keep their existing `ctrl-ai` / `ctrlai` spellings: renaming them
+would break remotes and connection strings for a change nobody can see.
+
+Product names (Chat, Project Builder, Video Generator, CtrlAI Apps,
+CtrlAITube, Usage, Profile, Admin) are unchanged, as are all routes.
 
 Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
 generated API documentation.
@@ -85,7 +96,7 @@ frame in `frontend/app/components/workspace.module.css`.
 
 **Project Builder** — selecting a file changes the editor contents. Nothing
 generates or runs code: that is Phase 3, and member code will never execute on
-the Ctrl AI backend.
+the CTRL+AI backend.
 
 **Video Generator** is deliberately not a one-shot form. It models the loop a
 real creator works in:
@@ -103,7 +114,7 @@ applying it, generating a new version, switching between versions, replaying the
 ## Language
 
 The interface is **Korean-first**. Product and feature names stay in English
-(Ctrl AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube,
+(CTRL+AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube,
 Usage, Profile, Admin), as do external service names (Claude, Higgsfield,
 GitHub, YouTube) and technical terms such as file names, code and repository
 names. Everything a member reads or writes — prompts, conversations, helper
@@ -363,10 +374,10 @@ Browser  ->  Next.js (frontend)  ->  FastAPI (backend)  ->  PostgreSQL
 ```
 
 The browser never talks to the database or to an AI provider directly. Every
-request that costs money or touches data goes through the Ctrl AI backend,
+request that costs money or touches data goes through the CTRL+AI backend,
 because that is the only place where a permission check, a quarterly budget
 limit, and a provider API key can live safely. Members never hold provider
-keys; Ctrl AI owns provider access and records usage per member and quarter.
+keys; CTRL+AI owns provider access and records usage per member and quarter.
 
 A few decisions worth knowing if you are new to this kind of stack:
 
@@ -394,7 +405,7 @@ A few decisions worth knowing if you are new to this kind of stack:
 
 ## Quarters, applications and money
 
-**Ctrl AI operates by calendar quarter** — 2026 Q1, 2026 Q2, and so on.
+**CTRL+AI operates by calendar quarter** — 2026 Q1, 2026 Q2, and so on.
 A quarter is three months. (The earlier four-month "Season" concept is gone;
 nothing in the product uses it.)
 
@@ -590,7 +601,7 @@ default. Going live is deliberately last.
 | **5** | CtrlAI Apps — publish a project, listings, reactions, threaded comments | Not started |
 | **6** | Video Generator — Higgsfield adapter behind `VIDEO_PROVIDER`, generation, budget deduction | Not started |
 | **7** | YouTube integration — Google OAuth, channel connection, upload (localhost callback) | Not started |
-| **8** | CtrlAITube — community feed, entries from a **pasted YouTube URL**, Ctrl AI comments kept separate from YouTube's | Not started |
+| **8** | CtrlAITube — community feed, entries from a **pasted YouTube URL**, CTRL+AI comments kept separate from YouTube's | Not started |
 | **9** | **Go Live** — domain, HTTPS, hosting, managed PostgreSQL, Secret Manager, production CORS and cookies, migrations in production, providers switched to real, OAuth callbacks updated | 💳 Paid cloud resources — **ask before creating any** |
 | Later | Secure runtime for member apps — isolated containers, resource limits | Not started |
 

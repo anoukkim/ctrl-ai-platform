@@ -1,0 +1,45 @@
+/* Chat 첫 화면의 환영 영역.
+ *
+ * 처음 온 사람에게 여기가 어떤 곳인지 한 번에 알려 주는 자리입니다.
+ * 아래 대화 영역이 주인공이므로 높이를 낮게 두고 색도 아껴 씁니다.
+ */
+
+.welcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.2rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  /* 로고와 같은 계열의 왼쪽 선. 그라데이션은 로고에만 쓰므로
+     여기서는 단색입니다. */
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.welcomeMark {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.welcomeTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.welcomeText {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  max-width: 44rem;
+}
+
+/* 좁은 화면에서는 표식을 위로 올려 글이 눌리지 않게 합니다. */
+@media (max-width: 30rem) {
+  .welcome {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+}

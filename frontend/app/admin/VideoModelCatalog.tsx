@@ -8,7 +8,7 @@
  * 제공자의 모델 목록은 바뀌기 때문입니다.
  *
  * 스위치는 두 개이고 뜻이 다릅니다.
- *   Enabled        — Ctrl AI가 이 모델을 호출해도 되는가
+ *   Enabled        — CTRL+AI가 이 모델을 호출해도 되는가
  *   Member visible — 회원이 직접 고를 수 있는가
  * 회원에게는 둘 다 켜진 모델만 보입니다. Enabled를 끄면 백엔드가
  * Member visible도 함께 끕니다.

@@ -1,5 +1,5 @@
 /**
- * Ctrl AI 프로젝트 API 클라이언트.
+ * CTRL+AI 프로젝트 API 클라이언트.
  *
  * 화면은 주소를 알 필요가 없도록, 네트워크 호출은 여기에 모읍니다.
  * 응답 모양은 백엔드의 app/schemas/builder.py, app/schemas/video.py와
@@ -157,7 +157,7 @@ export interface VideoProjectDetail extends VideoProject {
   selected_model: VideoModel | null;
 }
 
-/** "Auto"는 Ctrl AI의 선택지이지 Higgsfield 모델 id가 아닙니다. */
+/** "Auto"는 CTRL+AI의 선택지이지 Higgsfield 모델 id가 아닙니다. */
 export const AUTO_MODEL = "auto" as const;
 
 export function listVideoModels(): Promise<VideoModel[]> {
