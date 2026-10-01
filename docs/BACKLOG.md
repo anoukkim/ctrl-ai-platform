@@ -15,44 +15,62 @@ says what order things happen in.
 
 ## Now
 
-**Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
+Nothing is being built. Two branches are finished and waiting on review:
 
-Branch created and brought up to date with `main` (which now contains 1a
-and 1b). **No 1c work committed yet.** Scope: a usage router that records
-`UsageEvent` through the budget service in the same transaction as the
-deduction; the real admin member list, quarter enrolment and a KRW credit
-panel; an `AuditLog` table written on every admin change plus a read-only
-audit view; a development-only "simulate usage" action; removal of the
-remaining mock exports; and the Usage page redesign.
+| Branch | State |
+| ------ | ----- |
+| `phase-1c-usage-audit` | **Complete, unmerged.** 6 commits. Transactional charging with a row lock, the usage ledger, the append-only audit log, the real admin member list with a KRW credit panel, a development-only simulate action, and the Usage page redesign. 128 tests passing. |
+| `ui-brand-refresh` | **Complete, unmerged.** 11 commits. CTRL+AI name and + logo, lucide icons, the neutral dark palette, the `/issues` page, the rebuilt Chat screen, the Usage card redesign, and the Video length/ratio/sound controls. |
+
+They touch the same files — `globals.css`, `usage/page.tsx`,
+`usage/usage.module.css`, `admin/page.tsx` and `README.md` all conflict
+between the two — so the merge order has to be decided rather than
+stumbled into.
 
 ---
 
 ## Next (in order)
 
-1. **Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
-   See **Now**.
+1. **UI batch 1** · branch `ui-brand-refresh`
+   Built and awaiting review — see **Now**. Full spec saved verbatim below.
 
-2. **UI batch 1** · branch `ui-brand-refresh`
-   Full spec saved verbatim below. Its open question is now resolved:
-   `main` contains 1a and 1b, so branching from an up-to-date `main` is
-   what the spec asks for and gives the current UI.
+2. **budget-by-provider** · branch `feat-budget-by-provider`
+   Spec saved verbatim below.
 
-3. **prep-beta-launch**
+3. **project-video-management** · branch `feat-project-video-management`
+   Spec saved verbatim below.
+
+4. **prep-beta-launch**
    Not yet specified.
 
-4. **Phase 2 — Chat**
+5. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
+> **Two items were named in the requested order but skipped**, because
+> they are not in this backlog and no spec has been given for them:
+> **membership-access-fix** (would be 2nd) and **video-higgsfield-only**
+> (would be 5th). Send a spec for either and it goes in at that position.
+>
+> **Phase 1c** was not in the requested order either, but it is finished
+> work rather than a future item, so it is recorded under **Now** instead
+> of being dropped.
+
 ### Merge order
 
-`main` now contains Phase 1a and Phase 1b. Only one phase branch is still
-stacked:
+`main` contains Phase 1a and Phase 1b. Two branches are waiting:
 
 ```text
-main  <-  phase-1c-usage-audit
+main  <-  phase-1c-usage-audit     (6 commits, complete)
+main  <-  ui-brand-refresh         (11 commits, complete)
 ```
+
+They conflict with each other in five files. `phase-1c-usage-audit`
+carries the real usage data, and `ui-brand-refresh` carries the styling of
+the same screens, so merging 1c first and then resolving the UI branch
+against it keeps the real data and loses only styling that can be
+re-applied.
 
 ---
 
@@ -115,6 +133,71 @@ The spec says *"from up-to-date main"*, and as of 2026-10-01 that is now
 true — `main` contains Phase 1a and Phase 1b, so it has the login pages,
 the `내 정보` sidebar group and the `Phase 1 — 개발 중` subtitle the spec
 refers to. Branch `ui-brand-refresh` from `main`.
+
+## budget-by-provider — full spec
+
+Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
+
+> Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
+>
+> 1. Two budgets per member per quarter, named by provider: "Claude" and "Higgsfield". Rename the current Build budget to Claude everywhere (data, API, UI, docs) with an Alembic migration that keeps existing data. Chat, Project Builder and the Video prompt helper all charge Claude; video generation, editing and extension charge Higgsfield.
+> 2. Every UsageEvent records: provider, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), the native unit and amount (Claude input and output tokens; Higgsfield credits), the KRW amount, and the rate used for conversion. Conversion rates live in an admin-editable settings table with history, so past events keep the rate they were charged at.
+> 3. Club pool per quarter and provider: the admin enters the company-approved amount for Claude and for Higgsfield. Member allocations plus reserve can never exceed the pool (enforced in the backend).
+> 4. Reserve: by default 20% of each provider pool is held back as club reserve; the admin can change this percentage per quarter. Members can request extra budget from Usage with a short reason; admin approves or rejects in Admin, paid from the reserve, written to the audit log.
+> 5. Admin pool dashboard per provider: approved pool, allocated to members, actually used, reserve remaining, usage by feature tag.
+> 6. Quarter report: Admin can download a CSV (and an on-screen summary) per quarter with usage by provider and feature, native units and KRW, number of active members, and utilisation rate, for the next funding application.
+> 7. Member side: Usage shows the two provider budgets, with usage broken down by feature. A one-time notice at 80% used. Before any Higgsfield action, show the estimated cost in KRW next to the button.
+> 8. Members cannot move budget between providers.
+>
+> Tests: allocations plus reserve cannot exceed the pool, the default reserve is 20%, reserve requests deduct from the reserve, usage events store native units and the rate, rate changes do not alter past events, the CSV totals match the database, and every feature charges the correct provider.
+
+---
+
+## project-video-management — full spec
+
+Branch `feat-project-video-management`. Saved exactly as written by the developer.
+
+> 1. Delete Builder projects and videos
+>    - Delete button on each project and video, in the library list and in the workspace, with a Korean confirmation dialog that names the item.
+>    - Only the owner can delete, and only while they are an active member; admins can delete any item (written to the audit log). Backend enforces this.
+>    - Soft delete (deleted_at), so it disappears for the member but an admin can restore it. Add a restore action in Admin.
+>    - Deleting also removes the item from CtrlAI Apps or CtrlAITube if it was published.
+>    - Never delete UsageEvent records or budget history: usage already spent stays recorded.
+>
+> 2. Download videos
+>    - Download button on each finished video, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
+>    - Files go through a storage interface: local folder in development, cloud storage later (Phase 9), so nothing changes when we go live.
+>    - Until Phase 6 connects a real provider, the mock provider produces a small placeholder video so the download flow can be tested end to end.
+>    - The file name is readable: the video title plus date, safe characters only.
+>
+> 3. Download code as a ZIP
+>    - "코드 다운로드 (ZIP)" button in each Builder project, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
+>    - The ZIP contains all project files in their folder structure plus a short README explaining how to open or run it.
+>    - Never include secrets, .env files or anything outside the project.
+>    - Safe ZIP building: no ../ paths, a size limit, a clear Korean error if the project is too large.
+>
+> Tests: owner can delete/download, other members cannot, inactive owners can download but not delete, admin delete is audited and restorable, deleted items disappear from Apps and Tube, usage history survives deletion, ZIP contains no secrets or unsafe paths, downloads are rejected for deleted items.
+
+### Also needed here: store the generation settings per version
+
+Carried over from the earlier note on this item, since it belongs to the
+same branch. `VideoVersion` records which model made a version but not the
+**length, aspect ratio or sound** it was made with — `VideoModel.capabilities`
+only says what a model *can* do, not what was chosen.
+
+The controls already exist on `ui-brand-refresh`
+(`frontend/app/video/[projectId]/VideoSettings.tsx`), with the settings of
+versions made in the current session held in memory as a stopgap. Reload
+and older versions lose them, because there is nowhere to read them from.
+
+Needs `duration_seconds`, `aspect_ratio` and `sound` on `VideoVersion`
+with an Alembic migration (existing rows get null — their settings are
+genuinely unknown and must not be guessed), accepted on
+`POST /api/video/projects/{id}/versions` and validated against the model's
+`capabilities`, returned on `VideoVersionRead`, after which the in-memory
+map in `VideoWorkspace.tsx` is deleted.
+
+---
 
 ---
 
