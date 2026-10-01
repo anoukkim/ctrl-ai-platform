@@ -107,6 +107,10 @@ const ADMIN_GROUP: NavGroup = {
  */
 const WORKSPACE_PATTERN = /^\/(builder|video)\/[^/]+/;
 
+/** Chat도 화면 높이를 꽉 채웁니다. 대화 목록이 안에서 스크롤되고 입력창은
+ *  바닥에 붙어야 하므로, 페이지 전체가 스크롤되면 안 됩니다. */
+const CHAT_PATH = "/";
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -135,6 +139,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Admin은 위쪽 묶음에 붙입니다. 아래쪽은 "내 정보"와 계정 영역 전용입니다.
   const topGroups = user.is_admin ? [...TOP_GROUPS, ADMIN_GROUP] : TOP_GROUPS;
   const isWorkspace = WORKSPACE_PATTERN.test(pathname);
+  const isChat = pathname === CHAT_PATH;
 
   return (
     <div className={styles.shell}>
@@ -210,7 +215,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <main className={`${styles.main} ${isWorkspace ? styles.mainWorkspace : ""}`}>
+      <main
+        className={`${styles.main} ${isWorkspace ? styles.mainWorkspace : ""} ${
+          isChat ? styles.mainChat : ""
+        }`}
+      >
         <div className={styles.mainInner}>{children}</div>
       </main>
     </div>
