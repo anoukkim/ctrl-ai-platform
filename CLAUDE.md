@@ -1632,7 +1632,7 @@ chore.
 
 ---
 
-# 23. Current status / next task
+# 23. Current status
 
 **Phase 0 and Phase 1 are complete.** Accounts, quarters, participation,
 budgets, the usage ledger and the audit log all work end to end against a
@@ -1646,18 +1646,22 @@ real database, with no provider connected.
   `UsageEvent` row in one locked transaction, the real admin member list,
   the append-only audit log. Merged.
 
-**The next task is Phase 2 — Chat** (section 20):
+## What to work on next
 
-> Add the backend Claude adapter behind `CLAUDE_PROVIDER`, mock by
-> default, so the whole of Chat can be built without an Anthropic key.
-> Store conversations and messages. Route simple intents into Project
-> Builder and Video Generator — explicit actions, not an agent router.
-> Record a `UsageEvent` for every reply through the existing
-> `charge()` service, and check the budget before calling the provider,
-> never after.
+**The next task is always the top of "Next" in
+[`docs/BACKLOG.md`](docs/BACKLOG.md)** — or whichever item the developer
+names. This section does not repeat it.
 
-`docs/BACKLOG.md` holds the order of work. The `ui-brand-refresh` UI batch
-is built and waiting on review ahead of Phase 2.
+That is deliberate. This file used to name the next task outright, and the
+backlog was reordered twice in one day; the named task fell to seventh
+place while this section still called it next. Two places claiming to hold
+the same answer means one of them is wrong, and the reader cannot tell
+which. The backlog is the single ordered queue (section 22), so it is the
+only place the order is written.
+
+What belongs here instead is what does *not* change when the queue is
+reordered: the phase plan (section 20), the rules every phase follows, and
+the standing constraints below.
 
 No mock data remains in the money path. What is still mock: the CtrlAI
 Apps and CtrlAITube listings (Phases 5 and 8) and the Chat replies

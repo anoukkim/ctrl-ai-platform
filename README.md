@@ -36,7 +36,7 @@ principles.
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
 | CtrlAIApps            | Mock listings plus detail pages with reactions and threaded comments              |
-| CtrlAITube            | Mock feed plus detail pages; CTRL+AI comments kept separate from YouTube comments |
+| CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
 | Admin                 | **Live** — section hub, member/application/quarter figures, KRW budgets, audit log |
