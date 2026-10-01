@@ -15,14 +15,11 @@ says what order things happen in.
 
 ## Now
 
-**membership-access-fix** is built on `fix-membership-access` and is
-waiting on review. Not merged.
+Nothing is being built. `main` holds Phase 1, UI batch 1 and
+membership-access-fix. No branch is open.
 
-Participation is now enforced on every create, edit and delete endpoint
-rather than only on the two create routes, and the three AI surfaces say
-so before the member presses the button. The access rule for all 42
-routes is written down in `docs/architecture.md` and checked by a test,
-so the next route cannot quietly ship without one.
+Next up is **admin-restructure** on `ui-admin-restructure`, branched
+from an up-to-date `main`; the spec is saved verbatim below.
 
 ---
 
@@ -48,8 +45,6 @@ so the next route cannot quietly ship without one.
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
-**New, found while verifying membership-access-fix:**
-
 7. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
    `/video/[projectId]` never leaves "영상 프로젝트를 불러오는 중…". The
    three API calls it makes all return 200 and the console is clean, so
@@ -57,16 +52,19 @@ so the next route cannot quietly ship without one.
    (so it predates membership-access-fix) and for an active member as
    well as an inactive one, so it has nothing to do with participation.
    The Video **library** at `/video` is fine; only the workspace is
-   affected. Not investigated further — it was out of scope for the
-   branch it was found on.
+   affected. Found while verifying membership-access-fix and left alone
+   as out of scope for that branch.
 
 
 ### Merge order
 
-**membership-access-fix** is waiting on review. Merge it before starting
-**admin-restructure** — admin-restructure moves every Admin route, and
-the route/guard table and its test would have to be rewritten against a
-moving target otherwise.
+Nothing is waiting. Branch the next item from an up-to-date `main`.
+
+One thing to carry into **admin-restructure**: it moves every Admin
+route, so `EXPECTED_GUARDS` in `backend/tests/test_membership_access.py`
+and the access table in `docs/architecture.md` both have to move with
+it. That test will fail on the first new route, which is the intended
+reminder rather than a problem.
 
 ---
 
@@ -271,6 +269,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **membership-access-fix** — `require_active_member` on every create, edit and delete route rather than only the two create routes; the shared `NotParticipatingBanner` and locked controls on Chat, Project Builder and Video Generator; the access table for all 42 routes in `docs/architecture.md`, held to it by a test that fails on any new or re-guarded route | `fix-membership-access` |
 | 2026-10-01 | **UI batch 1 — brand refresh** — the CTRL+AI name and + logo mark, lucide navigation icons, the neutral dark palette as tokens with no colour left in a component, the rebuilt Chat screen, the `/issues` page with Korean GitHub issue templates, and the Video length/ratio/sound controls | `ui-brand-refresh` |
 | 2026-10-01 | **Phase 1c — usage ledger and audit log** — charging and the `UsageEvent` row in one transaction behind a `SELECT ... FOR UPDATE` lock, the real admin member list with quarter enrolment and a KRW credit panel, the append-only `AuditLog` with a read-only admin view, a development-only simulate-usage action, the Usage page redesign | `phase-1c-usage-audit` |
 | 2026-10-01 | **Phase 1b — membership** — per-quarter `QuarterMembership`, `require_active_member` on paid creation endpoints, former members locked out with attribution preserved, live membership in the sidebar, Profile and Usage header, Korean monospace fix | `phase-1b-membership` |
