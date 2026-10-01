@@ -53,7 +53,7 @@ export interface Quarter {
   application_opens_at: string | null;
   application_closes_at: string | null;
   status: QuarterStatus;
-  /** 이 분기에 회원 한 명이 받을 수 있는 공동체 지원 한도(원). */
+  /** 이 분기에 회원 한 명이 받을 수 있는 동아리 지원 한도(원). */
   subsidy_limit_krw: number;
 }
 
@@ -308,10 +308,10 @@ export function formatDate(iso: string | null): string {
 export type BudgetCategory = "build" | "video";
 export type FundingSource = "community_build" | "community_video" | "personal";
 
-/** 차감 출처 표기. 공동체 지원과 개인 잔액은 끝까지 구분해서 보여 줍니다. */
+/** 차감 출처 표기. 동아리 지원과 개인 잔액은 끝까지 구분해서 보여 줍니다. */
 export const FUNDING_LABEL: Record<FundingSource, string> = {
-  community_build: "공동체 지원",
-  community_video: "공동체 지원",
+  community_build: "동아리 지원",
+  community_video: "동아리 지원",
   personal: "개인 잔액",
 };
 

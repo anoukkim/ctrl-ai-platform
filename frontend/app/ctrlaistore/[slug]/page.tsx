@@ -38,7 +38,7 @@ export default async function AppDetailPage({ params }: AppDetailProps) {
   return (
     <>
       <Link className={styles.back} href="/ctrlaistore">
-        ← CtrlAI Apps
+        ← CtrlAIApps
       </Link>
 
       <div className={styles.hero}>

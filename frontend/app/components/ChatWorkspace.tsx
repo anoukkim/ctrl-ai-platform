@@ -92,7 +92,7 @@ function mockReply(input: string): Message {
     return {
       id,
       role: "assistant",
-      body: "이번 분기에 남은 사용량을 확인할 수 있어요. 공동체 지원과 개인 잔액은 따로 계산됩니다.",
+      body: "이번 분기에 남은 사용량을 확인할 수 있어요. 동아리 지원과 개인 잔액은 따로 계산됩니다.",
       suggestion: { label: "Usage에서 확인하기", href: "/usage" },
     };
   }
@@ -110,8 +110,8 @@ function mockReply(input: string): Message {
     return {
       id,
       role: "assistant",
-      body: "다른 회원들이 만든 앱은 CtrlAI Apps에서, 영상은 CtrlAITube에서 볼 수 있어요.",
-      suggestion: { label: "CtrlAI Apps 둘러보기", href: "/ctrlaistore" },
+      body: "다른 회원들이 만든 앱은 CtrlAIApps에서, 영상은 CtrlAITube에서 볼 수 있어요.",
+      suggestion: { label: "CtrlAIApps 둘러보기", href: "/ctrlaistore" },
     };
   }
 

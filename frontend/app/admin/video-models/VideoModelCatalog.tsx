@@ -25,6 +25,8 @@ import {
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 
+import { sectionLabel } from "../sections";
+
 import styles from "../admin.module.css";
 
 type State =
@@ -88,7 +90,7 @@ export default function VideoModelCatalog() {
   return (
     <section>
       <header className="page-header page-header-stacked">
-        <h1 className="page-title">영상 모델</h1>
+        <h1 className="page-title">{sectionLabel("video-models")}</h1>
         <p className="page-subtitle">
           회원에게 어떤 영상 모델을 열어 줄지 정합니다. 목록은 데이터베이스에 있고, 화면에
           모델 이름을 적어 두지 않습니다 — 제공자의 모델 목록은 바뀌기 때문입니다.

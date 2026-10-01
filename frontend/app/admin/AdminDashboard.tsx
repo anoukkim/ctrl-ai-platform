@@ -26,7 +26,7 @@ export default function AdminDashboard() {
   if (error !== null) {
     return (
       <div className="card">
-        <p className="small muted">대시보드를 불러오지 못했습니다. {error}.</p>
+        <p className="small muted">이번 분기의 숫자를 불러오지 못했습니다. {error}.</p>
       </div>
     );
   }
@@ -240,7 +240,7 @@ export default function AdminDashboard() {
             </ul>
             <p style={{ marginTop: "0.7rem" }}>
               <Link className="btn btn-sm" href={withQuarter("/admin/audit", selected?.id)}>
-                감사 로그 전체 보기
+                Audit Log 전체 보기
               </Link>
             </p>
           </>

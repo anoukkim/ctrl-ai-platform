@@ -1,5 +1,5 @@
 /**
- * 문제 신고 — 버그를 알리거나 아이디어를 제안하는 곳.
+ * Report Issue — 버그를 알리거나 아이디어를 제안하는 곳.
  *
  * 지금은 GitHub Issues로 보냅니다. 따로 만들 필요가 없고, 올라온 내용이
  * 공개되어 다른 회원도 같은 문제를 겪고 있는지 바로 알 수 있기 때문입니다.
@@ -13,7 +13,7 @@ import type { Metadata } from "next";
 import styles from "./issues.module.css";
 
 export const metadata: Metadata = {
-  title: "문제 신고 — CTRL+AI",
+  title: "Report Issue — CTRL+AI",
 };
 
 const NEW_ISSUE_URL = "https://github.com/anoukkim/ctrl-ai-platform/issues/new/choose";
@@ -22,7 +22,7 @@ export default function IssuesPage() {
   return (
     <>
       <header className="page-header page-header-stacked">
-        <h1 className="page-title">문제 신고</h1>
+        <h1 className="page-title">Report Issue</h1>
         <p className="page-subtitle">
           잘 안 되는 것을 알려 주시거나, 있었으면 하는 기능을 제안해 주세요.
         </p>

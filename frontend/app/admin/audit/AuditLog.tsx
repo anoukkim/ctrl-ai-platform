@@ -21,6 +21,7 @@ import { describeError } from "@/lib/http";
 import { listAuditLog, type AuditEntry } from "@/lib/quarters";
 
 import AdminTable, { type Column } from "../components/AdminTable";
+import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 
@@ -96,7 +97,7 @@ export default function AuditLogView() {
   return (
     <div className={styles.sections}>
       <header className="page-header page-header-stacked">
-        <h1 className="page-title">감사 로그</h1>
+        <h1 className="page-title">{sectionLabel("audit")}</h1>
         <p className="page-subtitle">
           관리자가 회원 자격이나 지원금을 바꾼 모든 기록입니다. 읽기 전용이며 수정하거나
           지울 수 없습니다 — 고칠 수 있는 기록은 기록이 아닙니다.
@@ -105,7 +106,7 @@ export default function AuditLogView() {
 
       {error !== null && (
         <div className="card">
-          <p className="small muted">감사 로그를 불러오지 못했습니다. {error}.</p>
+          <p className="small muted">기록을 불러오지 못했습니다. {error}.</p>
         </div>
       )}
 

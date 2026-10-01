@@ -36,6 +36,7 @@ import StatCards from "../components/StatCards";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
 import { AccountBadge, MembershipBadge } from "../components/StatusBadge";
+import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 
@@ -442,7 +443,7 @@ function PageHeader({ note }: { note?: string }) {
   return (
     <header className="page-header page-header-stacked">
       <h1 className="page-title">
-        회원
+        {sectionLabel("members")}
         {note && <span className={styles.sectionNote}> {note}</span>}
       </h1>
       <p className="page-subtitle">

@@ -7,9 +7,13 @@
  * (`usePathname`), 좁은 화면에서 메뉴 열림 상태를 기억해야 합니다.
  * 감싸는 화면들은 그대로 Server Component입니다.
  *
- * 언어 규칙: 제품/기능 이름(Chat, Project Builder, Video Generator,
- * CtrlAI Apps, CtrlAITube, Usage, Profile, Admin)은 영어를 유지하고,
- * 그 외 회원이 읽는 문구는 모두 한국어입니다.
+ * 언어 규칙: 메뉴는 전부 영어입니다 — 묶음 제목(Create, Explore,
+ * Account)과 화면 이름(Chat, Project Builder, Video Generator,
+ * CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) 모두.
+ * 메뉴 밖에서 회원이 읽는 문구는 모두 한국어입니다.
+ *
+ * 관리 묶음은 따로 없습니다. Admin은 제목이 아니라 눌러서 펼치는 항목
+ * 자체이고(`AdminNavBlock`), 그 이름은 이미 영어입니다.
  */
 
 import {
@@ -60,15 +64,15 @@ interface NavGroup {
 /**
  * 사이드바 위쪽: 무언가를 만들거나 둘러보는 곳.
  *
- * 아래쪽(내 정보)과 나눠 둔 이유는 성격이 다르기 때문입니다. 위쪽은 작업,
+ * 아래쪽(Account)과 나눠 둔 이유는 성격이 다르기 때문입니다. 위쪽은 작업,
  * 아래쪽은 내 계정과 남은 지원금입니다. 사이에 빈 공간을 두어 눈으로도
  * 구분됩니다.
  */
 const TOP_GROUPS: NavGroup[] = [
   {
-    // 묶음 제목은 일반 UI 문구라 한국어, 안에 있는 화면 이름은 제품 이름이라
-    // 영어를 유지합니다.
-    label: "만들기",
+    // 묶음 제목도 항목 이름도 영어입니다. 메뉴는 화면을 가리키는 이름표일
+    // 뿐이라 짧은 영어가 눈에 빨리 들어오고, 본문은 한국어로 설명합니다.
+    label: "Create",
     items: [
       { href: "/", label: "Chat", Icon: MessageSquare },
       { href: "/builder", label: "Project Builder", Icon: Code2 },
@@ -76,9 +80,9 @@ const TOP_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "둘러보기",
+    label: "Explore",
     items: [
-      { href: "/ctrlaistore", label: "CtrlAI Apps", Icon: LayoutGrid },
+      { href: "/ctrlaistore", label: "CtrlAIApps", Icon: LayoutGrid },
       { href: "/ctrlaitube", label: "CtrlAITube", Icon: PlayCircle },
     ],
   },
@@ -86,11 +90,11 @@ const TOP_GROUPS: NavGroup[] = [
 
 /** 사이드바 아래쪽: 분기 카드와 계정 영역 바로 위에 붙습니다. */
 const PERSONAL_GROUP: NavGroup = {
-  label: "내 정보",
+  label: "Account",
   items: [
     { href: "/usage", label: "Usage", Icon: Gauge },
     { href: "/profile", label: "Profile", Icon: User },
-    { href: "/issues", label: "문제 신고", Icon: CircleAlert },
+    { href: "/issues", label: "Report Issue", Icon: CircleAlert },
   ],
 };
 
@@ -190,7 +194,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             {/* Admin 메뉴는 관리자에게만 보입니다. 보이지 않게 하는 것은
                 편의일 뿐이고, 실제 차단은 백엔드의 require_admin이 합니다.
-                위쪽 묶음에 붙입니다 — 아래쪽은 "내 정보"와 계정 영역
+                위쪽 묶음에 붙입니다 — 아래쪽은 Account와 계정 영역
                 전용입니다. */}
             {user.is_admin && (
               <AdminNavBlock pathname={pathname} onNavigate={() => setMenuOpen(false)} />
@@ -277,7 +281,7 @@ function NavGroupBlock({
 /**
  * 사이드바의 Admin 묶음 — 눌러서 펼칩니다.
  *
- * 다른 묶음(만들기, 둘러보기)은 제목이 글자일 뿐이고 항목이 두세 개
+ * 다른 묶음(Create, Explore)은 제목이 글자일 뿐이고 항목이 두세 개
  * 입니다. Admin은 구역이 아홉 개라, 묶음 제목 자체를 누를 수 있는 단추로
  * 두고 아래에 구역을 폅니다.
  *

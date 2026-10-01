@@ -21,6 +21,7 @@ import { formatKrw, simulateUsage } from "@/lib/quarters";
 
 import { useAdminQuarter } from "../AdminQuarterProvider";
 import ResultMessage, { type Result } from "../components/ResultMessage";
+import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 
@@ -39,7 +40,7 @@ export default function DevTools() {
         <PageHeader />
         <div className="card">
           <p className="small muted">
-            개발 도구는 개발 환경에서만 쓸 수 있습니다. 이 환경에서는 백엔드가 요청을
+            Dev Tools는 개발 환경에서만 쓸 수 있습니다. 이 환경에서는 백엔드가 요청을
             받지 않습니다.
           </p>
         </div>
@@ -58,7 +59,7 @@ export default function DevTools() {
       });
       setResult({
         kind: "ok",
-        text: `${formatKrw(event.charged_krw)}을 차감했습니다. Usage 화면과 감사 로그가 함께 바뀝니다.`,
+        text: `${formatKrw(event.charged_krw)}을 차감했습니다. Usage 화면과 Audit Log가 함께 바뀝니다.`,
       });
       await refresh();
     } catch (caught) {
@@ -83,7 +84,7 @@ export default function DevTools() {
         <div className="card">
           <p className="small muted" style={{ marginBottom: "0.7rem" }}>
             제공자를 부르지 않고 내 예산에서 금액을 차감합니다. 실제 차감 코드를 그대로
-            지나가므로 Usage 화면과 감사 로그가 함께 바뀝니다.
+            지나가므로 Usage 화면과 Audit Log가 함께 바뀝니다.
           </p>
           <div className={styles.simulateRow}>
             <select
@@ -121,7 +122,7 @@ export default function DevTools() {
 function PageHeader() {
   return (
     <header className="page-header page-header-stacked">
-      <h1 className="page-title">개발 도구</h1>
+      <h1 className="page-title">{sectionLabel("dev")}</h1>
       <p className="page-subtitle">
         제공자를 붙이기 전에 예산과 기록이 실제로 움직이는지 확인하는 도구입니다. 배포
         환경에서는 동작하지 않습니다.

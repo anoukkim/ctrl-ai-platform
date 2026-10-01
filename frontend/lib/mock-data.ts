@@ -6,7 +6,7 @@
  *
  * 언어 규칙:
  * - 제품/기능 이름(CTRL+AI, Chat, Project Builder, Video Generator,
- *   CtrlAI Apps, CtrlAITube, Usage, Profile, Admin)과 외부 서비스 이름
+ *   CtrlAIApps, CtrlAITube, Usage, Profile, Admin)과 외부 서비스 이름
  *   (Claude, Higgsfield, GitHub, YouTube)은 영어를 유지합니다.
  * - 그 외 사용자가 읽고 쓰는 모든 텍스트는 한국어로 작성합니다.
  *
@@ -71,7 +71,7 @@ export const CHAT_SHORTCUTS: ShortcutAction[] = [
     icon: "video",
   },
   {
-    title: "CtrlAI Apps 둘러보기",
+    title: "CtrlAIApps 둘러보기",
     description: "다른 회원들이 만든 앱을 구경해 보세요.",
     href: "/ctrlaistore",
     icon: "apps",
@@ -409,7 +409,7 @@ export const MOCK_VIDEO_FALLBACK_REPLY =
   "아직 Claude가 연결되지 않아 예시 답변만 보여 드려요. 밝기, 카메라 움직임, 인물 구도처럼 바꾸고 싶은 점을 말씀해 주시면 프롬프트를 고쳐 드립니다.";
 
 /* ------------------------------------------------------------------ */
-/* CtrlAI Apps                                                         */
+/* CtrlAIApps                                                         */
 /* ------------------------------------------------------------------ */
 
 export type ReactionType = "like" | "useful" | "interesting";
@@ -666,7 +666,7 @@ export interface UsageEvent {
   detail: string;
   provider: string;
   chargedKrw: number;
-  source: "공동체 지원" | "개인 잔액";
+  source: "동아리 지원" | "개인 잔액";
 }
 
 /* ------------------------------------------------------------------ */

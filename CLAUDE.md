@@ -30,7 +30,7 @@ The main product areas are:
 1. Chat
 2. Builder — screen name **Project Builder**
 3. Video Generator
-4. **CtrlAI Apps** — the community app store (route stays `/ctrlaistore`)
+4. **CtrlAIApps** — the community app store (route stays `/ctrlaistore`)
 5. CtrlAITube
 6. **Usage**
 7. Profile
@@ -43,12 +43,12 @@ answered them, and they are no longer up for debate:
 
 | Decision | Settled as |
 | -------- | ---------- |
-| Interface language | **Korean-first.** Product names (Ctrl AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube, Usage, Profile, Admin) and external service names (Claude, Higgsfield, GitHub, YouTube) stay in English. Everything a member reads or writes is Korean. |
-| App store screen name | **CtrlAI Apps.** The route stays `/ctrlaistore` so existing links do not break. |
+| Interface language | **Korean-first, with an English menu.** Everything a member reads or writes is Korean, except: the navigation — group headings (Create, Explore, Account) and item names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) — plus the Admin section names and external service names (Claude, Higgsfield, GitHub, YouTube). See section 15. |
+| App store screen name | **CtrlAIApps.** The route stays `/ctrlaistore` so existing links do not break. |
 | Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
 | Roles | **`admin` and `member` only.** |
-| Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
+| Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
 
 Remaining names in this document are working names and may still change.
 
@@ -64,7 +64,7 @@ The desired experience is:
 
 For apps:
 
-`Chat/Idea -> Builder -> Claude-assisted project -> GitHub -> Publish -> CtrlAI Apps`
+`Chat/Idea -> Builder -> Claude-assisted project -> GitHub -> Publish -> CtrlAIApps`
 
 For videos:
 
@@ -247,15 +247,15 @@ Builder should eventually support:
 
 Do NOT ask members to paste personal access tokens into CTRL+AI.
 
-### 4.5 Publishing to CtrlAI Apps
+### 4.5 Publishing to CtrlAIApps
 
 When a project is ready:
 
 `Builder project -> Publish`
 
-Publishing creates or updates a CtrlAI Apps listing.
+Publishing creates or updates a CtrlAIApps listing.
 
-The Builder project and CtrlAI Apps listing should be related but not identical.
+The Builder project and CtrlAIApps listing should be related but not identical.
 
 Project = private/working development object.
 
@@ -263,9 +263,9 @@ App = community-facing published object.
 
 ---
 
-# 5. CtrlAI Apps
+# 5. CtrlAIApps
 
-Screen name: **CtrlAI Apps** (settled in Phase 0). The route is
+Screen name: **CtrlAIApps** (settled in Phase 0). The route is
 `/ctrlaistore`, kept from the earlier "App Store" working name so existing
 links do not break.
 
@@ -461,7 +461,7 @@ Example:
 ```text
 2026 Q1
 
-COMMUNITY SUPPORT
+동아리 지원
 
 Build
 지원: 70,000원
@@ -473,7 +473,7 @@ Video
 사용: 12,000원
 남음: 18,000원
 
-PERSONAL BALANCE
+개인 잔액
 
 충전 잔액:     30,000원
 개인 사용:      5,000원
@@ -485,8 +485,12 @@ in tokens or generations: provider prices change, and an approved
 allocation must not move when they do. A provider-specific quota may be
 *displayed* using the pricing captured at approval time.
 
-Community support and personal money are shown separately and never added
+Club support and personal money are shown separately and never added
 together. Personal funds are not part of the quarterly subsidy.
+
+The member-facing label is **동아리 지원** — the club's support — and
+personal money is **개인 충전**. Earlier drafts said 공동체 지원; the
+screens now say 동아리, because that is what members call CTRL+AI.
 
 Use concepts such as:
 
@@ -540,7 +544,7 @@ The Build and Video percentages must add up to exactly 100%.
 ## Quarterly subsidy limit
 
 Each approved member may receive at most **100,000 KRW per quarter** of
-community-funded budget, combined across Build and Video.
+club-funded budget, combined across Build and Video.
 
 ```text
 Build 100% / Video   0%  =  100,000 /       0
@@ -909,30 +913,51 @@ a budget) are deliberately separate figures.
 Recommended desktop navigation:
 
 ```text
-Ctrl AI
+CTRL+AI
 
-Chat
-Project Builder
-Video Generator
+Create
+  Chat
+  Project Builder
+  Video Generator
 
 Explore
-  CtrlAI Apps
+  CtrlAIApps
   CtrlAITube
 
-Usage
-Profile
+Account
+  Usage
+  Profile
+  Report Issue
 ```
 
-As built in Phase 0, the sidebar groups these in Korean — 만들기 / 둘러보기 /
-내 정보 / 관리 — while the item names themselves stay in English.
+**The navigation is entirely in English** — group headings and item names
+alike. Phase 0 built the headings in Korean (만들기 / 둘러보기 / 내 정보)
+above English item names, so every block mixed two scripts in adjacent
+lines; ui-naming made them one language. Everything outside the menu that
+a member reads is still Korean.
 
-Admin sees:
+An admin additionally sees **Admin**, below Explore. It is a single
+expanding item rather than a group heading — there is no Manage group —
+and its nine sections are named in English too:
 
 ```text
 Admin
+  Dashboard
+  Members
+  Applications
+  Quarters
+  Top-ups
+  Video Models
+  Audit Log
+  System
+  Dev Tools        (development only)
 ```
 
-as an additional item.
+Budget and Content exist in the code with their routes but are hidden
+until their features land. Those names live in **one file**,
+`frontend/app/admin/sections.ts`, which the sidebar, the tabs, the
+breadcrumbs, the dashboard cards and each section's own page heading all
+read — so a section is named once.
 
 On mobile this can become bottom navigation + More.
 
@@ -1130,7 +1155,7 @@ Build:
 - Chat as opening/default page
 - Builder mock page
 - Video Generator mock page
-- CtrlAI Apps mock page
+- CtrlAIApps mock page
 - CtrlAITube mock page
 - Usage mock page
 - Profile mock page
@@ -1328,7 +1353,7 @@ the Profile connection flow and the Builder push action are built without a
 registered GitHub App. Use a **localhost callback URL** during development;
 the production callback is registered in Phase 9.
 
-## Phase 5 — CtrlAI Apps
+## Phase 5 — CtrlAIApps
 
 Implement:
 - publish Builder project as App

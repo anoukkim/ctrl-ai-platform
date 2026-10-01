@@ -20,7 +20,7 @@ screen present, a FastAPI backend, and PostgreSQL via Docker Compose.
 **Chat is the opening screen.** CTRL+AI is aimed at members who may not code, so
 the entry point is a conversation, not a dashboard.
 
-**The interface is Korean-first** with English product names. See
+**The interface is Korean-first** with an English menu. See
 [Language](#language).
 
 [`CLAUDE.md`](CLAUDE.md) is the product definition and the phase plan.
@@ -35,7 +35,7 @@ principles.
 | Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
-| CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
+| CtrlAIApps            | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
@@ -47,7 +47,7 @@ principles.
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
 No mock data remains anywhere money is involved. What is still mock: the
-CtrlAI Apps and CtrlAITube listings (Phases 5 and 8) and the Chat replies
+CtrlAIApps and CtrlAITube listings (Phases 5 and 8) and the Chat replies
 (Phase 2).
 
 Everything that is not built yet renders a **준비 중** badge, and its controls are
@@ -62,23 +62,23 @@ disabled, so the shell is never mistaken for working functionality.
 | `/`                   | Chat            | Default landing page (requires sign-in)      |
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
-| `/ctrlaistore`        | CtrlAI Apps     | Community app listings                       |
+| `/ctrlaistore`        | CtrlAIApps      | Community app listings                       |
 | `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
-| `/usage`              | Usage           | Community support and personal balance, in KRW |
+| `/usage`              | Usage           | Club support and personal balance, in KRW    |
 | `/profile`            | Profile         | Quarter participation, application, accounts |
-| `/issues`             | 문제 신고        | Bug reports and ideas, via GitHub Issues     |
+| `/issues`             | Report Issue    | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
-| `/admin/members`      | 회원             | Search, filter, sort; row opens the member    |
-| `/admin/members/[id]` | 회원 상세        | Participation history, budgets, audit trail   |
-| `/admin/applications` | 신청 승인        | Approve or reject, with stat cards and tabs   |
-| `/admin/quarters`     | 분기 설정        | Quarter list with figures; create a quarter   |
-| `/admin/topups`       | 충전 신청        | Confirm personal top-up deposits              |
-| `/admin/video-models` | 영상 모델        | Which models members may pick                 |
-| `/admin/audit`        | 감사 로그        | Every admin change, read-only                 |
-| `/admin/system`       | 시스템           | Server health and external service status     |
-| `/admin/dev`          | 개발 도구        | Usage simulator; development only             |
+| `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
+| `/admin/members/[id]` | Member detail   | Participation history, budgets, audit trail  |
+| `/admin/applications` | Applications    | Approve or reject, with stat cards and tabs  |
+| `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
+| `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
+| `/admin/video-models` | Video Models    | Which models members may pick                |
+| `/admin/audit`        | Audit Log       | Every admin change, read-only                |
+| `/admin/system`       | System          | Server health and external service status    |
+| `/admin/dev`          | Dev Tools       | Usage simulator; development only            |
 
 `/admin/budget` and `/admin/content` exist in the code but are hidden from
 the navigation until budget-by-provider and Phases 5/8 fill them — a menu
@@ -86,7 +86,7 @@ item that always leads to an empty screen is in the way. Turning one on is
 deleting its `hidden: true` in `frontend/app/admin/sections.ts`.
 
 The App Store route is still `/ctrlaistore` although the screen is now called
-**CtrlAI Apps**; the path was kept so existing links do not break.
+**CtrlAIApps**; the path was kept so existing links do not break.
 
 ## Name
 
@@ -95,8 +95,9 @@ the Chat welcome and in the page title. The repository, the database and
 the code keep their existing `ctrl-ai` / `ctrlai` spellings: renaming them
 would break remotes and connection strings for a change nobody can see.
 
-Product names (Chat, Project Builder, Video Generator, CtrlAI Apps,
-CtrlAITube, Usage, Profile, Admin) are unchanged, as are all routes.
+Product names (Chat, Project Builder, Video Generator, CtrlAIApps,
+CtrlAITube, Usage, Profile, Report Issue, Admin) are unchanged, as are all
+routes.
 
 Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
 generated API documentation.
@@ -127,13 +128,22 @@ applying it, generating a new version, switching between versions, replaying the
 
 ## Language
 
-The interface is **Korean-first**. Product and feature names stay in English
-(CTRL+AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube,
-Usage, Profile, Admin), as do external service names (Claude, Higgsfield,
-GitHub, YouTube) and technical terms such as file names, code and repository
-names. Everything a member reads or writes — prompts, conversations, helper
-text, comments, error messages — is Korean. Members never need to write English
-prompts.
+The interface is **Korean-first, with an English menu**.
+
+**The navigation is English throughout** — the group headings (Create,
+Explore, Account), the item names (Chat, Project Builder, Video Generator,
+CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) and the Admin
+section names (Dashboard, Members, Applications, Quarters, Top-ups, Video
+Models, Audit Log, System, Dev Tools). A screen's own heading matches its
+menu name, so the two never disagree.
+
+External service names (Claude, Higgsfield, GitHub, YouTube) and technical
+terms such as file names, code and repository names stay English as well.
+
+**Everything else is Korean** — prompts, conversations, helper text,
+explanations, buttons, comments, error messages. Members never need to write
+English prompts. Where Korean body text points at a screen it uses that
+screen's English name, the way "Usage 화면" already reads.
 
 Three details matter for Korean text and are already handled:
 
@@ -338,7 +348,7 @@ Only one `next dev` may run at a time. If a previous one is still running,
 Next.js says so and prints the command to stop it; two dev servers sharing the
 same `.next` folder cause confusing build errors.
 
-The live backend status card is on **Admin → 시스템** (`/admin/system`):
+The live backend status card is on **Admin → System** (`/admin/system`):
 
 | Card shows    | Meaning                             |
 | ------------- | ----------------------------------- |
@@ -352,7 +362,7 @@ Every provider sits behind an interface with a mock implementation, chosen
 by a `*_PROVIDER` variable, and **mock is the default** — so the platform
 runs with no keys (CLAUDE.md section 20).
 
-**Admin → 시스템** shows one card per provider: mock or real, whether a key
+**Admin → System** shows one card per provider: mock or real, whether a key
 is configured, when it last worked, and why it last failed in Korean. The
 **연결 확인** button runs a check only when pressed, using the cheapest
 request available — in mock mode nothing leaves the process, and for Claude
@@ -454,7 +464,7 @@ Admin opens applications for a quarter
 ```
 
 The Build and Video percentages must add up to exactly 100%. Each approved
-member may receive at most **100,000 KRW per quarter** of community-funded
+member may receive at most **100,000 KRW per quarter** of club-funded
 budget, combined across both:
 
 | Split | Build | Video |
@@ -516,13 +526,13 @@ its own screen needs:
 | ------ | --------- | ------- |
 | Project Builder | project name, description | status |
 | Video Generator | project name, prompt | status |
-| CtrlAI Apps | app name, description, creator | category, sort |
+| CtrlAIApps | app name, description, creator | category, sort |
 | CtrlAITube | title, description, creator | creator, sort |
-| Admin — 회원 | name, username | role, account status, membership status, sort |
-| Admin — 신청 승인 | member name, username | status tabs + stat cards |
-| Admin — 충전 신청 | member name, username | top-up status |
-| Admin — 감사 로그 | summary, admin, action, target | action |
-| Admin — 영상 모델 | model name, provider, model id | — |
+| Admin — Members | name, username | role, account status, membership status, sort |
+| Admin — Applications | member name, username | status tabs + stat cards |
+| Admin — Top-ups | member name, username | top-up status |
+| Admin — Audit Log | summary, admin, action, target | action |
+| Admin — Video Models | model name, provider, model id | — |
 
 Filtering currently happens in the browser, because the data is small and
 each screen already holds its list. `SearchBar` only lifts the query out, so
@@ -574,7 +584,7 @@ ctrl-ai-platform/
 │  │  │  └─ workspace.module.css   # frame shared by the two workspaces
 │  │  ├─ builder/             # page.tsx + BuilderWorkspace.tsx
 │  │  ├─ video/               # page.tsx + VideoWorkspace.tsx
-│  │  ├─ ctrlaistore/         # CtrlAI Apps: listings + [slug] detail
+│  │  ├─ ctrlaistore/         # CtrlAIApps: listings + [slug] detail
 │  │  ├─ ctrlaitube/          # feed + [id] detail
 │  │  ├─ usage/               # Usage
 │  │  ├─ profile/             # Profile
@@ -639,7 +649,7 @@ default. Going live is deliberately last.
 | **2** | Chat — Claude adapter behind `CLAUDE_PROVIDER`, conversations, usage recording, budget checks | ← **Next** |
 | **3** | Builder MVP — projects from a prompt, generated files, editor, history | Not started |
 | **4** | GitHub integration — GitHub App, repository selection, push (localhost callback) | Not started |
-| **5** | CtrlAI Apps — publish a project, listings, reactions, threaded comments | Not started |
+| **5** | CtrlAIApps — publish a project, listings, reactions, threaded comments | Not started |
 | **6** | Video Generator — Higgsfield adapter behind `VIDEO_PROVIDER`, generation, budget deduction | Not started |
 | **7** | YouTube integration — Google OAuth, channel connection, upload (localhost callback) | Not started |
 | **8** | CtrlAITube — community feed, entries from a **pasted YouTube URL**, CTRL+AI comments kept separate from YouTube's | Not started |
