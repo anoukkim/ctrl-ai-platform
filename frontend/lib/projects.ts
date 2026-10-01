@@ -139,6 +139,20 @@ export interface VideoVersion {
   prompt_snapshot: string;
   status: VideoVersionStatus;
   created_at: string;
+  /**
+   * 이 버전을 만들 때의 설정. 프롬프트와 같은 이유로 버전마다 따로
+   * 남깁니다 — 회원이 설정을 바꿔도 버전은 자기를 만든 값을 그대로
+   * 보여 줘야 합니다.
+   *
+   * `null`은 "이 칸이 생기기 전에 만들어진 버전이라 알 수 없음"입니다.
+   * 지금 고른 값으로 메우면 안 됩니다. 그것이 10초로 만든 버전을
+   * 0:15로 재생하던 이유였습니다.
+   */
+  duration_seconds: number | null;
+  aspect_ratio: string | null;
+  sound: boolean | null;
+  /** Auto가 고른 모델인지. 화면에는 "Auto → Kling 3.0 Pro"로 나옵니다. */
+  auto_selected: boolean | null;
 }
 
 export interface VideoProject {
@@ -199,9 +213,19 @@ export function updateVideoProject(
   });
 }
 
-/** 생성 시도를 기록합니다. 아직 실제 영상은 만들어지지 않습니다. */
-export function createVideoVersion(id: number | string): Promise<VideoVersion> {
-  return request<VideoVersion>(`/video/projects/${id}/versions`, { method: "POST" });
+/** 생성 시도를 기록합니다. 아직 실제 영상은 만들어지지 않습니다.
+ *
+ *  프롬프트와 모델은 백엔드가 프로젝트에서 읽습니다. 길이·비율·소리는
+ *  프로젝트가 아니라 작업 공간의 조작부에 있으므로 여기서 보냅니다.
+ *  보낸 값이 모델에 맞는지는 백엔드가 다시 확인합니다. */
+export function createVideoVersion(
+  id: number | string,
+  settings?: { duration_seconds?: number; aspect_ratio?: string; sound?: boolean },
+): Promise<VideoVersion> {
+  return request<VideoVersion>(`/video/projects/${id}/versions`, {
+    method: "POST",
+    body: JSON.stringify(settings ?? {}),
+  });
 }
 
 /* ------------------------------------------------------------------ */

@@ -16,11 +16,11 @@ says what order things happen in.
 ## Now
 
 Nothing is being built. `main` holds Phase 1, UI batch 1,
-membership-access-fix, admin-restructure and ui-naming. No branch is
-open.
+membership-access-fix, admin-restructure, ui-naming and
+fix-video-workspace-hang. No branch is open.
 
-Next up is **fix-video-workspace-hang** on `fix-video-workspace-hang`,
-branched from an up-to-date `main`; the spec is saved verbatim below.
+Next up is **Phase 2 — Chat** on `phase-2-chat`, branched from an
+up-to-date `main`; the spec is saved verbatim below.
 
 The **Next** order was rewritten again on 2026-10-01, and this is the
 final order. **Phase 2 — Chat** moves from last place to 2 and
@@ -39,44 +39,45 @@ category because the Claude/Higgsfield rename comes later.
 
 ## Next (in order)
 
-1. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
-   A real, reproduced bug. Spec saved verbatim below.
-
-2. **Phase 2 — Chat** · branch `phase-2-chat`
+1. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20.
 
-3. **prep-beta-launch** · no branch named yet
+2. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
 
-4. **ui-tube-watch** · branch `ui-tube-watch`
+3. **ui-tube-watch** · branch `ui-tube-watch`
    The CtrlAITube watch page: two columns, player sizing by video ratio,
    and a real comment section. Spec saved verbatim below.
 
-5. **budget-by-provider** · branch `feat-budget-by-provider`
+4. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including **Application flow** and
    **Application and purchase model (decided)**. The latter wins where
    the two disagree: approval is automatic, and both providers are
    prepaid, so the item also owns purchase records, club balances and
    carry-over.
 
-6. **usage-analytics** · branch `feat-usage-analytics`
+5. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
    reads the `UsageEvent` fields that item adds, several of which Phase 2
    introduces first. Spec saved verbatim below.
 
-7. **project-video-management** · branch `feat-project-video-management`
-   Spec saved verbatim below, including **Rename projects and videos**
-   and the per-version generation settings.
+6. **project-video-management** · branch `feat-project-video-management`
+   Spec saved verbatim below, including **Rename projects and videos**.
+   ⚠ **The per-version generation settings are already done** —
+   fix-video-workspace-hang had to add them to make a version show its
+   own length. `video_versions` carries `duration_seconds`,
+   `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
+   below is history, not work.
 
-8. **account-withdrawal** · branch `feat-account-withdrawal`
+7. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-9. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+8. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section.
 
@@ -84,7 +85,7 @@ category because the Claude/Higgsfield rename comes later.
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 5:
+Three things to carry into **budget-by-provider**, now at position 4:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -752,6 +753,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **fix-video-workspace-hang** — the workspace sat on "불러오는 중" forever although every request returned 200: the load effect's cleanup marked its run superseded and threw away the response that would have ended it, leaving nothing to leave `loading` when the second request never delivered. A response is now applied whichever run asked for it, and each page gives the workspace a `key` of its projectId so one instance only ever shows one project; Project Builder had the same effect and was fixed with it. Then four problems found testing the same screen: the 16:9 player grew out of its column and covered both side panels (now a letterbox frame sized to the smaller of the column's width and its height through the ratio, with a minimum height so the stacked narrow layout cannot collapse it); the raw provider id shown beside a settings panel saying "Auto" (now "Auto → Kling 3.0 Pro"); a hard-coded 15-second player (now the version's own length); and a scripted Claude conversation in brand-new projects (now empty). Made the last two true by recording settings per version — migration `d7e1b4a9c052` adds `duration_seconds`, `aspect_ratio`, `sound` and `auto_selected`, validated against the model's capabilities on the server — which takes that scope out of project-video-management. Finally the navigation: the Video workspace's "내 영상" button opened Profile, so it is gone and the back link is the single way back in both workspaces, and Chat routes 내 영상 and 내 프로젝트 to their libraries instead of Profile | `fix-video-workspace-hang` |
 | 2026-10-01 | **ui-naming** — the navigation moved to English: group headings (Create, Explore, Account), Report Issue in place of 문제 신고, and the nine Admin section names, which the sidebar, tabs, breadcrumbs, dashboard cards and each section's own `<h1>` now all read from `sections.ts` through `sectionLabel()` instead of each screen spelling its own. CtrlAI Apps became CtrlAIApps everywhere, route `/ctrlaistore` unchanged; 공동체 지원 became 동아리 지원 everywhere including the usage ledger's funding-source badges, with 개인 충전 untouched and the `FundingSource` data values deliberately left alone. Korean prose that points at a screen now uses that screen's English name; Korean prose about the things on a screen keeps the Korean noun. 시즌 → 분기 folded in on request | `ui-naming` |
 | 2026-10-01 | **admin-restructure** — Admin split into sections on their own routes under a shared layout (breadcrumbs, tabs, the selected quarter carried in `?quarter=`); a dashboard of clickable cards; a sidebar Admin group that expands in place; 신청 승인 separated from 분기 설정, with inline 승인/거절, a reason on rejection, and a 새 분기 만들기 form; stat cards that filter on 회원 and 신청 승인, and per-quarter figures on 분기 설정, all from grouped queries in one stats service; a Korean confirmation stating the effect before every change; an 외부 서비스 panel with an on-request connection check that never exposes a credential; 예산 and 콘텐츠 hidden until their features exist. Brought the frontend its first test runner (Vitest). Migration `c3a81f5d7e24` adds `provider_status` | `ui-admin-restructure` |
 | 2026-10-01 | **membership-access-fix** — `require_active_member` on every create, edit and delete route rather than only the two create routes; the shared `NotParticipatingBanner` and locked controls on Chat, Project Builder and Video Generator; the access table for all 42 routes in `docs/architecture.md`, held to it by a test that fails on any new or re-guarded route | `fix-membership-access` |

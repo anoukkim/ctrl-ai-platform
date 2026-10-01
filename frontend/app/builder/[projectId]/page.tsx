@@ -20,5 +20,7 @@ interface Props {
 export default async function BuilderProjectPage({ params }: Props) {
   const { projectId } = await params;
 
-  return <BuilderWorkspace projectId={projectId} />;
+  // projectId마다 다른 key를 줍니다 — 이유는 video/[projectId]/page.tsx와
+  // 같습니다: 한 인스턴스가 보는 프로젝트를 하나로 고정합니다.
+  return <BuilderWorkspace key={projectId} projectId={projectId} />;
 }

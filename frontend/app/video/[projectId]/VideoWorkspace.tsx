@@ -14,7 +14,7 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
-import { Lock, Pause, Play } from "lucide-react";
+import { ArrowLeft, Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -33,9 +33,9 @@ import {
   type VideoModel,
   type VideoProject,
   type VideoProjectDetail,
+  type VideoVersion,
 } from "@/lib/projects";
 import {
-  MOCK_VIDEO_CHAT,
   MOCK_VIDEO_FALLBACK_REPLY,
   MOCK_VIDEO_REVISIONS,
   type VideoChatMessage,
@@ -52,19 +52,29 @@ import VideoSettings, {
 } from "./VideoSettings";
 import styles from "./workspace.module.css";
 
-/** 한 버전을 만들 때 쓴 설정. 백엔드는 아직 이것을 저장하지 않으므로
- *  (VideoVersion에 길이·비율·소리 칸이 없습니다) 이번 세션에서 만든
- *  버전만 여기에 기억해 둡니다. 저장은 docs/BACKLOG.md의
- *  project-video-management 항목으로 넘겼습니다. */
-interface VersionSettings {
-  duration: number;
-  aspect: Aspect;
-  sound: boolean;
+/** 재생 눈금의 간격(ms). 실제 영상이 아니라 재생 느낌만 흉내 냅니다. */
+const TICK_MS = 150;
+
+/** 버전의 길이를 모를 때 쓰는 값(초).
+ *
+ *  길이 칸이 생기기 전에 만들어진 버전에만 해당합니다. 예전에는 모든
+ *  버전을 15초로 재생했고, 그래서 10초로 만든 버전이 0:15로 보였습니다. */
+const UNKNOWN_DURATION_SECONDS = 15;
+
+/** 모델 이름을 모를 때라도 provider의 날 id는 보여 주지 않습니다.
+ *  `kling-3.0-pro` → `Kling 3.0 Pro`. 관리자가 모델을 목록에서 내리면
+ *  지난 버전이 가리키는 모델이 목록에 없을 수 있습니다. */
+function isAspect(value: string | null): value is Aspect {
+  return value === "9:16" || value === "16:9" || value === "1:1";
 }
 
-/** 미리보기 길이(초). 실제 영상이 아니라 재생 느낌만 흉내 냅니다. */
-const PREVIEW_SECONDS = 15;
-const TICK_MS = 150;
+function prettyModelId(modelId: string): string {
+  return modelId
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 /** 버전마다 다른 색을 주어 목록에서 구분되게 합니다. 색 자체는
  *  globals.css의 토큰이고, 여기에는 토큰 이름만 둡니다. */
@@ -111,7 +121,9 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
 
   const [prompt, setPrompt] = useState("");
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<VideoChatMessage[]>(MOCK_VIDEO_CHAT);
+  // 빈 대화로 시작합니다. 예전에는 미리 적어 둔 예시 대화가 들어 있어,
+  // 새로 만든 프로젝트가 이미 Claude와 이야기를 나눈 것처럼 보였습니다.
+  const [messages, setMessages] = useState<VideoChatMessage[]>([]);
   const [draft, setDraft] = useState("");
 
   const [generating, setGenerating] = useState(false);
@@ -123,8 +135,6 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   const [duration, setDuration] = useState(10);
   const [aspect, setAspect] = useState<Aspect>("9:16");
   const [sound, setSound] = useState(true);
-  // 이번 세션에서 만든 버전의 설정. 백엔드가 아직 저장하지 않습니다.
-  const [versionSettings, setVersionSettings] = useState<Record<number, VersionSettings>>({});
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
 
@@ -151,48 +161,59 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     }
   }, [applyProject, projectId]);
 
-  // 효과 본문에서 바로 상태를 바꾸지 않도록, 약속이 끝난 뒤에만 반영합니다.
+  // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
+  // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
+  // 실행은 밀려났다"고 표시하고 먼저 도착한 응답을 버렸는데, 뒤에 선
+  // 요청이 끝내 도착하지 않으면 화면을 "불러오는 중"에서 꺼내 줄 것이
+  // 아무것도 남지 않았습니다. 멀쩡히 받아 둔 200 응답을 버린 셈입니다.
+  //
+  // 그래서 지금은 도착한 응답을 그대로 씁니다. 한 인스턴스가 보는
+  // 프로젝트는 처음부터 끝까지 하나이므로(page.tsx가 projectId마다 다른
+  // key를 줍니다) 늦게 온 응답이 다른 프로젝트의 것일 수는 없습니다.
   useEffect(() => {
-    let cancelled = false;
-
     getVideoProject(projectId)
-      .then((project) => {
-        if (!cancelled) applyProject(project);
-      })
+      .then(applyProject)
       .catch((error: unknown) => {
-        if (!cancelled) setState({ phase: "error", message: describeError(error) });
+        // 이미 프로젝트를 받아 둔 뒤라면 — 두 번째 요청만 실패한
+        // 경우입니다 — 잘 보이던 화면을 오류로 덮지 않습니다.
+        setState((current) =>
+          current.phase === "ready"
+            ? current
+            : { phase: "error", message: describeError(error) },
+        );
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [applyProject, projectId]);
 
+  // 위와 같은 이유로 밀려난 실행의 응답도 버리지 않습니다.
   useEffect(() => {
-    let cancelled = false;
-
     // 모델 목록은 백엔드가 정합니다. 프런트엔드에 모델 이름을 적어 두지
     // 않으므로, 관리자가 목록을 바꾸면 여기에 그대로 반영됩니다.
     listVideoModels()
-      .then((list) => {
-        if (!cancelled) setModels(list);
-      })
+      .then(setModels)
       .catch(() => {
         /* 모델을 못 받으면 Auto만 남습니다 */
       });
 
     listVideoProjects()
-      .then((list) => {
-        if (!cancelled) setSiblings(list);
-      })
+      .then(setSiblings)
       .catch(() => {
         /* 전환 메뉴만 비어 있게 둡니다 */
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  /* ---------- 지금 보고 있는 버전 ---------- */
+
+  // 아래의 재생 타이머가 이 버전의 길이를 써야 하므로, 화면을 그리기 전에
+  // 먼저 구합니다.
+  const readyProject = state.phase === "ready" ? state.project : null;
+  const versions = readyProject?.versions ?? [];
+  const selectedIndex = versions.findIndex((v) => v.id === selectedVersionId);
+  const selected = selectedIndex >= 0 ? versions[selectedIndex] : null;
+
+  // 이 버전을 만든 길이. 모르는 버전(칸이 생기기 전에 만들어진 것)만
+  // 기본값으로 재생합니다 — 지금 고른 길이로 메우지 않습니다. 그것이
+  // 10초로 만든 버전을 0:15로 재생하던 이유였습니다.
+  const previewSeconds = selected?.duration_seconds ?? UNKNOWN_DURATION_SECONDS;
 
   /* ---------- 재생 ---------- */
 
@@ -201,7 +222,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
 
     const timer = setInterval(() => {
       setProgress((current) => {
-        const next = current + (TICK_MS / 1000 / PREVIEW_SECONDS) * 100;
+        const next = current + (TICK_MS / 1000 / previewSeconds) * 100;
         if (next >= 100) {
           setIsPlaying(false);
           return 100;
@@ -211,7 +232,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     }, TICK_MS);
 
     return () => clearInterval(timer);
-  }, [isPlaying]);
+  }, [isPlaying, previewSeconds]);
 
   /* ---------- 모델에 맞춘 실제 설정 ---------- */
 
@@ -305,17 +326,14 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     try {
       // 프롬프트를 먼저 저장해야 버전에 지금 내용이 기록됩니다.
       await updateVideoProject(projectId, { prompt });
-      const version = await createVideoVersion(projectId);
-      // 백엔드는 길이·비율·소리를 아직 저장하지 않으므로, 이번 세션에서
-      // 만든 버전에 한해 여기에 기억해 둡니다.
-      setVersionSettings((current) => ({
-        ...current,
-        [version.id]: {
-          duration: effectiveDuration,
-          aspect: effectiveAspect,
-          sound: effectiveSound,
-        },
-      }));
+      // 길이·비율·소리는 프로젝트가 아니라 이 화면의 조작부에 있으므로
+      // 함께 보냅니다. 백엔드가 버전에 적어 두면, 나중에 설정을 바꿔도
+      // 이 버전은 자기를 만든 값을 그대로 보여 줍니다.
+      const version = await createVideoVersion(projectId, {
+        duration_seconds: effectiveDuration,
+        aspect_ratio: effectiveAspect,
+        sound: effectiveSound,
+      });
       await load();
       setSelectedVersionId(version.id);
     } catch (error) {
@@ -399,21 +417,43 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   }
 
   const { project } = state;
-  const versions = project.versions;
-  const selectedIndex = versions.findIndex((v) => v.id === selectedVersionId);
-  const selected = selectedIndex >= 0 ? versions[selectedIndex] : null;
   const artwork = artworkFor(selectedIndex >= 0 ? selectedIndex : 0);
-  /** 이 버전을 만들 때 쓴 설정. 이번 세션에서 만든 것만 알 수 있습니다. */
-  const selectedSettings = selected ? versionSettings[selected.id] : undefined;
-  const elapsed = (progress / 100) * PREVIEW_SECONDS;
+  const elapsed = (progress / 100) * previewSeconds;
   const isFinal = selected !== null && project.final_version_id === selected.id;
+
+  // 미리보기 틀의 비율. 버전이 자기 비율을 들고 있으면 그것을 쓰고,
+  // 모르는 버전이면 지금 고른 비율로 그립니다.
+  const savedAspect = selected?.aspect_ratio ?? null;
+  const previewAspect: Aspect = isAspect(savedAspect) ? savedAspect : effectiveAspect;
+
+  /**
+   * 한 버전이 실제로 쓴 모델의 이름.
+   *
+   * 버전에는 provider의 id(`kling-3.0-pro`)가 남습니다. 회원에게 보여 줄
+   * 것은 이름(`Kling 3.0 Pro`)이므로 모델 목록에서 찾아 바꿉니다.
+   * Auto가 고른 것이면 무엇으로 이어졌는지까지 보여 줍니다 — 설정에는
+   * "Auto"라고 적혀 있는데 미리보기에는 모르는 id가 떠 있으면, 둘이
+   * 같은 것을 가리키는지 알 수 없습니다.
+   */
+  const modelNameFor = (version: VideoVersion): string => {
+    const known =
+      models.find((model) => model.model_id === version.model_id) ??
+      (project.selected_model?.model_id === version.model_id
+        ? project.selected_model
+        : undefined);
+    const name = known?.display_name ?? prettyModelId(version.model_id);
+    return version.auto_selected ? `Auto → ${name}` : name;
+  };
 
   return (
     <div className={ws.shell}>
       {/* 위쪽 막대 */}
       <div className={ws.topbar}>
+        {/* 돌아가는 곳은 Video Generator 목록입니다. Project Builder의
+            작업 공간과 같은 자리·같은 아이콘·같은 짜임으로 둡니다. */}
         <Link className={ws.backLink} href="/video">
-          ← Video Projects
+          <ArrowLeft size={14} aria-hidden="true" />
+          Video Generator
         </Link>
         <span className={ws.topbarDivider} aria-hidden="true" />
 
@@ -462,11 +502,6 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         </span>
 
         <span className={ws.topbarSpacer} />
-        <span className={ws.topbarActions}>
-          <Link className="btn btn-sm" href="/profile">
-            내 영상
-          </Link>
-        </span>
       </div>
 
       <NotParticipatingBanner inWorkspace />
@@ -600,17 +635,22 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
             <span className={ws.paneHeadTitle}>
               미리보기
               {selected && <span className="badge badge-muted">{selected.label}</span>}
-              {/* 이 버전을 만들 때의 설정. 아직 백엔드가 저장하지 않아
-                  이번 세션에서 만든 버전에만 표시됩니다. */}
-              {selectedSettings && (
+              {/* 이 버전을 만든 설정. 버전에 적혀 있는 값이므로 새로고침
+                  뒤에도, 설정을 바꾼 뒤에도 그대로입니다. */}
+              {selected && selected.duration_seconds != null && (
                 <span className={styles.previewSettings}>
-                  {selectedSettings.duration}초 · {ASPECT_LABEL[selectedSettings.aspect]}
-                  {selectedSettings.sound ? " · 소리 켬" : ""}
+                  {selected.duration_seconds}초
+                  {isAspect(selected.aspect_ratio)
+                    ? ` · ${ASPECT_LABEL[selected.aspect_ratio]}`
+                    : ""}
+                  {selected.sound == null ? "" : selected.sound ? " · 소리 켬" : " · 소리 끔"}
                 </span>
               )}
               {isFinal && <span className="badge badge-ok">최종본</span>}
             </span>
-            <span>{selected ? selected.model_id : "버전 없음"}</span>
+            {/* 모델은 이름으로 보여 줍니다. provider의 날 id를 그대로 띄우면
+                설정의 "Auto — 추천"과 같은 것을 가리키는지 알 수 없습니다. */}
+            <span>{selected ? modelNameFor(selected) : "버전 없음"}</span>
           </div>
 
           <div className={styles.stage}>
@@ -624,12 +664,18 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               </div>
             ) : (
               <>
-                <div
-                  className={styles.player}
-                  style={{
-                    aspectRatio: ASPECT_RATIO_CSS[selectedSettings?.aspect ?? effectiveAspect],
-                  }}
-                >
+                <div className={styles.playerFrame}>
+                  <div
+                    className={styles.player}
+                    style={
+                      {
+                        // 비율 하나로 두 가지를 정합니다: 틀의 aspect-ratio와,
+                        // 높이를 너비로 환산할 때 쓰는 배수. 자세한 것은
+                        // workspace.module.css의 .player에 적어 두었습니다.
+                        "--player-ar": ASPECT_RATIO_CSS[previewAspect],
+                      } as React.CSSProperties
+                    }
+                  >
                   <div
                     className={`${styles.playerArt} ${isPlaying ? styles.playerArtPlaying : ""}`}
                     style={{
@@ -705,7 +751,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                         ↻
                       </button>
                       <span className={styles.time}>
-                        {formatTime(elapsed)} / {formatTime(PREVIEW_SECONDS)}
+                        {formatTime(elapsed)} / {formatTime(previewSeconds)}
                       </span>
                       <span className={styles.controlSpacer} />
                       <button
@@ -716,6 +762,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                       >
                         {muted ? "🔇" : "🔊"}
                       </button>
+                    </div>
                     </div>
                   </div>
                 </div>
@@ -739,6 +786,14 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
+                {/* 아직 아무 말도 주고받지 않은 상태. 예시 대화를 미리 채워
+                    두면 새 프로젝트가 이미 상의를 마친 것처럼 보입니다. */}
+                {messages.length === 0 && (
+                  <p className={styles.chatEmpty}>
+                    영상 아이디어를 Claude와 다듬어 보세요. 분위기, 길이, 장면 순서처럼
+                    바꾸고 싶은 것을 한국어로 적으면 됩니다.
+                  </p>
+                )}
                 {messages.map((message) => (
                   <div
                     className={`${ws.chatMessage} ${
@@ -831,16 +886,16 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                     />
                     <span className={styles.versionMeta}>
                       <span>{version.label}</span>
-                      {versionSettings[version.id] ? (
-                        <span className={styles.versionTime}>
-                          {versionSettings[version.id].duration}초 ·{" "}
-                          {versionSettings[version.id].aspect}
-                        </span>
-                      ) : (
-                        <span className={styles.versionTime}>
-                          {formatClock(version.created_at)}
-                        </span>
-                      )}
+                      {/* 버전이 자기 설정을 들고 있으면 그것을, 모르면
+                          만든 시각을 보여 줍니다. */}
+                      <span className={styles.versionTime}>
+                        {version.duration_seconds != null
+                          ? `${version.duration_seconds}초${
+                              version.aspect_ratio ? ` · ${version.aspect_ratio}` : ""
+                            }`
+                          : formatClock(version.created_at)}
+                      </span>
+                      <span className={styles.versionModel}>{modelNameFor(version)}</span>
                     </span>
                     {project.final_version_id === version.id && (
                       <span className="badge badge-ok">최종</span>

@@ -144,6 +144,25 @@ class VideoVersion(TimestampMixin, Base):
         nullable=False,
     )
 
+    # The settings this attempt was made with, copied in for the same
+    # reason as `prompt_snapshot`: the member keeps changing the controls,
+    # and a version has to keep showing what actually produced it. Without
+    # these the workspace could only guess, and it guessed wrong — a
+    # version made at 10 seconds was played back as 15.
+    #
+    # Nullable because versions created before this column existed have no
+    # honest value. The workspace reads a missing figure as "unknown" and
+    # says so rather than inventing one.
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    aspect_ratio: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    sound: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    # Whether the member had "Auto" selected when this was generated.
+    # `model_id` above records which model Auto resolved to; this records
+    # that it was Auto's choice and not the member's, which is what the
+    # screen shows as "Auto → Kling 3.0 Pro".
+    auto_selected: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
     project: Mapped["VideoProject"] = relationship(back_populates="versions")
 
     @property

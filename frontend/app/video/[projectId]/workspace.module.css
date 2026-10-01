@@ -83,28 +83,66 @@
 .stage {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: 0.7rem;
   flex: 1 1 auto;
   min-height: 0;
+  /* 가운데 칸보다 넓어질 수 없습니다. 이것이 없으면 안쪽이 커질 때
+     칸 자체가 밀려 옆 패널을 덮습니다. */
+  min-width: 0;
+  overflow: hidden;
   padding: 0.9rem;
   background:
     radial-gradient(ellipse at 50% 0%, var(--video-glow), transparent 60%),
     var(--bg);
 }
 
-/* 세로 9:16 화면. Shorts 중심이라 세로가 기본입니다. */
-.player {
-  position: relative;
-  flex: 0 1 auto;
-  /* 기본값일 뿐입니다. 실제 비율은 고른 값에 따라 인라인으로 들어옵니다. */
-  aspect-ratio: 9 / 16;
-  /* 남은 높이에 맞춰 줄어들되, 너무 작아지지 않게 합니다. */
-  height: min(100%, 34rem);
+/* 영상이 들어앉는 틀.
+ *
+ * 미리보기 칸 안에서 남은 자리를 전부 차지하고, 영상이 쓰지 않는 자리는
+ * 레터박스로 남습니다. 예전에는 이 틀이 없이 .player가 높이만 보고
+ * 커졌습니다 — 16:9를 고르면 높이 × 16/9 만큼 넓어져 양옆 패널을 덮었습니다.
+ *
+ * `container-type: size`를 주어야 아래에서 100cqh(이 틀의 높이)를 쓸 수
+ * 있습니다. 그래야 "칸의 너비"와 "칸의 높이를 비율로 환산한 너비" 중
+ * 작은 쪽을 고를 수 있습니다. */
+.playerFrame {
+  flex: 1 1 0;
+  /* 좁은 화면에서는 패널이 세로로 쌓이고, 그러면 이 틀의 높이를 정해 주는
+     것이 없어집니다. 높이가 0이면 아래의 100cqh도 0이 되어 영상이 점으로
+     줄어듭니다. 그래서 최소 높이를 둡니다 — 예전에 .player가 들고 있던
+     min-height가 하던 일입니다. */
   min-height: 15rem;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+  background: var(--video-letterbox);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* 영상 자체. 비율은 고른 값에 따라 --player-ar로 들어옵니다(예: 16 / 9).
+ *
+ * 너비는 두 가지 중 작은 쪽입니다.
+ *   - 100%            : 틀의 너비
+ *   - 100cqh × 비율    : 틀의 높이를 그 비율로 환산한 너비
+ * 어느 쪽이 작든 영상은 틀 안에 들어가고, 비율은 그대로 유지됩니다.
+ *
+ * 앞의 width는 container query를 모르는 브라우저를 위한 대비책입니다.
+ * 뒤 선언이 무효가 되면 앞 값이 남아 적어도 넘치지는 않습니다. */
+.player {
+  position: relative;
+  flex: 0 0 auto;
+  aspect-ratio: var(--player-ar, 9 / 16);
+  width: 100%;
+  width: min(100%, calc(100cqh * (var(--player-ar, 0.5625))));
+  max-width: 100%;
+  max-height: 100%;
   overflow: hidden;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
 }
@@ -568,4 +606,24 @@
   color: var(--text-dim);
   font-size: 0.72rem;
   font-weight: 400;
+}
+
+/* Claude 칸이 비어 있을 때의 안내. 예시 대화 대신 무엇을 적으면 되는지
+   한 줄로 알려 줍니다. */
+.chatEmpty {
+  padding: 0.9rem 0.2rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+/* 버전 조각에 붙는 모델 이름. 어떤 모델로 만든 버전인지 목록에서 바로
+   구분되게 합니다. */
+.versionModel {
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10rem;
 }
