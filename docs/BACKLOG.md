@@ -15,17 +15,19 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. `main` holds Phase 1, UI batch 1,
-membership-access-fix and admin-restructure. No branch is open.
+**ui-naming** is built on branch `ui-naming` and waiting on review.
+Five commits: the sidebar labels, the Admin section names, CtrlAIApps,
+동아리 지원, and the docs. tsc, lint, `npm test` (32) and `npm run build`
+all pass, and the six affected screens were checked in the running app.
 
-Next up is **ui-naming** on `ui-naming`, branched from an up-to-date
-`main`; the spec is saved verbatim below.
+`main` holds Phase 1, UI batch 1, membership-access-fix and
+admin-restructure.
 
 ---
 
 ## Next (in order)
 
-1. **ui-naming** · branch `ui-naming`
+1. **ui-naming** · branch `ui-naming` — **built, awaiting review**
    English navigation labels, `CtrlAIApps` without the space, and
    공동체 지원 → 동아리 지원. Spec saved verbatim below.
 
@@ -97,7 +99,15 @@ dashboard card.
 
 New UI requests go here until they are folded into a UI batch.
 
-*(none loose — the two UI requests since UI batch 1,
+- **"시즌" survives on the CtrlAIApps page.** Found 2026-10-01 while
+  verifying ui-naming in the browser. The listing subtitle reads
+  "만든 사람이 이번 **시즌**에 참여하지 않더라도…", but Season was
+  retired in Phase 0 and replaced by 분기 (CLAUDE.md section 10). One
+  member-visible string, `frontend/app/ctrlaistore/page.tsx:25`; the
+  other four hits are comments in Profile and two CSS files. Left out of
+  ui-naming, whose spec names four renames and not this one.
+
+*(Otherwise none loose — the two UI requests since UI batch 1,
 **admin-restructure** and **ui-naming**, were each large enough to get
 their own item and branch in **Next** rather than wait for a batch.)*
 
@@ -217,6 +227,35 @@ Branch `ui-naming`. Saved exactly as written by the developer.
 > 5. Search the whole frontend and docs for every old label and report what was changed, so nothing is left half-renamed.
 >
 > Tests and checks: tsc, lint and build; a quick text search proves no old labels remain.
+
+### Decisions taken while implementing these — 2026-10-01
+
+Worth knowing before review.
+
+- **There is no Manage group to rename.** admin-restructure had already
+  replaced the 관리 heading with the collapsible **Admin** item, which
+  sits with Create and Explore. Its label was English already.
+- **Admin page headings follow their menu name**, and now read it from
+  `sections.ts` rather than spelling it again. The spec changes the
+  sub-*navigation*; leaving the `<h1>`s alone would have put a tab
+  reading "Audit Log" directly above a heading reading 감사 로그 — the
+  same screen under two names, which is the half-rename item 5 guards
+  against. An unknown key throws instead of rendering a blank title.
+- **/issues follows the same rule**: the item is Report Issue, so the
+  page title and heading are too.
+- **Korean prose that points at a screen uses that screen's English
+  name** ("Quarters에서 바꾸기", "Audit Log 전체 보기"), the house style
+  already used for "Usage 화면". Korean prose about the *things* on a
+  screen keeps the Korean noun — 충전 신청 for the requests themselves,
+  기록 for audit rows. Those are nouns, not menu items.
+- **`FundingSource` values are unchanged** (`community_build`,
+  `community_video`). They are data, not labels; renaming them would
+  mean a migration and an API change for a word nobody sees.
+- **The verbatim specs in this file keep the old spellings.** They
+  record what was asked for, and editing a quotation to match the result
+  it produced makes the record useless.
+- **English docs prose follows the Korean**: "community-funded" reads
+  "club-funded", since the member-facing label is now 동아리 지원.
 
 ---
 
