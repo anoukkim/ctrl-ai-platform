@@ -1,12 +1,14 @@
 /**
  * Admin의 구역 목록 — 한 곳에만 적습니다.
  *
- * 같은 목록을 세 곳이 읽습니다: 사이드바의 접히는 Admin 묶음, Admin
- * 안쪽의 탭, 그리고 대시보드의 카드. 세 곳에 따로 적으면 이름 하나를
- * 바꿀 때 두 곳을 잊게 되고, 화면마다 다른 이름이 보입니다.
+ * 같은 목록을 다섯 곳이 읽습니다: 사이드바의 접히는 Admin 묶음, Admin
+ * 안쪽의 탭, 빵가루, 대시보드의 카드, 그리고 각 구역 화면의 제목.
+ * 여러 곳에 따로 적으면 이름 하나를 바꿀 때 어딘가를 잊게 되고,
+ * 화면마다 다른 이름이 보입니다.
  *
- * 문구는 한국어입니다. 제품 이름과 모델 이름은 영어를 유지합니다
- * (CLAUDE.md 1절).
+ * **이름은 영어, 설명은 한국어입니다.** 구역 이름은 사이드바 항목과
+ * 같은 성격의 이름표라 Chat이나 Usage처럼 영어로 둡니다. 카드에 붙는
+ * 한 줄 설명과 화면 본문은 한국어입니다.
  */
 
 import {
@@ -49,14 +51,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     key: "dashboard",
     href: "/admin",
-    label: "대시보드",
+    label: "Dashboard",
     description: "손이 필요한 일과 이번 분기 현황을 한눈에 봅니다.",
     Icon: LayoutDashboard,
   },
   {
     key: "members",
     href: "/admin/members",
-    label: "회원",
+    label: "Members",
     description: "회원을 찾아 참여 상태, 역할, 지원금을 관리합니다.",
     Icon: Users,
   },
@@ -64,21 +66,21 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     // 신청 심사가 관리자의 주된 일이라 분기 설정보다 앞에 둡니다.
     key: "applications",
     href: "/admin/applications",
-    label: "신청 승인",
+    label: "Applications",
     description: "올라온 참여 신청을 승인하거나 거절합니다.",
     Icon: Stamp,
   },
   {
     key: "quarters",
     href: "/admin/quarters",
-    label: "분기 설정",
+    label: "Quarters",
     description: "분기를 만들고 신청을 열고 닫습니다.",
     Icon: FileText,
   },
   {
     key: "topups",
     href: "/admin/topups",
-    label: "충전 신청",
+    label: "Top-ups",
     description: "회원이 올린 개인 충전 신청의 입금을 확인합니다.",
     Icon: Wallet,
   },
@@ -86,7 +88,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     // budget-by-provider가 켭니다.
     key: "budget",
     href: "/admin/budget",
-    label: "예산",
+    label: "Budget",
     description: "제공자별 예산 관리.",
     Icon: Wallet,
     hidden: true,
@@ -94,14 +96,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     key: "video-models",
     href: "/admin/video-models",
-    label: "영상 모델",
+    label: "Video Models",
     description: "회원에게 열어 줄 영상 모델을 고릅니다.",
     Icon: Clapperboard,
   },
   {
     key: "audit",
     href: "/admin/audit",
-    label: "감사 로그",
+    label: "Audit Log",
     description: "관리자가 바꾼 모든 기록 — 읽기 전용입니다.",
     Icon: ScrollText,
   },
@@ -109,7 +111,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     // Phase 5(앱)와 Phase 8(영상)이 켭니다.
     key: "content",
     href: "/admin/content",
-    label: "콘텐츠",
+    label: "Content",
     description: "게시된 앱과 영상, 댓글을 정리합니다.",
     Icon: FileText,
     hidden: true,
@@ -117,19 +119,34 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     key: "system",
     href: "/admin/system",
-    label: "시스템",
+    label: "System",
     description: "백엔드, 데이터베이스, 외부 서비스 상태를 확인합니다.",
     Icon: Server,
   },
   {
     key: "dev",
     href: "/admin/dev",
-    label: "개발 도구",
+    label: "Dev Tools",
     description: "제공자 없이 예산을 써 보는 사용량 시뮬레이터입니다.",
     Icon: Wrench,
     developmentOnly: true,
   },
 ];
+
+/**
+ * 구역 하나의 이름.
+ *
+ * 구역 화면의 제목(`<h1>`)이 이것을 씁니다. 화면마다 제목을 직접 적어
+ * 두면 탭에는 Audit Log, 제목에는 감사 로그가 보이는 일이 생깁니다 —
+ * 같은 구역을 두 이름으로 부르는 셈입니다.
+ *
+ * 키를 잘못 적으면 조용히 빈 제목이 나오지 않도록 터집니다.
+ */
+export function sectionLabel(key: string): string {
+  const section = ADMIN_SECTIONS.find((candidate) => candidate.key === key);
+  if (section === undefined) throw new Error(`Admin 구역이 없습니다: ${key}`);
+  return section.label;
+}
 
 /** 지금 보고 있는 구역. 가장 긴 경로가 이깁니다 (`/admin`이 모두를 먹지 않도록). */
 export function activeSection(pathname: string): AdminSection | undefined {

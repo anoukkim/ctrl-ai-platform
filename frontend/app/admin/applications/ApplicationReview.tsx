@@ -40,6 +40,7 @@ import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog"
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import StatCards from "../components/StatCards";
 import { ApplicationBadge } from "../components/StatusBadge";
+import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 
@@ -159,7 +160,7 @@ export default function ApplicationReview() {
         <div className="card">
           <p className="small muted">
             아직 분기가 없습니다.{" "}
-            <Link href="/admin/quarters">분기 설정</Link>에서 분기를 먼저 만들어 주세요.
+            <Link href="/admin/quarters">Quarters</Link>에서 분기를 먼저 만들어 주세요.
           </p>
         </div>
       </>
@@ -268,7 +269,7 @@ export default function ApplicationReview() {
         </span>
         <span className="small muted">1인 한도 {formatKrw(selected.subsidy_limit_krw)}</span>
         <Link className={styles.quarterLineLink} href={withQuarter("/admin/quarters", selected.id)}>
-          분기 설정에서 바꾸기 ›
+          Quarters에서 바꾸기 ›
         </Link>
       </div>
 
@@ -420,7 +421,7 @@ export default function ApplicationReview() {
 function PageHeader() {
   return (
     <header className="page-header page-header-stacked">
-      <h1 className="page-title">신청 승인</h1>
+      <h1 className="page-title">{sectionLabel("applications")}</h1>
       <p className="page-subtitle">
         승인하면 신청한 금액 그대로 지원금이 만들어지고 참여 기록도 함께 쓰입니다. 금액을
         고치는 일은 회원 상세 화면에서 합니다.

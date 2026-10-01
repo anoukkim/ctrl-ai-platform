@@ -31,6 +31,7 @@ import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog"
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
 import { QuarterBadge } from "../components/StatusBadge";
+import { sectionLabel } from "../sections";
 
 import QuarterForm from "./QuarterForm";
 
@@ -302,9 +303,9 @@ export default function QuarterAdmin() {
 function PageHeader() {
   return (
     <header className="page-header page-header-stacked">
-      <h1 className="page-title">분기 설정</h1>
+      <h1 className="page-title">{sectionLabel("quarters")}</h1>
       <p className="page-subtitle">
-        분기를 만들고 신청을 열고 닫습니다. 올라온 신청을 심사하는 일은 신청 승인 화면에서
+        분기를 만들고 신청을 열고 닫습니다. 올라온 신청을 심사하는 일은 Applications 화면에서
         합니다.
       </p>
     </header>

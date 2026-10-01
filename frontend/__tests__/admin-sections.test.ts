@@ -18,7 +18,12 @@
 
 import { describe, expect, test } from "vitest";
 
-import { ADMIN_SECTIONS, activeSection, visibleSections } from "@/app/admin/sections";
+import {
+  ADMIN_SECTIONS,
+  activeSection,
+  sectionLabel,
+  visibleSections,
+} from "@/app/admin/sections";
 
 describe("Admin 구역 목록", () => {
   test("예산과 콘텐츠는 메뉴에 보이지 않는다", () => {
@@ -67,8 +72,28 @@ describe("Admin 구역 목록", () => {
 
     expect(applications?.href).toBe("/admin/applications");
     expect(quarters?.href).toBe("/admin/quarters");
-    expect(applications?.label).toBe("신청 승인");
-    expect(quarters?.label).toBe("분기 설정");
+    expect(applications?.label).toBe("Applications");
+    expect(quarters?.label).toBe("Quarters");
+  });
+
+  test("구역 이름은 모두 영어다", () => {
+    // 메뉴는 한 언어로 읽혀야 합니다. 한글이 섞여 들어오면 사이드바 한
+    // 묶음 안에서 두 가지 글자가 번갈아 나옵니다.
+    for (const section of ADMIN_SECTIONS) {
+      expect(section.label, section.key).toMatch(/^[A-Za-z][A-Za-z -]*$/);
+    }
+  });
+});
+
+describe("구역 이름 한 곳에서 꺼내 쓰기", () => {
+  test("키로 이름을 돌려준다", () => {
+    expect(sectionLabel("audit")).toBe("Audit Log");
+    expect(sectionLabel("members")).toBe("Members");
+  });
+
+  test("없는 키는 조용히 비어 있지 않고 터진다", () => {
+    // 화면 제목이 빈칸으로 나오는 것보다 즉시 실패하는 쪽이 낫습니다.
+    expect(() => sectionLabel("nope")).toThrow();
   });
 });
 

@@ -34,6 +34,7 @@ import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog"
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
 import { TopUpBadge } from "../components/StatusBadge";
+import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 
@@ -275,7 +276,7 @@ export default function TopUpAdmin() {
 function PageHeader() {
   return (
     <header className="page-header page-header-stacked">
-      <h1 className="page-title">충전 신청</h1>
+      <h1 className="page-title">{sectionLabel("topups")}</h1>
       <p className="page-subtitle">
         회원이 올린 개인 충전 신청입니다. 개인 돈은 동아리 지원금과 별개로 관리하며 서로
         더하지 않습니다.

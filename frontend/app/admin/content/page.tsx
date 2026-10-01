@@ -8,12 +8,14 @@
  * 나중에 메뉴 구조를 다시 짜게 됩니다.
  */
 
+import { sectionLabel } from "../sections";
+
 export default function AdminContentPage() {
   return (
     <>
       <header className="page-header page-header-stacked">
         <h1 className="page-title">
-          콘텐츠 <span className="badge badge-mock">준비 중</span>
+          {sectionLabel("content")} <span className="badge badge-mock">준비 중</span>
         </h1>
         <p className="page-subtitle">
           게시된 앱과 영상을 숨기거나 댓글을 정리하는 화면입니다.
