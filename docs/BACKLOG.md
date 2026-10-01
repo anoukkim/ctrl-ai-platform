@@ -15,15 +15,21 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. `main` holds Phase 1, UI batch 1,
-membership-access-fix, admin-restructure, ui-naming,
-fix-video-workspace-hang and **ui-tube-watch** (merged 2026-10-02). No
-branch is open.
+**ui-apps-detail is being built** on branch `ui-apps-detail`, branched
+from an up-to-date `main`. The spec is saved verbatim below, with the
+browser checks and the decisions taken while implementing it. `tsc`,
+lint, 101 tests and `next build` pass; the branch is **waiting for the
+developer's approval** and has not been merged.
 
-Next up is **ui-apps-detail** on `ui-apps-detail`, branched from an
-up-to-date `main`; the spec is saved verbatim below. It was added at the
-top of **Next** on 2026-10-02, ahead of `budget-by-provider`, so every
-position below it moved down one.
+`main` holds Phase 1, UI batch 1, membership-access-fix,
+admin-restructure, ui-naming, fix-video-workspace-hang and
+**ui-tube-watch** (merged 2026-10-02).
+
+**The comment section is now shared code.** `ui-apps-detail` lifted
+reactions, tabs and the whole comment column out of CtrlAITube's
+`WatchPanel.tsx` into `app/components/CommentSection.tsx`. Any later
+screen that needs comments uses that, and a change to it changes both
+community screens — which is the point.
 
 Two things from ui-tube-watch worth carrying forward:
 
@@ -624,6 +630,79 @@ exactly as written by the developer.
 > 6. Use the existing design tokens and lucide icons; check at 100% zoom on full width, about 1280px, and narrow screens.
 >
 > Checks: tsc, lint and build; a test that 앱 실행 is disabled without a launch address; browser steps.
+
+### Browser checks run — 2026-10-02
+
+`tsc`, lint, 101 frontend tests (14 of them new) and `next build` all
+pass, but **none of them can see a layout** — jsdom has no layout engine,
+so every box measures zero. The tests pin the button states, the tabs and
+the comment count; widths were checked in Chrome, as follows.
+
+Measured on the running dev server. Widths below are the CSS viewport;
+`.mainInner` caps the content at 68rem, so past about 1760px nothing
+changes.
+
+| Viewport | Content | Hero | Screenshot row | Sideways scroll |
+| -------- | ------- | ---- | -------------- | --------------- |
+| 1897px | 1088 | two columns, 352 + 720 | fits (946) | none |
+| 1280px | 978 | two columns, 352 + 610 | fits (946) | none |
+| 1024px | 721 | two columns, 352 + 353 | fits (690) | none |
+| 430px | 387 | stacked: artwork, then text and actions | 355 of 691, scrolls in place | none |
+
+Interactions driven by hand on `/ctrlaistore/habit-at-a-glance`: the
+반응 chip toggled 24 → 25 with the selected state showing; the four-reply
+thread collapsed to "답글 4개 보기" and expanded; a Korean comment typed
+through the IME posted on Enter with no character lost to composition,
+appearing as "방금 전" with the tab going 댓글 7 → 댓글 8; 업데이트 기록
+listed its three dated lines. On `/ctrlaistore/meeting-notes` (no launch
+address, private repository) the button read 실행 준비 중, disabled, with
+the reason on hover, and no GitHub button appeared. Console clean on every
+page — no errors, no hydration warnings.
+
+**CtrlAITube was re-checked after the extraction**, since its comment
+section is now shared code: two columns 748 / 321, the panel still sticky
+at `100vh - 2.8rem`, the comment list still the only thing that scrolls,
+the composer still pinned to the bottom, the 9:16 player still letterboxed
+at its true ratio.
+
+**One defect was found this way and fixed**, which no test would have
+caught: at 430px the description was clipped. A grid track will not shrink
+below its widest item, and the screenshot row measures ~690px, so the
+소개 panel took that width and the tab box cut it off; at 1024px the same
+push showed as two pixels of page scroll. The track is now
+`minmax(0, 1fr)`.
+
+### Decisions taken while implementing these — 2026-10-02
+
+- **The comment section moved to `app/components/CommentSection.tsx`
+  before any of this screen was built.** ui-tube-watch had left a note
+  saying the right moment to share it was when CtrlAIApps needed the same
+  thing, and "reuse the exact components" cannot mean a copy. The watch
+  page kept only its own parts: the panel frame, the CTRL+AI/YouTube tabs
+  and the YouTube note. The list lives in a `useCommentThread` hook rather
+  than inside the section, because the tab has to show a count that grows
+  when a comment is posted.
+- **The creator name is not a link yet.** The spec asks it to link to the
+  creator's profile, but CTRL+AI has no member profile screen — `/profile`
+  is the signed-in member's own. A link to a route that does not exist is
+  worse than no link, so the name is plain text and becomes the link when
+  a member profile exists. 개발자 보기 was removed as asked; it had been
+  disabled since Phase 0 and was not worth keeping in the meantime.
+- **GitHub에서 보기 stays disabled.** The spec settles where it appears
+  (only for a public repository) and its weight (small, secondary), not
+  whether it works; GitHub is Phase 4, so it carries a 준비 중 reason on
+  hover, exactly like CtrlAITube's "YouTube에서 보기".
+- **One mock app gained a launch address** (`example.com`, reserved for
+  documentation, so it goes nowhere real). Every app had `launchUrl: null`,
+  and with no app that has one, the enabled state of 앱 실행 cannot be seen
+  by opening the screen or proven by a test.
+- **Two mock apps were added** so two creators have more than one, which is
+  what "<creator>의 다른 앱" needs; two creators still have none, so the
+  empty case is visible too. 습관 한눈에 gained a four-reply thread, since
+  threads only collapse past three.
+- **The card count on the listing now includes replies.** It read
+  `comments.length` while the detail tab and CtrlAITube count replies too,
+  so the same conversation was counted two ways on two screens.
 
 ---
 
