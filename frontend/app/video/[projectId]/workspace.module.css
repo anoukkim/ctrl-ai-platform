@@ -98,6 +98,7 @@
 .player {
   position: relative;
   flex: 0 1 auto;
+  /* 기본값일 뿐입니다. 실제 비율은 고른 값에 따라 인라인으로 들어옵니다. */
   aspect-ratio: 9 / 16;
   /* 남은 높이에 맞춰 줄어들되, 너무 작아지지 않게 합니다. */
   height: min(100%, 34rem);
@@ -108,14 +109,31 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
 }
 
+/* 제목은 위쪽에 둡니다. 가운데에 두면 한가운데의 재생 버튼과 겹쳐
+   글자를 가립니다. 버튼이 가운데를 쓰고, 글자는 위를 씁니다. */
 .playerArt {
   position: absolute;
   inset: 0;
   display: grid;
-  place-items: center;
-  padding: 1.2rem;
+  align-content: start;
+  justify-items: center;
+  padding: 1rem 1.2rem;
   color: var(--on-accent);
   text-align: center;
+}
+
+/* 밝은 썸네일 위에서도 글자가 읽히도록 위쪽만 살짝 어둡게 깔아 줍니다. */
+.playerArt::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40%;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent);
+  pointer-events: none;
+}
+
+.playerArt > * {
+  position: relative;
 }
 
 .playerLabel {
@@ -432,4 +450,122 @@
 .noVersionsText strong {
   color: var(--text);
   font-weight: 600;
+}
+
+
+/* ---------- 생성 설정 (길이 / 비율 / 소리) ----------
+ *
+ * 예전에는 똑같이 생긴 알약 한 줄이라 읽기 전용 꼬리표처럼 보였고,
+ * 무엇이 골라져 있는지 알 수 없었습니다. 이제 셋을 나누고, 고른 것이
+ * 분명히 보이도록 테두리·배경·체크를 함께 씁니다. 색 하나만으로
+ * 구분하지 않습니다.
+ */
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.segment:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.segmentActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.segment:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmentCheck {
+  flex: 0 0 auto;
+}
+
+.aspectGlyph {
+  flex: 0 0 auto;
+}
+
+.soundToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.soundToggleOn {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 모델을 바꿔서 설정이 자동으로 바뀌었을 때의 안내. */
+.settingNotice {
+  padding: 0.4rem 0.6rem;
+  border-left: 2px solid var(--warn);
+  background: var(--warn-soft);
+  border-radius: var(--radius-sm);
+  color: var(--warn-text);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+/* 생성 직전에 확인하는 한 줄. */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.summaryModel {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* 미리보기 머리말에 보이는 그 버전의 설정. */
+.previewSettings {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 400;
 }
