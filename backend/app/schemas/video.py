@@ -50,6 +50,20 @@ class VideoModelAdminUpdate(BaseModel):
     sort_order: int | None = None
 
 
+class VideoVersionCreate(BaseModel):
+    """The settings a generation attempt is made with.
+
+    Every field is optional so an older client — or a probe — can still
+    post an empty body. What arrives is checked against the chosen model's
+    capabilities before it is stored: the browser decides what to ask for,
+    the backend decides what is allowed.
+    """
+
+    duration_seconds: int | None = Field(default=None, ge=1, le=600)
+    aspect_ratio: str | None = Field(default=None, max_length=10)
+    sound: bool | None = None
+
+
 class VideoVersionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,6 +76,14 @@ class VideoVersionRead(BaseModel):
     prompt_snapshot: str
     status: VideoVersionStatus
     created_at: datetime
+
+    # What this attempt was made with. `None` means the version predates
+    # the columns and its settings are genuinely unknown — the workspace
+    # must not fill the gap with the member's current selection.
+    duration_seconds: int | None = None
+    aspect_ratio: str | None = None
+    sound: bool | None = None
+    auto_selected: bool | None = None
 
 
 class VideoProjectBase(BaseModel):

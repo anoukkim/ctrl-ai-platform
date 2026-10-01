@@ -17,6 +17,7 @@ from app.schemas.video import (
     VideoProjectDetail,
     VideoProjectRead,
     VideoProjectUpdate,
+    VideoVersionCreate,
     VideoVersionRead,
 )
 
@@ -168,6 +169,7 @@ def update_project(
 )
 def create_version(
     project_id: int,
+    settings: VideoVersionCreate | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
 ) -> VideoVersion:
@@ -176,14 +178,22 @@ def create_version(
     Phase 1 records the attempt only — nothing is generated. The row is
     marked ready so the workspace has something to show; Phase 6 will
     create it as `queued` and let a provider job move it along.
+
+    The length, aspect ratio and sound come from the request because they
+    live in the workspace's controls rather than on the project. They are
+    checked against the chosen model's capabilities here: a browser can
+    send anything, so a model that only does 9:16 must refuse 16:9 on the
+    server, not merely grey the button out.
     """
     project = _owned_project(project_id, db, user)
 
     allowed = _allowed_models(db)
+    auto_selected = project.selected_model_id is None
     model = next((m for m in allowed if m.id == project.selected_model_id), None)
     if model is None:
         # "Auto": fall back to the first allowed model. Real Auto-selection
         # logic is a later phase.
+        auto_selected = True
         model = allowed[0] if allowed else None
     if model is None:
         raise HTTPException(
@@ -191,11 +201,40 @@ def create_version(
             detail="사용할 수 있는 영상 모델이 없습니다.",
         )
 
+    asked = settings or VideoVersionCreate()
+    capabilities = model.capabilities or {}
+
+    durations = capabilities.get("durations") or []
+    if asked.duration_seconds is not None and durations and asked.duration_seconds not in durations:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"{model.display_name} 모델은 {asked.duration_seconds}초를 지원하지 않습니다."
+            ),
+        )
+
+    aspects = capabilities.get("aspect_ratios") or []
+    if asked.aspect_ratio is not None and aspects and asked.aspect_ratio not in aspects:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{model.display_name} 모델은 {asked.aspect_ratio} 비율을 지원하지 않습니다.",
+        )
+
+    # A model with no sound can only produce a silent version. This is not
+    # an error — the screen already says so — so it is corrected quietly.
+    sound = asked.sound
+    if sound and not capabilities.get("sound", True):
+        sound = False
+
     version = VideoVersion(
         project_id=project.id,
         provider=model.provider,
         model_id=model.model_id,
         prompt_snapshot=project.prompt,
+        duration_seconds=asked.duration_seconds,
+        aspect_ratio=asked.aspect_ratio,
+        sound=sound,
+        auto_selected=auto_selected,
     )
     db.add(version)
     db.commit()
