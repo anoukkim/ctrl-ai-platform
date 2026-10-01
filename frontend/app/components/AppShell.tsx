@@ -370,17 +370,6 @@ function AdminNavBlock({
                     pathname === candidate.href || pathname.startsWith(`${candidate.href}/`),
                 )?.key === section.key;
 
-            if (section.comingSoon) {
-              return (
-                <li key={section.key}>
-                  <span className={`${styles.navSubLink} ${styles.navSubLinkDisabled}`}>
-                    {section.label}
-                    <span className="badge badge-mock">준비 중</span>
-                  </span>
-                </li>
-              );
-            }
-
             return (
               <li key={section.key}>
                 <Link

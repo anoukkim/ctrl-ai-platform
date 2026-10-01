@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
-import { ROLE_LABEL } from "@/lib/admin";
+import { ROLE_LABEL, getMemberStats, type MemberStats } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import {
   MEMBERSHIP_LABEL,
@@ -32,6 +32,7 @@ import {
 import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
 import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog";
+import StatCards from "../components/StatCards";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
 import { AccountBadge, MembershipBadge } from "../components/StatusBadge";
@@ -59,6 +60,9 @@ export default function MemberList() {
     quarterId: number;
     rows: MemberWithMembership[];
   } | null>(null);
+  /** 카드의 숫자. 목록이 아니라 백엔드의 묶음 질의에서 옵니다 — 거르기를
+   *  걸어 둔 채 세면 "전체"가 아니라 "보이는 것"을 세게 됩니다. */
+  const [stats, setStats] = useState<MemberStats | null>(null);
   const members = loaded !== null && loaded.quarterId === quarterId ? loaded.rows : null;
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -77,9 +81,11 @@ export default function MemberList() {
     if (quarterId === null) return;
     let cancelled = false;
 
-    listQuarterMembers(quarterId)
-      .then((rows) => {
-        if (!cancelled) setLoaded({ quarterId, rows });
+    Promise.all([listQuarterMembers(quarterId), getMemberStats(quarterId)])
+      .then(([rows, figures]) => {
+        if (cancelled) return;
+        setLoaded({ quarterId, rows });
+        setStats(figures);
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(describeError(caught));
@@ -140,7 +146,12 @@ export default function MemberList() {
           kind: "ok",
           text: `${member.display_name}의 참여 상태를 ${MEMBERSHIP_LABEL[status]}(으)로 바꿨습니다.`,
         });
-        setLoaded({ quarterId, rows: await listQuarterMembers(quarterId) });
+        const [rows, figures] = await Promise.all([
+          listQuarterMembers(quarterId),
+          getMemberStats(quarterId),
+        ]);
+        setLoaded({ quarterId, rows });
+        setStats(figures);
         await refreshDashboard();
       } catch (caught) {
         setResult({ kind: "error", text: describeError(caught) });
@@ -224,9 +235,67 @@ export default function MemberList() {
     },
   ];
 
+  /**
+   * 카드를 누르면 그에 맞는 거르기가 걸립니다.
+   *
+   * 카드마다 거르는 축이 다릅니다 — 활동/비활동은 참여 상태, 탈퇴는 계정
+   * 상태, 관리자는 역할입니다. 한 번에 하나만 걸리게 하려고, 카드를 고를
+   * 때 나머지 축은 전체로 되돌립니다. 그러지 않으면 "관리자"를 누른 뒤
+   * "탈퇴"를 눌렀을 때 아무도 나오지 않고, 왜인지도 보이지 않습니다.
+   */
+  const activeCard =
+    membershipFilter === "active"
+      ? "active"
+      : membershipFilter === "inactive"
+        ? "inactive"
+        : membershipFilter === "none"
+          ? "not_applied"
+          : accountFilter === "former"
+            ? "former"
+            : roleFilter === "admin"
+              ? "admins"
+              : null;
+
+  function selectCard(key: string) {
+    setRoleFilter("all");
+    setAccountFilter(key === "former" ? "former" : "all");
+    setMembershipFilter(
+      key === "active"
+        ? "active"
+        : key === "inactive"
+          ? "inactive"
+          : key === "not_applied"
+            ? "none"
+            : "all",
+    );
+    if (key === "admins") setRoleFilter("admin");
+    setPage(1);
+  }
+
   return (
     <>
       <PageHeader note={`${selected.display_name} 기준`} />
+
+      {stats !== null && (
+        <StatCards
+          active={activeCard}
+          onSelect={selectCard}
+          cards={[
+            { key: "total", label: "전체 회원", value: stats.total, unit: "명" },
+            { key: "active", label: "활동 회원", value: stats.active, unit: "명" },
+            { key: "inactive", label: "비활동", value: stats.inactive, unit: "명" },
+            {
+              key: "not_applied",
+              label: "미신청",
+              value: stats.not_applied,
+              unit: "명",
+              accent: stats.not_applied > 0,
+            },
+            { key: "former", label: "탈퇴", value: stats.former, unit: "명" },
+            { key: "admins", label: "관리자", value: stats.admins, unit: "명" },
+          ]}
+        />
+      )}
 
       <SearchBar
         value={query}
@@ -377,8 +446,8 @@ function PageHeader({ note }: { note?: string }) {
         {note && <span className={styles.sectionNote}> {note}</span>}
       </h1>
       <p className="page-subtitle">
-        회원을 찾아 상세 화면으로 들어갑니다. 참여 상태, 역할, 지원금을 바꾸는 일은 모두
-        상세 화면에서 합니다.
+        카드를 눌러 걸러 보거나, 검색해서 찾습니다. 참여 상태는 줄의 관리 메뉴에서 바로
+        바꿀 수 있고, 역할과 지원금은 그 사람을 보고 정해야 하므로 상세 화면에 있습니다.
       </p>
     </header>
   );

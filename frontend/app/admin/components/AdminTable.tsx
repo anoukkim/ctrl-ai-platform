@@ -36,8 +36,16 @@ interface Props<Row> {
   rowKey: (row: Row) => string | number;
   /** 줄을 눌렀을 때 갈 곳. 없으면 줄은 눌리지 않습니다. */
   rowHref?: (row: Row) => string;
-  /** 줄 오른쪽 끝에 붙는 관리 메뉴 등. */
+  /** 줄 오른쪽 끝에 붙는 관리 메뉴나 버튼. */
   rowActions?: (row: Row) => React.ReactNode;
+  /**
+   * 이미 처리돼 더 할 일이 없는 줄.
+   *
+   * 지우지 않고 흐리게 둡니다 — 처리된 신청도 기록이고, 누가 언제 정했는지
+   * 보러 오는 일이 있습니다. 다만 눈이 먼저 가야 할 곳은 아직 처리하지
+   * 않은 줄입니다.
+   */
+  rowMuted?: (row: Row) => boolean;
   /** 비어 있을 때 보여 줄 한국어 문구. */
   empty: string;
   caption?: string;
@@ -49,6 +57,7 @@ export default function AdminTable<Row>({
   rowKey,
   rowHref,
   rowActions,
+  rowMuted,
   empty,
   caption,
 }: Props<Row>) {
@@ -97,7 +106,9 @@ export default function AdminTable<Row>({
 
             return (
               <tr
-                className={clickable ? styles.rowClickable : undefined}
+                className={`${clickable ? styles.rowClickable : ""} ${
+                  rowMuted?.(row) ? styles.rowMuted : ""
+                }`}
                 key={rowKey(row)}
                 onClick={
                   href

@@ -825,3 +825,379 @@ a.card:hover .cardChevron {
   gap: 0.7rem;
   margin-top: 0.8rem;
 }
+
+/* ================================================================== */
+/* 신청 승인 분리 · 통계 카드 · 외부 서비스                             */
+/* ================================================================== */
+
+/* ---------- 고른 분기 한 줄 ---------- */
+
+.quarterLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.86rem;
+}
+
+.dday {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.quarterLineLink {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.quarterLineLink:hover {
+  color: var(--accent);
+}
+
+/* ---------- 작은 숫자 카드 한 줄 ---------- */
+
+.statRow {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+}
+
+/* 누를 수 있는 카드는 <button>입니다. 단추의 기본 모양만 지우고 나머지는
+   누를 수 없는 카드와 똑같이 둡니다. */
+.statCard {
+  display: grid;
+  gap: 0.15rem;
+  align-content: start;
+  padding: 0.65rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.statCard {
+  cursor: pointer;
+}
+
+button.statCard:hover {
+  background: var(--panel-2);
+  border-color: var(--border-strong);
+}
+
+button.statCard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.statCardAccent {
+  border-left: 2px solid var(--accent);
+}
+
+/* 지금 걸려 있는 거르기. 테두리와 글자색으로만 표시하고 바탕은 한 단계만
+   올립니다 — 카드 한 장만 환하게 빛나면 숫자를 읽기 어렵습니다. */
+.statCardActive,
+button.statCardActive:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.statCardActive .statCardValue {
+  color: var(--accent);
+}
+
+.statCardValue {
+  font-family: var(--mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.statCardUnit {
+  margin-left: 0.15rem;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.statCardLabel {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.statCardClear {
+  align-content: center;
+  justify-items: center;
+  border-style: dashed;
+}
+
+.statCardClearMark {
+  color: var(--text-dim);
+  font-size: 1rem;
+}
+
+/* ---------- 상태 탭 (신청 승인) ---------- */
+
+.statusTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.statusTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.statusTab:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.statusTabActive,
+.statusTabActive:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.statusTabCount {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* ---------- 줄 안의 버튼 (승인 / 거절) ---------- */
+
+.rowButtons {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+/* 이미 처리된 줄. 지우지 않고 가라앉힙니다. */
+.rowMuted td {
+  opacity: 0.62;
+}
+
+.rowMuted:hover td {
+  opacity: 1;
+}
+
+/* 손이 필요한 수는 표 안에서도 눈에 띄어야 합니다. */
+.pendingNumber {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------- 확인창의 사유 칸 ---------- */
+
+.dialogField {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dialogField textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.required {
+  color: var(--error-text);
+}
+
+/* ---------- 분기 만들기 양식 ---------- */
+
+.quarterForm {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.formGrid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.fieldHint {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.fieldError {
+  color: var(--error-text);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+/* ---------- 대시보드의 경고 카드 ---------- */
+
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--error-soft);
+  border: 1px solid rgba(230, 77, 84, 0.4);
+  border-left: 3px solid var(--error-text);
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+.warning:hover {
+  border-color: var(--error-text);
+}
+
+.warning:focus-visible {
+  outline: 2px solid var(--error-text);
+  outline-offset: 2px;
+}
+
+.warningMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(230, 77, 84, 0.25);
+  color: var(--error-text);
+  font-weight: 700;
+}
+
+/* ---------- 외부 서비스 ---------- */
+
+.providerGrid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+.provider {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  padding: 0.9rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.providerFailing {
+  border-color: rgba(230, 77, 84, 0.45);
+  border-left: 3px solid var(--error-text);
+}
+
+.providerTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.providerName {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.providerPurpose {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.providerFacts {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.providerFacts > div {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.providerFacts dt {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.providerFacts dd {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+/* 시각 아래의 한 줄 설명. */
+.providerSub {
+  display: block;
+  color: var(--text-dim);
+  font-family: var(--sans, inherit);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.providerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
+
+/* 바꿀 환경 변수의 이름. 기술적인 값이라 영문·고정폭 그대로 둡니다. */
+.providerSetting {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+
+.providerResult {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.providerResultOk {
+  background: var(--ok-soft);
+  color: var(--ok-text);
+}
+
+.providerResultError {
+  background: var(--error-soft);
+  color: var(--error-text);
+}

@@ -1,78 +1,58 @@
 "use client";
 
 /**
- * Admin — 분기와 참여 신청 (/admin/quarters)
+ * Admin — 분기 설정 (/admin/quarters)
  *
- * 관리자가 분기 신청을 열고 닫고, 올라온 신청의 Build/Video 배분을 보고
- * 승인하거나 거절합니다. 승인하면 그 회원이 실제로 쓸 수 있는 예산이
- * 만들어지고, 참여 기록도 함께 쓰입니다 — 쓸 수 없는 예산을 주는 일이
- * 생기지 않도록.
+ * 분기를 만들고, 신청을 열고 닫습니다. 신청 심사는 /admin/applications로
+ * 떼어 냈습니다 — 심사가 훨씬 자주 하는 일인데, 그 위에 분기 표가 얹혀
+ * 있으면 매번 지나쳐야 하는 벽이 됩니다.
  *
- * 승인은 신청한 금액을 그대로 가져갑니다. 금액을 고치는 일은 회원 상세
- * 화면의 "지원금 조정"에서 합니다. 승인과 조정을 한 버튼에 섞으면,
- * 승인된 금액이 신청한 금액과 다른데 기록에는 "승인"만 남습니다.
+ * 표에 숫자를 함께 보여 주는 이유: 분기를 비교할 수 있어야 합니다.
+ * "참여 회원 12명에 실제 사용자 3명"은 다음 분기에 무엇을 바꿔야 하는지
+ * 말해 주지만, 분기 이름과 기간만으로는 아무것도 알 수 없습니다.
  *
- * 개인 충전 신청은 /admin/topups로 옮겼습니다. 돈의 출처가 다르고(동아리
- * 지원금과 개인 돈), 한 화면에 두면 더해서 읽게 됩니다.
+ * 숫자는 전부 백엔드의 묶음 질의에서 옵니다(`/admin/quarters-with-stats`).
+ * 분기마다 질의를 한 번씩 돌리면 표가 길어질수록 느려집니다.
  */
 
 import { useCallback, useEffect, useState } from "react";
 
-import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
-import { describeError } from "@/lib/http";
 import {
-  APPLICATION_STATUS_LABEL,
-  formatDate,
-  formatKrw,
-  listQuarterApplications,
-  reviewApplication,
-  updateQuarter,
-  type ApplicationWithMember,
-  type Quarter,
-} from "@/lib/quarters";
+  createQuarter,
+  listQuartersWithStats,
+  type QuarterWithStats,
+} from "@/lib/admin";
+import { describeError } from "@/lib/http";
+import { formatDate, formatKrw, updateQuarter } from "@/lib/quarters";
 
-import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
+import { useAdminQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
 import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
-import { ApplicationBadge, QuarterBadge } from "../components/StatusBadge";
+import { QuarterBadge } from "../components/StatusBadge";
+
+import QuarterForm from "./QuarterForm";
 
 import styles from "../admin.module.css";
 
 export default function QuarterAdmin() {
-  const { quarters, selected, select, refresh: refreshDashboard } = useAdminQuarter();
+  const { selected, select, refresh: refreshDashboard } = useAdminQuarter();
 
-  /**
-   * 불러온 신청과 그 신청이 속한 분기를 함께 들고 있습니다. 분기를 바꿀 때
-   * 목록을 `null`로 되돌리는 효과를 두지 않기 위해서입니다 — 효과 본문에서
-   * 상태를 바로 바꾸면 그림이 연달아 다시 그려지고, 지난 분기의 신청을
-   * 새 분기의 것처럼 잠깐 보여 주게 됩니다.
-   */
-  const [loaded, setLoaded] = useState<{
-    quarterId: number;
-    rows: ApplicationWithMember[];
-  } | null>(null);
+  const [quarters, setQuarters] = useState<QuarterWithStats[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
-  const quarterId = selected?.id ?? null;
-  const applications =
-    loaded !== null && loaded.quarterId === quarterId ? loaded.rows : null;
+  const [formOpen, setFormOpen] = useState(false);
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
-    if (quarterId === null) return;
     let cancelled = false;
 
-    listQuarterApplications(quarterId)
+    listQuartersWithStats()
       .then((rows) => {
-        if (!cancelled) setLoaded({ quarterId, rows });
+        if (!cancelled) setQuarters(rows);
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(describeError(caught));
@@ -81,7 +61,7 @@ export default function QuarterAdmin() {
     return () => {
       cancelled = true;
     };
-  }, [quarterId]);
+  }, []);
 
   const run = useCallback(
     async (succeeded: string, action: () => Promise<unknown>) => {
@@ -89,9 +69,7 @@ export default function QuarterAdmin() {
       try {
         await action();
         setResult({ kind: "ok", text: succeeded });
-        if (quarterId !== null) {
-          setLoaded({ quarterId, rows: await listQuarterApplications(quarterId) });
-        }
+        setQuarters(await listQuartersWithStats());
         await refreshDashboard();
       } catch (caught) {
         setResult({ kind: "error", text: describeError(caught) });
@@ -100,7 +78,7 @@ export default function QuarterAdmin() {
         setConfirm(null);
       }
     },
-    [quarterId, refreshDashboard],
+    [refreshDashboard],
   );
 
   if (error !== null) {
@@ -123,7 +101,7 @@ export default function QuarterAdmin() {
     );
   }
 
-  const quarterColumns: Column<Quarter>[] = [
+  const columns: Column<QuarterWithStats>[] = [
     {
       key: "quarter",
       header: "분기",
@@ -149,7 +127,7 @@ export default function QuarterAdmin() {
           ? `${formatDate(quarter.application_opens_at)} – ${formatDate(
               quarter.application_closes_at,
             )}`
-          : "—",
+          : "–",
     },
     {
       key: "status",
@@ -162,57 +140,49 @@ export default function QuarterAdmin() {
       numeric: true,
       render: (quarter) => formatKrw(quarter.subsidy_limit_krw),
     },
-  ];
-
-  const visibleApplications = (applications ?? []).filter(
-    (application) =>
-      matchesQuery(query, application.display_name, application.username) &&
-      (statusFilter === "all" || application.status === statusFilter),
-  );
-
-  const applicationColumns: Column<ApplicationWithMember>[] = [
     {
-      key: "member",
-      header: "회원",
-      render: (application) => (
-        <span className={styles.memberName}>
-          {application.display_name}
-          <span className={styles.memberHandle}>@{application.username}</span>
-        </span>
-      ),
-    },
-    {
-      key: "build",
-      header: "Build",
+      key: "applicants",
+      header: "신청자",
       numeric: true,
-      render: (application) =>
-        `${application.build_percentage}% · ${formatKrw(
-          application.requested_build_budget_krw,
-        )}`,
+      render: (quarter) => quarter.stats.applicants || "–",
     },
     {
-      key: "video",
-      header: "Video",
+      key: "pending",
+      header: "승인 대기",
       numeric: true,
-      render: (application) =>
-        `${application.video_percentage}% · ${formatKrw(
-          application.requested_video_budget_krw,
-        )}`,
+      render: (quarter) =>
+        quarter.stats.pending > 0 ? (
+          <span className={styles.pendingNumber}>{quarter.stats.pending}</span>
+        ) : (
+          "–"
+        ),
     },
     {
-      key: "total",
-      header: "합계",
+      key: "participants",
+      header: "참여 회원",
       numeric: true,
-      render: (application) => formatKrw(application.requested_total_budget_krw),
+      render: (quarter) => quarter.stats.participants || "–",
     },
     {
-      key: "status",
-      header: "상태",
-      render: (application) => <ApplicationBadge status={application.status} />,
+      key: "users",
+      header: "실제 사용자",
+      numeric: true,
+      render: (quarter) =>
+        // 아직 시작하지 않은 분기는 0명이 아니라 셀 것이 없습니다.
+        quarter.stats.participants === 0 ? "–" : quarter.stats.users_with_usage,
+    },
+    {
+      key: "rate",
+      header: "사용률",
+      numeric: true,
+      // 참여 회원이 0이면 백엔드가 null을 줍니다. 0%가 아니라 "–" — 아무도
+      // 참여하지 않은 분기에 사용률은 없습니다.
+      render: (quarter) =>
+        quarter.stats.usage_rate === null
+          ? "–"
+          : `${Math.round(quarter.stats.usage_rate * 100)}%`,
     },
   ];
-
-  const pending = (applications ?? []).filter((a) => a.status === "submitted").length;
 
   return (
     <div className={styles.sections}>
@@ -227,16 +197,18 @@ export default function QuarterAdmin() {
             줄을 누르면 그 분기를 보고 있는 분기로 고릅니다
           </span>
         </h2>
+
         <AdminTable
-          columns={quarterColumns}
+          columns={columns}
           rows={quarters}
           rowKey={(quarter) => quarter.id}
+          rowMuted={(quarter) => quarter.status === "closed"}
           rowActions={(quarter) => (
             <RowMenu
               items={[
                 {
                   label: "보고 있는 분기로",
-                  disabled: quarter.id === quarterId,
+                  disabled: quarter.id === selected?.id,
                   onSelect: () => select(quarter.id),
                 },
                 {
@@ -272,113 +244,55 @@ export default function QuarterAdmin() {
               ]}
             />
           )}
-          empty="아직 분기가 없습니다."
+          empty="아직 분기가 없습니다. 아래에서 첫 분기를 만들어 주세요."
         />
+
         <p className="small dim" style={{ marginTop: "0.6rem" }}>
-          분기를 새로 만드는 화면은 아직 없습니다. 지금은 백엔드의{" "}
-          <code className="mono">POST /api/admin/quarters</code>로 만듭니다.
+          실제 사용자는 그 분기에 한 번이라도 예산을 쓴 회원 수입니다. 같은 회원이 여러 번
+          썼더라도 한 명으로 셉니다. 사용률은 실제 사용자 ÷ 참여 회원입니다.
         </p>
       </section>
 
-      {selected !== null && (
-        <section aria-labelledby="quarter-applications">
-          <h2 className="section-title" id="quarter-applications">
-            {selected.display_name} 참여 신청
-            <span className={styles.sectionNote}>
-              전체 {applications?.length ?? 0} · 대기 {pending}
-            </span>
-          </h2>
+      <section aria-labelledby="quarter-new">
+        <h2 className="section-title" id="quarter-new">
+          새 분기 만들기
+        </h2>
 
-          {applications === null ? (
-            <p className="small muted">신청을 불러오는 중…</p>
-          ) : (
-            <>
-              {applications.length > 0 && (
-                <SearchBar
-                  value={query}
-                  onChange={setQuery}
-                  placeholder="회원 이름이나 아이디로 검색"
-                  resultCount={visibleApplications.length}
-                  totalCount={applications.length}
-                  filters={[
-                    {
-                      key: "status",
-                      label: "상태",
-                      value: statusFilter,
-                      onChange: setStatusFilter,
-                      options: [
-                        { value: "all", label: "전체" },
-                        ...Object.entries(APPLICATION_STATUS_LABEL).map(([value, label]) => ({
-                          value,
-                          label,
-                        })),
-                      ],
-                    },
-                  ]}
-                />
-              )}
-
-              <AdminTable
-                columns={applicationColumns}
-                rows={visibleApplications}
-                rowKey={(application) => application.id}
-                rowHref={(application) =>
-                  withQuarter(`/admin/members/${application.user_id}`, selected.id)
-                }
-                rowActions={(application) =>
-                  application.status === "submitted" ? (
-                    <RowMenu
-                      items={[
-                        {
-                          label: "승인",
-                          disabled: busy,
-                          onSelect: () =>
-                            setConfirm({
-                              title: `참여 신청 승인 — ${application.display_name}`,
-                              effect: `신청한 그대로 Build ${formatKrw(
-                                application.requested_build_budget_krw,
-                              )}, Video ${formatKrw(
-                                application.requested_video_budget_krw,
-                              )}의 지원금이 만들어지고, ${
-                                application.display_name
-                              }이(가) ${selected.display_name}에 참여하게 됩니다.`,
-                              confirmLabel: "승인",
-                              onConfirm: () =>
-                                run(
-                                  `${application.display_name}의 신청을 승인했습니다.`,
-                                  () => reviewApplication(application.id, true),
-                                ),
-                            }),
-                        },
-                        {
-                          label: "거절",
-                          danger: true,
-                          disabled: busy,
-                          onSelect: () =>
-                            setConfirm({
-                              title: `참여 신청 거절 — ${application.display_name}`,
-                              effect: `${application.display_name}은(는) ${selected.display_name}에 참여하지 못하고 지원금도 받지 못합니다. 신청은 다시 올릴 수 있습니다.`,
-                              confirmLabel: "거절",
-                              danger: true,
-                              onConfirm: () =>
-                                run(
-                                  `${application.display_name}의 신청을 거절했습니다.`,
-                                  () => reviewApplication(application.id, false),
-                                ),
-                            }),
-                        },
-                      ]}
-                    />
-                  ) : (
-                    <span className="small dim">처리됨</span>
-                  )
-                }
-                empty="아직 들어온 신청이 없습니다."
-              />
-            </>
-          )}
-        </section>
-      )}
+        {formOpen ? (
+          <QuarterForm
+            busy={busy}
+            onCancel={() => setFormOpen(false)}
+            onSubmit={(input, summary) =>
+              setConfirm({
+                title: "새 분기 만들기",
+                effect: summary,
+                confirmLabel: "분기 만들기",
+                onConfirm: () =>
+                  run(`${input.display_name} 분기를 만들었습니다.`, async () => {
+                    await createQuarter(input);
+                    setFormOpen(false);
+                  }),
+              })
+            }
+          />
+        ) : (
+          <div className="card">
+            <p className="small muted">
+              분기는 준비 상태로 만들어집니다. 회원이 신청할 수 있게 하려면 만든 뒤 위
+              표에서 신청을 열어 주세요.
+            </p>
+            <p style={{ marginTop: "0.7rem" }}>
+              <button
+                className="btn btn-primary btn-sm"
+                type="button"
+                onClick={() => setFormOpen(true)}
+              >
+                새 분기 만들기
+              </button>
+            </p>
+          </div>
+        )}
+      </section>
 
       <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
     </div>
@@ -388,10 +302,10 @@ export default function QuarterAdmin() {
 function PageHeader() {
   return (
     <header className="page-header page-header-stacked">
-      <h1 className="page-title">분기 · 신청</h1>
+      <h1 className="page-title">분기 설정</h1>
       <p className="page-subtitle">
-        분기마다 신청을 열고 닫습니다. 승인하면 신청한 금액 그대로 지원금이 만들어지고 참여
-        기록도 함께 쓰입니다. 금액을 고치는 일은 회원 상세 화면에서 합니다.
+        분기를 만들고 신청을 열고 닫습니다. 올라온 신청을 심사하는 일은 신청 승인 화면에서
+        합니다.
       </p>
     </header>
   );

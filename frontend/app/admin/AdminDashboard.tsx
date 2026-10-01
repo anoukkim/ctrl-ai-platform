@@ -14,6 +14,7 @@ import { ACCOUNT_STATUS_LABEL, formatWhen, type AdminDashboard } from "@/lib/adm
 import { MEMBERSHIP_LABEL, formatDate, formatKrw } from "@/lib/quarters";
 
 import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
+import StatCards from "./components/StatCards";
 import { QuarterBadge } from "./components/StatusBadge";
 import { visibleSections, type AdminSection } from "./sections";
 
@@ -40,8 +41,10 @@ export default function AdminDashboard() {
 
   const todo = [
     {
-      key: "quarters",
-      href: "/admin/quarters",
+      key: "applications",
+      // 거르기까지 걸어 보냅니다 — 카드를 누른 이유가 "대기 중인 것"이므로,
+      // 전체 목록에 떨어뜨린 뒤 다시 거르게 할 이유가 없습니다.
+      href: "/admin/applications?status=submitted",
       label: "참여 신청",
       count: dashboard.pending_applications,
       waiting: (count: number) => `${count}건이 심사를 기다립니다.`,
@@ -92,6 +95,30 @@ export default function AdminDashboard() {
         </section>
       )}
 
+      {dashboard.failing_providers.length > 0 && (
+        <section aria-labelledby="admin-provider-warning">
+          <h2 className="section-title" id="admin-provider-warning">
+            외부 서비스 문제
+          </h2>
+          {/* 실제 연결로 설정된 제공자만 여기 들어옵니다. mock 모드는
+              실패할 수 없으므로, 기본 설정에서는 이 카드가 뜨지 않습니다. */}
+          <Link className={styles.warning} href={withQuarter("/admin/system", selected?.id)}>
+            <span className={styles.warningMark} aria-hidden="true">
+              !
+            </span>
+            <span className={styles.todoText}>
+              <strong>{dashboard.failing_providers.join(", ")} 연결에 문제가 있습니다</strong>
+              <span className="small dim">
+                마지막 호출이나 확인이 실패했습니다. 시스템에서 확인해 주세요.
+              </span>
+            </span>
+            <span aria-hidden="true" className={styles.todoChevron}>
+              ›
+            </span>
+          </Link>
+        </section>
+      )}
+
       <section aria-labelledby="admin-quarter-now">
         <h2 className="section-title" id="admin-quarter-now">
           {selected ? selected.display_name : "분기"}
@@ -127,22 +154,45 @@ export default function AdminDashboard() {
               </span>
             </div>
 
-            <div className={styles.stats}>
-              <Stat label="전체 회원" value={dashboard.counts.total} />
-              <Stat
-                label={`${MEMBERSHIP_LABEL.active} (이번 분기)`}
-                value={dashboard.counts.membership.active ?? 0}
-              />
-              <Stat
-                label={MEMBERSHIP_LABEL.inactive}
-                value={dashboard.counts.membership.inactive ?? 0}
-              />
-              <Stat label="미참여" value={dashboard.counts.membership.none ?? 0} />
-              <Stat
-                label={ACCOUNT_STATUS_LABEL.former}
-                value={dashboard.counts.accounts.former ?? 0}
-              />
-            </div>
+            {/* 회원 화면과 같은 숫자입니다 — 같은 함수에서 나옵니다. */}
+            <StatCards
+              cards={[
+                { key: "total", label: "전체 회원", value: dashboard.members.total, unit: "명" },
+                {
+                  key: "active",
+                  label: "참여 회원",
+                  value: dashboard.quarter_stats?.participants ?? dashboard.members.active,
+                  unit: "명",
+                },
+                {
+                  key: "users",
+                  label: "실제 사용자",
+                  value: dashboard.quarter_stats?.users_with_usage ?? 0,
+                  unit: "명",
+                },
+                {
+                  key: "rate",
+                  label: "사용률",
+                  value:
+                    dashboard.quarter_stats?.usage_rate == null
+                      ? "–"
+                      : `${Math.round(dashboard.quarter_stats.usage_rate * 100)}%`,
+                },
+                {
+                  key: "not_applied",
+                  label: "미신청",
+                  value: dashboard.members.not_applied,
+                  unit: "명",
+                  accent: dashboard.members.not_applied > 0,
+                },
+                {
+                  key: "former",
+                  label: ACCOUNT_STATUS_LABEL.former,
+                  value: dashboard.members.former,
+                  unit: "명",
+                },
+              ]}
+            />
           </div>
         )}
       </section>
@@ -200,15 +250,6 @@ export default function AdminDashboard() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className={styles.stat}>
-      <span className={styles.statValue}>{value}</span>
-      <span className={styles.statLabel}>{label}</span>
-    </div>
-  );
-}
-
 /**
  * 구역 카드 하나.
  *
@@ -229,16 +270,21 @@ function SectionCard({
 }) {
   const status: Record<string, { text: string; pending?: number }> = {
     members: {
-      text: `전체 ${figures.counts.total}명 · ${MEMBERSHIP_LABEL.active} ${
-        figures.counts.membership.active ?? 0
-      }명`,
+      text: `전체 ${figures.members.total}명 · ${MEMBERSHIP_LABEL.active} ${figures.members.active}명`,
     },
-    quarters: {
+    applications: {
       text:
         figures.pending_applications > 0
           ? `대기 중인 신청 ${figures.pending_applications}건`
           : "대기 중인 신청 없음",
       pending: figures.pending_applications,
+    },
+    quarters: {
+      text: figures.quarter
+        ? `${figures.quarter.display_name} · 참여 회원 ${
+            figures.quarter_stats?.participants ?? 0
+          }명`
+        : "분기 없음",
     },
     topups: {
       text:
@@ -258,7 +304,13 @@ function SectionCard({
           : "기록 없음",
     },
     content: { text: "앱·영상 정리 — 준비 중" },
-    system: { text: "백엔드와 데이터베이스 상태" },
+    system: {
+      text:
+        figures.failing_providers.length > 0
+          ? `${figures.failing_providers.join(", ")} 연결 문제`
+          : "서버와 외부 서비스 상태",
+      pending: figures.failing_providers.length,
+    },
     dev: { text: "사용량 시뮬레이터" },
   };
 
@@ -273,21 +325,12 @@ function SectionCard({
         </span>
         <span className={styles.cardName}>{section.label}</span>
         {pending > 0 && <span className={styles.cardCount}>{pending}</span>}
-        {section.comingSoon && <span className="badge badge-mock">준비 중</span>}
         {section.developmentOnly && <span className="badge badge-accent">개발 환경</span>}
       </span>
       <span className={styles.cardDescription}>{section.description}</span>
       <span className={styles.cardStatus}>{info.text}</span>
     </>
   );
-
-  if (section.comingSoon) {
-    return (
-      <div className={`${styles.card} ${styles.cardDisabled}`} aria-disabled="true">
-        {inner}
-      </div>
-    );
-  }
 
   return (
     <Link

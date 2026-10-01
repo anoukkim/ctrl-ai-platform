@@ -75,6 +75,9 @@ export interface QuarterApplication {
 export interface ApplicationWithMember extends QuarterApplication {
   username: string;
   display_name: string;
+  /** 누가 심사했는지. 아직 처리되지 않았으면 빈 문자열입니다. */
+  reviewed_by_username: string;
+  reviewed_by_display_name: string;
 }
 
 export interface QuarterAllocation {

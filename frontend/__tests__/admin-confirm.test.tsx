@@ -53,8 +53,23 @@ const MEMBER: MemberWithMembership = {
  */
 const setQuarterMembership = vi.fn().mockResolvedValue(MEMBER);
 const listQuarterMembers = vi.fn().mockResolvedValue([MEMBER]);
+const getMemberStats = vi.fn().mockResolvedValue({
+  total: 1,
+  active: 1,
+  inactive: 0,
+  not_applied: 0,
+  former: 0,
+  admins: 0,
+});
 const refreshDashboard = vi.fn().mockResolvedValue(undefined);
 const push = vi.fn();
+
+// 카드의 숫자는 백엔드에서 옵니다. 목록과 함께 한 번에 불러오므로, 이쪽을
+// 가짜로 두지 않으면 화면이 통째로 오류 카드가 됩니다.
+vi.mock("@/lib/admin", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/admin")>();
+  return { ...actual, getMemberStats: (...args: unknown[]) => getMemberStats(...args) };
+});
 
 vi.mock("@/lib/quarters", async (importOriginal) => {
   // 문구 표(MEMBERSHIP_LABEL 등)는 진짜를 그대로 씁니다. 가짜로 적어 두면
@@ -97,6 +112,14 @@ describe("회원 목록의 참여 상태 변경", () => {
     vi.clearAllMocks();
     listQuarterMembers.mockResolvedValue([MEMBER]);
     setQuarterMembership.mockResolvedValue(MEMBER);
+    getMemberStats.mockResolvedValue({
+      total: 1,
+      active: 1,
+      inactive: 0,
+      not_applied: 0,
+      former: 0,
+      admins: 0,
+    });
   });
 
   test("메뉴에서 고르면 확인창이 먼저 뜨고, 그 전에는 아무것도 바뀌지 않는다", async () => {
@@ -106,7 +129,7 @@ describe("회원 목록의 참여 상태 변경", () => {
     // 목록이 들어오기를 기다립니다.
     await screen.findByText("김유리");
 
-    await user.click(screen.getByRole("button", { name: /관리/ }));
+    await user.click(screen.getByRole("button", { name: "관리 ▾" }));
     await user.click(screen.getByRole("menuitem", { name: "비활동으로" }));
 
     // 확인창이 떴고,
@@ -122,7 +145,7 @@ describe("회원 목록의 참여 상태 변경", () => {
     render(<MemberList />);
     await screen.findByText("김유리");
 
-    await user.click(screen.getByRole("button", { name: /관리/ }));
+    await user.click(screen.getByRole("button", { name: "관리 ▾" }));
     await user.click(screen.getByRole("menuitem", { name: "탈퇴 처리" }));
 
     const dialog = await screen.findByRole("dialog");
@@ -138,7 +161,7 @@ describe("회원 목록의 참여 상태 변경", () => {
     render(<MemberList />);
     await screen.findByText("김유리");
 
-    await user.click(screen.getByRole("button", { name: /관리/ }));
+    await user.click(screen.getByRole("button", { name: "관리 ▾" }));
     await user.click(screen.getByRole("menuitem", { name: "비활동으로" }));
     await screen.findByRole("dialog");
 
@@ -158,7 +181,7 @@ describe("회원 목록의 참여 상태 변경", () => {
     render(<MemberList />);
     await screen.findByText("김유리");
 
-    await user.click(screen.getByRole("button", { name: /관리/ }));
+    await user.click(screen.getByRole("button", { name: "관리 ▾" }));
     await user.click(screen.getByRole("menuitem", { name: "비활동으로" }));
     await screen.findByRole("dialog");
 

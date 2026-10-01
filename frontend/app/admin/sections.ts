@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   ScrollText,
   Server,
+  Stamp,
   Users,
   Wallet,
   Wrench,
@@ -31,8 +32,17 @@ export interface AdminSection {
   Icon: LucideIcon;
   /** 개발 환경에서만 보이는 구역. */
   developmentOnly?: boolean;
-  /** 아직 만들지 않은 자리. 탭과 카드에 준비 중으로 표시합니다. */
-  comingSoon?: boolean;
+  /**
+   * 기능이 아직 없는 구역.
+   *
+   * 메뉴에도 카드에도 **보이지 않습니다**. 경로와 자리 표시 화면은 코드에
+   * 남아 있어서, 해당 기능을 만드는 작업이 이 한 줄만 지우면 켜집니다.
+   *
+   * 이전에는 "준비 중" 배지를 달아 보여 줬습니다. 그러면 메뉴가 길어지고,
+   * 누를 때마다 아무것도 없는 화면이 나옵니다 — 쓸 수 없는 항목은 자리를
+   * 알려 주는 것보다 방해가 더 큽니다.
+   */
+  hidden?: boolean;
 }
 
 export const ADMIN_SECTIONS: AdminSection[] = [
@@ -51,10 +61,18 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: Users,
   },
   {
+    // 신청 심사가 관리자의 주된 일이라 분기 설정보다 앞에 둡니다.
+    key: "applications",
+    href: "/admin/applications",
+    label: "신청 승인",
+    description: "올라온 참여 신청을 승인하거나 거절합니다.",
+    Icon: Stamp,
+  },
+  {
     key: "quarters",
     href: "/admin/quarters",
-    label: "분기 · 신청",
-    description: "분기를 만들고 신청을 열고 닫으며, 올라온 신청을 심사합니다.",
+    label: "분기 설정",
+    description: "분기를 만들고 신청을 열고 닫습니다.",
     Icon: FileText,
   },
   {
@@ -65,14 +83,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: Wallet,
   },
   {
-    // 예산 구역은 budget-by-provider에서 채웁니다. 자리를 미리 비워 두는
-    // 쪽이, 나중에 메뉴 구조를 다시 짜는 쪽보다 낫습니다.
+    // budget-by-provider가 켭니다.
     key: "budget",
     href: "/admin/budget",
     label: "예산",
-    description: "제공자별 예산 관리 — 다음 작업에서 채웁니다.",
+    description: "제공자별 예산 관리.",
     Icon: Wallet,
-    comingSoon: true,
+    hidden: true,
   },
   {
     key: "video-models",
@@ -89,18 +106,19 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: ScrollText,
   },
   {
+    // Phase 5(앱)와 Phase 8(영상)이 켭니다.
     key: "content",
     href: "/admin/content",
     label: "콘텐츠",
     description: "게시된 앱과 영상, 댓글을 정리합니다.",
     Icon: FileText,
-    comingSoon: true,
+    hidden: true,
   },
   {
     key: "system",
     href: "/admin/system",
     label: "시스템",
-    description: "백엔드와 데이터베이스가 살아 있는지 확인합니다.",
+    description: "백엔드, 데이터베이스, 외부 서비스 상태를 확인합니다.",
     Icon: Server,
   },
   {
@@ -121,11 +139,15 @@ export function activeSection(pathname: string): AdminSection | undefined {
 }
 
 /**
- * 화면에 보일 구역만.
+ * 메뉴와 카드에 보일 구역만.
  *
- * 개발 도구는 개발 환경에서만 보입니다. 숨기는 것은 편의일 뿐이고, 실제
- * 차단은 백엔드가 404로 합니다.
+ * 두 가지를 걸러 냅니다. 아직 기능이 없는 구역(`hidden`)은 누구에게도
+ * 보이지 않고, 개발 도구는 개발 환경에서만 보입니다. 숨기는 것은 편의일
+ * 뿐이고, 실제 차단은 백엔드가 합니다 — 시뮬레이터는 배포 환경에서
+ * 404를 돌려줍니다.
  */
 export function visibleSections(isDevelopment: boolean): AdminSection[] {
-  return ADMIN_SECTIONS.filter((section) => !section.developmentOnly || isDevelopment);
+  return ADMIN_SECTIONS.filter(
+    (section) => !section.hidden && (!section.developmentOnly || isDevelopment),
+  );
 }

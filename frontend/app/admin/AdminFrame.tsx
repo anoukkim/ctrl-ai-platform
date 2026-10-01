@@ -107,20 +107,6 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
             {sections.map((section) => {
               const isActive = current?.key === section.key;
 
-              if (section.comingSoon) {
-                return (
-                  <li key={section.key}>
-                    <span
-                      className={`${styles.tab} ${styles.tabDisabled}`}
-                      title={`${section.label} — 준비 중`}
-                    >
-                      {section.label}
-                      <span className="badge badge-mock">준비 중</span>
-                    </span>
-                  </li>
-                );
-              }
-
               return (
                 <li key={section.key}>
                   <Link
