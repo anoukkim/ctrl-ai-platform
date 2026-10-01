@@ -60,7 +60,42 @@ main  <-  phase-1c-usage-audit
 
 New UI requests go here until they are folded into a UI batch.
 
-*(none yet — UI batch 1 below holds everything collected so far)*
+*(none)*
+
+---
+
+## project-video-management
+
+Work on Video Generator projects that needs a backend or data-model
+change, so it cannot be done on a UI-only branch.
+
+### Store the generation settings per version
+
+**Why:** `VideoVersion` records which model made a version, but not the
+**length, aspect ratio or sound** it was made with. `VideoModel.capabilities`
+only says what a model *can* do, not what was actually chosen.
+
+The UI for these controls now exists (`frontend/app/video/[projectId]/VideoSettings.tsx`),
+and the workspace keeps the settings of versions created in the current
+session in memory. That is a stopgap: reload the page and the older
+versions lose their settings, because there is nowhere to read them from.
+
+**What it needs:**
+
+- add `duration_seconds`, `aspect_ratio` and `sound` to `VideoVersion`,
+  with an Alembic migration (existing rows get null — their settings are
+  genuinely unknown and should not be guessed)
+- accept them on `POST /api/video/projects/{id}/versions`, validated
+  against the chosen model's `capabilities` so the API refuses a
+  combination the model cannot produce
+- return them on `VideoVersionRead`
+- then delete the in-memory `versionSettings` map in `VideoWorkspace.tsx`
+  and read the real values instead
+
+Probably also worth storing the chosen settings on `VideoProject` so they
+survive a reload before the first version is generated.
+
+---
 
 ---
 
