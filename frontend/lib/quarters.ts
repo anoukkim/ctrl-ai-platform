@@ -287,3 +287,130 @@ export function formatKrw(value: number): string {
 export function formatDate(iso: string | null): string {
   return iso ? iso.replaceAll("-", ".") : "";
 }
+
+/* ------------------------------------------------------------------ */
+/* 사용량 (Phase 1c)                                                    */
+/* ------------------------------------------------------------------ */
+
+export type BudgetCategory = "build" | "video";
+export type FundingSource = "community_build" | "community_video" | "personal";
+
+/** 차감 출처 표기. 공동체 지원과 개인 잔액은 끝까지 구분해서 보여 줍니다. */
+export const FUNDING_LABEL: Record<FundingSource, string> = {
+  community_build: "공동체 지원",
+  community_video: "공동체 지원",
+  personal: "개인 잔액",
+};
+
+/** 제공자 id를 사람이 읽는 이름으로. 카드와 표가 같은 이름을 쓰도록. */
+export const PROVIDER_LABEL: Record<string, string> = {
+  claude: "Claude",
+  anthropic: "Claude",
+  higgsfield: "Higgsfield",
+};
+
+export function providerName(id: string): string {
+  return PROVIDER_LABEL[id] ?? id;
+}
+
+export interface UsageEvent {
+  id: number;
+  created_at: string;
+  category: BudgetCategory;
+  funding_source: FundingSource;
+  provider: string;
+  model_id: string | null;
+  charged_krw: number;
+  /** 어디에서 썼는지, 회원이 알아보는 이름으로. */
+  label: string;
+}
+
+export interface CategoryUsage {
+  category: BudgetCategory;
+  /** 실제로 일을 하는 서비스 — Claude / Higgsfield. */
+  provider: string;
+  budget_krw: number;
+  consumed_krw: number;
+  remaining_krw: number;
+}
+
+export interface PersonalUsage {
+  balance_krw: number;
+  consumed_krw: number;
+  remaining_krw: number;
+  overage_enabled: boolean;
+}
+
+export interface MyUsage {
+  quarter_code: string | null;
+  quarter_name: string | null;
+  days_remaining: number | null;
+  membership_status: MembershipStatus | null;
+  categories: CategoryUsage[];
+  total_budget_krw: number;
+  personal: PersonalUsage | null;
+  events: UsageEvent[];
+}
+
+export function getMyUsage(): Promise<MyUsage> {
+  return request<MyUsage>("/usage/me");
+}
+
+/* ------------------------------------------------------------------ */
+/* 관리자 — 역할, 지원금 조정, 감사 로그, 시뮬레이션                      */
+/* ------------------------------------------------------------------ */
+
+export interface AuditEntry {
+  id: number;
+  created_at: string;
+  actor_username: string;
+  action: string;
+  action_label: string;
+  target_type: string;
+  target_label: string;
+  summary: string;
+}
+
+export function listAuditLog(): Promise<AuditEntry[]> {
+  return request<AuditEntry[]>("/admin/audit");
+}
+
+export function setMemberRole(
+  userId: number,
+  role: "admin" | "member",
+): Promise<MemberWithMembership> {
+  return request<MemberWithMembership>(`/admin/members/${userId}/role`, {
+    method: "PUT",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function adjustAllocation(
+  quarterId: number,
+  userId: number,
+  buildKrw: number,
+  videoKrw: number,
+  note = "",
+): Promise<QuarterAllocation> {
+  return request<QuarterAllocation>(`/admin/quarters/${quarterId}/allocations/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      build_budget_krw: buildKrw,
+      video_budget_krw: videoKrw,
+      note,
+    }),
+  });
+}
+
+/** 개발 환경에서만 동작합니다. 배포 환경에서는 404를 돌려줍니다. */
+export function simulateUsage(input: {
+  user_id?: number;
+  category: BudgetCategory;
+  amount_krw: number;
+  provider?: string;
+}): Promise<UsageEvent> {
+  return request<UsageEvent>("/admin/simulate-usage", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}

@@ -39,47 +39,10 @@ export interface Creator {
   membership: MembershipStatus;
 }
 
-export const CURRENT_QUARTER = "2026 Q4";
-
-/**
- * 분기는 달력 기준 3개월입니다. (이전의 4개월 "시즌" 개념은 쓰지 않습니다.)
- *
- * `today`는 목업용으로 고정한 기준일입니다. 서버와 브라우저가 늘 같은 값을
- * 계산하도록 고정해 두었습니다. 실제 분기 데이터는 백엔드의 /api/quarters/me
- * 에서 오고, 이 상수는 아직 백엔드를 붙이지 않은 화면에서만 씁니다.
- */
-export const QUARTER_RANGE = {
-  code: "2026-Q4",
-  name: CURRENT_QUARTER,
-  startsAt: "2026-10-01",
-  endsAt: "2026-12-31",
-  applicationOpensAt: "2026-09-15",
-  applicationClosesAt: "2026-09-30",
-  today: "2026-10-01",
-};
-
 /** YYYY-MM-DD 를 2026.10.01 형태로 바꿉니다. */
 export function formatDate(iso: string): string {
   return iso.replaceAll("-", ".");
 }
-
-/** 두 날짜 사이의 남은 일수. 시간대 차이를 없애려고 UTC로 계산합니다. */
-export function daysBetween(fromIso: string, toIso: string): number {
-  const from = Date.parse(`${fromIso}T00:00:00Z`);
-  const to = Date.parse(`${toIso}T00:00:00Z`);
-  return Math.max(0, Math.round((to - from) / 86_400_000));
-}
-
-export const CURRENT_USER = {
-  username: "yurikim",
-  displayName: "김유리",
-  membership: "active" as MembershipStatus,
-  role: "admin" as "admin" | "member",
-  quarter: CURRENT_QUARTER,
-  quartersParticipated: ["2026 Q1", "2026 Q3", "2026 Q4"],
-  github: { connected: false as const, label: "연결 안 됨" },
-  youtube: { connected: false as const, label: "연결 안 됨" },
-};
 
 /* ------------------------------------------------------------------ */
 /* Chat                                                                */
@@ -690,48 +653,6 @@ export function findVideo(id: string): CommunityVideo | undefined {
 /* ------------------------------------------------------------------ */
 
 /**
- * 공동체 지원 예산. 금액의 기준은 원(KRW)입니다.
- *
- * 토큰이나 생성 횟수로 환산해 저장하지 않습니다. 제공자 가격이 바뀌어도
- * 이미 승인된 예산은 그대로여야 하기 때문입니다. 화면에는 친절하게
- * "할당량 / 사용 / 남음"으로 보여 주되, 계산의 근거는 원입니다.
- */
-export interface CommunityBudget {
-  /** build 또는 video */
-  category: "build" | "video";
-  label: string;
-  /** 지원받은 금액(원) */
-  budgetKrw: number;
-  /** 쓴 금액(원) */
-  consumedKrw: number;
-  note: string;
-}
-
-export const MOCK_COMMUNITY_BUDGETS: CommunityBudget[] = [
-  {
-    category: "build",
-    label: "Build",
-    budgetKrw: 70_000,
-    consumedKrw: 24_500,
-    note: "Chat과 Project Builder에서 Claude를 쓸 때 차감됩니다.",
-  },
-  {
-    category: "video",
-    label: "Video",
-    budgetKrw: 30_000,
-    consumedKrw: 12_000,
-    note: "Higgsfield로 영상을 만들 때 차감됩니다.",
-  },
-];
-
-/** 개인 충전 잔액. 공동체 지원과 절대 섞지 않습니다. */
-export const MOCK_PERSONAL_BALANCE = {
-  balanceKrw: 30_000,
-  consumedKrw: 5_000,
-  overageEnabled: true,
-};
-
-/**
  * 사용 내역 한 줄.
  *
  * 금액(원)과 어느 주머니에서 나갔는지를 함께 적습니다. 제공자가 실제로
@@ -746,49 +667,6 @@ export interface UsageEvent {
   chargedKrw: number;
   source: "공동체 지원" | "개인 잔액";
 }
-
-export const MOCK_USAGE_EVENTS: UsageEvent[] = [
-  {
-    date: "2026-10-01",
-    category: "Build",
-    detail: "Project Builder — 습관 한눈에",
-    provider: "Claude",
-    chargedKrw: 1_200,
-    source: "공동체 지원",
-  },
-  {
-    date: "2026-09-30",
-    category: "Video",
-    detail: "영상 — 비 오는 서울의 밤",
-    provider: "Higgsfield",
-    chargedKrw: 4_000,
-    source: "공동체 지원",
-  },
-  {
-    date: "2026-09-29",
-    category: "Build",
-    detail: "영상 프롬프트 다듬기",
-    provider: "Claude",
-    chargedKrw: 300,
-    source: "공동체 지원",
-  },
-  {
-    date: "2026-09-28",
-    category: "Build",
-    detail: "Chat 대화",
-    provider: "Claude",
-    chargedKrw: 500,
-    source: "공동체 지원",
-  },
-  {
-    date: "2026-09-27",
-    category: "Video",
-    detail: "영상 — 새벽 부산 해안",
-    provider: "Higgsfield",
-    chargedKrw: 5_000,
-    source: "개인 잔액",
-  },
-];
 
 /* ------------------------------------------------------------------ */
 /* Admin                                                               */
@@ -839,11 +717,6 @@ export const MOCK_QUARTERS: QuarterSummary[] = [
   },
 ];
 
-export const ROLE_LABEL: Record<"admin" | "member", string> = {
-  admin: "관리자",
-  member: "회원",
-};
-
 export interface AdminMember {
   username: string;
   displayName: string;
@@ -853,54 +726,6 @@ export interface AdminMember {
   buildBudgetKrw: number;
   videoBudgetKrw: number;
 }
-
-export const MOCK_MEMBERS: AdminMember[] = [
-  {
-    username: "yurikim",
-    displayName: "김유리",
-    role: "admin",
-    membership: "active",
-    quarter: "2026 Q4",
-    buildBudgetKrw: 70_000,
-    videoBudgetKrw: 30_000,
-  },
-  {
-    username: "minji",
-    displayName: "박민지",
-    role: "member",
-    membership: "active",
-    quarter: "2026 Q4",
-    buildBudgetKrw: 50_000,
-    videoBudgetKrw: 50_000,
-  },
-  {
-    username: "seojun",
-    displayName: "이서준",
-    role: "member",
-    membership: "active",
-    quarter: "2026 Q4",
-    buildBudgetKrw: 70_000,
-    videoBudgetKrw: 30_000,
-  },
-  {
-    username: "daeun",
-    displayName: "최다은",
-    role: "member",
-    membership: "inactive",
-    quarter: "2026 Q3",
-    buildBudgetKrw: 0,
-    videoBudgetKrw: 0,
-  },
-  {
-    username: "jihoon",
-    displayName: "서지훈",
-    role: "member",
-    membership: "former",
-    quarter: "2026 Q3",
-    buildBudgetKrw: 0,
-    videoBudgetKrw: 0,
-  },
-];
 
 /* ------------------------------------------------------------------ */
 /* 공통 도우미                                                          */
@@ -921,12 +746,6 @@ export function formatCompact(value: number): string {
     return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(0)}K`;
   }
   return String(value);
-}
-
-/** 사용률(%) — 사이드바와 Usage 화면이 같은 값을 쓰도록 한 곳에 둡니다. */
-export function usedPercent(budget: CommunityBudget): number {
-  if (budget.budgetKrw <= 0) return 0;
-  return Math.min(100, Math.round((budget.consumedKrw / budget.budgetKrw) * 100));
 }
 
 /** 반응 수의 합계. 카드와 "인기순" 정렬이 같은 값을 쓰도록 한 곳에 둡니다. */

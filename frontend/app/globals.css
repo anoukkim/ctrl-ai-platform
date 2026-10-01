@@ -166,6 +166,19 @@ code {
   font-weight: 650;
 }
 
+/* 제목과 설명을 세로로 쌓는 머리말.
+   기본 머리말은 한 줄에 나란히 두지만, 설명이 길면 제목 옆에서 좁게
+   눌립니다. 그럴 때 이 변형을 씁니다. */
+.page-header-stacked {
+  display: block;
+}
+
+.page-header-stacked .page-subtitle {
+  display: block;
+  margin-top: 0.3rem;
+  max-width: 48rem;
+}
+
 .page-subtitle {
   flex: 1 1 20rem;
   min-width: 0;
