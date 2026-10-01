@@ -15,42 +15,40 @@ says what order things happen in.
 
 ## Now
 
-**ui-naming** is built on branch `ui-naming` and waiting on review.
-Five commits: the sidebar labels, the Admin section names, CtrlAIApps,
-동아리 지원, and the docs. tsc, lint, `npm test` (32) and `npm run build`
-all pass, and the six affected screens were checked in the running app.
+Nothing is being built. `main` holds Phase 1, UI batch 1,
+membership-access-fix, admin-restructure and ui-naming. No branch is
+open.
 
-`main` holds Phase 1, UI batch 1, membership-access-fix and
-admin-restructure.
+Next up is **budget-by-provider** on `feat-budget-by-provider`, branched
+from an up-to-date `main`; the spec is saved verbatim below. Turning on
+its Admin section is deleting the `hidden: true` line on the `budget`
+entry in `frontend/app/admin/sections.ts` — the label is already
+**Budget**, set by ui-naming.
 
 ---
 
 ## Next (in order)
 
-1. **ui-naming** · branch `ui-naming` — **built, awaiting review**
-   English navigation labels, `CtrlAIApps` without the space, and
-   공동체 지원 → 동아리 지원. Spec saved verbatim below.
-
-2. **budget-by-provider** · branch `feat-budget-by-provider`
+1. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including the **Application flow** section
    added on 2026-10-01.
 
-3. **project-video-management** · branch `feat-project-video-management`
+2. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**
    and the per-version generation settings.
 
-4. **account-withdrawal** · branch `feat-account-withdrawal`
+3. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-5. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+4. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including the **Length slider** section.
 
-6. **prep-beta-launch**
+5. **prep-beta-launch**
    Only the **Launch data rules** are specified so far; the rest of the
    item is still to be written. Spec below.
 
-7. **Phase 2 — Chat**
+6. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
@@ -76,22 +74,25 @@ here until the developer says where it goes.
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **ui-naming**, which is next:
+Three things to carry into **budget-by-provider**, which is next:
 
-- The Admin section labels live in **one place**,
-  `frontend/app/admin/sections.ts`. The sidebar, the tabs and the
-  dashboard cards all read it, so the English labels are written once.
-  There are nine entries, two of them hidden.
-- `frontend/` now has `npm test` (Vitest). A UI batch that changes labels
-  should run it alongside `npm run lint` and `npm run build`. One test
-  asserts the visible section list, so renaming sections will touch it.
-- 분기 · 신청 no longer exists. ui-naming's English labels apply to
-  **신청 승인** and **분기 설정** separately.
-
-And one into **budget-by-provider**: the 예산 section is already defined
-in `sections.ts` with `hidden: true` and the route `/admin/budget`.
-Deleting that one line turns it on everywhere — sidebar, tabs and the
-dashboard card.
+- **The Budget section already exists**, defined in
+  `frontend/app/admin/sections.ts` with `hidden: true` and the route
+  `/admin/budget`. Deleting that one line turns it on everywhere —
+  sidebar, tabs, breadcrumbs, the dashboard card and the page heading.
+  Its label is already English.
+- **A section is named once.** All eleven names live in that same file,
+  and screens read them through `sectionLabel(key)` rather than writing
+  their own heading. A new section needs an entry there, not a string in
+  a component. `__tests__/admin-sections.test.ts` asserts the visible
+  list and that every name is English, so adding one touches that test.
+- **The budget rename lands on 동아리 지원, not 공동체 지원.** Item 1 of
+  the spec renames the Build budget to Claude; the pot it comes out of
+  is called 동아리 지원 on screen, and `FUNDING_LABEL` in
+  `frontend/lib/quarters.ts` is where that word is written. The
+  `FundingSource` *values* are still `community_build` /
+  `community_video` — ui-naming deliberately left the data alone, so a
+  provider rename there is a real migration, not a label change.
 
 ---
 
@@ -197,17 +198,18 @@ of this branch. All seven are implemented and merged.
 
 ---
 
-**Note added 2026-10-01.** Point 6 says "all labels in Korean", and
-**ui-naming** — the next item — then moves the Admin *sub-navigation*
-labels to English (Dashboard, Members, Quarters, Top-ups, Video Models,
-Audit Log, Content, System, Dev Tools). Build this item as written; the
-relabelling is ui-naming's job, not a correction to apply early.
+**Note added 2026-10-01, superseded.** Point 6 above says "all labels in
+Korean". **ui-naming** then moved the Admin section names to English, so
+point 6 now reads as history: it describes the state this branch was
+built to, not the state of the code. The rule that survives from it is
+the rest of the sentence — one badge style, one table component, the
+existing design tokens — and that body text stays Korean.
 
 ---
 
-## ui-naming — full spec
+## ui-naming — full spec (merged 2026-10-01)
 
-Branch `ui-naming`. Saved exactly as written by the developer.
+Branch `ui-naming`, merged. Saved exactly as written by the developer.
 
 > 1. Sidebar and navigation labels in English, everything else stays Korean:
 >    - Section headings: 만들기 → Create, 둘러보기 → Explore, 내 정보 → Account, 관리 → Manage.
@@ -506,6 +508,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **ui-naming** — the navigation moved to English: group headings (Create, Explore, Account), Report Issue in place of 문제 신고, and the nine Admin section names, which the sidebar, tabs, breadcrumbs, dashboard cards and each section's own `<h1>` now all read from `sections.ts` through `sectionLabel()` instead of each screen spelling its own. CtrlAI Apps became CtrlAIApps everywhere, route `/ctrlaistore` unchanged; 공동체 지원 became 동아리 지원 everywhere including the usage ledger's funding-source badges, with 개인 충전 untouched and the `FundingSource` data values deliberately left alone. Korean prose that points at a screen now uses that screen's English name; Korean prose about the things on a screen keeps the Korean noun. 시즌 → 분기 folded in on request | `ui-naming` |
 | 2026-10-01 | **admin-restructure** — Admin split into sections on their own routes under a shared layout (breadcrumbs, tabs, the selected quarter carried in `?quarter=`); a dashboard of clickable cards; a sidebar Admin group that expands in place; 신청 승인 separated from 분기 설정, with inline 승인/거절, a reason on rejection, and a 새 분기 만들기 form; stat cards that filter on 회원 and 신청 승인, and per-quarter figures on 분기 설정, all from grouped queries in one stats service; a Korean confirmation stating the effect before every change; an 외부 서비스 panel with an on-request connection check that never exposes a credential; 예산 and 콘텐츠 hidden until their features exist. Brought the frontend its first test runner (Vitest). Migration `c3a81f5d7e24` adds `provider_status` | `ui-admin-restructure` |
 | 2026-10-01 | **membership-access-fix** — `require_active_member` on every create, edit and delete route rather than only the two create routes; the shared `NotParticipatingBanner` and locked controls on Chat, Project Builder and Video Generator; the access table for all 42 routes in `docs/architecture.md`, held to it by a test that fails on any new or re-guarded route | `fix-membership-access` |
 | 2026-10-01 | **UI batch 1 — brand refresh** — the CTRL+AI name and + logo mark, lucide navigation icons, the neutral dark palette as tokens with no colour left in a component, the rebuilt Chat screen, the `/issues` page with Korean GitHub issue templates, and the Video length/ratio/sound controls | `ui-brand-refresh` |
