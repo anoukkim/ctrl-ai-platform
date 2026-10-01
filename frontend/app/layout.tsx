@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import AppShell from "@/app/components/AppShell";
+import CurrentUserProvider from "@/app/components/CurrentUserProvider";
 
 import "./globals.css";
 
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body>
-        <AppShell>{children}</AppShell>
+        <CurrentUserProvider>
+          <AppShell>{children}</AppShell>
+        </CurrentUserProvider>
       </body>
     </html>
   );

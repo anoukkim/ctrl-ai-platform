@@ -8,11 +8,19 @@
 /**
  * 백엔드 주소.
  *
+ * 기본값은 빈 문자열, 즉 **같은 출처**입니다. `/api/*` 요청은 Next.js가
+ * 받아서 FastAPI로 넘깁니다(next.config.ts의 rewrites). 덕분에 세션
+ * 쿠키를 HttpOnly로 두고도 그대로 전송되고, 자바스크립트는 쿠키를 읽을
+ * 수 없습니다.
+ *
+ * 다른 주소를 직접 부르도록 되돌릴 수도 있지만, 그러면 쿠키가 교차 출처가
+ * 되어 로그인이 동작하지 않습니다. 개발 중 백엔드만 따로 확인할 때만
+ * 쓰세요.
+ *
  * `NEXT_PUBLIC_` 값은 브라우저 번들에 그대로 들어가므로 비밀이 아닌 값만
- * 넣을 수 있습니다. 제공자 API 키는 절대 여기에 두지 않습니다. 브라우저는
- * Ctrl AI 백엔드만 부르고, 제공자 호출은 백엔드가 합니다.
+ * 넣을 수 있습니다. 제공자 API 키는 절대 여기에 두지 않습니다.
  */
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 /**
  * 상태 확인 요청의 최대 대기 시간(ms).

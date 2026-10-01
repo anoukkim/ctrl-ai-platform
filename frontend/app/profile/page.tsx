@@ -14,13 +14,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import {
-  CURRENT_USER,
-  MEMBERSHIP_LABEL,
-  MOCK_APPS,
-  ROLE_LABEL,
-} from "@/lib/mock-data";
+import { MOCK_APPS } from "@/lib/mock-data";
 
+import { AccountSettings, Identity } from "./AccountIdentity";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
 import styles from "./profile.module.css";
@@ -29,12 +25,10 @@ export const metadata: Metadata = {
   title: "Profile — Ctrl AI",
 };
 
-const myApps = MOCK_APPS.filter((app) => app.creator.username === CURRENT_USER.username);
+// 게시된 앱 목록은 아직 목업입니다(Phase 5).
+const myApps = MOCK_APPS.filter((app) => app.creator.username === "yurikim");
 
 export default function ProfilePage() {
-  // 한국어 이름은 성이 앞에 오므로 첫 글자를 그대로 씁니다.
-  const initial = CURRENT_USER.displayName.slice(0, 1);
-
   return (
     <>
       <header className="page-header">
@@ -44,48 +38,12 @@ export default function ProfilePage() {
         <p className="page-subtitle">내 계정과 참여 분기, 지금까지 만든 결과물입니다.</p>
       </header>
 
-      <div className={styles.identity}>
-        <span className={styles.avatar} aria-hidden="true">
-          {initial}
-        </span>
-        <div className={styles.identityText}>
-          <span className={styles.displayName}>{CURRENT_USER.displayName}</span>
-          <span className={styles.username}>@{CURRENT_USER.username}</span>
-          <span className={styles.badges}>
-            <span className="badge badge-ok">{MEMBERSHIP_LABEL[CURRENT_USER.membership]}</span>
-            <span className="badge badge-accent">{CURRENT_USER.quarter}</span>
-            <span className="badge badge-muted">{ROLE_LABEL[CURRENT_USER.role]}</span>
-          </span>
-        </div>
-      </div>
+      <Identity />
 
       <QuarterParticipation />
 
       <div className={styles.columns}>
-        <section className="card">
-          <h2 className="section-title">계정 설정</h2>
-          <div className={styles.rows}>
-            <p className={styles.row}>
-              <span className={styles.rowLabel}>아이디</span>
-              <span className="mono">{CURRENT_USER.username}</span>
-            </p>
-            <p className={styles.row}>
-              <span className={styles.rowLabel}>이름</span>
-              <span>{CURRENT_USER.displayName}</span>
-            </p>
-            <p className={styles.row}>
-              <span className={styles.rowLabel}>회원 상태</span>
-              <span>{MEMBERSHIP_LABEL[CURRENT_USER.membership]}</span>
-            </p>
-            <p className={styles.row}>
-              <span className={styles.rowLabel}>역할</span>
-              <span>{ROLE_LABEL[CURRENT_USER.role]}</span>
-            </p>
-          </div>
-          <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            회원 가입과 로그인은 Phase 1에서 제공됩니다.
-          </p>
-        </section>
+        <AccountSettings />
 
         <section className="card">
           <h2 className="section-title">연결한 서비스</h2>
@@ -97,7 +55,7 @@ export default function ProfilePage() {
               </p>
             </div>
             <span className={styles.connectionRight}>
-              <span className="badge badge-muted">{CURRENT_USER.github.label}</span>
+              <span className="badge badge-muted">연결 안 됨</span>
               <button className="btn btn-sm" type="button" disabled title="Phase 4에서 제공됩니다">
                 연결하기
               </button>
@@ -109,7 +67,7 @@ export default function ProfilePage() {
               <p className={styles.connectionHint}>만든 영상을 내 채널에 올립니다.</p>
             </div>
             <span className={styles.connectionRight}>
-              <span className="badge badge-muted">{CURRENT_USER.youtube.label}</span>
+              <span className="badge badge-muted">연결 안 됨</span>
               <button className="btn btn-sm" type="button" disabled title="Phase 7에서 제공됩니다">
                 연결하기
               </button>
