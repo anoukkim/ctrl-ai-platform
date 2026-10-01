@@ -142,10 +142,20 @@
 
 /* 선택된 항목: 옅은 배경 + 왼쪽 표시선 + 링크색. 글자를 굵게 하면 폭이
    바뀌어 목록이 흔들리므로 굵기는 그대로 둡니다. */
+/* 선택된 항목.
+ *
+ * 바탕은 중립 회색 한 단계만 올리고, 색은 왼쪽 막대와 아이콘에만 씁니다.
+ * 바탕까지 파랗게 칠하면 사이드바에서 그 줄만 떠 보입니다. 글자 굵기는
+ * 바꾸지 않습니다 — 폭이 달라져 목록이 흔들립니다. */
 .navLinkActive {
-  background: var(--accent-soft);
+  background: var(--panel-2);
   border-left-color: var(--accent);
+  color: var(--text);
+}
+
+.navLinkActive .navIcon {
   color: var(--accent);
+  opacity: 1;
 }
 
 /* 아이콘은 한 벌(lucide)만 쓰고, 크기와 선 굵기를 여기서 한 번만 정합니다.
@@ -215,6 +225,7 @@
   font-family: var(--mono);
   font-size: 0.72rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 
@@ -233,13 +244,16 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.4rem;
+  /* 이름과 값이 붙지 않도록 최소 간격을 둡니다. */
+  gap: 0.6rem;
   font-size: 0.72rem;
   color: var(--text-muted);
 }
 
 .meterValue {
+  font-family: var(--mono);
   font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
 
@@ -288,6 +302,16 @@
   margin: 0 auto;
 }
 
+/* Chat: 여백은 ChatWorkspace가 직접 두고, 바깥은 높이만 정합니다. */
+.mainChat {
+  padding: 0;
+}
+
+.mainChat .mainInner {
+  max-width: none;
+  margin: 0;
+}
+
 /* 작업 공간 화면(Project Builder, Video Generator)은 여백 없이 화면을
    가득 채웁니다. */
 .mainWorkspace {
@@ -327,12 +351,14 @@
   }
 
   /* 작업 공간은 화면 높이를 고정하고, 스크롤은 각 판 안에서만 생깁니다. */
-  .mainWorkspace {
+  .mainWorkspace,
+  .mainChat {
     height: 100vh;
     overflow: hidden;
   }
 
-  .mainWorkspace .mainInner {
+  .mainWorkspace .mainInner,
+  .mainChat .mainInner {
     height: 100%;
   }
 }
@@ -389,4 +415,17 @@
   border-color: var(--border-strong);
   color: var(--text);
   background: var(--panel-2);
+}
+
+/* 좁은 화면에서도 Chat은 화면 높이를 씁니다. 위쪽 막대 높이만큼 뺍니다.
+   이게 없으면 입력창이 페이지와 함께 스크롤되어 밀려납니다. */
+@media (max-width: 59.99rem) {
+  .mainChat {
+    height: calc(100dvh - 3.2rem);
+    overflow: hidden;
+  }
+
+  .mainChat .mainInner {
+    height: 100%;
+  }
 }
