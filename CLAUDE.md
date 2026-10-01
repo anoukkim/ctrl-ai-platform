@@ -1164,46 +1164,53 @@ signed-in user, which only 1a provides.
 Status below reflects what has actually been verified running, not what
 exists on disk.
 
-### Phase 1a — Auth and the foundations underneath it ← **next**
+### Phase 1a — Auth and the foundations underneath it ✅ Complete
 
-- ✅ **Alembic migrations replace `create_all`** — **done.** Alembic owns the
-  schema (`alembic upgrade head`, then `python -m app.db.init_db` to seed).
+- ✅ **Alembic migrations replace `create_all`** — Alembic owns the schema
+  (`alembic upgrade head`, then `python -m app.db.init_db` to seed).
   `create_all` is gone from application code; it survives only in
   `tests/conftest.py`, which builds a throwaway in-memory SQLite schema.
   `create_all` must not be reintroduced: every schema change is a migration,
   and migrations are what run in production in Phase 9.
-- ❌ **username/password auth** — registration, login, logout, password
-  hashing (never plaintext), server-side session or token. **Not started.**
-  `User` currently has no `username` and no `password_hash` column.
-- ❌ **Next.js rewrites proxy `/api/*` to FastAPI** — **not started**;
-  `next.config.ts` is still empty. The point is that the browser sees one
-  origin, which is what makes **HttpOnly cookies** work: a cookie set by the
-  backend is same-origin to the frontend, so it is sent automatically and is
-  unreadable from JavaScript. The same arrangement holds in production,
-  which is why it is worth doing now rather than retrofitting CORS and
-  cross-site cookie flags later.
+- ✅ **username/password auth** — `POST /api/auth/register`, `/login`,
+  `/logout`, `GET /api/auth/me`. Passwords are hashed with **Argon2id**
+  (`app/core/security.py`) and `password_hash` appears in no response
+  schema. Sessions are **rows** in `user_sessions`, not self-contained
+  tokens, so signing out — or deactivating an account — takes effect on the
+  very next request.
+- ✅ **Next.js rewrites proxy `/api/*` to FastAPI** — `next.config.ts`
+  forwards to `BACKEND_ORIGIN`. The browser sees one origin, which is what
+  makes the **HttpOnly** session cookie work: it is sent automatically and
+  no script on the page can read it. No CORS credentials dance, and no
+  token in `localStorage`. The same arrangement holds in production.
 
-Until auth lands, `get_current_user` in `api/deps.py` returns a fixed
-development user and refuses to run outside development. Phase 1a replaces
-that stub; it is a placeholder, not a design.
+`get_current_user` in `api/deps.py` now resolves the session cookie to a
+real member and is in front of every member and admin route. Account status
+is re-checked on each request, not only at sign-in.
 
-### Phase 1b — Quarters and membership
+Phase 1a also introduced **`account_status`** (`active` / `inactive` /
+`former`), replacing the Phase 0 `is_active` boolean. Phase 1a only blocks
+sign-in for anything that is not `active`; the participation rules that
+hang off it are Phase 1b.
+
+### Phase 1b — Quarters and membership ← **next**
 
 - ✅ `Quarter` — **done**
 - ✅ `QuarterApplication` — **done.** One live application per member per
   quarter, and the Build/Video split must total exactly 100%
-- ❌ active / inactive / former behaviour, enforced in the backend —
-  **not built**
+- 🔶 active / inactive / former behaviour, enforced in the backend —
+  **partly built**
 
 The quarter half is finished: quarters, applications, the split rule and
 admin review all work end to end.
 
-**The membership half does not exist.** There is no participation-status
-model, no enum and no column for it — `User.is_active` is a bare boolean
-with no `former` state. The three statuses appear only as Korean labels in
-`frontend/lib/mock-data.ts`. Nothing anywhere stops an inactive or former
-member from using paid creation features. Phase 1a introduces an
-`account_status` field that this sub-phase extends.
+Phase 1a added the `account_status` column and blocks sign-in for anything
+that is not `active`. **What is still missing is the participation rule
+itself**: an `inactive` member should keep their account and their work but
+lose access to *paid creation features* for the current quarter, which is a
+narrower check than "cannot sign in". There is also no admin UI for moving
+a member between statuses. Phase 1b builds both on top of the existing
+column.
 
 ### Phase 1c — Allocation, usage and administration
 
@@ -1529,30 +1536,31 @@ database.
 
 **Phase 0 is complete.** The product shell runs locally — see section 20.
 
-**Phase 1 is in progress** on branch `phase/1-foundation`. Quarters,
-applications, the Build/Video split, allocations, personal balance and
-manual top-ups all work end to end against a real database. Builder and
-Video each have a project library and a persistent per-project workspace.
+**Phase 1a is complete** on branch `phase-1a-auth` (not yet merged).
+Registration, sign-in and sign-out work with Argon2 password hashing and a
+server-side session cookie; `/api/*` is proxied through Next.js so the
+cookie is HttpOnly and same-origin; every member and admin route is behind
+a real `get_current_user` / `require_admin`.
 
-**The next task is Phase 1a** (section 20):
+**Phase 1 foundation is on `main`:** quarters, applications, the
+Build/Video split, allocations, personal balance and manual top-ups all
+work end to end. Builder and Video each have a project library and a
+persistent per-project workspace (Phase 3 / Phase 6 groundwork).
 
-> Implement username/password authentication. Add registration, login and
-> logout with hashed passwords and a server-side session or token. Add
-> Next.js rewrites proxying `/api/*` to FastAPI so the browser sees a single
-> origin and the session cookie can be `HttpOnly` and same-origin, locally
-> and in production alike. Alembic already owns the schema and `create_all`
-> is gone — keep it that way; every schema change is a migration. Replace
-> the fixed development user in `get_current_user` with the signed-in user.
-> Use mock providers throughout: no Anthropic, Higgsfield, GitHub or Google
-> credentials are needed for this task, and none should be requested.
+**The next task is Phase 1b** (section 20): enforce participation status.
+An `inactive` member keeps their account and their work but loses paid
+creation features for the current quarter; a `former` member loses normal
+access while their published work keeps their name. Add the admin controls
+for moving a member between statuses.
 
-Known gaps to close during the rest of Phase 1, in 1b and 1c:
+Then Phase 1c: the usage ledger and the audit log.
+
+Known gaps still open in Phase 1c:
 
 - the Usage screen and the admin member list still render mock data and
   visibly contradict the live allocation shown on Profile
 - `UsageEvent` has no API route and nothing writes to it
 - no audit log for admin membership or allocation changes
-- active / inactive / former status is not yet enforced for paid features
 
 Do not start Phase 2 until Phase 1 is finished. Do not start Phase 9 or
 create any paid cloud resource without asking first.
