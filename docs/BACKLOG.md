@@ -19,31 +19,42 @@ Nothing is being built. Phase 1 and UI batch 1 are both merged, so `main`
 holds the accounts, quarters, budgets, usage ledger and audit log together
 with the CTRL+AI brand refresh. No branch is open.
 
-Next up is **budget-by-provider** on `feat-budget-by-provider`, branched
-from `main`; the spec is saved verbatim below.
+Next up is **membership-access-fix** on `fix-membership-access`, branched
+from `main`; the spec is saved verbatim below. It is first because it is a
+bug: members who are not participating in the current quarter can still
+use AI features.
 
 ---
 
 ## Next (in order)
 
-1. **budget-by-provider** · branch `feat-budget-by-provider`
+1. **membership-access-fix** · branch `fix-membership-access`
+   A bug, which is why it is first: participation is not enforced on
+   mock-backed AI features. Spec saved verbatim below.
+
+2. **admin-restructure** · branch `ui-admin-restructure`
    Spec saved verbatim below.
 
-2. **project-video-management** · branch `feat-project-video-management`
+3. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below.
 
-3. **prep-beta-launch**
+4. **project-video-management** · branch `feat-project-video-management`
+   Spec saved verbatim below.
+
+5. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+   Spec saved verbatim below.
+
+6. **prep-beta-launch**
    Not yet specified.
 
-4. **Phase 2 — Chat**
+7. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
-> **Two items were named in the requested order but skipped**, because
-> they are not in this backlog and no spec has been given for them:
-> **membership-access-fix** (would be 2nd) and **video-higgsfield-only**
-> (would be 5th). Send a spec for either and it goes in at that position.
+Both items that were parked for want of a spec — membership-access-fix
+and video-higgsfield-only — now have one and have taken their places
+above.
 
 
 ### Merge order
@@ -57,7 +68,9 @@ batch 1. Branch the next item from an up-to-date `main`.
 
 New UI requests go here until they are folded into a UI batch.
 
-*(none yet — UI batch 1 below holds everything collected so far)*
+*(none loose — UI batch 1 is merged, and the one UI request since then,
+**admin-restructure**, was large enough to get its own item and branch in
+**Next** rather than wait for a batch.)*
 
 ---
 
@@ -114,6 +127,59 @@ The spec says *"from up-to-date main"*, and as of 2026-10-01 that is now
 true — `main` contains Phase 1a and Phase 1b, so it has the login pages,
 the `내 정보` sidebar group and the `Phase 1 — 개발 중` subtitle the spec
 refers to. Branch `ui-brand-refresh` from `main`.
+
+## membership-access-fix — full spec
+
+Branch `fix-membership-access`. Saved exactly as written by the developer.
+
+> Bug: members who are not active in the current quarter can still use Chat and the Builder/Video work chats, because only real paid endpoints were gated.
+>
+> Rule: a member who is not ACTIVE in the current quarter (inactive, or no membership record for the current quarter) cannot use any AI feature, mock or real. Former members cannot log in.
+>
+> Inactive / not enrolled members:
+> - ALLOWED: log in; browse CtrlAI Apps and CtrlAITube; view their own projects, videos and conversations read-only; download their own work; Usage, Profile, 문제 신고.
+> - BLOCKED: Chat send; Builder chat and generation; Video 다듬기, generate and 다시 생성; creating, editing and publishing.
+> - Admins follow the same AI rule unless they are active members; admin pages stay available to admins.
+>
+> Backend: apply require_active_member to every AI, create, edit and publish endpoint, including mock-backed ones. Missing membership = not active. Blocked requests return 403 with a Korean message. Add a table of every endpoint and its access rule to the report and docs/architecture.md.
+>
+> Frontend: a calm banner on Chat, Project Builder and Video Generator: "이번 분기에 참여하지 않아 AI 기능을 사용할 수 없습니다. 내 작업물 보기와 다운로드는 가능합니다." with a link to Profile; disabled composers and action buttons with a lock icon and the reason on hover. The backend must still refuse.
+>
+> Tests: inactive and not-enrolled members get 403 on every AI/create/edit/publish endpoint; active members succeed; inactive members can browse and read their own work; former members cannot log in; admin pages work for admins.
+
+## admin-restructure — full spec
+
+Branch `ui-admin-restructure`. Saved exactly as written by the developer.
+
+**Before:** [`docs/ui-requests/admin-before.png`](ui-requests/admin-before.png)
+— the current single-page Admin screen this item replaces.
+
+> ⚠️ **The file is not in the repository yet.** The screenshot was attached
+> to the request but did not reach the session that wrote this entry, so
+> only the path is reserved. Re-send the image and it drops into exactly
+> this path, and the link above starts working with no edit here.
+
+> Problem: Admin is one very long page with ten unrelated sections, mixed English/Korean labels, and small inline action buttons that are easy to misclick.
+>
+> 1. Admin layout: a secondary Admin navigation (tabs at the top, or a sub-menu on wide screens) with these sections, each on its own route:
+>    - 대시보드 /admin
+>    - 회원 /admin/members, with member detail /admin/members/[id]
+>    - 분기 · 신청 /admin/quarters
+>    - 충전 신청 /admin/topups
+>    - 영상 모델 /admin/video-models
+>    - 감사 로그 /admin/audit
+>    - 콘텐츠 /admin/content
+>    - 시스템 /admin/system
+>    - 개발 도구 /admin/dev (only when APP_ENV=development; holds the usage simulator)
+>    Leave a clearly marked place for a future 예산 section (budget-by-provider).
+> 2. 대시보드: cards for things needing action (pending quarter applications, pending top-up requests) that link to the right section; current quarter with its application period and status; member counts by status (활동 / 비활동 / 탈퇴); the last 10 audit entries.
+> 3. 회원 list: search, filters (role, account status, membership status), sorting and pagination. Replace the small inline buttons with one "관리" menu per row, plus a link to the detail page.
+> 4. 회원 detail: account info, role, membership per quarter (history), allocations and usage for the selected quarter, and that member's audit entries. All actions live here: change membership status, enrol in a quarter, change role, set allocations.
+> 5. Safety: every status, role or allocation change opens a Korean confirmation dialog that states the effect (e.g. "탈퇴 처리하면 로그인할 수 없습니다"). After an action, show a short success or error message.
+> 6. Consistency: all labels in Korean, keeping product and model names (Enabled → 사용 가능, Visible → 회원에게 공개, Hidden → 숨김, Video Models → 영상 모델); one badge style for statuses; one shared table component with sticky header, consistent alignment, tabular-nums amounts and a Korean empty state; existing design tokens; full width and narrow screens.
+> 7. Backend: no changes to business rules. Small read-only, admin-only, tested endpoints are allowed if the dashboard needs counts.
+>
+> Tests: every Admin route is admin-only; dev tools are unavailable outside development; dashboard counts match the database; the confirmation dialog appears before status changes.
 
 ## budget-by-provider — full spec
 
@@ -179,6 +245,23 @@ genuinely unknown and must not be guessed), accepted on
 map in `VideoWorkspace.tsx` is deleted.
 
 ---
+
+## video-higgsfield-only — full spec
+
+Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
+
+> 1. All video generation, editing and extension go through Higgsfield only, behind VIDEO_PROVIDER (mock by default).
+>    - Generate: text-to-video.
+>    - Edit: "이 영상 수정하기" sends the selected version plus an instruction to the model's video-edit workflow and saves a new version. Length and framing come from the source, so hide those controls in edit mode.
+>    - Extend: "이어서 만들기" uses the video-extend workflow with an explicit length.
+>    - Show edit and extend only for models that support them (add supports_edit and supports_extend to the 영상 모델 catalogue); otherwise show a short Korean note.
+>    - The mock provider supports all three.
+> 2. The Claude panel in the Video workspace is collapsed by default, labeled "프롬프트 도움받기 (선택)", only rewrites prompt text, never generates video, and its usage is charged to the Claude budget (one short line says so).
+> 3. Each version records how it was made (생성 / 수정 / 이어서), its source version, model, length and ratio, shown in the version strip.
+> 4. Every Higgsfield call goes through the budget service, charged to the Higgsfield budget, active members only.
+> 5. Show the estimated cost in 원 next to generate, edit and extend, based on the model's per-second price in the catalogue.
+>
+> Tests: edit and extend create linked versions; unsupported models hide edit/extend; inactive members are refused; the Higgsfield budget is deducted; the Claude panel never triggers a Higgsfield call.
 
 ## Done
 

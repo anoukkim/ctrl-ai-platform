@@ -1561,6 +1561,18 @@ git status                           # confirm clean
 
 Then confirm to the developer that `git status` is clean.
 
+## Documentation commits while a branch is in progress
+
+Backlog and documentation edits are often committed on `main` while real
+work sits on a branch. Two rules follow from that:
+
+- **Go back to the working branch afterwards.** Once the docs commit is
+  made on `main`, `git checkout` the branch that was in progress. Leaving
+  the session on `main` is how the next change lands on the wrong branch.
+- **End every report with the branch you are on.** One line, last thing.
+  The developer should never have to run `git branch` to find out where
+  the session left them.
+
 ## Never
 
 - **never force-push** (`--force`, `--force-with-lease`)
