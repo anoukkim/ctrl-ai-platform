@@ -56,52 +56,42 @@ export default function UsagePage() {
           const percent = usedPercent(budget);
 
           return (
-            <section className="card" key={budget.category}>
-              <div className={styles.allocation}>
-                <div className={styles.allocationHead}>
-                  <div>
-                    <p className={styles.provider}>{budget.label}</p>
-                    <p className={styles.resource}>
-                      {budget.category === "build" ? "Claude" : "Higgsfield"}
-                    </p>
-                  </div>
-                  <span className="badge badge-accent">{percent}% 사용</span>
-                </div>
-
-                <p className={styles.headline}>
-                  <span className={styles.headlineUsed}>{formatKrw(budget.consumedKrw)}</span>
-                  <span className={styles.headlineTotal}>/ {formatKrw(budget.budgetKrw)}</span>
-                  <span className={styles.headlineSuffix}>사용</span>
-                </p>
-
-                <div
-                  className="meter"
-                  role="img"
-                  aria-label={`${budget.label} 지원금 중 ${percent}% 사용`}
-                >
-                  <div
-                    className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-
-                <div className={styles.numbers}>
-                  <p className={styles.numberRow}>
-                    <span className={styles.numberLabel}>지원</span>
-                    <span>{formatKrw(budget.budgetKrw)}</span>
-                  </p>
-                  <p className={styles.numberRow}>
-                    <span className={styles.numberLabel}>사용</span>
-                    <span>{formatKrw(budget.consumedKrw)}</span>
-                  </p>
-                  <p className={styles.numberRow}>
-                    <span className={styles.numberLabel}>남음</span>
-                    <span className={styles.remainingValue}>{formatKrw(remaining)}</span>
-                  </p>
-                </div>
-
-                <p className={styles.note}>{budget.note}</p>
+            <section className={styles.card} key={budget.category}>
+              <div className={styles.cardHead}>
+                <span className={styles.cardTitle}>{budget.label}</span>
+                <span className={styles.provider}>
+                  {budget.category === "build" ? "Claude" : "Higgsfield"}
+                </span>
               </div>
+
+              {/* 이 화면에서 가장 큰 숫자. 찾는 답은 "얼마 남았나" 하나입니다. */}
+              <p className={styles.remaining}>
+                <span className={styles.remainingValue}>{formatKrw(remaining)}</span>
+                <span className={styles.remainingLabel}>남음</span>
+              </p>
+
+              <div
+                className="meter"
+                role="img"
+                aria-label={`${budget.label} 지원금 중 ${percent}% 사용`}
+              >
+                <div
+                  className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+
+              {/* 큰 숫자를 뒷받침하는 한 줄. 같은 값을 목록으로 반복하지 않습니다. */}
+              <p className={styles.cardFoot}>
+                <span>
+                  사용 <span className={styles.footNumber}>{formatKrw(budget.consumedKrw)}</span>
+                </span>
+                <span>
+                  지원 <span className={styles.footNumber}>{formatKrw(budget.budgetKrw)}</span>
+                </span>
+              </p>
+
+              <p className={styles.cardNote}>{budget.note}</p>
             </section>
           );
         })}
