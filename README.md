@@ -66,7 +66,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
-| `/usage`              | Usage           | Community support and personal balance, in KRW |
+| `/usage`              | Usage           | Club support and personal balance, in KRW    |
 | `/profile`            | Profile         | Quarter participation, application, accounts |
 | `/issues`             | 문제 신고        | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
@@ -454,7 +454,7 @@ Admin opens applications for a quarter
 ```
 
 The Build and Video percentages must add up to exactly 100%. Each approved
-member may receive at most **100,000 KRW per quarter** of community-funded
+member may receive at most **100,000 KRW per quarter** of club-funded
 budget, combined across both:
 
 | Split | Build | Video |

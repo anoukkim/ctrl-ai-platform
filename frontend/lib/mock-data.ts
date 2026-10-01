@@ -666,7 +666,7 @@ export interface UsageEvent {
   detail: string;
   provider: string;
   chargedKrw: number;
-  source: "공동체 지원" | "개인 잔액";
+  source: "동아리 지원" | "개인 잔액";
 }
 
 /* ------------------------------------------------------------------ */

@@ -461,7 +461,7 @@ Example:
 ```text
 2026 Q1
 
-COMMUNITY SUPPORT
+동아리 지원
 
 Build
 지원: 70,000원
@@ -473,7 +473,7 @@ Video
 사용: 12,000원
 남음: 18,000원
 
-PERSONAL BALANCE
+개인 잔액
 
 충전 잔액:     30,000원
 개인 사용:      5,000원
@@ -485,8 +485,12 @@ in tokens or generations: provider prices change, and an approved
 allocation must not move when they do. A provider-specific quota may be
 *displayed* using the pricing captured at approval time.
 
-Community support and personal money are shown separately and never added
+Club support and personal money are shown separately and never added
 together. Personal funds are not part of the quarterly subsidy.
+
+The member-facing label is **동아리 지원** — the club's support — and
+personal money is **개인 충전**. Earlier drafts said 공동체 지원; the
+screens now say 동아리, because that is what members call CTRL+AI.
 
 Use concepts such as:
 
@@ -540,7 +544,7 @@ The Build and Video percentages must add up to exactly 100%.
 ## Quarterly subsidy limit
 
 Each approved member may receive at most **100,000 KRW per quarter** of
-community-funded budget, combined across Build and Video.
+club-funded budget, combined across Build and Video.
 
 ```text
 Build 100% / Video   0%  =  100,000 /       0

@@ -10,7 +10,7 @@
  * 보조합니다. 같은 숫자를 세 줄로 다시 늘어놓으면 눈이 어디를 봐야 할지
  * 알 수 없게 됩니다.
  *
- * 공동체 지원과 개인 잔액은 끝까지 분리합니다. 합치면 회원이 "지원을 더
+ * 동아리 지원과 개인 잔액은 끝까지 분리합니다. 합치면 회원이 "지원을 더
  * 받았다"고 오해합니다.
  */
 
@@ -100,9 +100,9 @@ export default function UsageView() {
 
       {status !== "active" && <p className="notice">{NOT_PARTICIPATING_HINT}</p>}
 
-      {/* 공동체 지원 */}
+      {/* 동아리 지원 */}
       <h2 className="section-title">
-        공동체 지원
+        동아리 지원
         {usage.total_budget_krw > 0 && (
           <span className={styles.sectionNote}>
             이번 분기 지원 {formatKrw(usage.total_budget_krw)}
@@ -176,7 +176,7 @@ export default function UsageView() {
       {/* 개인 잔액 — 지원금과 섞이지 않도록 따로 둡니다. */}
       <h2 className="section-title">
         개인 잔액
-        <span className={styles.sectionNote}>공동체 지원과 별도입니다</span>
+        <span className={styles.sectionNote}>동아리 지원과 별도입니다</span>
       </h2>
 
       {personal && (
