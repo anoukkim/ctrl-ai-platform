@@ -1410,11 +1410,12 @@ At the beginning of every task:
 2. run `git status`
 3. read `README.md`
 4. read `CLAUDE.md`
-5. inspect relevant project files
-6. explain the next small milestone
-7. implement incrementally
-8. run tests/build
-9. summarize:
+5. read `docs/BACKLOG.md` — it decides what to work on (section 22)
+6. inspect relevant project files
+7. explain the next small milestone
+8. implement incrementally
+9. run tests/build
+10. summarize:
    - what changed
    - changed files
    - commands to run
@@ -1522,6 +1523,27 @@ Then confirm to the developer that `git status` is clean.
 Ask first before anything destructive — discarding changes, deleting
 branches other than a merged phase branch, resetting, or dropping a
 database.
+
+## The backlog decides what gets worked on
+
+[`docs/BACKLOG.md`](docs/BACKLOG.md) is the single ordered queue of
+upcoming work. It exists so that work arrives in one place and in one
+order, instead of being inferred from whatever was said most recently.
+
+- **At the start of every session, read `docs/BACKLOG.md`.** It comes
+  after `README.md` and `CLAUDE.md` in the working method (section 21).
+- **Work only on the item the developer names**, or the top of **Next**
+  if they say *"next item"*. Do not start the item that merely looks most
+  urgent.
+- **A new UI request mentioned mid-phase is appended to "UI requests" and
+  is NOT implemented in the current branch** — unless the developer says
+  *"do it now"*. This keeps a branch about one thing, which is what makes
+  it reviewable and what keeps its tests meaningful.
+- **When an item is merged, move it to "Done"** with the merge date,
+  newest first, and take it out of **Next**.
+
+Keeping the backlog current is part of finishing an item, not a separate
+chore.
 
 ---
 

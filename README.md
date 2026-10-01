@@ -24,8 +24,10 @@ the entry point is a conversation, not a dashboard.
 [Language](#language).
 
 [`CLAUDE.md`](CLAUDE.md) is the product definition and the phase plan.
-[`docs/architecture.md`](docs/architecture.md) covers the longer-term
-architecture — target infrastructure, storage and security principles.
+[`docs/BACKLOG.md`](docs/BACKLOG.md) is the ordered queue of what happens
+next. [`docs/architecture.md`](docs/architecture.md) covers the
+longer-term architecture — target infrastructure, storage and security
+principles.
 
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
@@ -483,6 +485,7 @@ ctrl-ai-platform/
 │     ├─ quarters.ts          # quarters, applications, wallet
 │     └─ mock-data.ts         # remaining mock content (Korean)
 ├─ docs/
+│  ├─ BACKLOG.md              # ordered queue of upcoming work
 │  └─ architecture.md         # target infrastructure, storage, security
 ├─ docker-compose.yml         # local PostgreSQL
 ├─ .env.example
