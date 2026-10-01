@@ -187,7 +187,7 @@ def test_health_stays_public(anon_client: TestClient) -> None:
 
 
 def test_a_member_cannot_read_another_members_project(
-    client: TestClient, anon_client: TestClient, other_user
+    client: TestClient, anon_client: TestClient, other_user, participating
 ) -> None:
     """Answered 404, not 403: a member is not told the row exists."""
     created = client.post("/api/builder/projects", json={"name": "내 프로젝트"})
@@ -207,7 +207,7 @@ def test_a_member_cannot_read_another_members_project(
     assert client.delete(f"/api/builder/projects/{project_id}").status_code == 404
 
 
-def test_a_member_sees_only_their_own_projects(client: TestClient, other_user) -> None:
+def test_a_member_sees_only_their_own_projects(client: TestClient, other_user, participating) -> None:
     client.post("/api/builder/projects", json={"name": "내 프로젝트"})
 
     client.post("/api/auth/logout")

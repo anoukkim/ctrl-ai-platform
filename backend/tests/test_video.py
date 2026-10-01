@@ -31,8 +31,7 @@ def test_hiding_a_model_removes_it_from_the_member_list(
 
 
 def test_cannot_select_a_model_that_is_not_allowed(
-    client: TestClient, dev_user: User, video_models: list[VideoModel]
-) -> None:
+    client: TestClient, dev_user: User, video_models: list[VideoModel], participating) -> None:
     hidden = next(m for m in video_models if m.model_id == "wan-3.0")
 
     response = client.post(
@@ -66,8 +65,7 @@ def test_another_members_video_project_is_not_found(
 
 
 def test_generating_a_version_snapshots_the_prompt(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel]
-) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
     project = VideoProject(
         owner_user_id=dev_user.id, name="비 오는 서울", prompt="비 오는 밤 서울 골목"
     )
@@ -87,8 +85,7 @@ def test_generating_a_version_snapshots_the_prompt(
 
 
 def test_versions_are_numbered_within_the_project(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel]
-) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="버전 테스트", prompt="첫 프롬프트")
     db_session.add(project)
     db_session.commit()
@@ -100,8 +97,7 @@ def test_versions_are_numbered_within_the_project(
 
 
 def test_final_version_must_belong_to_the_project(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel]
-) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="A", prompt="a")
     other = VideoProject(owner_user_id=dev_user.id, name="B", prompt="b")
     db_session.add_all([project, other])
@@ -117,8 +113,7 @@ def test_final_version_must_belong_to_the_project(
 
 
 def test_selecting_a_final_version_from_this_project_works(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel]
-) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="A", prompt="a")
     db_session.add(project)
     db_session.commit()

@@ -108,6 +108,41 @@ def other_user(db_session: Session):
 
 
 @pytest.fixture
+def participating(db_session: Session, dev_user):
+    """Make the development user an active participant in the current quarter.
+
+    Phase 1b gates every paid creation endpoint behind
+    `require_active_member`, so a test that creates a project or a version
+    must ask for this fixture. Requiring it explicitly is the point: it
+    keeps the rule visible in the tests that depend on it rather than
+    hiding it inside `client`.
+    """
+    from datetime import date
+
+    from app.models import MembershipStatus, Quarter, QuarterStatus
+    from app.services.quarters import current_quarter, set_membership
+
+    # Attach to whatever quarter the application would consider current,
+    # so this never disagrees with require_active_member.
+    quarter = current_quarter(db_session)
+    if quarter is None:
+        quarter = Quarter(
+            code="2026-TEST",
+            display_name="2026 테스트",
+            starts_at=date(2026, 1, 1),
+            ends_at=date(2026, 12, 31),
+            status=QuarterStatus.ACTIVE,
+            subsidy_limit_krw=100_000,
+        )
+        db_session.add(quarter)
+        db_session.flush()
+
+    set_membership(db_session, dev_user.id, quarter.id, MembershipStatus.ACTIVE)
+    db_session.commit()
+    return quarter
+
+
+@pytest.fixture
 def other_client(anon_client: TestClient, other_user) -> TestClient:
     """A client signed in as the second member, who is NOT an admin."""
     response = anon_client.post(
