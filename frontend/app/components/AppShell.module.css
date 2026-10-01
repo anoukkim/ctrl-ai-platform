@@ -78,7 +78,7 @@
   overflow-y: auto;
 }
 
-/* 위쪽 묶음: 만들기 / 둘러보기 / (관리) */
+/* 위쪽 묶음: Create / Explore / (Admin) */
 .navTop {
   display: flex;
   flex-direction: column;
@@ -97,7 +97,7 @@
   min-height: 0.9rem;
 }
 
-/* 아래쪽 묶음: 내 정보 + 분기 카드 */
+/* 아래쪽 묶음: Account + 분기 카드 */
 .navBottom {
   display: flex;
   flex-direction: column;

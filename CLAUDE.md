@@ -43,7 +43,7 @@ answered them, and they are no longer up for debate:
 
 | Decision | Settled as |
 | -------- | ---------- |
-| Interface language | **Korean-first.** Product names (Ctrl AI, Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and external service names (Claude, Higgsfield, GitHub, YouTube) stay in English. Everything a member reads or writes is Korean. |
+| Interface language | **Korean-first, with an English menu.** Everything a member reads or writes is Korean, except: the navigation — group headings (Create, Explore, Account) and item names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) — plus the Admin section names and external service names (Claude, Higgsfield, GitHub, YouTube). See section 15. |
 | App store screen name | **CtrlAIApps.** The route stays `/ctrlaistore` so existing links do not break. |
 | Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
@@ -913,30 +913,51 @@ a budget) are deliberately separate figures.
 Recommended desktop navigation:
 
 ```text
-Ctrl AI
+CTRL+AI
 
-Chat
-Project Builder
-Video Generator
+Create
+  Chat
+  Project Builder
+  Video Generator
 
 Explore
   CtrlAIApps
   CtrlAITube
 
-Usage
-Profile
+Account
+  Usage
+  Profile
+  Report Issue
 ```
 
-As built in Phase 0, the sidebar groups these in Korean — 만들기 / 둘러보기 /
-내 정보 / 관리 — while the item names themselves stay in English.
+**The navigation is entirely in English** — group headings and item names
+alike. Phase 0 built the headings in Korean (만들기 / 둘러보기 / 내 정보)
+above English item names, so every block mixed two scripts in adjacent
+lines; ui-naming made them one language. Everything outside the menu that
+a member reads is still Korean.
 
-Admin sees:
+An admin additionally sees **Admin**, below Explore. It is a single
+expanding item rather than a group heading — there is no Manage group —
+and its nine sections are named in English too:
 
 ```text
 Admin
+  Dashboard
+  Members
+  Applications
+  Quarters
+  Top-ups
+  Video Models
+  Audit Log
+  System
+  Dev Tools        (development only)
 ```
 
-as an additional item.
+Budget and Content exist in the code with their routes but are hidden
+until their features land. Those names live in **one file**,
+`frontend/app/admin/sections.ts`, which the sidebar, the tabs, the
+breadcrumbs, the dashboard cards and each section's own page heading all
+read — so a section is named once.
 
 On mobile this can become bottom navigation + More.
 
