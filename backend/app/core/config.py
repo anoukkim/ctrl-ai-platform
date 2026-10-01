@@ -66,6 +66,28 @@ class Settings(BaseSettings):
     session_cookie_samesite: str = "lax"
     session_max_age_seconds: int = 60 * 60 * 24 * 14  # two weeks
 
+    # ---------- Providers ----------
+    # Every external provider sits behind an interface with a mock
+    # implementation, and the implementation is chosen here (CLAUDE.md
+    # section 20). **Mock is the default**, so the whole platform runs
+    # with no keys and no network.
+    claude_provider: str = "mock"
+    video_provider: str = "mock"
+    github_provider: str = "mock"
+    youtube_provider: str = "mock"
+
+    # The credentials themselves. An empty value is not an error while the
+    # matching provider above is `mock`; it only matters once a real
+    # implementation is selected.
+    #
+    # Nothing reads these to show them. The Admin screen asks only whether
+    # a key is *present* — the value never leaves the backend.
+    anthropic_api_key: str = ""
+    anthropic_model: str = ""
+    hf_credentials: str = ""
+    github_client_secret: str = ""
+    google_client_secret: str = ""
+
     # ---------- Seed administrator ----------
     # Read by `python -m app.db.init_db` only. Blank means "no admin to
     # seed", which is why there is no default password anywhere in the code.
@@ -76,6 +98,33 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env.lower() in {"development", "dev", "local"}
+
+    def provider_mode(self, provider: str) -> str:
+        """`mock` or the name of the real implementation, for one provider."""
+        return {
+            "claude": self.claude_provider,
+            "video": self.video_provider,
+            "github": self.github_provider,
+            "youtube": self.youtube_provider,
+        }[provider].strip().lower()
+
+    def provider_is_mock(self, provider: str) -> bool:
+        return self.provider_mode(provider) == "mock"
+
+    def provider_has_key(self, provider: str) -> bool:
+        """Whether a credential is configured — never what it is.
+
+        Returned to the Admin screen as a yes/no. The key itself is not
+        exposed by any route, logged, or put in an audit row.
+        """
+        return bool(
+            {
+                "claude": self.anthropic_api_key,
+                "video": self.hf_credentials,
+                "github": self.github_client_secret,
+                "youtube": self.google_client_secret,
+            }[provider].strip()
+        )
 
     @property
     def cors_origins(self) -> list[str]:

@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.quarter import ApplicationStatus, QuarterStatus
 from app.models.user import AccountStatus, UserRole
@@ -25,6 +25,14 @@ class QuarterRead(BaseModel):
 
 
 class QuarterCreate(BaseModel):
+    """A new quarter, as the 분기 설정 form submits it.
+
+    The date rules are checked here rather than only in the screen, because
+    a quarter with its end before its start, or applications closing after
+    the quarter is over, produces figures nobody can read — and the screen
+    is not the only way in.
+    """
+
     code: str = Field(min_length=1, max_length=20)
     display_name: str = Field(min_length=1, max_length=50)
     starts_at: date
@@ -33,6 +41,24 @@ class QuarterCreate(BaseModel):
     application_closes_at: date | None = None
     #: Omit to use the configured default.
     subsidy_limit_krw: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def check_dates(self) -> "QuarterCreate":
+        if self.ends_at <= self.starts_at:
+            raise ValueError("분기 종료일은 시작일보다 뒤여야 합니다.")
+
+        opens, closes = self.application_opens_at, self.application_closes_at
+        if (opens is None) != (closes is None):
+            raise ValueError("신청 기간은 시작일과 마감일을 함께 적거나 둘 다 비워야 합니다.")
+
+        if opens is not None and closes is not None:
+            if closes < opens:
+                raise ValueError("신청 마감일은 신청 시작일보다 뒤여야 합니다.")
+            # Applications may open before the quarter starts — that is the
+            # normal case — but they cannot still be open after it ends.
+            if closes > self.ends_at:
+                raise ValueError("신청 마감일은 분기 종료일보다 뒤일 수 없습니다.")
+        return self
 
 
 class QuarterUpdate(BaseModel):
@@ -75,10 +101,18 @@ class ApplicationRead(BaseModel):
 
 
 class ApplicationWithMember(ApplicationRead):
-    """Admin view: who applied."""
+    """Admin view: who applied, and who dealt with it.
+
+    The reviewer's name is carried so a processed row can say who decided
+    it. Without that the 신청 승인 screen can only show "처리됨", and the
+    one question an admin asks about somebody else's decision — who made
+    it — needs a trip to the audit log.
+    """
 
     username: str = ""
     display_name: str = ""
+    reviewed_by_username: str = ""
+    reviewed_by_display_name: str = ""
 
 
 class ApplicationReview(BaseModel):
@@ -228,6 +262,94 @@ class MyQuarterStatus(BaseModel):
 # 수 있게 모아 주는 것이 전부입니다.
 
 
+# ------------------------------------------------------- Admin 통계
+#
+# 모두 백엔드의 묶음 질의(GROUP BY)로 셉니다. 브라우저가 전체 목록을
+# 받아 세면 지금은 맞지만, 회원이 수백 명이 되는 순간 조용히 느려집니다.
+
+
+class ApplicationStatsRead(BaseModel):
+    """신청 승인 화면 위쪽의 작은 카드들."""
+
+    total: int = 0
+    pending: int = 0
+    approved: int = 0
+    rejected: int = 0
+    #: 신청한 금액의 합계. 승인된 금액이 아니라 신청된 금액입니다.
+    requested_total_krw: int = 0
+
+
+class MemberStatsRead(BaseModel):
+    """회원 목록 위쪽의 작은 카드들.
+
+    분기에 따라 달라지는 숫자(활동/비활동/미신청)와 그렇지 않은 숫자
+    (전체/탈퇴/관리자)가 한 묶음에 들어 있습니다. 화면이 "보고 있는
+    분기" 하나만 알면 되도록.
+    """
+
+    total: int = 0
+    active: int = 0
+    inactive: int = 0
+    not_applied: int = 0
+    former: int = 0
+    admins: int = 0
+
+
+class QuarterStatsRead(BaseModel):
+    """분기 설정 표의 숫자 칸."""
+
+    quarter_id: int
+    applicants: int = 0
+    pending: int = 0
+    participants: int = 0
+    users_with_usage: int = 0
+    #: 실제 사용자 ÷ 참여 회원. 참여 회원이 0이면 None입니다 — 0%가
+    #: 아니라 "셀 수 없음"이고, 화면은 "–"로 적습니다.
+    usage_rate: float | None = None
+
+
+class QuarterWithStats(QuarterRead):
+    """분기 한 줄 + 그 분기의 숫자."""
+
+    stats: QuarterStatsRead
+
+
+class ProviderStatusRead(BaseModel):
+    """외부 서비스 한 곳의 상태.
+
+    **API 키 자체는 들어 있지 않습니다.** `has_key`는 설정돼 있는지만
+    말합니다. 키를 돌려주는 필드는 이 스키마에도, 다른 어떤 응답에도
+    없습니다.
+    """
+
+    key: str
+    name: str
+    purpose: str
+    #: 어떤 환경 변수가 이 서비스를 고르는지 — 바꿀 곳을 알려 줍니다.
+    setting: str
+    #: "mock" 또는 실제 구현 이름("anthropic" 등).
+    mode: str
+    is_mock: bool
+    has_key: bool
+    last_success_at: datetime | None = None
+    last_success_label: str = ""
+    last_error_at: datetime | None = None
+    #: 사람이 읽는 한국어 설명. 제공자의 영어 원문은 돌려주지 않습니다.
+    last_error_message: str = ""
+    #: 남은 잔액은 제공자가 알려 줄 때만 채웁니다. 없으면 생략합니다 —
+    #: 모르는 값을 0으로 적으면 잔액이 0인 것처럼 보입니다.
+    balance_label: str | None = None
+
+
+class ProviderCheckResult(BaseModel):
+    """연결 확인 버튼 한 번의 결과."""
+
+    key: str
+    ok: bool
+    message: str
+    checked_at: datetime
+
+
 class StatusCounts(BaseModel):
     """회원 수를 상태별로 센 것.
 
@@ -248,6 +370,10 @@ class AdminDashboard(BaseModel):
 
     한 화면이면 한 번의 호출입니다. 숫자를 따로따로 불러오면 카드마다
     다른 순간의 값을 보여 주게 됩니다.
+
+    `members`·`applications`·`quarter_stats`는 각 구역 화면이 쓰는 것과
+    **같은 함수**(`services/admin_stats.py`)에서 나옵니다. 대시보드가
+    자기만의 셈을 하면 같은 회원 수가 화면마다 달라집니다.
     """
 
     quarter: QuarterRead | None
@@ -255,6 +381,10 @@ class AdminDashboard(BaseModel):
     pending_applications: int = 0
     pending_top_ups: int = 0
     counts: StatusCounts
+    #: 구역 화면과 공유하는 숫자.
+    members: MemberStatsRead = Field(default_factory=lambda: MemberStatsRead())
+    applications: ApplicationStatsRead = Field(default_factory=lambda: ApplicationStatsRead())
+    quarter_stats: QuarterStatsRead | None = None
     #: 영상 모델 가운데 회원에게 보이는 것의 수 — 카드의 상태 한 줄에 씁니다.
     video_models_total: int = 0
     video_models_member_visible: int = 0
@@ -262,6 +392,11 @@ class AdminDashboard(BaseModel):
     #: 개발 환경에서만 true. 개발 도구 카드와 사이드바 항목을 이 값으로
     #: 가립니다. 실제 차단은 백엔드가 404로 합니다.
     is_development: bool = False
+    #: 실제 연결로 설정된 제공자 가운데 마지막 호출이나 확인이 실패한 것들.
+    #: 비어 있으면 대시보드에 경고 카드를 띄우지 않습니다. mock 모드의
+    #: 제공자는 절대 들어가지 않습니다 — 부른 적이 없으니 실패할 수도
+    #: 없습니다.
+    failing_providers: list[str] = Field(default_factory=list)
 
 
 class MemberQuarterHistory(BaseModel):

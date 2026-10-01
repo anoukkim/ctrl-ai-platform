@@ -12,6 +12,8 @@ Every route is behind `require_admin`. Authorization is checked here, not
 by hiding a card in the frontend.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -37,15 +39,21 @@ from app.schemas.quarter import (
     AdminDashboard,
     AllocationRead,
     ApplicationRead,
+    ApplicationStatsRead,
     AuditLogRead,
     MemberDetail,
     MemberQuarterHistory,
+    MemberStatsRead,
     PersonalBalanceRead,
+    ProviderCheckResult,
+    ProviderStatusRead,
     QuarterRead,
+    QuarterStatsRead,
+    QuarterWithStats,
     StatusCounts,
     TopUpRead,
 )
-from app.services import audit
+from app.services import admin_stats, audit, providers
 from app.services.quarters import current_quarter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -60,6 +68,43 @@ def _audit_rows(rows) -> list[AuditLogRead]:
         )
         for row in rows
     ]
+
+
+def _quarter_stats_read(stats) -> QuarterStatsRead | None:
+    """A `QuarterStats` as the wire shape, with the rate worked out once."""
+    if stats is None:
+        return None
+    return QuarterStatsRead(
+        quarter_id=stats.quarter_id,
+        applicants=stats.applicants,
+        pending=stats.pending,
+        participants=stats.participants,
+        users_with_usage=stats.users_with_usage,
+        usage_rate=stats.usage_rate,
+    )
+
+
+def _failing_providers(db: Session, settings: Settings) -> list[str]:
+    """Real providers whose last call or check failed.
+
+    Mock providers are never included. A mock cannot fail in a way an
+    admin can act on, and a warning card that fires on the default
+    configuration would be noise on every fresh install.
+    """
+    rows = providers.all_status(db)
+    failing = []
+    for entry in providers.PROVIDERS:
+        key = entry["key"]
+        if settings.provider_is_mock(key):
+            continue
+        row = rows.get(key)
+        if row is None or row.last_error_at is None:
+            continue
+        # Only if the failure is the most recent thing that happened.
+        if row.last_success_at is not None and row.last_success_at >= row.last_error_at:
+            continue
+        failing.append(entry["name"])
+    return failing
 
 
 @router.get("/dashboard", response_model=AdminDashboard, summary="Admin dashboard figures")
@@ -133,6 +178,10 @@ def read_dashboard(
         or 0
     )
 
+    # The same functions the section screens call, so the dashboard and
+    # 회원 / 신청 승인 / 분기 설정 cannot show different numbers.
+    figures = admin_stats.dashboard_counts(db, quarter)
+
     return AdminDashboard(
         quarter=QuarterRead.model_validate(quarter) if quarter is not None else None,
         pending_applications=pending_applications,
@@ -142,10 +191,14 @@ def read_dashboard(
             membership=membership,
             total=total_accounts,
         ),
+        members=MemberStatsRead(**vars(figures.members)),
+        applications=ApplicationStatsRead(**vars(figures.applications)),
+        quarter_stats=_quarter_stats_read(figures.quarter),
         video_models_total=models_total,
         video_models_member_visible=models_visible,
         recent_audit=_audit_rows(audit.recent(db, limit=10)),
         is_development=settings.is_development,
+        failing_providers=_failing_providers(db, settings),
     )
 
 
@@ -249,4 +302,157 @@ def read_member(
         ),
         top_ups=[TopUpRead.model_validate(row) for row in top_ups],
         audit=_audit_rows(audit.for_member(db, member.id, member.username)),
+    )
+
+
+# ------------------------------------------------------- 구역별 숫자
+#
+# 각 화면이 자기 숫자를 한 번에 받습니다. 전부 `services/admin_stats.py`의
+# 묶음 질의를 지나가므로, 대시보드와 구역 화면이 다른 답을 낼 수 없습니다.
+
+
+@router.get(
+    "/stats/applications",
+    response_model=ApplicationStatsRead,
+    summary="Application counts for one quarter",
+)
+def read_application_stats(
+    quarter_id: int | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> ApplicationStatsRead:
+    quarter = db.get(Quarter, quarter_id) if quarter_id is not None else current_quarter(db)
+    if quarter_id is not None and quarter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="분기를 찾을 수 없습니다.")
+
+    stats = admin_stats.application_stats(db, quarter.id if quarter else None)
+    return ApplicationStatsRead(**vars(stats))
+
+
+@router.get(
+    "/stats/members",
+    response_model=MemberStatsRead,
+    summary="Member counts for one quarter",
+)
+def read_member_stats(
+    quarter_id: int | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> MemberStatsRead:
+    quarter = db.get(Quarter, quarter_id) if quarter_id is not None else current_quarter(db)
+    if quarter_id is not None and quarter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="분기를 찾을 수 없습니다.")
+
+    stats = admin_stats.member_stats(db, quarter.id if quarter else None)
+    return MemberStatsRead(**vars(stats))
+
+
+@router.get(
+    "/quarters-with-stats",
+    response_model=list[QuarterWithStats],
+    summary="Every quarter with its applicant, participant and usage figures",
+)
+def read_quarters_with_stats(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[QuarterWithStats]:
+    """The 분기 설정 table, in a fixed number of queries.
+
+    The figures for every quarter come from four grouped queries, not one
+    set per row: this table shows all quarters at once, and a per-row
+    query is how a screen becomes slow without anyone noticing.
+    """
+    quarters = list(db.scalars(select(Quarter).order_by(Quarter.starts_at.desc())))
+    stats = admin_stats.quarter_stats(db, [quarter.id for quarter in quarters])
+
+    return [
+        QuarterWithStats(
+            **QuarterRead.model_validate(quarter).model_dump(),
+            stats=_quarter_stats_read(stats[quarter.id]),
+        )
+        for quarter in quarters
+    ]
+
+
+# ------------------------------------------------------- 외부 서비스
+
+
+@router.get(
+    "/providers",
+    response_model=list[ProviderStatusRead],
+    summary="External service status — never the credentials",
+)
+def read_providers(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> list[ProviderStatusRead]:
+    """Which provider implementation is selected, and how it last went.
+
+    **No API key, secret or token appears in this response.** `has_key`
+    is a yes/no, and the error text is the status line the provider
+    returned, never the request that was sent to it.
+    """
+    rows = providers.all_status(db)
+
+    return [
+        ProviderStatusRead(
+            key=entry["key"],
+            name=entry["name"],
+            purpose=entry["purpose"],
+            setting=entry["setting"],
+            mode=settings.provider_mode(entry["key"]),
+            is_mock=settings.provider_is_mock(entry["key"]),
+            has_key=settings.provider_has_key(entry["key"]),
+            last_success_at=rows[entry["key"]].last_success_at if entry["key"] in rows else None,
+            last_success_label=(
+                rows[entry["key"]].last_success_label if entry["key"] in rows else ""
+            ),
+            last_error_at=rows[entry["key"]].last_error_at if entry["key"] in rows else None,
+            last_error_message=(
+                providers.explain(rows[entry["key"]].last_error_kind)
+                if entry["key"] in rows and rows[entry["key"]].last_error_at is not None
+                else ""
+            ),
+            # No provider in use reports a balance through its API yet, so
+            # the field is left out rather than filled with a guess. A
+            # made-up 0 would read as "out of credit".
+            balance_label=None,
+        )
+        for entry in providers.PROVIDERS
+    ]
+
+
+@router.post(
+    "/providers/{provider}/check",
+    response_model=ProviderCheckResult,
+    summary="Check one provider's connection, on request only",
+)
+def check_provider(
+    provider: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> ProviderCheckResult:
+    """Run the cheapest check that provider offers, and record the result.
+
+    Only on the button press. A background poll against a paid API spends
+    money to produce a green dot nobody asked for.
+
+    In mock mode nothing leaves the process — the answer is that mock
+    mode is on.
+    """
+    if provider not in providers.PROVIDER_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="그런 외부 서비스가 없습니다."
+        )
+
+    result = providers.check(db, provider, settings)
+    db.commit()
+
+    return ProviderCheckResult(
+        key=provider,
+        ok=result.ok,
+        message=result.message,
+        checked_at=datetime.now(timezone.utc),
     )
