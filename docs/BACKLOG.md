@@ -19,7 +19,7 @@ Nothing is being built. `main` holds Phase 1, UI batch 1,
 membership-access-fix, admin-restructure, ui-naming and
 fix-video-workspace-hang. No branch is open.
 
-Next up is **Phase 2 — Chat** on `phase-2-chat`, branched from an
+Next up is **ui-tube-watch** on `ui-tube-watch`, branched from an
 up-to-date `main`; the spec is saved verbatim below.
 
 The **Next** order was rewritten again on 2026-10-01, and this is the
@@ -36,50 +36,56 @@ owns the `UsageEvent` migration that `budget-by-provider` and
 category because the Claude/Higgsfield rename comes later.
 
 **invite-only-signup** was then inserted at position 2 on 2026-10-01,
-between Phase 2 and `prep-beta-launch`, and everything below it moved down
-one. It takes the invite codes out of `prep-beta-launch`'s beta list and
-makes the code required in every environment: the repository is public, so
-the site address will be, and an invite code is what keeps the community
-members-only. The numbered list is the authority on order.
+between Phase 2 and `prep-beta-launch`. It takes the invite codes out of
+`prep-beta-launch`'s beta list and makes the code required in every
+environment: the repository is public, so the site address will be, and an
+invite code is what keeps the community members-only.
+
+**Then, later the same day, the queue was reordered again** — and this
+paragraph is the current state. The three launch items moved to the end:
+the six build-out items (ui-tube-watch, budget-by-provider,
+usage-analytics, project-video-management, account-withdrawal,
+video-higgsfield-only) now come first, followed by **Phase 2 — Chat (7)**,
+**invite-only-signup (8)** and **prep-beta-launch (9)**.
+
+That inverts what the earlier move had settled, so three notes were
+rewritten to match:
+
+- **`budget-by-provider` owns the `UsageEvent` migration again**, and
+  Phase 2 consumes it. Chat charges the **Claude** budget through the
+  renamed structures — the rename is `budget-by-provider` point 1, which
+  now lands first — with no separate legacy path.
+- **`budget-by-provider` must create its own operator note.** It had been
+  relying on `prep-beta-launch` to create `docs/deployment.md` first;
+  that item is now last, so point 6 writes `docs/operations.md` instead.
+- Position references in the spec sections were renumbered to the list
+  above. **The numbered list is the authority on order.**
 
 ---
 
 ## Next (in order)
 
-1. **Phase 2 — Chat** · branch `phase-2-chat`
-   Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
-   streaming, budget checks and usage recording. Spec saved verbatim
-   below, replacing the pointer to `CLAUDE.md` section 20.
+Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
+`prep-beta-launch` move to the end; the six build-out items come first.
 
-2. **invite-only-signup** · branch `feat-invite-only-signup`
-   An invite code is required to sign up, in every environment — the site
-   address is public, the community is not. Adds the `InviteCode` table
-   and an invite-code section to Admin › Members. Spec saved verbatim
-   below. **`prep-beta-launch` no longer defines its own invite codes**;
-   it reuses this.
-
-3. **prep-beta-launch** · no branch named yet
-   The invite-only beta on a real domain. Spec saved verbatim below,
-   keeping its **Launch data rules** section. ⚠ **Costs money** —
-   domain, two hosts and a managed database; ask first.
-
-4. **ui-tube-watch** · branch `ui-tube-watch`
+1. **ui-tube-watch** · branch `ui-tube-watch`
    The CtrlAITube watch page: two columns, player sizing by video ratio,
    and a real comment section. Spec saved verbatim below.
 
-5. **budget-by-provider** · branch `feat-budget-by-provider`
+2. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including **Application flow** and
    **Application and purchase model (decided)**. The latter wins where
    the two disagree: approval is automatic, and both providers are
    prepaid, so the item also owns purchase records, club balances and
-   carry-over.
+   carry-over. **Now also owns the `UsageEvent` migration** — the fields
+   Phase 2 would have introduced had it stayed first.
 
-6. **usage-analytics** · branch `feat-usage-analytics`
+3. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
-   reads the `UsageEvent` fields that item adds, several of which Phase 2
-   introduces first. Spec saved verbatim below.
+   reads the `UsageEvent` fields that item adds. Spec saved verbatim
+   below.
 
-7. **project-video-management** · branch `feat-project-video-management`
+4. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**.
    ⚠ **The per-version generation settings are already done** —
    fix-video-workspace-hang had to add them to make a version show its
@@ -87,19 +93,38 @@ members-only. The numbered list is the authority on order.
    `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
    below is history, not work.
 
-8. **account-withdrawal** · branch `feat-account-withdrawal`
+5. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-9. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+6. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section.
+
+7. **Phase 2 — Chat** · branch `phase-2-chat`
+   Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
+   streaming, budget checks and usage recording. Spec saved verbatim
+   below, replacing the pointer to `CLAUDE.md` section 20. **It now
+   consumes the budget and usage structures rather than introducing
+   them** — see the note on its spec.
+
+8. **invite-only-signup** · branch `feat-invite-only-signup`
+   An invite code is required to sign up, in every environment — the site
+   address is public, the community is not. Adds the `InviteCode` table
+   and an invite-code section to Admin › Members. Spec saved verbatim
+   below. **`prep-beta-launch` no longer defines its own invite codes**;
+   it reuses this.
+
+9. **prep-beta-launch** · no branch named yet
+   The invite-only beta on a real domain. Spec saved verbatim below,
+   keeping its **Launch data rules** section. ⚠ **Costs money** —
+   domain, two hosts and a managed database; ask first.
 
 ### Merge order
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 5:
+Three things to carry into **budget-by-provider**, now at position 2:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -307,19 +332,25 @@ Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
 pointed at `CLAUDE.md` section 20. Saved exactly as written by the
 developer.
 
-**Moved from last place to position 2 on 2026-10-01**, which has
-consequences for three later items:
+**At position 7 since the 2026-10-01 reorder**, behind the six build-out
+items. It briefly sat at position 2; the note below replaces what that
+move implied.
 
-- **Point 6 introduces the UsageEvent fields** that `budget-by-provider`
-  (position 5) and `usage-analytics` (position 6) were each going to add:
-  feature tag, exact model, input and output tokens, USD cost from a
-  per-model token price setting, the USD→KRW rate used, and the KRW
-  amount. Phase 2 now owns that migration. Those two items should extend
-  it rather than add it again.
-- **The Claude/Higgsfield budget rename has not happened yet** —
-  `budget-by-provider` point 1 does it, and it now comes afterwards. So
-  Phase 2 charges the existing `build` category through the existing
-  `charge()` service, and the rename sweeps it up later.
+**Since `budget-by-provider` and `usage-analytics` come first, chat must
+charge the Claude budget and record usage through the structures they
+introduce (provider, feature tag "chat", model, tokens, USD, rate, KRW),
+with no separate legacy path.**
+
+What follows from that:
+
+- **Point 6 no longer introduces the `UsageEvent` fields** —
+  `budget-by-provider` (position 2) adds that migration and
+  `usage-analytics` (position 3) already reads it. Phase 2 writes into the
+  existing columns.
+- **The Claude/Higgsfield budget rename has already happened** —
+  `budget-by-provider` point 1 does it first. So chat charges the **Claude**
+  budget, not the old `build` category, and must not add a parallel path
+  for the pre-rename shape.
 - **Point 1's `ANTHROPIC_MODEL`** is already in `.env.example` and
   `Settings`; this item is what finally reads it.
 
@@ -347,9 +378,9 @@ every test above run on the mock provider with no key.
 
 ## invite-only-signup — full spec
 
-Branch `feat-invite-only-signup`. Added 2026-10-01 at position 2, directly
-after Phase 2 and ahead of `prep-beta-launch`. Saved exactly as written by
-the developer.
+Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 8
+since the reorder later that day — still directly after Phase 2 and ahead
+of `prep-beta-launch`. Saved exactly as written by the developer.
 
 **It takes the invite codes out of `prep-beta-launch`.** That item's point 2
 carried "Signup requires an invite code; Admin can create and revoke invite
@@ -393,13 +424,15 @@ No branch named yet. Rewritten on 2026-10-01: the item used to be only the
 launch data rules, and now carries the full beta specification. Saved
 exactly as written by the developer.
 
-**Moved to position 3 on 2026-10-01**, after Phase 2 and
-`invite-only-signup`. The order is deliberate: the beta is an invite-only
-launch whose one real feature is Claude chat, so Phase 2 has to exist first
-and everything else ships behind a test-mode label.
+**Last in the queue, position 9, since the 2026-10-01 reorder.** The
+order is still deliberate: the beta is an invite-only launch whose one real
+feature is Claude chat, so Phase 2 (position 7) and `invite-only-signup`
+(position 8) both have to exist first, and everything else ships behind a
+test-mode label. Launching last now also means the six build-out items are
+done before anything is exposed on a public domain.
 
 **The invite codes are no longer this item's work.**
-`invite-only-signup` at position 2 owns them, and requires a code in every
+`invite-only-signup` at position 8 owns them, and requires a code in every
 environment rather than only in the beta — so by the time this item runs,
 signup is already closed. Two parts of the spec below are therefore
 already satisfied when it starts:
@@ -555,12 +588,15 @@ members can already see. The cut preview itself is unaffected; when it
 runs, and what a member is told when their approved budget drops, is not
 decided here.
 
-**Point 6's operator note probably already exists by the time this runs.**
-`docs/deployment.md` does not exist today, but `prep-beta-launch` at
-position 3 creates it, and its point 4 explicitly includes "keeping
-Anthropic auto-reload OFF" — the same note. So check that file first and
-extend it; a new `docs/operations.md` is only needed if the auto-reload
-and manual-top-up guidance has nowhere sensible to live there.
+**Point 6's operator note has nowhere to live yet — reversed by the
+2026-10-01 reorder.** `docs/deployment.md` does not exist today, and
+`prep-beta-launch`, which point 4 of that item would have created it in,
+is now **last** at position 9 rather than ahead of this one. So this item
+creates the file it needs: write the auto-reload and manual-top-up
+guidance into a new `docs/operations.md`, and `prep-beta-launch` adds
+`docs/deployment.md` alongside it later, cross-referencing rather than
+duplicating. (Both carry the same "keep Anthropic auto-reload OFF" line,
+so whichever lands second should point at the first.)
 
 > Context: Claude API and Higgsfield are both prepaid. Credits must be bought per provider before use and cannot be moved between providers afterwards, so the club needs each quarter's split before buying.
 >
@@ -736,7 +772,7 @@ are new, which makes the cost estimate depend on 화질 as well as length.
 
 **Point 6's per-version settings are the column
 `project-video-management` adds** (`duration_seconds`, `aspect_ratio`,
-`sound` on `VideoVersion`), and that item is at position 7, ahead of this
+`sound` on `VideoVersion`), and that item is at position 4, ahead of this
 one. It owns that migration; this item uses the columns, adds the
 catalogue fields in point 1, and will need a further column for the
 chosen resolution.
