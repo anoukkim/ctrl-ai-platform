@@ -19,62 +19,59 @@ Nothing is being built. `main` holds Phase 1, UI batch 1,
 membership-access-fix, admin-restructure and ui-naming. No branch is
 open.
 
-Next up is **budget-by-provider** on `feat-budget-by-provider`, branched
-from an up-to-date `main`; the spec is saved verbatim below. Turning on
-its Admin section is deleting the `hidden: true` line on the `budget`
-entry in `frontend/app/admin/sections.ts` — the label is already
-**Budget**, set by ui-naming.
+Next up is **fix-video-workspace-hang** on `fix-video-workspace-hang`,
+branched from an up-to-date `main`; the spec is saved verbatim below.
+
+The **Next** order was rewritten on 2026-10-01: the video workspace bug
+moved from "Not in the Next order" to position 1, and two new items
+joined the queue — **ui-tube-watch** at 2 and **usage-analytics** at 4.
 
 ---
 
 ## Next (in order)
 
-1. **budget-by-provider** · branch `feat-budget-by-provider`
+1. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
+   A real, reproduced bug. Moved into the order at position 1 on
+   2026-10-01. Spec saved verbatim below.
+
+2. **ui-tube-watch** · branch `ui-tube-watch`
+   The CtrlAITube watch page: two columns, player sizing by video ratio,
+   and a real comment section. Spec saved verbatim below.
+
+3. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including the **Application flow** section
    added on 2026-10-01.
 
-2. **project-video-management** · branch `feat-project-video-management`
+4. **usage-analytics** · branch `feat-usage-analytics`
+   Admin and member usage charts. **Depends on budget-by-provider** — it
+   reads the `UsageEvent` fields that item adds (provider, feature tag,
+   native units, KRW). Spec saved verbatim below.
+
+5. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**
    and the per-version generation settings.
 
-3. **account-withdrawal** · branch `feat-account-withdrawal`
+6. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-4. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+7. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including the **Length slider** section.
 
-5. **prep-beta-launch**
+8. **prep-beta-launch**
    Only the **Launch data rules** are specified so far; the rest of the
    item is still to be written. Spec below.
 
-6. **Phase 2 — Chat**
+9. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
-
-### Not in the Next order
-
-**fix-video-workspace-hang** · branch `fix-video-workspace-hang`
-
-Left out of the new **Next** order of 2026-10-01 rather than dropped: it
-is a real, reproduced bug and still needs a place in the queue. Kept
-here until the developer says where it goes.
-
-> `/video/[projectId]` never leaves "영상 프로젝트를 불러오는 중…". The
-> three API calls it makes all return 200 and the console is clean, so
-> the component is not reaching its ready state. Reproduced on `main`
-> (so it predates membership-access-fix) and for an active member as
-> well as an inactive one, so it has nothing to do with participation.
-> The Video **library** at `/video` is fine; only the workspace is
-> affected. Found while verifying membership-access-fix and left alone
-> as out of scope for that branch.
 
 ### Merge order
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, which is next:
+Three things to carry into **budget-by-provider**, now at position 3:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -258,6 +255,59 @@ Worth knowing before review.
 
 ---
 
+## fix-video-workspace-hang — full spec
+
+Branch `fix-video-workspace-hang`. Moved into the **Next** order at
+position 1 on 2026-10-01, having previously sat under "Not in the Next
+order" waiting for a place in the queue. Saved exactly as written by the
+developer.
+
+> `/video/[projectId]` never leaves "영상 프로젝트를 불러오는 중…". The
+> three API calls it makes all return 200 and the console is clean, so
+> the component is not reaching its ready state. Reproduced on `main`
+> (so it predates membership-access-fix) and for an active member as
+> well as an inactive one, so it has nothing to do with participation.
+> The Video **library** at `/video` is fine; only the workspace is
+> affected. Found while verifying membership-access-fix and left alone
+> as out of scope for that branch.
+
+---
+
+## ui-tube-watch — full spec
+
+Branch `ui-tube-watch`. Added 2026-10-01. Saved exactly as written by the
+developer.
+
+**Before:** `docs/ui-requests/tube-watch-before.png` — **not in the
+repository yet.** The screenshot did not arrive with the request; save it
+at that path and turn this line into a link, the way `admin-restructure`
+links `admin-before.png`.
+
+> Problem: on the CtrlAITube watch page (/ctrlaitube/[id]) at 100% zoom, the video fills the full width, so the title, reactions and comments are pushed off-screen. The details are a large table, and comments look like a list instead of a comment section.
+>
+> 1. Layout on wide screens: two columns at about 7:3, the same for every video ratio.
+>    - Left (70%): video player, title, a compact meta line under the title (creator name with status badge · 게시일 · 길이 · 생성 도구), then the prompt. Move the remaining details (YouTube 영상 ID, 회원 상태 explanation) into a collapsible "자세히" section instead of the big table.
+>    - Right (30%): a panel with reactions at the top and comments below. The panel is full height and sticky; the comments scroll inside it while the video stays in view.
+>    - Narrow screens: stack in this order: video, title and meta, reactions, comments, details.
+> 2. Player sizing by ratio, so the title is always visible without scrolling on a normal laptop screen:
+>    - The player area is the full width of the left column, with a maximum height of about 75% of the viewport height.
+>    - 16:9 fills the column width. 9:16 and 1:1 are limited by that maximum height and centered, with a dark letterbox background on both sides (like YouTube Shorts on desktop).
+>    - The player never scrolls sideways and keeps the video's true ratio.
+> 3. Reactions: compact chips with an icon and count, a clear selected state when I have reacted, toggle on click.
+> 4. Comments look like a real comment section:
+>    - Each comment: round avatar with the initial, name, status badge, relative time ("2일 전", exact date on hover), text, and actions "답글" and a like count.
+>    - Replies are indented under their comment with a thin thread line; long threads collapse to "답글 N개 보기".
+>    - The input sits at the bottom of the panel with my avatar, grows as I type, Enter posts, Shift+Enter makes a new line, and 등록 is disabled while empty.
+>    - Sort toggle: 최신순 / 인기순.
+>    - Tabs at the top of the panel: "CTRL+AI 댓글 N" and "YouTube 댓글 N". The YouTube tab keeps the current explanation and the "YouTube에서 보기" button, so the two kinds of comments never mix.
+> 5. Comments are still mock data; keep the "댓글 기능은 아직 준비 중입니다" note small and muted. The real comment backend comes with Phase 8.
+> 6. Add mock videos in all three ratios (16:9, 9:16, 1:1) so each layout can be checked.
+> 7. Use the existing design tokens and lucide icons; check at 100% zoom on full width, about 1280px, and narrow screens.
+>
+> Checks: tsc, lint and build; browser steps for each ratio and screen size.
+
+---
+
 ## budget-by-provider — full spec
 
 Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
@@ -287,6 +337,35 @@ Added 2026-10-01. Saved exactly as written by the developer.
 > 4. Approving: single approve, approve with adjustment (changed split or amount, required reason, written to the audit log), bulk approve with one confirmation, reject with a reason the member sees on Profile.
 > 5. Active status and budget go together: a member becomes active for a quarter through an approved application, or through admin enrolment that also sets an allocation. If an admin sets a member active without any allocation, show a warning in Admin, and the member's sidebar says clearly that no budget is approved yet. (Currently testmember2 shows 활동 회원 with "승인된 지원금이 없습니다".)
 > 6. Tests: totals match applications; the suggested request includes the reserve on top; the proportional cut never exceeds the pool; adjustments and bulk approvals are audited; rejected members see the reason; active-without-allocation shows the warning.
+
+---
+
+## usage-analytics — full spec
+
+Branch `feat-usage-analytics`. Added 2026-10-01. Saved exactly as written
+by the developer.
+
+**Why it sits directly after budget-by-provider.** Every chart here reads
+the `UsageEvent` fields that item adds — provider, feature tag, native
+units and KRW. Point 1 below also says where the exact model goes: into
+budget-by-provider if that item has not already recorded it, otherwise
+into this one with its own migration.
+
+> Depends on budget-by-provider (UsageEvent with provider, feature tag, native units and KRW).
+>
+> 1. Every UsageEvent also records the exact model used (e.g. the Claude model name, or the Higgsfield model ID from the 영상 모델 catalogue). Add this field in budget-by-provider if it is not already there, otherwise add it here with a migration.
+> 2. Admin › 사용량 분석 (/admin/analytics), admin-only, added to the Admin tabs, sidebar sub-menu and dashboard cards:
+>    - Time-series charts by day or week, within a quarter or a custom date range.
+>    - Breakdown by provider and by model, with a toggle for the measure: KRW, native units (Claude tokens split into input/output; Higgsfield credits and video seconds), or request count.
+>    - Filters: quarter, provider, model, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), member.
+>    - Summary cards: total KRW per provider, the most-used model per provider, average cost per request, and share of the pool used.
+>    - Top members by usage, a data table matching the chart, and CSV download of exactly what is shown.
+> 3. Member side: the Usage page gets a "내 사용량" chart of their own usage over the current quarter by provider and feature. Members never see other members' data.
+> 4. Charts use one charting library consistent with the design tokens (dark theme, provider colours: Claude = build accent, Higgsfield = video accent), with Korean labels, tooltips with exact values, tabular numbers, and a Korean empty state.
+> 5. Development data: extend the dev-only usage simulator to choose a provider, model and feature, and add a dev-only "샘플 사용 기록 생성" action that creates 30 days of realistic usage across members and models. Both are unavailable outside APP_ENV=development.
+> 6. Performance: aggregate in the database (grouped queries), not in the browser.
+>
+> Tests: totals in the charts and the CSV match the database; filters change the results correctly; members cannot request other members' data; analytics routes are admin-only; sample-data tools return 404 outside development.
 
 ---
 
