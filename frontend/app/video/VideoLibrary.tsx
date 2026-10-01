@@ -22,7 +22,8 @@ import {
 } from "@/lib/projects";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
-import { useMyQuarter } from "@/app/components/MyQuarterProvider";
+import { useMayCreate } from "@/app/components/MyQuarterProvider";
+import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
@@ -35,8 +36,7 @@ type State =
 export default function VideoLibrary() {
   // 참여하지 않는 분기에는 새로 만들 수 없습니다. 실제 차단은
   // 백엔드의 require_active_member가 하고, 여기서는 이유를 설명합니다.
-  const { state: quarterState } = useMyQuarter();
-  const mayCreate = quarterState.phase !== "ready" || quarterState.quarter.may_create;
+  const mayCreate = useMayCreate();
 
   const [state, setState] = useState<State>({ phase: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
@@ -113,7 +113,7 @@ export default function VideoLibrary() {
         </div>
       </header>
 
-      {!mayCreate && <p className="notice">{NOT_PARTICIPATING_HINT}</p>}
+      <NotParticipatingBanner />
 
       {creating && (
         <div className={styles.createForm}>

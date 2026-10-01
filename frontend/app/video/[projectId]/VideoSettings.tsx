@@ -71,6 +71,14 @@ interface Props {
   onDuration: (value: number) => void;
   onAspect: (value: Aspect) => void;
   onSound: (value: boolean) => void;
+  /**
+   * 이번 분기에 참여하지 않아 전부 잠겼을 때의 이유.
+   *
+   * 값이 있으면 모든 조작부를 잠그고 이 문장을 안내로 씁니다. 모델이
+   * 지원하지 않아서 잠긴 것과는 이유가 다르므로, 그 경우의 안내는
+   * 그대로 두고 이쪽이 우선합니다.
+   */
+  lockedReason?: string;
 }
 
 export default function VideoSettings({
@@ -83,7 +91,9 @@ export default function VideoSettings({
   onDuration,
   onAspect,
   onSound,
+  lockedReason,
 }: Props) {
+  const locked = Boolean(lockedReason);
   // 모델이 목록을 주지 않았다면 전부 고를 수 있게 둡니다. 비어 있다고
   // 아무것도 못 고르게 하면 화면이 멈춘 것처럼 보입니다.
   const durations = supportedDurations.length > 0 ? supportedDurations : ALL_DURATIONS;
@@ -105,9 +115,12 @@ export default function VideoSettings({
                 key={value}
                 type="button"
                 onClick={() => onDuration(value)}
-                disabled={!allowed}
+                disabled={locked || !allowed}
                 aria-pressed={active}
-                title={allowed ? undefined : "이 모델은 이 길이를 지원하지 않습니다"}
+                title={
+                  lockedReason ??
+                  (allowed ? undefined : "이 모델은 이 길이를 지원하지 않습니다")
+                }
               >
                 {active && <Check className={styles.segmentCheck} size={13} aria-hidden="true" />}
                 {value}초
@@ -131,9 +144,12 @@ export default function VideoSettings({
                 key={value}
                 type="button"
                 onClick={() => onAspect(value)}
-                disabled={!allowed}
+                disabled={locked || !allowed}
                 aria-pressed={active}
-                title={allowed ? undefined : "이 모델은 이 비율을 지원하지 않습니다"}
+                title={
+                  lockedReason ??
+                  (allowed ? undefined : "이 모델은 이 비율을 지원하지 않습니다")
+                }
               >
                 {active && <Check className={styles.segmentCheck} size={13} aria-hidden="true" />}
                 <AspectGlyph aspect={value} />
@@ -151,6 +167,8 @@ export default function VideoSettings({
             className={`${styles.soundToggle} ${sound ? styles.soundToggleOn : ""}`}
             type="button"
             onClick={() => onSound(!sound)}
+            disabled={locked}
+            title={lockedReason}
             aria-pressed={sound}
           >
             {sound ? <Volume2 size={15} aria-hidden="true" /> : <VolumeX size={15} aria-hidden="true" />}

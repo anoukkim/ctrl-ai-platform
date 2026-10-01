@@ -36,6 +36,23 @@ export function useMyQuarter(): Value {
   return value;
 }
 
+/**
+ * 지금 새로 만들 수 있는지.
+ *
+ * 세 작업 화면과 두 목록 화면이 모두 같은 판단을 해야 해서 한곳에 둡니다.
+ * 각자 `quarter.may_create`를 꺼내 쓰면 "아직 불러오는 중"을 어떻게 볼지가
+ * 화면마다 달라지고, 멀쩡히 참여 중인 회원에게 잠깐 잠긴 화면이 보입니다.
+ *
+ * 불러오는 중이거나 실패했으면 **허용 쪽으로** 답합니다. 이것은 보안
+ * 판단이 아니라 화면 표시이고, 실제 차단은 백엔드가 요청마다 합니다.
+ * 확실하지 않을 때 잠가 버리면, 네트워크가 잠깐 느렸다는 이유로 참여 중인
+ * 회원의 작업을 막게 됩니다.
+ */
+export function useMayCreate(): boolean {
+  const { state } = useMyQuarter();
+  return state.phase !== "ready" || state.quarter.may_create;
+}
+
 export default function MyQuarterProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>({ phase: "loading" });
   const { state: userState } = useCurrentUser();
