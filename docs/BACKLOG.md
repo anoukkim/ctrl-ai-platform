@@ -15,35 +15,27 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. `phase-1c-usage-audit` is merged, so Phase 1 is
-complete on `main`. One branch is finished and waiting on review:
+Nothing is being built. Phase 1 and UI batch 1 are both merged, so `main`
+holds the accounts, quarters, budgets, usage ledger and audit log together
+with the CTRL+AI brand refresh. No branch is open.
 
-| Branch | State |
-| ------ | ----- |
-| `ui-brand-refresh` | **Complete, unmerged.** 11 commits. CTRL+AI name and + logo, lucide icons, the neutral dark palette, the `/issues` page, the rebuilt Chat screen, the Usage card redesign, and the Video length/ratio/sound controls. |
-
-It was branched before Phase 1c landed, so merging `main` into it will
-conflict in `globals.css`, `usage/page.tsx`, `usage/usage.module.css`,
-`admin/page.tsx` and `README.md`. Keep the real usage data from `main` and
-re-apply the styling on top of it.
+Next up is **budget-by-provider** on `feat-budget-by-provider`, branched
+from `main`; the spec is saved verbatim below.
 
 ---
 
 ## Next (in order)
 
-1. **UI batch 1** · branch `ui-brand-refresh`
-   Built and awaiting review — see **Now**. Full spec saved verbatim below.
-
-2. **budget-by-provider** · branch `feat-budget-by-provider`
+1. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below.
 
-3. **project-video-management** · branch `feat-project-video-management`
+2. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below.
 
-4. **prep-beta-launch**
+3. **prep-beta-launch**
    Not yet specified.
 
-5. **Phase 2 — Chat**
+4. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
@@ -56,17 +48,8 @@ re-apply the styling on top of it.
 
 ### Merge order
 
-`main` contains Phase 1a, Phase 1b and Phase 1c. One branch is waiting:
-
-```text
-main  <-  ui-brand-refresh         (11 commits, complete)
-```
-
-`ui-brand-refresh` is behind `main` by the whole Phase 1c merge. Merge
-`main` into the branch first (never rebase, never force-push), resolve the
-five overlapping files by keeping the real usage data from `main` and
-re-applying the new styling on top, then run the tests and the build
-before merging the branch back.
+Nothing is waiting. `main` contains Phase 1a, Phase 1b, Phase 1c and UI
+batch 1. Branch the next item from an up-to-date `main`.
 
 ---
 
@@ -80,6 +63,8 @@ New UI requests go here until they are folded into a UI batch.
 
 ## UI batch 1 — full spec
 
+**Merged 2026-10-01.** Kept for reference: it is the standing description
+of the palette and the brand, so a later screen can be checked against it.
 Saved exactly as written by the developer.
 
 > Follow the working method and Git Workflow in CLAUDE.md. Create branch ui-brand-refresh from up-to-date main. UI and docs only: no backend logic or data-model changes. Attached: a screenshot of the current sidebar.
@@ -201,6 +186,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **UI batch 1 — brand refresh** — the CTRL+AI name and + logo mark, lucide navigation icons, the neutral dark palette as tokens with no colour left in a component, the rebuilt Chat screen, the `/issues` page with Korean GitHub issue templates, and the Video length/ratio/sound controls | `ui-brand-refresh` |
 | 2026-10-01 | **Phase 1c — usage ledger and audit log** — charging and the `UsageEvent` row in one transaction behind a `SELECT ... FOR UPDATE` lock, the real admin member list with quarter enrolment and a KRW credit panel, the append-only `AuditLog` with a read-only admin view, a development-only simulate-usage action, the Usage page redesign | `phase-1c-usage-audit` |
 | 2026-10-01 | **Phase 1b — membership** — per-quarter `QuarterMembership`, `require_active_member` on paid creation endpoints, former members locked out with attribution preserved, live membership in the sidebar, Profile and Usage header, Korean monospace fix | `phase-1b-membership` |
 | 2026-10-01 | **Phase 1a — auth** — username/password with Argon2id, HttpOnly same-origin session cookie via the Next.js `/api/*` rewrite, real `get_current_user` / `require_admin` on every route | `phase-1a-auth` |
