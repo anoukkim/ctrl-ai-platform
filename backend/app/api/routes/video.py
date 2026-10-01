@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_active_member
 from app.db.session import get_db
 from app.models import User, VideoModel, VideoProject, VideoVersion
 from app.schemas.video import (
@@ -81,7 +81,7 @@ def list_projects(
 def create_project(
     payload: VideoProjectCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_active_member),
 ) -> VideoProject:
     model_id = payload.selected_model_id
     if model_id is not None and model_id not in {m.id for m in _allowed_models(db)}:
@@ -163,7 +163,7 @@ def update_project(
 def create_version(
     project_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_active_member),
 ) -> VideoVersion:
     """Add a version using the project's current prompt and model.
 

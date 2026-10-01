@@ -30,7 +30,6 @@
   gap: 0.45rem;
   font-size: 0.98rem;
   font-weight: 700;
-  letter-spacing: -0.015em;
 }
 
 /* 제품 표시. 아이콘 라이브러리 없이 CSS로만 그립니다. */
@@ -85,10 +84,35 @@
 .navScroll {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* 위쪽 묶음: 만들기 / 둘러보기 / (관리) */
+.navTop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/*
+ * 위아래 묶음 사이의 빈 공간.
+ *
+ * 화면이 길면 늘어나 아래쪽 묶음을 바닥에 붙여 주고, 화면이 짧으면 0까지
+ * 줄어들어 메뉴가 잘리지 않습니다. min-height: 0이 없으면 좁은 화면에서
+ * 빈 공간이 자리를 차지해 스크롤이 생깁니다.
+ */
+.navSpacer {
+  flex: 1 1 auto;
+  min-height: 0.9rem;
+}
+
+/* 아래쪽 묶음: 내 정보 + 분기 카드 */
+.navBottom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
 .navGroupLabel {
@@ -143,6 +167,7 @@
 
 /* ---------- 회원 상태 블록 ---------- */
 
+/* 카드 전체가 Usage로 가는 링크입니다. */
 .member {
   display: grid;
   gap: 0.5rem;
@@ -150,6 +175,20 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel);
+  color: inherit;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+}
+
+.member:hover {
+  border-color: var(--border-strong);
+  background: var(--panel-2);
+}
+
+.memberEmpty {
+  color: var(--text-dim);
+  font-size: 0.72rem;
 }
 
 .memberTop {
@@ -162,7 +201,6 @@
 .memberSeason {
   font-size: 0.83rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .memberRange {
@@ -202,29 +240,8 @@
 }
 
 .meterValue {
-  font-family: var(--mono);
   font-size: 0.7rem;
   color: var(--text-dim);
-}
-
-.memberLink {
-  display: block;
-  padding: 0.3rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  font-weight: 600;
-  text-align: center;
-  transition:
-    border-color 0.12s ease,
-    color 0.12s ease;
-}
-
-.memberLink:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 /* ---------- 사이드바 바닥 ---------- */

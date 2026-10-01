@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import User, UserRole, UserSession
+from app.models import MembershipStatus, User, UserRole, UserSession
+from app.services.quarters import current_quarter, membership_for
 
 CREDENTIALS_REQUIRED = "로그인이 필요합니다."
 
@@ -86,4 +87,47 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="관리자만 사용할 수 있습니다.",
         )
+    return user
+
+
+# What an inactive member is told. Deliberately explains the state and the
+# way out rather than just refusing.
+NOT_PARTICIPATING = (
+    "이번 분기에 참여하고 있지 않아 새로 만들 수 없습니다. "
+    "지금까지 만든 작업물은 그대로 볼 수 있습니다."
+)
+
+
+def require_active_member(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """Guard for paid creation and budget-spending routes.
+
+    Signing in is not enough. A member must be **participating in the
+    current quarter**, which means an active `QuarterMembership` row.
+
+    This is deliberately narrower than `get_current_user`: an inactive
+    member keeps their account, their projects and their published work,
+    and can still read all of it. What they lose is the ability to start
+    new work that costs the community money.
+
+    A missing membership row means "not participating" — there is no need
+    to write an inactive row for everyone who did not apply.
+    """
+    quarter = current_quarter(db)
+    if quarter is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="지금은 진행 중인 분기가 없습니다.",
+        )
+
+    membership = membership_for(db, user.id, quarter.id)
+
+    if membership is None or membership.status is not MembershipStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=NOT_PARTICIPATING,
+        )
+
     return user

@@ -37,7 +37,7 @@ principles.
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
 | CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; Ctrl AI comments kept separate from YouTube comments |
-| Usage                 | **Still mock** — real usage data is Phase 1c                                      |
+| Usage                 | Header is live (quarter, membership); amounts and ledger still mock (Phase 1c)    |
 | Profile               | Live signed-in member, quarter participation and application form                 |
 | Admin                 | Live quarters, application review, video model catalogue; member list still mock  |
 | Backend `/api/health` | Real and working                                                                  |
@@ -46,8 +46,8 @@ principles.
 | Claude / Higgsfield   | Not started (Phases 2 and 6)                                                      |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
-Two screens still render mock data that **contradicts** the live figures on
-Profile: Usage, and the member list on Admin. Both are Phase 1c.
+The Usage **amounts** and the Admin **member list** still render mock data and
+can disagree with the live figures on Profile. Both are Phase 1c.
 
 Everything that is not built yet renders a **준비 중** badge, and its controls are
 disabled, so the shell is never mistaken for working functionality.
@@ -581,8 +581,8 @@ default. Going live is deliberately last.
 | ----- | ----- | ----- |
 | **0** | Product shell — navigation, every screen, `/api/health`, PostgreSQL | ✅ Complete |
 | **1a** | Username/password auth, Alembic replacing `create_all`, Next.js `/api/*` rewrite for same-origin HttpOnly cookies | ✅ Complete (branch `phase-1a-auth`) |
-| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | ← **Next.** Quarters done; `account_status` exists, participation rules do not |
-| **1c** | QuarterAllocation, PersonalBalance/TopUp, UsageEvent, Usage on real data, admin member list, enrolment, allocation, audit log | Allocations and wallet built; Usage, member list and audit log outstanding |
+| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | ✅ Complete (branch `phase-1b-membership`) |
+| **1c** | QuarterAllocation, PersonalBalance/TopUp, UsageEvent, Usage on real data, admin member list, enrolment, allocation, audit log | ← **Next.** Allocations, wallet and enrolment built; the usage ledger, the real member list and the audit log remain |
 | **2** | Chat — Claude adapter behind `CLAUDE_PROVIDER`, conversations, usage recording, budget checks | Not started |
 | **3** | Builder MVP — projects from a prompt, generated files, editor, history | Not started |
 | **4** | GitHub integration — GitHub App, repository selection, push (localhost callback) | Not started |

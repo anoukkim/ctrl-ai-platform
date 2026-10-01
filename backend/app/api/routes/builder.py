@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_active_member
 from app.db.session import get_db
 from app.models import BuilderProject, User
 from app.schemas.builder import (
@@ -61,7 +61,7 @@ def list_projects(
 def create_project(
     payload: BuilderProjectCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_active_member),
 ) -> BuilderProject:
     project = BuilderProject(
         owner_user_id=user.id,

@@ -7,8 +7,7 @@ from app.models import BuilderProject, BuilderProjectStatus, User
 
 
 def test_new_project_starts_as_draft_and_belongs_to_me(
-    client: TestClient, dev_user: User
-) -> None:
+    client: TestClient, dev_user: User, participating) -> None:
     response = client.post(
         "/api/builder/projects",
         json={"name": "습관 관리 앱", "description": "매일 체크하는 앱"},
@@ -77,8 +76,7 @@ def test_update_changes_only_the_fields_sent(
 
 
 def test_owner_cannot_be_set_from_the_request_body(
-    client: TestClient, db_session: Session, dev_user: User, other_user: User
-) -> None:
+    client: TestClient, db_session: Session, dev_user: User, other_user: User, participating) -> None:
     """A spoofed owner field is ignored: ownership comes from the session."""
     response = client.post(
         "/api/builder/projects",

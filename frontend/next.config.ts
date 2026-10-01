@@ -8,6 +8,14 @@ const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 
 const nextConfig: NextConfig = {
   /**
+   * 개발 중에만 보이는 Next.js 표시기를 끕니다.
+   *
+   * 화면 왼쪽 아래에 떠 있어 사이드바 바닥의 로그아웃 버튼을 가립니다.
+   * 빌드 결과에는 영향이 없고 개발 화면에서만 사라집니다.
+   */
+  devIndicators: false,
+
+  /**
    * `/api/*` 요청을 Next.js가 받아 FastAPI로 넘깁니다.
    *
    * 이렇게 하면 브라우저 입장에서 프런트엔드와 백엔드가 같은 출처(origin)가

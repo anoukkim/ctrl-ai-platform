@@ -18,7 +18,6 @@
   gap: 0.5rem;
   font-size: 1.15rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .subtitle {
@@ -45,7 +44,6 @@
 }
 
 .count {
-  font-family: var(--mono);
   font-size: 0.74rem;
   color: var(--text-dim);
 }
@@ -87,7 +85,6 @@
 .cardName {
   font-size: 0.95rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -248,4 +245,16 @@
 .createInput {
   flex: 1 1 14rem;
   min-width: 0;
+}
+
+/* 참여하지 않는 분기에는 새로 만들 수 없습니다. 눌리지 않는다는 것이
+   보이도록 흐리게 처리합니다. */
+.newCard:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.newCard:disabled:hover {
+  border-color: var(--border);
+  background: transparent;
 }

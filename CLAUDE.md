@@ -1193,24 +1193,46 @@ Phase 1a also introduced **`account_status`** (`active` / `inactive` /
 sign-in for anything that is not `active`; the participation rules that
 hang off it are Phase 1b.
 
-### Phase 1b — Quarters and membership ← **next**
+### Phase 1b — Quarters and membership ✅ Complete
 
-- ✅ `Quarter` — **done**
-- ✅ `QuarterApplication` — **done.** One live application per member per
-  quarter, and the Build/Video split must total exactly 100%
-- 🔶 active / inactive / former behaviour, enforced in the backend —
-  **partly built**
+- ✅ `Quarter`
+- ✅ `QuarterApplication` — one live application per member per quarter,
+  and the Build/Video split must total exactly 100%
+- ✅ active / inactive / former behaviour, **enforced in the backend**
 
-The quarter half is finished: quarters, applications, the split rule and
-admin review all work end to end.
+Participation is a real model, `QuarterMembership`, with one row per
+member per quarter. It is per quarter rather than a single flag on the
+user because Ctrl AI runs by quarter: someone may be active in Q1, sit out
+Q2 and return in Q3, and that history is what attribution depends on.
 
-Phase 1a added the `account_status` column and blocks sign-in for anything
-that is not `active`. **What is still missing is the participation rule
-itself**: an `inactive` member should keep their account and their work but
-lose access to *paid creation features* for the current quarter, which is a
-narrower check than "cannot sign in". There is also no admin UI for moving
-a member between statuses. Phase 1b builds both on top of the existing
-column.
+**A missing row means "not participating."** No inactive row is written
+for every member who did not apply.
+
+Two statuses answer two different questions and must not be confused:
+
+| Column | Question it answers |
+| ------ | ------------------- |
+| `User.account_status` | May this person use Ctrl AI at all? |
+| `QuarterMembership.status` | Are they participating in *this* quarter? |
+
+The rules, as enforced:
+
+- **active** — may create; everything works.
+- **inactive** — may sign in, may read everything they own, **may not use
+  paid creation features**. `require_active_member` guards project
+  creation and video version generation (the budget-spending call). Reads
+  stay open, so their work never disappears.
+- **former** — cannot sign in at all, and an open session stops working on
+  the next request. Their account is kept rather than deleted precisely so
+  published work keeps their name with the 탈퇴 회원 label.
+
+Approving an application is what makes a member a participant: it writes
+the membership row alongside the allocation. Without that the member would
+have a budget they could not spend.
+
+Admins can also set participation directly
+(`PUT /api/admin/quarters/{id}/members/{user_id}`). Setting `former` closes
+the account at the same time, so the two statuses cannot drift apart.
 
 ### Phase 1c — Allocation, usage and administration
 
@@ -1558,29 +1580,33 @@ chore.
 
 **Phase 0 is complete.** The product shell runs locally — see section 20.
 
-**Phase 1a is complete** on branch `phase-1a-auth` (not yet merged).
-Registration, sign-in and sign-out work with Argon2 password hashing and a
-server-side session cookie; `/api/*` is proxied through Next.js so the
-cookie is HttpOnly and same-origin; every member and admin route is behind
-a real `get_current_user` / `require_admin`.
+**Phase 1a is complete** on branch `phase-1a-auth` (not yet merged):
+registration, sign-in and sign-out with Argon2 hashing, a server-side
+session cookie, `/api/*` proxied through Next.js, and real
+`get_current_user` / `require_admin` in front of every route.
 
-**Phase 1 foundation is on `main`:** quarters, applications, the
-Build/Video split, allocations, personal balance and manual top-ups all
-work end to end. Builder and Video each have a project library and a
-persistent per-project workspace (Phase 3 / Phase 6 groundwork).
+**Phase 1b is complete** on branch `phase-1b-membership` (not yet merged,
+and it builds on `phase-1a-auth`): per-quarter `QuarterMembership`,
+`require_active_member` on every paid creation endpoint, former members
+locked out while their attribution survives, and the sidebar, Profile and
+Usage header reading live membership instead of mock data.
 
-**The next task is Phase 1b** (section 20): enforce participation status.
-An `inactive` member keeps their account and their work but loses paid
-creation features for the current quarter; a `former` member loses normal
-access while their published work keeps their name. Add the admin controls
-for moving a member between statuses.
+**Merge order matters:** `phase-1a-auth` first, then
+`phase-1b-membership`.
 
-Then Phase 1c: the usage ledger and the audit log.
+**The next task is Phase 1c** (section 20): the usage ledger and the audit
+log.
+
+> Give `UsageEvent` an API and write to it, so the Usage screen shows real
+> spending instead of `frontend/lib/mock-data.ts`. Replace the mock admin
+> member list with the live one — `GET /api/admin/quarters/{id}/members`
+> already returns it. Add the audit log so every admin membership and
+> allocation change records who did it, to what, and when.
 
 Known gaps still open in Phase 1c:
 
-- the Usage screen and the admin member list still render mock data and
-  visibly contradict the live allocation shown on Profile
+- the Usage **body** (amounts and 최근 사용 내역) and the admin member list
+  still render mock data; the Usage **header** is live
 - `UsageEvent` has no API route and nothing writes to it
 - no audit log for admin membership or allocation changes
 

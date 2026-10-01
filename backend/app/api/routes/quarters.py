@@ -34,6 +34,7 @@ from app.schemas.quarter import (
     TopUpCreate,
     TopUpRead,
 )
+from app.services.quarters import current_quarter, membership_for
 from app.services.budget import InvalidSplitError, split_budget
 from app.services.wallet import get_or_create_balance
 
@@ -53,24 +54,7 @@ def _wallet(db: Session, user: User) -> PersonalBalance:
 
 
 
-def current_quarter(db: Session) -> Quarter | None:
-    """The quarter members are currently dealing with.
 
-    An open application window wins over an active quarter: when
-    applications for the next quarter open, that is what Profile should
-    be inviting people to do.
-    """
-    open_now = db.scalar(
-        select(Quarter)
-        .where(Quarter.status == QuarterStatus.APPLICATION_OPEN)
-        .order_by(Quarter.starts_at)
-    )
-    if open_now is not None:
-        return open_now
-
-    return db.scalar(
-        select(Quarter).where(Quarter.status == QuarterStatus.ACTIVE).order_by(Quarter.starts_at)
-    )
 
 
 def _describe_participation(
@@ -125,6 +109,8 @@ def read_my_quarter(
     if quarter is not None:
         days_remaining = max(0, (quarter.ends_at - date.today()).days)
 
+    membership = membership_for(db, user.id, quarter.id) if quarter is not None else None
+
     return MyQuarterStatus(
         quarter=QuarterRead.model_validate(quarter) if quarter else None,
         application=ApplicationRead.model_validate(application) if application else None,
@@ -132,6 +118,10 @@ def read_my_quarter(
         personal=_wallet(db, user),  # type: ignore[arg-type]
         participation=_describe_participation(quarter, application, allocation),
         days_remaining=days_remaining,
+        membership_status=membership.status if membership else None,
+        # Computed once here so the UI does not re-implement the rule.
+        # require_active_member is still what actually refuses a request.
+        may_create=bool(membership and membership.may_create),
     )
 
 

@@ -11,7 +11,9 @@
  */
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
+import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import type { AccountStatus, UserRole } from "@/lib/auth";
+import { MEMBERSHIP_BADGE, MEMBERSHIP_LABEL } from "@/lib/quarters";
 
 import styles from "./profile.module.css";
 
@@ -21,12 +23,6 @@ const STATUS_LABEL: Record<AccountStatus, string> = {
   former: "탈퇴 회원",
 };
 
-const STATUS_BADGE: Record<AccountStatus, string> = {
-  active: "badge-ok",
-  inactive: "badge-warn",
-  former: "badge-muted",
-};
-
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: "관리자",
   member: "회원",
@@ -34,6 +30,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 export function Identity() {
   const { state } = useCurrentUser();
+  const { state: quarterState } = useMyQuarter();
   if (state.phase !== "authenticated") return null;
 
   const user = state.user;
@@ -49,9 +46,17 @@ export function Identity() {
         <span className={styles.displayName}>{user.display_name}</span>
         <span className={styles.username}>@{user.username}</span>
         <span className={styles.badges}>
-          <span className={`badge ${STATUS_BADGE[user.account_status]}`}>
-            {STATUS_LABEL[user.account_status]}
-          </span>
+          {/* 이번 분기 참여 상태. 계정 상태(아래 계정 설정)와는 다른 값입니다. */}
+          {quarterState.phase === "ready" && quarterState.quarter.quarter !== null && (
+            <span
+              className={`badge ${MEMBERSHIP_BADGE[quarterState.quarter.membership_status ?? "inactive"]}`}
+            >
+              {MEMBERSHIP_LABEL[quarterState.quarter.membership_status ?? "inactive"]}
+            </span>
+          )}
+          {quarterState.phase === "ready" && quarterState.quarter.quarter !== null && (
+            <span className="badge badge-accent">{quarterState.quarter.quarter.display_name}</span>
+          )}
           <span className="badge badge-muted">{ROLE_LABEL[user.role]}</span>
         </span>
       </div>
@@ -82,7 +87,7 @@ export function AccountSettings() {
           <span className="mono">{user.email}</span>
         </p>
         <p className={styles.row}>
-          <span className={styles.rowLabel}>회원 상태</span>
+          <span className={styles.rowLabel}>계정 상태</span>
           <span>{STATUS_LABEL[user.account_status]}</span>
         </p>
         <p className={styles.row}>

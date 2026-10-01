@@ -13,23 +13,21 @@
  * 기능이 실제로 구현되면 해당 데이터는 백엔드로 옮기고 여기서 삭제합니다.
  */
 
-/** 분기별 회원 상태. Ctrl AI는 분기(Quarter) 단위로 운영됩니다. */
-export type MembershipStatus = "active" | "inactive" | "former";
-
 /**
- * 회원 상태 표기.
+ * 회원 상태는 이제 백엔드에서 옵니다.
  *
- * "탈퇴 회원"은 계정을 지웠다는 뜻이 아닙니다. 이미 게시한 앱과 영상에는
- * 만든 사람의 이름이 계속 남아야 하므로 "삭제된 회원"이라고 쓰지 않습니다.
+ * 타입과 한국어 표기는 lib/quarters.ts 하나만 두고 여기서는 다시 내보내기만
+ * 합니다. 같은 뜻의 상수를 두 곳에 두면 한쪽만 고쳐져 어긋나기 때문입니다.
+ * 아직 목업인 화면(게시된 앱·영상의 만든 사람 표시, Phase 5/8)이 이 이름을
+ * 쓰고 있어 재export를 남겨 둡니다.
  */
-export const MEMBERSHIP_LABEL: Record<MembershipStatus, string> = {
-  active: "활동 회원",
-  inactive: "비활동 회원",
-  former: "탈퇴 회원",
-};
+import type { MembershipStatus } from "./quarters";
 
-/** 각 상태가 무엇을 뜻하는지 설명하는 문구. */
-export const MEMBERSHIP_DESCRIPTION: Record<MembershipStatus, string> = {
+export type { MembershipStatus };
+export { MEMBERSHIP_LABEL } from "./quarters";
+
+/** 각 상태가 무엇을 뜻하는지 설명하는 문구. 상세 화면에서만 씁니다. */
+export const MEMBERSHIP_DESCRIPTION: Record<"active" | "inactive" | "former", string> = {
   active: "이번 분기에 참여 중이며 모든 창작 기능을 사용할 수 있습니다.",
   inactive: "이번 분기에는 참여하지 않지만, 만든 결과물은 그대로 남아 있습니다.",
   former: "커뮤니티를 떠났지만, 게시한 작품에는 만든 사람의 이름이 계속 표시됩니다.",
@@ -60,10 +58,6 @@ export const QUARTER_RANGE = {
   today: "2026-10-01",
 };
 
-/** 분기당 회원 한 명이 받을 수 있는 공동체 지원 한도(원). 실제 값은
- *  분기마다 백엔드에 저장되며, 여기 값은 화면 미리보기용입니다. */
-export const DEFAULT_SUBSIDY_LIMIT_KRW = 100_000;
-
 /** YYYY-MM-DD 를 2026.10.01 형태로 바꿉니다. */
 export function formatDate(iso: string): string {
   return iso.replaceAll("-", ".");
@@ -74,11 +68,6 @@ export function daysBetween(fromIso: string, toIso: string): number {
   const from = Date.parse(`${fromIso}T00:00:00Z`);
   const to = Date.parse(`${toIso}T00:00:00Z`);
   return Math.max(0, Math.round((to - from) / 86_400_000));
-}
-
-/** 분기 종료까지 남은 일수. */
-export function quarterDaysRemaining(): number {
-  return daysBetween(QUARTER_RANGE.today, QUARTER_RANGE.endsAt);
 }
 
 export const CURRENT_USER = {

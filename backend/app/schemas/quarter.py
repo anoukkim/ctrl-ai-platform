@@ -5,6 +5,8 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.quarter import ApplicationStatus, QuarterStatus
+from app.models.user import AccountStatus, UserRole
+from app.models.membership import MembershipStatus
 from app.models.wallet import TopUpStatus
 
 
@@ -137,6 +139,38 @@ class TopUpConfirm(BaseModel):
     payment_reference: str | None = Field(default=None, max_length=200)
 
 
+class MembershipRead(BaseModel):
+    """One member's participation in one quarter."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    quarter_id: int
+    status: MembershipStatus
+
+
+class MembershipUpdate(BaseModel):
+    """Admin setting a member's participation in a quarter."""
+
+    status: MembershipStatus
+
+
+class MemberWithMembership(BaseModel):
+    """A member as the admin member list shows them.
+
+    Carries both statuses because they answer different questions:
+    `account_status` is whether they may sign in at all, and
+    `membership_status` is whether they are participating in this quarter.
+    """
+
+    user_id: int
+    username: str
+    display_name: str
+    role: UserRole
+    account_status: AccountStatus
+    #: None이면 이번 분기에 참여 기록이 없다는 뜻입니다.
+    membership_status: MembershipStatus | None
+
+
 class MyQuarterStatus(BaseModel):
     """Everything Profile needs about the member's standing this quarter."""
 
@@ -147,3 +181,8 @@ class MyQuarterStatus(BaseModel):
     #: 신청 가능 / 승인 대기 / 활동 회원 / 미참여 / 신청 거절
     participation: str
     days_remaining: int | None
+    #: 이번 분기 참여 상태. None이면 참여 기록이 없다는 뜻입니다.
+    membership_status: MembershipStatus | None = None
+    #: 새로 만들 수 있는지. 프런트엔드가 매번 규칙을 다시 쓰지 않도록
+    #: 백엔드가 계산해서 내려 줍니다. 실제 차단은 require_active_member가 합니다.
+    may_create: bool = False
