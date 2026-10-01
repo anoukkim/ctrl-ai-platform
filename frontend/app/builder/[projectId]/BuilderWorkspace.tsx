@@ -11,7 +11,7 @@
  * 예시입니다. 코드 생성은 Phase 4, GitHub 연동은 Phase 5입니다.
  */
 
-import { Lock } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -144,8 +144,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     <div className={ws.shell}>
       {/* 위쪽 막대 — 낮게 유지하고, 프로젝트 이동은 여기에서 */}
       <div className={ws.topbar}>
+        {/* Video Generator의 작업 공간과 같은 자리·같은 아이콘·같은 짜임. */}
         <Link className={ws.backLink} href="/builder">
-          ← Projects
+          <ArrowLeft size={14} aria-hidden="true" />
+          Project Builder
         </Link>
         <span className={ws.topbarDivider} aria-hidden="true" />
 

@@ -68,6 +68,30 @@ function mockReply(input: string): Message {
   const text = input.toLowerCase();
   const id = Date.now();
 
+  // 이미 만든 것을 찾는 말이 먼저입니다. 아래의 "새로 만들기" 규칙이
+  // 훨씬 넓어서, 뒤에 두면 "내 영상 보여줘"가 거기에 먼저 걸립니다.
+  //
+  // 가는 곳은 그것이 사는 목록입니다. 예전에는 셋을 한 규칙으로 묶어 모두
+  // Profile로 보냈는데, Profile은 요약만 보여 주는 곳이라 영상을 찾는
+  // 사람이 영상 목록이 아닌 곳에서 끝났습니다.
+  if (/내 영상|만든 영상|영상 목록/.test(text)) {
+    return {
+      id,
+      role: "assistant",
+      body: "지금까지 만든 영상 프로젝트는 Video Generator에 모여 있어요.",
+      suggestion: { label: "Video Generator에서 보기", href: "/video" },
+    };
+  }
+
+  if (/내 프로젝트|내 앱|내가 만든|만든 프로젝트|프로젝트 목록/.test(text)) {
+    return {
+      id,
+      role: "assistant",
+      body: "지금까지 만든 프로젝트는 Project Builder에 모여 있어요.",
+      suggestion: { label: "Project Builder에서 보기", href: "/builder" },
+    };
+  }
+
   // 영상을 먼저 확인합니다. "영상 만들고 싶어요"처럼 두 주제의 단어가
   // 같이 나오는 경우가 많기 때문입니다.
   if (/영상|비디오|쇼츠|숏폼|클립|유튜브|youtube|촬영|장면/.test(text)) {
@@ -97,11 +121,12 @@ function mockReply(input: string): Message {
     };
   }
 
-  if (/내 프로젝트|내 앱|내 영상|내가 만든|프로필|분기|계정|연결/.test(text)) {
+  // 계정 자체에 대한 것만 Profile로 갑니다.
+  if (/프로필|분기|계정|연결|참여/.test(text)) {
     return {
       id,
       role: "assistant",
-      body: "지금까지 만든 프로젝트와 앱, 영상은 Profile에서 한눈에 볼 수 있어요.",
+      body: "분기 참여와 연결한 계정은 Profile에서 확인할 수 있어요.",
       suggestion: { label: "Profile 열기", href: "/profile" },
     };
   }

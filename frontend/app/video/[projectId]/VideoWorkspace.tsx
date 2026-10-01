@@ -14,7 +14,7 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
-import { Lock, Pause, Play } from "lucide-react";
+import { ArrowLeft, Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -449,8 +449,11 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     <div className={ws.shell}>
       {/* 위쪽 막대 */}
       <div className={ws.topbar}>
+        {/* 돌아가는 곳은 Video Generator 목록입니다. Project Builder의
+            작업 공간과 같은 자리·같은 아이콘·같은 짜임으로 둡니다. */}
         <Link className={ws.backLink} href="/video">
-          ← Video Projects
+          <ArrowLeft size={14} aria-hidden="true" />
+          Video Generator
         </Link>
         <span className={ws.topbarDivider} aria-hidden="true" />
 
@@ -499,11 +502,6 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         </span>
 
         <span className={ws.topbarSpacer} />
-        <span className={ws.topbarActions}>
-          <Link className="btn btn-sm" href="/profile">
-            내 영상
-          </Link>
-        </span>
       </div>
 
       <NotParticipatingBanner inWorkspace />
@@ -639,13 +637,13 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               {selected && <span className="badge badge-muted">{selected.label}</span>}
               {/* 이 버전을 만든 설정. 버전에 적혀 있는 값이므로 새로고침
                   뒤에도, 설정을 바꾼 뒤에도 그대로입니다. */}
-              {selected && selected.duration_seconds !== null && (
+              {selected && selected.duration_seconds != null && (
                 <span className={styles.previewSettings}>
                   {selected.duration_seconds}초
                   {isAspect(selected.aspect_ratio)
                     ? ` · ${ASPECT_LABEL[selected.aspect_ratio]}`
                     : ""}
-                  {selected.sound === null ? "" : selected.sound ? " · 소리 켬" : " · 소리 끔"}
+                  {selected.sound == null ? "" : selected.sound ? " · 소리 켬" : " · 소리 끔"}
                 </span>
               )}
               {isFinal && <span className="badge badge-ok">최종본</span>}
@@ -891,7 +889,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                       {/* 버전이 자기 설정을 들고 있으면 그것을, 모르면
                           만든 시각을 보여 줍니다. */}
                       <span className={styles.versionTime}>
-                        {version.duration_seconds !== null
+                        {version.duration_seconds != null
                           ? `${version.duration_seconds}초${
                               version.aspect_ratio ? ` · ${version.aspect_ratio}` : ""
                             }`
