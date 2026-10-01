@@ -6,8 +6,7 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
-from app.db.base import Base, TimestampMixin
-from app.models.season import status_enum
+from app.db.base import Base, TimestampMixin, status_enum
 
 
 class VideoProjectStatus(str, enum.Enum):

@@ -10,8 +10,7 @@ import enum
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin
-from app.models.season import status_enum
+from app.db.base import Base, TimestampMixin, status_enum
 
 
 class BuilderProjectStatus(str, enum.Enum):

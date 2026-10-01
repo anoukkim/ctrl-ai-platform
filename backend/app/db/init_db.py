@@ -1,7 +1,6 @@
 """Seed the local database with development data.
 
-From Phase 1 on, the schema is owned by Alembic — this script no longer
-creates tables. Run the migrations first:
+The schema is owned by Alembic — this script no longer creates tables:
 
     alembic upgrade head
     python -m app.db.init_db
@@ -17,11 +16,9 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.session import SessionLocal, engine
 from app.models import (
-    CreditAllocation,
-    MembershipStatus,
-    Season,
-    SeasonMembership,
-    SeasonStatus,
+    PersonalBalance,
+    Quarter,
+    QuarterStatus,
     User,
     UserRole,
     VideoModel,
@@ -29,14 +26,39 @@ from app.models import (
 
 DEV_USER_EMAIL = "dev@ctrl.ai"
 
-# A season is four months. These dates match the ones the frontend shows
-# while its data is still mocked.
-DEV_SEASON = {
-    "name": "2026 Season 2",
-    "starts_at": date(2026, 9, 1),
-    "ends_at": date(2026, 12, 31),
-    "status": SeasonStatus.ACTIVE,
-}
+# Ctrl AI runs by calendar quarter. The application window opens before the
+# quarter starts, because members apply for the quarter ahead.
+SEED_QUARTERS = [
+    {
+        "code": "2026-Q1",
+        "display_name": "2026 Q1",
+        "starts_at": date(2026, 1, 1),
+        "ends_at": date(2026, 3, 31),
+        "application_opens_at": date(2025, 12, 15),
+        "application_closes_at": date(2025, 12, 31),
+        "status": QuarterStatus.CLOSED,
+    },
+    {
+        "code": "2026-Q3",
+        "display_name": "2026 Q3",
+        "starts_at": date(2026, 7, 1),
+        "ends_at": date(2026, 9, 30),
+        "application_opens_at": date(2026, 6, 15),
+        "application_closes_at": date(2026, 6, 30),
+        "status": QuarterStatus.CLOSED,
+    },
+    {
+        "code": "2026-Q4",
+        "display_name": "2026 Q4",
+        "starts_at": date(2026, 10, 1),
+        "ends_at": date(2026, 12, 31),
+        "application_opens_at": date(2026, 9, 15),
+        "application_closes_at": date(2026, 9, 30),
+        # Applications are open, so Profile has something to invite the
+        # development user to do.
+        "status": QuarterStatus.APPLICATION_OPEN,
+    },
+]
 
 # Seed catalogue only. Provider catalogues change, so this is a starting
 # point an admin edits — never the permanent list, and never hard-coded
@@ -89,25 +111,6 @@ SEED_VIDEO_MODELS = [
     },
 ]
 
-# What one member may spend in a season. Units differ per provider on
-# purpose and are never converted into a single invented currency.
-SEED_ALLOCATIONS = [
-    {
-        "provider": "anthropic",
-        "resource_type": "text",
-        "unit": "tokens",
-        "allocated_amount": 2_000_000,
-        "consumed_amount": 650_000,
-    },
-    {
-        "provider": "higgsfield",
-        "resource_type": "video",
-        "unit": "credits",
-        "allocated_amount": 100,
-        "consumed_amount": 35,
-    },
-]
-
 
 def seed_dev_user(db: Session) -> User:
     user = db.scalar(select(User).where(User.email == DEV_USER_EMAIL))
@@ -126,56 +129,33 @@ def seed_dev_user(db: Session) -> User:
     return user
 
 
-def seed_season(db: Session) -> Season:
-    season = db.scalar(select(Season).where(Season.name == DEV_SEASON["name"]))
-    if season is not None:
-        return season
-
-    season = Season(**DEV_SEASON)
-    db.add(season)
-    db.commit()
-    db.refresh(season)
-    return season
-
-
-def seed_membership(db: Session, user: User, season: Season) -> SeasonMembership:
-    membership = db.scalar(
-        select(SeasonMembership).where(
-            SeasonMembership.user_id == user.id,
-            SeasonMembership.season_id == season.id,
-        )
-    )
-    if membership is not None:
-        return membership
-
-    membership = SeasonMembership(
-        user_id=user.id, season_id=season.id, status=MembershipStatus.ACTIVE
-    )
-    db.add(membership)
-    db.commit()
-    db.refresh(membership)
-    return membership
-
-
-def seed_allocations(db: Session, user: User, season: Season) -> int:
+def seed_quarters(db: Session) -> int:
+    """Insert missing quarters, leaving any an admin has edited alone."""
+    settings = get_settings()
     created = 0
-    for spec in SEED_ALLOCATIONS:
-        existing = db.scalar(
-            select(CreditAllocation).where(
-                CreditAllocation.user_id == user.id,
-                CreditAllocation.season_id == season.id,
-                CreditAllocation.provider == spec["provider"],
-                CreditAllocation.resource_type == spec["resource_type"],
-            )
-        )
-        if existing is not None:
+
+    for spec in SEED_QUARTERS:
+        if db.scalar(select(Quarter).where(Quarter.code == spec["code"])) is not None:
             continue
-        db.add(CreditAllocation(user_id=user.id, season_id=season.id, **spec))
+        db.add(Quarter(**spec, subsidy_limit_krw=settings.quarterly_subsidy_limit_krw))
         created += 1
 
     if created:
         db.commit()
     return created
+
+
+def seed_wallet(db: Session, user: User) -> PersonalBalance:
+    """An empty wallet, with personal spending off until the member opts in."""
+    balance = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == user.id))
+    if balance is not None:
+        return balance
+
+    balance = PersonalBalance(user_id=user.id)
+    db.add(balance)
+    db.commit()
+    db.refresh(balance)
+    return balance
 
 
 def seed_video_models(db: Session) -> int:
@@ -211,12 +191,15 @@ def main() -> None:
 
     # Fail early with a useful message if the migrations have not run.
     with engine.connect() as connection:
-        tables = {row[0] for row in connection.exec_driver_sql(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-            if engine.dialect.name == "postgresql"
-            else "SELECT name FROM sqlite_master WHERE type = 'table'"
-        )}
-    missing = {"users", "seasons", "video_models"} - tables
+        tables = {
+            row[0]
+            for row in connection.exec_driver_sql(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                if engine.dialect.name == "postgresql"
+                else "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+    missing = {"users", "quarters", "video_models"} - tables
     if missing:
         raise SystemExit(
             f"Missing tables: {', '.join(sorted(missing))}. Run `alembic upgrade head` first."
@@ -224,15 +207,14 @@ def main() -> None:
 
     with SessionLocal() as db:
         user = seed_dev_user(db)
-        season = seed_season(db)
-        seed_membership(db, user, season)
-        allocations = seed_allocations(db, user, season)
+        quarters = seed_quarters(db)
+        seed_wallet(db, user)
         models = seed_video_models(db)
 
     print(f"Development user: {user.email} (role={user.role.value}, id={user.id})")
-    print(f"Season:           {season.name} ({season.status.value})")
-    print(f"Allocations:      {allocations} created")
+    print(f"Quarters:         {quarters} created")
     print(f"Video models:     {models} created")
+    print(f"Subsidy limit:    {settings.quarterly_subsidy_limit_krw:,} KRW per member per quarter")
 
 
 if __name__ == "__main__":
