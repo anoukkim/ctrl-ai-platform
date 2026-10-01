@@ -15,48 +15,11 @@ says what order things happen in.
 
 ## Now
 
-**admin-restructure** on `ui-admin-restructure`, branched from an
-up-to-date `main`. Built and waiting on review — not merged. The
-developer's change requests of 2026-10-01 (after testing) are all in;
-the spec and those requests are saved below.
+Nothing is being built. `main` holds Phase 1, UI batch 1,
+membership-access-fix and admin-restructure. No branch is open.
 
-What is done, against the original spec:
-
-| Spec point | State |
-| ---------- | ----- |
-| 1. Sections, each on its own route, under a secondary Admin navigation | Done — and 분기 · 신청 later split again into 신청 승인 and 분기 설정 |
-| 2. 대시보드: to-do cards, quarter, counts, last 10 audit entries | Done — plus the clickable card hub and a provider warning card |
-| 3. 회원 list: search, filters, sorting, pagination, one 관리 menu | Done — plus six stat cards that double as filters |
-| 4. 회원 detail with every action | Done |
-| 5. Korean confirmation stating the effect, then a result message | Done — 거절 also asks for a reason |
-| 6. Korean labels, one badge style, one shared table, design tokens | Done |
-| 7. Backend: no business-rule change, small read-only endpoints allowed | Done — seven read-only endpoints plus the provider check |
-| Tests | Done — 212 backend, 29 frontend |
-
-And against the change requests:
-
-| Request | State |
-| ------- | ----- |
-| 1. Split into 신청 승인 and 분기 설정, with a 새 분기 만들기 form | Done |
-| 2. 신청 승인 layout — summary line, stat cards, status tabs, inline 승인/거절, empty state | Done |
-| 3. 분기 설정 per-quarter figures (신청자, 승인 대기, 참여 회원, 실제 사용자, 사용률) | Done |
-| 4. 회원 stat cards that filter, following the selected quarter | Done |
-| 5. All counts from grouped queries in admin-only endpoints | Done — `app/services/admin_stats.py` |
-| 6. Hide 예산 and 콘텐츠 rather than showing 준비 중 | Done — routes and placeholders kept |
-| 7. 시스템 외부 서비스 panel with a 연결 확인 button | Done |
-
-**The provider status board is a new table** (`provider_status`) with a
-migration, `c3a81f5d7e24`. Run `alembic upgrade head` before starting the
-backend on an existing database.
-
-Verified against the running app, not only in tests: every Admin route,
-all figures cross-checked against PostgreSQL row by row, 401 anonymous
-and 403 for a signed-in member on the new endpoints, the 거절 dialog
-refusing to proceed without a reason, card filtering, and the 연결 확인
-button in mock mode. Four defects were found that way and fixed on the
-branch: the row menu clipped by the table's scroll box, the 개발 도구 tab
-arriving after the sidebar's, the pending badge on the wrong section, and
-a passed deadline showing as "D-0".
+Next up is **ui-naming** on `ui-naming`, branched from an up-to-date
+`main`; the spec is saved verbatim below.
 
 ---
 
@@ -109,20 +72,17 @@ here until the developer says where it goes.
 
 ### Merge order
 
-**admin-restructure** is waiting on review. Branch **ui-naming** from
-`main` only after it merges — ui-naming relabels the Admin
-sub-navigation in English, and those are the routes admin-restructure
-creates.
+Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **ui-naming**:
+Three things to carry into **ui-naming**, which is next:
 
-- The section labels live in **one place**,
+- The Admin section labels live in **one place**,
   `frontend/app/admin/sections.ts`. The sidebar, the tabs and the
   dashboard cards all read it, so the English labels are written once.
-  There are now nine entries, two of them hidden.
-- `frontend/` now has `npm test`. A UI batch that changes labels should
-  run it alongside `npm run lint` and `npm run build`. One test asserts
-  the visible section list, so renaming sections will touch it.
+  There are nine entries, two of them hidden.
+- `frontend/` now has `npm test` (Vitest). A UI batch that changes labels
+  should run it alongside `npm run lint` and `npm run build`. One test
+  asserts the visible section list, so renaming sections will touch it.
 - 분기 · 신청 no longer exists. ui-naming's English labels apply to
   **신청 승인** and **분기 설정** separately.
 
@@ -143,9 +103,11 @@ their own item and branch in **Next** rather than wait for a batch.)*
 
 ---
 
-## admin-restructure — full spec
+## admin-restructure — full spec (merged 2026-10-01)
 
-Branch `ui-admin-restructure`. Saved exactly as written by the developer.
+Branch `ui-admin-restructure`, merged. Saved exactly as written by the
+developer, and kept for reference: it is the clearest statement of why
+the Admin screens are shaped the way they are.
 
 **Before:** [`docs/ui-requests/admin-before.png`](ui-requests/admin-before.png)
 — the current single-page Admin screen this item replaces: ten sections
@@ -176,7 +138,7 @@ stacked on one route, from 회원 관리 down to 시스템.
 ### Change requests after testing — 2026-10-01
 
 Saved exactly as written by the developer, after testing the first build
-of this branch. All seven are implemented.
+of this branch. All seven are implemented and merged.
 
 > 1. Split 분기 · 신청 into two Admin sections. Approving applications is the main job, but the quarter table sits on top and makes the page feel complicated, and the top-right "보고 있는 분기" selector already picks the quarter.
 >    - 신청 승인 (/admin/applications), the main one: applications for the selected quarter only.
@@ -508,6 +470,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **admin-restructure** — Admin split into sections on their own routes under a shared layout (breadcrumbs, tabs, the selected quarter carried in `?quarter=`); a dashboard of clickable cards; a sidebar Admin group that expands in place; 신청 승인 separated from 분기 설정, with inline 승인/거절, a reason on rejection, and a 새 분기 만들기 form; stat cards that filter on 회원 and 신청 승인, and per-quarter figures on 분기 설정, all from grouped queries in one stats service; a Korean confirmation stating the effect before every change; an 외부 서비스 panel with an on-request connection check that never exposes a credential; 예산 and 콘텐츠 hidden until their features exist. Brought the frontend its first test runner (Vitest). Migration `c3a81f5d7e24` adds `provider_status` | `ui-admin-restructure` |
 | 2026-10-01 | **membership-access-fix** — `require_active_member` on every create, edit and delete route rather than only the two create routes; the shared `NotParticipatingBanner` and locked controls on Chat, Project Builder and Video Generator; the access table for all 42 routes in `docs/architecture.md`, held to it by a test that fails on any new or re-guarded route | `fix-membership-access` |
 | 2026-10-01 | **UI batch 1 — brand refresh** — the CTRL+AI name and + logo mark, lucide navigation icons, the neutral dark palette as tokens with no colour left in a component, the rebuilt Chat screen, the `/issues` page with Korean GitHub issue templates, and the Video length/ratio/sound controls | `ui-brand-refresh` |
 | 2026-10-01 | **Phase 1c — usage ledger and audit log** — charging and the `UsageEvent` row in one transaction behind a `SELECT ... FOR UPDATE` lock, the real admin member list with quarter enrolment and a KRW credit panel, the append-only `AuditLog` with a read-only admin view, a development-only simulate-usage action, the Usage page redesign | `phase-1c-usage-audit` |
