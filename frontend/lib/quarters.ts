@@ -111,6 +111,26 @@ export interface TopUp {
 }
 
 /** Profile이 필요로 하는 모든 것. */
+/** 이번 분기 참여 상태. 백엔드의 MembershipStatus와 짝을 이룹니다. */
+export type MembershipStatus = "active" | "inactive" | "former";
+
+/** 화면에 보여 줄 한국어 표기. */
+export const MEMBERSHIP_LABEL: Record<MembershipStatus, string> = {
+  active: "활동 회원",
+  inactive: "비활동 회원",
+  former: "탈퇴 회원",
+};
+
+export const MEMBERSHIP_BADGE: Record<MembershipStatus, string> = {
+  active: "badge-ok",
+  inactive: "badge-warn",
+  former: "badge-muted",
+};
+
+/** 참여하지 않는 회원에게 보여 줄 설명. 백엔드 문구와 뜻을 맞춥니다. */
+export const NOT_PARTICIPATING_HINT =
+  "이번 분기에 참여하고 있지 않아 새로 만들 수 없습니다. 지금까지 만든 작업물은 그대로 볼 수 있습니다.";
+
 export interface MyQuarterStatus {
   quarter: Quarter | null;
   application: QuarterApplication | null;
@@ -119,6 +139,34 @@ export interface MyQuarterStatus {
   /** 신청 가능 / 승인 대기 / 활동 회원 / 미참여 / 신청 거절 */
   participation: string;
   days_remaining: number | null;
+  /** null이면 이번 분기에 참여 기록이 없다는 뜻입니다. */
+  membership_status: MembershipStatus | null;
+  /** 새로 만들 수 있는지. 실제 차단은 백엔드가 합니다. */
+  may_create: boolean;
+}
+
+export interface MemberWithMembership {
+  user_id: number;
+  username: string;
+  display_name: string;
+  role: "admin" | "member";
+  account_status: MembershipStatus;
+  membership_status: MembershipStatus | null;
+}
+
+export function listQuarterMembers(quarterId: number): Promise<MemberWithMembership[]> {
+  return request<MemberWithMembership[]>(`/admin/quarters/${quarterId}/members`);
+}
+
+export function setQuarterMembership(
+  quarterId: number,
+  userId: number,
+  status: MembershipStatus,
+): Promise<MemberWithMembership> {
+  return request<MemberWithMembership>(`/admin/quarters/${quarterId}/members/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
 }
 
 /* ------------------------------------------------------------------ */

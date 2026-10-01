@@ -22,6 +22,8 @@ import {
 } from "@/lib/projects";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+import { useMyQuarter } from "@/app/components/MyQuarterProvider";
+import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
 
@@ -31,6 +33,11 @@ type State =
   | { phase: "error"; message: string };
 
 export default function VideoLibrary() {
+  // 참여하지 않는 분기에는 새로 만들 수 없습니다. 실제 차단은
+  // 백엔드의 require_active_member가 하고, 여기서는 이유를 설명합니다.
+  const { state: quarterState } = useMyQuarter();
+  const mayCreate = quarterState.phase !== "ready" || quarterState.quarter.may_create;
+
   const [state, setState] = useState<State>({ phase: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -98,11 +105,15 @@ export default function VideoLibrary() {
             className="btn btn-primary btn-sm"
             type="button"
             onClick={() => setCreating((open) => !open)}
+            disabled={!mayCreate}
+            title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
           >
             + 새 영상 프로젝트
           </button>
         </div>
       </header>
+
+      {!mayCreate && <p className="notice">{NOT_PARTICIPATING_HINT}</p>}
 
       {creating && (
         <div className={styles.createForm}>
@@ -211,6 +222,7 @@ export default function VideoLibrary() {
             className="btn btn-primary btn-sm"
             type="button"
             onClick={() => setCreating(true)}
+            disabled={!mayCreate}
           >
             + 새 영상 프로젝트
           </button>
@@ -261,6 +273,8 @@ export default function VideoLibrary() {
             className={styles.newCard}
             type="button"
             onClick={() => setCreating(true)}
+            disabled={!mayCreate}
+            title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
           >
             <span className={styles.newCardGlyph} aria-hidden="true">
               +

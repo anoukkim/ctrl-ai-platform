@@ -14,12 +14,11 @@ import {
   MOCK_COMMUNITY_BUDGETS,
   MOCK_PERSONAL_BALANCE,
   MOCK_USAGE_EVENTS,
-  QUARTER_RANGE,
-  formatDate,
-  quarterDaysRemaining,
   usedPercent,
 } from "@/lib/mock-data";
 import { formatKrw } from "@/lib/quarters";
+
+import QuarterBar from "./QuarterBar";
 
 import styles from "./usage.module.css";
 
@@ -28,7 +27,6 @@ export const metadata: Metadata = {
 };
 
 export default function UsagePage() {
-  const daysLeft = quarterDaysRemaining();
   const totalBudget = MOCK_COMMUNITY_BUDGETS.reduce((sum, b) => sum + b.budgetKrw, 0);
   const personalRemaining =
     MOCK_PERSONAL_BALANCE.balanceKrw - MOCK_PERSONAL_BALANCE.consumedKrw;
@@ -44,20 +42,7 @@ export default function UsagePage() {
         </p>
       </header>
 
-      <div className={styles.seasonBar}>
-        <div>
-          <p className={styles.seasonName}>{QUARTER_RANGE.name}</p>
-          <p className={styles.seasonRange}>
-            {formatDate(QUARTER_RANGE.startsAt)} – {formatDate(QUARTER_RANGE.endsAt)}
-          </p>
-        </div>
-        <span className="badge badge-ok">활동 회원</span>
-        <span className={styles.seasonSpacer} />
-        <span className={styles.seasonDday}>
-          분기 종료까지
-          <span className={styles.seasonDdayValue}>{daysLeft}일</span>
-        </span>
-      </div>
+      <QuarterBar />
 
       {/* 공동체 지원 */}
       <h2 className="section-title">

@@ -17,14 +17,14 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
+import { useMyQuarter } from "./MyQuarterProvider";
 
 import {
-  MOCK_COMMUNITY_BUDGETS,
-  QUARTER_RANGE,
+  MEMBERSHIP_BADGE,
+  MEMBERSHIP_LABEL,
   formatDate,
-  quarterDaysRemaining,
-} from "@/lib/mock-data";
-import { formatKrw } from "@/lib/quarters";
+  formatKrw,
+} from "@/lib/quarters";
 
 import styles from "./AppShell.module.css";
 
@@ -39,7 +39,14 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const NAV_GROUPS: NavGroup[] = [
+/**
+ * 사이드바 위쪽: 무언가를 만들거나 둘러보는 곳.
+ *
+ * 아래쪽(내 정보)과 나눠 둔 이유는 성격이 다르기 때문입니다. 위쪽은 작업,
+ * 아래쪽은 내 계정과 남은 지원금입니다. 사이에 빈 공간을 두어 눈으로도
+ * 구분됩니다.
+ */
+const TOP_GROUPS: NavGroup[] = [
   {
     // 묶음 제목은 일반 UI 문구라 한국어, 안에 있는 화면 이름은 제품 이름이라
     // 영어를 유지합니다.
@@ -57,14 +64,16 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/ctrlaitube", label: "CtrlAITube", glyph: "◉" },
     ],
   },
-  {
-    label: "내 정보",
-    items: [
-      { href: "/usage", label: "Usage", glyph: "◑" },
-      { href: "/profile", label: "Profile", glyph: "○" },
-    ],
-  },
 ];
+
+/** 사이드바 아래쪽: 분기 카드와 계정 영역 바로 위에 붙습니다. */
+const PERSONAL_GROUP: NavGroup = {
+  label: "내 정보",
+  items: [
+    { href: "/usage", label: "Usage", glyph: "◑" },
+    { href: "/profile", label: "Profile", glyph: "○" },
+  ],
+};
 
 /** 관리자에게만 보입니다. 회원 자격과 크레딧이 시즌 단위로 관리되므로
  *  Admin은 숨겨진 설정 화면이 아니라 독립된 영역입니다. */
@@ -107,7 +116,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const user = state.user;
   // Admin 메뉴는 관리자에게만 보입니다. 보이지 않게 하는 것은 편의일 뿐이고,
   // 실제 차단은 백엔드의 require_admin이 합니다.
-  const groups = user.is_admin ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
+  // Admin은 위쪽 묶음에 붙입니다. 아래쪽은 "내 정보"와 계정 영역 전용입니다.
+  const topGroups = user.is_admin ? [...TOP_GROUPS, ADMIN_GROUP] : TOP_GROUPS;
   const isWorkspace = WORKSPACE_PATTERN.test(pathname);
 
   return (
@@ -148,36 +158,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className={styles.navScroll}>
-          {groups.map((group) => (
-            <div key={group.label}>
-              <p className={styles.navGroupLabel}>{group.label}</p>
-              <ul className={styles.navList}>
-                {group.items.map((item) => {
-                  // "/"는 Chat이므로 정확히 일치할 때만 선택 표시를 합니다.
-                  const isActive =
-                    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          <div className={styles.navTop}>
+            {topGroups.map((group) => (
+              <NavGroupBlock
+                group={group}
+                key={group.label}
+                pathname={pathname}
+                onNavigate={() => setMenuOpen(false)}
+              />
+            ))}
+          </div>
 
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
-                        href={item.href}
-                        aria-current={isActive ? "page" : undefined}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span className={styles.navGlyph} aria-hidden="true">
-                          {item.glyph}
-                        </span>
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {/* 위아래 묶음 사이의 빈 공간. 화면이 길면 늘어납니다. */}
+          <div className={styles.navSpacer} aria-hidden="true" />
 
-          <MemberStatus onNavigate={() => setMenuOpen(false)} />
+          <div className={styles.navBottom}>
+            <NavGroupBlock
+              group={PERSONAL_GROUP}
+              pathname={pathname}
+              onNavigate={() => setMenuOpen(false)}
+            />
+            <MemberStatus onNavigate={() => setMenuOpen(false)} />
+          </div>
         </div>
 
         <div className={styles.navFooter}>
@@ -203,58 +205,128 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** 메뉴 한 묶음. 위/아래 두 곳에서 같은 모양으로 그립니다. */
+function NavGroupBlock({
+  group,
+  pathname,
+  onNavigate,
+}: {
+  group: NavGroup;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <div>
+      <p className={styles.navGroupLabel}>{group.label}</p>
+      <ul className={styles.navList}>
+        {group.items.map((item) => {
+          // "/"는 Chat이므로 정확히 일치할 때만 선택 표시를 합니다.
+          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+
+          return (
+            <li key={item.href}>
+              <Link
+                className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                onClick={onNavigate}
+              >
+                <span className={styles.navGlyph} aria-hidden="true">
+                  {item.glyph}
+                </span>
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /**
- * 사이드바의 회원 상태 블록.
+ * 사이드바의 회원 상태 카드.
  *
- * 분기(Quarter)는 달력 기준 3개월입니다. 숫자는 일부러 적게 보여 주고,
- * 자세한 내용은 Usage 화면에서 확인하도록 합니다.
+ * 카드 전체가 Usage로 가는 링크입니다. 예전에는 카드 안에 "사용량 보기"
+ * 버튼이 따로 있었는데, 바로 위의 Usage 메뉴와 같은 곳으로 가는 중복이라
+ * 없앴습니다.
+ *
+ * 숫자는 일부러 적게 보여 주고, 자세한 내용은 Usage 화면에 맡깁니다.
+ * 값은 모두 백엔드에서 옵니다 — 목업이 아닙니다.
  */
 function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
-  const daysLeft = quarterDaysRemaining();
+  const { state } = useMyQuarter();
+
+  if (state.phase !== "ready" || state.quarter.quarter === null) return null;
+
+  const { quarter, allocation, days_remaining, membership_status } = state.quarter;
+  const status = membership_status ?? "inactive";
+
+  const meters = allocation
+    ? [
+        {
+          label: "Build",
+          budget: allocation.build_budget_krw,
+          consumed: allocation.build_consumed_krw,
+        },
+        {
+          label: "Video",
+          budget: allocation.video_budget_krw,
+          consumed: allocation.video_consumed_krw,
+        },
+      ]
+    : [];
 
   return (
-    <section className={styles.member} aria-label="회원 상태">
+    <Link
+      className={styles.member}
+      href="/usage"
+      onClick={onNavigate}
+      aria-label={`${quarter.display_name} 사용량 보기`}
+    >
       <div className={styles.memberTop}>
-        <span className={styles.memberSeason}>{QUARTER_RANGE.name}</span>
-        <span className="badge badge-ok">활동 회원</span>
+        <span className={styles.memberSeason}>{quarter.display_name}</span>
+        <span className={`badge ${MEMBERSHIP_BADGE[status]}`}>{MEMBERSHIP_LABEL[status]}</span>
       </div>
 
       <div className={styles.memberRange}>
         <span>
-          {formatDate(QUARTER_RANGE.startsAt)} – {formatDate(QUARTER_RANGE.endsAt)}
+          {formatDate(quarter.starts_at)} – {formatDate(quarter.ends_at)}
         </span>
-        <span className={styles.memberDday}>D-{daysLeft}</span>
+        {days_remaining !== null && <span className={styles.memberDday}>D-{days_remaining}</span>}
       </div>
 
-      <div className={styles.memberMeters}>
-        {MOCK_COMMUNITY_BUDGETS.map((budget, index) => {
-          const percent =
-            budget.budgetKrw > 0
-              ? Math.min(100, Math.round((budget.consumedKrw / budget.budgetKrw) * 100))
-              : 0;
+      {meters.length > 0 ? (
+        <div className={styles.memberMeters}>
+          {meters.map((meter, index) => {
+            const percent =
+              meter.budget > 0
+                ? Math.min(100, Math.round((meter.consumed / meter.budget) * 100))
+                : 0;
 
-          return (
-            <div className={styles.meterRow} key={budget.category}>
-              <div className={styles.meterLabel}>
-                <span>{budget.label}</span>
-                <span className={styles.meterValue}>
-                  {formatKrw(budget.budgetKrw - budget.consumedKrw)} 남음
-                </span>
+            return (
+              <div className={styles.meterRow} key={meter.label}>
+                <div className={styles.meterLabel}>
+                  <span>{meter.label}</span>
+                  <span className={styles.meterValue}>
+                    {formatKrw(meter.budget - meter.consumed)} 남음
+                  </span>
+                </div>
+                <div className="meter">
+                  <div
+                    className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
               </div>
-              <div className="meter">
-                <div
-                  className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <Link className={styles.memberLink} href="/usage" onClick={onNavigate}>
-        사용량 보기
-      </Link>
-    </section>
+            );
+          })}
+        </div>
+      ) : (
+        <p className={styles.memberEmpty}>
+          {status === "active" ? "승인된 지원금이 없습니다." : "이번 분기에 참여하고 있지 않습니다."}
+        </p>
+      )}
+    </Link>
   );
 }

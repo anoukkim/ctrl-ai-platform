@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import AppShell from "@/app/components/AppShell";
 import CurrentUserProvider from "@/app/components/CurrentUserProvider";
+import MyQuarterProvider from "@/app/components/MyQuarterProvider";
 
 import "./globals.css";
 
@@ -19,7 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body>
         <CurrentUserProvider>
-          <AppShell>{children}</AppShell>
+          <MyQuarterProvider>
+            <AppShell>{children}</AppShell>
+          </MyQuarterProvider>
         </CurrentUserProvider>
       </body>
     </html>
