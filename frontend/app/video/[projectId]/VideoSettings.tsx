@@ -13,25 +13,16 @@
 
 import { Check, Volume2, VolumeX } from "lucide-react";
 
+import { ALL_ASPECTS, ASPECT_LABEL, type Aspect } from "@/lib/aspect";
+
 import styles from "./workspace.module.css";
 
-export type Aspect = "9:16" | "16:9" | "1:1";
+/**
+ * 비율은 `lib/aspect.ts`에 있습니다 — CtrlAITube의 재생 화면도 같은 값을
+ * 씁니다. 이 화면의 기존 import 경로를 그대로 두기 위해 다시 내보냅니다.
+ */
+export { ALL_ASPECTS, ASPECT_LABEL, ASPECT_RATIO_CSS, type Aspect } from "@/lib/aspect";
 
-/** 화면에 쓰는 비율 이름. 숫자만으로는 세로인지 가로인지 바로 안 읽힙니다. */
-export const ASPECT_LABEL: Record<Aspect, string> = {
-  "9:16": "9:16 세로",
-  "16:9": "16:9 가로",
-  "1:1": "1:1 정사각",
-};
-
-/** 미리보기 틀의 가로세로 비. CSS aspect-ratio 값으로 그대로 씁니다. */
-export const ASPECT_RATIO_CSS: Record<Aspect, string> = {
-  "9:16": "9 / 16",
-  "16:9": "16 / 9",
-  "1:1": "1 / 1",
-};
-
-export const ALL_ASPECTS: Aspect[] = ["9:16", "16:9", "1:1"];
 export const ALL_DURATIONS = [5, 10, 15];
 
 /** 비율을 작은 네모로 그려 줍니다. 글자보다 모양이 먼저 읽힙니다. */

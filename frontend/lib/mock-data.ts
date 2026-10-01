@@ -21,6 +21,7 @@
  * 아직 목업인 화면(게시된 앱·영상의 만든 사람 표시, Phase 5/8)이 이 이름을
  * 쓰고 있어 재export를 남겨 둡니다.
  */
+import type { Aspect } from "./aspect";
 import type { MembershipStatus } from "./quarters";
 
 export type { MembershipStatus };
@@ -425,7 +426,21 @@ export interface Comment {
   author: Creator;
   body: string;
   createdAt: string;
+  /** 다른 회원이 누른 공감 수. 인기순 정렬의 기준이기도 합니다. */
+  likes: number;
   replies?: Comment[];
+}
+
+/** 답글까지 포함한 전체 댓글 수.
+ *
+ *  "댓글 N개"라고 적는 자리에서는 답글도 대화의 한 조각이므로 함께
+ *  셉니다. 목록 화면의 카드와 상세 화면의 탭이 같은 수를 보여 주도록
+ *  한 군데에만 둡니다. */
+export function totalComments(comments: Comment[]): number {
+  return comments.reduce(
+    (sum, comment) => sum + 1 + (comment.replies ? totalComments(comment.replies) : 0),
+    0,
+  );
 }
 
 export interface App {
@@ -464,12 +479,14 @@ export const MOCK_APPS: App[] = [
         author: { username: "minji", displayName: "박민지", membership: "active" },
         body: "화면이 깔끔해서 사용하기 좋아요.",
         createdAt: "2026-09-14",
+        likes: 3,
         replies: [
           {
             id: "c1r1",
             author: { username: "yurikim", displayName: "김유리", membership: "active" },
             body: "감사합니다. 처음엔 복잡했는데 Claude에게 더 단순하게 만들어 달라고 했어요.",
             createdAt: "2026-09-14",
+            likes: 1,
           },
         ],
       },
@@ -478,12 +495,14 @@ export const MOCK_APPS: App[] = [
         author: { username: "seojun", displayName: "이서준", membership: "active" },
         body: "주간 통계도 추가되면 좋을 것 같아요.",
         createdAt: "2026-09-18",
+        likes: 5,
         replies: [
           {
             id: "c2r1",
             author: { username: "yurikim", displayName: "김유리", membership: "active" },
             body: "지금 그래프 추가하는 중이에요. 다음 주에 다시 올려볼게요.",
             createdAt: "2026-09-19",
+            likes: 2,
           },
         ],
       },
@@ -508,6 +527,7 @@ export const MOCK_APPS: App[] = [
         author: { username: "daeun", displayName: "최다은", membership: "inactive" },
         body: "회의 끝나고 바로 정리돼서 편했어요. 매주 쓰고 있습니다.",
         createdAt: "2026-09-02",
+        likes: 4,
       },
     ],
   },
@@ -530,6 +550,7 @@ export const MOCK_APPS: App[] = [
         author: { username: "minji", displayName: "박민지", membership: "active" },
         body: "지난 분기 앱이지만 아직도 잘 쓰고 있어요.",
         createdAt: "2026-07-03",
+        likes: 2,
       },
     ],
   },
@@ -565,6 +586,14 @@ export interface CommunityVideo {
   creator: Creator;
   publishedAt: string;
   duration: string;
+  /**
+   * 만들어진 영상의 가로세로 비율.
+   *
+   * 재생 화면의 틀을 정하는 값입니다. 세로 영상과 가로 영상을 같은 틀에
+   * 넣으면 한쪽은 잘리거나 양옆이 비어 보이므로, 영상이 자기 비율을
+   * 들고 다닙니다. Phase 8에서 실제 기록으로 옮길 때도 남는 값입니다.
+   */
+  aspectRatio: Aspect;
   /** 실제 기록에서는 YouTube 영상 ID가 저장됩니다. */
   youtubeVideoId: string | null;
   prompt: string;
@@ -576,6 +605,13 @@ export interface CommunityVideo {
   youtubeCommentCount: number;
 }
 
+/**
+ * 예시 영상 세 편. 비율이 서로 다른 것은 일부러입니다.
+ *
+ * 재생 화면은 9:16·16:9·1:1을 모두 같은 두 칸 배치 안에서 보여 줘야
+ * 합니다. 세 가지가 모두 들어 있지 않으면 세로 영상에서만 생기는 문제를
+ * 화면을 열어 보고도 모르게 됩니다.
+ */
 export const MOCK_VIDEOS: CommunityVideo[] = [
   {
     id: "v-seoul-rain",
@@ -584,6 +620,7 @@ export const MOCK_VIDEOS: CommunityVideo[] = [
     creator: { username: "yurikim", displayName: "김유리", membership: "active" },
     publishedAt: "2026-09-25",
     duration: "15초",
+    aspectRatio: "9:16",
     youtubeVideoId: null,
     prompt: MOCK_VIDEO_PROMPT,
     artwork: ["#1e1b4b", "#7c3aed"],
@@ -594,14 +631,46 @@ export const MOCK_VIDEOS: CommunityVideo[] = [
         author: { username: "minji", displayName: "박민지", membership: "active" },
         body: "젖은 도로에 비치는 불빛이 정말 예뻐요. 길이는 어떻게 정하셨어요?",
         createdAt: "2026-09-26",
+        likes: 7,
+        // 답글이 셋을 넘으면 재생 화면에서 접힙니다. 긴 실타래가 댓글
+        // 칸을 다 차지하지 않는지 보려면 실제로 긴 것이 하나 있어야 합니다.
         replies: [
           {
             id: "vc1r1",
             author: { username: "yurikim", displayName: "김유리", membership: "active" },
             body: "15초에 9:16으로 만들었어요. 프롬프트는 Claude로 한 번 다듬었습니다.",
             createdAt: "2026-09-26",
+            likes: 4,
+          },
+          {
+            id: "vc1r2",
+            author: { username: "minji", displayName: "박민지", membership: "active" },
+            body: "9:16이라 휴대폰으로 보기 좋네요. Shorts로 올리실 건가요?",
+            createdAt: "2026-09-27",
+            likes: 1,
+          },
+          {
+            id: "vc1r3",
+            author: { username: "yurikim", displayName: "김유리", membership: "active" },
+            body: "네, 채널 연결되면 올려 볼 생각이에요.",
+            createdAt: "2026-09-28",
+            likes: 2,
+          },
+          {
+            id: "vc1r4",
+            author: { username: "seojun", displayName: "이서준", membership: "active" },
+            body: "저도 같은 분위기로 만들어 보고 싶어요. 프롬프트 참고하겠습니다.",
+            createdAt: "2026-09-30",
+            likes: 0,
           },
         ],
+      },
+      {
+        id: "vc3",
+        author: { username: "daeun", displayName: "최다은", membership: "inactive" },
+        body: "빗소리까지 들리는 것 같아요. 다음 분기에 저도 다시 만들어 볼게요.",
+        createdAt: "2026-10-01",
+        likes: 3,
       },
     ],
     youtubeCommentCount: 12,
@@ -613,6 +682,7 @@ export const MOCK_VIDEOS: CommunityVideo[] = [
     creator: { username: "minji", displayName: "박민지", membership: "active" },
     publishedAt: "2026-09-19",
     duration: "20초",
+    aspectRatio: "16:9",
     youtubeVideoId: null,
     prompt:
       "해가 막 떠오르는 부산 해안선을 따라 천천히 날아가는 장면. 잔잔한 바다와 따뜻한 햇빛, 20초 영상으로 만들어줘.",
@@ -628,6 +698,7 @@ export const MOCK_VIDEOS: CommunityVideo[] = [
     creator: { username: "jihoon", displayName: "서지훈", membership: "former" },
     publishedAt: "2026-07-08",
     duration: "10초",
+    aspectRatio: "1:1",
     youtubeVideoId: null,
     prompt:
       "종이를 접어 만든 것 같은 도시를 스톱모션 느낌으로 보여줘. 부드러운 조명에 10초 정도 길이로.",
@@ -639,6 +710,7 @@ export const MOCK_VIDEOS: CommunityVideo[] = [
         author: { username: "seojun", displayName: "이서준", membership: "active" },
         body: "가끔 생각나서 다시 보게 되는 영상이에요.",
         createdAt: "2026-07-10",
+        likes: 5,
       },
     ],
     youtubeCommentCount: 0,

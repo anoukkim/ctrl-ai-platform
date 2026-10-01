@@ -13,7 +13,7 @@ import { useState } from "react";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { CreatorLine } from "@/app/components/Community";
-import { MOCK_VIDEOS, totalReactions } from "@/lib/mock-data";
+import { MOCK_VIDEOS, totalComments, totalReactions } from "@/lib/mock-data";
 
 import styles from "./tube.module.css";
 
@@ -108,7 +108,7 @@ export default function VideoGrid() {
                 <CreatorLine creator={video.creator} />
                 <p className={styles.meta}>
                   <span>♥ {totalReactions(video.reactions)}</span>
-                  <span>💬 {video.comments.length}</span>
+                  <span>💬 {totalComments(video.comments)}</span>
                   <span>{video.publishedAt}</span>
                 </p>
               </div>

@@ -15,12 +15,30 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. `main` holds Phase 1, UI batch 1,
-membership-access-fix, admin-restructure, ui-naming and
-fix-video-workspace-hang. No branch is open.
+**ui-tube-watch** is being built on branch `ui-tube-watch`, branched from
+an up-to-date `main`. The spec is saved verbatim below. `main` holds
+Phase 1, UI batch 1, membership-access-fix, admin-restructure, ui-naming
+and fix-video-workspace-hang.
 
-Next up is **ui-tube-watch** on `ui-tube-watch`, branched from an
-up-to-date `main`; the spec is saved verbatim below.
+Built so far: the two-column watch page with the ratio-aware player, the
+reaction chips, the comment section with threads and the composer, the
+`aspectRatio` field on `CommunityVideo` (one video per ratio), and
+`lib/relative-time.ts`. Tests, `tsc`, lint, the build and the browser
+checks below all pass. **Not merged — waiting on review.**
+
+Two things worth carrying forward from building it:
+
+- **The breakpoint is a container query, not a media query.** Measuring
+  the *screen* is wrong on this page: at 1280px the sidebar and padding
+  leave only ~990px of content, so a `@media (min-width: 64rem)` rule is
+  true on a screen where the two columns do not actually fit the way the
+  spec describes. `.frame` carries `container-type: inline-size` and the
+  rule is `@container (min-width: 54rem)`. Any later screen that splits
+  into columns inside the main content area has the same problem.
+- **`lib/aspect.ts` now holds the ratio constants.** Video Generator's
+  `VideoSettings.tsx` re-exports them so its imports did not change. The
+  watch page needed the same ratio→CSS map, and a second copy is the kind
+  that drifts.
 
 The **Next** order was rewritten again on 2026-10-01, and this is the
 final order. **Phase 2 — Chat** moves from last place to 2 and
@@ -495,10 +513,10 @@ Added 2026-10-01. Saved exactly as written by the developer.
 Branch `ui-tube-watch`. Added 2026-10-01. Saved exactly as written by the
 developer.
 
-**Before:** `docs/ui-requests/tube-watch-before.png` — **not in the
-repository yet.** The screenshot did not arrive with the request; save it
-at that path and turn this line into a link, the way `admin-restructure`
-links `admin-before.png`.
+**No before-screenshot.** One never arrived with the request, and the
+developer confirmed on 2026-10-02 that the item was to be built from the
+written spec alone. The problem statement below describes the old screen
+well enough to work from; there is nothing to link.
 
 > Problem: on the CtrlAITube watch page (/ctrlaitube/[id]) at 100% zoom, the video fills the full width, so the title, reactions and comments are pushed off-screen. The details are a large table, and comments look like a list instead of a comment section.
 >
@@ -522,6 +540,53 @@ links `admin-before.png`.
 > 7. Use the existing design tokens and lucide icons; check at 100% zoom on full width, about 1280px, and narrow screens.
 >
 > Checks: tsc, lint and build; browser steps for each ratio and screen size.
+
+### Browser checks run — 2026-10-02
+
+`tsc`, lint, 87 frontend tests and `next build` all pass, but none of them
+can see a layout: **jsdom has no layout engine, so every box measures
+zero.** The tests pin the *ingredients* (the ratio reaches the player, the
+player sits inside the letterbox frame); whether anything is pushed
+off-screen was checked in Chrome, as follows.
+
+Measured on the running dev server, per ratio and width:
+
+| Content width | Columns | Stage / panel | Panel | Sideways scroll |
+| ------------- | ------- | ------------- | ----- | --------------- |
+| 1707px window (content capped at 68rem by `.mainInner`) | two | eyeballed | sticky | none |
+| 1280px viewport (content 977px) | two | 671 / 287 | sticky | none |
+| 1024px viewport (content ~733px) | one, stacked | — | static | none |
+| 430px viewport (content 387px) | one, stacked | — | static | none |
+
+The two middle rows were measured with `getBoundingClientRect` in the page;
+the widest row was looked at, not measured. Note that `.mainInner` caps the
+content at 68rem, so past about 1760px nothing changes.
+
+Per ratio, in the 7:3 layout: 16:9 fills the column with no letterbox;
+9:16 and 1:1 are capped at 75vh and centred with letterbox bars, keeping
+their true ratio (9:16 measured 378×673 inside a 671×674 frame = 0.5617,
+i.e. 9/16). The title stayed above the fold in all three.
+
+Interactions driven by hand: reaction chip toggles 86 → 87 and back with
+the selected state showing; a four-reply thread collapsed to "답글 4개
+보기" and expanded; the YouTube tab replaced the list with its own note and
+button; a Korean comment typed through the IME grew the box to three lines
+and posted on Enter with no character lost to composition, appearing as
+"방금 전" with the count going 6 → 7. Console clean on every page — no
+errors, no hydration warnings.
+
+**Two defects were found this way and fixed**, neither of which any test
+would have caught:
+
+1. **The breakpoint fired at the wrong width.** It measured the viewport,
+   so on a 1280px screen — one of the three widths this spec names — the
+   990px of actual content satisfied a 1024px rule while the columns did
+   not fit as described. Now a container query on the content box.
+2. **A hydration mismatch waiting to happen.** These pages are prerendered
+   by `generateStaticParams`, so "6일 전" is baked at build time and
+   disagrees with the reader's clock later. The `<time>` element carries
+   `suppressHydrationWarning`; differing is correct here, and the browser
+   redraws from its own clock.
 
 ---
 
