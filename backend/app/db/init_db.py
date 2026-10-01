@@ -15,9 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import UNUSABLE_PASSWORD_HASH, hash_password
+from app.services.quarters import current_quarter, set_membership
 from app.db.session import SessionLocal, engine
 from app.models import (
     AccountStatus,
+    MembershipStatus,
     PersonalBalance,
     Quarter,
     QuarterStatus,
@@ -183,6 +185,20 @@ def seed_admin(db: Session) -> User | None:
     return admin
 
 
+def seed_membership(db: Session, user: User) -> None:
+    """Make the development user a participant in the current quarter.
+
+    Without this the seeded admin has an approved budget but no
+    membership row, so `require_active_member` would refuse every
+    creation request — which looks like a bug rather than a rule.
+    """
+    quarter = current_quarter(db)
+    if quarter is None:
+        return
+    set_membership(db, user.id, quarter.id, MembershipStatus.ACTIVE)
+    db.commit()
+
+
 def seed_quarters(db: Session) -> int:
     """Insert missing quarters, leaving any an admin has edited alone."""
     settings = get_settings()
@@ -263,6 +279,7 @@ def main() -> None:
         user = seed_dev_user(db)
         admin = seed_admin(db)
         quarters = seed_quarters(db)
+        seed_membership(db, user)
         seed_wallet(db, user)
         if admin is not None:
             seed_wallet(db, admin)

@@ -17,6 +17,9 @@ from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
+    AccountStatus,
+    MembershipStatus,
+    QuarterMembership,
     ApplicationStatus,
     PersonalTopUp,
     Quarter,
@@ -25,9 +28,12 @@ from app.models import (
     TopUpStatus,
     User,
 )
+from app.services.quarters import set_membership
 from app.services.wallet import get_or_create_balance
 from app.schemas.quarter import (
     ApplicationRead,
+    MemberWithMembership,
+    MembershipUpdate,
     ApplicationReview,
     ApplicationWithMember,
     QuarterCreate,
@@ -190,6 +196,13 @@ def review_application(
     allocation.pricing_snapshot = {"captured_at": approved_at.isoformat()}
 
     db.add(allocation)
+
+    # Approving is what makes a member a participant in the quarter. The
+    # budget alone is not enough: `require_active_member` reads the
+    # membership row, so without this the member would have money they
+    # could not spend.
+    set_membership(db, application.user_id, application.quarter_id, MembershipStatus.ACTIVE)
+
     db.commit()
     db.refresh(application)
     return application
@@ -243,3 +256,91 @@ def confirm_top_up(
     db.commit()
     db.refresh(top_up)
     return top_up
+
+
+@router.get(
+    "/quarters/{quarter_id}/members",
+    response_model=list[MemberWithMembership],
+    summary="Members and their participation in a quarter",
+)
+def list_quarter_members(
+    quarter_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[MemberWithMembership]:
+    """Every account, with its participation in this quarter.
+
+    A left join rather than an inner one: a member with no row simply is
+    not participating, and the admin still needs to see them in order to
+    enrol them.
+    """
+    rows = db.execute(
+        select(User, QuarterMembership)
+        .outerjoin(
+            QuarterMembership,
+            (QuarterMembership.user_id == User.id)
+            & (QuarterMembership.quarter_id == quarter_id),
+        )
+        .order_by(User.id)
+    ).all()
+
+    return [
+        MemberWithMembership(
+            user_id=member.id,
+            username=member.username,
+            display_name=member.display_name,
+            role=member.role,
+            account_status=member.account_status,
+            membership_status=membership.status if membership else None,
+        )
+        for member, membership in rows
+    ]
+
+
+@router.put(
+    "/quarters/{quarter_id}/members/{user_id}",
+    response_model=MemberWithMembership,
+    summary="Set a member's participation in a quarter",
+)
+def set_quarter_membership(
+    quarter_id: int,
+    user_id: int,
+    payload: MembershipUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> MemberWithMembership:
+    """Enrol a member, mark them inactive, or record that they have left.
+
+    Setting `former` also closes the account: a former member keeps their
+    name on everything they published but cannot sign in again. The two
+    are changed together so the admin cannot leave an account that is
+    former in one place and active in another.
+    """
+    quarter = db.get(Quarter, quarter_id)
+    if quarter is None:
+        raise HTTPException(status_code=404, detail="분기를 찾을 수 없습니다.")
+
+    member = db.get(User, user_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
+
+    membership = set_membership(db, user_id, quarter_id, payload.status)
+
+    if payload.status is MembershipStatus.FORMER:
+        member.account_status = AccountStatus.FORMER
+    elif member.account_status is AccountStatus.FORMER:
+        # Bringing a former member back re-opens the account.
+        member.account_status = AccountStatus.ACTIVE
+
+    db.commit()
+    db.refresh(member)
+    db.refresh(membership)
+
+    return MemberWithMembership(
+        user_id=member.id,
+        username=member.username,
+        display_name=member.display_name,
+        role=member.role,
+        account_status=member.account_status,
+        membership_status=membership.status,
+    )
