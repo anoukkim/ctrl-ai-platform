@@ -18,13 +18,12 @@ import { useState } from "react";
 
 import {
   CURRENT_USER,
-  MOCK_ALLOCATIONS,
-  SEASON_RANGE,
-  formatCompact,
+  MOCK_COMMUNITY_BUDGETS,
+  QUARTER_RANGE,
   formatDate,
-  seasonDaysRemaining,
-  usedPercent,
+  quarterDaysRemaining,
 } from "@/lib/mock-data";
+import { formatKrw } from "@/lib/quarters";
 
 import styles from "./AppShell.module.css";
 
@@ -73,15 +72,21 @@ const ADMIN_GROUP: NavGroup = {
   items: [{ href: "/admin", label: "Admin", glyph: "⚙" }],
 };
 
-/** 화면 전체를 작업 공간으로 쓰는 경로. 여백과 최대 너비를 없앱니다. */
-const WORKSPACE_ROUTES = ["/builder", "/video"];
+/**
+ * 화면 전체를 작업 공간으로 쓰는 경로.
+ *
+ * /builder 와 /video 는 프로젝트 목록이라 보통 화면처럼 여백을 둡니다.
+ * 그 아래 /builder/{id}, /video/{id} 만 작업 공간이라 여백과 최대 너비를
+ * 없애고 높이를 화면에 맞춥니다.
+ */
+const WORKSPACE_PATTERN = /^\/(builder|video)\/[^/]+/;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const groups = CURRENT_USER.role === "admin" ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
-  const isWorkspace = WORKSPACE_ROUTES.some((route) => pathname.startsWith(route));
+  const isWorkspace = WORKSPACE_PATTERN.test(pathname);
 
   return (
     <div className={styles.shell}>
@@ -174,38 +179,39 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 /**
  * 사이드바의 회원 상태 블록.
  *
- * 시즌은 4개월 단위입니다(분기가 아닙니다). 숫자는 일부러 적게 보여 주고,
+ * 분기(Quarter)는 달력 기준 3개월입니다. 숫자는 일부러 적게 보여 주고,
  * 자세한 내용은 Usage 화면에서 확인하도록 합니다.
  */
 function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
-  const daysLeft = seasonDaysRemaining();
+  const daysLeft = quarterDaysRemaining();
 
   return (
     <section className={styles.member} aria-label="회원 상태">
       <div className={styles.memberTop}>
-        <span className={styles.memberSeason}>{SEASON_RANGE.name}</span>
+        <span className={styles.memberSeason}>{QUARTER_RANGE.name}</span>
         <span className="badge badge-ok">활동 회원</span>
       </div>
 
       <div className={styles.memberRange}>
         <span>
-          {formatDate(SEASON_RANGE.startsAt)} – {formatDate(SEASON_RANGE.endsAt)}
+          {formatDate(QUARTER_RANGE.startsAt)} – {formatDate(QUARTER_RANGE.endsAt)}
         </span>
         <span className={styles.memberDday}>D-{daysLeft}</span>
       </div>
 
       <div className={styles.memberMeters}>
-        {MOCK_ALLOCATIONS.map((allocation, index) => {
-          const percent = usedPercent(allocation);
+        {MOCK_COMMUNITY_BUDGETS.map((budget, index) => {
+          const percent =
+            budget.budgetKrw > 0
+              ? Math.min(100, Math.round((budget.consumedKrw / budget.budgetKrw) * 100))
+              : 0;
 
           return (
-            <div className={styles.meterRow} key={allocation.provider}>
+            <div className={styles.meterRow} key={budget.category}>
               <div className={styles.meterLabel}>
-                <span>{allocation.provider}</span>
+                <span>{budget.label}</span>
                 <span className={styles.meterValue}>
-                  {allocation.unit === "토큰"
-                    ? `${formatCompact(allocation.used)} / ${formatCompact(allocation.allocated)}`
-                    : `${allocation.used} / ${allocation.allocated}`}
+                  {formatKrw(budget.budgetKrw - budget.consumedKrw)} 남음
                 </span>
               </div>
               <div className="meter">

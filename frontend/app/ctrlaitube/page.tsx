@@ -9,12 +9,9 @@
  */
 
 import type { Metadata } from "next";
-import Link from "next/link";
+import { MOCK_VIDEOS } from "@/lib/mock-data";
 
-import { CreatorLine } from "@/app/components/Community";
-import { MOCK_VIDEOS, totalReactions } from "@/lib/mock-data";
-
-import styles from "./tube.module.css";
+import VideoGrid from "./VideoGrid";
 
 export const metadata: Metadata = {
   title: "CtrlAITube — Ctrl AI",
@@ -34,32 +31,7 @@ export default function CtrlAITubePage() {
         <span className="badge badge-muted">{MOCK_VIDEOS.length}개</span>
       </header>
 
-      <div className={styles.grid}>
-        {MOCK_VIDEOS.map((video) => (
-          <Link className={styles.card} href={`/ctrlaitube/${video.id}`} key={video.id}>
-            <div
-              className={styles.thumbnail}
-              style={{
-                background: `linear-gradient(140deg, ${video.artwork[0]}, ${video.artwork[1]})`,
-              }}
-            >
-              <span className={styles.playGlyph} aria-hidden="true">
-                ▶
-              </span>
-              <span className={styles.duration}>{video.duration}</span>
-            </div>
-            <div className={styles.cardBody}>
-              <h2 className={styles.title}>{video.title}</h2>
-              <CreatorLine creator={video.creator} />
-              <p className={styles.meta}>
-                <span>♥ {totalReactions(video.reactions)}</span>
-                <span>💬 {video.comments.length}</span>
-                <span>{video.publishedAt}</span>
-              </p>
-            </div>
-          </Link>
-        ))}
-      </div>
+      <VideoGrid />
     </>
   );
 }

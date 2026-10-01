@@ -123,3 +123,55 @@
   font-size: 0.76rem;
   line-height: 1.5;
 }
+
+/* ---------- 분기 개정에서 추가된 것들 ---------- */
+
+.sectionNote {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+/* 개인 잔액. 공동체 지원과 다른 색 테두리를 써서 한눈에 구분됩니다. */
+.personal {
+  border-left: 2px solid var(--warn);
+  margin-bottom: 1.2rem;
+}
+
+.personalGrid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.personalCell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.personalLabel {
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.personalValue {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.personalRemaining {
+  color: var(--warn);
+}
+
+.personalNote {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}

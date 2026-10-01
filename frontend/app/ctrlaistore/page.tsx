@@ -6,12 +6,9 @@
  */
 
 import type { Metadata } from "next";
-import Link from "next/link";
+import { MOCK_APPS } from "@/lib/mock-data";
 
-import { CreatorLine } from "@/app/components/Community";
-import { MOCK_APPS, totalReactions } from "@/lib/mock-data";
-
-import styles from "./ctrlaistore.module.css";
+import AppGrid from "./AppGrid";
 
 export const metadata: Metadata = {
   title: "CtrlAI Apps — Ctrl AI",
@@ -31,33 +28,7 @@ export default function CtrlAIStorePage() {
         <span className="badge badge-muted">{MOCK_APPS.length}개</span>
       </header>
 
-      <div className={styles.grid}>
-        {MOCK_APPS.map((app) => (
-          <Link className={styles.card} href={`/ctrlaistore/${app.slug}`} key={app.slug}>
-            <div
-              className={styles.artwork}
-              style={{
-                background: `linear-gradient(140deg, ${app.artwork[0]}, ${app.artwork[1]})`,
-              }}
-            >
-              <span className={styles.category}>{app.category}</span>
-              <span className={styles.artworkText} aria-hidden="true">
-                {app.name}
-              </span>
-            </div>
-            <div className={styles.body}>
-              <h2 className={styles.name}>{app.name}</h2>
-              <p className={styles.tagline}>{app.tagline}</p>
-              <CreatorLine creator={app.creator} />
-              <p className={styles.meta}>
-                <span className={styles.metaItem}>♥ {totalReactions(app.reactions)}</span>
-                <span className={styles.metaItem}>💬 {app.comments.length}</span>
-                <span className={styles.metaItem}>{app.publishedAt}</span>
-              </p>
-            </div>
-          </Link>
-        ))}
-      </div>
+      <AppGrid />
     </>
   );
 }
