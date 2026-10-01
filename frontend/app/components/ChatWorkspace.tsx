@@ -3,17 +3,26 @@
 /**
  * Chat 작업 영역: 대화 목록, 입력창, 바로가기 카드.
  *
- * Chat은 Ctrl AI의 첫 화면입니다. 일반적인 질문에 답하는 동시에,
+ * Chat은 CTRL+AI의 첫 화면입니다. 일반적인 질문에 답하는 동시에,
  * 기능 이름을 몰라도 알맞은 작업 공간으로 안내하는 역할을 합니다.
  *
  * 중요: 아직 목업 화면입니다. 어디에도 요청을 보내지 않으며, 아래 응답은
  * 브라우저 안에서 단어를 보고 고른 것입니다. Claude 연결은 Phase 2입니다.
  */
 
+import { Clapperboard, Code2, LayoutGrid, PlayCircle, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useId, useState } from "react";
 
 import { CHAT_SHORTCUTS } from "@/lib/mock-data";
+
+/** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
+const SHORTCUT_ICON: Record<string, LucideIcon> = {
+  build: Code2,
+  video: Clapperboard,
+  apps: LayoutGrid,
+  tube: PlayCircle,
+};
 
 import styles from "./ChatWorkspace.module.css";
 
@@ -127,7 +136,7 @@ export default function ChatWorkspace() {
             key={message.id}
           >
             <span className={styles.messageRole}>
-              {message.role === "user" ? "나" : "Ctrl AI"}
+              {message.role === "user" ? "나" : "CTRL+AI"}
             </span>
             {message.body}
             {message.suggestion && (
@@ -159,7 +168,7 @@ export default function ChatWorkspace() {
               send();
             }
           }}
-          placeholder="Ctrl AI에게 무엇이든 물어보세요"
+          placeholder="CTRL+AI에게 무엇이든 물어보세요"
         />
         <div className={styles.composerRow}>
           <span className="small muted">
@@ -176,9 +185,10 @@ export default function ChatWorkspace() {
         <div className={styles.shortcuts}>
           {CHAT_SHORTCUTS.map((shortcut) => (
             <Link className={styles.shortcut} href={shortcut.href} key={shortcut.title}>
-              <span className={styles.shortcutGlyph} aria-hidden="true">
-                {shortcut.glyph}
-              </span>
+              {(() => {
+                const Icon = SHORTCUT_ICON[shortcut.icon];
+                return <Icon className={styles.shortcutIcon} aria-hidden="true" />;
+              })()}
               <span className={styles.shortcutTitle}>{shortcut.title}</span>
               <span className={styles.shortcutDescription}>{shortcut.description}</span>
             </Link>

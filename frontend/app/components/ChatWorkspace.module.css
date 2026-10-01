@@ -123,8 +123,10 @@
   border-color: var(--accent);
 }
 
-.shortcutGlyph {
-  font-size: 0.9rem;
+.shortcutIcon {
+  width: 1.15rem;
+  height: 1.15rem;
+  stroke-width: 1.75;
   color: var(--accent);
 }
 

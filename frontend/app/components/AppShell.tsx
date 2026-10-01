@@ -12,9 +12,23 @@
  * 그 외 회원이 읽는 문구는 모두 한국어입니다.
  */
 
+import {
+  CircleAlert,
+  Clapperboard,
+  Code2,
+  Gauge,
+  LayoutGrid,
+  MessageSquare,
+  PlayCircle,
+  Shield,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+
+import BrandMark from "./BrandMark";
 
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
 import { useMyQuarter } from "./MyQuarterProvider";
@@ -31,7 +45,8 @@ import styles from "./AppShell.module.css";
 interface NavItem {
   href: string;
   label: string;
-  glyph: string;
+  /** lucide 아이콘 한 벌만 씁니다. 크기와 선 굵기는 CSS가 정합니다. */
+  Icon: LucideIcon;
 }
 
 interface NavGroup {
@@ -52,16 +67,16 @@ const TOP_GROUPS: NavGroup[] = [
     // 영어를 유지합니다.
     label: "만들기",
     items: [
-      { href: "/", label: "Chat", glyph: "◇" },
-      { href: "/builder", label: "Project Builder", glyph: "◆" },
-      { href: "/video", label: "Video Generator", glyph: "▶" },
+      { href: "/", label: "Chat", Icon: MessageSquare },
+      { href: "/builder", label: "Project Builder", Icon: Code2 },
+      { href: "/video", label: "Video Generator", Icon: Clapperboard },
     ],
   },
   {
     label: "둘러보기",
     items: [
-      { href: "/ctrlaistore", label: "CtrlAI Apps", glyph: "▣" },
-      { href: "/ctrlaitube", label: "CtrlAITube", glyph: "◉" },
+      { href: "/ctrlaistore", label: "CtrlAI Apps", Icon: LayoutGrid },
+      { href: "/ctrlaitube", label: "CtrlAITube", Icon: PlayCircle },
     ],
   },
 ];
@@ -70,8 +85,9 @@ const TOP_GROUPS: NavGroup[] = [
 const PERSONAL_GROUP: NavGroup = {
   label: "내 정보",
   items: [
-    { href: "/usage", label: "Usage", glyph: "◑" },
-    { href: "/profile", label: "Profile", glyph: "○" },
+    { href: "/usage", label: "Usage", Icon: Gauge },
+    { href: "/profile", label: "Profile", Icon: User },
+    { href: "/issues", label: "문제 신고", Icon: CircleAlert },
   ],
 };
 
@@ -79,7 +95,7 @@ const PERSONAL_GROUP: NavGroup = {
  *  Admin은 숨겨진 설정 화면이 아니라 독립된 영역입니다. */
 const ADMIN_GROUP: NavGroup = {
   label: "관리",
-  items: [{ href: "/admin", label: "Admin", glyph: "⚙" }],
+  items: [{ href: "/admin", label: "Admin", Icon: Shield }],
 };
 
 /**
@@ -125,10 +141,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <header className={styles.topbar}>
         <Link className={styles.brandLink} href="/" onClick={() => setMenuOpen(false)}>
           <span className={styles.brandMark}>
-            <span className={styles.brandGlyph} aria-hidden="true">
-              AI
-            </span>
-            Ctrl AI
+            <BrandMark size={26} />
+            CTRL+AI
           </span>
         </Link>
         <button
@@ -149,12 +163,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className={styles.navBrand}>
           <span className={styles.brandMark}>
-            <span className={styles.brandGlyph} aria-hidden="true">
-              AI
-            </span>
-            Ctrl AI
+            <BrandMark size={28} />
+            CTRL+AI
           </span>
-          <span className={styles.brandPhase}>Phase 1 — 개발 중</span>
+          <span className={styles.brandPhase}>함께 만들고 함께 나누는 AI 창작 커뮤니티</span>
         </div>
 
         <div className={styles.navScroll}>
@@ -231,9 +243,7 @@ function NavGroupBlock({
                 aria-current={isActive ? "page" : undefined}
                 onClick={onNavigate}
               >
-                <span className={styles.navGlyph} aria-hidden="true">
-                  {item.glyph}
-                </span>
+                <item.Icon className={styles.navIcon} aria-hidden="true" />
                 {item.label}
               </Link>
             </li>

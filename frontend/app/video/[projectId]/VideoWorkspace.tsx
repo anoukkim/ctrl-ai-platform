@@ -14,6 +14,7 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
+import { Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -413,7 +414,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   value={project.selected_model_id ?? "auto"}
                   onChange={(event) => void chooseModel(event.target.value)}
                 >
-                  {/* Auto는 Ctrl AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
+                  {/* Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
                   <option value="auto">Auto — 추천</option>
                   {models.map((model) => (
                     <option key={model.id} value={model.id}>
@@ -424,7 +425,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 <p className={styles.settingHint}>
                   {project.selected_model
                     ? project.selected_model.description
-                    : "Ctrl AI가 알맞은 모델을 고릅니다."}
+                    : "CTRL+AI가 알맞은 모델을 고릅니다."}
                 </p>
               </div>
 
@@ -522,7 +523,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                       }}
                     >
                       <span className={styles.playOverlayGlyph} aria-hidden="true">
-                        ▶
+                        <Play size={16} aria-hidden="true" />
                       </span>
                       <span className="sr-only">재생</span>
                     </button>
@@ -559,7 +560,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                         }}
                         aria-label={isPlaying ? "일시정지" : "재생"}
                       >
-                        {isPlaying ? "❚❚" : "▶"}
+                        {isPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
                       </button>
                       <button
                         className={styles.controlBtn}

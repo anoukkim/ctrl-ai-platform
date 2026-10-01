@@ -24,6 +24,7 @@
   color: var(--text);
 }
 
+/* 로고 표식과 이름을 한 줄로 */
 .brandMark {
   display: inline-flex;
   align-items: center;
@@ -33,18 +34,6 @@
 }
 
 /* 제품 표시. 아이콘 라이브러리 없이 CSS로만 그립니다. */
-.brandGlyph {
-  display: grid;
-  place-items: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
 .brandPhase {
   font-size: 0.68rem;
   font-weight: 600;
@@ -151,18 +140,28 @@
   color: var(--text);
 }
 
+/* 선택된 항목: 옅은 배경 + 왼쪽 표시선 + 링크색. 글자를 굵게 하면 폭이
+   바뀌어 목록이 흔들리므로 굵기는 그대로 둡니다. */
 .navLinkActive {
   background: var(--accent-soft);
   border-left-color: var(--accent);
   color: var(--accent);
-  font-weight: 600;
 }
 
-.navGlyph {
-  width: 1rem;
-  text-align: center;
-  font-size: 0.78rem;
-  opacity: 0.85;
+/* 아이콘은 한 벌(lucide)만 쓰고, 크기와 선 굵기를 여기서 한 번만 정합니다.
+   항목마다 다르게 두면 줄이 미세하게 어긋나 보입니다. */
+.navIcon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+  /* 글자의 가운데선에 맞춰 살짝 올립니다. */
+  margin-top: -1px;
+  opacity: 0.9;
+}
+
+.navLinkActive .navIcon {
+  opacity: 1;
 }
 
 /* ---------- 회원 상태 블록 ---------- */
@@ -267,8 +266,8 @@
   width: 1.35rem;
   height: 1.35rem;
   border-radius: 50%;
-  background: linear-gradient(140deg, var(--accent-strong), #4338ca);
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--on-accent);
   font-size: 0.68rem;
   font-weight: 700;
 }

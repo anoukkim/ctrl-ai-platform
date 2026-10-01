@@ -7,6 +7,7 @@
  * 복잡한 추천 알고리즘은 만들지 않습니다.
  */
 
+import { Play } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -98,7 +99,7 @@ export default function VideoGrid() {
                 }}
               >
                 <span className={styles.playGlyph} aria-hidden="true">
-                  ▶
+                  <Play size={14} aria-hidden="true" />
                 </span>
                 <span className={styles.duration}>{video.duration}</span>
               </div>
