@@ -1,0 +1,7 @@
+# 빈 이슈로 바로 여는 것을 막고, 위의 두 양식 중 하나를 고르게 합니다.
+# 양식을 채우면 되묻는 일이 줄어듭니다.
+blank_issues_enabled: false
+contact_links:
+  - name: 사용법이 궁금할 때
+    url: https://github.com/anoukkim/ctrl-ai-platform/discussions
+    about: 버그가 아니라 쓰는 방법이 궁금하다면 여기에서 물어봐 주세요.

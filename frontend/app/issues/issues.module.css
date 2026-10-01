@@ -1,0 +1,47 @@
+/* 문제 신고 화면. */
+
+.steps {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.87rem;
+  line-height: 1.65;
+}
+
+.steps strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.newTab {
+  margin-top: 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+}
+
+/* 주의 사항. 공개된다는 점을 놓치면 곤란하므로 눈에 띄는 선을 둡니다. */
+.caution {
+  margin-top: 1.1rem;
+  border-left: 2px solid var(--warn);
+}
+
+.cautionList {
+  display: grid;
+  gap: 0.6rem;
+  margin-left: 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.87rem;
+  line-height: 1.65;
+}
+
+.cautionList strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* 아직 만들지 않은 자리. 점선으로 "여기 올 것이 있다"만 표시합니다. */
+.placeholder {
+  margin-top: 1.1rem;
+  border-style: dashed;
+}
