@@ -39,7 +39,7 @@ principles.
 | CtrlAITube            | Mock feed plus detail pages; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
-| Admin                 | **Live** — nine sections, real member list, enrolment, KRW budgets, audit log     |
+| Admin                 | **Live** — section hub, member/application/quarter figures, KRW budgets, audit log |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
@@ -72,13 +72,18 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
 | `/admin/members`      | 회원             | Search, filter, sort; row opens the member    |
 | `/admin/members/[id]` | 회원 상세        | Participation history, budgets, audit trail   |
-| `/admin/quarters`     | 분기 · 신청      | Open/close applications, approve or reject    |
+| `/admin/applications` | 신청 승인        | Approve or reject, with stat cards and tabs   |
+| `/admin/quarters`     | 분기 설정        | Quarter list with figures; create a quarter   |
 | `/admin/topups`       | 충전 신청        | Confirm personal top-up deposits              |
 | `/admin/video-models` | 영상 모델        | Which models members may pick                 |
 | `/admin/audit`        | 감사 로그        | Every admin change, read-only                 |
-| `/admin/content`      | 콘텐츠           | 준비 중 — Phases 5 and 8                       |
-| `/admin/system`       | 시스템           | Backend and database health                   |
+| `/admin/system`       | 시스템           | Server health and external service status     |
 | `/admin/dev`          | 개발 도구        | Usage simulator; development only             |
+
+`/admin/budget` and `/admin/content` exist in the code but are hidden from
+the navigation until budget-by-provider and Phases 5/8 fill them — a menu
+item that always leads to an empty screen is in the way. Turning one on is
+deleting its `hidden: true` in `frontend/app/admin/sections.ts`.
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAI Apps**; the path was kept so existing links do not break.
@@ -341,6 +346,24 @@ The live backend status card is on **Admin → 시스템** (`/admin/system`):
 | 일부 장애      | Backend is up, PostgreSQL is not     |
 | 연결 안 됨     | The backend itself is not reachable  |
 
+## External services
+
+Every provider sits behind an interface with a mock implementation, chosen
+by a `*_PROVIDER` variable, and **mock is the default** — so the platform
+runs with no keys (CLAUDE.md section 20).
+
+**Admin → 시스템** shows one card per provider: mock or real, whether a key
+is configured, when it last worked, and why it last failed in Korean. The
+**연결 확인** button runs a check only when pressed, using the cheapest
+request available — in mock mode nothing leaves the process, and for Claude
+the real check lists models, which validates the key without spending a
+token. Where a real adapter does not exist yet, the check says so rather
+than showing a green light that means nothing.
+
+**No route returns a credential.** The screen asks only whether a key is
+present. `backend/tests/test_admin_providers.py` searches every response
+for the configured secret.
+
 Useful extra URLs:
 
 - http://localhost:8000/api/health - raw health JSON
@@ -496,7 +519,7 @@ its own screen needs:
 | CtrlAI Apps | app name, description, creator | category, sort |
 | CtrlAITube | title, description, creator | creator, sort |
 | Admin — 회원 | name, username | role, account status, membership status, sort |
-| Admin — 분기 · 신청 | member name, username | application status |
+| Admin — 신청 승인 | member name, username | status tabs + stat cards |
 | Admin — 충전 신청 | member name, username | top-up status |
 | Admin — 감사 로그 | summary, admin, action, target | action |
 | Admin — 영상 모델 | model name, provider, model id | — |
@@ -534,7 +557,7 @@ ctrl-ai-platform/
 │  │  ├─ db/                  # base.py, session.py, init_db.py
 │  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
-│  │  ├─ services/            # budget split, wallet helpers
+│  │  ├─ services/            # budget split, wallet, admin stats, providers
 │  │  └─ main.py              # FastAPI app, CORS
 │  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite

@@ -16,33 +16,47 @@ says what order things happen in.
 ## Now
 
 **admin-restructure** on `ui-admin-restructure`, branched from an
-up-to-date `main`. Built and waiting on review — not merged.
+up-to-date `main`. Built and waiting on review — not merged. The
+developer's change requests of 2026-10-01 (after testing) are all in;
+the spec and those requests are saved below.
 
-What is done, against the spec saved below:
+What is done, against the original spec:
 
 | Spec point | State |
 | ---------- | ----- |
-| 1. Nine routes under a secondary Admin navigation | Done — tabs in the Admin layout, plus the sidebar sub-menu; a disabled **예산** tab and card hold the place for budget-by-provider |
-| 2. 대시보드 with to-do cards, quarter, counts, last 10 audit entries | Done — plus the clickable card hub |
-| 3. 회원 list: search, filters, sorting, pagination, one 관리 menu | Done — filters are role / account / membership / sort; rows are clickable |
-| 4. 회원 detail with every action | Done — role, membership, allocation, participation history, personal balance, that member's audit trail |
-| 5. Korean confirmation stating the effect, then a result message | Done — `ConfirmDialog` + `ResultMessage`, used by every change |
-| 6. Korean labels, one badge style, one shared table, design tokens | Done — `AdminTable`, `StatusBadge`; model switches read 사용 가능 / 회원에게 공개 / 숨김 |
-| 7. Backend: no business-rule change, small read-only endpoints allowed | Done — `GET /api/admin/dashboard` and `GET /api/admin/members/{id}`, both read-only |
-| Tests | Done — see below |
+| 1. Sections, each on its own route, under a secondary Admin navigation | Done — and 분기 · 신청 later split again into 신청 승인 and 분기 설정 |
+| 2. 대시보드: to-do cards, quarter, counts, last 10 audit entries | Done — plus the clickable card hub and a provider warning card |
+| 3. 회원 list: search, filters, sorting, pagination, one 관리 menu | Done — plus six stat cards that double as filters |
+| 4. 회원 detail with every action | Done |
+| 5. Korean confirmation stating the effect, then a result message | Done — 거절 also asks for a reason |
+| 6. Korean labels, one badge style, one shared table, design tokens | Done |
+| 7. Backend: no business-rule change, small read-only endpoints allowed | Done — seven read-only endpoints plus the provider check |
+| Tests | Done — 212 backend, 29 frontend |
 
-Tests, as asked: every Admin route is admin-only (`EXPECTED_GUARDS` plus
-`test_admin_overview.py`), dev tools are unavailable outside development,
-dashboard counts match the database, and the confirmation dialog appears
-before the change — the last of these needed a frontend test runner,
-so **Vitest + Testing Library** now exist in `frontend/`.
+And against the change requests:
 
-Verified against the running app, not only in tests: all nine routes,
-the dashboard figures cross-checked against PostgreSQL, 401 anonymous
-and 403 for a signed-in member on both new endpoints, and the 탈퇴 처리
-dialog. Two defects found that way and fixed on the branch — the row
-menu was clipped by the table's scroll box, and the 개발 도구 tab
-appeared a moment after the sidebar's.
+| Request | State |
+| ------- | ----- |
+| 1. Split into 신청 승인 and 분기 설정, with a 새 분기 만들기 form | Done |
+| 2. 신청 승인 layout — summary line, stat cards, status tabs, inline 승인/거절, empty state | Done |
+| 3. 분기 설정 per-quarter figures (신청자, 승인 대기, 참여 회원, 실제 사용자, 사용률) | Done |
+| 4. 회원 stat cards that filter, following the selected quarter | Done |
+| 5. All counts from grouped queries in admin-only endpoints | Done — `app/services/admin_stats.py` |
+| 6. Hide 예산 and 콘텐츠 rather than showing 준비 중 | Done — routes and placeholders kept |
+| 7. 시스템 외부 서비스 panel with a 연결 확인 button | Done |
+
+**The provider status board is a new table** (`provider_status`) with a
+migration, `c3a81f5d7e24`. Run `alembic upgrade head` before starting the
+backend on an existing database.
+
+Verified against the running app, not only in tests: every Admin route,
+all figures cross-checked against PostgreSQL row by row, 401 anonymous
+and 403 for a signed-in member on the new endpoints, the 거절 dialog
+refusing to proceed without a reason, card filtering, and the 연결 확인
+button in mock mode. Four defects were found that way and fixed on the
+branch: the row menu clipped by the table's scroll box, the 개발 도구 tab
+arriving after the sidebar's, the pending badge on the wrong section, and
+a passed deadline showing as "D-0".
 
 ---
 
@@ -100,13 +114,22 @@ here until the developer says where it goes.
 sub-navigation in English, and those are the routes admin-restructure
 creates.
 
-Two things to carry into **ui-naming**:
+Three things to carry into **ui-naming**:
 
-- The nine section labels live in **one place**,
+- The section labels live in **one place**,
   `frontend/app/admin/sections.ts`. The sidebar, the tabs and the
   dashboard cards all read it, so the English labels are written once.
+  There are now nine entries, two of them hidden.
 - `frontend/` now has `npm test`. A UI batch that changes labels should
-  run it alongside `npm run lint` and `npm run build`.
+  run it alongside `npm run lint` and `npm run build`. One test asserts
+  the visible section list, so renaming sections will touch it.
+- 분기 · 신청 no longer exists. ui-naming's English labels apply to
+  **신청 승인** and **분기 설정** separately.
+
+And one into **budget-by-provider**: the 예산 section is already defined
+in `sections.ts` with `hidden: true` and the route `/admin/budget`.
+Deleting that one line turns it on everywhere — sidebar, tabs and the
+dashboard card.
 
 ---
 
@@ -149,6 +172,66 @@ stacked on one route, from 회원 관리 down to 시스템.
 > 7. Backend: no changes to business rules. Small read-only, admin-only, tested endpoints are allowed if the dashboard needs counts.
 >
 > Tests: every Admin route is admin-only; dev tools are unavailable outside development; dashboard counts match the database; the confirmation dialog appears before status changes.
+
+### Change requests after testing — 2026-10-01
+
+Saved exactly as written by the developer, after testing the first build
+of this branch. All seven are implemented.
+
+> 1. Split 분기 · 신청 into two Admin sections. Approving applications is the main job, but the quarter table sits on top and makes the page feel complicated, and the top-right "보고 있는 분기" selector already picks the quarter.
+>    - 신청 승인 (/admin/applications), the main one: applications for the selected quarter only.
+>    - 분기 설정 (/admin/quarters): the quarter list, opening and closing applications, and a new "새 분기 만들기" form (name, period, application period, per-member limit) with validation and a Korean confirmation. Remove the developer note about POST /api/admin/quarters.
+>    - Update the Admin tabs, the sidebar sub-menu, breadcrumbs and dashboard links. The dashboard's "대기 중인 신청" card opens 신청 승인 filtered to pending.
+>
+> 2. 신청 승인 layout:
+>    - Top: a one-line summary of the selected quarter (name · status · application deadline with D-day · per-member limit), linking to 분기 설정 for changes.
+>    - Below it, a row of small stat cards for the selected quarter: 전체 신청 N명 · 승인 대기 N명 · 승인 N명 · 거절 N명 · 신청 금액 합계 N원. Clicking a card filters the list to that status.
+>    - Status tabs with counts: 승인 대기 N / 승인됨 N / 거절됨 N, defaulting to 승인 대기. Keep the search box.
+>    - Pending rows show 승인 and 거절 buttons directly in the row (거절 asks for a reason), each with the existing Korean confirmation. Processed rows are muted and show who processed them and when.
+>    - When nothing is pending: a Korean empty state ("처리할 신청이 없습니다") with a link to the 승인됨 tab.
+>    - Whole-row click still opens the member detail; the buttons do not trigger the row click.
+>
+> 3. 분기 설정: show per-quarter numbers in the quarter list, so quarters can be compared at a glance:
+>    - New columns: 신청자 (total applications), 승인 대기, 참여 회원 (approved, active in that quarter), 실제 사용자 (members with at least one usage event in that quarter), and 사용률 (실제 사용자 ÷ 참여 회원, as %).
+>    - Use tabular numbers; show "–" for quarters that have not started yet where a number does not apply.
+>    - The dashboard's current-quarter card shows the same 참여 회원 and 실제 사용자 numbers.
+>
+> 4. 회원: a row of small stat cards above the member list:
+>    - 전체 회원 N명 (all accounts except former), 활동 회원 N명 (active in the selected quarter), 비활동 N명, 미신청 N명 (no application for the selected quarter), 탈퇴 N명, 관리자 N명.
+>    - Clicking a card applies the matching filter to the list; the active filter is highlighted, with a way to clear it.
+>    - The numbers follow the "보고 있는 분기" selector where they depend on the quarter.
+>    - The dashboard's member card uses the same numbers.
+>
+> 5. All counts in items 2–4 come from grouped database queries in admin-only endpoints, not from loading every record in the browser.
+>
+> 6. Hide the 예산 and 콘텐츠 tabs and sidebar items until their features exist, instead of showing them with 준비 중. Keep their routes and placeholders in the code so later items (budget-by-provider, Phase 5/8) can switch them on.
+>
+> 7. 시스템 section: add an "외부 서비스" panel below the server status, one card per provider (Claude, Higgsfield, and placeholders for GitHub and YouTube):
+>    - Mode: "mock (테스트)" or "실제 연결", from the *_PROVIDER setting.
+>    - API key: "설정됨" or "없음". Never display, log or return the key itself.
+>    - Last successful call and last error (with a plain Korean explanation, e.g. invalid key, out of credit, service down), recorded by the provider layer.
+>    - A "연결 확인" button that runs a check only when pressed, using the cheapest available request (preferably one that does not consume tokens or credits). In mock mode it reports that mock mode is active.
+>    - Remaining provider-side balance only if that provider's API offers it; otherwise omit it.
+>    - The dashboard shows a warning card when any real provider's last check or last call failed, linking to 시스템.
+>
+> 8. Keep everything else in the branch as it is.
+
+**Decisions taken while implementing these**, worth knowing before review:
+
+- **참여 회원** counts `QuarterMembership.status == active`, not approved
+  applications. An admin can enrol someone directly, and that person is
+  just as much a participant.
+- **실제 사용자** counts distinct members, not usage events.
+- **사용률** is `null` — shown as "–" — when nobody is participating.
+  0/0 is not 0%, and "0%" would read as "everyone failed to use it".
+- **The provider connection check is never automatic.** A background poll
+  against a paid API spends money to produce a green dot nobody asked
+  for. Only Claude has a real zero-cost check (`GET /v1/models`); the
+  others report honestly that their adapter arrives in Phases 4, 6 and 7.
+- **No provider balance is shown**, because none of the four APIs in use
+  reports one. A made-up 0 would read as "out of credit".
+
+---
 
 **Note added 2026-10-01.** Point 6 says "all labels in Korean", and
 **ui-naming** — the next item — then moves the Admin *sub-navigation*
