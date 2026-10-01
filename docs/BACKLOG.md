@@ -17,52 +17,42 @@ says what order things happen in.
 
 **Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
 
-Branch created, **no work committed yet**. Scope: a usage router that
-records `UsageEvent` through the budget service in the same transaction as
-the deduction; the real admin member list, quarter enrolment and a KRW
-credit panel; an `AuditLog` table written on every admin change plus a
-read-only audit view; a development-only "simulate usage" action; removal
-of the remaining mock exports; and the Usage page redesign.
+Branch created and brought up to date with `main` (which now contains 1a
+and 1b). **No 1c work committed yet.** Scope: a usage router that records
+`UsageEvent` through the budget service in the same transaction as the
+deduction; the real admin member list, quarter enrolment and a KRW credit
+panel; an `AuditLog` table written on every admin change plus a read-only
+audit view; a development-only "simulate usage" action; removal of the
+remaining mock exports; and the Usage page redesign.
 
 ---
 
 ## Next (in order)
 
-1. **Phase 1a — auth** · branch `phase-1a-auth` · **complete, unmerged**
-   Username/password auth with Argon2, HttpOnly session cookie, Next.js
-   `/api/*` rewrite, real `get_current_user` / `require_admin`.
-   *Not in the template below, but it is unmerged and comes first in the
-   chain — everything after it is built on top of it.*
-
-2. **Phase 1b — membership** · branch `phase-1b-membership` · **complete, unmerged**
-   Per-quarter `QuarterMembership`, `require_active_member` on paid
-   creation endpoints, former members locked out with attribution kept,
-   real membership data in the sidebar, Profile and Usage header.
-
-3. **Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
+1. **Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
    See **Now**.
 
-4. **UI batch 1** · branch `ui-brand-refresh`
-   Full spec saved verbatim below.
+2. **UI batch 1** · branch `ui-brand-refresh`
+   Full spec saved verbatim below. Its open question is now resolved:
+   `main` contains 1a and 1b, so branching from an up-to-date `main` is
+   what the spec asks for and gives the current UI.
 
-5. **prep-beta-launch**
+3. **prep-beta-launch**
    Not yet specified.
 
-6. **Phase 2 — Chat**
+4. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
 ### Merge order
 
-The phase branches are stacked, each built on the one before:
+`main` now contains Phase 1a and Phase 1b. Only one phase branch is still
+stacked:
 
 ```text
-main  <-  phase-1a-auth  <-  phase-1b-membership  <-  phase-1c-usage-audit
+main  <-  phase-1c-usage-audit
 ```
-
-They must merge in that order. `main` is currently three phases behind,
-which is why items 1 and 2 are "complete" but still in the queue.
 
 ---
 
@@ -119,17 +109,12 @@ Saved exactly as written by the developer.
 >
 > Run tsc, lint and build. Report what changed per screen, the contrast ratios, the changed files, and exact browser steps for me to check it. Do not merge.
 
-### Open question on this item
+### Resolved: which branch to start from
 
-The spec says *"from up-to-date main"*, but it describes the **current**
-UI — replacing the `Phase 1 — 개발 중` subtitle, and putting `/issues`
-under the `내 정보` group. Neither exists on `main`, which is still the
-Phase 0 shell. Decide before starting:
-
-- merge 1a and 1b into `main` first, then branch from a genuinely
-  up-to-date `main` (recommended — it is what the spec asks for and fixes
-  the cause), or
-- branch from `phase-1b-membership` so the work matches the screenshot.
+The spec says *"from up-to-date main"*, and as of 2026-10-01 that is now
+true — `main` contains Phase 1a and Phase 1b, so it has the login pages,
+the `내 정보` sidebar group and the `Phase 1 — 개발 중` subtitle the spec
+refers to. Branch `ui-brand-refresh` from `main`.
 
 ---
 
@@ -139,5 +124,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **Phase 1b — membership** — per-quarter `QuarterMembership`, `require_active_member` on paid creation endpoints, former members locked out with attribution preserved, live membership in the sidebar, Profile and Usage header, Korean monospace fix | `phase-1b-membership` |
+| 2026-10-01 | **Phase 1a — auth** — username/password with Argon2id, HttpOnly same-origin session cookie via the Next.js `/api/*` rewrite, real `get_current_user` / `require_admin` on every route | `phase-1a-auth` |
 | 2026-10-01 | **Phase 1 foundation** — quarters, applications, KRW budgets, allocations, personal wallet and top-ups, Builder/Video project groundwork with libraries and workspaces | `phase/1-foundation` |
 | 2026-09-29 | **Phase 0 — product shell** — Next.js frontend with full navigation and every screen, FastAPI backend, PostgreSQL via Docker Compose, `/api/health`, Korean-first UI, dark theme | `phase-0-product-shell` |
