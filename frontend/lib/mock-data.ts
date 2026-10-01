@@ -443,6 +443,19 @@ export function totalComments(comments: Comment[]): number {
   );
 }
 
+export interface AppScreenshot {
+  /** 화면을 설명하는 짧은 말. 그림을 못 보는 사람에게는 이것이 그림입니다. */
+  label: string;
+  /** 스크린샷 대신 CSS로 그리는 두 가지 색상. 실제 이미지는 Phase 5에서
+   *  올라갑니다 — 그때 이 자리에 주소가 들어옵니다. */
+  artwork: [string, string];
+}
+
+export interface AppUpdate {
+  date: string;
+  note: string;
+}
+
 export interface App {
   slug: string;
   name: string;
@@ -457,6 +470,15 @@ export interface App {
   artwork: [string, string];
   reactions: Record<ReactionType, number>;
   comments: Comment[];
+  /** 앱 안을 보여 주는 화면 모음. */
+  screenshots: AppScreenshot[];
+  /**
+   * 업데이트 기록. **최신이 앞**입니다.
+   *
+   * 마지막 수정일을 따로 들고 다니지 않고 이 목록의 첫 줄에서 읽습니다
+   * (`lastUpdated`). 같은 사실을 두 곳에 적으면 한쪽만 고쳐집니다.
+   */
+  updates: AppUpdate[];
 }
 
 export const MOCK_APPS: App[] = [
@@ -469,10 +491,24 @@ export const MOCK_APPS: App[] = [
     creator: { username: "yurikim", displayName: "김유리", membership: "active" },
     publishedAt: "2026-09-12",
     category: "생산성",
-    launchUrl: null,
+    // 넷 중 하나만 실행 주소가 있습니다. 실행 주소가 있을 때와 없을 때
+    // 버튼이 서로 달라야 하므로(있으면 열리고, 없으면 "실행 준비 중"),
+    // 두 경우가 모두 예시에 있어야 화면을 열어 보고 확인할 수 있습니다.
+    // example.com은 문서용으로 비워 둔 주소라 실제 어딘가로 가지 않습니다.
+    launchUrl: "https://habit-at-a-glance.example.com",
     githubRepo: "yurikim/habit-at-a-glance",
     artwork: ["#3355ff", "#7c3aed"],
     reactions: { like: 24, useful: 11, interesting: 6 },
+    screenshots: [
+      { label: "오늘 할 일 목록", artwork: ["#3355ff", "#7c3aed"] },
+      { label: "한 주 달성률", artwork: ["#4338ca", "#6366f1"] },
+      { label: "습관 추가 화면", artwork: ["#312e81", "#8b5cf6"] },
+    ],
+    updates: [
+      { date: "2026-09-28", note: "주간 달성률 그래프를 추가했습니다." },
+      { date: "2026-09-20", note: "습관을 지운 뒤 기록이 남던 문제를 고쳤습니다." },
+      { date: "2026-09-12", note: "CtrlAIApps에 처음 게시했습니다." },
+    ],
     comments: [
       {
         id: "c1",
@@ -496,6 +532,8 @@ export const MOCK_APPS: App[] = [
         body: "주간 통계도 추가되면 좋을 것 같아요.",
         createdAt: "2026-09-18",
         likes: 5,
+        // 답글이 셋을 넘으면 접힙니다. 긴 실타래가 댓글칸을 다 차지하지
+        // 않는지 보려면 실제로 긴 것이 하나 있어야 합니다.
         replies: [
           {
             id: "c2r1",
@@ -503,6 +541,27 @@ export const MOCK_APPS: App[] = [
             body: "지금 그래프 추가하는 중이에요. 다음 주에 다시 올려볼게요.",
             createdAt: "2026-09-19",
             likes: 2,
+          },
+          {
+            id: "c2r2",
+            author: { username: "seojun", displayName: "이서준", membership: "active" },
+            body: "기다리고 있을게요!",
+            createdAt: "2026-09-19",
+            likes: 0,
+          },
+          {
+            id: "c2r3",
+            author: { username: "daeun", displayName: "최다은", membership: "inactive" },
+            body: "저도 그 기능을 기다리고 있었어요.",
+            createdAt: "2026-09-21",
+            likes: 1,
+          },
+          {
+            id: "c2r4",
+            author: { username: "yurikim", displayName: "김유리", membership: "active" },
+            body: "올렸습니다. 한 주 단위로 막대가 보이도록 했어요.",
+            createdAt: "2026-09-28",
+            likes: 4,
           },
         ],
       },
@@ -521,6 +580,14 @@ export const MOCK_APPS: App[] = [
     githubRepo: null,
     artwork: ["#0ea5e9", "#22d3ee"],
     reactions: { like: 41, useful: 33, interesting: 9 },
+    screenshots: [
+      { label: "메모 붙여넣기", artwork: ["#0ea5e9", "#22d3ee"] },
+      { label: "담당자별 할 일", artwork: ["#0369a1", "#38bdf8"] },
+    ],
+    updates: [
+      { date: "2026-09-10", note: "담당자 이름을 자동으로 찾아 줍니다." },
+      { date: "2026-08-30", note: "CtrlAIApps에 처음 게시했습니다." },
+    ],
     comments: [
       {
         id: "c3",
@@ -544,6 +611,11 @@ export const MOCK_APPS: App[] = [
     githubRepo: null,
     artwork: ["#f97316", "#ef4444"],
     reactions: { like: 18, useful: 14, interesting: 4 },
+    screenshots: [
+      { label: "레시피 목록", artwork: ["#f97316", "#ef4444"] },
+      { label: "장보기 목록", artwork: ["#c2410c", "#fb923c"] },
+    ],
+    updates: [{ date: "2026-06-21", note: "CtrlAIApps에 처음 게시했습니다." }],
     comments: [
       {
         id: "c4",
@@ -567,12 +639,61 @@ export const MOCK_APPS: App[] = [
     githubRepo: null,
     artwork: ["#16a34a", "#84cc16"],
     reactions: { like: 12, useful: 8, interesting: 7 },
+    screenshots: [{ label: "복습 카드", artwork: ["#16a34a", "#84cc16"] }],
+    updates: [{ date: "2026-09-20", note: "CtrlAIApps에 처음 게시했습니다." }],
+    comments: [],
+  },
+  {
+    slug: "weekly-review",
+    name: "주간 회고",
+    tagline: "한 주에 한 번, 세 가지만 적습니다.",
+    description:
+      "잘된 일, 아쉬운 일, 다음 주에 할 일을 세 칸에 적는 회고 앱입니다. 지난 회고를 나란히 두고 볼 수 있습니다.",
+    creator: { username: "yurikim", displayName: "김유리", membership: "active" },
+    publishedAt: "2026-07-18",
+    category: "생산성",
+    launchUrl: null,
+    githubRepo: "yurikim/weekly-review",
+    artwork: ["#2563eb", "#38bdf8"],
+    reactions: { like: 9, useful: 15, interesting: 3 },
+    screenshots: [{ label: "이번 주 회고", artwork: ["#2563eb", "#38bdf8"] }],
+    updates: [{ date: "2026-07-18", note: "CtrlAIApps에 처음 게시했습니다." }],
+    comments: [],
+  },
+  {
+    slug: "team-poll",
+    name: "팀 투표",
+    tagline: "링크 하나로 의견을 모읍니다.",
+    description:
+      "날짜나 선택지를 적어 올리면 투표 링크가 만들어집니다. 누가 아직 고르지 않았는지 한눈에 보입니다.",
+    creator: { username: "minji", displayName: "박민지", membership: "active" },
+    publishedAt: "2026-09-26",
+    category: "업무",
+    launchUrl: null,
+    githubRepo: null,
+    artwork: ["#10b981", "#34d399"],
+    reactions: { like: 16, useful: 7, interesting: 11 },
+    screenshots: [
+      { label: "투표 만들기", artwork: ["#10b981", "#34d399"] },
+      { label: "결과 보기", artwork: ["#047857", "#6ee7b7"] },
+    ],
+    updates: [{ date: "2026-09-26", note: "CtrlAIApps에 처음 게시했습니다." }],
     comments: [],
   },
 ];
 
 export function findApp(slug: string): App | undefined {
   return MOCK_APPS.find((app) => app.slug === slug);
+}
+
+/** 마지막으로 고친 날. 업데이트 기록의 첫 줄이 곧 그 날짜입니다. */
+export function lastUpdated(app: App): string | null {
+  return app.updates[0]?.date ?? null;
+}
+
+/** 같은 회원이 만든 다른 앱. 상세 화면 아래에 모아 보여 줍니다. */
+export function otherAppsBy(username: string, exceptSlug: string): App[] {
+  return MOCK_APPS.filter((app) => app.creator.username === username && app.slug !== exceptSlug);
 }
 
 /* ------------------------------------------------------------------ */
