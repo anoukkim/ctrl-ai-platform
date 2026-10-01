@@ -219,3 +219,79 @@ class MyQuarterStatus(BaseModel):
     #: 새로 만들 수 있는지. 프런트엔드가 매번 규칙을 다시 쓰지 않도록
     #: 백엔드가 계산해서 내려 줍니다. 실제 차단은 require_active_member가 합니다.
     may_create: bool = False
+
+
+# --------------------------------------------------------------- Admin 개요
+#
+# 아래 스키마들은 Admin 화면이 읽기만 하는 것들입니다. 업무 규칙은 하나도
+# 들어 있지 않습니다 — 이미 다른 곳에서 정해진 숫자를 Admin이 한 번에 읽을
+# 수 있게 모아 주는 것이 전부입니다.
+
+
+class StatusCounts(BaseModel):
+    """회원 수를 상태별로 센 것.
+
+    계정 상태와 참여 상태를 따로 셉니다. 둘은 다른 질문에 답하기 때문에
+    (로그인할 수 있는가 / 이번 분기에 만들 수 있는가) 합쳐 세면 어느 쪽
+    숫자인지 알 수 없게 됩니다.
+    """
+
+    #: 계정 상태별 — active / inactive / former
+    accounts: dict[str, int] = Field(default_factory=dict)
+    #: 이번 분기 참여 상태별. `none`은 참여 기록이 없는 회원입니다.
+    membership: dict[str, int] = Field(default_factory=dict)
+    total: int = 0
+
+
+class AdminDashboard(BaseModel):
+    """대시보드가 한 번의 호출로 읽는 것 전부.
+
+    한 화면이면 한 번의 호출입니다. 숫자를 따로따로 불러오면 카드마다
+    다른 순간의 값을 보여 주게 됩니다.
+    """
+
+    quarter: QuarterRead | None
+    #: 손이 필요한 일. 0이면 카드에 강조 표시를 하지 않습니다.
+    pending_applications: int = 0
+    pending_top_ups: int = 0
+    counts: StatusCounts
+    #: 영상 모델 가운데 회원에게 보이는 것의 수 — 카드의 상태 한 줄에 씁니다.
+    video_models_total: int = 0
+    video_models_member_visible: int = 0
+    recent_audit: list[AuditLogRead] = Field(default_factory=list)
+    #: 개발 환경에서만 true. 개발 도구 카드와 사이드바 항목을 이 값으로
+    #: 가립니다. 실제 차단은 백엔드가 404로 합니다.
+    is_development: bool = False
+
+
+class MemberQuarterHistory(BaseModel):
+    """한 회원이 어느 분기에 어떻게 참여했는지 한 줄."""
+
+    quarter_id: int
+    quarter_code: str
+    quarter_display_name: str
+    quarter_status: QuarterStatus
+    membership_status: MembershipStatus | None
+    application: ApplicationRead | None
+    allocation: AllocationRead | None
+
+
+class MemberDetail(BaseModel):
+    """회원 상세 화면이 필요한 것 전부, 한 번의 호출로.
+
+    참여 이력이 분기마다 한 줄씩 들어옵니다. CTRL+AI는 분기로 돌아가므로
+    "지금 활동 중인가"만으로는 그 회원을 설명할 수 없습니다.
+    """
+
+    user_id: int
+    username: str
+    display_name: str
+    email: str
+    role: UserRole
+    account_status: AccountStatus
+    created_at: datetime
+    quarters: list[MemberQuarterHistory] = Field(default_factory=list)
+    personal: PersonalBalanceRead | None = None
+    top_ups: list[TopUpRead] = Field(default_factory=list)
+    #: 이 회원을 대상으로 한 감사 기록만.
+    audit: list[AuditLogRead] = Field(default_factory=list)

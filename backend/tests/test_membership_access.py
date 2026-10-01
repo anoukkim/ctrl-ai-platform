@@ -315,6 +315,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/video-models"): "require_admin",
     ("PATCH", "/api/admin/video-models/{model_id}"): "require_admin",
     ("GET", "/api/admin/audit"): "require_admin",
+    # Read-only Admin screens: the dashboard and the member detail page.
+    ("GET", "/api/admin/dashboard"): "require_admin",
+    ("GET", "/api/admin/members/{user_id}"): "require_admin",
     ("POST", "/api/admin/simulate-usage"): "require_admin",
 }
 

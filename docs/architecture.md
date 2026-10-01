@@ -101,6 +101,8 @@ the same commit that adds it.
 | `GET /api/admin/video-models` | `require_admin` | |
 | `PATCH /api/admin/video-models/{id}` | `require_admin` | |
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
+| `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows |
+| `GET /api/admin/members/{user_id}` | `require_admin` | Read-only; one member's history, budgets and audit trail |
 | `POST /api/admin/simulate-usage` | `require_admin` | 404 outside development |
 | `GET /` | none | Service banner |
 
