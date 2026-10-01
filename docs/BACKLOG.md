@@ -34,6 +34,33 @@ switcher, so it was fixed alongside. Covered by
 `frontend/__tests__/workspace-load.test.tsx`, which fails on three of its
 four cases without the fix.
 
+**Four more problems found on the same screen while testing**, fixed on
+the same branch at the developer's request:
+
+- **The player overflowed its column.** At 16:9 it covered the settings
+  panel and the Claude panel. It was sized from height alone, so a wide
+  ratio multiplied that height into a width nothing capped. It now sits
+  in a letterbox frame and takes the smaller of the column's width and
+  the column's height converted through the ratio. Measured in the
+  browser at four column widths × three ratios, plus the stacked
+  narrow-screen layout — the frame needs its own minimum height there, or
+  it has nothing to derive one from and the player collapses.
+- **The model showed as a raw provider id** (`kling-3.0-pro`) next to a
+  settings panel saying "Auto — 추천". It now resolves to the model's
+  name, and to "Auto → Kling 3.0 Pro" when Auto chose it.
+- **The length was hard-coded to 15 seconds**, so a version made at 10초
+  played as 0:15.
+- **A new project opened with a scripted Claude conversation** already in
+  it. The panel starts empty with one line of Korean.
+
+**This took per-version generation settings out of
+project-video-management.** `video_versions` now carries
+`duration_seconds`, `aspect_ratio`, `sound` and `auto_selected`
+(migration `d7e1b4a9c052`), sent when a version is created and validated
+against the model's capabilities on the server. There was no other honest
+way to make a version show its own length. Item 7's remaining scope —
+renaming projects and videos — is untouched; see the note there.
+
 The **Next** order was rewritten again on 2026-10-01, and this is the
 final order. **Phase 2 — Chat** moves from last place to 2 and
 **prep-beta-launch** to 3: the goal is an invite-only beta on a real
@@ -82,8 +109,12 @@ category because the Claude/Higgsfield rename comes later.
    introduces first. Spec saved verbatim below.
 
 7. **project-video-management** · branch `feat-project-video-management`
-   Spec saved verbatim below, including **Rename projects and videos**
-   and the per-version generation settings.
+   Spec saved verbatim below, including **Rename projects and videos**.
+   ⚠ **The per-version generation settings are already done** —
+   fix-video-workspace-hang had to add them to make a version show its
+   own length. `video_versions` carries `duration_seconds`,
+   `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
+   below is history, not work.
 
 8. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
