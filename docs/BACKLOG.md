@@ -22,59 +22,69 @@ open.
 Next up is **fix-video-workspace-hang** on `fix-video-workspace-hang`,
 branched from an up-to-date `main`; the spec is saved verbatim below.
 
-The **Next** order was rewritten on 2026-10-01: the video workspace bug
-moved from "Not in the Next order" to position 1, and two new items
-joined the queue — **ui-tube-watch** at 2 and **usage-analytics** at 4.
+The **Next** order was rewritten again on 2026-10-01, and this is the
+final order. **Phase 2 — Chat** moves from last place to 2 and
+**prep-beta-launch** to 3: the goal is an invite-only beta on a real
+domain whose one working AI feature is Claude chat, with everything else
+labelled as test mode. Both specs were replaced wholesale, and
+`video-higgsfield-only`'s Length slider section was replaced by
+model-driven settings.
+
+Two consequences of Phase 2 moving first are recorded in its spec: it now
+owns the `UsageEvent` migration that `budget-by-provider` and
+`usage-analytics` were each going to add, and it charges the `build`
+category because the Claude/Higgsfield rename comes later.
 
 ---
 
 ## Next (in order)
 
 1. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
-   A real, reproduced bug. Moved into the order at position 1 on
-   2026-10-01. Spec saved verbatim below.
+   A real, reproduced bug. Spec saved verbatim below.
 
-2. **ui-tube-watch** · branch `ui-tube-watch`
+2. **Phase 2 — Chat** · branch `phase-2-chat`
+   Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
+   streaming, budget checks and usage recording. Spec saved verbatim
+   below, replacing the pointer to `CLAUDE.md` section 20.
+
+3. **prep-beta-launch** · no branch named yet
+   The invite-only beta on a real domain. Spec saved verbatim below,
+   keeping its **Launch data rules** section. ⚠ **Costs money** —
+   domain, two hosts and a managed database; ask first.
+
+4. **ui-tube-watch** · branch `ui-tube-watch`
    The CtrlAITube watch page: two columns, player sizing by video ratio,
    and a real comment section. Spec saved verbatim below.
 
-3. **budget-by-provider** · branch `feat-budget-by-provider`
+5. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including **Application flow** and
-   **Application and purchase model (decided)**, both added on
-   2026-10-01. The latter wins where the two disagree: approval is
-   automatic, and both providers are prepaid, so the item also owns
-   purchase records, club balances and carry-over.
+   **Application and purchase model (decided)**. The latter wins where
+   the two disagree: approval is automatic, and both providers are
+   prepaid, so the item also owns purchase records, club balances and
+   carry-over.
 
-4. **usage-analytics** · branch `feat-usage-analytics`
+6. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
-   reads the `UsageEvent` fields that item adds (provider, feature tag,
-   native units, KRW). Spec saved verbatim below.
+   reads the `UsageEvent` fields that item adds, several of which Phase 2
+   introduces first. Spec saved verbatim below.
 
-5. **project-video-management** · branch `feat-project-video-management`
+7. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**
    and the per-version generation settings.
 
-6. **account-withdrawal** · branch `feat-account-withdrawal`
+8. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-7. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
-   Spec saved verbatim below, including the **Length slider** section.
-
-8. **prep-beta-launch**
-   Only the **Launch data rules** are specified so far; the rest of the
-   item is still to be written. Spec below.
-
-9. **Phase 2 — Chat**
-   Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
-   conversations and messages, intent routing into Builder and Video,
-   usage event recording, budget checks. See `CLAUDE.md` section 20.
+9. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+   Spec saved verbatim below, including **Model-driven video settings**,
+   which replaced the earlier Length slider section.
 
 ### Merge order
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 3:
+Three things to carry into **budget-by-provider**, now at position 5:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -276,6 +286,103 @@ developer.
 
 ---
 
+## Phase 2 — Chat — full spec
+
+Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
+pointed at `CLAUDE.md` section 20. Saved exactly as written by the
+developer.
+
+**Moved from last place to position 2 on 2026-10-01**, which has
+consequences for three later items:
+
+- **Point 6 introduces the UsageEvent fields** that `budget-by-provider`
+  (position 5) and `usage-analytics` (position 6) were each going to add:
+  feature tag, exact model, input and output tokens, USD cost from a
+  per-model token price setting, the USD→KRW rate used, and the KRW
+  amount. Phase 2 now owns that migration. Those two items should extend
+  it rather than add it again.
+- **The Claude/Higgsfield budget rename has not happened yet** —
+  `budget-by-provider` point 1 does it, and it now comes afterwards. So
+  Phase 2 charges the existing `build` category through the existing
+  `charge()` service, and the rename sweeps it up later.
+- **Point 1's `ANTHROPIC_MODEL`** is already in `.env.example` and
+  `Settings`; this item is what finally reads it.
+
+> Goal: real Claude chat for members, ready for an invite-only beta.
+>
+> 1. Provider: a Claude adapter behind CLAUDE_PROVIDER (mock by default, "anthropic" for real). The model comes from ANTHROPIC_MODEL in the environment, never hard-coded. Max output tokens per reply and max conversation context are settings.
+> 2. Conversations: Conversation and Message tables with an Alembic migration. A conversation list in Chat (새 대화, rename, delete), the current conversation's history sent to Claude within the context limit (oldest messages trimmed first).
+> 3. Streaming replies in the existing chat UI, with a stop button. The Korean IME check before Enter stays.
+> 4. System prompt: Claude answers in Korean, explains simply for beginners, and suggests CTRL+AI features when relevant. When a message is about building an app or making a video, the reply shows simple action buttons ("Project Builder에서 시작", "Video Generator 열기") that open those screens with the idea pre-filled. No complex agent routing.
+> 5. Access and budget: require_active_member on every chat endpoint. Before each call, check the member's remaining Claude/Build budget; if it is insufficient, refuse with a Korean message and no provider call.
+> 6. Usage recording from the start, so later items need no backfill: each reply writes a UsageEvent with provider, feature tag "chat", exact model, input tokens, output tokens, cost in USD from an admin-editable per-model token price setting, the USD→KRW rate used, and the KRW amount, deducted through the existing budget service in the same transaction.
+> 7. Errors: clear Korean messages for invalid key, out of provider credit, rate limits, timeouts and network failures. A failed call is never charged to the member.
+> 8. Safety: the API key lives only in the backend environment and never reaches the browser or logs. A per-member rate limit (requests per minute) protects the budget.
+> 9. Admin › 시스템 shows Claude as "실제 연결" when configured, and the 연결 확인 check works with the real key.
+> 10. Real-provider check at the end: with my key in .env and CLAUDE_PROVIDER=anthropic, send one short real message, confirm the reply streams, the usage event and deduction are correct, and the error paths show Korean messages.
+>
+> Tests (all with the mock provider): conversations CRUD and ownership; inactive members get 403; insufficient budget is refused without a provider call; usage events store model, tokens, USD, rate and KRW; failed calls are not charged; the key never appears in any response.
+
+**Point 10 is the first time this project spends real money.** It needs a
+key in `.env` and `CLAUDE_PROVIDER=anthropic`, so it is a step to take
+with the developer present — CLAUDE.md section 21 rule 5. Points 1–9 and
+every test above run on the mock provider with no key.
+
+---
+
+## prep-beta-launch — full spec
+
+No branch named yet. Rewritten on 2026-10-01: the item used to be only the
+launch data rules, and now carries the full beta specification. Saved
+exactly as written by the developer.
+
+**Moved to position 3 on 2026-10-01**, directly after Phase 2. The order
+is deliberate: the beta is an invite-only launch whose one real feature is
+Claude chat, so Phase 2 has to exist first and everything else ships
+behind a test-mode label.
+
+**This is the item that costs money** — a domain, a frontend host, a
+backend host and a managed PostgreSQL. CLAUDE.md section 21 rule 5 and
+section 20's Phase 9 both apply: ask before creating any paid cloud
+resource. Point 4 below says the same thing.
+
+> Goal: an invite-only beta on my own domain, with real Claude chat and everything else clearly labelled as test mode.
+>
+> 1. Production readiness: backend Dockerfile (binds 0.0.0.0 and $PORT, runs alembic upgrade head as a documented step), all production settings from environment variables (backend URL for the Next.js /api rewrite, CORS origins, secure cookies, cookie domain, APP_ENV, DATABASE_URL), documented in .env.example with ctrlai.example as the placeholder domain.
+> 2. APP_ENV=beta:
+>    - Signup requires an invite code; Admin can create and revoke invite codes, written to the audit log.
+>    - A visible Korean beta banner on every page.
+>    - Features still on mock providers stay usable but are clearly labelled "테스트 모드 – 실제 AI 결과가 아닙니다".
+>    - Personal top-ups and any real-money features are disabled.
+>    - Development-only tools (simulator, sample data, dev seed) are unavailable.
+>    - A feedback button on every page: a short form saved to the database and listed in Admin, next to the existing Report Issue page.
+> 3. Domain layout: the frontend on the main domain (and www redirecting to it), the backend on an api subdomain; the browser only talks to the main domain through the /api rewrite.
+> 4. docs/deployment.md for a beginner: step-by-step setup of the frontend host, the backend host and a managed PostgreSQL; the environment variables for each; the exact DNS records to add at my registrar; how HTTPS is issued; running migrations; taking a database backup before each update; how redeploys work after each merged item; and keeping Anthropic auto-reload OFF. Mark every step that costs money, and never create cloud resources without asking me.
+> 5. Tests: invite-only signup, beta banner and test-mode labels, disabled top-ups, dev tools unavailable outside development, feedback saved, production refuses default admin passwords.
+
+**`APP_ENV=beta` is a third environment**, alongside `development` and
+production. `Settings.is_development` currently decides what is hidden
+(the dev tools, the usage simulator's 404), and a beta instance is not
+development — so point 2's list needs that distinction drawn explicitly
+rather than inherited.
+
+**Point 4 creates `docs/deployment.md`**, which does not exist today. Its
+"keep Anthropic auto-reload OFF" line is the same operator note
+`budget-by-provider` point 6 asks for; since this item comes first, that
+file will already exist by then.
+
+### Launch data rules
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+> - The production database starts empty: run migrations, then create only the admin account from ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD in the environment. No test members, sample projects, videos, usage or audit entries.
+> - The development seed (dev, testmember, test accounts, sample data) must refuse to run unless APP_ENV=development, with a test proving it.
+> - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
+> - Never copy the local database to production; the deployment guide says so explicitly.
+> - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
+
+---
+
 ## ui-tube-watch — full spec
 
 Branch `ui-tube-watch`. Added 2026-10-01. Saved exactly as written by the
@@ -374,9 +481,12 @@ members can already see. The cut preview itself is unaffected; when it
 runs, and what a member is told when their approved budget drops, is not
 decided here.
 
-**`docs/deployment.md` does not exist** — `docs/` holds `BACKLOG.md`,
-`architecture.md` and `ui-requests/` — so point 6 creates
-`docs/operations.md`.
+**Point 6's operator note probably already exists by the time this runs.**
+`docs/deployment.md` does not exist today, but `prep-beta-launch` at
+position 3 creates it, and its point 4 explicitly includes "keeping
+Anthropic auto-reload OFF" — the same note. So check that file first and
+extend it; a new `docs/operations.md` is only needed if the auto-reload
+and manual-top-up guidance has nowhere sensible to live there.
 
 > Context: Claude API and Higgsfield are both prepaid. Credits must be bought per provider before use and cannot be moved between providers afterwards, so the club needs each quarter's split before buying.
 >
@@ -527,40 +637,39 @@ Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
 >
 > Tests: edit and extend create linked versions; unsupported models hide edit/extend; inactive members are refused; the Higgsfield budget is deducted; the Claude panel never triggers a Higgsfield call.
 
-### Length slider
+### Model-driven video settings
 
-Added 2026-10-01. Saved exactly as written by the developer.
+Added 2026-10-01, replacing the **Length slider** section of the same
+date. Saved exactly as written by the developer.
 
-> - Replace the 5초 / 10초 / 15초 buttons with a slider from 1 to 60 seconds plus a number input next to it, kept in sync, in 1-second steps.
-> - Each model in the 영상 모델 catalogue gets min_seconds, max_seconds and step. Only the selected model's range is selectable; the rest of the slider is visibly greyed out, with a short Korean reason.
-> - Typing a value outside the model's range snaps to the nearest allowed value with a short Korean notice. If the member wants longer than the model's maximum, suggest "이어서 만들기" to reach that length.
-> - The estimated cost in 원 and the summary line above the generate button update live as the length changes.
-> - The chosen length is saved on each version.
-> - Tests: values outside the model range are rejected by the backend; the slider and input stay in sync; the cost estimate matches length × the model's per-second price.
+> Model-driven video settings: everything in video creation follows the selected Higgsfield model.
+>
+> 1. Each model in the 영상 모델 catalogue stores its own options: allowed durations (a list of seconds), aspect ratios, resolutions, sound support, edit support, extend support, default values, and price per second for each resolution. Admin edits these in 영상 모델, with validation.
+> 2. The Video workspace shows only the selected model's options as buttons (길이, 비율, 화질, 소리), with that model's defaults pre-selected. Options the model does not offer are not shown at all.
+> 3. Changing the model re-applies its options: choices that still exist are kept, others switch to the new model's default, with a short Korean notice of what changed.
+> 4. Edit and extend buttons appear only if the model supports them; in edit mode length and ratio come from the source video.
+> 5. The summary line and the estimated cost in 원 (duration × the model's price for the chosen resolution) update live.
+> 6. The backend rejects any request whose settings are not in the selected model's catalogue entry, and each version stores the exact settings used.
+>
+> Tests: only the model's options are offered; invalid combinations are rejected by the backend; switching models keeps or resets choices correctly; the cost estimate matches the catalogue price.
 
-**Note.** "The chosen length is saved on each version" is the same column
-**project-video-management** adds (`duration_seconds` on `VideoVersion`),
-and that item comes first in the order. It owns the migration; this item
-uses the column and adds `min_seconds` / `max_seconds` / `step` to the
-model catalogue.
+**What changed from Length slider.** That section asked for a 1–60 second
+slider with `min_seconds` / `max_seconds` / `step` per model. This replaces
+it with a **list of allowed durations** shown as buttons — a model offers
+specific lengths, not a continuous range, so a slider would let a member
+pick a value no model accepts. `resolutions` and a per-resolution price
+are new, which makes the cost estimate depend on 화질 as well as length.
 
----
+**Point 6's per-version settings are the column
+`project-video-management` adds** (`duration_seconds`, `aspect_ratio`,
+`sound` on `VideoVersion`), and that item is at position 7, ahead of this
+one. It owns that migration; this item uses the columns, adds the
+catalogue fields in point 1, and will need a further column for the
+chosen resolution.
 
-## prep-beta-launch — full spec
-
-No branch named yet. Only the launch data rules below are specified; the
-rest of this item — who the beta members are, what they are asked to try,
-and what counts as ready — is still to be written.
-
-### Launch data rules
-
-Added 2026-10-01. Saved exactly as written by the developer.
-
-> - The production database starts empty: run migrations, then create only the admin account from ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD in the environment. No test members, sample projects, videos, usage or audit entries.
-> - The development seed (dev, testmember, test accounts, sample data) must refuse to run unless APP_ENV=development, with a test proving it.
-> - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
-> - Never copy the local database to production; the deployment guide says so explicitly.
-> - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
+**Point 1 overlaps `VideoModel.capabilities`**, the free-form JSON column
+that already exists for exactly this purpose but whose shape is not
+enforced. Point 1's "with validation" is what finally fixes that shape.
 
 ---
 
