@@ -15,17 +15,17 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. Two branches are finished and waiting on review:
+Nothing is being built. `phase-1c-usage-audit` is merged, so Phase 1 is
+complete on `main`. One branch is finished and waiting on review:
 
 | Branch | State |
 | ------ | ----- |
-| `phase-1c-usage-audit` | **Complete, unmerged.** 6 commits. Transactional charging with a row lock, the usage ledger, the append-only audit log, the real admin member list with a KRW credit panel, a development-only simulate action, and the Usage page redesign. 128 tests passing. |
 | `ui-brand-refresh` | **Complete, unmerged.** 11 commits. CTRL+AI name and + logo, lucide icons, the neutral dark palette, the `/issues` page, the rebuilt Chat screen, the Usage card redesign, and the Video length/ratio/sound controls. |
 
-They touch the same files — `globals.css`, `usage/page.tsx`,
-`usage/usage.module.css`, `admin/page.tsx` and `README.md` all conflict
-between the two — so the merge order has to be decided rather than
-stumbled into.
+It was branched before Phase 1c landed, so merging `main` into it will
+conflict in `globals.css`, `usage/page.tsx`, `usage/usage.module.css`,
+`admin/page.tsx` and `README.md`. Keep the real usage data from `main` and
+re-apply the styling on top of it.
 
 ---
 
@@ -52,25 +52,21 @@ stumbled into.
 > they are not in this backlog and no spec has been given for them:
 > **membership-access-fix** (would be 2nd) and **video-higgsfield-only**
 > (would be 5th). Send a spec for either and it goes in at that position.
->
-> **Phase 1c** was not in the requested order either, but it is finished
-> work rather than a future item, so it is recorded under **Now** instead
-> of being dropped.
+
 
 ### Merge order
 
-`main` contains Phase 1a and Phase 1b. Two branches are waiting:
+`main` contains Phase 1a, Phase 1b and Phase 1c. One branch is waiting:
 
 ```text
-main  <-  phase-1c-usage-audit     (6 commits, complete)
 main  <-  ui-brand-refresh         (11 commits, complete)
 ```
 
-They conflict with each other in five files. `phase-1c-usage-audit`
-carries the real usage data, and `ui-brand-refresh` carries the styling of
-the same screens, so merging 1c first and then resolving the UI branch
-against it keeps the real data and loses only styling that can be
-re-applied.
+`ui-brand-refresh` is behind `main` by the whole Phase 1c merge. Merge
+`main` into the branch first (never rebase, never force-push), resolve the
+five overlapping files by keeping the real usage data from `main` and
+re-applying the new styling on top, then run the tests and the build
+before merging the branch back.
 
 ---
 
@@ -207,6 +203,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **Phase 1c — usage ledger and audit log** — charging and the `UsageEvent` row in one transaction behind a `SELECT ... FOR UPDATE` lock, the real admin member list with quarter enrolment and a KRW credit panel, the append-only `AuditLog` with a read-only admin view, a development-only simulate-usage action, the Usage page redesign | `phase-1c-usage-audit` |
 | 2026-10-01 | **Phase 1b — membership** — per-quarter `QuarterMembership`, `require_active_member` on paid creation endpoints, former members locked out with attribution preserved, live membership in the sidebar, Profile and Usage header, Korean monospace fix | `phase-1b-membership` |
 | 2026-10-01 | **Phase 1a — auth** — username/password with Argon2id, HttpOnly same-origin session cookie via the Next.js `/api/*` rewrite, real `get_current_user` / `require_admin` on every route | `phase-1a-auth` |
 | 2026-10-01 | **Phase 1 foundation** — quarters, applications, KRW budgets, allocations, personal wallet and top-ups, Builder/Video project groundwork with libraries and workspaces | `phase/1-foundation` |
