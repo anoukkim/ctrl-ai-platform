@@ -171,6 +171,39 @@ class MemberWithMembership(BaseModel):
     membership_status: MembershipStatus | None
 
 
+class RoleUpdate(BaseModel):
+    """Admin changing a member's system role."""
+
+    role: UserRole
+
+
+class AllocationAdjust(BaseModel):
+    """Admin adjusting an approved allocation, in KRW.
+
+    Figures are absolute, not deltas: an admin types what the budget
+    should be, which is what the panel shows them.
+    """
+
+    build_budget_krw: int = Field(ge=0, le=100_000_000)
+    video_budget_krw: int = Field(ge=0, le=100_000_000)
+    note: str = Field(default="", max_length=200)
+
+
+class AuditLogRead(BaseModel):
+    """One row of the read-only audit view."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+    actor_username: str
+    action: str
+    action_label: str = ""
+    target_type: str
+    target_label: str
+    summary: str
+
+
 class MyQuarterStatus(BaseModel):
     """Everything Profile needs about the member's standing this quarter."""
 
