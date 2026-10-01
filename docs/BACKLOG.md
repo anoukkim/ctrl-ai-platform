@@ -15,12 +15,24 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. `main` holds Phase 1, UI batch 1,
-membership-access-fix, admin-restructure and ui-naming. No branch is
-open.
+**fix-video-workspace-hang** is built on `fix-video-workspace-hang` and
+**waiting on review**. Not merged — finishing the work is not approval.
 
-Next up is **fix-video-workspace-hang** on `fix-video-workspace-hang`,
-branched from an up-to-date `main`; the spec is saved verbatim below.
+What it found: the workspace discarded the very response that would have
+ended the loading screen. React runs the load effect twice on mount
+(StrictMode) and again on switching projects; the superseded run's
+cleanup marked it cancelled, so its 200 was thrown away, and the screen
+then depended entirely on the second request. When that one did not
+deliver there was nothing left to leave `loading` — no retry, no timeout,
+no error card. That is why every request read 200 and the console stayed
+clean.
+
+Reproduced on the running app by switching between two video projects
+through the in-page switcher; it is a race, so it needs repetition rather
+than a single click. Project Builder had the same effect and the same
+switcher, so it was fixed alongside. Covered by
+`frontend/__tests__/workspace-load.test.tsx`, which fails on three of its
+four cases without the fix.
 
 The **Next** order was rewritten again on 2026-10-01, and this is the
 final order. **Phase 2 — Chat** moves from last place to 2 and
@@ -40,7 +52,8 @@ category because the Claude/Higgsfield rename comes later.
 ## Next (in order)
 
 1. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
-   A real, reproduced bug. Spec saved verbatim below.
+   A real, reproduced bug. **Built, waiting on review** — see **Now**.
+   Spec saved verbatim below.
 
 2. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
@@ -82,7 +95,8 @@ category because the Claude/Higgsfield rename comes later.
 
 ### Merge order
 
-Nothing is waiting. Branch the next item from an up-to-date `main`.
+**fix-video-workspace-hang** is waiting on review. Branch the next item
+from `main` once it is merged.
 
 Three things to carry into **budget-by-provider**, now at position 5:
 
