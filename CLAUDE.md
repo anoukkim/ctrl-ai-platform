@@ -1156,7 +1156,7 @@ the full navigation, FastAPI backend, PostgreSQL via Docker Compose,
 `/api/health`, Korean-first UI, and a single dark theme. Anything not yet
 built renders a **준비 중** badge with disabled controls.
 
-## Phase 1 — Accounts + Quarters + Credits
+## Phase 1 — Accounts + Quarters + Credits ✅ Complete
 
 Phase 1 is three sub-phases. Do them in order: 1b and 1c both assume a real
 signed-in user, which only 1a provides.
@@ -1234,28 +1234,40 @@ Admins can also set participation directly
 (`PUT /api/admin/quarters/{id}/members/{user_id}`). Setting `former` closes
 the account at the same time, so the two statuses cannot drift apart.
 
-### Phase 1c — Allocation, usage and administration
+### Phase 1c — Allocation, usage and administration ✅ Complete
 
-- `QuarterAllocation` — created by admin approval, copying the requested figures
-- `PersonalBalance` / `PersonalTopUp`
-- `UsageEvent` and the **Usage page on real data**
-- admin member list
-- admin quarter enrolment
-- admin credit allocation
-- **audit log for admin changes** — every membership and allocation change
-  records who did it, to what, and when
+- ✅ `QuarterAllocation` — created by admin approval, copying the requested figures
+- ✅ `PersonalBalance` / `PersonalTopUp`
+- ✅ `UsageEvent` and the **Usage page on real data**
+- ✅ admin member list
+- ✅ admin quarter enrolment
+- ✅ admin credit allocation, in KRW
+- ✅ **audit log for admin changes**
 
-Partly built. Allocations, personal balance and manual top-ups work. Three
-gaps remain, all real:
+**Money moves in one transaction.** `app/services/usage.py` is the only
+place a budget is reduced. It locks the allocation row with
+`SELECT ... FOR UPDATE`, checks the money is there, then deducts it and
+writes the `UsageEvent` — all before committing. Without the lock, two
+concurrent requests both read the same remaining figure, both decide the
+charge is affordable, and the member ends up overdrawn. There is a test
+that proves this: with the lock removed, eight concurrent 20,000원 charges
+against a 100,000원 budget spend 160,000원.
 
-1. **Usage is still mock.** `UsageEvent` exists as a model with nothing
-   reading or writing it, and there is no usage route in the API. The Usage
-   screen renders `frontend/lib/mock-data.ts` and therefore contradicts the
-   live allocation shown on Profile.
-2. **The admin member list is still mock**, and contradicts the same figures.
-3. **No audit log exists yet.**
+A charge is paid from **one** pot, never split. Personal money is used
+only when the member has enabled overage and has enough, which keeps the
+Usage screen explainable and matches section 9.
 
-Use mock providers throughout — see the provider rule above.
+**The audit log is append-only.** Nothing in the application updates or
+deletes a row, and the API exposes only a list. `actor_user_id` is
+`ON DELETE SET NULL` with the username denormalised, so removing an admin
+account never erases the record of what they changed.
+
+**Simulate usage** (`POST /api/admin/simulate-usage`) spends a budget
+without calling a provider, so the Usage screen and the audit log can be
+exercised before Phases 2 and 6. It goes through the same `charge()` the
+real providers will use — a shortcut writing its own ledger row would
+prove nothing. It returns **404 outside development**, not 403: a deployed
+instance should not reveal that the route exists.
 
 ## Phase 2 — Chat
 
@@ -1578,37 +1590,33 @@ chore.
 
 # 23. Current status / next task
 
-**Phase 0 is complete.** The product shell runs locally — see section 20.
+**Phase 0 and Phase 1 are complete.** Accounts, quarters, participation,
+budgets, the usage ledger and the audit log all work end to end against a
+real database, with no provider connected.
 
-**Phase 1a is complete** on branch `phase-1a-auth` (not yet merged):
-registration, sign-in and sign-out with Argon2 hashing, a server-side
-session cookie, `/api/*` proxied through Next.js, and real
-`get_current_user` / `require_admin` in front of every route.
+- **Phase 1a** — auth: Argon2id, HttpOnly same-origin session cookie,
+  real `get_current_user` / `require_admin`. Merged.
+- **Phase 1b** — membership: per-quarter `QuarterMembership`,
+  `require_active_member` on paid creation. Merged.
+- **Phase 1c** — usage ledger and audit log, on branch
+  `phase-1c-usage-audit`. Not yet merged.
 
-**Phase 1b is complete** on branch `phase-1b-membership` (not yet merged,
-and it builds on `phase-1a-auth`): per-quarter `QuarterMembership`,
-`require_active_member` on every paid creation endpoint, former members
-locked out while their attribution survives, and the sidebar, Profile and
-Usage header reading live membership instead of mock data.
+**The next task is Phase 2 — Chat** (section 20):
 
-**Merge order matters:** `phase-1a-auth` first, then
-`phase-1b-membership`.
+> Add the backend Claude adapter behind `CLAUDE_PROVIDER`, mock by
+> default, so the whole of Chat can be built without an Anthropic key.
+> Store conversations and messages. Route simple intents into Project
+> Builder and Video Generator — explicit actions, not an agent router.
+> Record a `UsageEvent` for every reply through the existing
+> `charge()` service, and check the budget before calling the provider,
+> never after.
 
-**The next task is Phase 1c** (section 20): the usage ledger and the audit
-log.
+`docs/BACKLOG.md` holds the order of work, including the `ui-brand-refresh`
+batch queued after Phase 1c.
 
-> Give `UsageEvent` an API and write to it, so the Usage screen shows real
-> spending instead of `frontend/lib/mock-data.ts`. Replace the mock admin
-> member list with the live one — `GET /api/admin/quarters/{id}/members`
-> already returns it. Add the audit log so every admin membership and
-> allocation change records who did it, to what, and when.
+No mock data remains in the money path. What is still mock: the CtrlAI
+Apps and CtrlAITube listings (Phases 5 and 8) and the Chat replies
+(Phase 2).
 
-Known gaps still open in Phase 1c:
-
-- the Usage **body** (amounts and 최근 사용 내역) and the admin member list
-  still render mock data; the Usage **header** is live
-- `UsageEvent` has no API route and nothing writes to it
-- no audit log for admin membership or allocation changes
-
-Do not start Phase 2 until Phase 1 is finished. Do not start Phase 9 or
-create any paid cloud resource without asking first.
+Do not start Phase 9 or create any paid cloud resource without asking
+first.

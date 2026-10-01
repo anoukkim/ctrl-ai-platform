@@ -127,3 +127,32 @@
   font-weight: 400;
   color: var(--text-dim);
 }
+
+/* ---------- 감사 로그 / 시뮬레이션 (Phase 1c) ---------- */
+
+.auditWhen {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.simulateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.simulateRow .field {
+  width: auto;
+  min-width: 8rem;
+  flex: 0 1 12rem;
+}
+
+.quarterPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}

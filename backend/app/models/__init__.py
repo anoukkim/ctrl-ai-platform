@@ -5,6 +5,7 @@ Alembic's autogenerate and the test fixtures read. A model that is not
 imported here is invisible to both.
 """
 
+from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
 from app.models.builder import BuilderProject, BuilderProjectStatus
 from app.models.quarter import (
     ApplicationStatus,
@@ -43,7 +44,10 @@ __all__ = [
     "QuarterStatus",
     "TopUpStatus",
     "UsageEvent",
+    "AUDIT_ACTION_LABEL",
     "AccountStatus",
+    "AuditAction",
+    "AuditLog",
     "User",
     "UserRole",
     "UserSession",
