@@ -22,15 +22,28 @@ Chat is the main entry point where users can:
 The main product areas are:
 
 1. Chat
-2. Builder
+2. Builder — screen name **Project Builder**
 3. Video Generator
-4. App Store
+4. **CtrlAI Apps** — the community app store (route stays `/ctrlaistore`)
 5. CtrlAITube
-6. Usage / Credits
+6. **Usage**
 7. Profile
 8. Admin
 
-Names are working names and may change.
+## Decisions settled in Phase 0
+
+These were open questions when this document was first written. Phase 0
+answered them, and they are no longer up for debate:
+
+| Decision | Settled as |
+| -------- | ---------- |
+| Interface language | **Korean-first.** Product names (Ctrl AI, Chat, Project Builder, Video Generator, CtrlAI Apps, CtrlAITube, Usage, Profile, Admin) and external service names (Claude, Higgsfield, GitHub, YouTube) stay in English. Everything a member reads or writes is Korean. |
+| App store screen name | **CtrlAI Apps.** The route stays `/ctrlaistore` so existing links do not break. |
+| Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
+| Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
+| Roles | **`admin` and `member` only.** |
+
+Remaining names in this document are working names and may still change.
 
 ---
 
@@ -44,7 +57,7 @@ The desired experience is:
 
 For apps:
 
-`Chat/Idea -> Builder -> Claude-assisted project -> GitHub -> Publish -> App Store`
+`Chat/Idea -> Builder -> Claude-assisted project -> GitHub -> Publish -> CtrlAI Apps`
 
 For videos:
 
@@ -87,11 +100,11 @@ User:
 Ctrl AI can show:
 - Claude credits
 - Higgsfield/video credits
-- current season allocation
+- current quarter allocation
 - recent usage
 
 User:
-> Show me the apps I made last season.
+> Show me the apps I made last quarter.
 
 Ctrl AI can route to:
 - Profile -> My Projects / My Apps
@@ -227,15 +240,15 @@ Builder should eventually support:
 
 Do NOT ask members to paste personal access tokens into Ctrl AI.
 
-### 4.5 Publishing to App Store
+### 4.5 Publishing to CtrlAI Apps
 
 When a project is ready:
 
 `Builder project -> Publish`
 
-Publishing creates or updates an App Store listing.
+Publishing creates or updates a CtrlAI Apps listing.
 
-The Builder project and App Store listing should be related but not identical.
+The Builder project and CtrlAI Apps listing should be related but not identical.
 
 Project = private/working development object.
 
@@ -243,9 +256,11 @@ App = community-facing published object.
 
 ---
 
-# 5. App Store
+# 5. CtrlAI Apps
 
-Working name: **App Store**
+Screen name: **CtrlAI Apps** (settled in Phase 0). The route is
+`/ctrlaistore`, kept from the earlier "App Store" working name so existing
+links do not break.
 
 This is the public/community surface for completed member projects.
 
@@ -281,7 +296,7 @@ Show:
 - comments
 - threaded replies
 
-Published apps should remain visible even if the developer is no longer an active seasonal member.
+Published apps should remain visible even if the developer is no longer participating in the current quarter.
 
 ---
 
@@ -427,37 +442,44 @@ This makes community reactions independent from the creator's YouTube channel.
 
 ---
 
-# 9. Usage / Credits
+# 9. Usage
 
-Working name options:
-- Usage
-- My Credits
-- Balance
-- Usage & Credits
-
-Recommended user-facing name: **Usage & Credits**
+The screen is called **Usage** (settled in Phase 0 — not "Usage & Credits",
+"My Credits" or "Balance"). The route is `/usage`.
 
 Members should easily see what they have left.
 
 Example:
 
 ```text
-This Season
+2026 Q1
 
-Claude
-Allocated: 2,000,000 tokens
-Used:      650,000
-Remaining: 1,350,000
+COMMUNITY SUPPORT
+
+Build
+지원: 70,000원
+사용: 24,500원
+남음: 45,500원
 
 Video
-Allocated: 100 credits
-Used:      35
-Remaining: 65
+지원: 30,000원
+사용: 12,000원
+남음: 18,000원
+
+PERSONAL BALANCE
+
+충전 잔액:     30,000원
+개인 사용:      5,000원
+남은 개인 잔액: 25,000원
 ```
 
-The system should support different units because Claude and video-generation providers may not bill in the same way.
+**KRW is the financial source of truth.** Budgets are stored in won, never
+in tokens or generations: provider prices change, and an approved
+allocation must not move when they do. A provider-specific quota may be
+*displayed* using the pricing captured at approval time.
 
-Do not force everything into a fake universal "token" unit internally.
+Community support and personal money are shown separately and never added
+together. Personal funds are not part of the quarterly subsidy.
 
 Use concepts such as:
 
@@ -473,31 +495,65 @@ Admin can choose what simplified units members see.
 
 ---
 
-# 10. Seasonal Membership
+# 10. Quarterly Participation
 
-Ctrl AI operates in seasons.
+Ctrl AI operates by calendar quarter. A quarter is normally three months.
+(The earlier four-month "Season" concept is no longer used anywhere.)
 
 Examples:
-- 2026 Season 1
-- 2026 Season 2
-- 2027 Season 1
+- 2026 Q1
+- 2026 Q2
+- 2026 Q3
+- 2026 Q4
 
-Users can participate in one or more seasons.
+Users can participate in one or more quarters.
 
-Do NOT delete their work simply because they are not active in the current season.
+Do NOT delete their work simply because they are not active in the current quarter.
 
 Separate:
 
 1. Account
-2. Seasonal Membership
+2. Quarterly Participation
 3. Published Work
 
-## Seasonal Membership Status
+## Credits are not automatic
+
+A user does not receive quarterly credits by existing. The flow is:
+
+```text
+Admin opens applications for a Quarter
+  -> user sees applications are open in Profile
+  -> user applies, splitting their budget between Build and Video
+  -> admin reviews and approves
+  -> the approved allocation becomes usable
+```
+
+The Build and Video percentages must add up to exactly 100%.
+
+## Quarterly subsidy limit
+
+Each approved member may receive at most **100,000 KRW per quarter** of
+community-funded budget, combined across Build and Video.
+
+```text
+Build 100% / Video   0%  =  100,000 /       0
+Build  70% / Video  30%  =   70,000 /  30,000
+Build  50% / Video  50%  =   50,000 /  50,000
+Build  20% / Video  80%  =   20,000 /  80,000
+Build   0% / Video 100%  =        0 / 100,000
+```
+
+This figure is NOT a constant scattered through the code. The default
+lives in configuration; each Quarter copies it at creation and keeps its
+own, so an admin can change it for a future quarter without altering a
+quarter that already ran.
+
+## Participation status
 
 Suggested statuses:
 
-- `active` — participating in this season and has access
-- `inactive` — account exists but user is not participating in the current season
+- `active` — participating in this quarter and has access
+- `inactive` — account exists but user is not participating in the current quarter
 - `former` — member has left the community
 
 Recommended English UI labels:
@@ -521,7 +577,7 @@ Can:
 - publish/comment/react according to permissions
 
 ### Inactive Member
-Cannot use paid/private creation features for the current season.
+Cannot use paid/private creation features for the current quarter.
 
 Their:
 - projects remain
@@ -530,7 +586,7 @@ Their:
 - profile remains
 - GitHub/YouTube links can remain stored subject to security policy
 
-They may join a future season and continue existing work.
+They may join a future quarter and continue existing work.
 
 ### Former Member
 No normal platform access.
@@ -582,7 +638,7 @@ Profile can show:
 - username
 - display name
 - membership status
-- seasons participated
+- quarters participated
 - apps
 - videos
 - projects (private to owner)
@@ -594,7 +650,7 @@ Profile can show:
 
 # 12. Admin
 
-Admin is especially important because access and credits are seasonal.
+Admin is especially important because access and credits are quarterly, and because every allocation passes through an approval.
 
 Admin features should eventually include:
 
@@ -604,14 +660,22 @@ Admin features should eventually include:
 - mark inactive
 - mark former
 - assign role
-- enroll user into a season
-- reactivate user for a later season
+- enrol user into a quarter
+- reactivate user for a later quarter
 
-## Seasons
-- create season
+## Quarters
+- create quarter
 - start/end dates
+- application open/close dates
+- subsidy limit for the quarter
+- open and close applications
 - status
-- enrollment
+
+## Quarter applications
+- view applicants
+- review the requested Build/Video split
+- approve or reject
+- approving creates the allocation
 
 ## Credit Allocation
 Admin should be able to open a member and assign resources.
@@ -619,18 +683,20 @@ Admin should be able to open a member and assign resources.
 Example:
 
 ```text
-Yuri
+김유리
 
-Season: 2026 S2
+Quarter: 2026 Q1
 
-Claude tokens:
-[ 2,000,000 ]
+Requested:
+Build  70%  =  70,000원
+Video  30%  =  30,000원
 
-Higgsfield credits:
-[ 100 ]
-
-[ Save Allocation ]
+[ 승인 ]  [ 거절 ]
 ```
+
+Admin normally approves the requested split as submitted. The approved
+allocation copies the requested figures, so a later change to the
+quarter's subsidy limit cannot move an allocation that already exists.
 
 This is preferable to putting raw provider API keys in member accounts.
 
@@ -647,15 +713,13 @@ Admin may later:
 
 # 13. Roles
 
-Initial system roles:
+System roles are **`admin` and `member` only** (settled in Phase 0):
 
 - `admin`
 - `member`
 
-Optional later:
-- `moderator`
-
-Do not create unnecessary complex RBAC at the beginning.
+There is no `moderator` and no `developer` role. Do not create unnecessary
+complex RBAC at the beginning.
 
 "Developer" should NOT necessarily be an account role because any active member may create an app.
 
@@ -679,39 +743,82 @@ This is direction, not a requirement to implement everything immediately.
 - created_at
 - updated_at
 
-## Season
+## Quarter
 - id
-- name
+- code: "2026-Q1"
+- display_name: "2026 Q1"
 - starts_at
 - ends_at
-- status
+- application_opens_at
+- application_closes_at
+- status: draft | application_open | active | closed
+- subsidy_limit_krw
 
-## SeasonMembership
+## QuarterApplication
 - id
 - user_id
-- season_id
-- status
-- joined_at
-- ended_at
+- quarter_id
+- build_percentage
+- video_percentage
+- requested_total_budget_krw
+- requested_build_budget_krw
+- requested_video_budget_krw
+- status: draft | submitted | approved | rejected | cancelled
+- submitted_at
+- reviewed_at
+- reviewed_by
+- admin_note
 
-## CreditAllocation
+One live application per user per quarter.
+
+## QuarterAllocation
 - id
 - user_id
-- season_id
-- provider
-- resource_type
-- allocated_amount
-- consumed_amount
+- quarter_id
+- community_total_budget_krw
+- build_budget_krw
+- video_budget_krw
+- build_percentage
+- video_percentage
+- build_consumed_krw
+- video_consumed_krw
+- pricing_snapshot (provider prices captured at approval)
+- approved_at
+- approved_by
+
+## PersonalBalance
+- id
+- user_id
+- balance_krw
+- consumed_krw
+- overage_enabled (the member must opt in before personal money is spent)
+
+## PersonalTopUp
+- id
+- user_id
+- amount_krw
+- status: requested | confirmed | rejected | cancelled
+- requested_at
+- confirmed_at
+- confirmed_by
+- payment_reference
 
 ## UsageEvent
 - id
 - user_id
-- season_id
+- quarter_id
+- category: build | video
+- funding_source: community_build | community_video | personal
 - provider
-- resource_type
-- quantity
-- provider_cost
+- model_id
+- provider_units / provider_unit
+- provider_cost / provider_currency
+- charged_krw
+- builder_project_id / video_project_id
 - created_at
+
+`provider_cost` (what the provider charged) and `charged_krw` (what moved
+a budget) are deliberately separate figures.
 - related_project_id nullable
 - related_video_id nullable
 
@@ -798,16 +905,19 @@ Recommended desktop navigation:
 Ctrl AI
 
 Chat
-Builder
+Project Builder
 Video Generator
 
 Explore
-  App Store
+  CtrlAI Apps
   CtrlAITube
 
-Usage & Credits
+Usage
 Profile
 ```
+
+As built in Phase 0, the sidebar groups these in Korean — 만들기 / 둘러보기 /
+내 정보 / 관리 — while the item names themselves stay in English.
 
 Admin sees:
 
@@ -879,7 +989,7 @@ Non-negotiable:
 - do not ask users to paste GitHub PATs
 - authorization must be checked in backend
 - inactive/former users must lose paid creation access
-- provider usage must be attributable to a user and season
+- provider usage must be attributable to a user and quarter
 - arbitrary generated app code must NOT execute on the main backend
 - app execution requires an isolated sandbox/runtime later
 - production credentials belong in a secret manager
@@ -933,6 +1043,14 @@ DATABASE_URL=postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai
 
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
+# Provider selection. Mock is the default everywhere, so the whole
+# platform runs with no keys. See section 20.
+CLAUDE_PROVIDER=mock
+VIDEO_PROVIDER=mock
+GITHUB_PROVIDER=mock
+YOUTUBE_PROVIDER=mock
+
+# Only needed when the matching provider above is switched off mock.
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=
 
@@ -950,13 +1068,49 @@ GOOGLE_REDIRECT_URI=
 
 Never put secrets in `NEXT_PUBLIC_*`.
 
+An empty provider key is not an error while that provider is `mock`. A
+missing key must only fail at startup when the real implementation is
+selected.
+
 ---
 
 # 20. Development Phases
 
 Do not build the whole platform at once.
 
-## Phase 0 — Product Shell
+**Build every phase locally first. Deploy last.** There is no domain, no
+server and no provider API key, and none of Phases 0–8 need one. Going live
+is Phase 9 and nothing before it depends on that work.
+
+## The provider rule — applies to every phase
+
+Every external provider sits behind a **provider interface with a mock
+implementation**, and the implementation is chosen by an environment
+variable. **The mock is the default.**
+
+| Provider | Variable | Values |
+| -------- | -------- | ------ |
+| Claude | `CLAUDE_PROVIDER` | `mock` (default) \| `anthropic` |
+| Higgsfield | `VIDEO_PROVIDER` | `mock` (default) \| `higgsfield` |
+| GitHub | `GITHUB_PROVIDER` | `mock` (default) \| `github` |
+| Google/YouTube | `YOUTUBE_PROVIDER` | `mock` (default) \| `google` |
+
+Consequences, all deliberate:
+
+- Every phase can be built, run and tested with **no API keys and no domain**.
+- A mock returns plausible, deterministic data so the UI and the usage
+  ledger can be exercised end to end — including failure paths.
+- Switching to a real provider is a configuration change in Phase 9, not a
+  rewrite. If swapping the variable requires touching a screen or a route,
+  the interface was drawn in the wrong place.
+- Tests run against mocks and therefore never contact a paid API.
+- OAuth phases (4 and 7) use **localhost callback URLs** during development.
+  Production callback URLs are registered in Phase 9.
+
+The existing `VideoModel` catalogue already follows this shape: the model
+list lives in the database, and the provider field names who would serve it.
+
+## Phase 0 — Product Shell ✅ Complete
 
 Goal: make the product concept visible locally.
 
@@ -969,9 +1123,9 @@ Build:
 - Chat as opening/default page
 - Builder mock page
 - Video Generator mock page
-- App Store mock page
+- CtrlAI Apps mock page
 - CtrlAITube mock page
-- Usage & Credits mock page
+- Usage mock page
 - Profile mock page
 - Admin mock page
 - responsive basic layout
@@ -997,32 +1151,86 @@ Video page should visually show future:
 
 Do NOT implement real authentication/provider APIs/GitHub/YouTube yet.
 
-Stop after Phase 0 and report.
+**Delivered.** The shell runs locally: Next.js frontend with every screen and
+the full navigation, FastAPI backend, PostgreSQL via Docker Compose,
+`/api/health`, Korean-first UI, and a single dark theme. Anything not yet
+built renders a **준비 중** badge with disabled controls.
 
-## Phase 1 — Accounts + Seasons + Credits
+## Phase 1 — Accounts + Quarters + Credits
 
-Implement:
-- username/password auth
-- User
-- Season
-- SeasonMembership
-- active/inactive/former behavior
-- Usage & Credits
+Phase 1 is three sub-phases. Do them in order: 1b and 1c both assume a real
+signed-in user, which only 1a provides.
+
+Status below reflects what has actually been verified running, not what
+exists on disk.
+
+### Phase 1a — Auth and the foundations underneath it ← **next**
+
+- **username/password auth** — registration, login, logout, password
+  hashing (never plaintext), server-side session or token
+- **Alembic migrations replace `create_all`** — Alembic owns the schema from
+  here on. `create_all` must not be reintroduced; every schema change is a
+  migration, and migrations are what run in production in Phase 9.
+- **Next.js rewrites proxy `/api/*` to FastAPI** — so the browser sees one
+  origin. This is what makes **HttpOnly cookies** work: a cookie set by the
+  backend is same-origin to the frontend, so it is sent automatically and is
+  unreadable from JavaScript. The same arrangement holds in production,
+  which is why it is worth doing now rather than retrofitting CORS and
+  cross-site cookie flags later.
+
+Already in place: Alembic is installed and owns the schema (`alembic upgrade
+head` then `python -m app.db.init_db`); `create_all` is gone. Still to do:
+auth itself and the rewrite proxy. Until auth lands, `get_current_user`
+returns a fixed development user and refuses to run outside development.
+
+### Phase 1b — Quarters and membership
+
+- `Quarter`
+- `QuarterApplication` — one live application per member per quarter
+- active / inactive / former behaviour, enforced in the backend
+
+Largely built. Quarters, applications, the Build/Video split rule (must
+total exactly 100%) and admin review all work end to end. What remains is
+enforcing participation status: an inactive or former member must lose paid
+creation access, and that check does not exist yet because there is no
+real signed-in user to check (see 1a).
+
+### Phase 1c — Allocation, usage and administration
+
+- `QuarterAllocation` — created by admin approval, copying the requested figures
+- `PersonalBalance` / `PersonalTopUp`
+- `UsageEvent` and the **Usage page on real data**
 - admin member list
-- admin seasonal enrollment
+- admin quarter enrolment
 - admin credit allocation
+- **audit log for admin changes** — every membership and allocation change
+  records who did it, to what, and when
 
-Use development/mock providers initially.
+Partly built. Allocations, personal balance and manual top-ups work. Three
+gaps remain, all real:
+
+1. **Usage is still mock.** `UsageEvent` exists as a model with nothing
+   reading or writing it, and there is no usage route in the API. The Usage
+   screen renders `frontend/lib/mock-data.ts` and therefore contradicts the
+   live allocation shown on Profile.
+2. **The admin member list is still mock**, and contradicts the same figures.
+3. **No audit log exists yet.**
+
+Use mock providers throughout — see the provider rule above.
 
 ## Phase 2 — Chat
 
 Implement:
-- backend Claude adapter
+- backend Claude adapter **behind `CLAUDE_PROVIDER`, mock by default**
 - chat conversations/messages
 - general chat
 - basic intent actions/links into Builder and Video Generator
 - usage event recording
 - credit checks
+
+The mock Claude provider returns canned Korean replies, so the whole of
+Chat — conversation storage, routing, usage recording and budget checks —
+is built and tested with no Anthropic key.
 
 Do not create a complex AI agent router initially.
 Simple explicit routing/actions are enough.
@@ -1041,14 +1249,19 @@ Implement:
 ## Phase 4 — GitHub Integration
 
 Implement:
-- GitHub App
+- GitHub App **behind `GITHUB_PROVIDER`, mock by default**
 - connect account/install app
 - authorized repository selection
 - create repository if permitted
 - push/commit project
 - sync repository metadata
 
-## Phase 5 — App Store
+The mock provider simulates a connected account and a repository push, so
+the Profile connection flow and the Builder push action are built without a
+registered GitHub App. Use a **localhost callback URL** during development;
+the production callback is registered in Phase 9.
+
+## Phase 5 — CtrlAI Apps
 
 Implement:
 - publish Builder project as App
@@ -1064,33 +1277,86 @@ Implement:
 
 Implement:
 - Claude prompt/script assistance
-- Higgsfield provider adapter
+- Higgsfield provider adapter **behind `VIDEO_PROVIDER`, mock by default**
 - generation request
 - generation status
 - final result
 - Video record
 - usage tracking / credit deduction
 
+The mock video provider returns a placeholder asset after a simulated delay,
+which is enough to exercise the version loop, the status transitions and the
+budget deduction without spending anything.
+
 ## Phase 7 — YouTube Integration
 
 Implement:
-- Google OAuth
+- Google OAuth **behind `YOUTUBE_PROVIDER`, mock by default**
 - connect channel
 - upload selected generated video
 - title/description/privacy
 - save YouTube ID
 - embed in Ctrl AI
 
+Use a **localhost callback URL** during development. Note that YouTube API
+projects which have not passed Google's audit may have uploaded videos
+forced to private — treat public publishing as part of Phase 9.
+
 ## Phase 8 — CtrlAITube
 
 Implement:
 - community video feed
+- **entries created from a pasted YouTube URL**
 - YouTube embeds
 - creator attribution
 - Ctrl AI reactions
 - Ctrl AI comments
 - threaded replies
 - optionally show YouTube comments in a separate labeled area
+
+**Phase 8 does not depend on Phase 7.** A member can paste the URL of a
+video they uploaded to YouTube themselves; Ctrl AI extracts the video ID and
+creates the entry. Automatic publishing from Phase 7 is a convenience on top
+of this, not a prerequisite — so the community feed can be built and filled
+with real videos before any Google OAuth work exists.
+
+## Phase 9 — Go Live 💳 **requires paid cloud resources**
+
+Everything before this phase runs on a laptop. This is the only phase that
+costs money and the only one that needs a domain or an API key.
+
+> **Ask before creating any paid cloud resource.** Domains, managed
+> databases, hosting plans and provider API keys all bill someone. Confirm
+> first — this is also rule 5 of section 21.
+
+Implement:
+
+- **domain** — register and point DNS
+- **HTTPS** — certificate and redirect; no plaintext HTTP in production
+- **frontend hosting** — the Next.js app, with the `/api/*` rewrite from
+  Phase 1a pointing at the deployed backend
+- **backend hosting** — bind the platform's port
+  (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`)
+- **managed PostgreSQL** — point `DATABASE_URL` at it; the database must not
+  be reachable from the public internet
+- **Secret Manager** — provider keys, database credentials and the session
+  signing key; none of them in the repository, none in `NEXT_PUBLIC_*`
+- **production CORS** — `CORS_ALLOW_ORIGINS` set to the real frontend origin
+  only. With the Phase 1a rewrite the browser sees one origin, so this stays
+  narrow.
+- **production cookie settings** — `Secure`, `HttpOnly`, `SameSite`
+- **run Alembic migrations in production** — `alembic upgrade head` as part
+  of deployment. This is why Phase 1a replaced `create_all`: a production
+  database is migrated, never re-created.
+- **switch providers from mock to real** — flip `CLAUDE_PROVIDER`,
+  `VIDEO_PROVIDER`, `GITHUB_PROVIDER`, `YOUTUBE_PROVIDER` and supply the
+  keys. If this needs a code change, the provider rule was not followed.
+- **update OAuth callback URLs** — replace the localhost callbacks from
+  Phases 4 and 7 with production URLs, in the GitHub App and Google Cloud
+  console
+
+Deploy one piece at a time and verify each before the next. A broken
+deployment with real members on it is far more expensive than a slow one.
 
 ## Later — Secure App Runtime
 
@@ -1142,8 +1408,122 @@ Ask before:
 
 ---
 
-# 22. FIRST TASK FOR CLAUDE
+# 22. Git Workflow
 
-If the repository is still in the bootstrap/planning stage:
+## One branch per phase
 
-> Read README.md and CLAUDE.md completely, then inspect the repository. Bootstrap only Phase 0. Ctrl AI is a beginner-friendly AI creation community and the default/opening page must be Chat. Build the local product shell using Next.js + TypeScript for the frontend, FastAPI for the backend, and PostgreSQL via Docker Compose. Create the main navigation: Chat, Builder, Video Generator, App Store, CtrlAITube, Usage & Credits, and Profile, with Admin visible as a placeholder admin-only area. The Chat page must be the default landing page and should contain a main chat UI plus beginner-friendly shortcut actions such as Build an App, Make a Video, Browse Apps, and Watch CtrlAITube. Builder should be a mock workspace showing the intended future layout of Claude assistance, file/code editing, preview, and GitHub push. Video Generator should show the intended prompt -> Improve with Claude -> Generate with Higgsfield -> Publish to YouTube flow using mock/disabled controls. App Store and CtrlAITube should use attractive mock cards and detail routes so the community concept is visible. Usage & Credits should show mock per-provider balances. Profile should show mock season/member status and connected account placeholders. Do not implement real authentication, provider APIs, GitHub integration, Google OAuth, billing, or arbitrary code execution yet. Add `/api/health`, `.env.example`, `.gitignore`, startup instructions, basic backend tests, and verify the frontend build. Stop after Phase 0 and report exactly what changed.
+Each phase or sub-phase is built on **its own branch**, named
+`phase-<id>-<short-name>`, created from an **up-to-date `main`**:
+
+```text
+phase-1a-auth
+phase-1b-quarters
+phase-2-chat
+phase-9-go-live
+```
+
+```bash
+git checkout main
+git pull
+git checkout -b phase-1a-auth
+```
+
+The existing `phase/1-foundation` branch predates this rule and keeps its
+name; everything from Phase 1a onward uses the `phase-<id>-<short-name>`
+form.
+
+## While working
+
+Commit in **small logical steps** — not one large commit at the end. Use
+conventional messages:
+
+| Prefix | For |
+| ------ | --- |
+| `feat:` | a new capability |
+| `fix:` | a bug fix |
+| `docs:` | documentation only |
+| `test:` | tests only |
+| `chore:` | tooling, dependencies, configuration |
+
+A commit should be reviewable on its own and leave the project working.
+
+## Before every commit
+
+Run `git status` and **confirm none of these are staged**:
+
+- `.env`, `.env.local`, or any real environment file
+- `.venv/`, `node_modules/`, `.next/`
+- API keys, passwords, OAuth client secrets, refresh tokens, private key
+  files, database credentials, generated secret files
+
+**If a secret is ever staged, stop immediately and tell the developer.** Do
+not quietly unstage it and carry on, and do not commit "just to fix it
+next" — a secret that reaches a commit must be treated as compromised and
+rotated, which is the developer's decision to make.
+
+## When the phase is done
+
+1. Run **all tests** and the **build**.
+2. Report what changed, what passes, and what remains.
+3. **WAIT.**
+
+**Do not merge into `main` until the developer explicitly says the phase is
+approved.** Finishing the work is not approval. A green test run is not
+approval. Only the developer saying so is approval.
+
+## On approval
+
+```bash
+git checkout main
+git merge --no-ff phase-1a-auth      # a merge commit, so the phase stays visible
+git push origin main
+git branch -d phase-1a-auth          # delete the local branch
+git status                           # confirm clean
+```
+
+Then confirm to the developer that `git status` is clean.
+
+## Never
+
+- **never force-push** (`--force`, `--force-with-lease`)
+- **never rewrite history** (`rebase`, `reset --hard`, `commit --amend` on
+  anything already pushed)
+- **never delete `main`**
+
+Ask first before anything destructive — discarding changes, deleting
+branches other than a merged phase branch, resetting, or dropping a
+database.
+
+---
+
+# 23. Current status / next task
+
+**Phase 0 is complete.** The product shell runs locally — see section 20.
+
+**Phase 1 is in progress** on branch `phase/1-foundation`. Quarters,
+applications, the Build/Video split, allocations, personal balance and
+manual top-ups all work end to end against a real database. Builder and
+Video each have a project library and a persistent per-project workspace.
+
+**The next task is Phase 1a** (section 20):
+
+> Implement username/password authentication. Add registration, login and
+> logout with hashed passwords and a server-side session or token. Add
+> Next.js rewrites proxying `/api/*` to FastAPI so the browser sees a single
+> origin and the session cookie can be `HttpOnly` and same-origin, locally
+> and in production alike. Alembic already owns the schema and `create_all`
+> is gone — keep it that way; every schema change is a migration. Replace
+> the fixed development user in `get_current_user` with the signed-in user.
+> Use mock providers throughout: no Anthropic, Higgsfield, GitHub or Google
+> credentials are needed for this task, and none should be requested.
+
+Known gaps to close during the rest of Phase 1, in 1b and 1c:
+
+- the Usage screen and the admin member list still render mock data and
+  visibly contradict the live allocation shown on Profile
+- `UsageEvent` has no API route and nothing writes to it
+- no audit log for admin membership or allocation changes
+- active / inactive / former status is not yet enforced for paid features
+
+Do not start Phase 2 until Phase 1 is finished. Do not start Phase 9 or
+create any paid cloud resource without asking first.

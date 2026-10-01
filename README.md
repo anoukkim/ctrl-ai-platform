@@ -1,11 +1,15 @@
-# ctrl-ai-platform
-Community AI platform for shared LLM access, video generation, coding agents, app deployment, and member-built AI services on shared cloud infrastructure.
-
 # Ctrl AI
 
-Ctrl AI is a community AI platform designed to provide shared access to AI models, development tools, media generation, and deployable applications through a single online portal.
+A beginner-friendly AI creation community. Members describe what they want
+in Korean, and Ctrl AI helps them build an app or make a short video, then
+share it with the community.
 
-The platform combines cloud-hosted AI infrastructure with external AI APIs so members can create, build, run, store, and share AI-powered projects from one environment.
+Most members are not expected to code, use APIs or configure a development
+environment, so the product hides that complexity. Ctrl AI owns provider
+access — members never hold API keys — and records usage per member and
+quarter.
+
+`내가 원하는 것을 말한다 → Ctrl AI가 만들어 준다 → 공유한다`
 
 # Current Status
 
@@ -19,26 +23,29 @@ the entry point is a conversation, not a dashboard.
 **The interface is Korean-first** with English product names. See
 [Language](#language).
 
-> **Note on this document.** `CLAUDE.md` is the current product definition. The
-> older vision sections further down this README predate it and use earlier
-> working names (Ctrl Code, Ctrl Apps). Where the two disagree, `CLAUDE.md` wins.
+[`CLAUDE.md`](CLAUDE.md) is the product definition and the phase plan.
+[`docs/architecture.md`](docs/architecture.md) covers the longer-term
+architecture — target infrastructure, storage and security principles.
 
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
-| Navigation & shell    | Built — sidebar with seasonal member status; menu button on narrow screens        |
+| Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
 | Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
 | CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; Ctrl AI comments kept separate from YouTube comments |
-| Usage                 | Mock per-provider balances, each in its own unit                                  |
-| Profile               | Mock account, season with expiry countdown, connected-account placeholders        |
-| Admin                 | Mock members/seasons/allocation, plus the live backend status card                |
+| Usage                 | **Still mock** — real usage data is Phase 1c                                      |
+| Profile               | Live quarter participation and application form; connected-account placeholders   |
+| Admin                 | Live quarters, application review, video model catalogue; member list still mock  |
 | Backend `/api/health` | Real and working                                                                  |
-| PostgreSQL            | Real, via Docker Compose                                                          |
-| Authentication        | Not started (Phase 1)                                                             |
+| PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
+| Authentication        | Not started (Phase 1a — the next task)                                            |
 | Claude / Higgsfield   | Not started (Phases 2 and 6)                                                      |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
+
+Two screens still render mock data that **contradicts** the live figures on
+Profile: Usage, and the member list on Admin. Both are Phase 1c.
 
 Everything that is not built yet renders a **준비 중** badge, and its controls are
 disabled, so the shell is never mistaken for working functionality.
@@ -54,9 +61,9 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | Ctrl AI comments + separate YouTube section  |
-| `/usage`              | Usage           | Per-provider seasonal balances               |
-| `/profile`            | Profile         | Account, season expiry, connected accounts   |
-| `/admin`              | Admin           | Members, seasons, allocation, system health  |
+| `/usage`              | Usage           | Community support and personal balance, in KRW |
+| `/profile`            | Profile         | Quarter participation, application, accounts |
+| `/admin`              | Admin           | Members, quarters, applications, video models |
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAI Apps**; the path was kept so existing links do not break.
@@ -123,7 +130,14 @@ CSS module.
 
 # Deployment
 
-Nothing is deployed yet, and no cloud resource has been created.
+**Nothing is deployed, and no cloud resource has been created.** Going live
+is **Phase 9** — domain, HTTPS, hosting, managed PostgreSQL, Secret Manager
+and switching providers from mock to real. Every phase before it is built
+and tested locally with no keys and no domain.
+
+What follows is only about an optional **frontend-only preview deploy** for
+gathering feedback on the product concept. It is not Phase 9 and does not
+replace it.
 
 ## Frontend — Vercel
 
@@ -142,13 +156,15 @@ Only the status card on `/admin` calls the backend. Every other screen is static
 and renders identically without it, so a frontend-only deploy is enough for
 gathering feedback on the product concept.
 
-If the backend is deployed later (Render or similar), it needs these changes —
-none of which exist yet:
+Deploying the backend properly is Phase 9. In outline it needs:
 
 - bind to the platform's port: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- set `CORS_ALLOW_ORIGINS` to the deployed frontend's domain
+- set `CORS_ALLOW_ORIGINS` to the deployed frontend's origin
 - point `DATABASE_URL` at a managed PostgreSQL instance
-- replace `create_all` with Alembic migrations (Phase 1)
+- run `alembic upgrade head` as part of deployment
+
+Alembic already owns the schema and `create_all` is gone, so that last point
+is a deployment step rather than a code change.
 
 ## When the backend is unavailable
 
@@ -210,11 +226,16 @@ docker compose up -d
 docker compose ps          # wait until the db service reports "healthy"
 
 cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe -m app.db.init_db
 ```
 
-The last command creates the `users` table and a development user
-(`dev@ctrl.ai`, role `admin`). It is safe to run more than once.
+Alembic owns the schema, so the migration must run first; `init_db` only
+seeds and will refuse to run before it. Seeding creates the development
+user (`dev@ctrl.ai`, role `admin`), three quarters with 2026 Q4 accepting
+applications, an empty personal wallet, and the video model catalogue. It
+is safe to run more than once — existing rows are left alone, so a re-run
+cannot undo an admin's changes.
 
 ## Running the portal
 
@@ -284,9 +305,9 @@ Browser  ->  Next.js (frontend)  ->  FastAPI (backend)  ->  PostgreSQL
 
 The browser never talks to the database or to an AI provider directly. Every
 request that costs money or touches data goes through the Ctrl AI backend,
-because that is the only place where a permission check, a seasonal credit
+because that is the only place where a permission check, a quarterly budget
 limit, and a provider API key can live safely. Members never hold provider
-keys; Ctrl AI owns provider access and records usage per member and season.
+keys; Ctrl AI owns provider access and records usage per member and quarter.
 
 A few decisions worth knowing if you are new to this kind of stack:
 
@@ -312,27 +333,94 @@ A few decisions worth knowing if you are new to this kind of stack:
   Higgsfield in video credits, so allocations are tracked separately rather
   than merged into one invented currency.
 
-## Seasons and membership
+## Quarters, applications and money
 
-**A season is four months, not a quarter.** Never call it a quarter in the
-interface. The current season and its end date appear in the sidebar, on
-Profile, and on Usage.
+**Ctrl AI operates by calendar quarter** — 2026 Q1, 2026 Q2, and so on.
+A quarter is three months. (The earlier four-month "Season" concept is gone;
+nothing in the product uses it.)
 
-Someone who stops participating does not lose their published work:
+### Credits are not automatic
+
+```text
+Admin opens applications for a quarter
+  -> member sees applications are open in Profile
+  -> member applies, splitting their budget between Build and Video
+  -> admin approves
+  -> the approved allocation becomes usable
+```
+
+The Build and Video percentages must add up to exactly 100%. Each approved
+member may receive at most **100,000 KRW per quarter** of community-funded
+budget, combined across both:
+
+| Split | Build | Video |
+| ----- | ----- | ----- |
+| 100 / 0 | 100,000원 | 0원 |
+| 70 / 30 | 70,000원 | 30,000원 |
+| 50 / 50 | 50,000원 | 50,000원 |
+| 20 / 80 | 20,000원 | 80,000원 |
+| 0 / 100 | 0원 | 100,000원 |
+
+That figure is not a constant scattered through the code. The default lives
+in `quarterly_subsidy_limit_krw` (backend settings); each quarter copies it
+at creation and keeps its own, so an admin can change it for a future
+quarter without altering one that already ran. The percentage-to-KRW rule
+lives in `backend/app/services/budget.py`, so the API, the UI and the tests
+cannot drift.
+
+### KRW is the financial source of truth
+
+Budgets are stored in won, never in tokens or generations. Provider prices
+change, and an approved allocation must not move when they do. A
+`pricing_snapshot` is captured at approval so a provider-specific quota can
+still be displayed consistently afterwards.
+
+`UsageEvent` keeps two separate figures: `provider_cost` (what the provider
+charged, in their own units and currency) and `charged_krw` (what moved a
+budget). Conflating them would misreport both.
+
+### Community money and personal money are separate
+
+A member who exhausts their community budget stops there by default.
+Personal money is spent only if they have explicitly enabled it *and* have a
+balance. Topping up never raises the community subsidy above the quarter's
+limit, and the two are never added together in the interface.
+
+Phase 1c uses a manual top-up workflow: the member requests an amount, an
+admin confirms the deposit, and only then does the balance move. No payment
+provider is involved.
+
+### Participation status
+
+A member who stops participating does not lose their published work:
 
 | Status      | UI label   | Meaning                                                        |
 | ----------- | ---------- | -------------------------------------------------------------- |
-| `active`    | 활동 회원   | Participating this season; can use paid creation features       |
-| `inactive`  | 비활동 회원 | Account exists, not enrolled this season; work is preserved     |
+| `active`    | 활동 회원   | Participating this quarter; can use paid creation features      |
+| `inactive`  | 비활동 회원 | Account exists, not enrolled this quarter; work is preserved    |
 | `former`    | 탈퇴 회원   | Has left the community; published work keeps their attribution  |
 
-"탈퇴 회원" is used rather than anything meaning "deleted", because attribution
-on published apps and videos must continue to exist.
+"탈퇴 회원" is used rather than anything meaning "deleted", because
+attribution on published apps and videos must continue to exist.
 
-Season dates and the day countdown come from one place — `SEASON_RANGE` in
-`frontend/lib/mock-data.ts`. It carries a fixed `today` so the server and the
-browser always compute the same number. When real seasons exist, replacing that
-constant is the only change needed.
+## Search
+
+Contextual search, not one global search engine. Each list has the search
+its own screen needs:
+
+| Screen | Search by | Filters |
+| ------ | --------- | ------- |
+| Project Builder | project name, description | status |
+| Video Generator | project name, prompt | status |
+| CtrlAI Apps | app name, description, creator | category, sort |
+| CtrlAITube | title, description, creator | creator, sort |
+| Admin — members | name, username | membership status |
+| Admin — applications | member name, username | application status |
+| Admin — video models | model name, provider, model id | — |
+
+Filtering currently happens in the browser, because the data is small and
+each screen already holds its list. `SearchBar` only lifts the query out, so
+moving to server-side search later changes the data call and not the screen.
 
 ## Environment files
 
@@ -361,16 +449,19 @@ ctrl-ai-platform/
 │  │  │  └─ routes/           # health.py, users.py
 │  │  ├─ core/config.py       # environment-driven settings
 │  │  ├─ db/                  # base.py, session.py, init_db.py
-│  │  ├─ models/              # SQLAlchemy tables (User, UserRole)
+│  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
+│  │  ├─ services/            # budget split, wallet helpers
 │  │  └─ main.py              # FastAPI app, CORS
+│  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite
 │  ├─ pyproject.toml          # pytest configuration
 │  └─ requirements*.txt
 ├─ frontend/
 │  ├─ app/
 │  │  ├─ components/
-│  │  │  ├─ AppShell.tsx           # sidebar, member status, workspace detection
+│  │  │  ├─ AppShell.tsx           # sidebar, quarter status, workspace detection
+│  │  │  ├─ SearchBar.tsx          # contextual search used by every list
 │  │  │  ├─ ChatWorkspace.tsx      # Chat thread, composer, quick actions
 │  │  │  ├─ Community.tsx          # creator line, reactions, comment threads
 │  │  │  ├─ BackendStatus.tsx      # the one live network call
@@ -386,12 +477,17 @@ ctrl-ai-platform/
 │  │  ├─ layout.tsx           # wraps every page in AppShell
 │  │  └─ page.tsx             # Chat — the default landing page
 │  └─ lib/
-│     ├─ api.ts               # typed backend client
-│     └─ mock-data.ts         # all Phase 0 mock data (Korean), in one place
+│     ├─ api.ts               # base URL and health client
+│     ├─ http.ts              # shared request helper, timeout, error text
+│     ├─ projects.ts          # Builder and Video project clients
+│     ├─ quarters.ts          # quarters, applications, wallet
+│     └─ mock-data.ts         # remaining mock content (Korean)
+├─ docs/
+│  └─ architecture.md         # target infrastructure, storage, security
 ├─ docker-compose.yml         # local PostgreSQL
 ├─ .env.example
-├─ CLAUDE.md                  # product definition (authoritative)
-└─ README.md
+├─ CLAUDE.md                  # product definition and phase plan (authoritative)
+└─ README.md                  # what exists today, and how to run it
 ```
 
 All mock data lives in `frontend/lib/mock-data.ts`. When a feature becomes
@@ -411,644 +507,36 @@ real, its data moves to the backend and the matching export there is deleted.
 | Port 3000 or 8000 already in use        | Stop the other process, or pass `--port` to uvicorn / `npm run dev -- -p 3001`.               |
 
 ---
-
-## Vision
-
-Ctrl AI is intended to become a shared AI workspace where members can:
-
-* Use hosted large language models
-* Access external AI services such as Claude
-* Generate and share AI-created videos and media
-* Build software with AI-assisted coding tools
-* Store and collaborate on source code
-* Deploy applications created by members
-* Share applications through an internal App Store
-* Use shared GPU and cloud infrastructure
-* Track individual AI usage and allocated credits
-
-The long-term goal is to provide a unified environment for:
-
-**Create → Build → Run → Store → Share → Deploy**
-
----
-
-## Platform Overview
-
-```text
-                         CTRL AI
-                            │
-                     Ctrl AI Core
-                            │
-       ┌────────────────────┼────────────────────┐
-       │                    │                    │
-    Ctrl Chat           Ctrl Video           Ctrl Code
-       │                    │                    │
- Claude / Ollama      Video Models        Coding Agents
-       │                    │                    │
-       └────────────────────┼────────────────────┘
-                            │
-                        Ctrl Apps
-                            │
-                     Build & Deploy
-                            │
-                    Shared Community
-```
-
-All services share the same authentication, database, permissions, usage tracking, and cloud infrastructure.
-
----
-
-# Core Modules
-
-## Ctrl Chat
-
-Shared AI chat environment.
-
-Planned providers include:
-
-* Claude API
-* Ollama
-* Qwen
-* Llama
-* Gemma
-* Other hosted or API-based LLMs
-
-Example flow:
-
-```text
-User
-  ↓
-Ctrl Chat
-  ↓
-AI Gateway
-  ├─ Claude API
-  └─ Ollama
-       ↓
-Hosted GPU Models
-```
-
-Users can select different models while Ctrl AI manages authentication, usage tracking, and access.
-
----
-
-## Ctrl Video
-
-AI video generation and community media sharing.
-
-Users will be able to:
-
-* Generate videos from prompts
-* Select available video models
-* Store generated videos
-* Keep generations private
-* Share videos with teams
-* Publish videos to the Ctrl AI community
-* View generation metadata
-* Track generation cost
-
-Architecture:
-
-```text
-User
-  ↓
-Ctrl Video
-  ↓
-Generation Request
-  ↓
-Job Queue
-  ↓
-GPU Worker / External Video API
-  ↓
-Generated Video
-  ↓
-Cloud Storage
-  ↓
-Video Hub
-```
-
-Video files are stored in object storage rather than directly inside the database.
-
----
-
-## Ctrl Code
-
-AI-assisted coding and development environment.
-
-Planned functionality:
-
-* AI code generation
-* Code editing
-* Repository access
-* File creation
-* Code explanation
-* Testing
-* Git commits
-* Shared team repositories
-* Application deployment
-
-Architecture:
-
-```text
-Ctrl Code
-   │
-   ├─ Claude
-   ├─ Coding LLM
-   └─ Code Agent
-         ↓
-      Workspace
-         ↓
-        Git
-         ↓
-    Repository
-```
-
-Code execution will eventually run inside isolated containers or sandbox environments.
-
----
-
-## Ctrl Apps
-
-Internal application marketplace for projects created by members.
-
-Members will be able to publish applications developed through Ctrl Code.
-
-Example:
-
-```text
-Repository
-    ↓
-Docker Build
-    ↓
-Container Image
-    ↓
-Deployment
-    ↓
-Ctrl Apps
-```
-
-Applications can then appear in the portal:
-
-```text
-CTRL APPS
-
-Meeting Summarizer
-by Yuri
-[ Launch ]
-
-Document Translator
-by AI Team
-[ Launch ]
-
-Research Assistant
-by Ctrl AI
-[ Launch ]
-```
-
-Applications may support different visibility levels:
-
-* Private
-* Team
-* Members
-* Public
-
----
-
-# Ctrl AI Core
-
-The Core service provides functionality shared by every module.
-
-```text
-Ctrl AI Core
-
-Authentication
-User Management
-Role Management
-Database
-Usage Tracking
-Credit Management
-Permissions
-Storage
-API Gateway
-Audit Logging
-Secrets Management
-```
-
-The goal is to build the Core once and allow future AI services to reuse it.
-
----
-
-# User Roles
-
-Initial roles:
-
-```text
-admin
-developer
-member
-```
-
-### Admin
-
-Can manage:
-
-* Members
-* Roles
-* AI providers
-* Usage
-* Credits
-* Infrastructure
-* Applications
-* Deployments
-* System settings
-
-### Developer
-
-Can:
-
-* Build applications
-* Manage repositories
-* Use coding agents
-* Deploy applications
-* Share projects
-
-### Member
-
-Can:
-
-* Use AI services
-* Generate content
-* Use published applications
-* Share allowed content
-
----
-
-# Sharing Model
-
-Content is private by default.
-
-Each resource can define its visibility.
-
-```text
-private
-team
-members
-public
-```
-
-Examples of resources using this model:
-
-* Videos
-* Applications
-* Code repositories
-* Files
-* AI-generated content
-
-This allows Ctrl AI to function as both a private workspace and a community platform.
-
----
-
-# Usage & Credit System
-
-Members may receive a monthly AI usage allocation.
-
-Example:
-
-```text
-Monthly Credit
-
-Allocated     ₩50,000
-Used          ₩12,300
-Remaining     ₩37,700
-```
-
-External AI services can be deducted from the member's allocated balance.
-
-Examples:
-
-```text
-Claude API
-Higgsfield API
-Future AI APIs
-```
-
-Locally hosted models such as Ollama are primarily accounted for through shared infrastructure costs rather than provider API charges.
-
-Example usage record:
-
-```text
-User: Yuri
-Provider: Anthropic
-Model: Claude
-Input Tokens: 2,400
-Output Tokens: 700
-Provider Cost: $0.02
-Internal Cost: ₩28
-```
-
----
-
-# Infrastructure
-
-Initial infrastructure will be hosted primarily on Google Cloud.
-
-Proposed architecture:
-
-```text
-Google Cloud
-│
-├─ Compute Engine
-│   ├─ Ctrl AI Web
-│   ├─ Backend API
-│   └─ Docker Runtime
-│
-├─ GPU Compute Engine
-│   ├─ Ollama
-│   ├─ LLM Models
-│   ├─ Coding Models
-│   └─ Future Video Workers
-│
-├─ Cloud SQL
-│   └─ PostgreSQL
-│
-├─ Cloud Storage
-│   ├─ Videos
-│   ├─ Images
-│   └─ User Files
-│
-└─ Secret Manager
-    ├─ Claude API Key
-    ├─ Database Credentials
-    └─ Other Provider Secrets
-```
-
----
-
-# Database
-
-PostgreSQL will be used as the primary relational database.
-
-Initial tables may include:
-
-```text
-users
-teams
-team_members
-
-wallets
-ai_usage
-
-conversations
-messages
-
-videos
-
-repositories
-
-apps
-deployments
-
-user_servers
-
-audit_logs
-```
-
-Large files are not stored directly in PostgreSQL.
-
-Storage responsibilities:
-
-| Data             | Storage            |
-| ---------------- | ------------------ |
-| User information | PostgreSQL         |
-| AI usage         | PostgreSQL         |
-| App metadata     | PostgreSQL         |
-| Video files      | Cloud Storage      |
-| Images           | Cloud Storage      |
-| Source code      | Git                |
-| Docker images    | Container Registry |
-| API secrets      | Secret Manager     |
-
----
-
-# Security Principles
-
-Ctrl AI should follow the following principles from the beginning:
-
-* Never expose master AI provider API keys to users
-* Never commit credentials to Git
-* Store production secrets in Secret Manager
-* Keep PostgreSQL inaccessible from the public internet
-* Keep Ollama internal API ports private
-* Require HTTPS for public access
-* Use role-based access control
-* Run user applications inside isolated containers
-* Record administrative and deployment activity
-* Apply usage limits before calling paid APIs
-
-External traffic should generally follow:
-
-```text
-Internet
-   ↓
-HTTPS
-   ↓
-Ctrl AI
-   ↓
-Backend
-   ↓
-Internal Services
-```
-
-Rather than exposing internal services directly.
-
----
-
-# Initial Repository Structure
-
-```text
-ctrl-ai-platform/
-│
-├─ frontend/
-│   └─ Web portal
-│
-├─ backend/
-│   └─ Core API
-│
-├─ infra/
-│   ├─ nginx/
-│   └─ cloud/
-│
-├─ docker/
-│   └─ Container configuration
-│
-├─ docs/
-│   ├─ architecture.md
-│   ├─ database.md
-│   └─ deployment.md
-│
-├─ scripts/
-│
-├─ docker-compose.yml
-├─ .env.example
-├─ .gitignore
-└─ README.md
-```
-
----
-
-# Initial Technology Stack
-
-### Frontend
-
-* Next.js
-* React
-* TypeScript
-
-### Backend
-
-* Python
-* FastAPI
-
-### Database
-
-* PostgreSQL
-* Google Cloud SQL
-
-### AI
-
-* Claude API
-* Ollama
-* Open-source LLMs
-
-### Infrastructure
-
-* Google Cloud
-* Compute Engine
-* GPU Compute Engine
-* Cloud Storage
-* Secret Manager
-
-### Deployment
-
-* Docker
-* Docker Compose
-* Nginx
-
-### Source Control
-
-* Git
-* GitHub initially
-* Gitea/GitLab may be evaluated later
-
----
-
-# Development Roadmap
-
-## Phase 1 — Infrastructure
-
-* Obtain Google Cloud project access
-* Verify server specification
-* Configure domain
-* Configure HTTPS
-* Install Docker
-* Create Git repository
-* Deploy initial frontend/backend
-
-## Phase 2 — Ctrl AI Core
-
-* PostgreSQL
-* User authentication
-* User roles
-* Admin interface
-* Usage tracking
-* Credit system
-* Secret management
-
-## Phase 3 — Ctrl Chat
-
-* Claude API integration
-* Conversation storage
-* Usage metering
-* Model selector
-* Ollama integration
-* Local LLM hosting
-
-## Phase 4 — Ctrl Video
-
-* Video generation API
-* Generation queue
-* GPU workers
-* Cloud Storage
-* Video gallery
-* Sharing controls
-
-## Phase 5 — Ctrl Code
-
-* Git integration
-* Coding models
-* AI coding agent
-* Workspace
-* Container sandbox
-* Team repositories
-
-## Phase 6 — Ctrl Apps
-
-* Application registration
-* Docker build pipeline
-* Application deployment
-* App catalog
-* Launch interface
-* Version management
-
-## Phase 7 — Platform Operations
-
-* Monitoring
-* Logging
-* Backups
-* Infrastructure dashboards
-* Cost monitoring
-* GPU scaling
-* Security hardening
-
----
-
-# First Milestone
-
-The first production milestone is intentionally small.
-
-```text
-Domain
-  ↓
-Ctrl AI Login
-  ↓
-Ctrl Chat
-  ↓
-Claude API
-  ↓
-Conversation Stored
-  ↓
-Usage Recorded
-```
-
-The first version should provide:
-
-* Working domain
-* HTTPS
-* User login
-* Claude chat
-* PostgreSQL storage
-* Member usage tracking
-* Admin access
-
-Once this core works reliably, additional modules can reuse the same infrastructure.
-
----
-
-# Long-Term Goal
-
-Ctrl AI is not intended to be only a shared chatbot.
-
-It is intended to become a community AI development platform where members can:
-
-**Use AI → Create → Develop → Deploy → Share**
-
-through a single shared ecosystem.
+# Roadmap
+
+The phase plan lives in [`CLAUDE.md`](CLAUDE.md) section 20, which is
+authoritative. This table is a summary.
+
+Every phase through 8 is built and tested **locally, with no API keys and no
+domain**. Each external provider sits behind an interface with a mock
+implementation chosen by an environment variable (`CLAUDE_PROVIDER`,
+`VIDEO_PROVIDER`, `GITHUB_PROVIDER`, `YOUTUBE_PROVIDER`), and the mock is the
+default. Going live is deliberately last.
+
+| Phase | Scope | State |
+| ----- | ----- | ----- |
+| **0** | Product shell — navigation, every screen, `/api/health`, PostgreSQL | ✅ Complete |
+| **1a** | Username/password auth, Alembic replacing `create_all`, Next.js `/api/*` rewrite for same-origin HttpOnly cookies | ← **Next.** Alembic done; auth and the proxy remain |
+| **1b** | Quarter, QuarterApplication, active/inactive/former behaviour | Mostly built; status enforcement needs 1a |
+| **1c** | QuarterAllocation, PersonalBalance/TopUp, UsageEvent, Usage on real data, admin member list, enrolment, allocation, audit log | Allocations and wallet built; Usage, member list and audit log outstanding |
+| **2** | Chat — Claude adapter behind `CLAUDE_PROVIDER`, conversations, usage recording, budget checks | Not started |
+| **3** | Builder MVP — projects from a prompt, generated files, editor, history | Not started |
+| **4** | GitHub integration — GitHub App, repository selection, push (localhost callback) | Not started |
+| **5** | CtrlAI Apps — publish a project, listings, reactions, threaded comments | Not started |
+| **6** | Video Generator — Higgsfield adapter behind `VIDEO_PROVIDER`, generation, budget deduction | Not started |
+| **7** | YouTube integration — Google OAuth, channel connection, upload (localhost callback) | Not started |
+| **8** | CtrlAITube — community feed, entries from a **pasted YouTube URL**, Ctrl AI comments kept separate from YouTube's | Not started |
+| **9** | **Go Live** — domain, HTTPS, hosting, managed PostgreSQL, Secret Manager, production CORS and cookies, migrations in production, providers switched to real, OAuth callbacks updated | 💳 Paid cloud resources — **ask before creating any** |
+| Later | Secure runtime for member apps — isolated containers, resource limits | Not started |
+
+Phase 8 does not depend on Phase 7: a member can paste the URL of a video
+they uploaded themselves, so the community feed can be filled before any
+Google OAuth work exists.
+
+For target infrastructure, storage responsibilities and security
+principles, see [`docs/architecture.md`](docs/architecture.md).
