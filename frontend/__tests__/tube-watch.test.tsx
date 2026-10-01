@@ -43,6 +43,11 @@ vi.mock("@/app/ctrlaitube/[id]/watch.module.css", () => ({
   default: new Proxy({}, { get: (_t, key) => String(key) }),
 }));
 
+// 반응 칩·탭·댓글칸은 CtrlAIApps와 함께 쓰는 공용 컴포넌트에서 옵니다.
+vi.mock("@/app/components/comment-section.module.css", () => ({
+  default: new Proxy({}, { get: (_t, key) => String(key) }),
+}));
+
 const { default: WatchPanel } = await import("@/app/ctrlaitube/[id]/WatchPanel");
 const { default: VideoDetailPage } = await import("@/app/ctrlaitube/[id]/page");
 
