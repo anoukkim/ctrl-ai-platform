@@ -28,33 +28,50 @@ from an up-to-date `main`; the spec is saved verbatim below.
 1. **admin-restructure** · branch `ui-admin-restructure`
    Spec saved verbatim below.
 
-2. **budget-by-provider** · branch `feat-budget-by-provider`
+2. **ui-naming** · branch `ui-naming`
+   English navigation labels, `CtrlAIApps` without the space, and
+   공동체 지원 → 동아리 지원. Spec saved verbatim below.
+
+3. **budget-by-provider** · branch `feat-budget-by-provider`
+   Spec saved verbatim below, including the **Application flow** section
+   added on 2026-10-01.
+
+4. **project-video-management** · branch `feat-project-video-management`
+   Spec saved verbatim below, including **Rename projects and videos**
+   and the per-version generation settings.
+
+5. **account-withdrawal** · branch `feat-account-withdrawal`
+   Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-3. **project-video-management** · branch `feat-project-video-management`
-   Spec saved verbatim below.
+6. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+   Spec saved verbatim below, including the **Length slider** section.
 
-4. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
-   Spec saved verbatim below.
+7. **prep-beta-launch**
+   Only the **Launch data rules** are specified so far; the rest of the
+   item is still to be written. Spec below.
 
-5. **prep-beta-launch**
-   Not yet specified.
-
-6. **Phase 2 — Chat**
+8. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
-7. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
-   `/video/[projectId]` never leaves "영상 프로젝트를 불러오는 중…". The
-   three API calls it makes all return 200 and the console is clean, so
-   the component is not reaching its ready state. Reproduced on `main`
-   (so it predates membership-access-fix) and for an active member as
-   well as an inactive one, so it has nothing to do with participation.
-   The Video **library** at `/video` is fine; only the workspace is
-   affected. Found while verifying membership-access-fix and left alone
-   as out of scope for that branch.
+### Not in the Next order
 
+**fix-video-workspace-hang** · branch `fix-video-workspace-hang`
+
+Left out of the new **Next** order of 2026-10-01 rather than dropped: it
+is a real, reproduced bug and still needs a place in the queue. Kept
+here until the developer says where it goes.
+
+> `/video/[projectId]` never leaves "영상 프로젝트를 불러오는 중…". The
+> three API calls it makes all return 200 and the console is clean, so
+> the component is not reaching its ready state. Reproduced on `main`
+> (so it predates membership-access-fix) and for an active member as
+> well as an inactive one, so it has nothing to do with participation.
+> The Video **library** at `/video` is fine; only the workspace is
+> affected. Found while verifying membership-access-fix and left alone
+> as out of scope for that branch.
 
 ### Merge order
 
@@ -66,23 +83,258 @@ and the access table in `docs/architecture.md` both have to move with
 it. That test will fail on the first new route, which is the intended
 reminder rather than a problem.
 
+And one thing to carry into **ui-naming**, which follows it: ui-naming
+relabels the Admin sub-navigation in English, and those are the routes
+**admin-restructure** creates. Doing them in this order means the labels
+are written once.
+
 ---
 
 ## UI requests (collected, not started)
 
 New UI requests go here until they are folded into a UI batch.
 
-*(none loose — UI batch 1 is merged, and the one UI request since then,
-**admin-restructure**, was large enough to get its own item and branch in
-**Next** rather than wait for a batch.)*
+*(none loose — the two UI requests since UI batch 1,
+**admin-restructure** and **ui-naming**, were each large enough to get
+their own item and branch in **Next** rather than wait for a batch.)*
 
 ---
 
-## UI batch 1 — full spec
+## admin-restructure — full spec
 
-**Merged 2026-10-01.** Kept for reference: it is the standing description
-of the palette and the brand, so a later screen can be checked against it.
-Saved exactly as written by the developer.
+Branch `ui-admin-restructure`. Saved exactly as written by the developer.
+
+**Before:** [`docs/ui-requests/admin-before.png`](ui-requests/admin-before.png)
+— the current single-page Admin screen this item replaces: ten sections
+stacked on one route, from 회원 관리 down to 시스템.
+
+> Problem: Admin is one very long page with ten unrelated sections, mixed English/Korean labels, and small inline action buttons that are easy to misclick.
+>
+> 1. Admin layout: a secondary Admin navigation (tabs at the top, or a sub-menu on wide screens) with these sections, each on its own route:
+>    - 대시보드 /admin
+>    - 회원 /admin/members, with member detail /admin/members/[id]
+>    - 분기 · 신청 /admin/quarters
+>    - 충전 신청 /admin/topups
+>    - 영상 모델 /admin/video-models
+>    - 감사 로그 /admin/audit
+>    - 콘텐츠 /admin/content
+>    - 시스템 /admin/system
+>    - 개발 도구 /admin/dev (only when APP_ENV=development; holds the usage simulator)
+>    Leave a clearly marked place for a future 예산 section (budget-by-provider).
+> 2. 대시보드: cards for things needing action (pending quarter applications, pending top-up requests) that link to the right section; current quarter with its application period and status; member counts by status (활동 / 비활동 / 탈퇴); the last 10 audit entries.
+> 3. 회원 list: search, filters (role, account status, membership status), sorting and pagination. Replace the small inline buttons with one "관리" menu per row, plus a link to the detail page.
+> 4. 회원 detail: account info, role, membership per quarter (history), allocations and usage for the selected quarter, and that member's audit entries. All actions live here: change membership status, enrol in a quarter, change role, set allocations.
+> 5. Safety: every status, role or allocation change opens a Korean confirmation dialog that states the effect (e.g. "탈퇴 처리하면 로그인할 수 없습니다"). After an action, show a short success or error message.
+> 6. Consistency: all labels in Korean, keeping product and model names (Enabled → 사용 가능, Visible → 회원에게 공개, Hidden → 숨김, Video Models → 영상 모델); one badge style for statuses; one shared table component with sticky header, consistent alignment, tabular-nums amounts and a Korean empty state; existing design tokens; full width and narrow screens.
+> 7. Backend: no changes to business rules. Small read-only, admin-only, tested endpoints are allowed if the dashboard needs counts.
+>
+> Tests: every Admin route is admin-only; dev tools are unavailable outside development; dashboard counts match the database; the confirmation dialog appears before status changes.
+
+**Note added 2026-10-01.** Point 6 says "all labels in Korean", and
+**ui-naming** — the next item — then moves the Admin *sub-navigation*
+labels to English (Dashboard, Members, Quarters, Top-ups, Video Models,
+Audit Log, Content, System, Dev Tools). Build this item as written; the
+relabelling is ui-naming's job, not a correction to apply early.
+
+---
+
+## ui-naming — full spec
+
+Branch `ui-naming`. Saved exactly as written by the developer.
+
+> 1. Sidebar and navigation labels in English, everything else stays Korean:
+>    - Section headings: 만들기 → Create, 둘러보기 → Explore, 내 정보 → Account, 관리 → Manage.
+>    - Items: Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue (was 문제 신고), Admin.
+>    - Admin sub-navigation labels in English too (Dashboard, Members, Quarters, Top-ups, Video Models, Audit Log, Content, System, Dev Tools).
+> 2. "CtrlAI Apps" becomes "CtrlAIApps" (no space) everywhere: navigation, page titles, headings, Chat shortcut cards, empty states, README and CLAUDE.md. The route /ctrlaistore stays unchanged.
+> 3. Rename "공동체 지원" to "동아리 지원" everywhere it appears (Usage, sidebar quarter card, Admin, explanations, docs). Personal funds stay "개인 충전".
+> 4. Page body text, explanations, buttons and messages remain Korean. Product names stay as they are.
+> 5. Search the whole frontend and docs for every old label and report what was changed, so nothing is left half-renamed.
+>
+> Tests and checks: tsc, lint and build; a quick text search proves no old labels remain.
+
+---
+
+## budget-by-provider — full spec
+
+Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
+
+> Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
+>
+> 1. Two budgets per member per quarter, named by provider: "Claude" and "Higgsfield". Rename the current Build budget to Claude everywhere (data, API, UI, docs) with an Alembic migration that keeps existing data. Chat, Project Builder and the Video prompt helper all charge Claude; video generation, editing and extension charge Higgsfield.
+> 2. Every UsageEvent records: provider, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), the native unit and amount (Claude input and output tokens; Higgsfield credits), the KRW amount, and the rate used for conversion. Conversion rates live in an admin-editable settings table with history, so past events keep the rate they were charged at.
+> 3. Club pool per quarter and provider: the admin enters the company-approved amount for Claude and for Higgsfield. Member allocations plus reserve can never exceed the pool (enforced in the backend).
+> 4. Reserve: by default 20% of each provider pool is held back as club reserve; the admin can change this percentage per quarter. Members can request extra budget from Usage with a short reason; admin approves or rejects in Admin, paid from the reserve, written to the audit log.
+> 5. Admin pool dashboard per provider: approved pool, allocated to members, actually used, reserve remaining, usage by feature tag.
+> 6. Quarter report: Admin can download a CSV (and an on-screen summary) per quarter with usage by provider and feature, native units and KRW, number of active members, and utilisation rate, for the next funding application.
+> 7. Member side: Usage shows the two provider budgets, with usage broken down by feature. A one-time notice at 80% used. Before any Higgsfield action, show the estimated cost in KRW next to the button.
+> 8. Members cannot move budget between providers.
+>
+> Tests: allocations plus reserve cannot exceed the pool, the default reserve is 20%, reserve requests deduct from the reserve, usage events store native units and the rate, rate changes do not alter past events, the CSV totals match the database, and every feature charges the correct provider.
+
+### Application flow
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+> Goal: member applications feed the club's funding application to the company.
+>
+> 1. Application form: presets 균형 50/50, Claude 중심 70/30, 영상 중심 30/70, or a custom split, within the quarter's per-member limit. Show a rough plain-language meaning of each budget (e.g. approximate video seconds at the default model's price).
+> 2. 신청 합계 view in Admin: total requested per provider, number of applicants, list of members who have not applied yet with the deadline countdown, and a CSV export for the company application. Show the suggested company request = member totals + reserve (default 20%, on top of member totals, not taken out of them).
+> 3. After the company decides, the admin enters the approved pool per provider. If the pool covers all requests plus reserve, approvals give members exactly what they asked for. If it is smaller, show a proportional cut preview per member before applying, then hold the reserve at the configured percentage of the approved pool.
+> 4. Approving: single approve, approve with adjustment (changed split or amount, required reason, written to the audit log), bulk approve with one confirmation, reject with a reason the member sees on Profile.
+> 5. Active status and budget go together: a member becomes active for a quarter through an approved application, or through admin enrolment that also sets an allocation. If an admin sets a member active without any allocation, show a warning in Admin, and the member's sidebar says clearly that no budget is approved yet. (Currently testmember2 shows 활동 회원 with "승인된 지원금이 없습니다".)
+> 6. Tests: totals match applications; the suggested request includes the reserve on top; the proportional cut never exceeds the pool; adjustments and bulk approvals are audited; rejected members see the reason; active-without-allocation shows the warning.
+
+---
+
+## project-video-management — full spec
+
+Branch `feat-project-video-management`. Saved exactly as written by the developer.
+
+> 1. Delete Builder projects and videos
+>    - Delete button on each project and video, in the library list and in the workspace, with a Korean confirmation dialog that names the item.
+>    - Only the owner can delete, and only while they are an active member; admins can delete any item (written to the audit log). Backend enforces this.
+>    - Soft delete (deleted_at), so it disappears for the member but an admin can restore it. Add a restore action in Admin.
+>    - Deleting also removes the item from CtrlAI Apps or CtrlAITube if it was published.
+>    - Never delete UsageEvent records or budget history: usage already spent stays recorded.
+>
+> 2. Download videos
+>    - Download button on each finished video, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
+>    - Files go through a storage interface: local folder in development, cloud storage later (Phase 9), so nothing changes when we go live.
+>    - Until Phase 6 connects a real provider, the mock provider produces a small placeholder video so the download flow can be tested end to end.
+>    - The file name is readable: the video title plus date, safe characters only.
+>
+> 3. Download code as a ZIP
+>    - "코드 다운로드 (ZIP)" button in each Builder project, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
+>    - The ZIP contains all project files in their folder structure plus a short README explaining how to open or run it.
+>    - Never include secrets, .env files or anything outside the project.
+>    - Safe ZIP building: no ../ paths, a size limit, a clear Korean error if the project is too large.
+>
+> Tests: owner can delete/download, other members cannot, inactive owners can download but not delete, admin delete is audited and restorable, deleted items disappear from Apps and Tube, usage history survives deletion, ZIP contains no secrets or unsafe paths, downloads are rejected for deleted items.
+
+### Rename projects and videos
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+> - Rename from three places: the workspace title (click the title to edit it inline; Enter saves, Esc cancels), the ▾ menu next to the title ("이름 바꾸기"), and the library list's per-item menu.
+> - Rules: trimmed, 1–60 characters, a clear Korean error for an empty name; duplicate names are allowed.
+> - Owner only, and only while an active member (inactive members see the lock and reason, like other edits). Backend enforces this on the existing PATCH endpoint.
+> - If the item is published, the new name shows in CtrlAIApps or CtrlAITube too.
+> - The rename saves immediately, with a short "이름을 바꿨습니다" confirmation and no page reload.
+> - Tests: the owner renames successfully; another member and an inactive owner get 403; empty or too-long names are rejected; published listings show the new name.
+
+### Also needed here: store the generation settings per version
+
+Carried over from the earlier note on this item, since it belongs to the
+same branch. `VideoVersion` records which model made a version but not the
+**length, aspect ratio or sound** it was made with — `VideoModel.capabilities`
+only says what a model *can* do, not what was chosen.
+
+The controls already exist (`frontend/app/video/[projectId]/VideoSettings.tsx`),
+with the settings of versions made in the current session held in memory
+as a stopgap. Reload and older versions lose them, because there is
+nowhere to read them from.
+
+Needs `duration_seconds`, `aspect_ratio` and `sound` on `VideoVersion`
+with an Alembic migration (existing rows get null — their settings are
+genuinely unknown and must not be guessed), accepted on
+`POST /api/video/projects/{id}/versions` and validated against the model's
+`capabilities`, returned on `VideoVersionRead`, after which the in-memory
+map in `VideoWorkspace.tsx` is deleted.
+
+---
+
+## account-withdrawal — full spec
+
+Branch `feat-account-withdrawal`. Saved exactly as written by the developer.
+
+> 1. Member self-withdrawal from Profile ("회원 탈퇴"):
+>    - Requires re-entering the password plus a Korean confirmation dialog that lists exactly what will happen.
+>    - Before confirming, the page reminds the member to download their videos and code ZIPs first, with links to their libraries.
+>    - Choice for published work: keep it public labelled "탈퇴 회원" (default, per CLAUDE.md), or unpublish all of it.
+> 2. Effects of withdrawal:
+>    - account_status becomes former; the member is logged out and cannot log in.
+>    - Their remaining 동아리 지원 for the current quarter returns to the club reserve (written to the audit log).
+>    - If they have remaining 개인 충전 balance, show a clear warning before confirming, and mark the withdrawal "환불 대기" so an admin must record the refund in Admin before the account is finalised. Never silently discard real money.
+>    - UsageEvents and budget history stay, linked to an anonymised member, so quarter reports remain correct.
+> 3. 30-day grace period: within 30 days an admin can restore the account (audited). After 30 days, a scheduled job anonymises personal data (username, email, display name, avatar) and the account cannot be restored. Published work keeps the "탈퇴 회원" label.
+> 4. Admin: the member detail page shows withdrawn members with the withdrawal date, grace-period end, refund status, a 복구 action during the grace period, and a "환불 완료 기록" action. Admin-initiated withdrawal uses the same rules.
+> 5. Tests: wrong password blocks withdrawal; a former member cannot log in; the remaining club budget returns to the reserve; a personal balance blocks finalisation until a refund is recorded; restore works within 30 days and not after; anonymisation removes personal fields but keeps usage totals; the unpublish choice removes items from CtrlAIApps and CtrlAITube.
+
+**What this item leans on, which is why it sits at number 5.** Point 2
+returns the remaining club budget to "the club reserve", and the reserve
+is created by **budget-by-provider** (point 4 of that item). Point 1's
+"download your videos and code ZIPs first" links to the downloads built
+in **project-video-management**, and point 4's member detail page is the
+one built by **admin-restructure**. Point 3's scheduled job is the first
+background job in the project — there is no scheduler yet, so expect to
+choose one.
+
+---
+
+## video-higgsfield-only — full spec
+
+Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
+
+> 1. All video generation, editing and extension go through Higgsfield only, behind VIDEO_PROVIDER (mock by default).
+>    - Generate: text-to-video.
+>    - Edit: "이 영상 수정하기" sends the selected version plus an instruction to the model's video-edit workflow and saves a new version. Length and framing come from the source, so hide those controls in edit mode.
+>    - Extend: "이어서 만들기" uses the video-extend workflow with an explicit length.
+>    - Show edit and extend only for models that support them (add supports_edit and supports_extend to the 영상 모델 catalogue); otherwise show a short Korean note.
+>    - The mock provider supports all three.
+> 2. The Claude panel in the Video workspace is collapsed by default, labeled "프롬프트 도움받기 (선택)", only rewrites prompt text, never generates video, and its usage is charged to the Claude budget (one short line says so).
+> 3. Each version records how it was made (생성 / 수정 / 이어서), its source version, model, length and ratio, shown in the version strip.
+> 4. Every Higgsfield call goes through the budget service, charged to the Higgsfield budget, active members only.
+> 5. Show the estimated cost in 원 next to generate, edit and extend, based on the model's per-second price in the catalogue.
+>
+> Tests: edit and extend create linked versions; unsupported models hide edit/extend; inactive members are refused; the Higgsfield budget is deducted; the Claude panel never triggers a Higgsfield call.
+
+### Length slider
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+> - Replace the 5초 / 10초 / 15초 buttons with a slider from 1 to 60 seconds plus a number input next to it, kept in sync, in 1-second steps.
+> - Each model in the 영상 모델 catalogue gets min_seconds, max_seconds and step. Only the selected model's range is selectable; the rest of the slider is visibly greyed out, with a short Korean reason.
+> - Typing a value outside the model's range snaps to the nearest allowed value with a short Korean notice. If the member wants longer than the model's maximum, suggest "이어서 만들기" to reach that length.
+> - The estimated cost in 원 and the summary line above the generate button update live as the length changes.
+> - The chosen length is saved on each version.
+> - Tests: values outside the model range are rejected by the backend; the slider and input stay in sync; the cost estimate matches length × the model's per-second price.
+
+**Note.** "The chosen length is saved on each version" is the same column
+**project-video-management** adds (`duration_seconds` on `VideoVersion`),
+and that item comes first in the order. It owns the migration; this item
+uses the column and adds `min_seconds` / `max_seconds` / `step` to the
+model catalogue.
+
+---
+
+## prep-beta-launch — full spec
+
+No branch named yet. Only the launch data rules below are specified; the
+rest of this item — who the beta members are, what they are asked to try,
+and what counts as ready — is still to be written.
+
+### Launch data rules
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+> - The production database starts empty: run migrations, then create only the admin account from ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD in the environment. No test members, sample projects, videos, usage or audit entries.
+> - The development seed (dev, testmember, test accounts, sample data) must refuse to run unless APP_ENV=development, with a test proving it.
+> - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
+> - Never copy the local database to production; the deployment guide says so explicitly.
+> - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
+
+---
+
+## Archived specs
+
+Merged, but kept because each is the standing description of something a
+later screen can be checked against.
+
+### UI batch 1 — full spec
+
+**Merged 2026-10-01.** The standing description of the palette and the
+brand. Saved exactly as written by the developer.
 
 > Follow the working method and Git Workflow in CLAUDE.md. Create branch ui-brand-refresh from up-to-date main. UI and docs only: no backend logic or data-model changes. Attached: a screenshot of the current sidebar.
 >
@@ -125,16 +377,10 @@ Saved exactly as written by the developer.
 >
 > Run tsc, lint and build. Report what changed per screen, the contrast ratios, the changed files, and exact browser steps for me to check it. Do not merge.
 
-### Resolved: which branch to start from
+### membership-access-fix — full spec
 
-The spec says *"from up-to-date main"*, and as of 2026-10-01 that is now
-true — `main` contains Phase 1a and Phase 1b, so it has the login pages,
-the `내 정보` sidebar group and the `Phase 1 — 개발 중` subtitle the spec
-refers to. Branch `ui-brand-refresh` from `main`.
-
-## membership-access-fix — full spec
-
-Branch `fix-membership-access`. Saved exactly as written by the developer.
+**Merged 2026-10-01.** Branch `fix-membership-access`. The standing
+description of the access rule. Saved exactly as written by the developer.
 
 > Bug: members who are not active in the current quarter can still use Chat and the Builder/Video work chats, because only real paid endpoints were gated.
 >
@@ -151,117 +397,7 @@ Branch `fix-membership-access`. Saved exactly as written by the developer.
 >
 > Tests: inactive and not-enrolled members get 403 on every AI/create/edit/publish endpoint; active members succeed; inactive members can browse and read their own work; former members cannot log in; admin pages work for admins.
 
-## admin-restructure — full spec
-
-Branch `ui-admin-restructure`. Saved exactly as written by the developer.
-
-**Before:** [`docs/ui-requests/admin-before.png`](ui-requests/admin-before.png)
-— the current single-page Admin screen this item replaces: ten sections
-stacked on one route, from 회원 관리 down to 시스템.
-
-> Problem: Admin is one very long page with ten unrelated sections, mixed English/Korean labels, and small inline action buttons that are easy to misclick.
->
-> 1. Admin layout: a secondary Admin navigation (tabs at the top, or a sub-menu on wide screens) with these sections, each on its own route:
->    - 대시보드 /admin
->    - 회원 /admin/members, with member detail /admin/members/[id]
->    - 분기 · 신청 /admin/quarters
->    - 충전 신청 /admin/topups
->    - 영상 모델 /admin/video-models
->    - 감사 로그 /admin/audit
->    - 콘텐츠 /admin/content
->    - 시스템 /admin/system
->    - 개발 도구 /admin/dev (only when APP_ENV=development; holds the usage simulator)
->    Leave a clearly marked place for a future 예산 section (budget-by-provider).
-> 2. 대시보드: cards for things needing action (pending quarter applications, pending top-up requests) that link to the right section; current quarter with its application period and status; member counts by status (활동 / 비활동 / 탈퇴); the last 10 audit entries.
-> 3. 회원 list: search, filters (role, account status, membership status), sorting and pagination. Replace the small inline buttons with one "관리" menu per row, plus a link to the detail page.
-> 4. 회원 detail: account info, role, membership per quarter (history), allocations and usage for the selected quarter, and that member's audit entries. All actions live here: change membership status, enrol in a quarter, change role, set allocations.
-> 5. Safety: every status, role or allocation change opens a Korean confirmation dialog that states the effect (e.g. "탈퇴 처리하면 로그인할 수 없습니다"). After an action, show a short success or error message.
-> 6. Consistency: all labels in Korean, keeping product and model names (Enabled → 사용 가능, Visible → 회원에게 공개, Hidden → 숨김, Video Models → 영상 모델); one badge style for statuses; one shared table component with sticky header, consistent alignment, tabular-nums amounts and a Korean empty state; existing design tokens; full width and narrow screens.
-> 7. Backend: no changes to business rules. Small read-only, admin-only, tested endpoints are allowed if the dashboard needs counts.
->
-> Tests: every Admin route is admin-only; dev tools are unavailable outside development; dashboard counts match the database; the confirmation dialog appears before status changes.
-
-## budget-by-provider — full spec
-
-Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
-
-> Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
->
-> 1. Two budgets per member per quarter, named by provider: "Claude" and "Higgsfield". Rename the current Build budget to Claude everywhere (data, API, UI, docs) with an Alembic migration that keeps existing data. Chat, Project Builder and the Video prompt helper all charge Claude; video generation, editing and extension charge Higgsfield.
-> 2. Every UsageEvent records: provider, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), the native unit and amount (Claude input and output tokens; Higgsfield credits), the KRW amount, and the rate used for conversion. Conversion rates live in an admin-editable settings table with history, so past events keep the rate they were charged at.
-> 3. Club pool per quarter and provider: the admin enters the company-approved amount for Claude and for Higgsfield. Member allocations plus reserve can never exceed the pool (enforced in the backend).
-> 4. Reserve: by default 20% of each provider pool is held back as club reserve; the admin can change this percentage per quarter. Members can request extra budget from Usage with a short reason; admin approves or rejects in Admin, paid from the reserve, written to the audit log.
-> 5. Admin pool dashboard per provider: approved pool, allocated to members, actually used, reserve remaining, usage by feature tag.
-> 6. Quarter report: Admin can download a CSV (and an on-screen summary) per quarter with usage by provider and feature, native units and KRW, number of active members, and utilisation rate, for the next funding application.
-> 7. Member side: Usage shows the two provider budgets, with usage broken down by feature. A one-time notice at 80% used. Before any Higgsfield action, show the estimated cost in KRW next to the button.
-> 8. Members cannot move budget between providers.
->
-> Tests: allocations plus reserve cannot exceed the pool, the default reserve is 20%, reserve requests deduct from the reserve, usage events store native units and the rate, rate changes do not alter past events, the CSV totals match the database, and every feature charges the correct provider.
-
 ---
-
-## project-video-management — full spec
-
-Branch `feat-project-video-management`. Saved exactly as written by the developer.
-
-> 1. Delete Builder projects and videos
->    - Delete button on each project and video, in the library list and in the workspace, with a Korean confirmation dialog that names the item.
->    - Only the owner can delete, and only while they are an active member; admins can delete any item (written to the audit log). Backend enforces this.
->    - Soft delete (deleted_at), so it disappears for the member but an admin can restore it. Add a restore action in Admin.
->    - Deleting also removes the item from CtrlAI Apps or CtrlAITube if it was published.
->    - Never delete UsageEvent records or budget history: usage already spent stays recorded.
->
-> 2. Download videos
->    - Download button on each finished video, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
->    - Files go through a storage interface: local folder in development, cloud storage later (Phase 9), so nothing changes when we go live.
->    - Until Phase 6 connects a real provider, the mock provider produces a small placeholder video so the download flow can be tested end to end.
->    - The file name is readable: the video title plus date, safe characters only.
->
-> 3. Download code as a ZIP
->    - "코드 다운로드 (ZIP)" button in each Builder project, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
->    - The ZIP contains all project files in their folder structure plus a short README explaining how to open or run it.
->    - Never include secrets, .env files or anything outside the project.
->    - Safe ZIP building: no ../ paths, a size limit, a clear Korean error if the project is too large.
->
-> Tests: owner can delete/download, other members cannot, inactive owners can download but not delete, admin delete is audited and restorable, deleted items disappear from Apps and Tube, usage history survives deletion, ZIP contains no secrets or unsafe paths, downloads are rejected for deleted items.
-
-### Also needed here: store the generation settings per version
-
-Carried over from the earlier note on this item, since it belongs to the
-same branch. `VideoVersion` records which model made a version but not the
-**length, aspect ratio or sound** it was made with — `VideoModel.capabilities`
-only says what a model *can* do, not what was chosen.
-
-The controls already exist on `ui-brand-refresh`
-(`frontend/app/video/[projectId]/VideoSettings.tsx`), with the settings of
-versions made in the current session held in memory as a stopgap. Reload
-and older versions lose them, because there is nowhere to read them from.
-
-Needs `duration_seconds`, `aspect_ratio` and `sound` on `VideoVersion`
-with an Alembic migration (existing rows get null — their settings are
-genuinely unknown and must not be guessed), accepted on
-`POST /api/video/projects/{id}/versions` and validated against the model's
-`capabilities`, returned on `VideoVersionRead`, after which the in-memory
-map in `VideoWorkspace.tsx` is deleted.
-
----
-
-## video-higgsfield-only — full spec
-
-Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
-
-> 1. All video generation, editing and extension go through Higgsfield only, behind VIDEO_PROVIDER (mock by default).
->    - Generate: text-to-video.
->    - Edit: "이 영상 수정하기" sends the selected version plus an instruction to the model's video-edit workflow and saves a new version. Length and framing come from the source, so hide those controls in edit mode.
->    - Extend: "이어서 만들기" uses the video-extend workflow with an explicit length.
->    - Show edit and extend only for models that support them (add supports_edit and supports_extend to the 영상 모델 catalogue); otherwise show a short Korean note.
->    - The mock provider supports all three.
-> 2. The Claude panel in the Video workspace is collapsed by default, labeled "프롬프트 도움받기 (선택)", only rewrites prompt text, never generates video, and its usage is charged to the Claude budget (one short line says so).
-> 3. Each version records how it was made (생성 / 수정 / 이어서), its source version, model, length and ratio, shown in the version strip.
-> 4. Every Higgsfield call goes through the budget service, charged to the Higgsfield budget, active members only.
-> 5. Show the estimated cost in 원 next to generate, edit and extend, based on the model's per-second price in the catalogue.
->
-> Tests: edit and extend create linked versions; unsupported models hide edit/extend; inactive members are refused; the Higgsfield budget is deducted; the Claude panel never triggers a Higgsfield call.
 
 ## Done
 
