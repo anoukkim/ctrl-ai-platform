@@ -20,8 +20,10 @@ membership-access-fix, admin-restructure, ui-naming,
 fix-video-workspace-hang and **ui-tube-watch** (merged 2026-10-02). No
 branch is open.
 
-Next up is **budget-by-provider** on `feat-budget-by-provider`, branched
-from an up-to-date `main`; the spec is saved verbatim below.
+Next up is **ui-apps-detail** on `ui-apps-detail`, branched from an
+up-to-date `main`; the spec is saved verbatim below. It was added at the
+top of **Next** on 2026-10-02, ahead of `budget-by-provider`, so every
+position below it moved down one.
 
 Two things from ui-tube-watch worth carrying forward:
 
@@ -87,10 +89,19 @@ rewritten to match:
 
 Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
 `prep-beta-launch` move to the end; the build-out items come first.
-`ui-tube-watch` was position 1 and merged on 2026-10-02, so the list now
-starts at `budget-by-provider` and the numbers below shift up by one.
+`ui-tube-watch` was position 1 and merged on 2026-10-02, so the list then
+started at `budget-by-provider`. **`ui-apps-detail` was added at position
+1 later the same day**, so it now leads and everything below it is one
+place lower.
 
-1. **budget-by-provider** · branch `feat-budget-by-provider`
+1. **ui-apps-detail** · branch `ui-apps-detail`
+   The CtrlAIApps detail page `/ctrlaistore/[slug]`: a hero, one primary
+   action, and tabs whose comment tab **reuses the comment and reaction
+   components built in `ui-tube-watch`** rather than growing a second
+   copy. Spec saved verbatim below. Frontend only — comments and update
+   history stay mock data until Phase 5.
+
+2. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including **Application flow** and
    **Application and purchase model (decided)**. The latter wins where
    the two disagree: approval is automatic, and both providers are
@@ -98,12 +109,12 @@ starts at `budget-by-provider` and the numbers below shift up by one.
    carry-over. **Now also owns the `UsageEvent` migration** — the fields
    Phase 2 would have introduced had it stayed first.
 
-2. **usage-analytics** · branch `feat-usage-analytics`
+3. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
    reads the `UsageEvent` fields that item adds. Spec saved verbatim
    below.
 
-3. **project-video-management** · branch `feat-project-video-management`
+4. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**.
    ⚠ **The per-version generation settings are already done** —
    fix-video-workspace-hang had to add them to make a version show its
@@ -111,29 +122,29 @@ starts at `budget-by-provider` and the numbers below shift up by one.
    `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
    below is history, not work.
 
-4. **account-withdrawal** · branch `feat-account-withdrawal`
+5. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-5. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+6. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section.
 
-6. **Phase 2 — Chat** · branch `phase-2-chat`
+7. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20. **It now
    consumes the budget and usage structures rather than introducing
    them** — see the note on its spec.
 
-7. **invite-only-signup** · branch `feat-invite-only-signup`
+8. **invite-only-signup** · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-8. **prep-beta-launch** · no branch named yet
+9. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
@@ -142,7 +153,7 @@ starts at `budget-by-provider` and the numbers below shift up by one.
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 1:
+Three things to carry into **budget-by-provider**, now at position 2:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -587,6 +598,32 @@ would have caught:
    disagrees with the reader's clock later. The `<time>` element carries
    `suppressHydrationWarning`; differing is correct here, and the browser
    redraws from its own clock.
+
+---
+
+## ui-apps-detail — full spec
+
+Branch `ui-apps-detail`. Added 2026-10-02 at the top of **Next**. Saved
+exactly as written by the developer.
+
+> Problem: the CtrlAIApps detail page (/ctrlaistore/[slug]) uses a large details table, comments that look like a list, an 앱 실행 button that looks active even when there is no launch address, a creator-status sentence viewers do not need, and buttons of equal weight.
+>
+> 1. Hero: thumbnail on the left; on the right the title, a one-line tagline, the creator (avatar initial, name, status badge, linking to their profile), and one compact meta line (분류 · 게시일 · 반응 수). Remove the "이번 분기에 참여 중이며…" sentence; the badge is enough.
+>
+> 2. Actions: 앱 실행 is the only primary button. If there is no launch address, it is disabled and reads "실행 준비 중" with the reason on hover. "GitHub에서 보기" is a small secondary button shown only when the creator made the repository public. Remove "개발자 보기" (the creator name already links to the profile).
+>
+> 3. Tabs below the hero: 소개 / 댓글 N / 업데이트 기록.
+>    - 소개: the full description, a screenshot gallery (mock images for now), and a collapsible "자세히" with 저장소, 실행 주소 and last update date, replacing the big table.
+>    - 댓글: reuse the exact comment and reaction components built in ui-tube-watch (avatars, relative time, 답글, likes, thread lines, collapsing threads, growing input, 최신순 / 인기순), so both community pages behave the same. Comments stay mock data with the small 준비 중 note.
+>    - 업데이트 기록: a simple dated list (mock for now).
+>
+> 4. Below the tabs: "<creator>의 다른 앱" as small cards (mock).
+>
+> 5. Narrow screens: hero stacks (thumbnail, then text and actions), tabs stay.
+>
+> 6. Use the existing design tokens and lucide icons; check at 100% zoom on full width, about 1280px, and narrow screens.
+>
+> Checks: tsc, lint and build; a test that 앱 실행 is disabled without a launch address; browser steps.
 
 ---
 
