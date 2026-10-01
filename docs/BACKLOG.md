@@ -15,52 +15,58 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. Phase 1 and UI batch 1 are both merged, so `main`
-holds the accounts, quarters, budgets, usage ledger and audit log together
-with the CTRL+AI brand refresh. No branch is open.
+**membership-access-fix** is built on `fix-membership-access` and is
+waiting on review. Not merged.
 
-Next up is **membership-access-fix** on `fix-membership-access`, branched
-from `main`; the spec is saved verbatim below. It is first because it is a
-bug: members who are not participating in the current quarter can still
-use AI features.
+Participation is now enforced on every create, edit and delete endpoint
+rather than only on the two create routes, and the three AI surfaces say
+so before the member presses the button. The access rule for all 42
+routes is written down in `docs/architecture.md` and checked by a test,
+so the next route cannot quietly ship without one.
 
 ---
 
 ## Next (in order)
 
-1. **membership-access-fix** · branch `fix-membership-access`
-   A bug, which is why it is first: participation is not enforced on
-   mock-backed AI features. Spec saved verbatim below.
-
-2. **admin-restructure** · branch `ui-admin-restructure`
+1. **admin-restructure** · branch `ui-admin-restructure`
    Spec saved verbatim below.
 
-3. **budget-by-provider** · branch `feat-budget-by-provider`
+2. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below.
 
-4. **project-video-management** · branch `feat-project-video-management`
+3. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below.
 
-5. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+4. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below.
 
-6. **prep-beta-launch**
+5. **prep-beta-launch**
    Not yet specified.
 
-7. **Phase 2 — Chat**
+6. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
-Both items that were parked for want of a spec — membership-access-fix
-and video-higgsfield-only — now have one and have taken their places
-above.
+**New, found while verifying membership-access-fix:**
+
+7. **fix-video-workspace-hang** · branch `fix-video-workspace-hang`
+   `/video/[projectId]` never leaves "영상 프로젝트를 불러오는 중…". The
+   three API calls it makes all return 200 and the console is clean, so
+   the component is not reaching its ready state. Reproduced on `main`
+   (so it predates membership-access-fix) and for an active member as
+   well as an inactive one, so it has nothing to do with participation.
+   The Video **library** at `/video` is fine; only the workspace is
+   affected. Not investigated further — it was out of scope for the
+   branch it was found on.
 
 
 ### Merge order
 
-Nothing is waiting. `main` contains Phase 1a, Phase 1b, Phase 1c and UI
-batch 1. Branch the next item from an up-to-date `main`.
+**membership-access-fix** is waiting on review. Merge it before starting
+**admin-restructure** — admin-restructure moves every Admin route, and
+the route/guard table and its test would have to be rewritten against a
+moving target otherwise.
 
 ---
 
