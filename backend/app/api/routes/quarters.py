@@ -92,7 +92,10 @@ def _describe_participation(
 
 
 @router.get("/current", response_model=QuarterRead | None, summary="The current quarter")
-def read_current_quarter(db: Session = Depends(get_db)) -> Quarter | None:
+def read_current_quarter(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> Quarter | None:
     return current_quarter(db)
 
 

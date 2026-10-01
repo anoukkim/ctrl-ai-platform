@@ -54,6 +54,25 @@ class Settings(BaseSettings):
     # code and without altering quarters that already ran.
     quarterly_subsidy_limit_krw: int = 100_000
 
+    # ---------- Session cookie ----------
+    # Every flag comes from the environment so production can tighten them
+    # without a code change (Phase 9).
+    session_cookie_name: str = "ctrlai_session"
+    # False locally because local development is plain HTTP and a Secure
+    # cookie would never be sent. Production sets SESSION_COOKIE_SECURE=true.
+    session_cookie_secure: bool = False
+    # "lax" keeps the cookie on ordinary navigation while still refusing it
+    # on cross-site form posts.
+    session_cookie_samesite: str = "lax"
+    session_max_age_seconds: int = 60 * 60 * 24 * 14  # two weeks
+
+    # ---------- Seed administrator ----------
+    # Read by `python -m app.db.init_db` only. Blank means "no admin to
+    # seed", which is why there is no default password anywhere in the code.
+    admin_username: str = ""
+    admin_email: str = ""
+    admin_password: str = ""
+
     @property
     def is_development(self) -> bool:
         return self.app_env.lower() in {"development", "dev", "local"}
