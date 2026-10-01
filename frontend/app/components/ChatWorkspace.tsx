@@ -14,14 +14,26 @@
  * 브라우저 안에서 단어를 보고 고른 것입니다. Claude 연결은 Phase 2입니다.
  */
 
-import { Clapperboard, Code2, LayoutGrid, PlayCircle, SendHorizontal, type LucideIcon } from "lucide-react";
+import {
+  Clapperboard,
+  Code2,
+  LayoutGrid,
+  Lock,
+  PlayCircle,
+  SendHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { CHAT_SHORTCUTS } from "@/lib/mock-data";
 
+import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+
 import BrandMark from "./BrandMark";
 import styles from "./ChatWorkspace.module.css";
+import { useMayCreate } from "./MyQuarterProvider";
+import NotParticipatingBanner from "./NotParticipatingBanner";
 
 /** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
 const SHORTCUT_ICON: Record<string, LucideIcon> = {
@@ -111,6 +123,11 @@ function mockReply(input: string): Message {
 }
 
 export default function ChatWorkspace() {
+  // 이번 분기에 참여하지 않으면 보내기를 막습니다. 지금은 답변이 브라우저
+  // 안에서 만들어지지만, Phase 2에서 이 입력창이 Claude를 부르게 됩니다.
+  // 그때 규칙을 붙이면, 그 전의 모든 배포에는 규칙이 없었던 셈입니다.
+  const mayCreate = useMayCreate();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const inputId = useId();
@@ -149,6 +166,8 @@ export default function ChatWorkspace() {
   }, [draft, resize]);
 
   const send = useCallback(() => {
+    if (!mayCreate) return;
+
     const trimmed = draft.trim();
     if (!trimmed) return;
 
@@ -158,7 +177,7 @@ export default function ChatWorkspace() {
       mockReply(trimmed),
     ]);
     setDraft("");
-  }, [draft]);
+  }, [draft, mayCreate]);
 
   return (
     <div className={styles.chat}>
@@ -219,6 +238,7 @@ export default function ChatWorkspace() {
       {/* 입력창은 바닥에 고정됩니다. */}
       <div className={styles.composerArea}>
         <div className={styles.composerInner}>
+          <NotParticipatingBanner />
           <label className="sr-only" htmlFor={inputId}>
             CTRL+AI에게 보낼 메시지
           </label>
@@ -239,21 +259,31 @@ export default function ChatWorkspace() {
                   send();
                 }
               }}
-              placeholder="만들고 싶은 것을 이야기해 보세요"
+              placeholder={
+                mayCreate ? "만들고 싶은 것을 이야기해 보세요" : "이번 분기에는 보낼 수 없습니다"
+              }
+              disabled={!mayCreate}
+              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
             />
             <button
               className={styles.send}
               type="button"
               onClick={send}
-              disabled={!draft.trim()}
-              aria-label="보내기"
+              disabled={!mayCreate || !draft.trim()}
+              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+              aria-label={mayCreate ? "보내기" : "이번 분기에는 보낼 수 없습니다"}
             >
-              <SendHorizontal size={17} aria-hidden="true" />
+              {mayCreate ? (
+                <SendHorizontal size={17} aria-hidden="true" />
+              ) : (
+                <Lock size={15} aria-hidden="true" />
+              )}
             </button>
           </div>
           <p className={styles.hint}>
-            Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 지금은 예시 답변만 보여 줍니다 — Claude
-            연결은 Phase 2에서 진행됩니다.
+            {mayCreate
+              ? "Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 지금은 예시 답변만 보여 줍니다 — Claude 연결은 Phase 2에서 진행됩니다."
+              : "참여 중인 분기가 되면 다시 사용할 수 있습니다."}
           </p>
         </div>
       </div>

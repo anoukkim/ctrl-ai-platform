@@ -143,6 +143,22 @@ def participating(db_session: Session, dev_user):
 
 
 @pytest.fixture
+def other_participating(db_session: Session, other_user, participating):
+    """Make the *second* member an active participant too.
+
+    Needed by any test where `other_user` is the one making the request
+    and the route is guarded. Depends on `participating` so both members
+    join the same quarter rather than creating a second one.
+    """
+    from app.models import MembershipStatus
+    from app.services.quarters import set_membership
+
+    set_membership(db_session, other_user.id, participating.id, MembershipStatus.ACTIVE)
+    db_session.commit()
+    return participating
+
+
+@pytest.fixture
 def other_client(anon_client: TestClient, other_user) -> TestClient:
     """A client signed in as the second member, who is NOT an admin."""
     response = anon_client.post(

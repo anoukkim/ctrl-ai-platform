@@ -14,10 +14,12 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
-import { Pause, Play } from "lucide-react";
+import { Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useMayCreate } from "@/app/components/MyQuarterProvider";
+import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import ws from "@/app/components/workspace.module.css";
 import {
   VIDEO_STATUS_BADGE,
@@ -38,6 +40,8 @@ import {
   MOCK_VIDEO_REVISIONS,
   type VideoChatMessage,
 } from "@/lib/mock-data";
+
+import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import VideoSettings, {
   ALL_ASPECTS,
@@ -95,6 +99,11 @@ type State =
   | { phase: "error"; message: string };
 
 export default function VideoWorkspace({ projectId }: { projectId: string }) {
+  // 참여하지 않는 분기에도 이 화면은 열리고, 지난 버전은 모두 볼 수
+  // 있습니다. 막히는 것은 저장·생성·최종본 선택처럼 바꾸는 쪽입니다.
+  // 실제 거절은 백엔드가 합니다 — 아래 잠금은 설명일 뿐입니다.
+  const mayCreate = useMayCreate();
+
   const [state, setState] = useState<State>({ phase: "loading" });
   const [siblings, setSiblings] = useState<VideoProject[]>([]);
   const [models, setModels] = useState<VideoModel[]>([]);
@@ -258,6 +267,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   /* ---------- 저장 ---------- */
 
   const savePrompt = useCallback(async () => {
+    if (!mayCreate) return;
     if (state.phase !== "ready" || prompt === state.project.prompt) return;
 
     setSaving("saving");
@@ -269,10 +279,12 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     } catch {
       setSaving(null);
     }
-  }, [prompt, projectId, state]);
+  }, [mayCreate, prompt, projectId, state]);
 
   const chooseModel = useCallback(
     async (value: string) => {
+      if (!mayCreate) return;
+
       const selected_model_id = value === "auto" ? null : Number(value);
       try {
         const updated = await updateVideoProject(projectId, { selected_model_id });
@@ -281,11 +293,11 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         setState({ phase: "error", message: describeError(error) });
       }
     },
-    [projectId],
+    [mayCreate, projectId],
   );
 
   const generate = useCallback(async () => {
-    if (generating) return;
+    if (!mayCreate || generating) return;
 
     setGenerating(true);
     setIsPlaying(false);
@@ -311,10 +323,19 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [effectiveAspect, effectiveDuration, effectiveSound, generating, load, projectId, prompt]);
+  }, [
+    effectiveAspect,
+    effectiveDuration,
+    effectiveSound,
+    generating,
+    load,
+    mayCreate,
+    projectId,
+    prompt,
+  ]);
 
   const markFinal = useCallback(async () => {
-    if (!selectedVersionId) return;
+    if (!mayCreate || !selectedVersionId) return;
     try {
       const updated = await updateVideoProject(projectId, {
         final_version_id: selectedVersionId,
@@ -323,11 +344,13 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     } catch (error) {
       setState({ phase: "error", message: describeError(error) });
     }
-  }, [projectId, selectedVersionId]);
+  }, [mayCreate, projectId, selectedVersionId]);
 
   /* ---------- Claude (목업) ---------- */
 
   const askClaude = useCallback(() => {
+    if (!mayCreate) return;
+
     const trimmed = draft.trim();
     if (!trimmed) return;
 
@@ -345,7 +368,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         : { id: `a-${Date.now()}`, role: "assistant", body: MOCK_VIDEO_FALLBACK_REPLY },
     ]);
     setDraft("");
-  }, [draft, prompt]);
+  }, [draft, mayCreate, prompt]);
 
   /* ---------- 화면 ---------- */
 
@@ -446,6 +469,8 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         </span>
       </div>
 
+      <NotParticipatingBanner inWorkspace />
+
       <div className={ws.body}>
         {/* 왼쪽 — 프롬프트와 설정 */}
         <aside className={`${ws.pane} ${styles.left}`}>
@@ -459,12 +484,19 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
           </div>
           <div className={ws.paneBody}>
             <p className="section-title">어떤 영상을 만들까요?</p>
+            {/* readOnly이지 disabled가 아닙니다. 참여하지 않는 회원도 자기가
+                쓴 프롬프트를 읽고 복사할 수 있어야 합니다. disabled면 글자를
+                고를 수조차 없습니다. */}
             <textarea
               className={`field ${styles.promptArea}`}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               onBlur={() => void savePrompt()}
-              placeholder="영상 아이디어를 자유롭게 적어주세요"
+              placeholder={
+                mayCreate ? "영상 아이디어를 자유롭게 적어주세요" : "이번 분기에는 고칠 수 없습니다"
+              }
+              readOnly={!mayCreate}
+              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               aria-label="영상 프롬프트"
             />
             <div className={styles.promptMeta}>
@@ -482,6 +514,8 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   id="video-model"
                   value={project.selected_model_id ?? "auto"}
                   onChange={(event) => void chooseModel(event.target.value)}
+                  disabled={!mayCreate}
+                  title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                 >
                   {/* Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
                   <option value="auto">Auto — 추천</option>
@@ -508,6 +542,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 onDuration={setDuration}
                 onAspect={setAspect}
                 onSound={setSound}
+                lockedReason={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
 
               {settingNotice && (
@@ -535,19 +570,25 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 className="btn"
                 type="button"
                 onClick={() => setDraft("조금 더 어두운 분위기로 바꿔줘.")}
+                disabled={!mayCreate}
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               >
-                Claude로 다듬기
+                {!mayCreate && <Lock size={13} aria-hidden="true" />} Claude로 다듬기
               </button>
               <button
                 className="btn btn-primary"
                 type="button"
                 onClick={() => void generate()}
-                disabled={generating}
+                disabled={!mayCreate || generating}
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               >
+                {!mayCreate && <Lock size={13} aria-hidden="true" />}{" "}
                 {generating ? "생성 중…" : "Higgsfield로 생성"}
               </button>
               <p className="small dim">
-                아직 실제로 영상을 만들지는 않습니다. 시도만 버전으로 기록됩니다.
+                {mayCreate
+                  ? "아직 실제로 영상을 만들지는 않습니다. 시도만 버전으로 기록됩니다."
+                  : NOT_PARTICIPATING_HINT}
               </p>
             </div>
           </div>
@@ -714,8 +755,10 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                         className={`btn btn-sm ${styles.applyBtn}`}
                         type="button"
                         onClick={() => setPrompt(message.revisedPrompt as string)}
+                        disabled={!mayCreate}
+                        title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                       >
-                        수정된 프롬프트 적용
+                        {!mayCreate && <Lock size={12} aria-hidden="true" />} 수정된 프롬프트 적용
                       </button>
                     )}
                   </div>
@@ -735,16 +778,19 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                     askClaude();
                   }
                 }}
-                placeholder="어떻게 바꿀까요?"
+                placeholder={mayCreate ? "어떻게 바꿀까요?" : "이번 분기에는 사용할 수 없습니다"}
+                disabled={!mayCreate}
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                 aria-label="Claude에게 수정 요청하기"
               />
               <button
                 className="btn btn-sm"
                 type="button"
                 onClick={askClaude}
-                disabled={!draft.trim()}
+                disabled={!mayCreate || !draft.trim()}
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               >
-                보내기
+                {mayCreate ? "보내기" : <Lock size={13} aria-hidden="true" />}
               </button>
             </div>
           </div>
@@ -812,16 +858,19 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               className="btn btn-sm"
               type="button"
               onClick={() => void generate()}
-              disabled={generating}
+              disabled={!mayCreate || generating}
+              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
             >
-              다시 생성
+              {!mayCreate && <Lock size={12} aria-hidden="true" />} 다시 생성
             </button>
             <button
               className="btn btn-sm"
               type="button"
               onClick={() => void markFinal()}
-              disabled={!selected || isFinal}
+              disabled={!mayCreate || !selected || isFinal}
+              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
             >
+              {!mayCreate && <Lock size={12} aria-hidden="true" />}{" "}
               {isFinal ? "최종본으로 지정됨" : "최종본으로 선택"}
             </button>
             <button

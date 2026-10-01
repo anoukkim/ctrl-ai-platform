@@ -11,9 +11,12 @@
  * 예시입니다. 코드 생성은 Phase 4, GitHub 연동은 Phase 5입니다.
  */
 
+import { Lock } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useMayCreate } from "@/app/components/MyQuarterProvider";
+import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import ws from "@/app/components/workspace.module.css";
 import {
   BUILDER_STATUS_BADGE,
@@ -24,6 +27,7 @@ import {
   type BuilderProject,
 } from "@/lib/projects";
 import { MOCK_BUILDER_CHAT, MOCK_FILE_CONTENTS, MOCK_FILE_TREE } from "@/lib/mock-data";
+import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import PreviewPane from "./PreviewPane";
 import styles from "./workspace.module.css";
@@ -38,6 +42,10 @@ type State =
 const ENTRY_FILE = "page.tsx";
 
 export default function BuilderWorkspace({ projectId }: { projectId: string }) {
+  // 참여하지 않는 분기에도 이 화면은 열립니다 — 내 작업물은 언제든 볼 수
+  // 있어야 하니까요. 막히는 것은 바꾸는 쪽뿐입니다.
+  const mayCreate = useMayCreate();
+
   const [state, setState] = useState<State>({ phase: "loading" });
   const [siblings, setSiblings] = useState<BuilderProject[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -203,6 +211,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         </span>
       </div>
 
+      <NotParticipatingBanner inWorkspace />
+
       <div className={ws.body}>
         {/* 왼쪽 — 이 프로젝트의 파일만 */}
         <aside className={`${ws.pane} ${styles.left}`}>
@@ -317,12 +327,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               <input
                 className="field"
                 type="text"
-                placeholder="무엇을 바꿀까요?"
+                placeholder={mayCreate ? "무엇을 바꿀까요?" : "이번 분기에는 사용할 수 없습니다"}
                 disabled
-                aria-label="Claude에게 요청하기 (Phase 4에서 제공됩니다)"
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+                aria-label={
+                  mayCreate
+                    ? "Claude에게 요청하기 (Phase 3에서 제공됩니다)"
+                    : "이번 분기에는 사용할 수 없습니다"
+                }
               />
+              {/* 막힌 이유가 둘일 수 있습니다. 어느 쪽인지 알려 주지 않으면
+                  회원은 분기에 참여하면 풀린다고 오해합니다. */}
               <p className={styles.hint}>
-                예: &ldquo;이번 주 달성률을 보여주는 그래프를 추가해줘.&rdquo;
+                {mayCreate ? (
+                  <>예: &ldquo;이번 주 달성률을 보여주는 그래프를 추가해줘.&rdquo;</>
+                ) : (
+                  <>
+                    <Lock size={11} aria-hidden="true" /> 이번 분기에 참여하지 않아 사용할 수
+                    없습니다.
+                  </>
+                )}
               </p>
             </div>
           </div>

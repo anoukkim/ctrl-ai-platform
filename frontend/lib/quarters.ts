@@ -127,9 +127,19 @@ export const MEMBERSHIP_BADGE: Record<MembershipStatus, string> = {
   former: "badge-muted",
 };
 
-/** 참여하지 않는 회원에게 보여 줄 설명. 백엔드 문구와 뜻을 맞춥니다. */
+/**
+ * 참여하지 않는 회원에게 보여 줄 설명. 백엔드 403 문구와 뜻을 맞춥니다.
+ *
+ * 한 문장으로 모아 둔 이유: Chat, Project Builder, Video Generator,
+ * 두 목록 화면, 그리고 잠긴 버튼의 안내까지 모두 같은 말을 해야 합니다.
+ *
+ * 원래 요청서의 문장은 "내 작업물 보기와 다운로드는 가능합니다"였습니다.
+ * 다운로드는 아직 없으므로(docs/BACKLOG.md의 project-video-management)
+ * 지금 없는 기능을 약속하지 않도록 그 부분만 뺐습니다. 다운로드가 생기면
+ * 이 한 줄만 고치면 됩니다.
+ */
 export const NOT_PARTICIPATING_HINT =
-  "이번 분기에 참여하고 있지 않아 새로 만들 수 없습니다. 지금까지 만든 작업물은 그대로 볼 수 있습니다.";
+  "이번 분기에 참여하지 않아 AI 기능을 사용할 수 없습니다. 지금까지 만든 작업물은 그대로 볼 수 있습니다.";
 
 export interface MyQuarterStatus {
   quarter: Quarter | null;

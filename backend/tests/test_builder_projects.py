@@ -33,9 +33,14 @@ def test_list_returns_only_my_projects(
 
 
 def test_another_members_project_is_not_found(
-    client: TestClient, db_session: Session, dev_user: User, other_user: User
+    client: TestClient, db_session: Session, dev_user: User, other_user: User, participating
 ) -> None:
-    """404 rather than 403, so ids cannot be probed for existence."""
+    """404 rather than 403, so ids cannot be probed for existence.
+
+    The caller participates, so they are past `require_active_member` and
+    what is being proven really is the ownership rule. Without it the
+    write attempts would stop at 403 and never reach `_owned_project`.
+    """
     theirs = BuilderProject(owner_user_id=other_user.id, name="남의 프로젝트")
     db_session.add(theirs)
     db_session.commit()
@@ -46,7 +51,7 @@ def test_another_members_project_is_not_found(
 
 
 def test_another_members_project_survives_a_delete_attempt(
-    client: TestClient, db_session: Session, dev_user: User, other_user: User
+    client: TestClient, db_session: Session, dev_user: User, other_user: User, participating
 ) -> None:
     theirs = BuilderProject(owner_user_id=other_user.id, name="남의 프로젝트")
     db_session.add(theirs)
@@ -58,7 +63,7 @@ def test_another_members_project_survives_a_delete_attempt(
 
 
 def test_update_changes_only_the_fields_sent(
-    client: TestClient, db_session: Session, dev_user: User
+    client: TestClient, db_session: Session, dev_user: User, participating
 ) -> None:
     project = BuilderProject(
         owner_user_id=dev_user.id, name="가계부", description="지출 기록"
