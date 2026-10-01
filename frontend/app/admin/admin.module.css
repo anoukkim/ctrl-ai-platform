@@ -1201,3 +1201,14 @@ button.statCardActive:hover {
   background: var(--error-soft);
   color: var(--error-text);
 }
+
+/* 마감이 지난 신청 기간. D-day 자리에 들어가므로 같은 크기로 둡니다. */
+.ddayPast {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  font-weight: 600;
+}

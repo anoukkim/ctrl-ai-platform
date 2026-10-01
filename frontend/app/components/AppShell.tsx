@@ -331,7 +331,7 @@ function AdminNavBlock({
 
   const sections = visibleSections(isDevelopment);
   const pending: Record<string, number> = {
-    quarters: pendingApplications,
+    applications: pendingApplications,
     topups: pendingTopUps,
   };
   const totalPending = pendingApplications + pendingTopUps;

@@ -51,12 +51,23 @@ const TABS: { key: string; label: string; status: ApplicationStatus | null }[] =
   { key: "all", label: "전체", status: null },
 ];
 
-/** 신청 마감까지 며칠. 지났으면 null입니다. */
+/**
+ * 신청 마감까지 며칠. 이미 지났으면 null입니다.
+ *
+ * 날짜끼리만 뺍니다. 시각까지 섞으면 어제 자정에 끝난 마감이 "D-0"으로
+ * 보입니다 — 반올림이 음수를 0으로 만들기 때문입니다. 마감이 지난 것과
+ * 오늘 마감인 것은 관리자에게 전혀 다른 소식입니다.
+ */
 function daysUntil(iso: string | null): number | null {
   if (iso === null) return null;
-  const closes = new Date(`${iso}T23:59:59`);
+
+  const closes = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(closes.getTime())) return null;
-  const days = Math.ceil((closes.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const days = Math.round((closes.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   return days >= 0 ? days : null;
 }
 
@@ -247,7 +258,13 @@ export default function ApplicationReview() {
         <span className="small muted">
           신청 마감{" "}
           {selected.application_closes_at ? formatDate(selected.application_closes_at) : "미정"}
-          {deadline !== null && <span className={styles.dday}>D-{deadline}</span>}
+          {deadline !== null ? (
+            <span className={styles.dday}>D-{deadline}</span>
+          ) : (
+            selected.application_closes_at && (
+              <span className={styles.ddayPast}>마감됨</span>
+            )
+          )}
         </span>
         <span className="small muted">1인 한도 {formatKrw(selected.subsidy_limit_krw)}</span>
         <Link className={styles.quarterLineLink} href={withQuarter("/admin/quarters", selected.id)}>

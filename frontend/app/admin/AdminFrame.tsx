@@ -63,7 +63,7 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
 
   // 손이 필요한 구역에 개수를 띄웁니다.
   const pending: Record<string, number> = {
-    quarters: dashboard?.pending_applications ?? nav.pendingApplications,
+    applications: dashboard?.pending_applications ?? nav.pendingApplications,
     topups: dashboard?.pending_top_ups ?? nav.pendingTopUps,
   };
 
