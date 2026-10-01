@@ -88,8 +88,9 @@ def update_project(
     project_id: int,
     payload: BuilderProjectUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_active_member),
 ) -> BuilderProject:
+    """Edit a project. Participating members only — see `require_active_member`."""
     project = _owned_project(project_id, db, user)
 
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -108,8 +109,14 @@ def update_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_active_member),
 ) -> None:
+    """Delete a project. Participating members only.
+
+    Deleting is a change to the member's work, not a read, so it follows
+    the same rule as creating and editing. A member who is not
+    participating keeps everything they made and can still read it.
+    """
     project = _owned_project(project_id, db, user)
     db.delete(project)
     db.commit()

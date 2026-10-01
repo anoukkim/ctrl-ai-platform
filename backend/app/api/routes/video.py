@@ -126,8 +126,14 @@ def update_project(
     project_id: int,
     payload: VideoProjectUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_active_member),
 ) -> VideoProject:
+    """Edit a project — prompt, model, final version.
+
+    Participating members only. This is how the prompt is saved before a
+    generation, so leaving it open would let a member who is not
+    participating drive the workspace right up to the provider call.
+    """
     project = _owned_project(project_id, db, user)
     changes = payload.model_dump(exclude_unset=True)
 

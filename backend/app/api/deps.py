@@ -90,10 +90,15 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-# What an inactive member is told. Deliberately explains the state and the
-# way out rather than just refusing.
+# What a member who is not participating is told. Deliberately explains
+# the state and what is still possible rather than just refusing.
+#
+# It names editing as well as creating, because `require_active_member`
+# now guards both. A message that only mentioned "새로 만들기" would be
+# wrong on the refusal a member is most likely to see — pressing 저장 in
+# a workspace they can still open and read.
 NOT_PARTICIPATING = (
-    "이번 분기에 참여하고 있지 않아 새로 만들 수 없습니다. "
+    "이번 분기에 참여하고 있지 않아 AI 기능과 만들기·수정을 사용할 수 없습니다. "
     "지금까지 만든 작업물은 그대로 볼 수 있습니다."
 )
 
@@ -102,7 +107,7 @@ def require_active_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> User:
-    """Guard for paid creation and budget-spending routes.
+    """Guard for every AI, create, edit and delete route.
 
     Signing in is not enough. A member must be **participating in the
     current quarter**, which means an active `QuarterMembership` row.
@@ -114,6 +119,15 @@ def require_active_member(
 
     A missing membership row means "not participating" — there is no need
     to write an inactive row for everyone who did not apply.
+
+    It applies to mock-backed routes too. A feature that costs nothing
+    today will call a provider in a later phase, and a rule that is only
+    added at that point is a rule that was missing for every release
+    before it.
+
+    Admins are not exempt. The role decides who may reach `/api/admin/*`;
+    participation decides who may create. An admin who did not join this
+    quarter is refused here exactly like anyone else.
     """
     quarter = current_quarter(db)
     if quarter is None:

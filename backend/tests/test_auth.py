@@ -187,9 +187,14 @@ def test_health_stays_public(anon_client: TestClient) -> None:
 
 
 def test_a_member_cannot_read_another_members_project(
-    client: TestClient, anon_client: TestClient, other_user, participating
+    client: TestClient, anon_client: TestClient, other_user, other_participating
 ) -> None:
-    """Answered 404, not 403: a member is not told the row exists."""
+    """Answered 404, not 403: a member is not told the row exists.
+
+    Both members participate. The second one has to, or the write attempts
+    below would be refused by `require_active_member` before ownership was
+    ever consulted, and the test would pass for the wrong reason.
+    """
     created = client.post("/api/builder/projects", json={"name": "내 프로젝트"})
     assert created.status_code == 201
     project_id = created.json()["id"]
