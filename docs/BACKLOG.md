@@ -35,6 +35,13 @@ owns the `UsageEvent` migration that `budget-by-provider` and
 `usage-analytics` were each going to add, and it charges the `build`
 category because the Claude/Higgsfield rename comes later.
 
+**invite-only-signup** was then inserted at position 2 on 2026-10-01,
+between Phase 2 and `prep-beta-launch`, and everything below it moved down
+one. It takes the invite codes out of `prep-beta-launch`'s beta list and
+makes the code required in every environment: the repository is public, so
+the site address will be, and an invite code is what keeps the community
+members-only. The numbered list is the authority on order.
+
 ---
 
 ## Next (in order)
@@ -44,28 +51,35 @@ category because the Claude/Higgsfield rename comes later.
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20.
 
-2. **prep-beta-launch** · no branch named yet
+2. **invite-only-signup** · branch `feat-invite-only-signup`
+   An invite code is required to sign up, in every environment — the site
+   address is public, the community is not. Adds the `InviteCode` table
+   and an invite-code section to Admin › Members. Spec saved verbatim
+   below. **`prep-beta-launch` no longer defines its own invite codes**;
+   it reuses this.
+
+3. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
 
-3. **ui-tube-watch** · branch `ui-tube-watch`
+4. **ui-tube-watch** · branch `ui-tube-watch`
    The CtrlAITube watch page: two columns, player sizing by video ratio,
    and a real comment section. Spec saved verbatim below.
 
-4. **budget-by-provider** · branch `feat-budget-by-provider`
+5. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including **Application flow** and
    **Application and purchase model (decided)**. The latter wins where
    the two disagree: approval is automatic, and both providers are
    prepaid, so the item also owns purchase records, club balances and
    carry-over.
 
-5. **usage-analytics** · branch `feat-usage-analytics`
+6. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
    reads the `UsageEvent` fields that item adds, several of which Phase 2
    introduces first. Spec saved verbatim below.
 
-6. **project-video-management** · branch `feat-project-video-management`
+7. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**.
    ⚠ **The per-version generation settings are already done** —
    fix-video-workspace-hang had to add them to make a version show its
@@ -73,11 +87,11 @@ category because the Claude/Higgsfield rename comes later.
    `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
    below is history, not work.
 
-7. **account-withdrawal** · branch `feat-account-withdrawal`
+8. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-8. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+9. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section.
 
@@ -85,7 +99,7 @@ category because the Claude/Higgsfield rename comes later.
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 4:
+Three things to carry into **budget-by-provider**, now at position 5:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -331,16 +345,75 @@ every test above run on the mock provider with no key.
 
 ---
 
+## invite-only-signup — full spec
+
+Branch `feat-invite-only-signup`. Added 2026-10-01 at position 2, directly
+after Phase 2 and ahead of `prep-beta-launch`. Saved exactly as written by
+the developer.
+
+**It takes the invite codes out of `prep-beta-launch`.** That item's point 2
+carried "Signup requires an invite code; Admin can create and revoke invite
+codes, written to the audit log" as one line of its `APP_ENV=beta` list.
+This item owns that instead, and widens it: the code is required in **every**
+environment, not only the beta. `prep-beta-launch` keeps the rest of its
+beta list and inherits a working invite system rather than building one.
+
+**The audit log already exists.** Point 3's create, deactivate and
+reactivate entries go into the append-only `AuditLog` from Phase 1c, which
+already has its read-only admin view — so they are new entry kinds, not new
+machinery.
+
+**Point 3 is a panel on the existing Members page, not a new Admin
+section.** `frontend/app/admin/sections.ts` and
+`__tests__/admin-sections.test.ts` should not need an entry; a new nav
+section would.
+
+> Context: the site address will be public (the repository is public), but CTRL+AI is for club members only. Signing up requires an invite code in every environment, not only the beta. There is no admin approval queue.
+> 1. Signup form gets a required "초대 코드" field. Without a valid code the account is not created, with a clear Korean message ("초대 코드가 필요합니다" / "사용할 수 없는 초대 코드입니다"). The message does not reveal whether a code exists but is expired or full, to avoid guessing.
+> 2. InviteCode table with an Alembic migration: code, label (e.g. "2026 Q4 공지용"), max uses (1 for single-use, or a number), uses so far, expiry date (optional), active flag, created by, created at. Each signup records which code it used.
+> 3. Admin › Members gets an "초대 코드" section:
+>    - Create a code: auto-generated readable code or a custom one, label, max uses, expiry. Korean confirmation.
+>    - List of codes with label, uses / max, expiry, status (사용 가능 / 만료 / 소진 / 중지), and who signed up with each code.
+>    - Deactivate (사용 중지) and reactivate, with confirmation.
+>    - Copy button for the code and for a signup link with the code pre-filled (/signup?code=...).
+>    - Every create, deactivate and reactivate action is written to the audit log.
+> 4. Codes are case-insensitive and trimmed. Uses are counted safely so two people cannot both take the last use of a code.
+> 5. Accounts created with a code can use the site immediately; joining a quarter still requires the normal quarter application.
+> 6. If a code leaks, deactivating it stops new signups but does not affect accounts already created; the admin can still mark those accounts inactive or former as usual.
+> 7. Safety: signup is rate-limited per IP, failed code attempts are rate-limited too, duplicate usernames and emails are rejected.
+> 8. Existing accounts are unaffected by the migration.
+>
+> Tests: signup without a code or with an invalid, expired, exhausted or deactivated code is refused with the same message; a valid code creates the account and increments its uses; the last use cannot be taken twice concurrently; the pre-filled signup link works; admin actions are audited; code management is admin-only.
+
+---
+
 ## prep-beta-launch — full spec
 
 No branch named yet. Rewritten on 2026-10-01: the item used to be only the
 launch data rules, and now carries the full beta specification. Saved
 exactly as written by the developer.
 
-**Moved to position 3 on 2026-10-01**, directly after Phase 2. The order
-is deliberate: the beta is an invite-only launch whose one real feature is
-Claude chat, so Phase 2 has to exist first and everything else ships
-behind a test-mode label.
+**Moved to position 3 on 2026-10-01**, after Phase 2 and
+`invite-only-signup`. The order is deliberate: the beta is an invite-only
+launch whose one real feature is Claude chat, so Phase 2 has to exist first
+and everything else ships behind a test-mode label.
+
+**The invite codes are no longer this item's work.**
+`invite-only-signup` at position 2 owns them, and requires a code in every
+environment rather than only in the beta — so by the time this item runs,
+signup is already closed. Two parts of the spec below are therefore
+already satisfied when it starts:
+
+- **point 2's first bullet** ("Signup requires an invite code; Admin can
+  create and revoke invite codes, written to the audit log") — verify it
+  holds under `APP_ENV=beta` rather than build it; and
+- **point 5's "invite-only signup" test**, which `invite-only-signup`
+  writes.
+
+The rest of point 2 — the beta banner, the test-mode labels, disabled
+top-ups, dev tools unavailable, the feedback form — is untouched and is
+still this item's work. The spec below is kept verbatim; this note records
+what moved, not an edit to the developer's words.
 
 **This is the item that costs money** — a domain, a frontend host, a
 backend host and a managed PostgreSQL. CLAUDE.md section 21 rule 5 and
