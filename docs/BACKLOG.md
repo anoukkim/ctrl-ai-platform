@@ -15,18 +15,15 @@ says what order things happen in.
 
 ## Now
 
-**ui-tube-watch** is being built on branch `ui-tube-watch`, branched from
-an up-to-date `main`. The spec is saved verbatim below. `main` holds
-Phase 1, UI batch 1, membership-access-fix, admin-restructure, ui-naming
-and fix-video-workspace-hang.
+Nothing is being built. `main` holds Phase 1, UI batch 1,
+membership-access-fix, admin-restructure, ui-naming,
+fix-video-workspace-hang and **ui-tube-watch** (merged 2026-10-02). No
+branch is open.
 
-Built so far: the two-column watch page with the ratio-aware player, the
-reaction chips, the comment section with threads and the composer, the
-`aspectRatio` field on `CommunityVideo` (one video per ratio), and
-`lib/relative-time.ts`. Tests, `tsc`, lint, the build and the browser
-checks below all pass. **Not merged — waiting on review.**
+Next up is **budget-by-provider** on `feat-budget-by-provider`, branched
+from an up-to-date `main`; the spec is saved verbatim below.
 
-Two things worth carrying forward from building it:
+Two things from ui-tube-watch worth carrying forward:
 
 - **The breakpoint is a container query, not a media query.** Measuring
   the *screen* is wrong on this page: at 1280px the sidebar and padding
@@ -59,12 +56,17 @@ between Phase 2 and `prep-beta-launch`. It takes the invite codes out of
 environment: the repository is public, so the site address will be, and an
 invite code is what keeps the community members-only.
 
-**Then, later the same day, the queue was reordered again** — and this
-paragraph is the current state. The three launch items moved to the end:
-the six build-out items (ui-tube-watch, budget-by-provider,
-usage-analytics, project-video-management, account-withdrawal,
-video-higgsfield-only) now come first, followed by **Phase 2 — Chat (7)**,
-**invite-only-signup (8)** and **prep-beta-launch (9)**.
+**Then, later the same day, the queue was reordered again**, and that
+order still holds. The three launch items moved to the end: the six
+build-out items (ui-tube-watch, budget-by-provider, usage-analytics,
+project-video-management, account-withdrawal, video-higgsfield-only) came
+first, followed by Phase 2 — Chat, `invite-only-signup` and
+`prep-beta-launch`.
+
+`ui-tube-watch` merged on 2026-10-02, so five build-out items remain and
+every position below it moved up one. **The numbered list under "Next" is
+the authority on order** — the numbers written into the spec sections are
+a snapshot and go stale at every merge.
 
 That inverts what the earlier move had settled, so three notes were
 rewritten to match:
@@ -84,13 +86,11 @@ rewritten to match:
 ## Next (in order)
 
 Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
-`prep-beta-launch` move to the end; the six build-out items come first.
+`prep-beta-launch` move to the end; the build-out items come first.
+`ui-tube-watch` was position 1 and merged on 2026-10-02, so the list now
+starts at `budget-by-provider` and the numbers below shift up by one.
 
-1. **ui-tube-watch** · branch `ui-tube-watch`
-   The CtrlAITube watch page: two columns, player sizing by video ratio,
-   and a real comment section. Spec saved verbatim below.
-
-2. **budget-by-provider** · branch `feat-budget-by-provider`
+1. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including **Application flow** and
    **Application and purchase model (decided)**. The latter wins where
    the two disagree: approval is automatic, and both providers are
@@ -98,12 +98,12 @@ Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
    carry-over. **Now also owns the `UsageEvent` migration** — the fields
    Phase 2 would have introduced had it stayed first.
 
-3. **usage-analytics** · branch `feat-usage-analytics`
+2. **usage-analytics** · branch `feat-usage-analytics`
    Admin and member usage charts. **Depends on budget-by-provider** — it
    reads the `UsageEvent` fields that item adds. Spec saved verbatim
    below.
 
-4. **project-video-management** · branch `feat-project-video-management`
+3. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**.
    ⚠ **The per-version generation settings are already done** —
    fix-video-workspace-hang had to add them to make a version show its
@@ -111,29 +111,29 @@ Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
    `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
    below is history, not work.
 
-5. **account-withdrawal** · branch `feat-account-withdrawal`
+4. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-6. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+5. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section.
 
-7. **Phase 2 — Chat** · branch `phase-2-chat`
+6. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20. **It now
    consumes the budget and usage structures rather than introducing
    them** — see the note on its spec.
 
-8. **invite-only-signup** · branch `feat-invite-only-signup`
+7. **invite-only-signup** · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-9. **prep-beta-launch** · no branch named yet
+8. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
@@ -142,7 +142,7 @@ Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 2:
+Three things to carry into **budget-by-provider**, now at position 1:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -350,7 +350,7 @@ Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
 pointed at `CLAUDE.md` section 20. Saved exactly as written by the
 developer.
 
-**At position 7 since the 2026-10-01 reorder**, behind the six build-out
+**At position 6 since the 2026-10-01 reorder**, behind the build-out
 items. It briefly sat at position 2; the note below replaces what that
 move implied.
 
@@ -362,8 +362,8 @@ with no separate legacy path.**
 What follows from that:
 
 - **Point 6 no longer introduces the `UsageEvent` fields** —
-  `budget-by-provider` (position 2) adds that migration and
-  `usage-analytics` (position 3) already reads it. Phase 2 writes into the
+  `budget-by-provider` (position 1) adds that migration and
+  `usage-analytics` (position 2) already reads it. Phase 2 writes into the
   existing columns.
 - **The Claude/Higgsfield budget rename has already happened** —
   `budget-by-provider` point 1 does it first. So chat charges the **Claude**
@@ -396,7 +396,7 @@ every test above run on the mock provider with no key.
 
 ## invite-only-signup — full spec
 
-Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 8
+Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 7
 since the reorder later that day — still directly after Phase 2 and ahead
 of `prep-beta-launch`. Saved exactly as written by the developer.
 
@@ -442,15 +442,15 @@ No branch named yet. Rewritten on 2026-10-01: the item used to be only the
 launch data rules, and now carries the full beta specification. Saved
 exactly as written by the developer.
 
-**Last in the queue, position 9, since the 2026-10-01 reorder.** The
+**Last in the queue, position 8, since the 2026-10-01 reorder.** The
 order is still deliberate: the beta is an invite-only launch whose one real
-feature is Claude chat, so Phase 2 (position 7) and `invite-only-signup`
-(position 8) both have to exist first, and everything else ships behind a
+feature is Claude chat, so Phase 2 (position 6) and `invite-only-signup`
+(position 7) both have to exist first, and everything else ships behind a
 test-mode label. Launching last now also means the six build-out items are
 done before anything is exposed on a public domain.
 
 **The invite codes are no longer this item's work.**
-`invite-only-signup` at position 8 owns them, and requires a code in every
+`invite-only-signup` at position 7 owns them, and requires a code in every
 environment rather than only in the beta — so by the time this item runs,
 signup is already closed. Two parts of the spec below are therefore
 already satisfied when it starts:
@@ -508,10 +508,10 @@ Added 2026-10-01. Saved exactly as written by the developer.
 
 ---
 
-## ui-tube-watch — full spec
+## ui-tube-watch — full spec (merged 2026-10-02)
 
-Branch `ui-tube-watch`. Added 2026-10-01. Saved exactly as written by the
-developer.
+Branch `ui-tube-watch`, merged. Added 2026-10-01. Saved exactly as written
+by the developer.
 
 **No before-screenshot.** One never arrived with the request, and the
 developer confirmed on 2026-10-02 that the item was to be built from the
@@ -656,7 +656,7 @@ decided here.
 **Point 6's operator note has nowhere to live yet — reversed by the
 2026-10-01 reorder.** `docs/deployment.md` does not exist today, and
 `prep-beta-launch`, which point 4 of that item would have created it in,
-is now **last** at position 9 rather than ahead of this one. So this item
+is now **last** at position 8 rather than ahead of this one. So this item
 creates the file it needs: write the auto-reload and manual-top-up
 guidance into a new `docs/operations.md`, and `prep-beta-launch` adds
 `docs/deployment.md` alongside it later, cross-referencing rather than
@@ -837,7 +837,7 @@ are new, which makes the cost estimate depend on 화질 as well as length.
 
 **Point 6's per-version settings are the column
 `project-video-management` adds** (`duration_seconds`, `aspect_ratio`,
-`sound` on `VideoVersion`), and that item is at position 4, ahead of this
+`sound` on `VideoVersion`), and that item is at position 3, ahead of this
 one. It owns that migration; this item uses the columns, adds the
 catalogue fields in point 1, and will need a further column for the
 chosen resolution.
@@ -927,6 +927,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-02 | **ui-tube-watch** — the CtrlAITube watch page rebuilt as two columns at 7:3: the player, title, a one-line meta strip where a six-row table used to be, and the prompt on the left; a sticky full-height panel on the right holding the reaction chips and a real comment section that scrolls inside itself. The player sits in a letterbox frame capped at 75vh, which is what keeps the title above the fold — 16:9 fills the column, 9:16 and 1:1 are capped and centred at their true ratio. The comment section has avatars, relative time with the exact date on hover, 답글 and a like count, threads on a thin line collapsing past three replies, 최신순/인기순, and tabs that keep CTRL+AI comments and YouTube comments from mixing; comments still live in local state (Phase 8 stores them) but the composer works, because a disabled input cannot show that Enter posts or that a long thread stays in its column. `CommunityVideo` gained `aspectRatio` with one example video per ratio, comments gained `likes`, and `totalComments` counts replies so the feed card and the tab cannot disagree. Two defects came out of the browser checks rather than the tests: the breakpoint measured the viewport, so at 1280px a 1024px rule was true while only ~990px of content existed (now a container query on the content box), and the prerendered "6일 전" would disagree with a later reader's clock (now `suppressHydrationWarning` on the `<time>`). `lib/aspect.ts` holds the ratio constants both screens use; `lib/relative-time.ts` is new and survives Phase 8 | `ui-tube-watch` |
 | 2026-10-01 | **fix-video-workspace-hang** — the workspace sat on "불러오는 중" forever although every request returned 200: the load effect's cleanup marked its run superseded and threw away the response that would have ended it, leaving nothing to leave `loading` when the second request never delivered. A response is now applied whichever run asked for it, and each page gives the workspace a `key` of its projectId so one instance only ever shows one project; Project Builder had the same effect and was fixed with it. Then four problems found testing the same screen: the 16:9 player grew out of its column and covered both side panels (now a letterbox frame sized to the smaller of the column's width and its height through the ratio, with a minimum height so the stacked narrow layout cannot collapse it); the raw provider id shown beside a settings panel saying "Auto" (now "Auto → Kling 3.0 Pro"); a hard-coded 15-second player (now the version's own length); and a scripted Claude conversation in brand-new projects (now empty). Made the last two true by recording settings per version — migration `d7e1b4a9c052` adds `duration_seconds`, `aspect_ratio`, `sound` and `auto_selected`, validated against the model's capabilities on the server — which takes that scope out of project-video-management. Finally the navigation: the Video workspace's "내 영상" button opened Profile, so it is gone and the back link is the single way back in both workspaces, and Chat routes 내 영상 and 내 프로젝트 to their libraries instead of Profile | `fix-video-workspace-hang` |
 | 2026-10-01 | **ui-naming** — the navigation moved to English: group headings (Create, Explore, Account), Report Issue in place of 문제 신고, and the nine Admin section names, which the sidebar, tabs, breadcrumbs, dashboard cards and each section's own `<h1>` now all read from `sections.ts` through `sectionLabel()` instead of each screen spelling its own. CtrlAI Apps became CtrlAIApps everywhere, route `/ctrlaistore` unchanged; 공동체 지원 became 동아리 지원 everywhere including the usage ledger's funding-source badges, with 개인 충전 untouched and the `FundingSource` data values deliberately left alone. Korean prose that points at a screen now uses that screen's English name; Korean prose about the things on a screen keeps the Korean noun. 시즌 → 분기 folded in on request | `ui-naming` |
 | 2026-10-01 | **admin-restructure** — Admin split into sections on their own routes under a shared layout (breadcrumbs, tabs, the selected quarter carried in `?quarter=`); a dashboard of clickable cards; a sidebar Admin group that expands in place; 신청 승인 separated from 분기 설정, with inline 승인/거절, a reason on rejection, and a 새 분기 만들기 form; stat cards that filter on 회원 and 신청 승인, and per-quarter figures on 분기 설정, all from grouped queries in one stats service; a Korean confirmation stating the effect before every change; an 외부 서비스 panel with an on-request connection check that never exposes a credential; 예산 and 콘텐츠 hidden until their features exist. Brought the frontend its first test runner (Vitest). Migration `c3a81f5d7e24` adds `provider_status` | `ui-admin-restructure` |
