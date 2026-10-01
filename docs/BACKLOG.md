@@ -15,43 +15,63 @@ says what order things happen in.
 
 ## Now
 
-Nothing is being built. `main` holds Phase 1, UI batch 1 and
-membership-access-fix. No branch is open.
+**admin-restructure** on `ui-admin-restructure`, branched from an
+up-to-date `main`. Built and waiting on review — not merged.
 
-Next up is **admin-restructure** on `ui-admin-restructure`, branched
-from an up-to-date `main`; the spec is saved verbatim below.
+What is done, against the spec saved below:
+
+| Spec point | State |
+| ---------- | ----- |
+| 1. Nine routes under a secondary Admin navigation | Done — tabs in the Admin layout, plus the sidebar sub-menu; a disabled **예산** tab and card hold the place for budget-by-provider |
+| 2. 대시보드 with to-do cards, quarter, counts, last 10 audit entries | Done — plus the clickable card hub |
+| 3. 회원 list: search, filters, sorting, pagination, one 관리 menu | Done — filters are role / account / membership / sort; rows are clickable |
+| 4. 회원 detail with every action | Done — role, membership, allocation, participation history, personal balance, that member's audit trail |
+| 5. Korean confirmation stating the effect, then a result message | Done — `ConfirmDialog` + `ResultMessage`, used by every change |
+| 6. Korean labels, one badge style, one shared table, design tokens | Done — `AdminTable`, `StatusBadge`; model switches read 사용 가능 / 회원에게 공개 / 숨김 |
+| 7. Backend: no business-rule change, small read-only endpoints allowed | Done — `GET /api/admin/dashboard` and `GET /api/admin/members/{id}`, both read-only |
+| Tests | Done — see below |
+
+Tests, as asked: every Admin route is admin-only (`EXPECTED_GUARDS` plus
+`test_admin_overview.py`), dev tools are unavailable outside development,
+dashboard counts match the database, and the confirmation dialog appears
+before the change — the last of these needed a frontend test runner,
+so **Vitest + Testing Library** now exist in `frontend/`.
+
+Verified against the running app, not only in tests: all nine routes,
+the dashboard figures cross-checked against PostgreSQL, 401 anonymous
+and 403 for a signed-in member on both new endpoints, and the 탈퇴 처리
+dialog. Two defects found that way and fixed on the branch — the row
+menu was clipped by the table's scroll box, and the 개발 도구 tab
+appeared a moment after the sidebar's.
 
 ---
 
 ## Next (in order)
 
-1. **admin-restructure** · branch `ui-admin-restructure`
-   Spec saved verbatim below.
-
-2. **ui-naming** · branch `ui-naming`
+1. **ui-naming** · branch `ui-naming`
    English navigation labels, `CtrlAIApps` without the space, and
    공동체 지원 → 동아리 지원. Spec saved verbatim below.
 
-3. **budget-by-provider** · branch `feat-budget-by-provider`
+2. **budget-by-provider** · branch `feat-budget-by-provider`
    Spec saved verbatim below, including the **Application flow** section
    added on 2026-10-01.
 
-4. **project-video-management** · branch `feat-project-video-management`
+3. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**
    and the per-version generation settings.
 
-5. **account-withdrawal** · branch `feat-account-withdrawal`
+4. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below.
 
-6. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+5. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including the **Length slider** section.
 
-7. **prep-beta-launch**
+6. **prep-beta-launch**
    Only the **Launch data rules** are specified so far; the rest of the
    item is still to be written. Spec below.
 
-8. **Phase 2 — Chat**
+7. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
@@ -75,18 +95,18 @@ here until the developer says where it goes.
 
 ### Merge order
 
-Nothing is waiting. Branch the next item from an up-to-date `main`.
+**admin-restructure** is waiting on review. Branch **ui-naming** from
+`main` only after it merges — ui-naming relabels the Admin
+sub-navigation in English, and those are the routes admin-restructure
+creates.
 
-One thing to carry into **admin-restructure**: it moves every Admin
-route, so `EXPECTED_GUARDS` in `backend/tests/test_membership_access.py`
-and the access table in `docs/architecture.md` both have to move with
-it. That test will fail on the first new route, which is the intended
-reminder rather than a problem.
+Two things to carry into **ui-naming**:
 
-And one thing to carry into **ui-naming**, which follows it: ui-naming
-relabels the Admin sub-navigation in English, and those are the routes
-**admin-restructure** creates. Doing them in this order means the labels
-are written once.
+- The nine section labels live in **one place**,
+  `frontend/app/admin/sections.ts`. The sidebar, the tabs and the
+  dashboard cards all read it, so the English labels are written once.
+- `frontend/` now has `npm test`. A UI batch that changes labels should
+  run it alongside `npm run lint` and `npm run build`.
 
 ---
 
