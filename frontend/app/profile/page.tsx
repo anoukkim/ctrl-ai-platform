@@ -7,7 +7,7 @@
  *   3. 언제까지 쓸 수 있는지
  *   4. 지난 작업물이 그대로 남는지
  *
- * 날짜 계산은 lib/mock-data.ts의 SEASON_RANGE 하나만 보고 합니다. 실제
+ * 날짜 계산은 lib/mock-data.ts의 QUARTER_RANGE 하나만 보고 합니다. 실제
  * 시즌 기능이 생기면 그 값만 바꾸면 됩니다.
  */
 
@@ -16,16 +16,13 @@ import Link from "next/link";
 
 import {
   CURRENT_USER,
-  MEMBERSHIP_DESCRIPTION,
   MEMBERSHIP_LABEL,
   MOCK_APPS,
   ROLE_LABEL,
-  SEASON_RANGE,
-  formatDate,
-  seasonDaysRemaining,
 } from "@/lib/mock-data";
 
 import ProjectSummary from "./ProjectSummary";
+import QuarterParticipation from "./QuarterParticipation";
 import styles from "./profile.module.css";
 
 export const metadata: Metadata = {
@@ -37,7 +34,6 @@ const myApps = MOCK_APPS.filter((app) => app.creator.username === CURRENT_USER.u
 export default function ProfilePage() {
   // 한국어 이름은 성이 앞에 오므로 첫 글자를 그대로 씁니다.
   const initial = CURRENT_USER.displayName.slice(0, 1);
-  const daysLeft = seasonDaysRemaining();
 
   return (
     <>
@@ -45,7 +41,7 @@ export default function ProfilePage() {
         <h1 className="page-title">
           Profile <span className="badge badge-mock">준비 중</span>
         </h1>
-        <p className="page-subtitle">내 계정과 참여 시즌, 지금까지 만든 결과물입니다.</p>
+        <p className="page-subtitle">내 계정과 참여 분기, 지금까지 만든 결과물입니다.</p>
       </header>
 
       <div className={styles.identity}>
@@ -57,57 +53,13 @@ export default function ProfilePage() {
           <span className={styles.username}>@{CURRENT_USER.username}</span>
           <span className={styles.badges}>
             <span className="badge badge-ok">{MEMBERSHIP_LABEL[CURRENT_USER.membership]}</span>
-            <span className="badge badge-accent">{CURRENT_USER.season}</span>
+            <span className="badge badge-accent">{CURRENT_USER.quarter}</span>
             <span className="badge badge-muted">{ROLE_LABEL[CURRENT_USER.role]}</span>
           </span>
         </div>
       </div>
 
-      {/* 시즌 — 언제까지 쓸 수 있는지 분명히 보여 줍니다. */}
-      <section className={styles.season} aria-label="현재 시즌">
-        <div className={styles.seasonTop}>
-          <span className={styles.seasonName}>{SEASON_RANGE.name}</span>
-          <span className="badge badge-ok">{MEMBERSHIP_LABEL[CURRENT_USER.membership]}</span>
-          <span style={{ flex: "1 1 auto" }} />
-          <Link className="btn btn-sm" href="/usage">
-            사용량 보기
-          </Link>
-        </div>
-
-        <div className={styles.seasonGrid}>
-          <div className={styles.seasonCell}>
-            <span className={styles.seasonLabel}>현재 시즌</span>
-            <span className={styles.seasonValue}>{SEASON_RANGE.name}</span>
-          </div>
-          <div className={styles.seasonCell}>
-            <span className={styles.seasonLabel}>기간</span>
-            <span className={styles.seasonValue}>
-              {formatDate(SEASON_RANGE.startsAt)} – {formatDate(SEASON_RANGE.endsAt)}
-            </span>
-          </div>
-          <div className={styles.seasonCell}>
-            <span className={styles.seasonLabel}>시즌 종료까지</span>
-            <span className={styles.seasonDday}>{daysLeft}일 남음</span>
-          </div>
-        </div>
-
-        <p className={styles.seasonNote}>
-          {MEMBERSHIP_DESCRIPTION[CURRENT_USER.membership]} 시즌이 끝나도 지금까지 만든
-          프로젝트와 게시한 앱·영상은 사라지지 않습니다.
-        </p>
-
-        <div className={styles.seasonHistory}>
-          <span className={styles.seasonLabel}>참여 시즌</span>
-          {CURRENT_USER.seasonsParticipated.map((season) => (
-            <span
-              className={`badge ${season === SEASON_RANGE.name ? "badge-accent" : "badge-muted"}`}
-              key={season}
-            >
-              {season}
-            </span>
-          ))}
-        </div>
-      </section>
+      <QuarterParticipation />
 
       <div className={styles.columns}>
         <section className="card">

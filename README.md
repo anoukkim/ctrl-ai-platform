@@ -25,15 +25,15 @@ the entry point is a conversation, not a dashboard.
 
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
-| Navigation & shell    | Built — sidebar with seasonal member status; menu button on narrow screens        |
+| Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
 | Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
 | CtrlAI Apps           | Mock listings plus detail pages with reactions and threaded comments              |
 | CtrlAITube            | Mock feed plus detail pages; Ctrl AI comments kept separate from YouTube comments |
 | Usage                 | Mock per-provider balances, each in its own unit                                  |
-| Profile               | Mock account, season with expiry countdown, connected-account placeholders        |
-| Admin                 | Mock members/seasons/allocation, plus the live backend status card                |
+| Profile               | Live quarter participation and application form; connected-account placeholders   |
+| Admin                 | Live quarters, application review, video model catalogue; backend status card     |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose                                                          |
 | Authentication        | Not started (Phase 1)                                                             |
@@ -54,9 +54,9 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | Ctrl AI comments + separate YouTube section  |
-| `/usage`              | Usage           | Per-provider seasonal balances               |
-| `/profile`            | Profile         | Account, season expiry, connected accounts   |
-| `/admin`              | Admin           | Members, seasons, allocation, system health  |
+| `/usage`              | Usage           | Community support and personal balance, in KRW |
+| `/profile`            | Profile         | Quarter participation, application, accounts |
+| `/admin`              | Admin           | Members, quarters, applications, video models |
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAI Apps**; the path was kept so existing links do not break.
@@ -210,11 +210,16 @@ docker compose up -d
 docker compose ps          # wait until the db service reports "healthy"
 
 cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe -m app.db.init_db
 ```
 
-The last command creates the `users` table and a development user
-(`dev@ctrl.ai`, role `admin`). It is safe to run more than once.
+Alembic owns the schema, so the migration must run first; `init_db` only
+seeds and will refuse to run before it. Seeding creates the development
+user (`dev@ctrl.ai`, role `admin`), three quarters with 2026 Q4 accepting
+applications, an empty personal wallet, and the video model catalogue. It
+is safe to run more than once — existing rows are left alone, so a re-run
+cannot undo an admin's changes.
 
 ## Running the portal
 
@@ -284,9 +289,9 @@ Browser  ->  Next.js (frontend)  ->  FastAPI (backend)  ->  PostgreSQL
 
 The browser never talks to the database or to an AI provider directly. Every
 request that costs money or touches data goes through the Ctrl AI backend,
-because that is the only place where a permission check, a seasonal credit
+because that is the only place where a permission check, a quarterly budget
 limit, and a provider API key can live safely. Members never hold provider
-keys; Ctrl AI owns provider access and records usage per member and season.
+keys; Ctrl AI owns provider access and records usage per member and quarter.
 
 A few decisions worth knowing if you are new to this kind of stack:
 
@@ -312,27 +317,94 @@ A few decisions worth knowing if you are new to this kind of stack:
   Higgsfield in video credits, so allocations are tracked separately rather
   than merged into one invented currency.
 
-## Seasons and membership
+## Quarters, applications and money
 
-**A season is four months, not a quarter.** Never call it a quarter in the
-interface. The current season and its end date appear in the sidebar, on
-Profile, and on Usage.
+**Ctrl AI operates by calendar quarter** — 2026 Q1, 2026 Q2, and so on.
+A quarter is three months. (The earlier four-month "Season" concept is gone;
+nothing in the product uses it.)
 
-Someone who stops participating does not lose their published work:
+### Credits are not automatic
+
+```text
+Admin opens applications for a quarter
+  -> member sees applications are open in Profile
+  -> member applies, splitting their budget between Build and Video
+  -> admin approves
+  -> the approved allocation becomes usable
+```
+
+The Build and Video percentages must add up to exactly 100%. Each approved
+member may receive at most **100,000 KRW per quarter** of community-funded
+budget, combined across both:
+
+| Split | Build | Video |
+| ----- | ----- | ----- |
+| 100 / 0 | 100,000원 | 0원 |
+| 70 / 30 | 70,000원 | 30,000원 |
+| 50 / 50 | 50,000원 | 50,000원 |
+| 20 / 80 | 20,000원 | 80,000원 |
+| 0 / 100 | 0원 | 100,000원 |
+
+That figure is not a constant scattered through the code. The default lives
+in `quarterly_subsidy_limit_krw` (backend settings); each quarter copies it
+at creation and keeps its own, so an admin can change it for a future
+quarter without altering one that already ran. The percentage-to-KRW rule
+lives in `backend/app/services/budget.py`, so the API, the UI and the tests
+cannot drift.
+
+### KRW is the financial source of truth
+
+Budgets are stored in won, never in tokens or generations. Provider prices
+change, and an approved allocation must not move when they do. A
+`pricing_snapshot` is captured at approval so a provider-specific quota can
+still be displayed consistently afterwards.
+
+`UsageEvent` keeps two separate figures: `provider_cost` (what the provider
+charged, in their own units and currency) and `charged_krw` (what moved a
+budget). Conflating them would misreport both.
+
+### Community money and personal money are separate
+
+A member who exhausts their community budget stops there by default.
+Personal money is spent only if they have explicitly enabled it *and* have a
+balance. Topping up never raises the community subsidy above the quarter's
+limit, and the two are never added together in the interface.
+
+Phase 1 uses a manual top-up workflow: the member requests an amount, an
+admin confirms the deposit, and only then does the balance move. No payment
+provider is involved.
+
+### Participation status
+
+A member who stops participating does not lose their published work:
 
 | Status      | UI label   | Meaning                                                        |
 | ----------- | ---------- | -------------------------------------------------------------- |
-| `active`    | 활동 회원   | Participating this season; can use paid creation features       |
-| `inactive`  | 비활동 회원 | Account exists, not enrolled this season; work is preserved     |
+| `active`    | 활동 회원   | Participating this quarter; can use paid creation features      |
+| `inactive`  | 비활동 회원 | Account exists, not enrolled this quarter; work is preserved    |
 | `former`    | 탈퇴 회원   | Has left the community; published work keeps their attribution  |
 
-"탈퇴 회원" is used rather than anything meaning "deleted", because attribution
-on published apps and videos must continue to exist.
+"탈퇴 회원" is used rather than anything meaning "deleted", because
+attribution on published apps and videos must continue to exist.
 
-Season dates and the day countdown come from one place — `SEASON_RANGE` in
-`frontend/lib/mock-data.ts`. It carries a fixed `today` so the server and the
-browser always compute the same number. When real seasons exist, replacing that
-constant is the only change needed.
+## Search
+
+Contextual search, not one global search engine. Each list has the search
+its own screen needs:
+
+| Screen | Search by | Filters |
+| ------ | --------- | ------- |
+| Project Builder | project name, description | status |
+| Video Generator | project name, prompt | status |
+| CtrlAI Apps | app name, description, creator | category, sort |
+| CtrlAITube | title, description, creator | creator, sort |
+| Admin — members | name, username | membership status |
+| Admin — applications | member name, username | application status |
+| Admin — video models | model name, provider, model id | — |
+
+Filtering currently happens in the browser, because the data is small and
+each screen already holds its list. `SearchBar` only lifts the query out, so
+moving to server-side search later changes the data call and not the screen.
 
 ## Environment files
 
@@ -361,16 +433,19 @@ ctrl-ai-platform/
 │  │  │  └─ routes/           # health.py, users.py
 │  │  ├─ core/config.py       # environment-driven settings
 │  │  ├─ db/                  # base.py, session.py, init_db.py
-│  │  ├─ models/              # SQLAlchemy tables (User, UserRole)
+│  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
+│  │  ├─ services/            # budget split, wallet helpers
 │  │  └─ main.py              # FastAPI app, CORS
+│  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite
 │  ├─ pyproject.toml          # pytest configuration
 │  └─ requirements*.txt
 ├─ frontend/
 │  ├─ app/
 │  │  ├─ components/
-│  │  │  ├─ AppShell.tsx           # sidebar, member status, workspace detection
+│  │  │  ├─ AppShell.tsx           # sidebar, quarter status, workspace detection
+│  │  │  ├─ SearchBar.tsx          # contextual search used by every list
 │  │  │  ├─ ChatWorkspace.tsx      # Chat thread, composer, quick actions
 │  │  │  ├─ Community.tsx          # creator line, reactions, comment threads
 │  │  │  ├─ BackendStatus.tsx      # the one live network call
@@ -386,8 +461,11 @@ ctrl-ai-platform/
 │  │  ├─ layout.tsx           # wraps every page in AppShell
 │  │  └─ page.tsx             # Chat — the default landing page
 │  └─ lib/
-│     ├─ api.ts               # typed backend client
-│     └─ mock-data.ts         # all Phase 0 mock data (Korean), in one place
+│     ├─ api.ts               # base URL and health client
+│     ├─ http.ts              # shared request helper, timeout, error text
+│     ├─ projects.ts          # Builder and Video project clients
+│     ├─ quarters.ts          # quarters, applications, wallet
+│     └─ mock-data.ts         # remaining mock content (Korean)
 ├─ docker-compose.yml         # local PostgreSQL
 ├─ .env.example
 ├─ CLAUDE.md                  # product definition (authoritative)

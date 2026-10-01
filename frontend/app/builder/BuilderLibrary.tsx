@@ -23,6 +23,8 @@ import {
   type BuilderProject,
 } from "@/lib/projects";
 
+import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+
 import styles from "@/app/components/library.module.css";
 
 type State =
@@ -36,6 +38,8 @@ export default function BuilderLibrary() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +78,15 @@ export default function BuilderLibrary() {
       setBusy(false);
     }
   }, [newName, reload]);
+
+  // 브라우저 안에서 거릅니다. 서버 검색으로 옮길 때는 이 블록만 요청으로
+  // 바뀌고 화면 구조는 그대로입니다.
+  const projects = state.phase === "ready" ? state.projects : [];
+  const visible = projects.filter(
+    (project) =>
+      matchesQuery(query, project.name, project.description) &&
+      (statusFilter === "all" || project.status === statusFilter),
+  );
 
   return (
     <>
@@ -145,6 +158,31 @@ export default function BuilderLibrary() {
         )}
       </p>
 
+      {state.phase === "ready" && state.projects.length > 0 && (
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="프로젝트 이름이나 설명으로 검색"
+          resultCount={visible.length}
+          totalCount={state.projects.length}
+          filters={[
+            {
+              key: "status",
+              label: "상태",
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: "all", label: "전체" },
+                ...Object.entries(BUILDER_STATUS_LABEL).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+              ],
+            },
+          ]}
+        />
+      )}
+
       {state.phase === "loading" && (
         <div className={styles.skeletonGrid} aria-busy="true" aria-label="불러오는 중">
           <div className={styles.skeleton} />
@@ -182,9 +220,26 @@ export default function BuilderLibrary() {
         </div>
       )}
 
-      {state.phase === "ready" && state.projects.length > 0 && (
+      {state.phase === "ready" && state.projects.length > 0 && visible.length === 0 && (
+        <div className={styles.empty}>
+          <p className={styles.emptyTitle}>검색 결과가 없습니다</p>
+          <p className={styles.emptyText}>다른 낱말로 찾아보거나 상태 필터를 바꿔보세요.</p>
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setStatusFilter("all");
+            }}
+          >
+            검색 조건 지우기
+          </button>
+        </div>
+      )}
+
+      {state.phase === "ready" && visible.length > 0 && (
         <div className={styles.grid}>
-          {state.projects.map((project) => (
+          {visible.map((project) => (
             <Link className={styles.card} href={`/builder/${project.id}`} key={project.id}>
               <div className={styles.cardTop}>
                 <span className={styles.cardName}>{project.name}</span>

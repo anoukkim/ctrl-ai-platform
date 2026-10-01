@@ -281,7 +281,7 @@ Show:
 - comments
 - threaded replies
 
-Published apps should remain visible even if the developer is no longer an active seasonal member.
+Published apps should remain visible even if the developer is no longer participating in the current quarter.
 
 ---
 
@@ -442,22 +442,34 @@ Members should easily see what they have left.
 Example:
 
 ```text
-This Season
+2026 Q1
 
-Claude
-Allocated: 2,000,000 tokens
-Used:      650,000
-Remaining: 1,350,000
+COMMUNITY SUPPORT
+
+Build
+지원: 70,000원
+사용: 24,500원
+남음: 45,500원
 
 Video
-Allocated: 100 credits
-Used:      35
-Remaining: 65
+지원: 30,000원
+사용: 12,000원
+남음: 18,000원
+
+PERSONAL BALANCE
+
+충전 잔액:     30,000원
+개인 사용:      5,000원
+남은 개인 잔액: 25,000원
 ```
 
-The system should support different units because Claude and video-generation providers may not bill in the same way.
+**KRW is the financial source of truth.** Budgets are stored in won, never
+in tokens or generations: provider prices change, and an approved
+allocation must not move when they do. A provider-specific quota may be
+*displayed* using the pricing captured at approval time.
 
-Do not force everything into a fake universal "token" unit internally.
+Community support and personal money are shown separately and never added
+together. Personal funds are not part of the quarterly subsidy.
 
 Use concepts such as:
 
@@ -473,31 +485,65 @@ Admin can choose what simplified units members see.
 
 ---
 
-# 10. Seasonal Membership
+# 10. Quarterly Participation
 
-Ctrl AI operates in seasons.
+Ctrl AI operates by calendar quarter. A quarter is normally three months.
+(The earlier four-month "Season" concept is no longer used anywhere.)
 
 Examples:
-- 2026 Season 1
-- 2026 Season 2
-- 2027 Season 1
+- 2026 Q1
+- 2026 Q2
+- 2026 Q3
+- 2026 Q4
 
-Users can participate in one or more seasons.
+Users can participate in one or more quarters.
 
-Do NOT delete their work simply because they are not active in the current season.
+Do NOT delete their work simply because they are not active in the current quarter.
 
 Separate:
 
 1. Account
-2. Seasonal Membership
+2. Quarterly Participation
 3. Published Work
 
-## Seasonal Membership Status
+## Credits are not automatic
+
+A user does not receive quarterly credits by existing. The flow is:
+
+```text
+Admin opens applications for a Quarter
+  -> user sees applications are open in Profile
+  -> user applies, splitting their budget between Build and Video
+  -> admin reviews and approves
+  -> the approved allocation becomes usable
+```
+
+The Build and Video percentages must add up to exactly 100%.
+
+## Quarterly subsidy limit
+
+Each approved member may receive at most **100,000 KRW per quarter** of
+community-funded budget, combined across Build and Video.
+
+```text
+Build 100% / Video   0%  =  100,000 /       0
+Build  70% / Video  30%  =   70,000 /  30,000
+Build  50% / Video  50%  =   50,000 /  50,000
+Build  20% / Video  80%  =   20,000 /  80,000
+Build   0% / Video 100%  =        0 / 100,000
+```
+
+This figure is NOT a constant scattered through the code. The default
+lives in configuration; each Quarter copies it at creation and keeps its
+own, so an admin can change it for a future quarter without altering a
+quarter that already ran.
+
+## Participation status
 
 Suggested statuses:
 
-- `active` — participating in this season and has access
-- `inactive` — account exists but user is not participating in the current season
+- `active` — participating in this quarter and has access
+- `inactive` — account exists but user is not participating in the current quarter
 - `former` — member has left the community
 
 Recommended English UI labels:
@@ -594,7 +640,7 @@ Profile can show:
 
 # 12. Admin
 
-Admin is especially important because access and credits are seasonal.
+Admin is especially important because access and credits are quarterly, and because every allocation passes through an approval.
 
 Admin features should eventually include:
 
@@ -604,14 +650,22 @@ Admin features should eventually include:
 - mark inactive
 - mark former
 - assign role
-- enroll user into a season
-- reactivate user for a later season
+- enrol user into a quarter
+- reactivate user for a later quarter
 
-## Seasons
-- create season
+## Quarters
+- create quarter
 - start/end dates
+- application open/close dates
+- subsidy limit for the quarter
+- open and close applications
 - status
-- enrollment
+
+## Quarter applications
+- view applicants
+- review the requested Build/Video split
+- approve or reject
+- approving creates the allocation
 
 ## Credit Allocation
 Admin should be able to open a member and assign resources.
@@ -619,18 +673,20 @@ Admin should be able to open a member and assign resources.
 Example:
 
 ```text
-Yuri
+김유리
 
-Season: 2026 S2
+Quarter: 2026 Q1
 
-Claude tokens:
-[ 2,000,000 ]
+Requested:
+Build  70%  =  70,000원
+Video  30%  =  30,000원
 
-Higgsfield credits:
-[ 100 ]
-
-[ Save Allocation ]
+[ 승인 ]  [ 거절 ]
 ```
+
+Admin normally approves the requested split as submitted. The approved
+allocation copies the requested figures, so a later change to the
+quarter's subsidy limit cannot move an allocation that already exists.
 
 This is preferable to putting raw provider API keys in member accounts.
 
@@ -679,39 +735,82 @@ This is direction, not a requirement to implement everything immediately.
 - created_at
 - updated_at
 
-## Season
+## Quarter
 - id
-- name
+- code: "2026-Q1"
+- display_name: "2026 Q1"
 - starts_at
 - ends_at
-- status
+- application_opens_at
+- application_closes_at
+- status: draft | application_open | active | closed
+- subsidy_limit_krw
 
-## SeasonMembership
+## QuarterApplication
 - id
 - user_id
-- season_id
-- status
-- joined_at
-- ended_at
+- quarter_id
+- build_percentage
+- video_percentage
+- requested_total_budget_krw
+- requested_build_budget_krw
+- requested_video_budget_krw
+- status: draft | submitted | approved | rejected | cancelled
+- submitted_at
+- reviewed_at
+- reviewed_by
+- admin_note
 
-## CreditAllocation
+One live application per user per quarter.
+
+## QuarterAllocation
 - id
 - user_id
-- season_id
-- provider
-- resource_type
-- allocated_amount
-- consumed_amount
+- quarter_id
+- community_total_budget_krw
+- build_budget_krw
+- video_budget_krw
+- build_percentage
+- video_percentage
+- build_consumed_krw
+- video_consumed_krw
+- pricing_snapshot (provider prices captured at approval)
+- approved_at
+- approved_by
+
+## PersonalBalance
+- id
+- user_id
+- balance_krw
+- consumed_krw
+- overage_enabled (the member must opt in before personal money is spent)
+
+## PersonalTopUp
+- id
+- user_id
+- amount_krw
+- status: requested | confirmed | rejected | cancelled
+- requested_at
+- confirmed_at
+- confirmed_by
+- payment_reference
 
 ## UsageEvent
 - id
 - user_id
-- season_id
+- quarter_id
+- category: build | video
+- funding_source: community_build | community_video | personal
 - provider
-- resource_type
-- quantity
-- provider_cost
+- model_id
+- provider_units / provider_unit
+- provider_cost / provider_currency
+- charged_krw
+- builder_project_id / video_project_id
 - created_at
+
+`provider_cost` (what the provider charged) and `charged_krw` (what moved
+a budget) are deliberately separate figures.
 - related_project_id nullable
 - related_video_id nullable
 
@@ -999,17 +1098,19 @@ Do NOT implement real authentication/provider APIs/GitHub/YouTube yet.
 
 Stop after Phase 0 and report.
 
-## Phase 1 — Accounts + Seasons + Credits
+## Phase 1 — Accounts + Quarters + Credits
 
 Implement:
 - username/password auth
 - User
-- Season
-- SeasonMembership
+- Quarter
+- QuarterApplication
+- QuarterAllocation
+- PersonalBalance / PersonalTopUp
 - active/inactive/former behavior
 - Usage & Credits
 - admin member list
-- admin seasonal enrollment
+- admin quarter application review and approval
 - admin credit allocation
 
 Use development/mock providers initially.

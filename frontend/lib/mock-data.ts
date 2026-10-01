@@ -13,7 +13,7 @@
  * 기능이 실제로 구현되면 해당 데이터는 백엔드로 옮기고 여기서 삭제합니다.
  */
 
-/** 시즌별 회원 상태. Ctrl AI는 시즌 단위로 운영됩니다. */
+/** 분기별 회원 상태. Ctrl AI는 분기(Quarter) 단위로 운영됩니다. */
 export type MembershipStatus = "active" | "inactive" | "former";
 
 /**
@@ -30,8 +30,8 @@ export const MEMBERSHIP_LABEL: Record<MembershipStatus, string> = {
 
 /** 각 상태가 무엇을 뜻하는지 설명하는 문구. */
 export const MEMBERSHIP_DESCRIPTION: Record<MembershipStatus, string> = {
-  active: "이번 시즌에 참여 중이며 모든 창작 기능을 사용할 수 있습니다.",
-  inactive: "이번 시즌에는 참여하지 않지만, 만든 결과물은 그대로 남아 있습니다.",
+  active: "이번 분기에 참여 중이며 모든 창작 기능을 사용할 수 있습니다.",
+  inactive: "이번 분기에는 참여하지 않지만, 만든 결과물은 그대로 남아 있습니다.",
   former: "커뮤니티를 떠났지만, 게시한 작품에는 만든 사람의 이름이 계속 표시됩니다.",
 };
 
@@ -41,23 +41,30 @@ export interface Creator {
   membership: MembershipStatus;
 }
 
-export const CURRENT_SEASON = "2026 Season 2";
+export const CURRENT_QUARTER = "2026 Q4";
 
 /**
- * 시즌은 4개월 단위입니다. (분기/quarter가 아닙니다.)
+ * 분기는 달력 기준 3개월입니다. (이전의 4개월 "시즌" 개념은 쓰지 않습니다.)
  *
- * `TODAY`는 목업용으로 고정한 기준일입니다. 서버와 브라우저가 항상 같은
- * 값을 계산하도록 고정해 두었습니다. 실제 시즌 기능이 생기면 이 상수를
- * `new Date()`로 바꾸기만 하면 됩니다.
+ * `today`는 목업용으로 고정한 기준일입니다. 서버와 브라우저가 늘 같은 값을
+ * 계산하도록 고정해 두었습니다. 실제 분기 데이터는 백엔드의 /api/quarters/me
+ * 에서 오고, 이 상수는 아직 백엔드를 붙이지 않은 화면에서만 씁니다.
  */
-export const SEASON_RANGE = {
-  name: CURRENT_SEASON,
-  startsAt: "2026-09-01",
+export const QUARTER_RANGE = {
+  code: "2026-Q4",
+  name: CURRENT_QUARTER,
+  startsAt: "2026-10-01",
   endsAt: "2026-12-31",
-  today: "2026-09-29",
+  applicationOpensAt: "2026-09-15",
+  applicationClosesAt: "2026-09-30",
+  today: "2026-10-01",
 };
 
-/** YYYY-MM-DD 를 2026.09.01 형태로 바꿉니다. */
+/** 분기당 회원 한 명이 받을 수 있는 공동체 지원 한도(원). 실제 값은
+ *  분기마다 백엔드에 저장되며, 여기 값은 화면 미리보기용입니다. */
+export const DEFAULT_SUBSIDY_LIMIT_KRW = 100_000;
+
+/** YYYY-MM-DD 를 2026.10.01 형태로 바꿉니다. */
 export function formatDate(iso: string): string {
   return iso.replaceAll("-", ".");
 }
@@ -69,16 +76,9 @@ export function daysBetween(fromIso: string, toIso: string): number {
   return Math.max(0, Math.round((to - from) / 86_400_000));
 }
 
-/** 시즌 종료까지 남은 일수. */
-export function seasonDaysRemaining(): number {
-  return daysBetween(SEASON_RANGE.today, SEASON_RANGE.endsAt);
-}
-
-/** 시즌이 얼마나 지났는지(%). 사이드바 막대에 씁니다. */
-export function seasonProgressPercent(): number {
-  const total = daysBetween(SEASON_RANGE.startsAt, SEASON_RANGE.endsAt);
-  const passed = daysBetween(SEASON_RANGE.startsAt, SEASON_RANGE.today);
-  return total === 0 ? 0 : Math.min(100, Math.round((passed / total) * 100));
+/** 분기 종료까지 남은 일수. */
+export function quarterDaysRemaining(): number {
+  return daysBetween(QUARTER_RANGE.today, QUARTER_RANGE.endsAt);
 }
 
 export const CURRENT_USER = {
@@ -86,8 +86,8 @@ export const CURRENT_USER = {
   displayName: "김유리",
   membership: "active" as MembershipStatus,
   role: "admin" as "admin" | "member",
-  season: CURRENT_SEASON,
-  seasonsParticipated: ["2026 Season 1", "2026 Season 2"],
+  quarter: CURRENT_QUARTER,
+  quartersParticipated: ["2026 Q1", "2026 Q3", "2026 Q4"],
   github: { connected: false as const, label: "연결 안 됨" },
   youtube: { connected: false as const, label: "연결 안 됨" },
 };
@@ -575,7 +575,7 @@ export const MOCK_APPS: App[] = [
       {
         id: "c4",
         author: { username: "minji", displayName: "박민지", membership: "active" },
-        body: "지난 시즌 앱이지만 아직도 잘 쓰고 있어요.",
+        body: "지난 분기 앱이지만 아직도 잘 쓰고 있어요.",
         createdAt: "2026-07-03",
       },
     ],
@@ -701,81 +701,153 @@ export function findVideo(id: string): CommunityVideo | undefined {
 /* ------------------------------------------------------------------ */
 
 /**
- * Claude는 토큰, 영상 생성은 크레딧으로 계산합니다. 단위가 다르므로
- * 하나의 가짜 단위로 합치지 않고 각각 따로 보여 줍니다.
+ * 공동체 지원 예산. 금액의 기준은 원(KRW)입니다.
+ *
+ * 토큰이나 생성 횟수로 환산해 저장하지 않습니다. 제공자 가격이 바뀌어도
+ * 이미 승인된 예산은 그대로여야 하기 때문입니다. 화면에는 친절하게
+ * "할당량 / 사용 / 남음"으로 보여 주되, 계산의 근거는 원입니다.
  */
-export interface Allocation {
-  /** 제공자 이름. 서비스 이름은 영어를 유지합니다. */
-  provider: string;
-  /** 사용자에게 보여 줄 한국어 항목 이름. */
+export interface CommunityBudget {
+  /** build 또는 video */
+  category: "build" | "video";
   label: string;
-  resourceType: string;
-  unit: string;
-  allocated: number;
-  used: number;
+  /** 지원받은 금액(원) */
+  budgetKrw: number;
+  /** 쓴 금액(원) */
+  consumedKrw: number;
   note: string;
 }
 
-export const MOCK_ALLOCATIONS: Allocation[] = [
+export const MOCK_COMMUNITY_BUDGETS: CommunityBudget[] = [
   {
-    provider: "Claude",
-    label: "Claude 사용량",
-    resourceType: "글·대화 생성",
-    unit: "토큰",
-    allocated: 2_000_000,
-    used: 650_000,
-    note: "Chat, Project Builder 작업, 영상 프롬프트 다듬기에 사용됩니다.",
+    category: "build",
+    label: "Build",
+    budgetKrw: 70_000,
+    consumedKrw: 24_500,
+    note: "Chat과 Project Builder에서 Claude를 쓸 때 차감됩니다.",
   },
   {
-    provider: "Higgsfield",
-    label: "영상 생성 크레딧",
-    resourceType: "영상 생성",
-    unit: "크레딧",
-    allocated: 100,
-    used: 35,
-    note: "짧은 영상 한 편에 약 1크레딧이 사용됩니다.",
+    category: "video",
+    label: "Video",
+    budgetKrw: 30_000,
+    consumedKrw: 12_000,
+    note: "Higgsfield로 영상을 만들 때 차감됩니다.",
   },
 ];
 
+/** 개인 충전 잔액. 공동체 지원과 절대 섞지 않습니다. */
+export const MOCK_PERSONAL_BALANCE = {
+  balanceKrw: 30_000,
+  consumedKrw: 5_000,
+  overageEnabled: true,
+};
+
+/**
+ * 사용 내역 한 줄.
+ *
+ * 금액(원)과 어느 주머니에서 나갔는지를 함께 적습니다. 제공자가 실제로
+ * 청구한 금액과 Ctrl AI가 예산에서 차감한 금액은 다를 수 있어, 백엔드의
+ * UsageEvent는 둘을 따로 보관합니다.
+ */
 export interface UsageEvent {
   date: string;
-  provider: string;
+  category: "Build" | "Video";
   detail: string;
-  quantity: string;
+  provider: string;
+  chargedKrw: number;
+  source: "공동체 지원" | "개인 잔액";
 }
 
 export const MOCK_USAGE_EVENTS: UsageEvent[] = [
-  { date: "2026-09-27", provider: "Claude", detail: "Project Builder — 습관 한눈에", quantity: "18,400 토큰" },
-  { date: "2026-09-25", provider: "Higgsfield", detail: "영상 — 비 오는 서울의 밤", quantity: "1 크레딧" },
-  { date: "2026-09-25", provider: "Claude", detail: "영상 프롬프트 다듬기", quantity: "2,100 토큰" },
-  { date: "2026-09-22", provider: "Claude", detail: "Chat 대화", quantity: "5,600 토큰" },
-  { date: "2026-09-19", provider: "Higgsfield", detail: "영상 — 새벽 부산 해안", quantity: "1 크레딧" },
+  {
+    date: "2026-10-01",
+    category: "Build",
+    detail: "Project Builder — 습관 한눈에",
+    provider: "Claude",
+    chargedKrw: 1_200,
+    source: "공동체 지원",
+  },
+  {
+    date: "2026-09-30",
+    category: "Video",
+    detail: "영상 — 비 오는 서울의 밤",
+    provider: "Higgsfield",
+    chargedKrw: 4_000,
+    source: "공동체 지원",
+  },
+  {
+    date: "2026-09-29",
+    category: "Build",
+    detail: "영상 프롬프트 다듬기",
+    provider: "Claude",
+    chargedKrw: 300,
+    source: "공동체 지원",
+  },
+  {
+    date: "2026-09-28",
+    category: "Build",
+    detail: "Chat 대화",
+    provider: "Claude",
+    chargedKrw: 500,
+    source: "공동체 지원",
+  },
+  {
+    date: "2026-09-27",
+    category: "Video",
+    detail: "영상 — 새벽 부산 해안",
+    provider: "Higgsfield",
+    chargedKrw: 5_000,
+    source: "개인 잔액",
+  },
 ];
 
 /* ------------------------------------------------------------------ */
 /* Admin                                                               */
 /* ------------------------------------------------------------------ */
 
-export type SeasonStatus = "active" | "upcoming" | "closed";
+export type QuarterStatus = "draft" | "application_open" | "active" | "closed";
 
-export const SEASON_STATUS_LABEL: Record<SeasonStatus, string> = {
+export const QUARTER_STATUS_LABEL: Record<QuarterStatus, string> = {
+  draft: "준비 중",
+  application_open: "신청 접수 중",
   active: "진행 중",
-  upcoming: "예정",
   closed: "종료",
 };
 
-export interface Season {
+export interface QuarterSummary {
+  code: string;
   name: string;
   startsAt: string;
   endsAt: string;
-  status: SeasonStatus;
+  status: QuarterStatus;
   members: number;
 }
 
-export const MOCK_SEASONS: Season[] = [
-  { name: "2026 Season 2", startsAt: "2026-07-01", endsAt: "2026-12-31", status: "active", members: 5 },
-  { name: "2026 Season 1", startsAt: "2026-01-01", endsAt: "2026-06-30", status: "closed", members: 4 },
-  { name: "2027 Season 1", startsAt: "2027-01-01", endsAt: "2027-06-30", status: "upcoming", members: 0 },
+export const MOCK_QUARTERS: QuarterSummary[] = [
+  {
+    code: "2026-Q4",
+    name: "2026 Q4",
+    startsAt: "2026-10-01",
+    endsAt: "2026-12-31",
+    status: "application_open",
+    members: 5,
+  },
+  {
+    code: "2026-Q3",
+    name: "2026 Q3",
+    startsAt: "2026-07-01",
+    endsAt: "2026-09-30",
+    status: "closed",
+    members: 4,
+  },
+  {
+    code: "2026-Q1",
+    name: "2026 Q1",
+    startsAt: "2026-01-01",
+    endsAt: "2026-03-31",
+    status: "closed",
+    members: 3,
+  },
 ];
 
 export const ROLE_LABEL: Record<"admin" | "member", string> = {
@@ -788,9 +860,9 @@ export interface AdminMember {
   displayName: string;
   role: "admin" | "member";
   membership: MembershipStatus;
-  season: string;
-  claudeTokens: number;
-  videoCredits: number;
+  quarter: string;
+  buildBudgetKrw: number;
+  videoBudgetKrw: number;
 }
 
 export const MOCK_MEMBERS: AdminMember[] = [
@@ -799,45 +871,45 @@ export const MOCK_MEMBERS: AdminMember[] = [
     displayName: "김유리",
     role: "admin",
     membership: "active",
-    season: "2026 Season 2",
-    claudeTokens: 2_000_000,
-    videoCredits: 100,
+    quarter: "2026 Q4",
+    buildBudgetKrw: 70_000,
+    videoBudgetKrw: 30_000,
   },
   {
     username: "minji",
     displayName: "박민지",
     role: "member",
     membership: "active",
-    season: "2026 Season 2",
-    claudeTokens: 2_000_000,
-    videoCredits: 100,
+    quarter: "2026 Q4",
+    buildBudgetKrw: 50_000,
+    videoBudgetKrw: 50_000,
   },
   {
     username: "seojun",
     displayName: "이서준",
     role: "member",
     membership: "active",
-    season: "2026 Season 2",
-    claudeTokens: 1_000_000,
-    videoCredits: 50,
+    quarter: "2026 Q4",
+    buildBudgetKrw: 70_000,
+    videoBudgetKrw: 30_000,
   },
   {
     username: "daeun",
     displayName: "최다은",
     role: "member",
     membership: "inactive",
-    season: "2026 Season 1",
-    claudeTokens: 0,
-    videoCredits: 0,
+    quarter: "2026 Q3",
+    buildBudgetKrw: 0,
+    videoBudgetKrw: 0,
   },
   {
     username: "jihoon",
     displayName: "서지훈",
     role: "member",
     membership: "former",
-    season: "2026 Season 1",
-    claudeTokens: 0,
-    videoCredits: 0,
+    quarter: "2026 Q3",
+    buildBudgetKrw: 0,
+    videoBudgetKrw: 0,
   },
 ];
 
@@ -863,11 +935,12 @@ export function formatCompact(value: number): string {
 }
 
 /** 사용률(%) — 사이드바와 Usage 화면이 같은 값을 쓰도록 한 곳에 둡니다. */
-export function usedPercent(allocation: Allocation): number {
-  if (allocation.allocated <= 0) return 0;
-  return Math.min(100, Math.round((allocation.used / allocation.allocated) * 100));
+export function usedPercent(budget: CommunityBudget): number {
+  if (budget.budgetKrw <= 0) return 0;
+  return Math.min(100, Math.round((budget.consumedKrw / budget.budgetKrw) * 100));
 }
 
+/** 반응 수의 합계. 카드와 "인기순" 정렬이 같은 값을 쓰도록 한 곳에 둡니다. */
 export function totalReactions(reactions: Record<ReactionType, number>): number {
   return reactions.like + reactions.useful + reactions.interesting;
 }

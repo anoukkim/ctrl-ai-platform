@@ -208,3 +208,16 @@
     aspect-ratio: 16 / 10;
   }
 }
+
+/* 검색 결과가 없을 때 */
+.searchEmpty {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1.5rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}

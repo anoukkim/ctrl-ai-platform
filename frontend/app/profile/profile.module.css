@@ -217,3 +217,111 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ---------- 분기 참여 신청 ---------- */
+
+.approvedGrid,
+.splitGrid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.approvedCell,
+.splitCell {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.approvedValue,
+.splitAmount {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.approvedSub {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.splitPercent {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pending,
+.applyRow,
+.applyForm {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.pendingTitle {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.limitValue {
+  font-family: var(--mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sliderLabel {
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+/* 한쪽을 움직이면 다른 쪽이 따라오므로 합이 100%가 아닐 수 없습니다. */
+.slider {
+  width: 100%;
+  max-width: 24rem;
+  accent-color: var(--accent);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.preset {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.preset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.presetActive {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.applyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}

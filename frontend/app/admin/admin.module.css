@@ -96,3 +96,35 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ---------- 분기 관리 ---------- */
+
+.quarterPick {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quarterPick:hover {
+  border-color: var(--border-strong);
+  background: var(--panel-2);
+}
+
+.quarterPickActive {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.applicationCounts {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-dim);
+}

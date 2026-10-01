@@ -23,6 +23,8 @@ import {
   type AdminVideoModel,
 } from "@/lib/projects";
 
+import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+
 import styles from "./admin.module.css";
 
 type State =
@@ -33,6 +35,7 @@ type State =
 export default function VideoModelCatalog() {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -106,6 +109,20 @@ export default function VideoModelCatalog() {
 
       {state.phase === "ready" && (
         <>
+          {state.models.length > 0 && (
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="모델 이름, 제공자, 모델 ID로 검색"
+              resultCount={
+                state.models.filter((m) =>
+                  matchesQuery(query, m.display_name, m.provider, m.model_id),
+                ).length
+              }
+              totalCount={state.models.length}
+            />
+          )}
+
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -119,7 +136,11 @@ export default function VideoModelCatalog() {
                 </tr>
               </thead>
               <tbody>
-                {state.models.map((model) => (
+                {state.models
+                  .filter((model) =>
+                    matchesQuery(query, model.display_name, model.provider, model.model_id),
+                  )
+                  .map((model) => (
                   <tr key={model.id}>
                     <td>
                       <span className={styles.memberName}>
