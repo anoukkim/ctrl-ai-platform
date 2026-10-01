@@ -15,44 +15,58 @@ says what order things happen in.
 
 ## Now
 
-**Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
+Nothing is being built. `phase-1c-usage-audit` is merged, so Phase 1 is
+complete on `main`. One branch is finished and waiting on review:
 
-Branch created and brought up to date with `main` (which now contains 1a
-and 1b). **No 1c work committed yet.** Scope: a usage router that records
-`UsageEvent` through the budget service in the same transaction as the
-deduction; the real admin member list, quarter enrolment and a KRW credit
-panel; an `AuditLog` table written on every admin change plus a read-only
-audit view; a development-only "simulate usage" action; removal of the
-remaining mock exports; and the Usage page redesign.
+| Branch | State |
+| ------ | ----- |
+| `ui-brand-refresh` | **Complete, unmerged.** 11 commits. CTRL+AI name and + logo, lucide icons, the neutral dark palette, the `/issues` page, the rebuilt Chat screen, the Usage card redesign, and the Video length/ratio/sound controls. |
+
+It was branched before Phase 1c landed, so merging `main` into it will
+conflict in `globals.css`, `usage/page.tsx`, `usage/usage.module.css`,
+`admin/page.tsx` and `README.md`. Keep the real usage data from `main` and
+re-apply the styling on top of it.
 
 ---
 
 ## Next (in order)
 
-1. **Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
-   See **Now**.
+1. **UI batch 1** · branch `ui-brand-refresh`
+   Built and awaiting review — see **Now**. Full spec saved verbatim below.
 
-2. **UI batch 1** · branch `ui-brand-refresh`
-   Full spec saved verbatim below. Its open question is now resolved:
-   `main` contains 1a and 1b, so branching from an up-to-date `main` is
-   what the spec asks for and gives the current UI.
+2. **budget-by-provider** · branch `feat-budget-by-provider`
+   Spec saved verbatim below.
 
-3. **prep-beta-launch**
+3. **project-video-management** · branch `feat-project-video-management`
+   Spec saved verbatim below.
+
+4. **prep-beta-launch**
    Not yet specified.
 
-4. **Phase 2 — Chat**
+5. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
    usage event recording, budget checks. See `CLAUDE.md` section 20.
 
+> **Two items were named in the requested order but skipped**, because
+> they are not in this backlog and no spec has been given for them:
+> **membership-access-fix** (would be 2nd) and **video-higgsfield-only**
+> (would be 5th). Send a spec for either and it goes in at that position.
+
+
 ### Merge order
 
-`main` now contains Phase 1a and Phase 1b. Only one phase branch is still
-stacked:
+`main` contains Phase 1a, Phase 1b and Phase 1c. One branch is waiting:
 
 ```text
-main  <-  phase-1c-usage-audit
+main  <-  ui-brand-refresh         (11 commits, complete)
 ```
+
+`ui-brand-refresh` is behind `main` by the whole Phase 1c merge. Merge
+`main` into the branch first (never rebase, never force-push), resolve the
+five overlapping files by keeping the real usage data from `main` and
+re-applying the new styling on top, then run the tests and the build
+before merging the branch back.
 
 ---
 
@@ -60,42 +74,7 @@ main  <-  phase-1c-usage-audit
 
 New UI requests go here until they are folded into a UI batch.
 
-*(none)*
-
----
-
-## project-video-management
-
-Work on Video Generator projects that needs a backend or data-model
-change, so it cannot be done on a UI-only branch.
-
-### Store the generation settings per version
-
-**Why:** `VideoVersion` records which model made a version, but not the
-**length, aspect ratio or sound** it was made with. `VideoModel.capabilities`
-only says what a model *can* do, not what was actually chosen.
-
-The UI for these controls now exists (`frontend/app/video/[projectId]/VideoSettings.tsx`),
-and the workspace keeps the settings of versions created in the current
-session in memory. That is a stopgap: reload the page and the older
-versions lose their settings, because there is nowhere to read them from.
-
-**What it needs:**
-
-- add `duration_seconds`, `aspect_ratio` and `sound` to `VideoVersion`,
-  with an Alembic migration (existing rows get null — their settings are
-  genuinely unknown and should not be guessed)
-- accept them on `POST /api/video/projects/{id}/versions`, validated
-  against the chosen model's `capabilities` so the API refuses a
-  combination the model cannot produce
-- return them on `VideoVersionRead`
-- then delete the in-memory `versionSettings` map in `VideoWorkspace.tsx`
-  and read the real values instead
-
-Probably also worth storing the chosen settings on `VideoProject` so they
-survive a reload before the first version is generated.
-
----
+*(none yet — UI batch 1 below holds everything collected so far)*
 
 ---
 
@@ -151,6 +130,69 @@ true — `main` contains Phase 1a and Phase 1b, so it has the login pages,
 the `내 정보` sidebar group and the `Phase 1 — 개발 중` subtitle the spec
 refers to. Branch `ui-brand-refresh` from `main`.
 
+## budget-by-provider — full spec
+
+Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
+
+> Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
+>
+> 1. Two budgets per member per quarter, named by provider: "Claude" and "Higgsfield". Rename the current Build budget to Claude everywhere (data, API, UI, docs) with an Alembic migration that keeps existing data. Chat, Project Builder and the Video prompt helper all charge Claude; video generation, editing and extension charge Higgsfield.
+> 2. Every UsageEvent records: provider, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), the native unit and amount (Claude input and output tokens; Higgsfield credits), the KRW amount, and the rate used for conversion. Conversion rates live in an admin-editable settings table with history, so past events keep the rate they were charged at.
+> 3. Club pool per quarter and provider: the admin enters the company-approved amount for Claude and for Higgsfield. Member allocations plus reserve can never exceed the pool (enforced in the backend).
+> 4. Reserve: by default 20% of each provider pool is held back as club reserve; the admin can change this percentage per quarter. Members can request extra budget from Usage with a short reason; admin approves or rejects in Admin, paid from the reserve, written to the audit log.
+> 5. Admin pool dashboard per provider: approved pool, allocated to members, actually used, reserve remaining, usage by feature tag.
+> 6. Quarter report: Admin can download a CSV (and an on-screen summary) per quarter with usage by provider and feature, native units and KRW, number of active members, and utilisation rate, for the next funding application.
+> 7. Member side: Usage shows the two provider budgets, with usage broken down by feature. A one-time notice at 80% used. Before any Higgsfield action, show the estimated cost in KRW next to the button.
+> 8. Members cannot move budget between providers.
+>
+> Tests: allocations plus reserve cannot exceed the pool, the default reserve is 20%, reserve requests deduct from the reserve, usage events store native units and the rate, rate changes do not alter past events, the CSV totals match the database, and every feature charges the correct provider.
+
+---
+
+## project-video-management — full spec
+
+Branch `feat-project-video-management`. Saved exactly as written by the developer.
+
+> 1. Delete Builder projects and videos
+>    - Delete button on each project and video, in the library list and in the workspace, with a Korean confirmation dialog that names the item.
+>    - Only the owner can delete, and only while they are an active member; admins can delete any item (written to the audit log). Backend enforces this.
+>    - Soft delete (deleted_at), so it disappears for the member but an admin can restore it. Add a restore action in Admin.
+>    - Deleting also removes the item from CtrlAI Apps or CtrlAITube if it was published.
+>    - Never delete UsageEvent records or budget history: usage already spent stays recorded.
+>
+> 2. Download videos
+>    - Download button on each finished video, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
+>    - Files go through a storage interface: local folder in development, cloud storage later (Phase 9), so nothing changes when we go live.
+>    - Until Phase 6 connects a real provider, the mock provider produces a small placeholder video so the download flow can be tested end to end.
+>    - The file name is readable: the video title plus date, safe characters only.
+>
+> 3. Download code as a ZIP
+>    - "코드 다운로드 (ZIP)" button in each Builder project, owner only. Allowed even when the owner is inactive or not enrolled in the current quarter.
+>    - The ZIP contains all project files in their folder structure plus a short README explaining how to open or run it.
+>    - Never include secrets, .env files or anything outside the project.
+>    - Safe ZIP building: no ../ paths, a size limit, a clear Korean error if the project is too large.
+>
+> Tests: owner can delete/download, other members cannot, inactive owners can download but not delete, admin delete is audited and restorable, deleted items disappear from Apps and Tube, usage history survives deletion, ZIP contains no secrets or unsafe paths, downloads are rejected for deleted items.
+
+### Also needed here: store the generation settings per version
+
+Carried over from the earlier note on this item, since it belongs to the
+same branch. `VideoVersion` records which model made a version but not the
+**length, aspect ratio or sound** it was made with — `VideoModel.capabilities`
+only says what a model *can* do, not what was chosen.
+
+The controls already exist on `ui-brand-refresh`
+(`frontend/app/video/[projectId]/VideoSettings.tsx`), with the settings of
+versions made in the current session held in memory as a stopgap. Reload
+and older versions lose them, because there is nowhere to read them from.
+
+Needs `duration_seconds`, `aspect_ratio` and `sound` on `VideoVersion`
+with an Alembic migration (existing rows get null — their settings are
+genuinely unknown and must not be guessed), accepted on
+`POST /api/video/projects/{id}/versions` and validated against the model's
+`capabilities`, returned on `VideoVersionRead`, after which the in-memory
+map in `VideoWorkspace.tsx` is deleted.
+
 ---
 
 ## Done
@@ -159,6 +201,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-01 | **Phase 1c — usage ledger and audit log** — charging and the `UsageEvent` row in one transaction behind a `SELECT ... FOR UPDATE` lock, the real admin member list with quarter enrolment and a KRW credit panel, the append-only `AuditLog` with a read-only admin view, a development-only simulate-usage action, the Usage page redesign | `phase-1c-usage-audit` |
 | 2026-10-01 | **Phase 1b — membership** — per-quarter `QuarterMembership`, `require_active_member` on paid creation endpoints, former members locked out with attribution preserved, live membership in the sidebar, Profile and Usage header, Korean monospace fix | `phase-1b-membership` |
 | 2026-10-01 | **Phase 1a — auth** — username/password with Argon2id, HttpOnly same-origin session cookie via the Next.js `/api/*` rewrite, real `get_current_user` / `require_admin` on every route | `phase-1a-auth` |
 | 2026-10-01 | **Phase 1 foundation** — quarters, applications, KRW budgets, allocations, personal wallet and top-ups, Builder/Video project groundwork with libraries and workspaces | `phase/1-foundation` |

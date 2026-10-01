@@ -13,6 +13,7 @@ from app.api.routes import (
     builder,
     health,
     quarters,
+    usage,
     users,
     video,
 )
@@ -24,5 +25,6 @@ api_router.include_router(users.router)
 api_router.include_router(builder.router)
 api_router.include_router(video.router)
 api_router.include_router(quarters.router)
+api_router.include_router(usage.router)
 api_router.include_router(admin.router)
 api_router.include_router(admin_quarters.router)
