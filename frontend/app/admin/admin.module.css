@@ -635,11 +635,12 @@ a.card:hover .cardChevron {
   display: inline-block;
 }
 
+/* 화면 맨 위에 그리므로 자리는 fixed로 잡습니다 — 표를 감싼 스크롤
+   상자에 잘리지 않게 하려는 것이 이 메뉴를 밖으로 꺼낸 이유입니다.
+   top/right은 단추의 실제 자리를 재서 넣습니다. */
 .rowMenuList {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  z-index: 20;
+  position: fixed;
+  z-index: 120;
   display: grid;
   min-width: 9rem;
   padding: 0.25rem;

@@ -16,6 +16,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { useAdminNav } from "@/app/components/AdminNavProvider";
+
 import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
 import { activeSection, visibleSections } from "./sections";
 
@@ -42,6 +44,8 @@ export function useBreadcrumbTail(label: string | null): void {
 export default function AdminFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { quarters, selected, select, dashboard } = useAdminQuarter();
+  // 사이드바가 이미 읽어 둔 값. 이 화면의 숫자가 도착하기 전까지 씁니다.
+  const nav = useAdminNav();
   const [tail, setTail] = useState<string | null>(null);
 
   // 화면이 매번 새 함수를 받아 효과가 다시 돌지 않도록 고정합니다.
@@ -50,15 +54,17 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
   const current = activeSection(pathname);
   // 개발 도구는 백엔드가 개발 환경이라고 말할 때만 보입니다. 숨기는 것은
   // 편의일 뿐, 실제 차단은 백엔드가 404로 합니다.
-  const sections = useMemo(
-    () => visibleSections(dashboard?.is_development ?? false),
-    [dashboard?.is_development],
-  );
+  //
+  // 탭이 뒤늦게 끼어들지 않도록, 이 화면의 숫자가 아직 없으면
+  // 사이드바가 이미 읽어 둔 값을 씁니다. 둘이 잠깐이라도 어긋나면 같은
+  // 환경에서 사이드바에는 있고 탭에는 없는 구역이 생깁니다.
+  const isDevelopment = dashboard?.is_development ?? nav.isDevelopment;
+  const sections = useMemo(() => visibleSections(isDevelopment), [isDevelopment]);
 
   // 손이 필요한 구역에 개수를 띄웁니다.
   const pending: Record<string, number> = {
-    quarters: dashboard?.pending_applications ?? 0,
-    topups: dashboard?.pending_top_ups ?? 0,
+    quarters: dashboard?.pending_applications ?? nav.pendingApplications,
+    topups: dashboard?.pending_top_ups ?? nav.pendingTopUps,
   };
 
   return (
