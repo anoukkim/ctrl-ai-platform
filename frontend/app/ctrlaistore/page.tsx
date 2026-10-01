@@ -22,7 +22,7 @@ export default function CtrlAIStorePage() {
           CtrlAIApps <span className="badge badge-mock">준비 중</span>
         </h1>
         <p className="page-subtitle">
-          회원들이 Project Builder로 만들어 게시한 앱입니다. 만든 사람이 이번 시즌에
+          회원들이 Project Builder로 만들어 게시한 앱입니다. 만든 사람이 이번 분기에
           참여하지 않더라도 앱은 그대로 남아 있습니다.
         </p>
         <span className="badge badge-muted">{MOCK_APPS.length}개</span>

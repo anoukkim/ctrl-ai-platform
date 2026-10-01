@@ -99,15 +99,7 @@ dashboard card.
 
 New UI requests go here until they are folded into a UI batch.
 
-- **"시즌" survives on the CtrlAIApps page.** Found 2026-10-01 while
-  verifying ui-naming in the browser. The listing subtitle reads
-  "만든 사람이 이번 **시즌**에 참여하지 않더라도…", but Season was
-  retired in Phase 0 and replaced by 분기 (CLAUDE.md section 10). One
-  member-visible string, `frontend/app/ctrlaistore/page.tsx:25`; the
-  other four hits are comments in Profile and two CSS files. Left out of
-  ui-naming, whose spec names four renames and not this one.
-
-*(Otherwise none loose — the two UI requests since UI batch 1,
+*(none loose — the two UI requests since UI batch 1,
 **admin-restructure** and **ui-naming**, were each large enough to get
 their own item and branch in **Next** rather than wait for a batch.)*
 
@@ -256,6 +248,11 @@ Worth knowing before review.
   it produced makes the record useless.
 - **English docs prose follows the Korean**: "community-funded" reads
   "club-funded", since the member-facing label is now 동아리 지원.
+- **시즌 → 분기 was added on request.** Found while verifying in the
+  browser: the CtrlAIApps subtitle still said 이번 시즌, the Season
+  concept retired in Phase 0. One member-visible string plus seven
+  comments. Raised as a separate UI request, then folded into this
+  branch when the developer said to do it now.
 
 ---
 
