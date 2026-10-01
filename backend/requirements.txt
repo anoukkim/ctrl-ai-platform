@@ -11,3 +11,6 @@ sqlalchemy>=2.0,<3.0
 alembic>=1.14,<2.0
 # psycopg 3 with pre-built binaries, so no local C compiler is required.
 psycopg[binary]>=3.2,<4.0
+# Argon2id password hashing (Phase 1a). Ships sensible parameters, so the
+# cost settings are deliberately not tuned by hand.
+argon2-cffi>=23.1,<26.0
