@@ -77,19 +77,21 @@ function About({ app }: { app: App }) {
           실제 스크린샷은 Phase 5에서 올라갑니다. 좁은 화면에서는 이 줄만
           옆으로 밀립니다. */}
       {app.screenshots.length > 0 && (
-        <div className={styles.gallery} role="group" aria-label="앱 화면">
-          {app.screenshots.map((shot) => (
-            <figure className={styles.shot} key={shot.label}>
-              <div
-                className={styles.shotArt}
-                style={{
-                  background: `linear-gradient(140deg, ${shot.artwork[0]}, ${shot.artwork[1]})`,
-                }}
-                aria-hidden="true"
-              />
-              <figcaption className={styles.shotLabel}>{shot.label}</figcaption>
-            </figure>
-          ))}
+        <div>
+          <div className={styles.gallery} role="group" aria-label="앱 화면">
+            {app.screenshots.map((shot) => (
+              <figure className={styles.shot} key={shot.label}>
+                <div
+                  className={styles.shotArt}
+                  style={{
+                    background: `linear-gradient(140deg, ${shot.artwork[0]}, ${shot.artwork[1]})`,
+                  }}
+                  aria-hidden="true"
+                />
+                <figcaption className={styles.shotLabel}>{shot.label}</figcaption>
+              </figure>
+            ))}
+          </div>
           <p className={styles.galleryNote}>화면은 아직 예시입니다.</p>
         </div>
       )}

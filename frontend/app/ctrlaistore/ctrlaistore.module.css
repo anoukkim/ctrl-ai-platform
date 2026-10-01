@@ -236,8 +236,16 @@
 
 /* ---------- 소개 탭 ---------- */
 
+/*
+ * `minmax(0, 1fr)`가 필요한 이유: 격자 칸은 기본적으로 **가장 넓은
+ * 내용보다 좁아지지 않습니다**. 화면 모음은 그림 셋을 한 줄로 늘어놓으니
+ * 그 폭이 690px쯤 되고, 좁은 화면에서는 그 수치가 소개 전체를 그만큼
+ * 넓혀 설명 글이 칸 밖으로 잘려 나갔습니다. 0까지 줄어들 수 있게 해 두면
+ * 칸은 화면에 맞고, 넘치는 것은 그림 줄이 자기 안에서 옆으로 밉니다.
+ */
 .about {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
   padding: 0.9rem 0.95rem 1rem;
 }
@@ -293,9 +301,9 @@
   font-size: 0.74rem;
 }
 
+/* 그림 줄 바로 아래. 줄 안에 두었더니 네 번째 화면처럼 읽혔습니다. */
 .galleryNote {
-  flex: 0 0 auto;
-  align-self: center;
+  margin-top: 0.35rem;
   color: var(--text-dim);
   font-size: 0.7rem;
 }
