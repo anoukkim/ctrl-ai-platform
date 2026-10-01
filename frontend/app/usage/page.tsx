@@ -23,7 +23,7 @@ import QuarterBar from "./QuarterBar";
 import styles from "./usage.module.css";
 
 export const metadata: Metadata = {
-  title: "Usage — Ctrl AI",
+  title: "Usage — CTRL+AI",
 };
 
 export default function UsagePage() {

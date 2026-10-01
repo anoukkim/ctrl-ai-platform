@@ -54,7 +54,7 @@
   border-radius: 50%;
   background: rgba(8, 10, 15, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.8rem;
   transition: background-color 0.14s ease;
 }
@@ -72,7 +72,7 @@
   padding: 0.02rem 0.35rem;
   border-radius: 4px;
   background: rgba(6, 8, 12, 0.8);
-  color: #fff;
+  color: var(--on-accent);
   font-family: var(--mono);
   font-size: 0.68rem;
 }
@@ -121,7 +121,7 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--on-accent);
   text-align: center;
   padding: 1.5rem;
   overflow: hidden;
@@ -195,7 +195,7 @@
   margin-top: 1.2rem;
 }
 
-/* YouTube 댓글 영역은 Ctrl AI 댓글과 헷갈리지 않도록 눈에 띄게 구분합니다. */
+/* YouTube 댓글 영역은 CTRL+AI 댓글과 헷갈리지 않도록 눈에 띄게 구분합니다. */
 .youtubeSection {
   padding: 0.85rem 0.95rem;
   border: 1px dashed var(--border-strong);

@@ -40,6 +40,9 @@ export default function MyQuarterProvider({ children }: { children: React.ReactN
   const [state, setState] = useState<State>({ phase: "loading" });
   const { state: userState } = useCurrentUser();
   const signedIn = userState.phase === "authenticated";
+  // 누가 로그인했는지까지 봅니다. "로그인했는가"만 보면 계정을 바꿔도
+  // 값이 그대로 남아, 사이드바가 이전 사람의 참여 상태를 보여 줍니다.
+  const userId = userState.phase === "authenticated" ? userState.user.id : null;
 
   const refresh = useCallback(async () => {
     if (!signedIn) return;
@@ -66,7 +69,7 @@ export default function MyQuarterProvider({ children }: { children: React.ReactN
     return () => {
       cancelled = true;
     };
-  }, [signedIn]);
+  }, [signedIn, userId]);
 
   return (
     <MyQuarterContext.Provider value={{ state, refresh }}>{children}</MyQuarterContext.Provider>

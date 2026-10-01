@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: AppDetailProps): Promise<Meta
   const { slug } = await params;
   const app = findApp(slug);
 
-  return { title: app ? `${app.name} — Ctrl AI` : "앱을 찾을 수 없습니다 — Ctrl AI" };
+  return { title: app ? `${app.name} — CTRL+AI` : "앱을 찾을 수 없습니다 — CTRL+AI" };
 }
 
 export default async function AppDetailPage({ params }: AppDetailProps) {

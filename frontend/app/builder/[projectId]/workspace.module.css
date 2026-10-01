@@ -185,7 +185,7 @@
 .codeText {
   padding: 0.7rem 1rem;
   white-space: pre;
-  color: #c9d3e6;
+  color: var(--text-muted);
 }
 
 /* ---------- 미리보기 ---------- */

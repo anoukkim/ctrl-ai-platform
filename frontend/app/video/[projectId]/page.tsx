@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import VideoWorkspace from "./VideoWorkspace";
 
 export const metadata: Metadata = {
-  title: "Video Generator — Ctrl AI",
+  title: "Video Generator — CTRL+AI",
 };
 
 interface Props {

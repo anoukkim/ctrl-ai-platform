@@ -3,7 +3,7 @@
  * 만든 사람 표시, 반응, 댓글과 답글.
  *
  * 모두 Server Component이며 아직 동작하지 않습니다. 반응과 댓글은
- * 앱은 Phase 5, 영상은 Phase 8에서 Ctrl AI의 PostgreSQL에 저장됩니다.
+ * 앱은 Phase 5, 영상은 Phase 8에서 CTRL+AI의 PostgreSQL에 저장됩니다.
  */
 
 import {
@@ -51,7 +51,7 @@ export function Reactions({ reactions }: { reactions: Record<ReactionType, numbe
           key={type}
           type="button"
           disabled
-          title="반응은 Ctrl AI에 저장됩니다. 다음 단계에서 제공됩니다."
+          title="반응은 CTRL+AI에 저장됩니다. 다음 단계에서 제공됩니다."
         >
           {REACTION_LABEL[type]}
           <span className={styles.reactionCount}>{reactions[type]}</span>
@@ -82,7 +82,7 @@ function CommentCard({ comment, isReply = false }: { comment: Comment; isReply?:
 }
 
 /**
- * Ctrl AI 안에서 이루어지는 대화입니다.
+ * CTRL+AI 안에서 이루어지는 대화입니다.
  *
  * 영상의 경우 만든 사람의 YouTube 댓글과 일부러 분리해 둡니다. 그래야
  * 커뮤니티의 이야기가 채널과 상관없이 이어질 수 있습니다.
