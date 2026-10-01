@@ -73,7 +73,6 @@
 }
 
 .count {
-  font-family: var(--mono);
   font-size: 0.74rem;
   color: var(--text-dim);
   white-space: nowrap;

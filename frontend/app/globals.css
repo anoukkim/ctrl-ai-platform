@@ -46,7 +46,20 @@
   --radius-sm: 6px;
   --rail-width: 15rem;
 
-  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  /*
+   * 코드·숫자·날짜 전용 글꼴.
+   *
+   * 뒤쪽에 한글 글꼴을 일부러 넣어 두었습니다. 글꼴 목록은 글자 하나하나에
+   * 대해 적용되므로, 숫자와 영문은 앞쪽 monospace 글꼴로, 한글은 본문과 같은
+   * 한글 글꼴로 그려집니다.
+   *
+   * 이것이 없으면 맨 뒤의 일반 `monospace`가 한글까지 고정폭으로 그려서
+   * "이 번 분 기 지 원"처럼 자간이 벌어집니다. 금액 "100,000원"처럼 숫자와
+   * 한글이 한 덩어리로 섞이는 경우가 많아 글꼴 단계에서 막는 편이 확실합니다.
+   */
+  --mono:
+    ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Pretendard",
+    "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", monospace;
 }
 
 *,
@@ -151,7 +164,6 @@ code {
   gap: 0.5rem;
   font-size: 1.15rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .page-subtitle {
@@ -169,7 +181,6 @@ code {
   margin-bottom: 0.6rem;
   font-size: 0.78rem;
   font-weight: 650;
-  letter-spacing: 0.01em;
   color: var(--text-muted);
 }
 

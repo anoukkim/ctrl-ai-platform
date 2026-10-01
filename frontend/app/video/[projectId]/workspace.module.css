@@ -397,7 +397,6 @@
 /* ---------- Phase 1에서 추가된 것들 ---------- */
 
 .savingHint {
-  font-family: var(--mono);
   font-size: 0.68rem;
   color: var(--text-dim);
   font-weight: 400;
