@@ -62,15 +62,16 @@ interface VersionSettings {
 const PREVIEW_SECONDS = 15;
 const TICK_MS = 150;
 
-/** 버전마다 다른 색을 주어 목록에서 구분되게 합니다. */
-const VERSION_ARTWORK: [string, string][] = [
-  ["#1e1b4b", "#7c3aed"],
-  ["#0f172a", "#6d28d9"],
-  ["#0c1222", "#4338ca"],
-  ["#0b1020", "#5b21b6"],
+/** 버전마다 다른 색을 주어 목록에서 구분되게 합니다. 색 자체는
+ *  globals.css의 토큰이고, 여기에는 토큰 이름만 둡니다. */
+const VERSION_ARTWORK = [
+  "var(--video-art-1)",
+  "var(--video-art-2)",
+  "var(--video-art-3)",
+  "var(--video-art-4)",
 ];
 
-function artworkFor(index: number): [string, string] {
+function artworkFor(index: number): string {
   return VERSION_ARTWORK[index % VERSION_ARTWORK.length];
 }
 
@@ -591,7 +592,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   <div
                     className={`${styles.playerArt} ${isPlaying ? styles.playerArtPlaying : ""}`}
                     style={{
-                      background: `linear-gradient(150deg, ${artwork[0]}, ${artwork[1]})`,
+                      background: artwork,
                     }}
                   >
                     <div>
@@ -778,9 +779,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                     <span
                       className={styles.versionThumb}
                       style={{
-                        background: `linear-gradient(150deg, ${artworkFor(index)[0]}, ${
-                          artworkFor(index)[1]
-                        })`,
+                        background: artworkFor(index),
                       }}
                       aria-hidden="true"
                     />
