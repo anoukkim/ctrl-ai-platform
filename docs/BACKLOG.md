@@ -15,27 +15,23 @@ says what order things happen in.
 
 ## Now
 
-**Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
+**UI batch 1** · branch `ui-brand-refresh`
 
-Branch created and brought up to date with `main` (which now contains 1a
-and 1b). **No 1c work committed yet.** Scope: a usage router that records
-`UsageEvent` through the budget service in the same transaction as the
-deduction; the real admin member list, quarter enrolment and a KRW credit
-panel; an `AuditLog` table written on every admin change plus a read-only
-audit view; a development-only "simulate usage" action; removal of the
-remaining mock exports; and the Usage page redesign.
+Not started. Full spec saved verbatim below; branch from `main` once
+Phase 1c is merged.
 
 ---
 
 ## Next (in order)
 
 1. **Phase 1c — usage ledger and audit log** · branch `phase-1c-usage-audit`
-   See **Now**.
+   **Complete, awaiting review.** Transactional charging with a row lock,
+   the usage ledger, the append-only audit log, the real admin member
+   list with KRW credit panel, the development-only simulate action, and
+   the Usage page redesign. 128 tests passing.
 
 2. **UI batch 1** · branch `ui-brand-refresh`
-   Full spec saved verbatim below. Its open question is now resolved:
-   `main` contains 1a and 1b, so branching from an up-to-date `main` is
-   what the spec asks for and gives the current UI.
+   See **Now**.
 
 3. **prep-beta-launch**
    Not yet specified.
@@ -43,7 +39,8 @@ remaining mock exports; and the Usage page redesign.
 4. **Phase 2 — Chat**
    Backend Claude adapter behind `CLAUDE_PROVIDER` (mock by default),
    conversations and messages, intent routing into Builder and Video,
-   usage event recording, budget checks. See `CLAUDE.md` section 20.
+   usage event recording through the Phase 1c `charge()` service, budget
+   checks before the provider call. See `CLAUDE.md` section 20.
 
 ### Merge order
 
