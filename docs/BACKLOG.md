@@ -15,17 +15,12 @@ says what order things happen in.
 
 ## Now
 
-**ui-apps-detail is being built** on branch `ui-apps-detail`, branched
-from an up-to-date `main`. The spec is saved verbatim below, with the
-browser checks and the decisions taken while implementing it. A second
-round of testing feedback (2026-10-02) reworked the 소개 and 업데이트
-기록 tabs and the 다른 앱 row; `tsc`, lint, 110 tests and `next build`
-pass; the branch is **waiting for the developer's approval** and has not
-been merged.
+**Nothing is in progress.** Branch the next item from an up-to-date
+`main`.
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
-admin-restructure, ui-naming, fix-video-workspace-hang and
-**ui-tube-watch** (merged 2026-10-02).
+admin-restructure, ui-naming, fix-video-workspace-hang, **ui-tube-watch**
+and **ui-apps-detail** (both merged 2026-10-02).
 
 **The comment section is now shared code.** `ui-apps-detail` lifted
 reactions, tabs and the whole comment column out of CtrlAITube's
@@ -66,63 +61,52 @@ between Phase 2 and `prep-beta-launch`. It takes the invite codes out of
 environment: the repository is public, so the site address will be, and an
 invite code is what keeps the community members-only.
 
-**Then, later the same day, the queue was reordered again**, and that
-order still holds. The three launch items moved to the end: the six
-build-out items (ui-tube-watch, budget-by-provider, usage-analytics,
-project-video-management, account-withdrawal, video-higgsfield-only) came
-first, followed by Phase 2 — Chat, `invite-only-signup` and
-`prep-beta-launch`.
+**Then, later the same day, the queue was reordered again.** The three
+launch items moved to the end and the six build-out items came first.
+`ui-tube-watch` and `ui-apps-detail` were built under that order and
+merged on 2026-10-02.
 
-`ui-tube-watch` merged on 2026-10-02, so five build-out items remain and
-every position below it moved up one. **The numbered list under "Next" is
-the authority on order** — the numbers written into the spec sections are
-a snapshot and go stale at every merge.
+**The queue was reordered once more on 2026-10-02, and that is the order
+now in force.** `budget-by-provider` and `usage-analytics` left **Next**
+entirely for a new section, **After the prototype (needs discussion)** —
+the cost model behind them is still being decided, and an item whose
+shape is unsettled should not sit at the head of a queue blocking four
+items that are ready. Everything below them moved up, so **Next** now
+starts at `project-video-management` and ends, as before, with the three
+launch items.
 
-That inverts what the earlier move had settled, so three notes were
-rewritten to match:
+**The numbered list under "Next" is the authority on order** — the
+numbers written into the spec sections are a snapshot and go stale at
+every reorder.
 
-- **`budget-by-provider` owns the `UsageEvent` migration again**, and
-  Phase 2 consumes it. Chat charges the **Claude** budget through the
-  renamed structures — the rename is `budget-by-provider` point 1, which
-  now lands first — with no separate legacy path.
-- **`budget-by-provider` must create its own operator note.** It had been
-  relying on `prep-beta-launch` to create `docs/deployment.md` first;
-  that item is now last, so point 6 writes `docs/operations.md` instead.
-- Position references in the spec sections were renumbered to the list
-  above. **The numbered list is the authority on order.**
+Deferring those two undid the dependencies that had been written on the
+assumption they came first. Four notes were rewritten to match:
+
+- **Phase 2 — Chat charges the existing Build (Claude) budget** through
+  the current budget service, rather than the renamed per-provider
+  structures. It still records every field the two deferred items will
+  need, so neither of them has to backfill.
+- **`account-withdrawal` releases the member's remaining allocation**
+  for the quarter instead of returning it to a club reserve. There is no
+  reserve until `budget-by-provider` builds one; the release is written
+  to the audit log, and connecting it to the reserve is that item's work.
+- **`video-higgsfield-only` charges the existing Video budget**, again
+  through the current budget service, and records the per-event fields.
+- **`budget-by-provider` no longer owns the `UsageEvent` migration.**
+  Phase 2 adds the columns it needs when it writes them; the deferred
+  item extends that shape rather than introducing it.
 
 ---
 
 ## Next (in order)
 
-Reordered on 2026-10-01. Phase 2 — Chat, `invite-only-signup` and
-`prep-beta-launch` move to the end; the build-out items come first.
-`ui-tube-watch` was position 1 and merged on 2026-10-02, so the list then
-started at `budget-by-provider`. **`ui-apps-detail` was added at position
-1 later the same day**, so it now leads and everything below it is one
-place lower.
+Reordered on 2026-10-02. `ui-tube-watch` and `ui-apps-detail` merged
+that day, and **`budget-by-provider` and `usage-analytics` moved out of
+Next** into *After the prototype (needs discussion)* below — so the list
+now starts at `project-video-management`. The three launch items stay at
+the end, in the order settled on 2026-10-01.
 
-1. **ui-apps-detail** · branch `ui-apps-detail`
-   The CtrlAIApps detail page `/ctrlaistore/[slug]`: a hero, one primary
-   action, and tabs whose comment tab **reuses the comment and reaction
-   components built in `ui-tube-watch`** rather than growing a second
-   copy. Spec saved verbatim below. Frontend only — comments and update
-   history stay mock data until Phase 5.
-
-2. **budget-by-provider** · branch `feat-budget-by-provider`
-   Spec saved verbatim below, including **Application flow** and
-   **Application and purchase model (decided)**. The latter wins where
-   the two disagree: approval is automatic, and both providers are
-   prepaid, so the item also owns purchase records, club balances and
-   carry-over. **Now also owns the `UsageEvent` migration** — the fields
-   Phase 2 would have introduced had it stayed first.
-
-3. **usage-analytics** · branch `feat-usage-analytics`
-   Admin and member usage charts. **Depends on budget-by-provider** — it
-   reads the `UsageEvent` fields that item adds. Spec saved verbatim
-   below.
-
-4. **project-video-management** · branch `feat-project-video-management`
+1. **project-video-management** · branch `feat-project-video-management`
    Spec saved verbatim below, including **Rename projects and videos**.
    ⚠ **The per-version generation settings are already done** —
    fix-video-workspace-hang had to add them to make a version show its
@@ -130,29 +114,32 @@ place lower.
    `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
    below is history, not work.
 
-5. **account-withdrawal** · branch `feat-account-withdrawal`
+2. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
-   Spec saved verbatim below.
+   Spec saved verbatim below. **It releases the member's remaining
+   allocation rather than returning it to a club reserve** — there is no
+   reserve until `budget-by-provider` builds one.
 
-6. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+3. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
-   which replaced the earlier Length slider section.
+   which replaced the earlier Length slider section. **Charges the
+   existing Video budget** through the current budget service.
 
-7. **Phase 2 — Chat** · branch `phase-2-chat`
+4. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
-   below, replacing the pointer to `CLAUDE.md` section 20. **It now
-   consumes the budget and usage structures rather than introducing
-   them** — see the note on its spec.
+   below, replacing the pointer to `CLAUDE.md` section 20. **Charges the
+   existing Build (Claude) budget**, while recording every field the two
+   deferred items will need — see the note on its spec.
 
-8. **invite-only-signup** · branch `feat-invite-only-signup`
+5. **invite-only-signup** · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-9. **prep-beta-launch** · no branch named yet
+6. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
@@ -161,7 +148,34 @@ place lower.
 
 Nothing is waiting. Branch the next item from an up-to-date `main`.
 
-Three things to carry into **budget-by-provider**, now at position 2:
+---
+
+## After the prototype (needs discussion)
+
+**Cost model still under discussion; do not start until the owner
+confirms the decisions.**
+
+Moved out of **Next** on 2026-10-02. Both specs below are unchanged — it
+is their position that moved, not their content. They are held because
+the money question underneath them (what the club buys, per provider,
+and how a member's share is decided) is not settled, and four items that
+*are* ready were queued behind them.
+
+- **budget-by-provider** · branch `feat-budget-by-provider`
+  Two budgets per member per quarter named by provider, the club pool,
+  the reserve and the quarter report. Full spec below, including
+  **Application flow** and **Application and purchase model (decided)**.
+- **usage-analytics** · branch `feat-usage-analytics`
+  Admin and member usage charts. **Depends on budget-by-provider** and
+  must stay behind it, whenever the two are taken up.
+
+Nothing in **Next** waits on either. The items that would have leaned on
+them now use the budgets that exist today, and record the fields these
+two will want — so when the cost model is settled, neither has to go
+back and fill in history. The three notes below were written for
+`budget-by-provider` and still apply whenever it is picked up.
+
+Three things to carry into **budget-by-provider**:
 
 - **The Budget section already exists**, defined in
   `frontend/app/admin/sections.ts` with `hidden: true` and the route
@@ -369,25 +383,26 @@ Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
 pointed at `CLAUDE.md` section 20. Saved exactly as written by the
 developer.
 
-**At position 6 since the 2026-10-01 reorder**, behind the build-out
-items. It briefly sat at position 2; the note below replaces what that
-move implied.
+**At position 4 since the 2026-10-02 reorder.** It has moved twice, and
+the note below replaces what the earlier moves implied.
 
-**Since `budget-by-provider` and `usage-analytics` come first, chat must
-charge the Claude budget and record usage through the structures they
-introduce (provider, feature tag "chat", model, tokens, USD, rate, KRW),
-with no separate legacy path.**
+**Charge chat to the existing Build (Claude) budget through the current
+budget service. Still record every field `budget-by-provider` and
+`usage-analytics` will need (provider, feature tag "chat", exact model,
+input and output tokens, USD cost from an admin-editable per-model token
+price, the USD→KRW rate used, and KRW), so no backfill is needed
+later.**
 
 What follows from that:
 
-- **Point 6 no longer introduces the `UsageEvent` fields** —
-  `budget-by-provider` (position 1) adds that migration and
-  `usage-analytics` (position 2) already reads it. Phase 2 writes into the
-  existing columns.
-- **The Claude/Higgsfield budget rename has already happened** —
-  `budget-by-provider` point 1 does it first. So chat charges the **Claude**
-  budget, not the old `build` category, and must not add a parallel path
-  for the pre-rename shape.
+- **Point 6 introduces the `UsageEvent` fields.** `budget-by-provider` is
+  deferred, so there is no earlier migration to write into; this item
+  adds the columns it records and the deferred item extends that shape.
+- **The Claude/Higgsfield budget rename has not happened yet.** Chat
+  charges the **Build** budget — the pot shown as 동아리 지원 — through
+  the budget service that exists today. The rename is
+  `budget-by-provider` point 1, and it is this item's recorded fields
+  that make it a rename rather than a reconstruction.
 - **Point 1's `ANTHROPIC_MODEL`** is already in `.env.example` and
   `Settings`; this item is what finally reads it.
 
@@ -397,7 +412,7 @@ What follows from that:
 > 2. Conversations: Conversation and Message tables with an Alembic migration. A conversation list in Chat (새 대화, rename, delete), the current conversation's history sent to Claude within the context limit (oldest messages trimmed first).
 > 3. Streaming replies in the existing chat UI, with a stop button. The Korean IME check before Enter stays.
 > 4. System prompt: Claude answers in Korean, explains simply for beginners, and suggests CTRL+AI features when relevant. When a message is about building an app or making a video, the reply shows simple action buttons ("Project Builder에서 시작", "Video Generator 열기") that open those screens with the idea pre-filled. No complex agent routing.
-> 5. Access and budget: require_active_member on every chat endpoint. Before each call, check the member's remaining Claude/Build budget; if it is insufficient, refuse with a Korean message and no provider call.
+> 5. Access and budget: require_active_member on every chat endpoint. Before each call, check the member's remaining Build (Claude) budget; if it is insufficient, refuse with a Korean message and no provider call.
 > 6. Usage recording from the start, so later items need no backfill: each reply writes a UsageEvent with provider, feature tag "chat", exact model, input tokens, output tokens, cost in USD from an admin-editable per-model token price setting, the USD→KRW rate used, and the KRW amount, deducted through the existing budget service in the same transaction.
 > 7. Errors: clear Korean messages for invalid key, out of provider credit, rate limits, timeouts and network failures. A failed call is never charged to the member.
 > 8. Safety: the API key lives only in the backend environment and never reaches the browser or logs. A per-member rate limit (requests per minute) protects the budget.
@@ -415,9 +430,9 @@ every test above run on the mock provider with no key.
 
 ## invite-only-signup — full spec
 
-Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 7
-since the reorder later that day — still directly after Phase 2 and ahead
-of `prep-beta-launch`. Saved exactly as written by the developer.
+Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 5
+since the 2026-10-02 reorder — still directly after Phase 2 and ahead of
+`prep-beta-launch`. Saved exactly as written by the developer.
 
 **It takes the invite codes out of `prep-beta-launch`.** That item's point 2
 carried "Signup requires an invite code; Admin can create and revoke invite
@@ -461,15 +476,15 @@ No branch named yet. Rewritten on 2026-10-01: the item used to be only the
 launch data rules, and now carries the full beta specification. Saved
 exactly as written by the developer.
 
-**Last in the queue, position 8, since the 2026-10-01 reorder.** The
+**Last in the queue, position 6, since the 2026-10-02 reorder.** The
 order is still deliberate: the beta is an invite-only launch whose one real
-feature is Claude chat, so Phase 2 (position 6) and `invite-only-signup`
-(position 7) both have to exist first, and everything else ships behind a
-test-mode label. Launching last now also means the six build-out items are
-done before anything is exposed on a public domain.
+feature is Claude chat, so Phase 2 (position 4) and `invite-only-signup`
+(position 5) both have to exist first, and everything else ships behind a
+test-mode label. Launching last still means every build-out item in
+**Next** is done before anything is exposed on a public domain.
 
 **The invite codes are no longer this item's work.**
-`invite-only-signup` at position 7 owns them, and requires a code in every
+`invite-only-signup` at position 5 owns them, and requires a code in every
 environment rather than only in the beta — so by the time this item runs,
 signup is already closed. Two parts of the spec below are therefore
 already satisfied when it starts:
@@ -512,8 +527,8 @@ rather than inherited.
 
 **Point 4 creates `docs/deployment.md`**, which does not exist today. Its
 "keep Anthropic auto-reload OFF" line is the same operator note
-`budget-by-provider` point 6 asks for; since this item comes first, that
-file will already exist by then.
+`budget-by-provider` point 6 asks for; that item is deferred and this one
+is in **Next**, so the file will already exist whenever it is picked up.
 
 ### Launch data rules
 
@@ -802,7 +817,22 @@ queries against its own viewport. Worth remembering: **measure
 
 ## budget-by-provider — full spec
 
-Branch `feat-budget-by-provider`. Saved exactly as written by the developer.
+Branch `feat-budget-by-provider`. Saved exactly as written by the
+developer.
+
+**Deferred on 2026-10-02** to *After the prototype (needs discussion)*:
+the cost model is still being decided, so do not start this until the
+owner confirms. The spec below is unchanged. Two things it had been
+promised no longer hold, because the items that promised them now run
+first:
+
+- **It no longer owns the `UsageEvent` migration.** Phase 2 — Chat adds
+  the columns it writes, and `video-higgsfield-only` records its own
+  fields; point 2 here extends that shape rather than creating it.
+- **Point 4's reserve does not exist yet when `account-withdrawal`
+  runs.** That item releases a withdrawing member's remaining allocation
+  and audits it; routing the released amount into the reserve is a line
+  this item adds once the reserve is real.
 
 > Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
 >
@@ -863,15 +893,15 @@ members can already see. The cut preview itself is unaffected; when it
 runs, and what a member is told when their approved budget drops, is not
 decided here.
 
-**Point 6's operator note has nowhere to live yet — reversed by the
-2026-10-01 reorder.** `docs/deployment.md` does not exist today, and
-`prep-beta-launch`, which point 4 of that item would have created it in,
-is now **last** at position 8 rather than ahead of this one. So this item
-creates the file it needs: write the auto-reload and manual-top-up
-guidance into a new `docs/operations.md`, and `prep-beta-launch` adds
-`docs/deployment.md` alongside it later, cross-referencing rather than
-duplicating. (Both carry the same "keep Anthropic auto-reload OFF" line,
-so whichever lands second should point at the first.)
+**Point 6's operator note has a home again — the 2026-10-02 reorder
+reversed this twice.** `docs/deployment.md` does not exist today, but
+`prep-beta-launch` point 4 creates it, and that item is now in **Next**
+while this one is deferred — so by the time this runs the file exists and
+already carries the "keep Anthropic auto-reload OFF" line. Add the
+manual-top-up guidance there rather than creating a second file. (If the
+order moves again and this item lands first, write the same guidance into
+a new `docs/operations.md` and have whichever lands second point at the
+first, rather than duplicating it.)
 
 > Context: Claude API and Higgsfield are both prepaid. Credits must be bought per provider before use and cannot be moved between providers afterwards, so the club needs each quarter's split before buying.
 >
@@ -896,11 +926,16 @@ so whichever lands second should point at the first.)
 Branch `feat-usage-analytics`. Added 2026-10-01. Saved exactly as written
 by the developer.
 
-**Why it sits directly after budget-by-provider.** Every chart here reads
-the `UsageEvent` fields that item adds — provider, feature tag, native
-units and KRW. Point 1 below also says where the exact model goes: into
-budget-by-provider if that item has not already recorded it, otherwise
-into this one with its own migration.
+**Deferred on 2026-10-02 along with `budget-by-provider`**, to *After the
+prototype (needs discussion)*. The spec is unchanged.
+
+**Why it must stay directly after budget-by-provider.** Every chart here
+reads the `UsageEvent` fields that item adds — provider, feature tag,
+native units and KRW. Point 1 below also says where the exact model goes:
+into budget-by-provider if that item has not already recorded it,
+otherwise into this one with its own migration. Phase 2 — Chat records
+provider, feature tag, model, tokens, USD, rate and KRW when it lands, so
+by the time these two are taken up some of that shape already exists.
 
 > Depends on budget-by-provider (UsageEvent with provider, feature tag, native units and KRW).
 >
@@ -987,21 +1022,27 @@ Branch `feat-account-withdrawal`. Saved exactly as written by the developer.
 >    - Choice for published work: keep it public labelled "탈퇴 회원" (default, per CLAUDE.md), or unpublish all of it.
 > 2. Effects of withdrawal:
 >    - account_status becomes former; the member is logged out and cannot log in.
->    - Their remaining 동아리 지원 for the current quarter returns to the club reserve (written to the audit log).
+>    - Their remaining 동아리 지원 allocation for the current quarter is released (written to the audit log). Returning it to a club reserve is budget-by-provider's work; there is no reserve yet.
 >    - If they have remaining 개인 충전 balance, show a clear warning before confirming, and mark the withdrawal "환불 대기" so an admin must record the refund in Admin before the account is finalised. Never silently discard real money.
 >    - UsageEvents and budget history stay, linked to an anonymised member, so quarter reports remain correct.
 > 3. 30-day grace period: within 30 days an admin can restore the account (audited). After 30 days, a scheduled job anonymises personal data (username, email, display name, avatar) and the account cannot be restored. Published work keeps the "탈퇴 회원" label.
 > 4. Admin: the member detail page shows withdrawn members with the withdrawal date, grace-period end, refund status, a 복구 action during the grace period, and a "환불 완료 기록" action. Admin-initiated withdrawal uses the same rules.
-> 5. Tests: wrong password blocks withdrawal; a former member cannot log in; the remaining club budget returns to the reserve; a personal balance blocks finalisation until a refund is recorded; restore works within 30 days and not after; anonymisation removes personal fields but keeps usage totals; the unpublish choice removes items from CtrlAIApps and CtrlAITube.
+> 5. Tests: wrong password blocks withdrawal; a former member cannot log in; the remaining club allocation is released and the release is audited; a personal balance blocks finalisation until a refund is recorded; restore works within 30 days and not after; anonymisation removes personal fields but keeps usage totals; the unpublish choice removes items from CtrlAIApps and CtrlAITube.
 
-**What this item leans on, which is why it sits at number 5.** Point 2
-returns the remaining club budget to "the club reserve", and the reserve
-is created by **budget-by-provider** (point 4 of that item). Point 1's
+**What this item leans on, which is why it sits at number 2.** Point 1's
 "download your videos and code ZIPs first" links to the downloads built
-in **project-video-management**, and point 4's member detail page is the
-one built by **admin-restructure**. Point 3's scheduled job is the first
-background job in the project — there is no scheduler yet, so expect to
-choose one.
+in **project-video-management**, which is directly ahead of it, and
+point 4's member detail page is the one built by **admin-restructure**,
+already merged. Point 3's scheduled job is the first background job in
+the project — there is no scheduler yet, so expect to choose one.
+
+**Point 2 used to return the remaining club budget to "the club
+reserve"**, and the reserve is created by **budget-by-provider**, now
+deferred. Rewritten on 2026-10-02: withdrawal **releases** the member's
+remaining allocation for the quarter and writes that to the audit log.
+The money stops being spendable either way; what is missing without the
+reserve is only where it goes next, and that is a line
+`budget-by-provider` adds when the reserve exists.
 
 ---
 
@@ -1015,9 +1056,9 @@ Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
 >    - Extend: "이어서 만들기" uses the video-extend workflow with an explicit length.
 >    - Show edit and extend only for models that support them (add supports_edit and supports_extend to the 영상 모델 catalogue); otherwise show a short Korean note.
 >    - The mock provider supports all three.
-> 2. The Claude panel in the Video workspace is collapsed by default, labeled "프롬프트 도움받기 (선택)", only rewrites prompt text, never generates video, and its usage is charged to the Claude budget (one short line says so).
+> 2. The Claude panel in the Video workspace is collapsed by default, labeled "프롬프트 도움받기 (선택)", only rewrites prompt text, never generates video, and its usage is charged to the existing Build (Claude) budget (one short line says so).
 > 3. Each version records how it was made (생성 / 수정 / 이어서), its source version, model, length and ratio, shown in the version strip.
-> 4. Every Higgsfield call goes through the budget service, charged to the Higgsfield budget, active members only.
+> 4. Every Higgsfield call goes through the current budget service, charged to the existing Video budget, active members only. Each usage event records the provider, the feature tag, the model, the credits or seconds consumed, and the KRW amount.
 > 5. Show the estimated cost in 원 next to generate, edit and extend, based on the model's per-second price in the catalogue.
 >
 > Tests: edit and extend create linked versions; unsupported models hide edit/extend; inactive members are refused; the Higgsfield budget is deducted; the Claude panel never triggers a Higgsfield call.
@@ -1047,7 +1088,7 @@ are new, which makes the cost estimate depend on 화질 as well as length.
 
 **Point 6's per-version settings are the column
 `project-video-management` adds** (`duration_seconds`, `aspect_ratio`,
-`sound` on `VideoVersion`), and that item is at position 3, ahead of this
+`sound` on `VideoVersion`), and that item is at position 1, ahead of this
 one. It owns that migration; this item uses the columns, adds the
 catalogue fields in point 1, and will need a further column for the
 chosen resolution.
