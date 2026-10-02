@@ -8,7 +8,11 @@ from app.models.builder import BuilderProjectStatus
 
 
 class BuilderProjectBase(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
+    # No length rule here on purpose. `app/services/work.clean_name` is the
+    # single authority on what a name may be, because it is the only place
+    # that can answer in Korean — a pydantic failure arrives as a list under
+    # `detail`, and the frontend only renders a string.
+    name: str
     description: str = Field(default="", max_length=2000)
 
 
@@ -24,7 +28,7 @@ class BuilderProjectCreate(BuilderProjectBase):
 class BuilderProjectUpdate(BaseModel):
     """Every field optional: this is a PATCH."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=120)
+    name: str | None = None
     description: str | None = Field(default=None, max_length=2000)
     status: BuilderProjectStatus | None = None
 

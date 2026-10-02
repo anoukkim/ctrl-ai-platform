@@ -21,6 +21,7 @@ from app.schemas.builder import (
     BuilderProjectRead,
     BuilderProjectUpdate,
 )
+from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/builder", tags=["builder"])
 
@@ -43,6 +44,22 @@ def _owned_project(project_id: int, db: Session, user: User) -> BuilderProject:
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="프로젝트를 찾을 수 없습니다.")
     return project
+
+
+def _checked_name(raw: str) -> str:
+    """`clean_name`, with the refusal turned into a 400 the screen can show.
+
+    400 rather than FastAPI's own 422: a validation error body carries a
+    *list* under `detail`, and the frontend only renders a string. The
+    member would see "요청이 실패했습니다 (HTTP 422)" instead of being told
+    what is wrong with the name.
+    """
+    try:
+        return clean_name(raw)
+    except InvalidNameError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)
+        ) from error
 
 
 @router.get("/projects", response_model=list[BuilderProjectRead], summary="List my projects")
@@ -75,7 +92,7 @@ def create_project(
 ) -> BuilderProject:
     project = BuilderProject(
         owner_user_id=user.id,
-        name=payload.name,
+        name=_checked_name(payload.name),
         description=payload.description,
     )
     db.add(project)
@@ -100,10 +117,20 @@ def update_project(
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
 ) -> BuilderProject:
-    """Edit a project. Participating members only — see `require_active_member`."""
-    project = _owned_project(project_id, db, user)
+    """Edit a project. Participating members only — see `require_active_member`.
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    Renaming comes through here rather than a route of its own: the
+    workspace title, the ▾ menu and the library's item menu are three ways
+    to send the same PATCH, and one of them being able to set a name the
+    others cannot would be a bug waiting to happen.
+    """
+    project = _owned_project(project_id, db, user)
+    changes = payload.model_dump(exclude_unset=True)
+
+    if "name" in changes:
+        changes["name"] = _checked_name(changes["name"])
+
+    for field, value in changes.items():
         setattr(project, field, value)
 
     db.commit()

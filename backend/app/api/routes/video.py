@@ -22,6 +22,7 @@ from app.schemas.video import (
     VideoVersionCreate,
     VideoVersionRead,
 )
+from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/video", tags=["video"])
 
@@ -43,6 +44,16 @@ def _owned_project(project_id: int, db: Session, user: User) -> VideoProject:
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="프로젝트를 찾을 수 없습니다.")
     return project
+
+
+def _checked_name(raw: str) -> str:
+    """`clean_name`, as a 400 with a Korean sentence — see Builder's copy."""
+    try:
+        return clean_name(raw)
+    except InvalidNameError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)
+        ) from error
 
 
 def _allowed_models(db: Session) -> list[VideoModel]:
@@ -107,7 +118,7 @@ def create_project(
 
     project = VideoProject(
         owner_user_id=user.id,
-        name=payload.name,
+        name=_checked_name(payload.name),
         prompt=payload.prompt,
         selected_model_id=model_id,
     )
@@ -149,6 +160,9 @@ def update_project(
     """
     project = _owned_project(project_id, db, user)
     changes = payload.model_dump(exclude_unset=True)
+
+    if "name" in changes:
+        changes["name"] = _checked_name(changes["name"])
 
     if "selected_model_id" in changes and changes["selected_model_id"] is not None:
         if changes["selected_model_id"] not in {m.id for m in _allowed_models(db)}:
