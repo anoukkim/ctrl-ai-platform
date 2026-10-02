@@ -10,7 +10,7 @@ import enum
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin, status_enum
+from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
 
 
 class BuilderProjectStatus(str, enum.Enum):
@@ -23,12 +23,17 @@ class BuilderProjectStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
-class BuilderProject(TimestampMixin, Base):
+class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     """One app project owned by one member.
 
     `owner_user_id` is required and every query is scoped by it: a member
     only ever sees their own projects. There is no shared Builder project
     in Phase 1.
+
+    Deleting is soft — see `SoftDeleteMixin`. When Phase 5 publishes a
+    project to CtrlAIApps, that listing must be filtered on this row's
+    `deleted_at` too: a deleted project is gone from the community
+    surface, not only from the owner's library.
     """
 
     __tablename__ = "builder_projects"

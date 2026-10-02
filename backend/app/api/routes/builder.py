@@ -2,8 +2,12 @@
 
 Every query is scoped to the current member. There is deliberately no
 "fetch any project by id" path: `_owned_project` is the only way a row is
-loaded, and it always filters by owner.
+loaded, and it always filters by owner — and now by `deleted_at IS NULL`,
+so a deleted project is invisible to its owner through every route rather
+than only the ones that remembered to check.
 """
+
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -22,15 +26,18 @@ router = APIRouter(prefix="/builder", tags=["builder"])
 
 
 def _owned_project(project_id: int, db: Session, user: User) -> BuilderProject:
-    """Load one project, or 404 if it is missing *or* someone else's.
+    """Load one live project, or 404 if it is missing *or* someone else's.
 
     A member must not be able to tell the difference between "does not
-    exist" and "belongs to another member", so both answer 404.
+    exist" and "belongs to another member", so both answer 404. A deleted
+    project answers 404 as well: from the member's side it is gone, and
+    only an admin route can still see it.
     """
     project = db.scalar(
         select(BuilderProject).where(
             BuilderProject.id == project_id,
             BuilderProject.owner_user_id == user.id,
+            BuilderProject.deleted_at.is_(None),
         )
     )
     if project is None:
@@ -46,7 +53,10 @@ def list_projects(
     return list(
         db.scalars(
             select(BuilderProject)
-            .where(BuilderProject.owner_user_id == user.id)
+            .where(
+                BuilderProject.owner_user_id == user.id,
+                BuilderProject.deleted_at.is_(None),
+            )
             .order_by(BuilderProject.updated_at.desc())
         )
     )
@@ -111,12 +121,16 @@ def delete_project(
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
 ) -> None:
-    """Delete a project. Participating members only.
+    """Delete a project. The owner, while participating, only.
 
     Deleting is a change to the member's work, not a read, so it follows
     the same rule as creating and editing. A member who is not
     participating keeps everything they made and can still read it.
+
+    The row is marked, not removed — see `SoftDeleteMixin`. Nothing here
+    touches `UsageEvent`: money already spent on this project stays
+    recorded, and stays attached to it.
     """
     project = _owned_project(project_id, db, user)
-    db.delete(project)
+    project.deleted_at = datetime.now(timezone.utc)
     db.commit()

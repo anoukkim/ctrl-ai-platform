@@ -10,6 +10,7 @@ from app.api.routes import (
     admin,
     admin_overview,
     admin_quarters,
+    admin_work,
     auth,
     builder,
     health,
@@ -30,3 +31,4 @@ api_router.include_router(usage.router)
 api_router.include_router(admin.router)
 api_router.include_router(admin_quarters.router)
 api_router.include_router(admin_overview.router)
+api_router.include_router(admin_work.router)

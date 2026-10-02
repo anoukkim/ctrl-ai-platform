@@ -4,6 +4,8 @@ No provider is called here. Creating a version records the attempt and
 marks it ready; a real Higgsfield call replaces that in Phase 6.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,10 +27,17 @@ router = APIRouter(prefix="/video", tags=["video"])
 
 
 def _owned_project(project_id: int, db: Session, user: User) -> VideoProject:
+    """Load one live project of this member's, or 404.
+
+    "Someone else's" and "deleted" both answer 404, for the same reason
+    Builder does: the member is told it is gone, so every route has to
+    agree that it is gone.
+    """
     project = db.scalar(
         select(VideoProject).where(
             VideoProject.id == project_id,
             VideoProject.owner_user_id == user.id,
+            VideoProject.deleted_at.is_(None),
         )
     )
     if project is None:
@@ -67,7 +76,10 @@ def list_projects(
     return list(
         db.scalars(
             select(VideoProject)
-            .where(VideoProject.owner_user_id == user.id)
+            .where(
+                VideoProject.owner_user_id == user.id,
+                VideoProject.deleted_at.is_(None),
+            )
             .order_by(VideoProject.updated_at.desc())
         )
     )
@@ -159,6 +171,28 @@ def update_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.delete(
+    "/projects/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a video project",
+)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> None:
+    """Delete a video project. The owner, while participating, only.
+
+    Video had no delete route at all until now, so the only way to lose a
+    project was for an admin to remove the row by hand. It mirrors
+    Builder's exactly, including the soft delete: the versions stay, so a
+    restore brings back every attempt rather than an empty shell.
+    """
+    project = _owned_project(project_id, db, user)
+    project.deleted_at = datetime.now(timezone.utc)
+    db.commit()
 
 
 @router.post(

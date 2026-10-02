@@ -35,6 +35,35 @@ class TimestampMixin:
     )
 
 
+class SoftDeleteMixin:
+    """Marks a row deleted without removing it.
+
+    Deleting a member's project is a destructive action taken in one
+    click, and the row it removes is the only copy of work that may have
+    taken weeks. So "삭제" writes a timestamp instead: the member stops
+    seeing it immediately, and an admin can still put it back.
+
+    Two consequences are deliberate:
+
+    * **Every member-facing query must filter on `deleted_at IS NULL`.**
+      A soft delete that a route forgets to filter is worse than no soft
+      delete, because the member is told the item is gone and it is not.
+      The route modules do this in one place each (`_owned_project`).
+    * **Usage history survives by construction.** `UsageEvent` points at
+      these rows with `ON DELETE SET NULL`; a hard delete would quietly
+      detach spending from the project it paid for. Nothing is removed, so
+      nothing is detached.
+    """
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
+
+
 def status_enum(enum_type: type[enum.Enum], name: str) -> Enum:
     """Store an enum as VARCHAR with a CHECK constraint.
 

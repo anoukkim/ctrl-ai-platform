@@ -6,7 +6,7 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
-from app.db.base import Base, TimestampMixin, status_enum
+from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
 
 
 class VideoProjectStatus(str, enum.Enum):
@@ -67,12 +67,20 @@ class VideoModel(TimestampMixin, Base):
         return f"<VideoModel {self.provider}/{self.model_id} enabled={self.enabled}>"
 
 
-class VideoProject(TimestampMixin, Base):
+class VideoProject(SoftDeleteMixin, TimestampMixin, Base):
     """One video idea a member works on, across many attempts.
 
     A Video Project is NOT a single generated video. It holds the prompt,
     the settings, every generated version, and eventually the one version
     the member chose as final.
+
+    Deleting is soft — see `SoftDeleteMixin`. The versions are left
+    untouched: restoring a project has to bring back the attempts that
+    belong to it, and `cascade="all, delete-orphan"` only ever runs when a
+    project is removed for real, which nothing does.
+
+    When Phase 8 publishes a video to CtrlAITube, that feed must be
+    filtered on `deleted_at` as well.
     """
 
     __tablename__ = "video_projects"
