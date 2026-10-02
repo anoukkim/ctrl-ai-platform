@@ -17,9 +17,11 @@ says what order things happen in.
 
 **ui-apps-detail is being built** on branch `ui-apps-detail`, branched
 from an up-to-date `main`. The spec is saved verbatim below, with the
-browser checks and the decisions taken while implementing it. `tsc`,
-lint, 101 tests and `next build` pass; the branch is **waiting for the
-developer's approval** and has not been merged.
+browser checks and the decisions taken while implementing it. A second
+round of testing feedback (2026-10-02) reworked the 소개 and 업데이트
+기록 tabs and the 다른 앱 row; `tsc`, lint, 110 tests and `next build`
+pass; the branch is **waiting for the developer's approval** and has not
+been merged.
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
 admin-restructure, ui-naming, fix-video-workspace-hang and
@@ -703,6 +705,98 @@ push showed as two pixels of page scroll. The track is now
 - **The card count on the listing now includes replies.** It read
   `comments.length` while the detail tab and CtrlAITube count replies too,
   so the same conversation was counted two ways on two screens.
+
+### Testing feedback round 2 — 2026-10-02
+
+Saved as written by the developer, after looking at the screen.
+
+> 1. "<creator>의 다른 앱": the cards are too large and draw more attention than the main content. Make them compact: a small thumbnail (about 64–80px square or a short 16:9 strip), the app name and one line of description, in a responsive grid of 3–4 per row on wide screens. Hide the section when there are no other apps.
+> 2. Tab content spacing: add comfortable top padding between the tab bar and the content, and keep content aligned to the same left edge as the hero.
+> 3. 소개 tab: the description as a readable paragraph block; "주요 기능" as small feature cards in a grid, each with a lucide icon, a short title and one muted line of explanation (add the explanation to the mock data); "스크린샷" as a horizontal gallery of 3–4 frames, clickable to open a larger view, with a muted caption under the gallery; "자세히" as a styled collapsible card with label/value rows (저장소 with an external-link icon, 실행 주소 or "아직 없습니다", 마지막 업데이트, 분류), tabular dates, a chevron that rotates when open.
+> 4. 업데이트 기록 tab: a vertical timeline — a thin line with a dot per entry; each entry shows a version tag, the date, a short title and 1–3 bullet changes, the newest marked "최신". Fix the spacing so the date and text never touch. Add 2–3 mock entries.
+> 5. Empty states: if an app has no features, screenshots or updates, show a short Korean empty state instead of a blank area.
+>
+> Keep the hero, 댓글 tab and design tokens as they are. Check at 100% zoom on full width, about 1280px, and narrow screens. Run tsc, lint and build.
+
+**The screenshots attached to the feedback showed an unstyled page** — a
+numbered list, a default `▶` details marker, no screenshot frames. None of
+that was in the code: the served stylesheet already carried every rule,
+and a fresh load of the same URL rendered correctly. It was a stale
+stylesheet in the browser, so nothing was "fixed" for items that were
+already working. **Reload before reporting a layout defect**, or the next
+round spends itself chasing a cache.
+
+#### What the data gained
+
+- **`AppFeature`** (`icon`, `title`, `description`). The icon is a *name*,
+  not a component, the same arrangement `CHAT_SHORTCUTS` uses — a data
+  file that imports React components stops being data. `AppFeatureIcon` is
+  a union and `FEATURE_ICON` is keyed by it, so adding a name to the data
+  without adding the icon is a `tsc` error rather than a blank square.
+- **`AppUpdate` lost `note` and gained `version`, `title` and `changes`.**
+  One sentence per entry is what glued the date to the text; a timeline
+  cannot lay out fields that do not exist separately.
+- **Screenshot labels were renamed** (`결과 보기` → `결과 화면`). Feature
+  titles and screen names had collided, so the same words appeared twice
+  on one screen — and the test that looked one up by text found two.
+- **단어 카드 has no features and no screenshots.** Every app was complete,
+  so the empty state could be written but never seen. One app that is
+  genuinely bare is how it gets looked at; the empty *updates* case stays
+  unit-tested only, since every published app really does have a first
+  entry.
+
+#### Browser checks run — 2026-10-02 (round 2)
+
+`tsc`, lint, 110 frontend tests (9 of them new) and `next build` pass.
+Widths were measured in Chrome on the running dev server.
+
+| Viewport | Hero | 주요 기능 | 다른 앱 | Page scrolls sideways |
+| -------- | ---- | --------- | ------- | --------------------- |
+| 1897px | two columns | 4 per row | 4 per row | none |
+| 1280px | two columns, 352 + 610 | 3 per row | 4 per row | none (1269 of 1280) |
+| 420px | stacked | 1 per row | 1 per row | none (409 of 420) |
+
+At 420px only the screenshot row scrolls inside itself (925 of 351), which
+is the intended behaviour and the reason the 소개 track is
+`minmax(0, 1fr)`.
+
+Driven by hand: a screenshot frame opened the larger view and Escape
+closed it; 자세히 expanded with the chevron rotated and its four rows
+right-aligned, the 저장소 row carrying the external-link icon; the
+timeline's newest entry showed `v1.2`, the date and 최신 in separate
+boxes 8px apart, with its two bullets below; `/ctrlaistore/word-cards`
+showed both empty states with the section headings kept.
+
+**The window could not be resized** — it was maximised, so Chrome ignored
+the request, and page zoom was at 90%, which made the first screenshot
+1897px of CSS rather than the 1280 it looked like. The widths above were
+measured in a same-origin iframe sized exactly, which evaluates media
+queries against its own viewport. Worth remembering: **measure
+`innerWidth` before trusting a width**.
+
+#### Decisions taken in round 2
+
+- **The tab panel's inline padding is `0.75rem`, the same value as the tab
+  labels'** (`comment-section.module.css`'s `.tab`). The two had been
+  `0.95` and `0.75`, which put the first word of the body two pixels off
+  the word "소개" above it — visible, but not obviously as a padding
+  difference.
+- **The screenshot frame is a `<button>`, not a `<div>` with `onClick`.**
+  It opens something, so it has to be reachable by Tab and announced as a
+  control.
+- **The larger view is hand-drawn, not `<dialog>`.** `showModal()` does not
+  exist in jsdom, so a `<dialog>` version could not be tested at all. It
+  closes three ways — the button, the backdrop, Escape.
+- **`.description` is capped at `76ch`.** `ch` is the width of "0" and a
+  Korean glyph is about twice that, so 76ch is roughly thirty-eight Korean
+  characters — a readable line. The first attempt at 62ch measured about
+  thirty-one and wrapped too early.
+- **The 다른 앱 grid is capped at four columns by media query.** `auto-fill`
+  has no upper bound, and on a wide screen six small cards draw as much
+  attention as two large ones did.
+- **The old `.card` is untouched.** The listing screen still uses it; the
+  detail page's row got its own `.otherCard`, and a test asserts the row
+  does not contain a `.card` so the two cannot quietly converge again.
 
 ---
 
