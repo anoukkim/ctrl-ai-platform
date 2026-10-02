@@ -443,6 +443,71 @@ export function totalComments(comments: Comment[]): number {
   );
 }
 
+export interface AppScreenshot {
+  /** 화면을 설명하는 짧은 말. 그림을 못 보는 사람에게는 이것이 그림입니다. */
+  label: string;
+  /** 스크린샷 대신 CSS로 그리는 두 가지 색상. 실제 이미지는 Phase 5에서
+   *  올라갑니다 — 그때 이 자리에 주소가 들어옵니다. */
+  artwork: [string, string];
+}
+
+/**
+ * 주요 기능 하나.
+ *
+ * 예전에는 이 자리가 짧은 말 몇 줄이었습니다. "투표 만들기", "결과 보기"
+ * — 무엇을 뜻하는지 이미 아는 사람만 알아볼 수 있는 목록이었습니다.
+ * `description` 한 줄을 함께 두면 처음 보는 사람도 그 기능이 자기에게
+ * 쓸모가 있는지 그 자리에서 판단할 수 있습니다.
+ */
+export interface AppFeature {
+  /** 카드에 쓸 아이콘 이름. 데이터 파일에 컴포넌트를 두지 않으려고
+   *  이름만 적고, 화면이 이것을 lucide 아이콘으로 바꿉니다
+   *  (`CHAT_SHORTCUTS`와 같은 방식입니다). */
+  icon: AppFeatureIcon;
+  title: string;
+  /** 한 줄 설명. 길면 카드가 들쭉날쭉해지므로 한 문장으로 적습니다. */
+  description: string;
+}
+
+/** 기능 카드가 쓸 수 있는 아이콘. 새 이름을 쓰려면 화면 쪽
+ *  `FEATURE_ICON`에도 함께 넣어야 하므로 타입으로 묶어 둡니다 — 그러면
+ *  한쪽만 고쳤을 때 `tsc`가 잡아 줍니다. */
+export type AppFeatureIcon =
+  | "checklist"
+  | "chart"
+  | "calendar"
+  | "link"
+  | "share"
+  | "people"
+  | "bell"
+  | "search"
+  | "sparkle"
+  | "clock"
+  | "note"
+  | "cart"
+  | "repeat"
+  | "pen"
+  | "tag"
+  | "vote";
+
+/**
+ * 업데이트 한 줄.
+ *
+ * 예전에는 `note` 한 문장뿐이어서 날짜와 글이 한 줄에 붙어 흘렀습니다.
+ * 판 번호 · 날짜 · 제목 · 바뀐 것들로 나누면 세로 타임라인이 각각을 제
+ * 자리에 놓을 수 있습니다.
+ */
+export interface AppUpdate {
+  /** 사람이 읽는 판 번호. "v1.0"처럼 적습니다. */
+  version: string;
+  date: string;
+  /** 이 판이 무엇이었는지 한 줄로. */
+  title: string;
+  /** 바뀐 것들. 하나에서 셋 사이로 적습니다 — 넷을 넘으면 타임라인이
+   *  읽히지 않고 쌓이기만 합니다. */
+  changes: string[];
+}
+
 export interface App {
   slug: string;
   name: string;
@@ -457,6 +522,17 @@ export interface App {
   artwork: [string, string];
   reactions: Record<ReactionType, number>;
   comments: Comment[];
+  /** 앱이 하는 일. 소개 탭의 "주요 기능" 칸이 이것을 카드로 그립니다. */
+  features: AppFeature[];
+  /** 앱 안을 보여 주는 화면 모음. */
+  screenshots: AppScreenshot[];
+  /**
+   * 업데이트 기록. **최신이 앞**입니다.
+   *
+   * 마지막 수정일을 따로 들고 다니지 않고 이 목록의 첫 줄에서 읽습니다
+   * (`lastUpdated`). 같은 사실을 두 곳에 적으면 한쪽만 고쳐집니다.
+   */
+  updates: AppUpdate[];
 }
 
 export const MOCK_APPS: App[] = [
@@ -469,10 +545,68 @@ export const MOCK_APPS: App[] = [
     creator: { username: "yurikim", displayName: "김유리", membership: "active" },
     publishedAt: "2026-09-12",
     category: "생산성",
-    launchUrl: null,
+    // 넷 중 하나만 실행 주소가 있습니다. 실행 주소가 있을 때와 없을 때
+    // 버튼이 서로 달라야 하므로(있으면 열리고, 없으면 "실행 준비 중"),
+    // 두 경우가 모두 예시에 있어야 화면을 열어 보고 확인할 수 있습니다.
+    // example.com은 문서용으로 비워 둔 주소라 실제 어딘가로 가지 않습니다.
+    launchUrl: "https://habit-at-a-glance.example.com",
     githubRepo: "yurikim/habit-at-a-glance",
     artwork: ["#3355ff", "#7c3aed"],
     reactions: { like: 24, useful: 11, interesting: 6 },
+    features: [
+      {
+        icon: "checklist",
+        title: "오늘의 체크",
+        description: "오늘 할 습관만 모아 보여 주고 한 번에 체크합니다.",
+      },
+      {
+        icon: "chart",
+        title: "한 주 달성률",
+        description: "일곱 칸짜리 막대로 이번 주가 어땠는지 보여 줍니다.",
+      },
+      {
+        icon: "bell",
+        title: "시간 알림",
+        description: "습관마다 정한 시각에 한 번씩 알려 줍니다.",
+      },
+      {
+        icon: "repeat",
+        title: "연속 기록",
+        description: "며칠째 이어 가고 있는지 세어 둡니다.",
+      },
+    ],
+    screenshots: [
+      { label: "오늘 할 일 목록", artwork: ["#3355ff", "#7c3aed"] },
+      { label: "주간 달성률 화면", artwork: ["#4338ca", "#6366f1"] },
+      { label: "습관 추가 화면", artwork: ["#312e81", "#8b5cf6"] },
+      { label: "알림 설정 화면", artwork: ["#1e1b4b", "#6d28d9"] },
+    ],
+    updates: [
+      {
+        version: "v1.2",
+        date: "2026-09-28",
+        title: "주간 달성률 그래프",
+        changes: [
+          "한 주를 일곱 칸 막대로 보여 주는 화면을 추가했습니다.",
+          "지난주와 이번 주를 나란히 둘 수 있습니다.",
+        ],
+      },
+      {
+        version: "v1.1",
+        date: "2026-09-20",
+        title: "지운 습관이 남던 문제",
+        changes: [
+          "습관을 지운 뒤에도 기록이 남던 문제를 고쳤습니다.",
+          "체크를 되돌릴 때 날짜가 밀리던 것도 함께 고쳤습니다.",
+        ],
+      },
+      {
+        version: "v1.0",
+        date: "2026-09-12",
+        title: "CtrlAIApps에 처음 게시",
+        changes: ["습관 등록과 오늘 체크만 있는 첫 판입니다."],
+      },
+    ],
     comments: [
       {
         id: "c1",
@@ -496,6 +630,8 @@ export const MOCK_APPS: App[] = [
         body: "주간 통계도 추가되면 좋을 것 같아요.",
         createdAt: "2026-09-18",
         likes: 5,
+        // 답글이 셋을 넘으면 접힙니다. 긴 실타래가 댓글칸을 다 차지하지
+        // 않는지 보려면 실제로 긴 것이 하나 있어야 합니다.
         replies: [
           {
             id: "c2r1",
@@ -503,6 +639,27 @@ export const MOCK_APPS: App[] = [
             body: "지금 그래프 추가하는 중이에요. 다음 주에 다시 올려볼게요.",
             createdAt: "2026-09-19",
             likes: 2,
+          },
+          {
+            id: "c2r2",
+            author: { username: "seojun", displayName: "이서준", membership: "active" },
+            body: "기다리고 있을게요!",
+            createdAt: "2026-09-19",
+            likes: 0,
+          },
+          {
+            id: "c2r3",
+            author: { username: "daeun", displayName: "최다은", membership: "inactive" },
+            body: "저도 그 기능을 기다리고 있었어요.",
+            createdAt: "2026-09-21",
+            likes: 1,
+          },
+          {
+            id: "c2r4",
+            author: { username: "yurikim", displayName: "김유리", membership: "active" },
+            body: "올렸습니다. 한 주 단위로 막대가 보이도록 했어요.",
+            createdAt: "2026-09-28",
+            likes: 4,
           },
         ],
       },
@@ -521,6 +678,56 @@ export const MOCK_APPS: App[] = [
     githubRepo: null,
     artwork: ["#0ea5e9", "#22d3ee"],
     reactions: { like: 41, useful: 33, interesting: 9 },
+    features: [
+      {
+        icon: "note",
+        title: "메모 붙여넣기",
+        description: "회의 중에 적은 글을 그대로 붙여넣으면 됩니다.",
+      },
+      {
+        icon: "sparkle",
+        title: "세 줄 요약",
+        description: "긴 메모에서 결정된 것만 추려 줍니다.",
+      },
+      {
+        icon: "people",
+        title: "담당자별 할 일",
+        description: "이름이 나온 자리를 찾아 할 일을 사람별로 나눕니다.",
+      },
+      {
+        icon: "share",
+        title: "링크로 공유",
+        description: "정리된 회의록을 링크 하나로 팀에 보냅니다.",
+      },
+    ],
+    screenshots: [
+      { label: "메모 입력 화면", artwork: ["#0ea5e9", "#22d3ee"] },
+      { label: "요약 결과 화면", artwork: ["#0284c7", "#67e8f9"] },
+      { label: "할 일 목록 화면", artwork: ["#0369a1", "#38bdf8"] },
+    ],
+    updates: [
+      {
+        version: "v1.2",
+        date: "2026-09-18",
+        title: "공유 링크",
+        changes: ["정리된 회의록을 링크로 내보낼 수 있습니다."],
+      },
+      {
+        version: "v1.1",
+        date: "2026-09-10",
+        title: "담당자 자동 인식",
+        changes: [
+          "메모에서 이름을 찾아 담당자를 자동으로 붙입니다.",
+          "담당자가 없는 할 일은 따로 모읍니다.",
+        ],
+      },
+      {
+        version: "v1.0",
+        date: "2026-08-30",
+        title: "CtrlAIApps에 처음 게시",
+        changes: ["메모를 붙여넣고 요약을 받는 것까지 됩니다."],
+      },
+    ],
     comments: [
       {
         id: "c3",
@@ -544,6 +751,50 @@ export const MOCK_APPS: App[] = [
     githubRepo: null,
     artwork: ["#f97316", "#ef4444"],
     reactions: { like: 18, useful: 14, interesting: 4 },
+    features: [
+      {
+        icon: "note",
+        title: "레시피 보관",
+        description: "자주 만드는 요리를 재료와 함께 저장해 둡니다.",
+      },
+      {
+        icon: "people",
+        title: "인원수 맞춤",
+        description: "먹을 사람 수를 바꾸면 재료 양이 따라 바뀝니다.",
+      },
+      {
+        icon: "cart",
+        title: "장보기 목록",
+        description: "한 주치 요리에 필요한 재료를 한 장으로 모아 줍니다.",
+      },
+      {
+        icon: "search",
+        title: "재료로 찾기",
+        description: "냉장고에 있는 재료를 적으면 만들 수 있는 요리를 찾아 줍니다.",
+      },
+    ],
+    screenshots: [
+      { label: "레시피 목록 화면", artwork: ["#f97316", "#ef4444"] },
+      { label: "레시피 상세 화면", artwork: ["#ea580c", "#fb7185"] },
+      { label: "장보기 목록 화면", artwork: ["#c2410c", "#fb923c"] },
+    ],
+    updates: [
+      {
+        version: "v1.1",
+        date: "2026-07-05",
+        title: "재료로 찾기",
+        changes: ["가지고 있는 재료로 만들 수 있는 요리를 찾아 줍니다."],
+      },
+      {
+        version: "v1.0",
+        date: "2026-06-21",
+        title: "CtrlAIApps에 처음 게시",
+        changes: [
+          "레시피를 저장하고 인원수에 맞춰 양을 바꿀 수 있습니다.",
+          "장보기 목록을 한 번에 만들어 줍니다.",
+        ],
+      },
+    ],
     comments: [
       {
         id: "c4",
@@ -567,12 +818,151 @@ export const MOCK_APPS: App[] = [
     githubRepo: null,
     artwork: ["#16a34a", "#84cc16"],
     reactions: { like: 12, useful: 8, interesting: 7 },
+    // 방금 게시해 아직 기능 설명도 화면도 올리지 않은 앱입니다. 비어
+    // 있을 때 소개 탭이 어떻게 보이는지는, 실제로 비어 있는 예시가 하나
+    // 있어야만 브라우저에서 확인할 수 있습니다.
+    features: [],
+    screenshots: [],
+    updates: [
+      {
+        version: "v1.0",
+        date: "2026-09-20",
+        title: "CtrlAIApps에 처음 게시",
+        changes: ["붙여넣은 목록으로 복습 카드를 만듭니다."],
+      },
+    ],
+    comments: [],
+  },
+  {
+    slug: "weekly-review",
+    name: "주간 회고",
+    tagline: "한 주에 한 번, 세 가지만 적습니다.",
+    description:
+      "잘된 일, 아쉬운 일, 다음 주에 할 일을 세 칸에 적는 회고 앱입니다. 지난 회고를 나란히 두고 볼 수 있습니다.",
+    creator: { username: "yurikim", displayName: "김유리", membership: "active" },
+    publishedAt: "2026-07-18",
+    category: "생산성",
+    launchUrl: null,
+    githubRepo: "yurikim/weekly-review",
+    artwork: ["#2563eb", "#38bdf8"],
+    reactions: { like: 9, useful: 15, interesting: 3 },
+    features: [
+      {
+        icon: "pen",
+        title: "세 칸 회고",
+        description: "잘된 일, 아쉬운 일, 다음 주 할 일만 적습니다.",
+      },
+      {
+        icon: "calendar",
+        title: "지난 회고 비교",
+        description: "저번 주 회고를 옆에 두고 적을 수 있습니다.",
+      },
+      {
+        icon: "bell",
+        title: "금요일 알림",
+        description: "한 주가 끝날 때 한 번만 알려 줍니다.",
+      },
+    ],
+    screenshots: [
+      { label: "이번 주 회고 화면", artwork: ["#2563eb", "#38bdf8"] },
+      { label: "지난 회고 비교 화면", artwork: ["#1d4ed8", "#60a5fa"] },
+      { label: "알림 설정 화면", artwork: ["#1e3a8a", "#7dd3fc"] },
+    ],
+    updates: [
+      {
+        version: "v1.1",
+        date: "2026-08-02",
+        title: "지난 회고 나란히 보기",
+        changes: ["이번 주를 적으면서 저번 주 회고를 옆에서 볼 수 있습니다."],
+      },
+      {
+        version: "v1.0",
+        date: "2026-07-18",
+        title: "CtrlAIApps에 처음 게시",
+        changes: ["세 칸짜리 회고를 적고 저장합니다."],
+      },
+    ],
+    comments: [],
+  },
+  {
+    slug: "team-poll",
+    name: "팀 투표",
+    tagline: "링크 하나로 의견을 모읍니다.",
+    description:
+      "날짜나 선택지를 적어 올리면 투표 링크가 만들어집니다. 누가 아직 고르지 않았는지 한눈에 보입니다.",
+    creator: { username: "minji", displayName: "박민지", membership: "active" },
+    publishedAt: "2026-09-26",
+    category: "업무",
+    launchUrl: null,
+    githubRepo: null,
+    artwork: ["#10b981", "#34d399"],
+    reactions: { like: 16, useful: 7, interesting: 11 },
+    features: [
+      {
+        icon: "vote",
+        title: "투표 만들기",
+        description: "날짜나 선택지를 적으면 투표 한 장이 만들어집니다.",
+      },
+      {
+        icon: "link",
+        title: "링크로 초대",
+        description: "가입하지 않아도 링크만 있으면 누구나 고를 수 있습니다.",
+      },
+      {
+        icon: "chart",
+        title: "결과 보기",
+        description: "고른 사람 수가 막대로 바로 쌓입니다.",
+      },
+      {
+        icon: "clock",
+        title: "아직 안 고른 사람",
+        description: "누가 아직 응답하지 않았는지 한눈에 보입니다.",
+      },
+    ],
+    screenshots: [
+      { label: "투표 만들기 화면", artwork: ["#10b981", "#34d399"] },
+      { label: "초대 링크 화면", artwork: ["#059669", "#4ade80"] },
+      { label: "결과 화면", artwork: ["#047857", "#6ee7b7"] },
+    ],
+    updates: [
+      {
+        version: "v1.2",
+        date: "2026-09-30",
+        title: "아직 안 고른 사람 보기",
+        changes: ["응답하지 않은 사람을 따로 모아 보여 줍니다."],
+      },
+      {
+        version: "v1.1",
+        date: "2026-09-28",
+        title: "날짜 투표",
+        changes: [
+          "선택지 대신 날짜를 올리면 달력으로 고를 수 있습니다.",
+          "같은 날에 몰린 표가 진하게 보입니다.",
+        ],
+      },
+      {
+        version: "v1.0",
+        date: "2026-09-26",
+        title: "CtrlAIApps에 처음 게시",
+        changes: ["선택지를 적고 링크를 만드는 것까지 됩니다."],
+      },
+    ],
     comments: [],
   },
 ];
 
 export function findApp(slug: string): App | undefined {
   return MOCK_APPS.find((app) => app.slug === slug);
+}
+
+/** 마지막으로 고친 날. 업데이트 기록의 첫 줄이 곧 그 날짜입니다. */
+export function lastUpdated(app: App): string | null {
+  return app.updates[0]?.date ?? null;
+}
+
+/** 같은 회원이 만든 다른 앱. 상세 화면 아래에 모아 보여 줍니다. */
+export function otherAppsBy(username: string, exceptSlug: string): App[] {
+  return MOCK_APPS.filter((app) => app.creator.username === username && app.slug !== exceptSlug);
 }
 
 /* ------------------------------------------------------------------ */

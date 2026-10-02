@@ -119,17 +119,21 @@
   color: var(--accent);
 }
 
+/* 히어로 — 그림 하나와 읽을 것 한 덩어리.
+ *
+ * 좁은 화면에서는 적힌 순서대로 쌓입니다: 그림 → 이름 · 만든 사람 ·
+ * 버튼. 넓은 화면에서는 아래 @media가 둘을 나란히 놓습니다. */
 .hero {
   display: grid;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .heroArtwork {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 16 / 6;
+  aspect-ratio: 16 / 9;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   color: var(--on-accent);
@@ -153,17 +157,376 @@
 
 .heroMeta {
   display: grid;
+  align-content: start;
   gap: 0.5rem;
+  min-width: 0;
 }
 
-.detailRows {
+.heroTagline {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* 만든 사람. 이름이 가장 진하고, 꼬리표가 그 옆에 붙습니다. */
+.creator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.83rem;
+}
+
+.creatorAvatar {
   display: grid;
-  gap: 0.35rem;
-  margin: 0.9rem 0;
-  padding: 0.7rem 0.85rem;
-  background: var(--panel);
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.creatorName {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* 분류 · 게시일 · 반응 수. 예전의 네 줄 표가 하던 일을 한 줄로 합니다. */
+.metaLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.metaDot {
+  color: var(--border-strong);
+}
+
+/* 앱 실행이 주된 버튼이고, GitHub은 작게 옆에 섭니다. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+/* ---------- 탭 ---------- */
+
+.tabWrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/*
+ * 탭 안쪽 여백.
+ *
+ * 가로 여백은 탭 이름의 것과 **같은 값**입니다(`comment-section.module.css`의
+ * `.tab`이 `0.75rem`). 두 값이 다르면 "소개"라는 글자와 그 아래 첫 글자가
+ * 1~2px 어긋난 채로 세로로 서서, 눈에는 잡히는데 왜 그런지는 모르게
+ * 됩니다. 위쪽은 넉넉히 둡니다 — 탭 줄에 바로 붙은 본문은 탭의 일부처럼
+ * 읽힙니다.
+ */
+.about,
+.updatesPane {
+  padding: 1.25rem 0.75rem 1.2rem;
+}
+
+/* ---------- 소개 탭 ---------- */
+
+/*
+ * `minmax(0, 1fr)`가 필요한 이유: 격자 칸은 기본적으로 **가장 넓은
+ * 내용보다 좁아지지 않습니다**. 화면 모음은 그림 셋을 한 줄로 늘어놓으니
+ * 그 폭이 690px쯤 되고, 좁은 화면에서는 그 수치가 소개 전체를 그만큼
+ * 넓혀 설명 글이 칸 밖으로 잘려 나갔습니다. 0까지 줄어들 수 있게 해 두면
+ * 칸은 화면에 맞고, 넘치는 것은 그림 줄이 자기 안에서 옆으로 밉니다.
+ */
+.about {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.4rem;
+}
+
+/* 읽는 글. 한 줄이 길면 다음 줄의 첫 글자를 찾기 어려우므로 폭을
+   제한하고 줄 간격을 넓힙니다.
+   `ch`는 숫자 0 한 글자의 폭이라 한글은 그 두 배를 차지합니다 —
+   76ch는 한글 서른여덟 자쯤이고, 읽기 좋은 한 줄의 길이입니다. */
+.description {
+  max-width: 76ch;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.85;
+}
+
+.aboutBlock {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.blockTitle {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 주요 기능 ---------- */
+
+.features {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.featureIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+.featureText {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.featureTitle {
+  color: var(--text);
+  font-size: 0.83rem;
+  font-weight: 620;
+}
+
+.featureNote {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+/* ---------- 스크린샷 ---------- */
+
+/*
+ * 한 줄로 두고 좁을 때는 옆으로 밉니다 — 본문 전체가 옆으로 밀리면
+ * 안 되지만, 그림 줄 하나가 밀리는 것은 괜찮습니다. 세로로 쌓으면
+ * 화면 넷이 자세히를 한참 아래로 밀어냅니다.
+ */
+.gallery {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0 0 0.3rem;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.shot {
+  flex: 0 0 auto;
+  width: min(14rem, 70vw);
+}
+
+/* 눌러서 크게 볼 수 있습니다. 단추로 만든 이유는 키보드와 화면 낭독기
+   때문입니다 — div에 onClick만 달면 Tab으로 닿지 않습니다. */
+.shotButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: zoom-in;
+}
+
+.shotArt {
+  display: block;
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition:
+    border-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.shotButton:hover .shotArt {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.shotButton:focus-visible .shotArt {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.shotArt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 9px
+  );
+}
+
+.shotLabel {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+/* 그림 줄 바로 아래. 줄 안에 두었더니 네 번째 화면처럼 읽혔습니다. */
+.galleryNote {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+/* ---------- 크게 보기 ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(5, 6, 9, 0.84);
+}
+
+.lightboxInner {
+  width: min(52rem, 100%);
+}
+
+.lightboxArt {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  overflow: hidden;
+}
+
+.lightboxArt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 9px
+  );
+}
+
+.lightboxLabel {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.lightboxClose:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* ---------- 자세히 ---------- */
+
+.details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.detailsSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* 기본 삼각형을 지웁니다 — 돌아가는 꺾쇠를 대신 둡니다. */
+  list-style: none;
+}
+
+.detailsSummary::-webkit-details-marker {
+  display: none;
+}
+
+.detailsSummary:hover {
+  color: var(--text);
+}
+
+.chevron {
+  flex: 0 0 auto;
+  transition: transform 0.16s ease;
+}
+
+.details[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.detailsBody {
+  display: grid;
+  margin: 0;
+  padding: 0 0.75rem 0.35rem;
+  border-top: 1px solid var(--border);
 }
 
 .detailRow {
@@ -171,40 +534,290 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.5rem;
-  padding-bottom: 0.35rem;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.83rem;
+  font-size: 0.82rem;
+  /* 주소처럼 띄어쓰기 없이 긴 글자가 칸을 넘지 않게 합니다. */
+  overflow-wrap: anywhere;
 }
 
 .detailRow:last-child {
-  padding-bottom: 0;
   border-bottom: none;
 }
 
 .detailLabel {
-  color: var(--text-muted);
+  flex: 0 0 auto;
+  color: var(--text-dim);
 }
 
-.actions {
+.detailValue {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.detailLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.detailDim {
+  color: var(--text-dim);
+}
+
+/* 날짜는 자릿수가 세로로 맞아야 여러 줄을 훑기 쉽습니다. */
+.detailDate {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 업데이트 기록 탭 ---------- */
+
+/*
+ * 세로 타임라인.
+ *
+ * 선은 목록 전체에 하나만 긋고(`.timeline::before`), 점은 항목마다
+ * 하나씩 올립니다. 점에 바탕색 테두리(`box-shadow`)를 두르면 선이 점
+ * 뒤로 지나가지 않는 것처럼 보입니다.
+ */
+.timeline {
+  position: relative;
+  display: grid;
+  gap: 1.05rem;
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  list-style: none;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 1px;
+  background: var(--border);
+}
+
+.entry {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.entryDot {
+  position: absolute;
+  left: -1.1rem;
+  top: 0.35rem;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--panel);
+}
+
+/* 맨 위 하나는 최신이라 점도 진합니다. */
+.entry:first-child .entryDot {
+  background: var(--accent);
+}
+
+/* 판 번호 · 날짜 · 최신 꼬리표. gap이 있어 날짜가 글에 붙지 않습니다. */
+.entryHead {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.sections {
-  display: grid;
-  gap: 1.2rem;
-  margin-top: 1.2rem;
+.entryVersion {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 650;
 }
+
+.entryDate {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.entryLatest {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.entryTitle {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 620;
+}
+
+.entryChanges {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entryChange {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.entryChange svg {
+  flex: 0 0 auto;
+  margin-top: 0.3rem;
+  color: var(--text-dim);
+}
+
+/* 아직 예시라는 사실. 작게, 그러나 적어 둡니다. */
+.mockNote {
+  margin-top: 0.9rem;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+/* ---------- 비어 있을 때 ---------- */
+
+/* 빈 상자와 고장 난 화면은 똑같이 생겼습니다. 한 줄이라도 적어 둡니다. */
+.empty {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+.empty svg {
+  flex: 0 0 auto;
+}
+
+/* ---------- 같은 회원의 다른 앱 ---------- */
+
+.others {
+  margin-top: 1.3rem;
+}
+
+/*
+ * 곁들이는 것이지 본래 보려던 것이 아닙니다.
+ *
+ * 예전에는 목록 화면과 같은 세로 카드(16:10 썸네일 + 제목 + 설명)를
+ * 썼습니다. 그 카드는 히어로만큼 커서, 다 읽고 내려온 사람의 눈을
+ * 본문보다 먼저 끌었습니다. 지금은 한 줄짜리 가로 카드입니다 — 작은
+ * 썸네일, 이름, 설명 한 줄.
+ */
+.othersGrid {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  margin-top: 0.6rem;
+}
+
+.otherCard {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  transition:
+    border-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.otherCard:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.otherThumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.otherThumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 9px
+  );
+}
+
+.otherBody {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+/* 한 줄씩만. 이름이나 설명이 길다고 카드 높이가 달라지면 줄이
+   들쭉날쭉해집니다. */
+.otherName {
+  overflow: hidden;
+  font-size: 0.84rem;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.otherTagline {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 넓은 화면 ---------- */
 
 @media (min-width: 60rem) {
   .hero {
-    grid-template-columns: 20rem 1fr;
-    align-items: center;
+    grid-template-columns: 22rem minmax(0, 1fr);
+    align-items: start;
   }
 
-  .heroArtwork {
-    aspect-ratio: 16 / 10;
+  /* `auto-fill`로는 칸 수의 위를 막을 수 없어 여기서 못을 박습니다.
+     넓은 화면에서 곁들이 카드가 여섯 장씩 서면 다시 눈을 끕니다. */
+  .othersGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 80rem) {
+  .othersGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

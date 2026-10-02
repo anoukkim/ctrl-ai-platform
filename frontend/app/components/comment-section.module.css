@@ -1,0 +1,370 @@
+/* 커뮤니티 댓글칸 — CtrlAITube 재생 화면과 CtrlAIApps 앱 상세가 함께
+ * 쓰는 모양.
+ *
+ * 처음에는 재생 화면 안(`watch.module.css`)에만 있었습니다. 앱 상세가
+ * 같은 댓글칸을 요구하면서 이리로 옮겼습니다 — 두 벌로 두면 한쪽만
+ * 고쳐지고, 같은 커뮤니티의 두 화면이 서로 다르게 움직이게 됩니다.
+ *
+ * 여기 있는 것은 반응 칩, 탭, 그리고 댓글칸뿐입니다. 화면의 배치(두
+ * 칸이냐, 패널이 따라붙느냐)는 각 화면이 자기 파일에서 정합니다. */
+
+/* ---------- 반응 ---------- */
+
+.reactionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 반응 칩. 고른 것과 고르지 않은 것이 한눈에 달라 보여야 합니다 —
+   예전에는 셋 다 똑같이 생겨서 내가 누른 것이 무엇인지 알 수 없었습니다. */
+.reactionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.reactionChip:hover {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.reactionChipOn {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.reactionCount {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.reactionChipOn .reactionCount {
+  color: var(--accent);
+}
+
+/* ---------- 탭 ---------- */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 좁은 칸(재생 화면의 댓글 패널)에서는 탭이 칸을 고르게 나눕니다. 넓은
+   본문에서는 그렇게 하면 탭 하나가 손바닥만큼 넓어지므로 왼쪽에
+   모아 둡니다. */
+.tabsStretch .tab {
+  flex: 1 1 0;
+}
+
+.tab {
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text-muted);
+}
+
+.tabOn {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+/* ---------- 댓글칸 전체 ---------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/*
+ * 높이가 정해진 칸을 채우는 변형.
+ *
+ * 재생 화면의 댓글 패널은 화면 높이에 묶여 있고, 그 안에서 목록만
+ * 스크롤하고 입력칸은 아래에 붙어 있어야 합니다. 높이가 내용에 따라
+ * 정해지는 곳(앱 상세의 탭 안)에서는 넘칠 것이 없으므로 이 규칙이 켜져
+ * 있어도 아무 일도 하지 않습니다.
+ */
+.sectionFill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sectionFill .list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sortRow {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.sortLabel {
+  margin-right: 0.15rem;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.sortButton {
+  padding: 0.12rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.sortButton:hover {
+  color: var(--text);
+}
+
+.sortButtonOn {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* ---------- 댓글 ---------- */
+
+.list {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  padding: 0.2rem 0.7rem 0.7rem;
+}
+
+.comment,
+.reply {
+  display: flex;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.commentBody {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.avatarSmall {
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.66rem;
+}
+
+.authorLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.76rem;
+}
+
+.authorName {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.commentTime {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  cursor: default;
+}
+
+.commentText {
+  font-size: 0.83rem;
+  line-height: 1.6;
+  /* 띄어쓰기 없이 붙여 쓴 긴 낱말이나 주소가 칸을 넘지 않게 합니다. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.commentActions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: 0.1rem;
+}
+
+.commentAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.commentAction:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.commentActionOn {
+  color: var(--accent);
+}
+
+/* 답글은 얇은 실선 하나로 묶습니다. 선이 굵으면 답글이 본 댓글보다
+   눈에 먼저 들어옵니다. */
+.replies {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--border);
+}
+
+.threadToggle {
+  justify-self: start;
+  padding: 0.1rem 0.3rem;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.threadToggle:hover {
+  text-decoration: underline;
+}
+
+.commentEmpty {
+  padding: 1.4rem 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+/* ---------- 입력칸 ---------- */
+
+.foot {
+  margin-top: auto;
+  padding: 0.6rem 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.composer {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.composerSmall {
+  margin-top: 0.4rem;
+}
+
+.composerBody {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 글이 길어지면 자라는 입력칸. 자라는 것은 JS가 높이를 맞춰 주지만,
+   최소 높이와 한계는 여기서 정합니다 — 한없이 자라면 댓글이 보이지
+   않습니다. */
+.composerField {
+  width: 100%;
+  min-height: 2.1rem;
+  max-height: 9rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+}
+
+.composerField::placeholder {
+  color: var(--text-dim);
+}
+
+.composerField:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.composerHint {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.composerButtons {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+/* 저장되지 않는다는 사실. 작게, 그러나 적어 둡니다. */
+.mockNote {
+  margin-top: 0.4rem;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}

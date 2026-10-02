@@ -35,7 +35,7 @@ principles.
 | Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
-| CtrlAIApps            | Mock listings plus detail pages with reactions and threaded comments              |
+| CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
 | Profile               | Live signed-in member, quarter participation and application form                 |
@@ -63,7 +63,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
 | `/ctrlaistore`        | CtrlAIApps      | Community app listings                       |
-| `/ctrlaistore/[slug]` | App detail      | Reactions and threaded comments              |
+| `/ctrlaistore/[slug]` | App detail      | Hero, 앱 실행, tabs; same comments as CtrlAITube |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
 | `/usage`              | Usage           | Club support and personal balance, in KRW    |
@@ -582,6 +582,7 @@ ctrl-ai-platform/
 │  │  │  ├─ Community.tsx          # creator line, reactions, comment threads
 │  │  │  ├─ BackendStatus.tsx      # the one live network call
 │  │  │  └─ workspace.module.css   # frame shared by the two workspaces
+│  │  │  ├─ CommentSection.tsx     # reactions, tabs and comments — CtrlAIApps + CtrlAITube
 │  │  ├─ builder/             # page.tsx + BuilderWorkspace.tsx
 │  │  ├─ video/               # page.tsx + VideoWorkspace.tsx
 │  │  ├─ ctrlaistore/         # CtrlAIApps: listings + [slug] detail

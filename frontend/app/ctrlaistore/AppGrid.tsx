@@ -13,7 +13,7 @@ import { useState } from "react";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { CreatorLine } from "@/app/components/Community";
-import { MOCK_APPS, totalReactions } from "@/lib/mock-data";
+import { MOCK_APPS, totalComments, totalReactions } from "@/lib/mock-data";
 
 import styles from "./ctrlaistore.module.css";
 
@@ -106,7 +106,7 @@ export default function AppGrid() {
                 <CreatorLine creator={app.creator} />
                 <p className={styles.meta}>
                   <span className={styles.metaItem}>♥ {totalReactions(app.reactions)}</span>
-                  <span className={styles.metaItem}>💬 {app.comments.length}</span>
+                  <span className={styles.metaItem}>💬 {totalComments(app.comments)}</span>
                   <span className={styles.metaItem}>{app.publishedAt}</span>
                 </p>
               </div>
