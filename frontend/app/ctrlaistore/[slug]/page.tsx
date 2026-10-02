@@ -152,25 +152,29 @@ export default async function AppDetailPage({ params }: AppDetailProps) {
       <AppTabs app={app} />
 
       {others.length > 0 && (
+        /* 곁들이는 줄입니다. 카드는 목록 화면의 것보다 훨씬 작습니다 —
+           다 읽고 내려온 사람의 눈을 본문보다 먼저 끌면 안 됩니다. 다른
+           앱이 없으면 이 칸 자체가 없습니다. */
         <section className={styles.others}>
           <h2 className="section-title">{app.creator.displayName}의 다른 앱</h2>
           <div className={styles.othersGrid}>
             {others.map((other) => (
-              <Link className={styles.card} href={`/ctrlaistore/${other.slug}`} key={other.slug}>
-                <div
-                  className={styles.artwork}
+              <Link
+                className={styles.otherCard}
+                href={`/ctrlaistore/${other.slug}`}
+                key={other.slug}
+              >
+                <span
+                  className={styles.otherThumb}
                   style={{
                     background: `linear-gradient(140deg, ${other.artwork[0]}, ${other.artwork[1]})`,
                   }}
-                >
-                  <span className={styles.artworkText} aria-hidden="true">
-                    {other.name}
-                  </span>
-                </div>
-                <div className={styles.body}>
-                  <h3 className={styles.name}>{other.name}</h3>
-                  <p className={styles.tagline}>{other.tagline}</p>
-                </div>
+                  aria-hidden="true"
+                />
+                <span className={styles.otherBody}>
+                  <span className={styles.otherName}>{other.name}</span>
+                  <span className={styles.otherTagline}>{other.tagline}</span>
+                </span>
               </Link>
             ))}
           </div>
