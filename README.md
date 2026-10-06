@@ -123,6 +123,20 @@ guide, and the guide says so rather than explaining how to run code that is not
 there. Downloading stays open to a member who is not participating this
 quarter: their work is theirs.
 
+**다운로드** works on any finished version, and keeps working for a member who
+is not participating this quarter. Generated files are kept by CTRL+AI through
+a storage interface (`backend/app/services/storage.py`) — a local folder in
+development, cloud storage in Phase 9 — and never served from a provider URL,
+which can expire or need the provider's own credentials.
+
+Higgsfield is still not connected (Phase 6). While `VIDEO_PROVIDER=mock`, a
+generated version gets a small **animated GIF placeholder**, built in pure
+Python with no encoder and no ffmpeg. It is named `.gif` because that is what
+it is: writing a file with an `.mp4` name that no player opens would make the
+download look finished while being broken. Phase 6 swaps in Higgsfield's MP4,
+and nothing downstream changes — the provider states its own content type and
+extension.
+
 **Video Generator** is deliberately not a one-shot form. It models the loop a
 real creator works in:
 

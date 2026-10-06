@@ -47,6 +47,7 @@ function version(overrides: Partial<VideoVersion> = {}): VideoVersion {
     asset_url: null,
     prompt_snapshot: "비 오는 밤 서울",
     status: "ready",
+    has_asset: true,
     created_at: "2026-10-01T10:00:00Z",
     duration_seconds: 10,
     aspect_ratio: "16:9",
@@ -206,6 +207,30 @@ describe("모델 이름", () => {
 
     await waitFor(() => expect(screen.getAllByText("Wan 3.0").length).toBeGreaterThan(0));
     expect(screen.queryByText("wan-3.0")).toBeNull();
+  });
+});
+
+describe("다운로드", () => {
+  test("파일이 있는 버전에는 받는 링크가 있고, 그 버전을 가리킨다", async () => {
+    getVideoProject.mockResolvedValue(project([version({ id: 7, has_asset: true })]));
+
+    render(<VideoWorkspace projectId="3" />);
+    await waitFor(() => playerEl());
+
+    const link = screen.getByRole("link", { name: /다운로드/ });
+    expect(link.getAttribute("href")).toBe("/api/video/projects/3/versions/7/download");
+    expect(link.hasAttribute("download")).toBe(true);
+  });
+
+  test("받을 파일이 없는 버전에는 단추를 보여 주지 않는다", async () => {
+    // 눌러도 아무 일이 없는 단추보다 없는 쪽이 낫습니다. 생성 전에
+    // 만들어진 옛 버전이 이 경우입니다.
+    getVideoProject.mockResolvedValue(project([version({ has_asset: false })]));
+
+    render(<VideoWorkspace projectId="3" />);
+    await waitFor(() => playerEl());
+
+    expect(screen.queryByRole("link", { name: /다운로드/ })).toBeNull();
   });
 });
 

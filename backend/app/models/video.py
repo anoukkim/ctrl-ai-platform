@@ -143,7 +143,20 @@ class VideoVersion(TimestampMixin, Base):
 
     # Filled once a real provider is called (Phase 6).
     provider_job_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: Where the *provider* keeps the file, when it keeps one. Higgsfield
+    #: will fill this; nothing reads it for the download.
     asset_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    #: Where *CTRL+AI* keeps the file, through the storage interface
+    #: (`app/services/storage.py`). This is what the download serves.
+    #:
+    #: Kept apart from `asset_url` on purpose. A provider URL is theirs —
+    #: it can expire, require their credentials, or vanish when the member
+    #: stops paying attention. A member downloading their own video must
+    #: not depend on any of that, so the bytes are ours and the key is
+    #: ours. Null means no file: the attempt failed, or it predates this
+    #: column.
+    asset_storage_key: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     prompt_snapshot: Mapped[str] = mapped_column(Text, default="", nullable=False)
     status: Mapped[VideoVersionStatus] = mapped_column(
@@ -172,6 +185,17 @@ class VideoVersion(TimestampMixin, Base):
     auto_selected: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     project: Mapped["VideoProject"] = relationship(back_populates="versions")
+
+    @property
+    def has_asset(self) -> bool:
+        """Whether there is a file to download.
+
+        A property rather than letting the schema expose
+        `asset_storage_key`: where the bytes live is the backend's
+        business, and the screen only needs to know whether the download
+        button does anything.
+        """
+        return bool(self.asset_storage_key)
 
     @property
     def label(self) -> str:

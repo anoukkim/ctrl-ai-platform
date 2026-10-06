@@ -179,6 +179,13 @@ export interface VideoVersion {
   sound: boolean | null;
   /** Auto가 고른 모델인지. 화면에는 "Auto → Kling 3.0 Pro"로 나옵니다. */
   auto_selected: boolean | null;
+  /**
+   * 내려받을 파일이 있는지.
+   *
+   * 보관 위치는 백엔드의 일이라 내려오지 않습니다. 화면에 필요한 것은
+   * 단추를 눌러도 되는지 여부뿐입니다.
+   */
+  has_asset: boolean;
 }
 
 export interface VideoProject {
@@ -237,6 +244,23 @@ export function updateVideoProject(
     method: "PATCH",
     body: JSON.stringify(changes),
   });
+}
+
+/**
+ * 만들어진 영상 한 편을 받는 주소.
+ *
+ * Builder의 ZIP과 같은 방식입니다 — 링크로 두면 브라우저가 파일로
+ * 저장하고, 참여하지 않는 분기에도 열려 있습니다.
+ *
+ * 내려오는 것은 CTRL+AI가 보관한 파일이지 제공자의 주소가 아닙니다.
+ * 제공자 링크는 만료되거나 그쪽 자격 증명을 요구할 수 있고, 내가 만든
+ * 것을 받는 일이 거기에 매여서는 안 됩니다.
+ */
+export function videoVersionDownloadUrl(
+  projectId: number | string,
+  versionId: number,
+): string {
+  return `${API_BASE_URL}/api/video/projects/${projectId}/versions/${versionId}/download`;
 }
 
 /** 영상 프로젝트를 지웁니다. Builder와 같은 soft delete입니다. */

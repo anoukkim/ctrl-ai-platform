@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     session_cookie_samesite: str = "lax"
     session_max_age_seconds: int = 60 * 60 * 24 * 14  # two weeks
 
+    # ---------- Storage ----------
+    # Where generated files live. `local` keeps them in a folder on this
+    # machine; Phase 9 adds a cloud backend and flips this, with no route
+    # changing (see app/services/storage.py).
+    storage_backend: str = "local"
+    # Relative paths are resolved against `backend/`, so the server finds
+    # the same folder whichever directory it was started from.
+    storage_dir: str = "var/storage"
+
     # ---------- Providers ----------
     # Every external provider sits behind an interface with a mock
     # implementation, and the implementation is chosen here (CLAUDE.md

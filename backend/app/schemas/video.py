@@ -77,6 +77,10 @@ class VideoVersionRead(BaseModel):
     status: VideoVersionStatus
     created_at: datetime
 
+    #: Whether this version has a file to download. The storage key
+    #: itself is never sent — the screen only needs the yes or no.
+    has_asset: bool = False
+
     # What this attempt was made with. `None` means the version predates
     # the columns and its settings are genuinely unknown — the workspace
     # must not fill the gap with the member's current selection.

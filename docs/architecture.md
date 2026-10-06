@@ -79,6 +79,7 @@ the same commit that adds it.
 | `PATCH /api/video/projects/{id}` | **`require_active_member`** | Editing |
 | `POST /api/video/projects/{id}/versions` | **`require_active_member`** | Generating — spends budget |
 | `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work |
+| `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
 | `GET /api/quarters/me` | `get_current_user` | |
 | `POST /api/quarters/{id}/apply` | `get_current_user` | **Deliberately open** — see below |

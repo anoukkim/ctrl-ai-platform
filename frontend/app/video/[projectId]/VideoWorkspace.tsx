@@ -14,7 +14,7 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
-import { ArrowLeft, Lock, Pause, Play } from "lucide-react";
+import { ArrowLeft, Download, Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -34,6 +34,7 @@ import {
   listVideoModels,
   listVideoProjects,
   updateVideoProject,
+  videoVersionDownloadUrl,
   type VideoModel,
   type VideoProject,
   type VideoProjectDetail,
@@ -929,6 +930,20 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               {!mayCreate && <Lock size={12} aria-hidden="true" />}{" "}
               {isFinal ? "최종본으로 지정됨" : "최종본으로 선택"}
             </button>
+            {/* 링크입니다 — 실제로 파일을 받아 오는 일이고, 참여 여부와
+                무관합니다. 내가 만든 것을 꺼내 오는 길은 늘 열려 있어야
+                합니다. 받을 파일이 없는 버전에는 보여 주지 않습니다:
+                눌러도 아무 일이 없는 단추보다 없는 쪽이 낫습니다. */}
+            {selected?.has_asset && (
+              <a
+                className="btn btn-sm"
+                download
+                href={videoVersionDownloadUrl(projectId, selected.id)}
+                title="이 버전을 파일로 내려받습니다"
+              >
+                <Download size={12} aria-hidden="true" /> 다운로드
+              </a>
+            )}
             <button
               className="btn btn-sm btn-primary"
               type="button"
