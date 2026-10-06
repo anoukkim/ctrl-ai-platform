@@ -273,6 +273,47 @@ describe("이름 바꾸기", () => {
   });
 });
 
+describe("코드 다운로드", () => {
+  test("메뉴에 ZIP 받는 링크가 있고, 그 프로젝트를 가리킨다", async () => {
+    const user = userEvent.setup();
+    render(<BuilderLibrary />);
+
+    await openMenu(user, "가계부");
+
+    // 단추가 아니라 링크입니다 — 실제로 주소를 받아 오는 일이고,
+    // 그래야 가운데 클릭이나 "다른 이름으로 저장"도 동작합니다.
+    const link = screen.getByRole("menuitem", { name: "코드 다운로드 (ZIP)" });
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe(`/api/builder/projects/${PROJECT.id}/download`);
+    expect(link.hasAttribute("download")).toBe(true);
+  });
+
+  test("참여하지 않는 분기에도 다운로드는 막히지 않는다", async () => {
+    // 이 항목의 요점입니다. 만들기·고치기는 막히지만, 내가 만든 것을
+    // 꺼내 오는 길은 열려 있어야 합니다 — 백엔드도 같은 이유로
+    // get_current_user만 요구합니다.
+    mayCreate = false;
+
+    const user = userEvent.setup();
+    render(<BuilderLibrary />);
+
+    await openMenu(user, "가계부");
+
+    const link = screen.getByRole("menuitem", { name: "코드 다운로드 (ZIP)" });
+    expect(link.getAttribute("href")).toBe(`/api/builder/projects/${PROJECT.id}/download`);
+    expect(link.hasAttribute("disabled")).toBe(false);
+  });
+
+  test("영상 프로젝트 메뉴에는 코드 다운로드가 없다", async () => {
+    const user = userEvent.setup();
+    render(<VideoLibrary />);
+
+    await openMenu(user, "밤의 서울");
+
+    expect(screen.queryByRole("menuitem", { name: /코드 다운로드/ })).toBeNull();
+  });
+});
+
 describe("참여하지 않는 분기", () => {
   test("이름 바꾸기와 삭제가 모두 막히고, 이유가 붙는다", async () => {
     mayCreate = false;

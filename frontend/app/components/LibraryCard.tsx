@@ -20,9 +20,11 @@ import { describeError } from "@/lib/http";
 
 import styles from "./library.module.css";
 
+/** 메뉴 한 줄. `href`가 있으면 링크로 그립니다 — WorkspaceTitle과 같습니다. */
 export interface CardAction {
   label: string;
-  onSelect: () => void;
+  onSelect?: () => void;
+  href?: string;
   disabled?: boolean;
   title?: string;
   danger?: boolean;
@@ -200,16 +202,29 @@ export default function LibraryCard({
 
               {extraActions.map((action) => (
                 <li key={action.label} role="none">
-                  <button
-                    className={styles.cardMenuItem}
-                    disabled={action.disabled}
-                    onClick={action.onSelect}
-                    role="menuitem"
-                    title={action.title}
-                    type="button"
-                  >
-                    {action.label}
-                  </button>
+                  {action.href ? (
+                    <a
+                      className={styles.cardMenuItem}
+                      download
+                      href={action.href}
+                      onClick={() => setOpen(false)}
+                      role="menuitem"
+                      title={action.title}
+                    >
+                      {action.label}
+                    </a>
+                  ) : (
+                    <button
+                      className={styles.cardMenuItem}
+                      disabled={action.disabled}
+                      onClick={action.onSelect}
+                      role="menuitem"
+                      title={action.title}
+                      type="button"
+                    >
+                      {action.label}
+                    </button>
+                  )}
                 </li>
               ))}
 

@@ -114,6 +114,15 @@ frame in `frontend/app/components/workspace.module.css`.
 generates or runs code: that is Phase 3, and member code will never execute on
 the CTRL+AI backend.
 
+**코드 다운로드 (ZIP)** works today, in the project's ▾ menu and in each
+library card's ⋯ menu. The archive holds the project's files in their folder
+structure plus a short Korean guide, and never a `.env`, a key, `node_modules`
+or `.git`. Project files live in `builder_project_files`, which **Phase 3 is
+what fills** — so a project made now downloads as a ZIP containing only the
+guide, and the guide says so rather than explaining how to run code that is not
+there. Downloading stays open to a member who is not participating this
+quarter: their work is theirs.
+
 **Video Generator** is deliberately not a one-shot form. It models the loop a
 real creator works in:
 

@@ -71,6 +71,7 @@ the same commit that adds it.
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/builder/projects/{id}` | **`require_active_member`** | Editing |
 | `DELETE /api/builder/projects/{id}` | **`require_active_member`** | Changing your work |
+| `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |
 | `GET /api/video/projects/{id}` | `get_current_user` | Reading your own work |

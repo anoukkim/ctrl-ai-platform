@@ -33,10 +33,17 @@ export interface TitleSibling {
   meta: string;
 }
 
-/** 메뉴 아래쪽에 들어가는 동작 한 줄. */
+/** 메뉴 아래쪽에 들어가는 동작 한 줄.
+ *
+ * `href`가 있으면 단추가 아니라 링크로 그립니다. 다운로드가 그렇습니다 —
+ * 실제로 주소를 받아 오는 일이고, 링크로 두면 가운데 클릭이나 키보드도
+ * 평소처럼 동작합니다. 내려오는 응답에 `Content-Disposition: attachment`가
+ * 붙어 있어 화면은 그대로 있고 파일만 저장됩니다.
+ */
 export interface TitleAction {
   label: string;
-  onSelect: () => void;
+  onSelect?: () => void;
+  href?: string;
   disabled?: boolean;
   title?: string;
   danger?: boolean;
@@ -260,16 +267,29 @@ export default function WorkspaceTitle({
 
           {extraActions.map((action) => (
             <li key={action.label} role="none">
-              <button
-                className={ws.switcherAction}
-                disabled={action.disabled}
-                onClick={action.onSelect}
-                role="menuitem"
-                title={action.title}
-                type="button"
-              >
-                {action.label}
-              </button>
+              {action.href ? (
+                <a
+                  className={ws.switcherAction}
+                  download
+                  href={action.href}
+                  onClick={() => setOpen(false)}
+                  role="menuitem"
+                  title={action.title}
+                >
+                  {action.label}
+                </a>
+              ) : (
+                <button
+                  className={ws.switcherAction}
+                  disabled={action.disabled}
+                  onClick={action.onSelect}
+                  role="menuitem"
+                  title={action.title}
+                  type="button"
+                >
+                  {action.label}
+                </button>
+              )}
             </li>
           ))}
 

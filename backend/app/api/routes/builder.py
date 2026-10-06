@@ -7,20 +7,22 @@ so a deleted project is invisible to its owner through every route rather
 than only the ones that remembered to check.
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
 from app.db.session import get_db
-from app.models import BuilderProject, User
+from app.models import BuilderProject, BuilderProjectFile, User
 from app.schemas.builder import (
     BuilderProjectCreate,
     BuilderProjectRead,
     BuilderProjectUpdate,
 )
+from app.services import project_zip
 from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/builder", tags=["builder"])
@@ -136,6 +138,62 @@ def update_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.get(
+    "/projects/{project_id}/download",
+    summary="Download the project's files as a ZIP",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "The project as a ZIP"}},
+)
+def download_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Response:
+    """Pack this project's files and send them back as one archive.
+
+    **`get_current_user`, not `require_active_member`** — and that is the
+    point of the feature. A member who did not join this quarter cannot
+    create or edit, but their work is theirs: taking a copy out has to
+    keep working, or "their projects remain" (CLAUDE.md section 10) is a
+    promise the product does not keep.
+
+    A deleted project is not downloadable: `_owned_project` already
+    answers 404 for it, the same answer the member gets everywhere else.
+
+    The archive is built in memory. Builder projects are small source
+    trees, and `project_zip` caps the total so one request cannot
+    allocate without bound.
+    """
+    project = _owned_project(project_id, db, user)
+
+    rows = db.scalars(
+        select(BuilderProjectFile).where(BuilderProjectFile.project_id == project.id)
+    )
+    try:
+        payload = project_zip.build(project.name, [(row.path, row.content) for row in rows])
+    except project_zip.ProjectTooLargeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(error)
+        ) from error
+
+    filename = project_zip.safe_filename(project.name, date.today(), "zip")
+
+    # Both forms of the name, on purpose. `filename*` carries the Korean
+    # one as UTF-8 and is what every current browser reads; the plain
+    # `filename` is the ASCII fallback for anything that does not, and
+    # without it such a client saves the response as the route's last
+    # path segment — a file called "download" with no extension.
+    disposition = f'attachment; filename="project-{project.id}.zip"; ' + (
+        f"filename*=UTF-8''{quote(filename)}"
+    )
+
+    return Response(
+        content=payload,
+        media_type="application/zip",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.delete(

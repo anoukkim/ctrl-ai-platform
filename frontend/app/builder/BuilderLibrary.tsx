@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   BUILDER_STATUS_BADGE,
   BUILDER_STATUS_LABEL,
+  builderProjectDownloadUrl,
   createBuilderProject,
   deleteBuilderProject,
   describeError,
@@ -314,6 +315,13 @@ export default function BuilderLibrary() {
                   {BUILDER_STATUS_LABEL[project.status]}
                 </span>
               }
+              extraActions={[
+                {
+                  label: "코드 다운로드 (ZIP)",
+                  href: builderProjectDownloadUrl(project.id),
+                  title: "프로젝트 파일을 압축 파일로 받습니다",
+                },
+              ]}
               href={`/builder/${project.id}`}
               key={project.id}
               lockedHint={NOT_PARTICIPATING_HINT}

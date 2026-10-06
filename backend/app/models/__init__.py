@@ -6,7 +6,7 @@ imported here is invisible to both.
 """
 
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
-from app.models.builder import BuilderProject, BuilderProjectStatus
+from app.models.builder import BuilderProject, BuilderProjectFile, BuilderProjectStatus
 from app.models.provider import (
     PROVIDER_ERROR_LABEL,
     ProviderErrorKind,
@@ -37,6 +37,7 @@ __all__ = [
     "ApplicationStatus",
     "BudgetCategory",
     "BuilderProject",
+    "BuilderProjectFile",
     "BuilderProjectStatus",
     "FundingSource",
     "MembershipStatus",

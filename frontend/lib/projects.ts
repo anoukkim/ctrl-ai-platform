@@ -8,6 +8,7 @@
  * 소유권은 백엔드가 정합니다. 여기서 사용자 id를 보내지 않습니다.
  */
 
+import { API_BASE_URL } from "./api";
 import { describeError, request } from "./http";
 
 export { describeError };
@@ -86,6 +87,21 @@ export function updateBuilderProject(
  */
 export function deleteBuilderProject(id: number | string): Promise<void> {
   return request<void>(`/builder/projects/${id}`, { method: "DELETE" });
+}
+
+/**
+ * 프로젝트의 코드를 ZIP으로 받는 주소.
+ *
+ * `request`를 쓰지 않습니다. 내려오는 것이 JSON이 아니고, 브라우저가
+ * 파일로 저장해 주기를 바라는 응답입니다. 그래서 이 주소로 그냥
+ * 이동시키면 됩니다 — `Content-Disposition: attachment`가 붙어 있어
+ * 화면은 그대로 있고 파일만 내려옵니다.
+ *
+ * 같은 출처이므로 세션 쿠키도 함께 갑니다. 참여하지 않는 분기에도
+ * 열려 있는 길입니다 — 내가 만든 것을 꺼내 오는 일이니까요.
+ */
+export function builderProjectDownloadUrl(id: number | string): string {
+  return `${API_BASE_URL}/api/builder/projects/${id}/download`;
 }
 
 /* ------------------------------------------------------------------ */

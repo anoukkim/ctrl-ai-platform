@@ -292,6 +292,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("PATCH", "/api/video/projects/{project_id}"): "require_active_member",
     ("POST", "/api/video/projects/{project_id}/versions"): "require_active_member",
     ("DELETE", "/api/video/projects/{project_id}"): "require_active_member",
+    # Taking a copy of your own work out. Deliberately `get_current_user`:
+    # a member who did not join this quarter may not create, but their
+    # work is theirs and must stay downloadable.
+    ("GET", "/api/builder/projects/{project_id}/download"): "get_current_user",
     # Quarters — applying must stay reachable while inactive, or the only
     # way out of being inactive is behind the door it unlocks.
     ("GET", "/api/quarters/current"): "get_current_user",

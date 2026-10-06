@@ -24,6 +24,7 @@ import ws from "@/app/components/workspace.module.css";
 import {
   BUILDER_STATUS_BADGE,
   BUILDER_STATUS_LABEL,
+  builderProjectDownloadUrl,
   deleteBuilderProject,
   describeError,
   getBuilderProject,
@@ -188,6 +189,15 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           lockedHint={NOT_PARTICIPATING_HINT}
           mayEdit={mayCreate}
           name={project.name}
+          // 다운로드는 참여 여부와 무관합니다 — 내가 만든 것을 꺼내
+          // 오는 일이고, 백엔드도 같은 이유로 열어 두었습니다.
+          extraActions={[
+            {
+              label: "코드 다운로드 (ZIP)",
+              href: builderProjectDownloadUrl(project.id),
+              title: "프로젝트 파일을 압축 파일로 받습니다",
+            },
+          ]}
           onDelete={() => askToDelete(project.name)}
           onRename={rename}
           siblings={siblings.map((item) => ({
