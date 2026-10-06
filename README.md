@@ -76,6 +76,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
+| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
 | `/admin/system`       | System          | Server health and external service status    |
 | `/admin/dev`          | Dev Tools       | Usage simulator; development only            |

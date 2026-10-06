@@ -254,6 +254,48 @@ export interface AdminVideoModel extends VideoModel {
   updated_at: string;
 }
 
+/** 어느 제품의 작업물인지. 주소에 그대로 들어가는 두 낱말입니다. */
+export type WorkKind = "builder" | "video";
+
+export const WORK_KIND_LABEL: Record<WorkKind, string> = {
+  builder: "프로젝트",
+  video: "영상 프로젝트",
+};
+
+/**
+ * 삭제된 프로젝트 또는 영상 한 줄.
+ *
+ * 회원 쪽에서는 없는 것으로 보이는 행입니다 — 모든 회원 경로가 404로
+ * 답합니다. 이 목록만이 그것을 볼 수 있고, 되살릴 수 있는 곳입니다.
+ *
+ * 두 제품을 한 표에 섞어 내려 주는 이유: 되살리려는 관리자는 그것이
+ * 어느 제품에서 왔는지보다 누구의 것이고 언제 사라졌는지를 봅니다.
+ */
+export interface DeletedItem {
+  kind: WorkKind;
+  id: number;
+  name: string;
+  owner_user_id: number;
+  owner_username: string;
+  owner_display_name: string;
+  deleted_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function listDeletedItems(): Promise<DeletedItem[]> {
+  return request<DeletedItem[]>("/admin/deleted-items");
+}
+
+export function restoreWork(kind: WorkKind, id: number): Promise<void> {
+  return request<void>(`/admin/work/${kind}/${id}/restore`, { method: "POST" });
+}
+
+/** 남의 작업물을 지웁니다. 감사 로그에 남습니다. */
+export function deleteWork(kind: WorkKind, id: number): Promise<void> {
+  return request<void>(`/admin/work/${kind}/${id}`, { method: "DELETE" });
+}
+
 export function listAdminVideoModels(): Promise<AdminVideoModel[]> {
   return request<AdminVideoModel[]>("/admin/video-models");
 }

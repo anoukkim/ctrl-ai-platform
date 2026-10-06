@@ -938,7 +938,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its nine sections are named in English too:
+and its ten sections are named in English too:
 
 ```text
 Admin
@@ -948,10 +948,16 @@ Admin
   Quarters
   Top-ups
   Video Models
+  Deleted Items
   Audit Log
   System
   Dev Tools        (development only)
 ```
+
+**Deleted Items** is where work a member deleted is restored. Deleting is
+soft — the row keeps its `deleted_at` and every member route answers 404 —
+and a soft delete with no way back would only mislead the member while
+growing the database.
 
 Budget and Content exist in the code with their routes but are hidden
 until their features land. Those names live in **one file**,
