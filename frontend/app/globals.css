@@ -368,6 +368,22 @@ code {
   color: var(--on-accent);
 }
 
+/* 지우기처럼 되돌리기 어려운 동작. 색만으로 알리지 않도록 문구도
+   함께 바꿉니다("삭제"), 색을 구별하지 못하는 사람에게는 색이 정보가
+   아니기 때문입니다. */
+.btn-danger {
+  background: var(--error-soft);
+  border-color: rgba(230, 77, 84, 0.5);
+  color: var(--error-text);
+  font-weight: 600;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(230, 77, 84, 0.22);
+  border-color: var(--error);
+  color: #ffd2d4;
+}
+
 .btn-sm {
   padding: 0.2rem 0.6rem;
   font-size: 0.78rem;

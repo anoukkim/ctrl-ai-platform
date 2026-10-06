@@ -36,7 +36,7 @@ import {
 
 import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
-import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog";
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import StatCards from "../components/StatCards";
 import { ApplicationBadge } from "../components/StatusBadge";

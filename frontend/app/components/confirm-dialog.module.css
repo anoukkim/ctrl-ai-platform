@@ -1,0 +1,91 @@
+/* 되돌리기 어려운 변경 앞의 확인창. ConfirmDialog.tsx가 씁니다.
+ *
+ * admin.module.css에 있던 .dialog* 규칙을 그대로 옮긴 것입니다. 창이
+ * Admin 전용이 아니게 되었으니(회원이 자기 프로젝트를 지울 때도 같은
+ * 창입니다) 스타일도 Admin 밖으로 나왔습니다. */
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.dialog {
+  display: grid;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 26rem;
+  padding: 1.1rem 1.2rem;
+  background: var(--elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.dialogEffect {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  /* 이름이 길어도 창이 넓어지지 않도록. */
+  overflow-wrap: anywhere;
+}
+
+/* 창 안에서 알리는 실패. 창은 닫지 않습니다 — 왜 안 되었는지 읽을
+   자리가 사라지면 아무 일도 없었던 것처럼 보입니다. */
+.dialogError {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(230, 77, 84, 0.35);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  color: var(--error-text);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.dialogField {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dialogField textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.fieldLabel {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.required {
+  color: var(--error-text);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 24rem) {
+  /* 좁은 화면에서는 단추를 위아래로. 가로로 두면 글자가 잘립니다. */
+  .dialogActions {
+    flex-direction: column-reverse;
+  }
+}

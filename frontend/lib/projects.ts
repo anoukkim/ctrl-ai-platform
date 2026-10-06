@@ -78,6 +78,16 @@ export function updateBuilderProject(
   });
 }
 
+/**
+ * 프로젝트를 지웁니다.
+ *
+ * 백엔드에서는 행이 사라지지 않고 `deleted_at`만 찍힙니다. 회원 쪽에서는
+ * 모든 경로에서 404가 되므로 결과는 같고, 관리자가 되살릴 수 있습니다.
+ */
+export function deleteBuilderProject(id: number | string): Promise<void> {
+  return request<void>(`/builder/projects/${id}`, { method: "DELETE" });
+}
+
 /* ------------------------------------------------------------------ */
 /* Video Generator                                                     */
 /* ------------------------------------------------------------------ */
@@ -211,6 +221,11 @@ export function updateVideoProject(
     method: "PATCH",
     body: JSON.stringify(changes),
   });
+}
+
+/** 영상 프로젝트를 지웁니다. Builder와 같은 soft delete입니다. */
+export function deleteVideoProject(id: number | string): Promise<void> {
+  return request<void>(`/video/projects/${id}`, { method: "DELETE" });
 }
 
 /** 생성 시도를 기록합니다. 아직 실제 영상은 만들어지지 않습니다.

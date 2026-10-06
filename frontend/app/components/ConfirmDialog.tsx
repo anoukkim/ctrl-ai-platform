@@ -3,13 +3,18 @@
 /**
  * 되돌리기 어려운 변경 앞에 한 번 멈춰 세우는 확인창.
  *
- * Admin의 작업은 남의 계정과 남의 돈을 건드립니다. 이전 화면은 표 안의
- * 작은 버튼을 누르면 곧바로 반영했고, 잘못 누른 것을 되돌릴 방법은
- * 반대 작업을 다시 하는 것뿐이었습니다.
+ * 처음에는 Admin 안에만 있었습니다(`app/admin/components/`). Admin의
+ * 작업은 남의 계정과 남의 돈을 건드리고, 이전 화면은 표 안의 작은
+ * 버튼을 누르면 곧바로 반영했기 때문입니다.
  *
- * 그래서 문구가 "정말로 하시겠습니까?"가 아니라 **무슨 일이 생기는지**를
- * 말합니다 — "탈퇴 처리하면 로그인할 수 없습니다". 확인창의 값은 멈추는
- * 데 있는 것이 아니라, 멈춘 동안 읽을 내용에 있습니다.
+ * 회원이 자기 프로젝트를 지우는 것도 같은 성격의 일이라 같은 창을
+ * 씁니다. 그래서 Admin 밖으로 나왔습니다 — 같은 모양의 창을 두 벌 두면
+ * 한쪽만 고치는 날이 오고, 그때 두 화면이 서로 다른 말을 합니다.
+ *
+ * 문구는 "정말로 하시겠습니까?"가 아니라 **무슨 일이 생기는지**를
+ * 말합니다 — "탈퇴 처리하면 로그인할 수 없습니다", "관리자가 되살릴 수
+ * 있습니다". 확인창의 값은 멈추는 데 있는 것이 아니라, 멈춘 동안 읽을
+ * 내용에 있습니다.
  *
  * 거절처럼 이유가 필요한 작업은 여기에서 한 줄을 받습니다. 이미 멈춰
  * 세우는 자리이고, 이유 없는 거절은 회원도 나중에 기록을 보는 관리자도
@@ -21,7 +26,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import styles from "../admin.module.css";
+import styles from "./confirm-dialog.module.css";
 
 export interface ConfirmRequest {
   title: string;
@@ -44,6 +49,15 @@ interface Props {
   request: ConfirmRequest | null;
   onClose: () => void;
   busy?: boolean;
+  /**
+   * 실패한 이유. 창은 열린 채로 이것을 보여 줍니다.
+   *
+   * Admin 화면들은 결과를 바깥의 `ResultMessage`에 띄우므로 넘기지
+   * 않습니다. 작업 공간처럼 창 말고는 알릴 자리가 없는 쪽이 씁니다 —
+   * 참여하지 않는 분기에서 삭제를 누르면 백엔드가 거절하고, 그 문장이
+   * 보일 곳은 이 창뿐입니다.
+   */
+  error?: string | null;
 }
 
 /**
@@ -54,19 +68,21 @@ interface Props {
  * 상태를 한 번 더 바꾸게 되고, 지우는 것을 잊으면 앞 사람의 거절 사유가
  * 다음 사람에게 붙습니다.
  */
-export default function ConfirmDialog({ request, onClose, busy = false }: Props) {
+export default function ConfirmDialog({ request, onClose, busy = false, error = null }: Props) {
   if (request === null) return null;
-  return <Dialog busy={busy} request={request} onClose={onClose} />;
+  return <Dialog busy={busy} error={error} request={request} onClose={onClose} />;
 }
 
 function Dialog({
   request,
   onClose,
   busy,
+  error,
 }: {
   request: ConfirmRequest;
   onClose: () => void;
   busy: boolean;
+  error: string | null;
 }) {
   const confirmRef = useRef<HTMLButtonElement>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
@@ -102,25 +118,25 @@ function Dialog({
         className={styles.dialog}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="admin-confirm-title"
-        aria-describedby="admin-confirm-effect"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-effect"
       >
-        <h2 className={styles.dialogTitle} id="admin-confirm-title">
+        <h2 className={styles.dialogTitle} id="confirm-dialog-title">
           {request.title}
         </h2>
-        <p className={styles.dialogEffect} id="admin-confirm-effect">
+        <p className={styles.dialogEffect} id="confirm-dialog-effect">
           {request.effect}
         </p>
 
         {request.reason && (
           <div className={styles.dialogField}>
-            <label className={styles.fieldLabel} htmlFor="admin-confirm-reason">
+            <label className={styles.fieldLabel} htmlFor="confirm-dialog-reason">
               {request.reason.label}
               {request.reason.required && <span className={styles.required}> *</span>}
             </label>
             <textarea
               className="field"
-              id="admin-confirm-reason"
+              id="confirm-dialog-reason"
               ref={reasonRef}
               rows={3}
               value={reason}
@@ -130,12 +146,18 @@ function Dialog({
           </div>
         )}
 
+        {error && (
+          <p className={styles.dialogError} role="alert">
+            {error}
+          </p>
+        )}
+
         <div className={styles.dialogActions}>
           <button className="btn" type="button" onClick={onClose} disabled={busy}>
             취소
           </button>
           <button
-            className={`btn ${request.danger ? styles.dangerButton : "btn-primary"}`}
+            className={`btn ${request.danger ? "btn-danger" : "btn-primary"}`}
             ref={confirmRef}
             type="button"
             onClick={() => void request.onConfirm(reason.trim())}

@@ -34,7 +34,7 @@ import {
 import { useAdminQuarter } from "../../AdminQuarterProvider";
 import { useBreadcrumbTail } from "../../AdminFrame";
 import AdminTable, { type Column } from "../../components/AdminTable";
-import ConfirmDialog, { type ConfirmRequest } from "../../components/ConfirmDialog";
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import ResultMessage, { type Result } from "../../components/ResultMessage";
 import {
   AccountBadge,
