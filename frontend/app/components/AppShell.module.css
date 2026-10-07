@@ -29,16 +29,31 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  font-size: 17px;
-  font-weight: 750;
+  font-size: var(--fs-brand);
+  font-weight: var(--fw-title);
   letter-spacing: -0.01em;
 }
 
-/* 이름 아래 한 줄 소개. */
+/* 이름 아래 한 줄 소개. 사이드바 폭에 한 줄로 들어갑니다. */
 .brandPhase {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-brand-sub);
+  font-weight: 400;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navBrandRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+/* 접기 단추는 넓은 화면에서만. 좁은 화면은 위쪽 "메뉴" 단추를 씁니다. */
+.collapseButton {
+  display: none;
 }
 
 .menuButton {
@@ -58,7 +73,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 20px 12px 14px;
+  padding: var(--sidebar-pad-top) var(--sidebar-pad-x) var(--sidebar-pad-bottom);
   background: var(--bg-rail);
   border-bottom: 1px solid var(--border);
 }
@@ -107,8 +122,8 @@
 .navGroupLabel {
   padding: 0 10px;
   margin-bottom: 0.35rem;
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-strong);
   letter-spacing: 0.04em;
   color: var(--text-dim);
 }
@@ -126,13 +141,14 @@
 }
 
 .navLink {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 10px;
+  gap: var(--nav-item-gap);
+  padding: var(--nav-item-pad);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--fs-nav);
   font-weight: 500;
   transition:
     background-color 0.12s ease,
@@ -155,8 +171,8 @@
 
 /* 아이콘은 한 벌(lucide)만 쓰고, 크기와 선 굵기를 여기서 한 번만 정합니다. */
 .navIcon {
-  width: 17px;
-  height: 17px;
+  width: var(--nav-icon);
+  height: var(--nav-icon);
   flex: 0 0 auto;
   stroke-width: 1.75;
 }
@@ -175,7 +191,7 @@
   justify-content: center;
   gap: 4px;
   padding: 8px 2px 7px;
-  font-size: 11.5px;
+  font-size: var(--fs-nav-compact);
   line-height: 1.2;
   text-align: center;
 }
@@ -189,7 +205,7 @@
   border: 0;
   background: transparent;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-nav);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -371,8 +387,8 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: var(--icon-button);
+  height: var(--icon-button);
   border-radius: 50%;
   background: var(--accent-strong);
   color: var(--on-accent);
@@ -385,8 +401,8 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: var(--icon-button);
+  height: var(--icon-button);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -444,7 +460,8 @@
 @media (min-width: 60rem) {
   .shell {
     display: grid;
-    grid-template-columns: var(--rail-width) 1fr;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    transition: grid-template-columns 0.18s ease;
     align-items: start;
   }
 
@@ -463,7 +480,73 @@
   }
 
   .main {
-    padding: 36px 40px 56px;
+    padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);
+  }
+
+  .collapseButton {
+    display: grid;
+  }
+
+  /* ---------- 접힌 사이드바 (아이콘만) ---------- */
+
+  .shellCollapsed {
+    grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+  }
+
+  .shellCollapsed .nav {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  /* 이름은 화면에서만 감춥니다. 읽어 주기 프로그램에는 그대로 읽히고,
+     마우스를 올리면 title 툴팁이 이름을 보여 줍니다. */
+  .shellCollapsed .navLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .shellCollapsed .navBrandRow {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .shellCollapsed .brandPhase,
+  .shellCollapsed .navGroupLabel,
+  .shellCollapsed .member,
+  .shellCollapsed .navUserNames {
+    display: none;
+  }
+
+  .shellCollapsed .navLink {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .shellCollapsed .navListCompact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 기다리는 수는 아이콘의 오른쪽 위에. */
+  .shellCollapsed .navCount {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    margin: 0;
+  }
+
+  .shellCollapsed .navFooter {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .shellCollapsed .navUser {
+    flex: none;
+    justify-content: center;
   }
 
   /* Chat과 작업 공간은 위의 여백을 쓰지 않습니다 — 여백은 각 화면이

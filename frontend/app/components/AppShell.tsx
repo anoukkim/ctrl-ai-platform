@@ -25,6 +25,8 @@ import {
   LogOut,
   MessageSquare,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlayCircle,
   Shield,
   Sun,
@@ -117,6 +119,25 @@ const PERSONAL_GROUP: NavGroup = {
 const ADMIN_STORAGE_KEY = "ctrlai.admin-nav-open";
 
 /**
+ * 사이드바를 아이콘만 남긴 좁은 막대로 접었는지. 브라우저마다 기억하고,
+ * 처음에는 펼쳐 둡니다. 저장소를 막아 둔 브라우저에서는 기억하지 못할
+ * 뿐 접기·펴기는 그대로 됩니다.
+ *
+ * 넓은 화면에서만 의미가 있습니다. 좁은 화면은 위쪽 "메뉴" 단추로 여는
+ * 전체 메뉴를 그대로 씁니다.
+ */
+export const SIDEBAR_STORAGE_KEY = "ctrlai.sidebar-collapsed";
+
+function readCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 화면 전체를 작업 공간으로 쓰는 경로.
  *
  * /builder 와 /video 는 프로젝트 목록이라 보통 화면처럼 여백을 둡니다.
@@ -132,6 +153,10 @@ const CHAT_PATH = "/";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  // 사이드바는 로그인을 확인한 뒤에만 그려지고, 그 확인은 브라우저에서
+  // 일어납니다. 그래서 처음 값에서 바로 읽어도 서버가 그린 HTML과
+  // 어긋나지 않습니다 — 효과로 읽으면 한 번 펼쳐졌다 접히며 깜빡입니다.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
   const { state, signOut } = useCurrentUser();
   const { theme, toggle: toggleTheme } = useTheme();
 
@@ -156,8 +181,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isWorkspace = WORKSPACE_PATTERN.test(pathname);
   const isChat = pathname === CHAT_PATH;
 
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* 기억하지 못해도 접기·펴기는 됩니다 */
+      }
+      return next;
+    });
+  }
+
   return (
-    <div className={styles.shell}>
+    <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""}`}>
       <header className={styles.topbar}>
         <Link className={styles.brandLink} href="/" onClick={() => setMenuOpen(false)}>
           <span className={styles.brandMark}>
@@ -182,10 +219,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         aria-label="주요 메뉴"
       >
         <div className={styles.navBrand}>
-          <span className={styles.brandMark}>
-            <BrandMark size={18} variant="glyph" />
-            CTRL+AI
-          </span>
+          <div className={styles.navBrandRow}>
+            <span className={styles.brandMark}>
+              <BrandMark size={18} variant="glyph" />
+              <span className={styles.navLabel}>CTRL+AI</span>
+            </span>
+            <button
+              className={`${styles.footerButton} ${styles.collapseButton}`}
+              type="button"
+              onClick={toggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-controls="primary-navigation"
+              aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+              title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            >
+              {collapsed ? (
+                <PanelLeftOpen size={16} aria-hidden="true" />
+              ) : (
+                <PanelLeftClose size={16} aria-hidden="true" />
+              )}
+            </button>
+          </div>
           <span className={styles.brandPhase}>함께 만들고 함께 나누는 AI 창작 커뮤니티</span>
         </div>
 
@@ -197,6 +251,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 key={group.label}
                 pathname={pathname}
                 onNavigate={() => setMenuOpen(false)}
+                collapsed={collapsed}
               />
             ))}
 
@@ -205,7 +260,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 위쪽 묶음에 붙입니다 — 아래쪽은 Account와 계정 영역
                 전용입니다. */}
             {user.is_admin && (
-              <AdminNavBlock pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+              <AdminNavBlock
+                pathname={pathname}
+                onNavigate={() => setMenuOpen(false)}
+                collapsed={collapsed}
+              />
             )}
           </div>
 
@@ -218,13 +277,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               pathname={pathname}
               onNavigate={() => setMenuOpen(false)}
               compact
+              collapsed={collapsed}
             />
             <MemberStatus onNavigate={() => setMenuOpen(false)} />
           </div>
         </div>
 
         <div className={styles.navFooter}>
-          <span className={styles.navUser}>
+          <span className={styles.navUser} title={collapsed ? user.display_name : undefined}>
             <span className={styles.navAvatar} aria-hidden="true">
               {user.display_name.slice(0, 1)}
             </span>
@@ -275,12 +335,15 @@ function NavGroupBlock({
   pathname,
   onNavigate,
   compact = false,
+  collapsed = false,
 }: {
   group: NavGroup;
   pathname: string;
   onNavigate: () => void;
   /** Account 묶음: 세 항목을 한 줄에, 아이콘 위·이름 아래로. */
   compact?: boolean;
+  /** 접힌 사이드바: 이름은 화면에서 감추고(읽어 주기는 그대로) 툴팁으로. */
+  collapsed?: boolean;
 }) {
   return (
     <div>
@@ -299,9 +362,10 @@ function NavGroupBlock({
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 onClick={onNavigate}
+                title={collapsed ? item.label : undefined}
               >
                 <item.Icon className={styles.navIcon} aria-hidden="true" />
-                {item.label}
+                <span className={styles.navLabel}>{item.label}</span>
               </Link>
             </li>
           );
@@ -328,9 +392,11 @@ function NavGroupBlock({
 function AdminNavBlock({
   pathname,
   onNavigate,
+  collapsed = false,
 }: {
   pathname: string;
   onNavigate: () => void;
+  collapsed?: boolean;
 }) {
   const { pendingApplications, pendingTopUps, isDevelopment } = useAdminNav();
 
@@ -374,6 +440,28 @@ function AdminNavBlock({
   const totalPending = pendingApplications + pendingTopUps;
   const insideAdmin = pathname.startsWith("/admin");
 
+  // 접힌 사이드바에는 하위 구역을 펼칠 자리가 없습니다. Admin은 대시보드로
+  // 가는 아이콘 하나가 되고, 기다리는 수는 아이콘 위에 붙습니다.
+  if (collapsed) {
+    return (
+      <Link
+        className={`${styles.navLink} ${insideAdmin ? styles.navLinkActive : ""}`}
+        href="/admin"
+        onClick={onNavigate}
+        title={totalPending > 0 ? `Admin — 기다리는 일 ${totalPending}건` : "Admin"}
+        aria-current={pathname === "/admin" ? "page" : undefined}
+      >
+        <Shield className={styles.navIcon} aria-hidden="true" />
+        <span className={styles.navLabel}>Admin</span>
+        {totalPending > 0 && (
+          <span className={styles.navCount} aria-label={`기다리는 일 ${totalPending}건`}>
+            {totalPending}
+          </span>
+        )}
+      </Link>
+    );
+  }
+
   return (
     <div>
       <button
@@ -387,8 +475,12 @@ function AdminNavBlock({
       >
         <Shield className={styles.navIcon} aria-hidden="true" />
         <span className={styles.navToggleLabel}>Admin</span>
-        {!open && totalPending > 0 && (
-          <span className={styles.navCount}>{totalPending}</span>
+        {/* 기다리는 일의 합. 펼쳐도 그대로 둡니다 — 구역마다의 수는 아래에
+            따로 붙습니다. */}
+        {totalPending > 0 && (
+          <span className={styles.navCount} aria-label={`기다리는 일 ${totalPending}건`}>
+            {totalPending}
+          </span>
         )}
         <span aria-hidden="true" className={styles.navCaret}>
           {open ? "▾" : "▸"}

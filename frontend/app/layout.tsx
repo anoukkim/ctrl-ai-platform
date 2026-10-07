@@ -7,6 +7,11 @@ import MyQuarterProvider from "@/app/components/MyQuarterProvider";
 
 import { THEME_BOOT_SCRIPT } from "@/lib/theme-boot";
 
+// Pretendard Variable — 시안의 글꼴. 패키지 안의 woff2를 Next가 함께
+// 내려 주므로 외부 CDN에 기대지 않습니다. dynamic-subset은 화면에 나온
+// 한글 범위의 파일만 받습니다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+
 import "./globals.css";
 
 export const metadata: Metadata = {

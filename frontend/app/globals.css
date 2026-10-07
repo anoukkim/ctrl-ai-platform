@@ -125,7 +125,6 @@
   /* 그림자 아래 덧씌우는 어둠 — 모달 뒤, 좁은 화면의 서랍 뒤. */
   --scrim: rgba(0, 0, 0, 0.55);
 
-  --rail-width: 15.25rem;
 
   /*
    * 코드·숫자·날짜 전용 글꼴.
@@ -139,8 +138,8 @@
    * 한글이 한 덩어리로 섞이는 경우가 많아 글꼴 단계에서 막는 편이 확실합니다.
    */
   --mono:
-    ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Pretendard",
-    "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", monospace;
+    ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Pretendard Variable",
+    "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", monospace;
 }
 
 /* ---------- 밝은 테마 ----------
@@ -197,7 +196,72 @@
 :root {
   --radius: 16px;
   --radius-sm: 10px;
+  --radius-chip: 8px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ---------- 글꼴과 글자 크기 (두 테마 모두) ----------
+ *
+ * 글꼴은 Pretendard Variable 1.3.9입니다. npm 패키지 `pretendard`에서
+ * 가져와 우리 서버가 직접 내려 줍니다(layout.tsx의 dynamic-subset CSS) —
+ * 화면에 실제로 나온 한글 범위의 작은 파일만 받습니다. 목록의 나머지는
+ * 그 파일이 오기 전, 또는 받지 못했을 때 쓰는 한글 우선 대체 글꼴입니다.
+ *
+ * 크기는 디자인 시안(Claude Design)에서 잰 값입니다. 화면은 숫자를 직접
+ * 쓰지 않고 이 이름을 씁니다. */
+:root {
+  --font-ui:
+    "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕",
+    "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-eyebrow: 12px; /* ● Create */
+  --fs-page-title: 24px;
+  --fs-page-subtitle: 14px;
+  --fs-section: 14px;
+  --fs-card-name: 16px;
+  --fs-body: 13.5px;
+  --fs-meta: 12px; /* 날짜·부가 정보 */
+  --fs-label: 11px; /* 사이드바 묶음 이름, 썸네일 자리 표시 */
+  --fs-nav: 14px;
+  --fs-nav-compact: 11.5px;
+  --fs-chip: 12.5px;
+  --fs-count: 13px;
+  --fs-button: 14px;
+  --fs-brand: 17px;
+  --fs-brand-sub: 12px;
+
+  --fw-title: 750;
+  --fw-strong: 650;
+  --fw-card-name: 700;
+
+  --lh-tight: 1.35;
+  --lh-body: 1.6;
+
+  /* ---------- 자리와 간격 ---------- */
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 68px;
+  --sidebar-pad-top: 20px;
+  --sidebar-pad-x: 12px;
+  --sidebar-pad-bottom: 14px;
+  --nav-item-pad: 8px 10px;
+  --nav-item-gap: 11px;
+  --nav-icon: 17px;
+
+  --content-max: 1120px;
+  --page-pad-top: 32px;
+  --page-pad-x: 40px;
+  --page-pad-bottom: 48px;
+  --page-header-gap: 22px; /* 머리말 선 아래 여백 */
+  --page-header-pad: 18px; /* 머리말 글자와 선 사이 */
+
+  --card-pad-y: 16px;
+  --card-pad-x: 18px;
+  --card-gap: 16px;
+  --card-min: 300px;
+  --thumb-height: 120px; /* Builder 카드 위쪽 자리 */
+  --thumb-height-video: 180px; /* Video 카드 위쪽 영상 */
+  --button-height: 40px;
+  --icon-button: 30px;
 }
 
 *,
@@ -221,17 +285,8 @@ body {
   color: var(--text);
   background: var(--bg);
   /* 한글 글꼴을 라틴 글꼴보다 앞에 두어 한글이 대체 글리프로 그려지지 않게 합니다. */
-  font-family:
-    "Pretendard",
-    "Apple SD Gothic Neo",
-    "Malgun Gothic",
-    "맑은 고딕",
-    "Noto Sans KR",
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
-  font-size: 0.9375rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-page-subtitle);
   /* 한국어는 단어 안에 공백이 없어 기본 규칙으로는 단어가 잘립니다. */
   word-break: keep-all;
   line-height: 1.6;
@@ -285,14 +340,32 @@ code {
 
 /* ---------- 페이지 머리말 (낮고 조밀하게) ---------- */
 
+/* 시안의 머리말: 머리표(● Create), 제목, 설명, 오른쪽의 주요 단추, 그리고
+ * 아래 구분선. `app/components/PageHeader.tsx`가 이 모양을 그립니다. */
 .page-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4rem 0.9rem;
-  margin-bottom: 22px;
-  padding-bottom: 18px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: var(--page-header-gap);
+  padding-bottom: var(--page-header-pad);
   border-bottom: 1px solid var(--border);
+}
+
+.page-header-text {
+  display: grid;
+  gap: 0.3rem;
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+
+.page-header-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .page-title {
@@ -300,10 +373,10 @@ code {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  font-size: 24px;
-  font-weight: 750;
+  font-size: var(--fs-page-title);
+  font-weight: var(--fw-title);
   letter-spacing: -0.01em;
-  line-height: 1.3;
+  line-height: var(--lh-tight);
 }
 
 /* 제목 위의 작은 머리표: 점 하나와 영역 이름("Create"). 영역 색은
@@ -312,10 +385,9 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.3rem;
   color: var(--accent);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--fw-strong);
 }
 
 .page-eyebrow::before {
@@ -348,12 +420,19 @@ code {
 }
 
 .page-subtitle {
-  flex: 1 1 20rem;
   min-width: 0;
   max-width: 720px;
   color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: var(--fs-page-subtitle);
+  line-height: var(--lh-body);
+}
+
+/* 주요 단추(+ 새 프로젝트)는 시안처럼 조금 크게. */
+.btn-lg {
+  min-height: var(--button-height);
+  padding: 0 1.1rem;
+  font-size: var(--fs-button);
+  font-weight: var(--fw-strong);
 }
 
 .section-title {
@@ -361,15 +440,15 @@ code {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.7rem;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-section);
+  font-weight: var(--fw-card-name);
   color: var(--text);
 }
 
 /* 사이드바의 Create / Explore 처럼 작은 묶음 이름. */
 .section-label {
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-strong);
   letter-spacing: 0.04em;
   color: var(--text-dim);
 }
@@ -405,7 +484,7 @@ code {
   background: var(--panel);
   color: var(--text-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-chip);
   font-weight: 550;
   line-height: 1.5;
   white-space: nowrap;
@@ -461,8 +540,8 @@ code {
 .toolbar-count {
   margin-right: auto;
   color: var(--text-muted);
-  font-size: 13.5px;
-  font-weight: 650;
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
 }
 
 .toolbar-count span {
@@ -780,4 +859,38 @@ code {
   font-family: var(--mono);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 만드는 중 ----------
+ * 상태 배지 대신 보이는 작은 표시("생성 중…"). 배지는 Draft와 게시됨
+ * 둘뿐이고, 만드는 중은 상태가 아니라 지금 일어나는 일이라 따로 둡니다. */
+.working {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--video-text);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.working::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: working-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes working-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working::before {
+    animation: none;
+  }
 }
