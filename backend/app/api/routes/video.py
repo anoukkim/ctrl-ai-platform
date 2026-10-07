@@ -16,7 +16,9 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -29,6 +31,7 @@ from app.models import (
     User,
     VideoModel,
     VideoProject,
+    VideoProjectStatus,
     VideoVersion,
     VideoVersionKind,
     VideoVersionStatus,
@@ -120,21 +123,31 @@ def list_models(
     return _allowed_models(db)
 
 
+#: The library's three filters: 전체 / Draft / 게시됨.
+LibraryFilter = Literal["all", "draft", "published"]
+
+
 @router.get("/projects", response_model=list[VideoProjectRead], summary="List my video projects")
 def list_projects(
+    status_filter: LibraryFilter = Query(default="all", alias="status"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[VideoProject]:
-    return list(
-        db.scalars(
-            select(VideoProject)
-            .where(
-                VideoProject.owner_user_id == user.id,
-                VideoProject.deleted_at.is_(None),
-            )
-            .order_by(VideoProject.updated_at.desc())
-        )
+    """The member's own video projects, newest first.
+
+    `status` is the library's filter, exactly as the member sees it:
+    `all`, `draft` (everything not yet published — draft, generating
+    and ready) or `published`.
+    """
+    query = select(VideoProject).where(
+        VideoProject.owner_user_id == user.id,
+        VideoProject.deleted_at.is_(None),
     )
+    if status_filter == "published":
+        query = query.where(VideoProject.status == VideoProjectStatus.PUBLISHED)
+    elif status_filter == "draft":
+        query = query.where(VideoProject.status != VideoProjectStatus.PUBLISHED)
+    return list(db.scalars(query.order_by(VideoProject.updated_at.desc())))
 
 
 @router.post(
