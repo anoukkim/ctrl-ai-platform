@@ -75,6 +75,7 @@ function project(versions: VideoVersion[]): VideoProjectDetail {
     status: "draft",
     selected_model_id: null,
     final_version_id: null,
+    final_version_has_asset: false,
     created_at: "2026-10-01T00:00:00Z",
     updated_at: "2026-10-01T00:00:00Z",
     versions,
@@ -221,26 +222,52 @@ describe("모델 이름", () => {
 });
 
 describe("다운로드", () => {
-  test("파일이 있는 버전에는 받는 링크가 있고, 그 버전을 가리킨다", async () => {
-    getVideoProject.mockResolvedValue(project([version({ id: 7, has_asset: true })]));
+  test("미리보기 머리글의 다운로드는 지금 보이는 버전을 받는다 — 최종본이 아니어도", async () => {
+    getVideoProject.mockResolvedValue(
+      project([version({ id: 7, label: "v1" }), version({ id: 8, label: "v2" })]),
+    );
 
     render(<VideoWorkspace projectId="3" />);
     await waitFor(() => playerEl());
 
-    const link = screen.getByRole("link", { name: /다운로드/ });
-    expect(link.getAttribute("href")).toBe("/api/video/projects/3/versions/7/download");
-    expect(link.hasAttribute("download")).toBe(true);
+    // 아무것도 최종본이 아니면 가장 최근 버전(v2)이 보입니다.
+    const header = screen.getByRole("link", { name: "다운로드" });
+    expect(header.getAttribute("href")).toBe("/api/video/projects/3/versions/8/download");
+    expect(header.hasAttribute("download")).toBe(true);
   });
 
-  test("받을 파일이 없는 버전에는 단추를 보여 주지 않는다", async () => {
-    // 눌러도 아무 일이 없는 단추보다 없는 쪽이 낫습니다. 생성 전에
-    // 만들어진 옛 버전이 이 경우입니다.
-    getVideoProject.mockResolvedValue(project([version({ has_asset: false })]));
+  test("버전 줄의 조각마다 자기 버전을 받는 다운로드가 있다", async () => {
+    getVideoProject.mockResolvedValue(
+      project([version({ id: 7, label: "v1" }), version({ id: 8, label: "v2" })]),
+    );
+
+    render(<VideoWorkspace projectId="3" />);
+    await waitFor(() => playerEl());
+
+    expect(screen.getByRole("link", { name: "v1 다운로드" }).getAttribute("href")).toBe(
+      "/api/video/projects/3/versions/7/download",
+    );
+    expect(screen.getByRole("link", { name: "v2 다운로드" }).getAttribute("href")).toBe(
+      "/api/video/projects/3/versions/8/download",
+    );
+  });
+
+  test("파일이 없는 이전 버전은 흐린 단추와 이유, 링크는 없다", async () => {
+    // 파일을 보관하기 전에 만든 버전입니다. 뒤늦게 만들어 주지 않습니다.
+    getVideoProject.mockResolvedValue(
+      project([version({ id: 7, label: "v1", has_asset: false })]),
+    );
 
     render(<VideoWorkspace projectId="3" />);
     await waitFor(() => playerEl());
 
     expect(screen.queryByRole("link", { name: /다운로드/ })).toBeNull();
+    const chip = screen.getByRole("button", { name: "v1 다운로드" });
+    const header = screen.getByRole("button", { name: "다운로드" });
+    for (const button of [chip, header]) {
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+      expect(button.getAttribute("title")).toBe("파일이 없는 이전 버전입니다");
+    }
   });
 });
 

@@ -19,6 +19,7 @@ import {
   formatRelative,
   listVideoProjects,
   updateVideoProject,
+  videoVersionDownloadUrl,
   type VideoProject,
 } from "@/lib/projects";
 
@@ -308,6 +309,22 @@ export default function VideoLibrary() {
                   {VIDEO_STATUS_LABEL[project.status]}
                 </span>
               }
+              extraActions={[
+                // 최종본에 파일이 있을 때만 받을 수 있습니다. 작업 공간의
+                // 다운로드와 같은 길이고, 참여 여부와는 상관없습니다
+                // (ui-library-cards 7).
+                project.final_version_id !== null && project.final_version_has_asset
+                  ? {
+                      label: "최종본 다운로드",
+                      href: videoVersionDownloadUrl(project.id, project.final_version_id),
+                      title: "최종본을 파일로 내려받습니다",
+                    }
+                  : {
+                      label: "최종본 다운로드",
+                      disabled: true,
+                      title: "최종본을 먼저 고르세요",
+                    },
+              ]}
               href={`/video/${project.id}`}
               key={project.id}
               lockedHint={NOT_PARTICIPATING_HINT}

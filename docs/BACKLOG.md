@@ -307,9 +307,23 @@ item. Saved exactly as written by the developer.
 > picks final over latest and falls back to the empty frame; no "Draft"
 > when a final exists; one meta format.
 
+**Done on `feat-video-higgsfield-only` (2026-10-07), awaiting merge:**
+
+- ✅ **Item 1** — name and badge together on the left (the name truncates
+  with an ellipsis), ⋯ alone on the right. The card also needed
+  `grid-template-columns: minmax(0, 1fr)`: without it a long name pushed
+  the card into the next column instead of truncating.
+- ✅ **Item 7** — "최종본 다운로드" in the video card's ⋯ menu when a final
+  with a stored file exists, otherwise disabled with "최종본을 먼저
+  고르세요". The list now carries `final_version_has_asset`.
+- **Item 4 is settled by the same branch** in the backend: a final version
+  makes a Draft (or Generating) project Ready; clearing it returns Ready
+  to Draft; Published and Archived are untouched. Not marked done here
+  because the developer did not ask for it to be — say so if it should be.
+
 Two notes for whoever builds it, from the work that raised it:
 
-- **Point 4 is a real backend question.** `status` and `final_version_id`
+- **Point 4 is a real backend question** (since answered — see above). `status` and `final_version_id`
   are independent columns today, so a project can honestly be `draft`
   with a final version chosen. Deciding it in the card would leave the
   API still saying `draft` to everything else that reads it.
@@ -1278,6 +1292,15 @@ exactly as written by the developer.
 >    - File name: <project>_v<n>.<ext>, e.g. probe_v8.gif.
 >
 > Tests for both, then the full suites, lint, tsc, next build, push, and tell me what to re-check. Don't merge.
+
+**Built.** The status rule chosen: **a chosen final version makes a Draft
+or Generating project Ready; clearing the final turns Ready back into
+Draft; Published and Archived are never changed by it.** It runs on every
+`PATCH` of a project (after any `status` sent in the same request), and
+migration `4b8e2d6f1a90` applies it to existing rows. Card and workspace
+header both read `VIDEO_STATUS_LABEL[project.status]`, so they cannot
+disagree. Downloads are named `<project>_v<n>.<ext>`; the plain
+`filename=` fallback for old clients is `video_v<n>.<ext>`.
 
 ---
 

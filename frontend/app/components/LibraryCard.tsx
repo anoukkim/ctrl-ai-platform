@@ -144,6 +144,10 @@ export default function LibraryCard({
       {!editing && <Link aria-label={name} className={styles.cardLink} href={href} />}
 
       <div className={styles.cardTop}>
+        {/* 이름과 상태 배지는 한 덩어리로 왼쪽에 붙습니다. 이름이 길면
+            말줄임표로 줄고, 배지는 이름 바로 뒤에 남습니다. ⋯은 오른쪽에
+            혼자 있습니다 (ui-library-cards 1). */}
+        <div className={styles.cardTitle}>
         {editing ? (
           <input
             aria-label="이름"
@@ -168,10 +172,13 @@ export default function LibraryCard({
             autoFocus
           />
         ) : (
-          <span className={styles.cardName}>{name}</span>
+          <span className={styles.cardName} title={name}>
+            {name}
+          </span>
         )}
 
-        {badge}
+        <span className={styles.cardBadge}>{badge}</span>
+        </div>
 
         <div className={styles.cardMenu} ref={menuRef}>
           <button

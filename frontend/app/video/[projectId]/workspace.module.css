@@ -734,3 +734,41 @@
     writing-mode: horizontal-tb;
   }
 }
+
+/* ---------- 버전 다운로드 ---------- */
+
+.previewHeadEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* 버전 조각 옆의 작은 다운로드 단추. 조각과 한 묶음으로 보이게 붙입니다. */
+.versionItem {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+}
+
+.versionDownload {
+  display: grid;
+  place-items: center;
+  min-width: 1.9rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.versionDownload:hover {
+  color: var(--text);
+}
+
+/* 파일이 없는 이전 버전. 누를 수 없다는 것만 보이면 됩니다. */
+.downloadUnavailable {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

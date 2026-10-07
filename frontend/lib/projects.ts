@@ -223,6 +223,8 @@ export interface VideoProject {
   selected_model_id: number | null;
   status: VideoProjectStatus;
   final_version_id: number | null;
+  /** 최종본에 내려받을 파일이 있는지. 목록 카드의 "최종본 다운로드"가 씁니다. */
+  final_version_has_asset: boolean;
   created_at: string;
   updated_at: string;
 }

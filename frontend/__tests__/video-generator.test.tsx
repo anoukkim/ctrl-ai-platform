@@ -90,6 +90,7 @@ function project(model: VideoModel | null, versions: VideoVersion[] = []): Video
     status: "draft",
     selected_model_id: model?.id ?? null,
     final_version_id: null,
+    final_version_has_asset: false,
     created_at: "2026-10-07T00:00:00Z",
     updated_at: "2026-10-07T00:00:00Z",
     versions,
@@ -319,6 +320,21 @@ describe("수정 · 이어서 만들기", () => {
 
     expect(screen.getByText("수정 ← v1")).toBeDefined();
     expect(screen.getByText("생성")).toBeDefined();
+  });
+});
+
+describe("상태 배지", () => {
+  test("최종본을 고르면 머리글은 백엔드가 돌려준 상태(Ready)를 보여 준다", async () => {
+    const user = userEvent.setup();
+    const chosen = { ...project(KLING, [version()]), final_version_id: 11, status: "ready" as const };
+    api.updateVideoProject.mockResolvedValue(chosen);
+    await open(project(KLING, [version()]));
+    expect(screen.getByText("Draft")).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: /최종본으로 선택/ }));
+
+    await waitFor(() => expect(screen.getByText("Ready")).toBeDefined());
+    expect(screen.queryByText("Draft")).toBeNull();
   });
 });
 

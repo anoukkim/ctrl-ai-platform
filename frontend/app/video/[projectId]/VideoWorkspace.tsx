@@ -16,7 +16,7 @@
  * 글만 고쳐 주며 영상은 만들지 않습니다.
  */
 
-import { ArrowLeft, Download, Lock, Pause, Play } from "lucide-react";
+import { ArrowLeft, Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -38,7 +38,6 @@ import {
   listVideoModels,
   listVideoProjects,
   updateVideoProject,
-  videoVersionDownloadUrl,
   type VideoModel,
   type VideoProject,
   type VideoProjectDetail,
@@ -56,6 +55,7 @@ import {
 
 import PromptHelper from "./PromptHelper";
 import VersionActionPanel, { type VersionAction } from "./VersionActionPanel";
+import VersionDownload from "./VersionDownload";
 import VideoSettings, { ASPECT_LABEL, ASPECT_RATIO_CSS, type Aspect } from "./VideoSettings";
 import styles from "./workspace.module.css";
 
@@ -709,7 +709,11 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
             </span>
             {/* 모델은 이름으로 보여 줍니다. provider의 날 id를 그대로 띄우면
                 설정의 "Auto — 추천"과 같은 것을 가리키는지 알 수 없습니다. */}
-            <span>{selected ? modelNameFor(selected) : "버전 없음"}</span>
+            <span className={styles.previewHeadEnd}>
+              <span>{selected ? modelNameFor(selected) : "버전 없음"}</span>
+              {/* 지금 보고 있는 버전을 받습니다. 최종본이 아니어도 됩니다. */}
+              {selected && <VersionDownload projectId={projectId} version={selected} />}
+            </span>
           </div>
 
           <div className={styles.stage}>
@@ -866,7 +870,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               {versions.map((version, index) => {
                 const source = labelOf(version.source_version_id);
                 return (
-                  <li key={version.id}>
+                  <li className={styles.versionItem} key={version.id}>
                     <button
                       className={`${styles.version} ${
                         version.id === selectedVersionId ? styles.versionActive : ""
@@ -905,6 +909,9 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                         <span className="badge badge-ok">최종</span>
                       )}
                     </button>
+                    {/* 버전마다 따로 받을 수 있습니다. 조각 단추 밖에 두는 것은
+                        단추 안에 링크를 넣을 수 없기 때문입니다. */}
+                    <VersionDownload compact projectId={projectId} version={version} />
                   </li>
                 );
               })}
@@ -956,19 +963,6 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               {!mayCreate && <Lock size={12} aria-hidden="true" />}{" "}
               {isFinal ? "최종본으로 지정됨" : "최종본으로 선택"}
             </button>
-            {/* 링크입니다 — 실제로 파일을 받아 오는 일이고, 참여 여부와
-                무관합니다. 내가 만든 것을 꺼내 오는 길은 늘 열려 있어야
-                합니다. 받을 파일이 없는 버전에는 보여 주지 않습니다. */}
-            {selected?.has_asset && (
-              <a
-                className="btn btn-sm"
-                download
-                href={videoVersionDownloadUrl(projectId, selected.id)}
-                title="이 버전을 파일로 내려받습니다"
-              >
-                <Download size={12} aria-hidden="true" /> 다운로드
-              </a>
-            )}
             <button
               className="btn btn-sm btn-primary"
               type="button"

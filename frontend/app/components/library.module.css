@@ -63,6 +63,10 @@
      평범한 칸이 되고, 링크는 아래 .cardLink로 카드를 덮습니다. */
   position: relative;
   display: grid;
+  /* 한 칸짜리 격자가 내용 너비만큼 늘어나지 않게 합니다. 이것이 없으면
+     긴 이름이 말줄임표로 줄지 않고 카드를 옆 칸까지 밀어냅니다. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 0.4rem;
   align-content: start;
   padding: 0.85rem 1rem;
@@ -87,7 +91,24 @@
   gap: 0.5rem;
 }
 
+/* 이름 + 배지. 남는 너비를 다 쓰되, 줄어들 수 있어야(min-width: 0)
+   이름이 말줄임표로 잘립니다. 그렇지 않으면 긴 이름이 ⋯을 밀어냅니다. */
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 배지는 줄지 않습니다 — 잘리는 쪽은 이름입니다. */
+.cardBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
 .cardName {
+  min-width: 0;
   font-size: 0.95rem;
   font-weight: 650;
   overflow: hidden;
