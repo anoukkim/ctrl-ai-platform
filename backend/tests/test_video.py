@@ -31,7 +31,7 @@ def test_hiding_a_model_removes_it_from_the_member_list(
 
 
 def test_cannot_select_a_model_that_is_not_allowed(
-    client: TestClient, dev_user: User, video_models: list[VideoModel], participating) -> None:
+    client: TestClient, dev_user: User, video_models: list[VideoModel], budgeted) -> None:
     hidden = next(m for m in video_models if m.model_id == "wan-3.0")
 
     response = client.post(
@@ -65,7 +65,7 @@ def test_another_members_video_project_is_not_found(
 
 
 def test_generating_a_version_snapshots_the_prompt(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted) -> None:
     project = VideoProject(
         owner_user_id=dev_user.id, name="비 오는 서울", prompt="비 오는 밤 서울 골목"
     )
@@ -79,13 +79,15 @@ def test_generating_a_version_snapshots_the_prompt(
     assert version["provider"] == "higgsfield"
     # No model chosen means Auto, which falls back to the first allowed one.
     assert version["model_id"] == "kling-3.0-pro"
-    # Nothing was generated, so there is no asset and no provider job.
+    # The mock provider ran: a job id of its own, a stored file, and no
+    # provider URL — the bytes are CTRL+AI's, never the provider's link.
+    assert version["provider_job_id"].startswith("mock-generate-")
+    assert version["has_asset"] is True
     assert version["asset_url"] is None
-    assert version["provider_job_id"] is None
 
 
 def test_versions_are_numbered_within_the_project(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="버전 테스트", prompt="첫 프롬프트")
     db_session.add(project)
     db_session.commit()
@@ -97,7 +99,7 @@ def test_versions_are_numbered_within_the_project(
 
 
 def test_final_version_must_belong_to_the_project(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="A", prompt="a")
     other = VideoProject(owner_user_id=dev_user.id, name="B", prompt="b")
     db_session.add_all([project, other])
@@ -113,7 +115,7 @@ def test_final_version_must_belong_to_the_project(
 
 
 def test_selecting_a_final_version_from_this_project_works(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating) -> None:
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="A", prompt="a")
     db_session.add(project)
     db_session.commit()
@@ -138,7 +140,7 @@ def test_selecting_a_final_version_from_this_project_works(
 
 
 def test_a_version_records_the_settings_it_was_made_with(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
     project = VideoProject(owner_user_id=dev_user.id, name="설정 기록", prompt="테스트")
     db_session.add(project)
@@ -155,7 +157,7 @@ def test_a_version_records_the_settings_it_was_made_with(
 
 
 def test_settings_stay_with_the_version_after_the_project_changes(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
     """The point of recording them: v1 keeps its own figures."""
     project = VideoProject(owner_user_id=dev_user.id, name="설정 유지", prompt="첫 번째")
@@ -178,7 +180,7 @@ def test_settings_stay_with_the_version_after_the_project_changes(
 
 
 def test_auto_is_recorded_so_the_screen_can_say_what_it_chose(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
     """No model chosen means Auto. The version keeps both facts: that it was
     Auto, and which model Auto resolved to."""
@@ -193,7 +195,7 @@ def test_auto_is_recorded_so_the_screen_can_say_what_it_chose(
 
 
 def test_choosing_a_model_is_not_recorded_as_auto(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
     seedance = next(m for m in video_models if m.model_id == "seedance-2.0")
     project = VideoProject(
@@ -209,7 +211,7 @@ def test_choosing_a_model_is_not_recorded_as_auto(
 
 
 def test_a_length_the_model_cannot_do_is_refused(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
     """Seedance does 5 and 10 seconds only. The browser greys 15 out; the
     backend has to refuse it too, because a browser can send anything."""
@@ -229,7 +231,7 @@ def test_a_length_the_model_cannot_do_is_refused(
 
 
 def test_an_aspect_ratio_the_model_cannot_do_is_refused(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
     """Seedance is 9:16 only."""
     seedance = next(m for m in video_models if m.model_id == "seedance-2.0")
@@ -247,12 +249,12 @@ def test_an_aspect_ratio_the_model_cannot_do_is_refused(
     assert "16:9" in response.json()["detail"]
 
 
-def test_a_silent_model_records_a_silent_version(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+def test_sound_on_a_silent_model_is_refused(
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
-    """Seedance has no sound. Asking for it is corrected quietly rather than
-    refused: the screen already says the model is silent, and refusing would
-    block a generation over something the member cannot change."""
+    """Seedance has no sound. Asking for it is refused, like any other
+    setting outside the model's catalogue entry: the workspace does not
+    offer the control at all, so only a hand-made request can send it."""
     seedance = next(m for m in video_models if m.model_id == "seedance-2.0")
     project = VideoProject(
         owner_user_id=dev_user.id, name="소리 없음", prompt="테스트", selected_model_id=seedance.id
@@ -260,23 +262,27 @@ def test_a_silent_model_records_a_silent_version(
     db_session.add(project)
     db_session.commit()
 
-    version = client.post(
-        f"/api/video/projects/{project.id}/versions", json={"sound": True}
-    ).json()
+    response = client.post(f"/api/video/projects/{project.id}/versions", json={"sound": True})
 
-    assert version["sound"] is False
+    assert response.status_code == 400
+    assert "소리" in response.json()["detail"]
 
 
-def test_a_version_with_no_settings_sent_records_none(
-    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], participating
+def test_a_version_with_no_settings_sent_records_the_model_defaults(
+    client: TestClient, db_session: Session, dev_user: User, video_models: list[VideoModel], budgeted
 ) -> None:
-    """An empty body still works, and the figures stay unknown rather than
-    being invented. The workspace shows "unknown", not a wrong number."""
+    """An empty body still works, and the version records the exact
+    settings it was made with — the model's defaults — rather than
+    leaving them unknown."""
     project = VideoProject(owner_user_id=dev_user.id, name="빈 본문", prompt="테스트")
     db_session.add(project)
     db_session.commit()
 
     version = client.post(f"/api/video/projects/{project.id}/versions").json()
 
-    assert version["duration_seconds"] is None
-    assert version["aspect_ratio"] is None
+    # Auto → Kling 3.0 Pro, whose seeded defaults these are.
+    assert version["duration_seconds"] == 5
+    assert version["aspect_ratio"] == "9:16"
+    assert version["resolution"] == "720p"
+    assert version["sound"] is True
+    assert version["kind"] == "generate"

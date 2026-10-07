@@ -40,7 +40,7 @@ def storage_dir(tmp_path):
 
 
 @pytest.fixture
-def version(client: TestClient, db_session: Session, dev_user: User, video_models, participating,
+def version(client: TestClient, db_session: Session, dev_user: User, video_models, budgeted,
             storage_dir) -> VideoVersion:
     """One generated version, made the way the workspace makes it."""
     created = client.post("/api/video/projects", json={"name": "밤의 서울", "prompt": "야경"})
@@ -221,7 +221,7 @@ def test_another_member_cannot_download_my_video(
 
 
 def test_a_deleted_project_s_videos_cannot_be_downloaded(
-    client: TestClient, version: VideoVersion, participating, storage_dir
+    client: TestClient, version: VideoVersion, budgeted, storage_dir
 ) -> None:
     client.delete(f"/api/video/projects/{version.project_id}")
 

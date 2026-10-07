@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     google_client_secret: str = ""
 
+    # What one use of the Video workspace's 프롬프트 도움받기 costs, in won,
+    # taken from the Build (Claude) budget. Flat until Phase 2 prices
+    # Claude by the token; agreed 2026-10-07.
+    video_prompt_help_charge_krw: int = 10
+
     # ---------- Seed administrator ----------
     # Read by `python -m app.db.init_db` only. Blank means "no admin to
     # seed", which is why there is no default password anywhere in the code.
