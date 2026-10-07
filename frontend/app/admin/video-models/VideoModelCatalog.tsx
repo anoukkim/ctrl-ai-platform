@@ -12,9 +12,13 @@
  *   회원에게 공개   — 회원이 직접 고를 수 있는가
  * 회원에게는 둘 다 켜진 모델만 보입니다. 사용 가능을 끄면 백엔드가
  * 회원에게 공개도 함께 끕니다.
+ *
+ * 모델마다 "설정"을 열면 카탈로그 항목 — 길이·비율·화질·소리, 수정과
+ * 이어서 만들기 지원, 기본값, 화질별 초당 가격 — 을 고칠 수 있습니다.
+ * 아직 아무도 확인하지 않은 예시 가격에는 "예시"가 붙습니다.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import {
   describeError,
@@ -24,6 +28,9 @@ import {
 } from "@/lib/projects";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+import { formatKrw } from "@/lib/quarters";
+
+import VideoModelEditor from "./VideoModelEditor";
 
 import { sectionLabel } from "../sections";
 
@@ -38,6 +45,18 @@ export default function VideoModelCatalog() {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [busyId, setBusyId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const replace = useCallback((updated: AdminVideoModel) => {
+    setState((current) =>
+      current.phase === "ready"
+        ? {
+            phase: "ready",
+            models: current.models.map((m) => (m.id === updated.id ? updated : m)),
+          }
+        : current,
+    );
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -141,6 +160,10 @@ export default function VideoModelCatalog() {
                   <th scope="col">사용 가능</th>
                   <th scope="col">회원에게 공개</th>
                   <th scope="col">순서</th>
+                  <th scope="col">옵션 · 초당 가격</th>
+                  <th scope="col">
+                    <span className="sr-only">설정</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -149,7 +172,8 @@ export default function VideoModelCatalog() {
                     matchesQuery(query, model.display_name, model.provider, model.model_id),
                   )
                   .map((model) => (
-                  <tr key={model.id}>
+                  <Fragment key={model.id}>
+                  <tr>
                     <td>
                       <span className={styles.memberName}>
                         {model.display_name}
@@ -190,7 +214,61 @@ export default function VideoModelCatalog() {
                       </button>
                     </td>
                     <td className="numeric">{model.sort_order}</td>
+                    <td>
+                      <span className={styles.modelOptions}>
+                        <span>
+                          {model.capabilities.durations.join("·")}초 ·{" "}
+                          {model.capabilities.aspect_ratios.join(" ")}
+                          {model.capabilities.sound ? " · 소리" : ""}
+                          {model.capabilities.supports_edit ? " · 수정" : ""}
+                          {model.capabilities.supports_extend ? " · 이어서" : ""}
+                        </span>
+                        <span>
+                          {model.capabilities.resolutions
+                            .map(
+                              (resolution) =>
+                                `${resolution} ${formatKrw(
+                                  model.capabilities.price_per_second_krw[resolution] ?? 0,
+                                )}`,
+                            )
+                            .join(" · ")}
+                          {model.capabilities.prices_are_examples && (
+                            <span
+                              className="badge badge-warn"
+                              title="아직 아무도 확인하지 않은 예시 가격입니다. 저장하면 확인된 가격이 됩니다."
+                            >
+                              예시
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-sm"
+                        type="button"
+                        onClick={() => setEditingId(editingId === model.id ? null : model.id)}
+                        aria-expanded={editingId === model.id}
+                      >
+                        설정
+                      </button>
+                    </td>
                   </tr>
+                  {editingId === model.id && (
+                    <tr>
+                      <td colSpan={8}>
+                        <VideoModelEditor
+                          model={model}
+                          onSaved={(updated) => {
+                            replace(updated);
+                            setEditingId(null);
+                          }}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

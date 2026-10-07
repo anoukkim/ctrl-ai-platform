@@ -4,23 +4,25 @@
  * Video Generator 작업 공간 — 영상 프로젝트 하나.
  *
  * 한 번 만들고 끝나는 화면이 아닙니다:
- *   아이디어 → 생성 → 확인 → Claude와 상의 → 프롬프트 수정 →
- *   다시 생성 → 버전 비교 → 최종본 선택 → YouTube에 게시
+ *   아이디어 → 생성 → 확인 → 수정하거나 이어서 만들기 → 버전 비교 →
+ *   최종본 선택 → YouTube에 게시
  *
- * Phase 1에서 달라진 점: 프로젝트, 프롬프트, 버전, 선택한 모델이 이제
- * 데이터베이스에 남습니다. 새로고침해도 사라지지 않습니다.
+ * 영상은 전부 Higgsfield를 거칩니다(지금은 mock이 예시 영상을 만듭니다).
+ * 생성·수정·이어서 만들기는 Video 지원금에서 차감되고, 버튼 옆에 예상
+ * 비용이 원으로 나옵니다. 길이·비율·화질·소리는 고른 모델의 카탈로그를
+ * 따릅니다(`lib/video-settings.ts`).
  *
- * 아직 목업인 것: Claude 대화(미리 준비한 문장 중에서 고릅니다)와 영상
- * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
+ * 오른쪽의 Claude 칸(프롬프트 도움받기)은 선택 사항이고 접혀서 시작합니다.
+ * 글만 고쳐 주며 영상은 만들지 않습니다.
  */
 
 import { ArrowLeft, Download, Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
-import { useMayCreate } from "@/app/components/MyQuarterProvider";
+import { useMayCreate, useMyQuarter } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
@@ -30,6 +32,8 @@ import {
   createVideoVersion,
   deleteVideoProject,
   describeError,
+  editVideoVersion,
+  extendVideoVersion,
   getVideoProject,
   listVideoModels,
   listVideoProjects,
@@ -40,21 +44,19 @@ import {
   type VideoProjectDetail,
   type VideoVersion,
 } from "@/lib/projects";
-import {
-  MOCK_VIDEO_FALLBACK_REPLY,
-  MOCK_VIDEO_REVISIONS,
-  type VideoChatMessage,
-} from "@/lib/mock-data";
-
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+import {
+  VERSION_KIND_LABEL,
+  costLabel,
+  estimateCostKrw,
+  reconcile,
+  settingsNotice,
+  type VideoChoice,
+} from "@/lib/video-settings";
 
-import VideoSettings, {
-  ALL_ASPECTS,
-  ALL_DURATIONS,
-  ASPECT_LABEL,
-  ASPECT_RATIO_CSS,
-  type Aspect,
-} from "./VideoSettings";
+import PromptHelper from "./PromptHelper";
+import VersionActionPanel, { type VersionAction } from "./VersionActionPanel";
+import VideoSettings, { ASPECT_LABEL, ASPECT_RATIO_CSS, type Aspect } from "./VideoSettings";
 import styles from "./workspace.module.css";
 
 /** 재생 눈금의 간격(ms). 실제 영상이 아니라 재생 느낌만 흉내 냅니다. */
@@ -66,13 +68,13 @@ const TICK_MS = 150;
  *  버전을 15초로 재생했고, 그래서 10초로 만든 버전이 0:15로 보였습니다. */
 const UNKNOWN_DURATION_SECONDS = 15;
 
-/** 모델 이름을 모를 때라도 provider의 날 id는 보여 주지 않습니다.
- *  `kling-3.0-pro` → `Kling 3.0 Pro`. 관리자가 모델을 목록에서 내리면
- *  지난 버전이 가리키는 모델이 목록에 없을 수 있습니다. */
 function isAspect(value: string | null): value is Aspect {
   return value === "9:16" || value === "16:9" || value === "1:1";
 }
 
+/** 모델 이름을 모를 때라도 provider의 날 id는 보여 주지 않습니다.
+ *  `kling-3.0-pro` → `Kling 3.0 Pro`. 관리자가 모델을 목록에서 내리면
+ *  지난 버전이 가리키는 모델이 목록에 없을 수 있습니다. */
 function prettyModelId(modelId: string): string {
   return modelId
     .split(/[-_]/)
@@ -95,7 +97,8 @@ function artworkFor(index: number): string {
 }
 
 function formatTime(seconds: number): string {
-  return `0:${String(Math.floor(seconds)).padStart(2, "0")}`;
+  const whole = Math.floor(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
 function formatClock(iso: string): string {
@@ -108,16 +111,37 @@ function formatClock(iso: string): string {
   });
 }
 
+/** "10초 · 9:16 · 720p" — 버전이 기록한 설정. 모르는 값은 빼고 적습니다. */
+function settingsLine(version: VideoVersion): string {
+  return [
+    version.duration_seconds != null ? `${version.duration_seconds}초` : null,
+    version.aspect_ratio,
+    version.resolution,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** 수정·이어서 만들기를 할 수 있을 만큼 설정이 기록된 버전인지. */
+function hasRecordedSettings(version: VideoVersion): boolean {
+  return Boolean(
+    version.has_asset && version.duration_seconds && version.aspect_ratio && version.resolution,
+  );
+}
+
 type State =
   | { phase: "loading" }
   | { phase: "ready"; project: VideoProjectDetail }
   | { phase: "error"; message: string };
+
+type Mode = { kind: "generate" } | { kind: VersionAction; sourceId: number };
 
 export default function VideoWorkspace({ projectId }: { projectId: string }) {
   // 참여하지 않는 분기에도 이 화면은 열리고, 지난 버전은 모두 볼 수
   // 있습니다. 막히는 것은 저장·생성·최종본 선택처럼 바꾸는 쪽입니다.
   // 실제 거절은 백엔드가 합니다 — 아래 잠금은 설명일 뿐입니다.
   const mayCreate = useMayCreate();
+  const { refresh: refreshQuarter } = useMyQuarter();
   const router = useRouter();
 
   const [state, setState] = useState<State>({ phase: "loading" });
@@ -129,20 +153,18 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
 
   const [prompt, setPrompt] = useState("");
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
-  // 빈 대화로 시작합니다. 예전에는 미리 적어 둔 예시 대화가 들어 있어,
-  // 새로 만든 프로젝트가 이미 Claude와 이야기를 나눈 것처럼 보였습니다.
-  const [messages, setMessages] = useState<VideoChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
 
-  const [generating, setGenerating] = useState(false);
+  const [mode, setMode] = useState<Mode>({ kind: "generate" });
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [saving, setSaving] = useState<null | "saving" | "saved">(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // 생성 설정. 기본값은 모델이 지원하는 것 중 첫 번째로, 아래 효과가
-  // 모델이 바뀔 때마다 다시 맞춥니다.
-  const [duration, setDuration] = useState(10);
-  const [aspect, setAspect] = useState<Aspect>("9:16");
-  const [sound, setSound] = useState(true);
+  // 회원이 고른 생성 설정. null이면 아직 아무것도 고르지 않은 것이고,
+  // 그때는 모델의 기본값을 씁니다. 모델을 바꾸면 chooseModel이 새 모델에
+  // 맞춰 고쳐 두고, 무엇을 바꿨는지 `notice`로 알립니다.
+  const [chosen, setChosen] = useState<VideoChoice | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
 
@@ -157,15 +179,6 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
       return project.final_version_id ?? project.versions.at(-1)?.id ?? null;
     });
   }, []);
-
-  /** 생성 뒤처럼 이벤트에서 다시 불러올 때 씁니다. */
-  const load = useCallback(async () => {
-    try {
-      applyProject(await getVideoProject(projectId));
-    } catch (error) {
-      setState({ phase: "error", message: describeError(error) });
-    }
-  }, [applyProject, projectId]);
 
   // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
   // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
@@ -197,7 +210,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     listVideoModels()
       .then(setModels)
       .catch(() => {
-        /* 모델을 못 받으면 Auto만 남습니다 */
+        /* 모델을 못 받으면 설정 칸이 비어 있게 둡니다 */
       });
 
     listVideoProjects()
@@ -240,36 +253,23 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     return () => clearInterval(timer);
   }, [isPlaying, previewSeconds]);
 
-  /* ---------- 모델에 맞춘 실제 설정 ---------- */
+  /* ---------- 모델이 정하는 설정 ---------- */
 
-  // 고친 값을 저장하지 않고 그때그때 계산합니다. 회원이 고른 값은 그대로
-  // 두고, 지금 모델이 지원하지 않을 때만 가장 가까운 값으로 바꿔서 씁니다.
-  // 그래서 지원하는 모델로 되돌리면 원래 고른 값이 그대로 돌아옵니다.
-  const capabilities =
-    state.phase === "ready" ? (state.project.selected_model?.capabilities ?? null) : null;
-  const capDurations = capabilities?.durations ?? [];
-  const capAspects = capabilities?.aspect_ratios ?? [];
-  const capSound = capabilities?.sound ?? true;
+  // Auto는 백엔드와 같은 규칙으로 목록의 첫 모델이 됩니다. 그래야 화면에
+  // 보이는 선택지와 예상 비용이 실제로 쓰일 모델의 것과 같습니다.
+  const activeModel = readyProject?.selected_model ?? models[0] ?? null;
+  const caps = activeModel?.capabilities ?? null;
+  const choice = useMemo(() => (caps ? reconcile(chosen, caps).choice : null), [caps, chosen]);
+  const generateCost =
+    caps && choice ? estimateCostKrw(caps, choice.resolution, choice.duration_seconds) : null;
 
-  const durations = capDurations.length > 0 ? capDurations : ALL_DURATIONS;
-  const aspects = capAspects.length > 0 ? capAspects : ALL_ASPECTS;
-
-  const effectiveDuration = durations.includes(duration)
-    ? duration
-    : durations.reduce((best, value) =>
-        Math.abs(value - duration) < Math.abs(best - duration) ? value : best,
-      );
-  const effectiveAspect: Aspect = aspects.includes(aspect) ? aspect : (aspects[0] as Aspect);
-  const effectiveSound = capSound ? sound : false;
-
-  // 바뀐 것이 있으면 왜 바뀌었는지 한 줄로 알려 줍니다. 조용히 바꾸면
-  // 생성 결과가 예상과 달라집니다.
-  const adjustments: string[] = [];
-  if (effectiveDuration !== duration) adjustments.push(`길이를 ${effectiveDuration}초로`);
-  if (effectiveAspect !== aspect) adjustments.push(`비율을 ${ASPECT_LABEL[effectiveAspect]}로`);
-  if (effectiveSound !== sound) adjustments.push("소리를 끔으로");
-  const settingNotice =
-    adjustments.length > 0 ? `이 모델에 맞춰 ${adjustments.join(", ")} 바꿨습니다.` : null;
+  /** 버전을 만든 모델. 수정·이어서 만들기는 이 모델로 합니다. */
+  const modelOf = useCallback(
+    (version: VideoVersion) =>
+      models.find((m) => m.provider === version.provider && m.model_id === version.model_id) ??
+      null,
+    [models],
+  );
 
   /* ---------- 이름 바꾸기 · 삭제 ---------- */
 
@@ -333,6 +333,17 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
       if (!mayCreate) return;
 
       const selected_model_id = value === "auto" ? null : Number(value);
+      // 새 모델에도 있는 선택은 그대로 두고, 없는 것만 그 모델의
+      // 기본값으로 바꿉니다. 무엇이 바뀌었는지는 한 줄로 알립니다.
+      const next =
+        selected_model_id === null
+          ? models[0]
+          : models.find((model) => model.id === selected_model_id);
+      if (next) {
+        const fitted = reconcile(choice, next.capabilities);
+        setChosen(fitted.choice);
+        setNotice(settingsNotice(fitted.changes));
+      }
       try {
         const updated = await updateVideoProject(projectId, { selected_model_id });
         setState({ phase: "ready", project: updated });
@@ -340,43 +351,53 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         setState({ phase: "error", message: describeError(error) });
       }
     },
-    [mayCreate, projectId],
+    [choice, mayCreate, models, projectId],
   );
 
-  const generate = useCallback(async () => {
-    if (!mayCreate || generating) return;
+  const changeChoice = useCallback((next: VideoChoice) => {
+    setChosen(next);
+    setNotice(null);
+  }, []);
 
-    setGenerating(true);
-    setIsPlaying(false);
-    setProgress(0);
-    try {
-      // 프롬프트를 먼저 저장해야 버전에 지금 내용이 기록됩니다.
-      await updateVideoProject(projectId, { prompt });
-      // 길이·비율·소리는 프로젝트가 아니라 이 화면의 조작부에 있으므로
-      // 함께 보냅니다. 백엔드가 버전에 적어 두면, 나중에 설정을 바꿔도
-      // 이 버전은 자기를 만든 값을 그대로 보여 줍니다.
-      const version = await createVideoVersion(projectId, {
-        duration_seconds: effectiveDuration,
-        aspect_ratio: effectiveAspect,
-        sound: effectiveSound,
-      });
-      await load();
-      setSelectedVersionId(version.id);
-    } catch (error) {
-      setState({ phase: "error", message: describeError(error) });
-    } finally {
-      setGenerating(false);
-    }
-  }, [
-    effectiveAspect,
-    effectiveDuration,
-    effectiveSound,
-    generating,
-    load,
-    mayCreate,
-    projectId,
-    prompt,
-  ]);
+  /**
+   * 돈이 드는 작업 하나를 실행합니다 — 생성, 수정, 이어서 만들기.
+   *
+   * 실패하면 화면 전체를 오류로 덮지 않고 버튼 아래에 이유를 적습니다.
+   * 지원금이 모자란 것은 작업 공간이 깨진 것이 아니기 때문입니다.
+   */
+  const runPaid = useCallback(
+    async (work: () => Promise<VideoVersion>) => {
+      if (!mayCreate || working) return;
+      setWorking(true);
+      setActionError(null);
+      setIsPlaying(false);
+      setProgress(0);
+      try {
+        const version = await work();
+        applyProject(await getVideoProject(projectId));
+        setSelectedVersionId(version.id);
+        setMode({ kind: "generate" });
+        void refreshQuarter();
+      } catch (error) {
+        setActionError(describeError(error));
+      } finally {
+        setWorking(false);
+      }
+    },
+    [applyProject, mayCreate, projectId, refreshQuarter, working],
+  );
+
+  const generate = useCallback(
+    () =>
+      runPaid(async () => {
+        // 프롬프트를 먼저 저장해야 버전에 지금 내용이 기록됩니다.
+        await updateVideoProject(projectId, { prompt });
+        // 설정은 프로젝트가 아니라 이 화면의 조작부에 있으므로 함께
+        // 보냅니다. 백엔드가 버전에 그대로 적어 둡니다.
+        return createVideoVersion(projectId, choice ?? undefined);
+      }),
+    [choice, projectId, prompt, runPaid],
+  );
 
   const markFinal = useCallback(async () => {
     if (!mayCreate || !selectedVersionId) return;
@@ -390,29 +411,10 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     }
   }, [mayCreate, projectId, selectedVersionId]);
 
-  /* ---------- Claude (목업) ---------- */
-
-  const askClaude = useCallback(() => {
-    if (!mayCreate) return;
-
-    const trimmed = draft.trim();
-    if (!trimmed) return;
-
-    const rule = MOCK_VIDEO_REVISIONS.find((item) => item.match.test(trimmed));
-    setMessages((current) => [
-      ...current,
-      { id: `u-${Date.now()}`, role: "user", body: trimmed },
-      rule
-        ? {
-            id: `a-${Date.now()}`,
-            role: "assistant",
-            body: rule.reply,
-            revisedPrompt: rule.revise(prompt),
-          }
-        : { id: `a-${Date.now()}`, role: "assistant", body: MOCK_VIDEO_FALLBACK_REPLY },
-    ]);
-    setDraft("");
-  }, [draft, mayCreate, prompt]);
+  const openAction = useCallback((kind: VersionAction, sourceId: number) => {
+    setActionError(null);
+    setMode({ kind, sourceId });
+  }, []);
 
   /* ---------- 화면 ---------- */
 
@@ -446,30 +448,54 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   const artwork = artworkFor(selectedIndex >= 0 ? selectedIndex : 0);
   const elapsed = (progress / 100) * previewSeconds;
   const isFinal = selected !== null && project.final_version_id === selected.id;
+  const lockedReason = mayCreate ? undefined : NOT_PARTICIPATING_HINT;
 
   // 미리보기 틀의 비율. 버전이 자기 비율을 들고 있으면 그것을 쓰고,
   // 모르는 버전이면 지금 고른 비율로 그립니다.
   const savedAspect = selected?.aspect_ratio ?? null;
-  const previewAspect: Aspect = isAspect(savedAspect) ? savedAspect : effectiveAspect;
+  const fallbackAspect = choice?.aspect_ratio ?? "9:16";
+  const previewAspect: Aspect = isAspect(savedAspect)
+    ? savedAspect
+    : isAspect(fallbackAspect)
+      ? fallbackAspect
+      : "9:16";
 
   /**
    * 한 버전이 실제로 쓴 모델의 이름.
    *
    * 버전에는 provider의 id(`kling-3.0-pro`)가 남습니다. 회원에게 보여 줄
    * 것은 이름(`Kling 3.0 Pro`)이므로 모델 목록에서 찾아 바꿉니다.
-   * Auto가 고른 것이면 무엇으로 이어졌는지까지 보여 줍니다 — 설정에는
-   * "Auto"라고 적혀 있는데 미리보기에는 모르는 id가 떠 있으면, 둘이
-   * 같은 것을 가리키는지 알 수 없습니다.
+   * Auto가 고른 것이면 무엇으로 이어졌는지까지 보여 줍니다.
    */
   const modelNameFor = (version: VideoVersion): string => {
     const known =
-      models.find((model) => model.model_id === version.model_id) ??
-      (project.selected_model?.model_id === version.model_id
-        ? project.selected_model
-        : undefined);
+      modelOf(version) ??
+      (project.selected_model?.model_id === version.model_id ? project.selected_model : null);
     const name = known?.display_name ?? prettyModelId(version.model_id);
     return version.auto_selected ? `Auto → ${name}` : name;
   };
+
+  const labelOf = (id: number | null): string | null =>
+    versions.find((version) => version.id === id)?.label ?? null;
+
+  // 고른 버전으로 수정·이어서 만들기를 할 수 있는지, 없으면 왜인지.
+  const selectedModel = selected ? modelOf(selected) : null;
+  const recorded = selected ? hasRecordedSettings(selected) : false;
+  const canEdit = Boolean(recorded && selectedModel?.capabilities.supports_edit);
+  const canExtend = Boolean(recorded && selectedModel?.capabilities.supports_extend);
+  let actionNote: string | null = null;
+  if (selected && !(canEdit && canExtend)) {
+    if (!selectedModel) actionNote = "이 버전을 만든 모델은 지금 쓸 수 없어 수정·이어서 만들기가 안 됩니다.";
+    else if (!recorded) actionNote = "설정이 기록되지 않은 버전은 수정하거나 이어서 만들 수 없습니다.";
+    else if (!canEdit && !canExtend)
+      actionNote = `${selectedModel.display_name} 모델은 수정과 이어서 만들기를 지원하지 않습니다.`;
+    else if (!canEdit) actionNote = `${selectedModel.display_name} 모델은 수정을 지원하지 않습니다.`;
+    else actionNote = `${selectedModel.display_name} 모델은 이어서 만들기를 지원하지 않습니다.`;
+  }
+
+  const actionSource =
+    mode.kind === "generate" ? null : (versions.find((v) => v.id === mode.sourceId) ?? null);
+  const actionModel = actionSource ? modelOf(actionSource) : null;
 
   return (
     <div className={ws.shell}>
@@ -509,10 +535,12 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
       <NotParticipatingBanner inWorkspace />
 
       <div className={ws.body}>
-        {/* 왼쪽 — 프롬프트와 설정 */}
+        {/* 왼쪽 — 프롬프트와 설정, 또는 수정·이어서 만들기 */}
         <aside className={`${ws.pane} ${styles.left}`}>
           <div className={ws.paneHead}>
-            <span className={ws.paneHeadTitle}>프롬프트 · 설정</span>
+            <span className={ws.paneHeadTitle}>
+              {mode.kind === "generate" ? "프롬프트 · 설정" : "버전에서 이어 작업하기"}
+            </span>
             {saving && (
               <span className={styles.savingHint}>
                 {saving === "saving" ? "저장 중…" : "저장됨"}
@@ -520,114 +548,142 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
             )}
           </div>
           <div className={ws.paneBody}>
-            <p className="section-title">어떤 영상을 만들까요?</p>
-            {/* readOnly이지 disabled가 아닙니다. 참여하지 않는 회원도 자기가
-                쓴 프롬프트를 읽고 복사할 수 있어야 합니다. disabled면 글자를
-                고를 수조차 없습니다. */}
-            <textarea
-              className={`field ${styles.promptArea}`}
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              onBlur={() => void savePrompt()}
-              placeholder={
-                mayCreate ? "영상 아이디어를 자유롭게 적어주세요" : "이번 분기에는 고칠 수 없습니다"
-              }
-              readOnly={!mayCreate}
-              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-              aria-label="영상 프롬프트"
-            />
-            <div className={styles.promptMeta}>
-              <span>한국어로 적으면 됩니다</span>
-              <span>{prompt.length}자</span>
-            </div>
-
-            <div className={styles.settings}>
-              <div className={styles.settingRow}>
-                <label className={styles.settingLabel} htmlFor="video-model">
-                  Model
-                </label>
-                <select
-                  className="field"
-                  id="video-model"
-                  value={project.selected_model_id ?? "auto"}
-                  onChange={(event) => void chooseModel(event.target.value)}
-                  disabled={!mayCreate}
-                  title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                >
-                  {/* Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
-                  <option value="auto">Auto — 추천</option>
-                  {models.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.display_name}
-                    </option>
-                  ))}
-                </select>
-                <p className={styles.settingHint}>
-                  {project.selected_model
-                    ? project.selected_model.description
-                    : "CTRL+AI가 알맞은 모델을 고릅니다."}
-                </p>
-              </div>
-
-              <VideoSettings
-                duration={effectiveDuration}
-                aspect={effectiveAspect}
-                sound={effectiveSound}
-                supportedDurations={capDurations}
-                supportedAspects={capAspects}
-                supportsSound={capSound}
-                onDuration={setDuration}
-                onAspect={setAspect}
-                onSound={setSound}
-                lockedReason={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+            {mode.kind !== "generate" && actionSource && actionModel ? (
+              <VersionActionPanel
+                key={`${mode.kind}-${actionSource.id}`}
+                action={mode.kind}
+                source={actionSource}
+                model={actionModel}
+                busy={working}
+                error={actionError}
+                lockedReason={lockedReason}
+                onEdit={(instruction) =>
+                  void runPaid(() => editVideoVersion(projectId, actionSource.id, instruction))
+                }
+                onExtend={(seconds) =>
+                  void runPaid(() => extendVideoVersion(projectId, actionSource.id, seconds))
+                }
+                onCancel={() => {
+                  setActionError(null);
+                  setMode({ kind: "generate" });
+                }}
               />
+            ) : (
+              <>
+                <p className="section-title">어떤 영상을 만들까요?</p>
+                {/* readOnly이지 disabled가 아닙니다. 참여하지 않는 회원도
+                    자기가 쓴 프롬프트를 읽고 복사할 수 있어야 합니다. */}
+                <textarea
+                  className={`field ${styles.promptArea}`}
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  onBlur={() => void savePrompt()}
+                  placeholder={
+                    mayCreate
+                      ? "영상 아이디어를 자유롭게 적어주세요"
+                      : "이번 분기에는 고칠 수 없습니다"
+                  }
+                  readOnly={!mayCreate}
+                  title={lockedReason}
+                  aria-label="영상 프롬프트"
+                />
+                <div className={styles.promptMeta}>
+                  <span>한국어로 적으면 됩니다</span>
+                  <span>{prompt.length}자</span>
+                </div>
 
-              {settingNotice && (
-                <p className={styles.settingNotice} role="status">
-                  {settingNotice}
-                </p>
-              )}
-            </div>
+                <div className={styles.settings}>
+                  <div className={styles.settingRow}>
+                    <label className={styles.settingLabel} htmlFor="video-model">
+                      Model
+                    </label>
+                    <select
+                      className="field"
+                      id="video-model"
+                      value={project.selected_model_id ?? "auto"}
+                      onChange={(event) => void chooseModel(event.target.value)}
+                      disabled={!mayCreate}
+                      title={lockedReason}
+                    >
+                      {/* Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
+                      <option value="auto">
+                        Auto — 추천{models[0] ? ` (${models[0].display_name})` : ""}
+                      </option>
+                      {models.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.display_name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className={styles.settingHint}>
+                      {project.selected_model
+                        ? project.selected_model.description
+                        : "CTRL+AI가 알맞은 모델을 고릅니다."}
+                    </p>
+                  </div>
 
-            {/* 생성 전에 무엇으로 만드는지 한 줄로 확인합니다. */}
-            <p className={styles.summary}>
-              <span className={styles.summaryModel}>
-                {project.selected_model?.display_name ?? "Auto"}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>{effectiveDuration}초</span>
-              <span aria-hidden="true">·</span>
-              <span>{ASPECT_LABEL[effectiveAspect]}</span>
-              <span aria-hidden="true">·</span>
-              <span>{capSound ? (effectiveSound ? "소리 켬" : "소리 끔") : "소리 없음"}</span>
-            </p>
+                  {caps && choice ? (
+                    <VideoSettings
+                      caps={caps}
+                      choice={choice}
+                      onChange={changeChoice}
+                      lockedReason={lockedReason}
+                    />
+                  ) : (
+                    <p className={styles.settingHint}>모델 정보를 불러오는 중…</p>
+                  )}
 
-            <div className={styles.actions}>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => setDraft("조금 더 어두운 분위기로 바꿔줘.")}
-                disabled={!mayCreate}
-                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-              >
-                {!mayCreate && <Lock size={13} aria-hidden="true" />} Claude로 다듬기
-              </button>
-              <button
-                className="btn btn-primary"
-                type="button"
-                onClick={() => void generate()}
-                disabled={!mayCreate || generating}
-                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-              >
-                {!mayCreate && <Lock size={13} aria-hidden="true" />}{" "}
-                {generating ? "생성 중…" : "Higgsfield로 생성"}
-              </button>
-              <p className="small dim">
-                {mayCreate
-                  ? "아직 실제로 영상을 만들지는 않습니다. 시도만 버전으로 기록됩니다."
-                  : NOT_PARTICIPATING_HINT}
-              </p>
-            </div>
+                  {notice && (
+                    <p className={styles.settingNotice} role="status">
+                      {notice}
+                    </p>
+                  )}
+                </div>
+
+                {/* 생성 전에 무엇으로 만드는지 한 줄로 확인합니다. */}
+                {choice && (
+                  <p className={styles.summary} data-testid="video-summary">
+                    <span className={styles.summaryModel}>
+                      {activeModel?.display_name ?? "Auto"}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>{choice.duration_seconds}초</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{ASPECT_LABEL[choice.aspect_ratio as Aspect] ?? choice.aspect_ratio}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{choice.resolution}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{caps?.sound ? (choice.sound ? "소리 켬" : "소리 끔") : "소리 없음"}</span>
+                  </p>
+                )}
+
+                <div className={styles.actions}>
+                  <span className={styles.costRow}>
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => void generate()}
+                      disabled={!mayCreate || working || !choice}
+                      title={lockedReason}
+                    >
+                      {!mayCreate && <Lock size={13} aria-hidden="true" />}{" "}
+                      {working ? "생성 중…" : "Higgsfield로 생성"}
+                    </button>
+                    <span className={styles.cost} data-testid="generate-cost">
+                      {costLabel(generateCost)}
+                    </span>
+                  </span>
+                  <p className="small dim">
+                    {mayCreate ? "만들 때마다 Video 지원금에서 차감됩니다." : NOT_PARTICIPATING_HINT}
+                  </p>
+                  {actionError && (
+                    <p className={styles.actionError} role="alert">
+                      {actionError}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </aside>
 
@@ -645,6 +701,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   {isAspect(selected.aspect_ratio)
                     ? ` · ${ASPECT_LABEL[selected.aspect_ratio]}`
                     : ""}
+                  {selected.resolution ? ` · ${selected.resolution}` : ""}
                   {selected.sound == null ? "" : selected.sound ? " · 소리 켬" : " · 소리 끔"}
                 </span>
               )}
@@ -692,7 +749,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                     </div>
                   </div>
 
-                  {!isPlaying && !generating && (
+                  {!isPlaying && !working && (
                     <button
                       className={styles.playOverlay}
                       type="button"
@@ -708,12 +765,12 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                     </button>
                   )}
 
-                  {generating && (
+                  {working && (
                     <div className={styles.generating}>
                       <div>
                         <div className={styles.spinner} aria-hidden="true" />
-                        Higgsfield로 생성 중…
-                        <p className="small dim">시도를 기록하고 있습니다</p>
+                        Higgsfield로 만드는 중…
+                        <p className="small dim">잠시만 기다려 주세요</p>
                       </div>
                     </div>
                   )}
@@ -773,85 +830,26 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   <span>{selected?.provider ?? "Higgsfield"}</span>
                   <span aria-hidden="true">·</span>
                   <span>{selected ? formatClock(selected.created_at) : ""}</span>
+                  {selected?.instruction && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>수정 요청: {selected.instruction}</span>
+                    </>
+                  )}
                 </p>
               </>
             )}
           </div>
         </section>
 
-        {/* 오른쪽 — Claude */}
-        <aside className={`${ws.pane} ${ws.paneLast} ${styles.right}`}>
-          <div className={styles.rightInner}>
-            <div className={ws.paneHead}>
-              <span className={ws.paneHeadTitle}>Claude</span>
-              <span className="badge badge-mock">준비 중</span>
-            </div>
-            <div className={ws.paneBody}>
-              <div className={ws.chatThread}>
-                {/* 아직 아무 말도 주고받지 않은 상태. 예시 대화를 미리 채워
-                    두면 새 프로젝트가 이미 상의를 마친 것처럼 보입니다. */}
-                {messages.length === 0 && (
-                  <p className={styles.chatEmpty}>
-                    영상 아이디어를 Claude와 다듬어 보세요. 분위기, 길이, 장면 순서처럼
-                    바꾸고 싶은 것을 한국어로 적으면 됩니다.
-                  </p>
-                )}
-                {messages.map((message) => (
-                  <div
-                    className={`${ws.chatMessage} ${
-                      message.role === "user" ? ws.chatUser : ws.chatAssistant
-                    }`}
-                    key={message.id}
-                  >
-                    <span className={ws.chatRole}>
-                      {message.role === "user" ? "나" : "Claude"}
-                    </span>
-                    {message.body}
-                    {message.revisedPrompt && (
-                      <button
-                        className={`btn btn-sm ${styles.applyBtn}`}
-                        type="button"
-                        onClick={() => setPrompt(message.revisedPrompt as string)}
-                        disabled={!mayCreate}
-                        title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                      >
-                        {!mayCreate && <Lock size={12} aria-hidden="true" />} 수정된 프롬프트 적용
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className={ws.chatComposer}>
-              <input
-                className="field"
-                type="text"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  // 한글 조합 중 Enter는 무시합니다.
-                  if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                    event.preventDefault();
-                    askClaude();
-                  }
-                }}
-                placeholder={mayCreate ? "어떻게 바꿀까요?" : "이번 분기에는 사용할 수 없습니다"}
-                disabled={!mayCreate}
-                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                aria-label="Claude에게 수정 요청하기"
-              />
-              <button
-                className="btn btn-sm"
-                type="button"
-                onClick={askClaude}
-                disabled={!mayCreate || !draft.trim()}
-                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-              >
-                {mayCreate ? "보내기" : <Lock size={13} aria-hidden="true" />}
-              </button>
-            </div>
-          </div>
-        </aside>
+        {/* 오른쪽 — 프롬프트 도움받기(선택). 접혀서 시작합니다. */}
+        <PromptHelper
+          projectId={projectId}
+          prompt={prompt}
+          mayCreate={mayCreate}
+          onApply={setPrompt}
+          onCharged={() => void refreshQuarter()}
+        />
       </div>
 
       {/* 아래 — 버전 */}
@@ -865,46 +863,51 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
             <span className="small dim">생성하면 여기에 쌓입니다</span>
           ) : (
             <ul className={styles.versionList}>
-              {versions.map((version, index) => (
-                <li key={version.id}>
-                  <button
-                    className={`${styles.version} ${
-                      version.id === selectedVersionId ? styles.versionActive : ""
-                    }`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedVersionId(version.id);
-                      setProgress(0);
-                      setIsPlaying(false);
-                    }}
-                    aria-pressed={version.id === selectedVersionId}
-                  >
-                    <span
-                      className={styles.versionThumb}
-                      style={{
-                        background: artworkFor(index),
+              {versions.map((version, index) => {
+                const source = labelOf(version.source_version_id);
+                return (
+                  <li key={version.id}>
+                    <button
+                      className={`${styles.version} ${
+                        version.id === selectedVersionId ? styles.versionActive : ""
+                      }`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVersionId(version.id);
+                        setProgress(0);
+                        setIsPlaying(false);
                       }}
-                      aria-hidden="true"
-                    />
-                    <span className={styles.versionMeta}>
-                      <span>{version.label}</span>
-                      {/* 버전이 자기 설정을 들고 있으면 그것을, 모르면
-                          만든 시각을 보여 줍니다. */}
-                      <span className={styles.versionTime}>
-                        {version.duration_seconds != null
-                          ? `${version.duration_seconds}초${
-                              version.aspect_ratio ? ` · ${version.aspect_ratio}` : ""
-                            }`
-                          : formatClock(version.created_at)}
+                      aria-pressed={version.id === selectedVersionId}
+                    >
+                      <span
+                        className={styles.versionThumb}
+                        style={{
+                          background: artworkFor(index),
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span className={styles.versionMeta}>
+                        <span>
+                          {version.label}{" "}
+                          <span className={styles.versionKind}>
+                            {VERSION_KIND_LABEL[version.kind]}
+                            {source ? ` ← ${source}` : ""}
+                          </span>
+                        </span>
+                        {/* 버전이 자기 설정을 들고 있으면 그것을, 모르면
+                            만든 시각을 보여 줍니다. */}
+                        <span className={styles.versionTime}>
+                          {settingsLine(version) || formatClock(version.created_at)}
+                        </span>
+                        <span className={styles.versionModel}>{modelNameFor(version)}</span>
                       </span>
-                      <span className={styles.versionModel}>{modelNameFor(version)}</span>
-                    </span>
-                    {project.final_version_id === version.id && (
-                      <span className="badge badge-ok">최종</span>
-                    )}
-                  </button>
-                </li>
-              ))}
+                      {project.final_version_id === version.id && (
+                        <span className="badge badge-ok">최종</span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -915,25 +918,47 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               className="btn btn-sm"
               type="button"
               onClick={() => void generate()}
-              disabled={!mayCreate || generating}
-              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+              disabled={!mayCreate || working || !choice}
+              title={lockedReason}
             >
               {!mayCreate && <Lock size={12} aria-hidden="true" />} 다시 생성
             </button>
+            {selected && canEdit && (
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={() => openAction("edit", selected.id)}
+                disabled={!mayCreate || working}
+                title={lockedReason}
+              >
+                {!mayCreate && <Lock size={12} aria-hidden="true" />} 이 영상 수정하기
+              </button>
+            )}
+            {selected && canExtend && (
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={() => openAction("extend", selected.id)}
+                disabled={!mayCreate || working}
+                title={lockedReason}
+              >
+                {!mayCreate && <Lock size={12} aria-hidden="true" />} 이어서 만들기
+              </button>
+            )}
+            {actionNote && <span className={styles.actionNote}>{actionNote}</span>}
             <button
               className="btn btn-sm"
               type="button"
               onClick={() => void markFinal()}
               disabled={!mayCreate || !selected || isFinal}
-              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+              title={lockedReason}
             >
               {!mayCreate && <Lock size={12} aria-hidden="true" />}{" "}
               {isFinal ? "최종본으로 지정됨" : "최종본으로 선택"}
             </button>
             {/* 링크입니다 — 실제로 파일을 받아 오는 일이고, 참여 여부와
                 무관합니다. 내가 만든 것을 꺼내 오는 길은 늘 열려 있어야
-                합니다. 받을 파일이 없는 버전에는 보여 주지 않습니다:
-                눌러도 아무 일이 없는 단추보다 없는 쪽이 낫습니다. */}
+                합니다. 받을 파일이 없는 버전에는 보여 주지 않습니다. */}
             {selected?.has_asset && (
               <a
                 className="btn btn-sm"

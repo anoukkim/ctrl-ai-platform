@@ -17,7 +17,7 @@
  * 길이와 모델 이름은 순수한 계산이므로 여기서 제대로 증명됩니다.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { VideoModel, VideoProjectDetail, VideoVersion } from "@/lib/projects";
@@ -32,7 +32,13 @@ const KLING: VideoModel = {
   capabilities: {
     durations: [5, 10, 15],
     aspect_ratios: ["9:16", "16:9", "1:1"],
+    resolutions: ["720p", "1080p"],
     sound: true,
+    supports_edit: true,
+    supports_extend: true,
+    price_per_second_krw: { "720p": 700, "1080p": 1000 },
+    defaults: { duration_seconds: 5, aspect_ratio: "9:16", resolution: "720p", sound: true },
+    prices_are_examples: true,
   },
 };
 
@@ -52,7 +58,11 @@ function version(overrides: Partial<VideoVersion> = {}): VideoVersion {
     duration_seconds: 10,
     aspect_ratio: "16:9",
     sound: true,
+    resolution: "720p",
     auto_selected: true,
+    kind: "generate",
+    source_version_id: null,
+    instruction: null,
     ...overrides,
   };
 }
@@ -86,7 +96,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
 
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => true,
-  useMyQuarter: () => ({ quarter: null, loading: false }),
+  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -240,7 +250,10 @@ describe("Claude 칸", () => {
 
     render(<VideoWorkspace projectId="3" />);
 
-    await waitFor(() => expect(screen.getByText(/영상 아이디어를 Claude와 다듬어/)).toBeDefined());
+    // 접혀서 시작하므로 먼저 엽니다.
+    const open = await screen.findByRole("button", { name: "프롬프트 도움받기 (선택)" });
+    act(() => open.click());
+    await waitFor(() => expect(screen.getByText(/바꾸고 싶은 것을 한국어로 적으면/)).toBeDefined());
     // 예전에 미리 들어 있던 예시 대화.
     expect(screen.queryByText(/조금 더 어두운 분위기로 바꿔줘/)).toBeNull();
   });
@@ -260,7 +273,7 @@ describe("버전 조각", () => {
       return el as HTMLElement;
     });
 
-    expect(within(list).getByText("10초 · 16:9")).toBeDefined();
+    expect(within(list).getByText("10초 · 16:9 · 720p")).toBeDefined();
     expect(within(list).getByText("Auto → Kling 3.0 Pro")).toBeDefined();
   });
 });

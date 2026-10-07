@@ -146,14 +146,35 @@ export interface VideoModel {
   display_name: string;
   description: string;
   sort_order: number;
-  /** 모델마다 지원하는 설정이 달라 자유 형식입니다. */
-  capabilities: {
-    durations?: number[];
-    aspect_ratios?: string[];
-    sound?: boolean;
-    generation_types?: string[];
-  };
+  capabilities: VideoCapabilities;
 }
+
+/**
+ * 한 모델의 카탈로그 항목 — 영상 만들기는 전부 이것을 따릅니다.
+ *
+ * 백엔드의 `VideoCapabilities`(app/schemas/video.py)와 같은 모양이고,
+ * 거기서 검사를 마친 값만 내려옵니다. 가격은 화질마다 초당 원입니다.
+ */
+export interface VideoCapabilities {
+  durations: number[];
+  aspect_ratios: string[];
+  resolutions: string[];
+  sound: boolean;
+  supports_edit: boolean;
+  supports_extend: boolean;
+  price_per_second_krw: Record<string, number>;
+  defaults: {
+    duration_seconds: number;
+    aspect_ratio: string;
+    resolution: string;
+    sound: boolean;
+  };
+  /** 아직 아무 관리자도 확인하지 않은 예시 가격인지. */
+  prices_are_examples: boolean;
+}
+
+/** 버전을 만든 방법: 생성 / 수정 / 이어서. */
+export type VideoVersionKind = "generate" | "edit" | "extend";
 
 export interface VideoVersion {
   id: number;
@@ -177,8 +198,15 @@ export interface VideoVersion {
   duration_seconds: number | null;
   aspect_ratio: string | null;
   sound: boolean | null;
+  /** 화질. 설정이 기록되기 전에 만든 버전은 null입니다. */
+  resolution: string | null;
   /** Auto가 고른 모델인지. 화면에는 "Auto → Kling 3.0 Pro"로 나옵니다. */
   auto_selected: boolean | null;
+  /** 어떻게 만들었는지, 그리고 수정·이어서라면 어느 버전에서 왔는지. */
+  kind: VideoVersionKind;
+  source_version_id: number | null;
+  /** 수정할 때 적은 요청. 다른 방법으로 만든 버전은 null입니다. */
+  instruction: string | null;
   /**
    * 내려받을 파일이 있는지.
    *
@@ -268,18 +296,67 @@ export function deleteVideoProject(id: number | string): Promise<void> {
   return request<void>(`/video/projects/${id}`, { method: "DELETE" });
 }
 
-/** 생성 시도를 기록합니다. 아직 실제 영상은 만들어지지 않습니다.
+/** 영상을 만듭니다(Higgsfield, 지금은 mock). Video 지원금에서 차감됩니다.
  *
- *  프롬프트와 모델은 백엔드가 프로젝트에서 읽습니다. 길이·비율·소리는
+ *  프롬프트와 모델은 백엔드가 프로젝트에서 읽습니다. 길이·비율·화질·소리는
  *  프로젝트가 아니라 작업 공간의 조작부에 있으므로 여기서 보냅니다.
- *  보낸 값이 모델에 맞는지는 백엔드가 다시 확인합니다. */
+ *  보낸 값이 모델의 카탈로그에 있는지는 백엔드가 다시 확인합니다. */
 export function createVideoVersion(
   id: number | string,
-  settings?: { duration_seconds?: number; aspect_ratio?: string; sound?: boolean },
+  settings?: {
+    duration_seconds?: number;
+    aspect_ratio?: string;
+    resolution?: string;
+    sound?: boolean;
+  },
 ): Promise<VideoVersion> {
   return request<VideoVersion>(`/video/projects/${id}/versions`, {
     method: "POST",
     body: JSON.stringify(settings ?? {}),
+  });
+}
+
+/** 이 영상 수정하기 — 고른 버전과 요청을 보내 새 버전을 만듭니다.
+ *  길이·비율·화질은 원본을 따르므로 보내지 않습니다. */
+export function editVideoVersion(
+  projectId: number | string,
+  versionId: number,
+  instruction: string,
+): Promise<VideoVersion> {
+  return request<VideoVersion>(`/video/projects/${projectId}/versions/${versionId}/edit`, {
+    method: "POST",
+    body: JSON.stringify({ instruction }),
+  });
+}
+
+/** 이어서 만들기 — 모델이 허용하는 길이만큼 덧붙인 새 버전을 만듭니다. */
+export function extendVideoVersion(
+  projectId: number | string,
+  versionId: number,
+  durationSeconds: number,
+): Promise<VideoVersion> {
+  return request<VideoVersion>(`/video/projects/${projectId}/versions/${versionId}/extend`, {
+    method: "POST",
+    body: JSON.stringify({ duration_seconds: durationSeconds }),
+  });
+}
+
+export interface PromptHelp {
+  reply: string;
+  /** Claude가 고친 프롬프트. 고치지 않고 답만 했으면 null입니다. */
+  revised_prompt: string | null;
+  /** Build(Claude) 지원금에서 빠진 금액. */
+  charged_krw: number;
+}
+
+/** 프롬프트 도움받기 — Claude가 글만 고쳐 줍니다. 영상은 만들지 않습니다. */
+export function askPromptHelp(
+  projectId: number | string,
+  input: { prompt: string; request: string },
+): Promise<PromptHelp> {
+  return request<PromptHelp>(`/video/projects/${projectId}/prompt-help`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
@@ -342,7 +419,9 @@ export function listAdminVideoModels(): Promise<AdminVideoModel[]> {
 
 export function updateAdminVideoModel(
   id: number,
-  changes: Partial<Pick<AdminVideoModel, "enabled" | "member_visible" | "sort_order">>,
+  changes: Partial<
+    Pick<AdminVideoModel, "enabled" | "member_visible" | "sort_order" | "capabilities">
+  >,
 ): Promise<AdminVideoModel> {
   return request<AdminVideoModel>(`/admin/video-models/${id}`, {
     method: "PATCH",
