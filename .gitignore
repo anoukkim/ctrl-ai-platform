@@ -10,6 +10,10 @@ venv/
 *.sqlite3
 *.db
 
+# Generated files kept by the local storage backend (STORAGE_DIR).
+# Member assets are not source and must never reach a commit.
+backend/var/
+
 # ---------- Node / frontend ----------
 node_modules/
 .next/

@@ -77,6 +77,10 @@ class VideoVersionRead(BaseModel):
     status: VideoVersionStatus
     created_at: datetime
 
+    #: Whether this version has a file to download. The storage key
+    #: itself is never sent — the screen only needs the yes or no.
+    has_asset: bool = False
+
     # What this attempt was made with. `None` means the version predates
     # the columns and its settings are genuinely unknown — the workspace
     # must not fill the gap with the member's current selection.
@@ -87,7 +91,11 @@ class VideoVersionRead(BaseModel):
 
 
 class VideoProjectBase(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
+    # No length rule here on purpose. `app/services/work.clean_name` is the
+    # single authority on what a name may be, because it is the only place
+    # that can answer in Korean — a pydantic failure arrives as a list under
+    # `detail`, and the frontend only renders a string.
+    name: str
     prompt: str = Field(default="", max_length=4000)
 
 
@@ -98,7 +106,7 @@ class VideoProjectCreate(VideoProjectBase):
 
 
 class VideoProjectUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=120)
+    name: str | None = None
     prompt: str | None = Field(default=None, max_length=4000)
     selected_model_id: int | None = None
     status: VideoProjectStatus | None = None

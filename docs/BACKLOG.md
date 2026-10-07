@@ -19,8 +19,18 @@ says what order things happen in.
 `main`.
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
-admin-restructure, ui-naming, fix-video-workspace-hang, **ui-tube-watch**
-and **ui-apps-detail** (both merged 2026-10-02).
+admin-restructure, ui-naming, fix-video-workspace-hang, ui-tube-watch,
+ui-apps-detail and **project-video-management** (merged 2026-10-07).
+
+**Three components are now shared between Project Builder and Video
+Generator**, which is where a later change should go rather than into
+one product: `app/components/WorkspaceTitle.tsx` (the workspace title,
+its ▾ menu, inline rename), `app/components/LibraryCard.tsx` (the list
+card and its ⋯ menu), and `app/components/ConfirmDialog.tsx`, which moved
+out of `app/admin/components/` and is now the only confirmation window in
+the product — a member deleting a project and an admin closing an account
+ask the same question and should not ask it in two different sets of
+words.
 
 **The comment section is now shared code.** `ui-apps-detail` lifted
 reactions, tabs and the whole comment column out of CtrlAITube's
@@ -72,8 +82,8 @@ entirely for a new section, **After the prototype (needs discussion)** —
 the cost model behind them is still being decided, and an item whose
 shape is unsettled should not sit at the head of a queue blocking four
 items that are ready. Everything below them moved up, so **Next** now
-starts at `project-video-management` and ends, as before, with the three
-launch items.
+started at `project-video-management` and ended, as before, with the
+three launch items.
 
 **The numbered list under "Next" is the authority on order** — the
 numbers written into the spec sections are a snapshot and go stale at
@@ -98,51 +108,85 @@ assumption they came first. Four notes were rewritten to match:
 
 ---
 
+## Operator notes
+
+Things that look like product bugs and are not. Written down because
+each one cost an investigation.
+
+- **Restart a `next dev` that has been up for days, and delete `.next`
+  if it goes slow.** Turbopack keeps a persistent dev cache under
+  `.next/dev/cache/turbopack/`. It grows without bound and compacts
+  continuously; after six days it was 662 MB inside an 884 MB `.next`,
+  and the dev server burned **92% of a core while idle** at 1.36 GB RSS.
+  Pages took 12 s and the API proxy 8 s, while the backend answered the
+  same requests in 25–66 ms. Stopping the server, deleting `.next` and
+  restarting took `/video` from 12,235 ms to 75 ms and idle CPU to 2%.
+  Nothing in the repository caused it and nothing in the repository
+  fixes it — it is maintenance:
+
+  ```bash
+  # stop next dev, then
+  rm -rf frontend/.next && cd frontend && npm run dev
+  ```
+
+- **`pytest` writes to the database named by `DATABASE_URL`.** The
+  row-lock test needs real PostgreSQL and calls `create_all` on it, so
+  running the suite on a branch creates that branch's new tables in the
+  development database while leaving `alembic_version` alone — after
+  which `alembic upgrade head` fails with `relation ... already exists`.
+  Item 5, `test-database-isolation`, fixes it; until then, drop the
+  stray table before migrating.
+
+---
+
 ## Next (in order)
 
-Reordered on 2026-10-02. `ui-tube-watch` and `ui-apps-detail` merged
-that day, and **`budget-by-provider` and `usage-analytics` moved out of
-Next** into *After the prototype (needs discussion)* below — so the list
-now starts at `project-video-management`. The three launch items stay at
-the end, in the order settled on 2026-10-01.
+Order settled 2026-10-02, with two changes since: `budget-by-provider`
+and `usage-analytics` left for *After the prototype (needs discussion)*
+below, and `test-database-isolation` was inserted ahead of
+`prep-beta-launch` on 2026-10-07. `project-video-management` merged that
+day and left the list, so it now starts at `account-withdrawal`. The
+launch items stay at the end, in the order settled on 2026-10-01.
 
-1. **project-video-management** · branch `feat-project-video-management`
-   Spec saved verbatim below, including **Rename projects and videos**.
-   ⚠ **The per-version generation settings are already done** —
-   fix-video-workspace-hang had to add them to make a version show its
-   own length. `video_versions` carries `duration_seconds`,
-   `aspect_ratio`, `sound` and `auto_selected`; that part of the spec
-   below is history, not work.
-
-2. **account-withdrawal** · branch `feat-account-withdrawal`
+1. **account-withdrawal** · branch `feat-account-withdrawal`
    Member self-withdrawal, the refund hold and the 30-day grace period.
    Spec saved verbatim below. **It releases the member's remaining
    allocation rather than returning it to a club reserve** — there is no
    reserve until `budget-by-provider` builds one.
 
-3. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+2. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section. **Charges the
    existing Video budget** through the current budget service.
 
-4. **Phase 2 — Chat** · branch `phase-2-chat`
+3. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20. **Charges the
    existing Build (Claude) budget**, while recording every field the two
    deferred items will need — see the note on its spec.
 
-5. **invite-only-signup** · branch `feat-invite-only-signup`
+4. **invite-only-signup** · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
+5. **test-database-isolation** · branch `fix-test-database-isolation`
+   ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
+   The test suite writes to the database named by `DATABASE_URL` — the
+   one the developer runs the product on. Found on 2026-10-07, after it
+   put a branch's table into the development database and left
+   `alembic upgrade head` unable to run.
+
 6. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
+   **Do not start before item 5.** Running the suite against a live
+   database is a different order of mistake once the database holds
+   members' work rather than one developer's test rows.
 
 ### Merge order
 
@@ -201,9 +245,47 @@ Three things to carry into **budget-by-provider**:
 
 New UI requests go here until they are folded into a UI batch.
 
-*(none loose — the two UI requests since UI batch 1,
-**admin-restructure** and **ui-naming**, were each large enough to get
-their own item and branch in **Next** rather than wait for a batch.)*
+*(The two UI requests since UI batch 1, **admin-restructure** and
+**ui-naming**, were each large enough to get their own item and branch in
+**Next** rather than wait for a batch.)*
+
+### ui-library-cards
+
+Raised 2026-10-07, while reviewing `project-video-management`. **Not in
+Next** — it waits here until it is folded into a batch or given its own
+item. Saved exactly as written by the developer.
+
+> 1. Card header: name and status badge together on the left (name
+>    truncates with an ellipsis); ⋯ alone on the right.
+> 2. ⋯ discoverable: visible at rest, hit area at least 32×32px,
+>    hover/focus state, tooltip "더보기".
+> 3. Video cards show a thumbnail: the final version, else the latest, at
+>    its real aspect ratio, letterboxed. No version yet → empty frame
+>    "아직 만든 버전이 없습니다". Builder cards stay text-only.
+> 4. A project with a chosen final version never shows "Draft"; decide
+>    the rule in the backend, not only in the card.
+> 5. One meta format on both libraries, "수정 18분 전" / "수정
+>    2026.10.01", in the normal UI font, not monospace.
+> 6. Keep the header "+ 새 영상 프로젝트" button; show the dashed
+>    new-project card only as the empty state.
+> 7. Video card ⋯ menu: "최종본 다운로드" when a final exists, otherwise
+>    disabled with the tooltip "최종본을 먼저 고르세요", using the
+>    workspace's download route.
+>
+> Tests: CSS-contract checks for badge placement and ⋯ size; thumbnail
+> picks final over latest and falls back to the empty frame; no "Draft"
+> when a final exists; one meta format.
+
+Two notes for whoever builds it, from the work that raised it:
+
+- **Point 4 is a real backend question.** `status` and `final_version_id`
+  are independent columns today, so a project can honestly be `draft`
+  with a final version chosen. Deciding it in the card would leave the
+  API still saying `draft` to everything else that reads it.
+- **Point 7's route already exists** —
+  `GET /api/video/projects/{id}/versions/{version_id}/download`, open to
+  a member who is not participating this quarter. The card needs the
+  final version's id, which `VideoProject` already carries.
 
 ---
 
@@ -955,9 +1037,10 @@ by the time these two are taken up some of that shape already exists.
 
 ---
 
-## project-video-management — full spec
+## project-video-management — full spec (merged 2026-10-07)
 
-Branch `feat-project-video-management`. Saved exactly as written by the developer.
+Branch `feat-project-video-management`, merged. Saved exactly as written
+by the developer, and kept for reference.
 
 > 1. Delete Builder projects and videos
 >    - Delete button on each project and video, in the library list and in the workspace, with a Korean confirmation dialog that names the item.
@@ -1012,6 +1095,54 @@ map in `VideoWorkspace.tsx` is deleted.
 
 ---
 
+## test-database-isolation — full spec
+
+Branch `fix-test-database-isolation`. **Must land before
+`prep-beta-launch`.** Raised 2026-10-07.
+
+> **The problem.** `tests/test_usage.py` proves the budget row lock, and
+> SQLite ignores `SELECT ... FOR UPDATE`, so that one test needs real
+> PostgreSQL. It gets it by calling `get_settings().database_url` — the
+> developer's own database — and then runs
+> `Base.metadata.create_all(bind=engine)` against it.
+>
+> Two consequences, both seen for real on 2026-10-07:
+>
+> 1. Running the suite on a branch **creates that branch's new tables in
+>    the development database**, without recording anything in
+>    `alembic_version`. The result is a database holding part of a
+>    branch's schema and none of its migrations, which is exactly the
+>    state in which `alembic upgrade head` later fails with
+>    `relation "builder_project_files" already exists`.
+> 2. The test writes rows (members, quarters, allocations) into the
+>    database the developer is looking at while they work.
+>
+> **What to build.**
+>
+> - A dedicated test database, from its own setting — `TEST_DATABASE_URL`,
+>   defaulting to something obviously separate such as
+>   `postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai_test`.
+> - **Refuse to run if it resolves to the same database as
+>   `DATABASE_URL`.** Compare the parsed database name and host, not the
+>   raw string: the same database can be written two ways. A test that
+>   silently falls back to the developer's database is the bug being
+>   fixed, so the failure must be loud and must name both URLs.
+> - Skip politely, as today, when no test database is reachable — the
+>   suite must still run with Docker down.
+> - Create the schema from **migrations** (`alembic upgrade head`) rather
+>   than `create_all`, so what the tests run against is what production
+>   runs against. `create_all` is what let the schemas drift apart in the
+>   first place.
+> - Drop or truncate what the test created afterwards.
+>
+> Tests: the suite leaves `DATABASE_URL`'s database untouched (compare
+> the table list and `alembic_version` before and after a full run); the
+> guard refuses when both URLs name the same database, including when
+> they are spelled differently; the row-lock test still proves
+> overspending is impossible.
+
+---
+
 ## account-withdrawal — full spec
 
 Branch `feat-account-withdrawal`. Saved exactly as written by the developer.
@@ -1029,9 +1160,9 @@ Branch `feat-account-withdrawal`. Saved exactly as written by the developer.
 > 4. Admin: the member detail page shows withdrawn members with the withdrawal date, grace-period end, refund status, a 복구 action during the grace period, and a "환불 완료 기록" action. Admin-initiated withdrawal uses the same rules.
 > 5. Tests: wrong password blocks withdrawal; a former member cannot log in; the remaining club allocation is released and the release is audited; a personal balance blocks finalisation until a refund is recorded; restore works within 30 days and not after; anonymisation removes personal fields but keeps usage totals; the unpublish choice removes items from CtrlAIApps and CtrlAITube.
 
-**What this item leans on, which is why it sits at number 2.** Point 1's
+**What this item leans on, which is why it sits at number 1.** Point 1's
 "download your videos and code ZIPs first" links to the downloads built
-in **project-video-management**, which is directly ahead of it, and
+in **project-video-management**, merged 2026-10-07, and
 point 4's member detail page is the one built by **admin-restructure**,
 already merged. Point 3's scheduled job is the first background job in
 the project — there is no scheduler yet, so expect to choose one.
@@ -1086,10 +1217,11 @@ specific lengths, not a continuous range, so a slider would let a member
 pick a value no model accepts. `resolutions` and a per-resolution price
 are new, which makes the cost estimate depend on 화질 as well as length.
 
-**Point 6's per-version settings are the column
-`project-video-management` adds** (`duration_seconds`, `aspect_ratio`,
-`sound` on `VideoVersion`), and that item is at position 1, ahead of this
-one. It owns that migration; this item uses the columns, adds the
+**Point 6's per-version settings already exist** —
+`fix-video-workspace-hang` added `duration_seconds`, `aspect_ratio` and
+`sound` to `VideoVersion` in migration `d7e1b4a9c052`, and
+`project-video-management` merged on 2026-10-07 without needing to touch
+them. This item uses the columns, adds the
 catalogue fields in point 1, and will need a further column for the
 chosen resolution.
 
@@ -1178,6 +1310,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-07 | **project-video-management** — deleting, renaming and taking work out, across both products. **Delete is soft**: `deleted_at` on `builder_projects` and `video_projects` (migration `e5c2a1f73b84`), so a member sees it gone through every route while an admin can put it back from the new **Deleted Items** section; Video had no delete route at all before. Usage history survives by construction — `UsageEvent` points at these rows with `ON DELETE SET NULL`, so a hard delete would have kept the spending and detached it from the project that caused it. Both admin actions are audited; a member deleting their own work is not, because the log is for admin changes. **Rename** works from three places that all send the same PATCH — the workspace title, its ▾ menu, each card's ⋯ menu — trimmed to 1–60 characters by one `clean_name` shared by both products, refused with a Korean 400 rather than the 422 whose list-shaped `detail` the frontend cannot render; duplicates stay legal. **코드 다운로드 (ZIP)** packs the project's files plus a Korean guide, refusing any path that leaves the project and every `.env`, key, `node_modules` and `.git`, capped because the archive is built in memory; `builder_project_files` (`f3b8d41c9e27`) arrives with it and **Phase 3 is what fills it**, so a project made today downloads as a guide that says so. **영상 다운로드** serves bytes CTRL+AI stored under its own key (`asset_storage_key`, `a71f5c38d904`) rather than a provider URL that can expire or want their credentials, through a storage interface — local folder now, cloud in Phase 9 — and the mock provider leaves a real **animated GIF** built in pure Python, named `.gif` because an `.mp4` no player opens would make the download look finished while being broken. Both downloads are guarded by `get_current_user`, not `require_active_member`: a member who did not join this quarter cannot create, but their work is theirs to take away. `WorkspaceTitle`, `LibraryCard` and `ConfirmDialog` came out of it as shared components, the last moving out of `app/admin/`. One defect found only in a browser: an open card menu was painted over by the next card's ⋯, because `.cardMenu` carries a z-index and is therefore its own stacking context, sealing the dropdown's z-index inside it — the open card is now raised, and a closed one still creates no context | `feat-project-video-management` |
 | 2026-10-02 | **ui-tube-watch** — the CtrlAITube watch page rebuilt as two columns at 7:3: the player, title, a one-line meta strip where a six-row table used to be, and the prompt on the left; a sticky full-height panel on the right holding the reaction chips and a real comment section that scrolls inside itself. The player sits in a letterbox frame capped at 75vh, which is what keeps the title above the fold — 16:9 fills the column, 9:16 and 1:1 are capped and centred at their true ratio. The comment section has avatars, relative time with the exact date on hover, 답글 and a like count, threads on a thin line collapsing past three replies, 최신순/인기순, and tabs that keep CTRL+AI comments and YouTube comments from mixing; comments still live in local state (Phase 8 stores them) but the composer works, because a disabled input cannot show that Enter posts or that a long thread stays in its column. `CommunityVideo` gained `aspectRatio` with one example video per ratio, comments gained `likes`, and `totalComments` counts replies so the feed card and the tab cannot disagree. Two defects came out of the browser checks rather than the tests: the breakpoint measured the viewport, so at 1280px a 1024px rule was true while only ~990px of content existed (now a container query on the content box), and the prerendered "6일 전" would disagree with a later reader's clock (now `suppressHydrationWarning` on the `<time>`). `lib/aspect.ts` holds the ratio constants both screens use; `lib/relative-time.ts` is new and survives Phase 8 | `ui-tube-watch` |
 | 2026-10-01 | **fix-video-workspace-hang** — the workspace sat on "불러오는 중" forever although every request returned 200: the load effect's cleanup marked its run superseded and threw away the response that would have ended it, leaving nothing to leave `loading` when the second request never delivered. A response is now applied whichever run asked for it, and each page gives the workspace a `key` of its projectId so one instance only ever shows one project; Project Builder had the same effect and was fixed with it. Then four problems found testing the same screen: the 16:9 player grew out of its column and covered both side panels (now a letterbox frame sized to the smaller of the column's width and its height through the ratio, with a minimum height so the stacked narrow layout cannot collapse it); the raw provider id shown beside a settings panel saying "Auto" (now "Auto → Kling 3.0 Pro"); a hard-coded 15-second player (now the version's own length); and a scripted Claude conversation in brand-new projects (now empty). Made the last two true by recording settings per version — migration `d7e1b4a9c052` adds `duration_seconds`, `aspect_ratio`, `sound` and `auto_selected`, validated against the model's capabilities on the server — which takes that scope out of project-video-management. Finally the navigation: the Video workspace's "내 영상" button opened Profile, so it is gone and the back link is the single way back in both workspaces, and Chat routes 내 영상 and 내 프로젝트 to their libraries instead of Profile | `fix-video-workspace-hang` |
 | 2026-10-01 | **ui-naming** — the navigation moved to English: group headings (Create, Explore, Account), Report Issue in place of 문제 신고, and the nine Admin section names, which the sidebar, tabs, breadcrumbs, dashboard cards and each section's own `<h1>` now all read from `sections.ts` through `sectionLabel()` instead of each screen spelling its own. CtrlAI Apps became CtrlAIApps everywhere, route `/ctrlaistore` unchanged; 공동체 지원 became 동아리 지원 everywhere including the usage ledger's funding-source badges, with 개인 충전 untouched and the `FundingSource` data values deliberately left alone. Korean prose that points at a screen now uses that screen's English name; Korean prose about the things on a screen keeps the Korean noun. 시즌 → 분기 folded in on request | `ui-naming` |

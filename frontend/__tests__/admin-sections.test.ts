@@ -51,7 +51,7 @@ describe("Admin 구역 목록", () => {
     expect(visibleSections(false).map((s) => s.key)).not.toContain("dev");
   });
 
-  test("보이는 구역은 여덟 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("보이는 구역은 아홉 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -61,9 +61,13 @@ describe("Admin 구역 목록", () => {
       "quarters",
       "topups",
       "video-models",
+      "deleted",
       "audit",
       "system",
     ]);
+    // Deleted Items는 Audit Log 바로 앞입니다 — 둘 다 지난 일을
+    // 들여다보는 구역이고, 되살리기는 감사 기록에 남습니다.
+    expect(visible.indexOf("deleted")).toBeLessThan(visible.indexOf("audit"));
     // 심사가 관리자의 주된 일이므로 Quarters보다 먼저 옵니다.
     expect(visible.indexOf("applications")).toBeLessThan(visible.indexOf("quarters"));
   });
@@ -107,6 +111,7 @@ describe("지금 보고 있는 구역", () => {
     expect(activeSection("/admin/members/11")?.key).toBe("members");
     expect(activeSection("/admin/applications")?.key).toBe("applications");
     expect(activeSection("/admin/quarters")?.key).toBe("quarters");
+    expect(activeSection("/admin/deleted")?.key).toBe("deleted");
   });
 
   test("Admin 밖의 경로는 어느 구역도 아니다", () => {

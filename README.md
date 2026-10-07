@@ -76,6 +76,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
+| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
 | `/admin/system`       | System          | Server health and external service status    |
 | `/admin/dev`          | Dev Tools       | Usage simulator; development only            |
@@ -112,6 +113,29 @@ frame in `frontend/app/components/workspace.module.css`.
 **Project Builder** — selecting a file changes the editor contents. Nothing
 generates or runs code: that is Phase 3, and member code will never execute on
 the CTRL+AI backend.
+
+**코드 다운로드 (ZIP)** works today, in the project's ▾ menu and in each
+library card's ⋯ menu. The archive holds the project's files in their folder
+structure plus a short Korean guide, and never a `.env`, a key, `node_modules`
+or `.git`. Project files live in `builder_project_files`, which **Phase 3 is
+what fills** — so a project made now downloads as a ZIP containing only the
+guide, and the guide says so rather than explaining how to run code that is not
+there. Downloading stays open to a member who is not participating this
+quarter: their work is theirs.
+
+**다운로드** works on any finished version, and keeps working for a member who
+is not participating this quarter. Generated files are kept by CTRL+AI through
+a storage interface (`backend/app/services/storage.py`) — a local folder in
+development, cloud storage in Phase 9 — and never served from a provider URL,
+which can expire or need the provider's own credentials.
+
+Higgsfield is still not connected (Phase 6). While `VIDEO_PROVIDER=mock`, a
+generated version gets a small **animated GIF placeholder**, built in pure
+Python with no encoder and no ffmpeg. It is named `.gif` because that is what
+it is: writing a file with an `.mp4` name that no player opens would make the
+download look finished while being broken. Phase 6 swaps in Higgsfield's MP4,
+and nothing downstream changes — the provider states its own content type and
+extension.
 
 **Video Generator** is deliberately not a one-shot form. It models the loop a
 real creator works in:

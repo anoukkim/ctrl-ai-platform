@@ -678,59 +678,6 @@ a.card:hover .cardChevron {
 
 /* ---------- 확인창 ---------- */
 
-.dialogBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.2rem;
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.dialog {
-  display: grid;
-  gap: 0.7rem;
-  width: 100%;
-  max-width: 26rem;
-  padding: 1.1rem 1.2rem;
-  background: var(--elevated);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
-}
-
-.dialogTitle {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 650;
-}
-
-.dialogEffect {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
-
-.dialogActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.4rem;
-  margin-top: 0.2rem;
-}
-
-.dangerButton {
-  background: var(--error-soft);
-  border-color: rgba(230, 77, 84, 0.5);
-  color: var(--error-text);
-}
-
-.dangerButton:hover:not(:disabled) {
-  border-color: var(--error-text);
-}
-
 /* ---------- 결과 한 줄 ---------- */
 
 .result {
@@ -1017,21 +964,6 @@ button.statCardActive:hover {
 }
 
 /* ---------- 확인창의 사유 칸 ---------- */
-
-.dialogField {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.dialogField textarea {
-  width: 100%;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.required {
-  color: var(--error-text);
-}
 
 /* ---------- 분기 만들기 양식 ---------- */
 

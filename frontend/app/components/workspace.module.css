@@ -175,6 +175,91 @@
   text-align: center;
 }
 
+/* 제목을 눌러 그 자리에서 고치는 칸. 폭은 글자 수에 맞춰 두지 않고
+   고정합니다 — 입력 중에 칸이 늘었다 줄었다 하면 글자가 흔들립니다. */
+.titleInput {
+  width: 16rem;
+  max-width: 50vw;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.titleInput:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* 이름을 바꾼 뒤의 짧은 확인, 그리고 거절 사유. 둘 다 위쪽 막대 안에
+   머물러서 화면이 밀리지 않습니다. */
+.titleNote {
+  font-size: 0.76rem;
+  color: var(--ok-text);
+  white-space: nowrap;
+}
+
+.titleError {
+  font-size: 0.76rem;
+  color: var(--error-text);
+  white-space: nowrap;
+}
+
+/* 메뉴 안에서 "건너가기" 목록과 동작을 가르는 선. */
+.switcherSeparator {
+  height: 1px;
+  margin: 0.25rem 0.1rem;
+  background: var(--border);
+}
+
+.switcherLabel {
+  padding: 0.3rem 0.5rem 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+/* 메뉴 안의 동작 한 줄. .switcherItem은 두 줄짜리 grid라 여기서는
+   쓰지 않습니다. */
+.switcherAction {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.switcherAction:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.switcherAction:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switcherActionDanger {
+  color: var(--error-text);
+}
+
+.switcherActionDanger:hover:not(:disabled) {
+  background: var(--error-soft);
+  color: #ffd2d4;
+}
+
 /* ---------- 상태 화면 ---------- */
 
 .loading,

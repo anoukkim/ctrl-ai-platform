@@ -10,19 +10,23 @@
  * 무엇을 하면 되는지 한국어로 안내합니다.
  */
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
   BUILDER_STATUS_BADGE,
   BUILDER_STATUS_LABEL,
+  builderProjectDownloadUrl,
   createBuilderProject,
+  deleteBuilderProject,
   describeError,
   formatRelative,
   listBuilderProjects,
+  updateBuilderProject,
   type BuilderProject,
 } from "@/lib/projects";
 
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
+import LibraryCard from "@/app/components/LibraryCard";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
@@ -47,6 +51,11 @@ export default function BuilderLibrary() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  // 지우려고 고른 프로젝트. 창에 이름을 보여 줘야 하므로 id만으로는
+  // 모자랍니다.
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +94,54 @@ export default function BuilderLibrary() {
       setBusy(false);
     }
   }, [newName, reload]);
+
+  // 이름 바꾸기는 목록을 다시 받지 않고 그 줄만 고칩니다 — 다시
+  // 불러오면 검색·필터가 깜빡이고, 바꾼 줄이 어디로 갔는지 알기
+  // 어려워집니다.
+  const rename = useCallback(async (id: number, name: string) => {
+    const updated = await updateBuilderProject(id, { name });
+    setState((current) =>
+      current.phase === "ready"
+        ? {
+            phase: "ready",
+            projects: current.projects.map((item) => (item.id === id ? updated : item)),
+          }
+        : current,
+    );
+  }, []);
+
+  const remove = useCallback(async (id: number) => {
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await deleteBuilderProject(id);
+      setConfirm(null);
+      setState((current) =>
+        current.phase === "ready"
+          ? { phase: "ready", projects: current.projects.filter((item) => item.id !== id) }
+          : current,
+      );
+    } catch (error) {
+      // 창은 열어 둡니다 — 왜 안 되었는지 읽을 자리가 거기뿐입니다.
+      setRemoveError(describeError(error));
+    } finally {
+      setRemoving(false);
+    }
+  }, []);
+
+  const askToDelete = useCallback(
+    (project: BuilderProject) => {
+      setRemoveError(null);
+      setConfirm({
+        title: "프로젝트 삭제",
+        effect: `'${project.name}' 프로젝트을 삭제합니다. 목록에서 사라지지만 관리자가 되살릴 수 있고, 지금까지 쓴 사용량 기록은 그대로 남습니다.`,
+        confirmLabel: "삭제",
+        danger: true,
+        onConfirm: () => remove(project.id),
+      });
+    },
+    [remove],
+  );
 
   // 브라우저 안에서 거릅니다. 서버 검색으로 옮길 때는 이 블록만 요청으로
   // 바뀌고 화면 구조는 그대로입니다.
@@ -252,13 +309,27 @@ export default function BuilderLibrary() {
       {state.phase === "ready" && visible.length > 0 && (
         <div className={styles.grid}>
           {visible.map((project) => (
-            <Link className={styles.card} href={`/builder/${project.id}`} key={project.id}>
-              <div className={styles.cardTop}>
-                <span className={styles.cardName}>{project.name}</span>
+            <LibraryCard
+              badge={
                 <span className={`badge ${BUILDER_STATUS_BADGE[project.status]}`}>
                   {BUILDER_STATUS_LABEL[project.status]}
                 </span>
-              </div>
+              }
+              extraActions={[
+                {
+                  label: "코드 다운로드 (ZIP)",
+                  href: builderProjectDownloadUrl(project.id),
+                  title: "프로젝트 파일을 압축 파일로 받습니다",
+                },
+              ]}
+              href={`/builder/${project.id}`}
+              key={project.id}
+              lockedHint={NOT_PARTICIPATING_HINT}
+              mayEdit={mayCreate}
+              name={project.name}
+              onDelete={() => askToDelete(project)}
+              onRename={(name) => rename(project.id, name)}
+            >
               <p className={styles.cardDescription}>
                 {project.description || "설명이 아직 없습니다."}
               </p>
@@ -271,7 +342,7 @@ export default function BuilderLibrary() {
                   {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
                 </span>
               </p>
-            </Link>
+            </LibraryCard>
           ))}
 
           <button
@@ -289,6 +360,13 @@ export default function BuilderLibrary() {
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        busy={removing}
+        error={removeError}
+        request={confirm}
+        onClose={() => setConfirm(null)}
+      />
     </>
   );
 }

@@ -8,19 +8,22 @@
  * 목록에는 마지막 버전과 최종본 여부를 함께 보여 줍니다.
  */
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
   VIDEO_STATUS_BADGE,
   VIDEO_STATUS_LABEL,
   createVideoProject,
+  deleteVideoProject,
   describeError,
   formatRelative,
   listVideoProjects,
+  updateVideoProject,
   type VideoProject,
 } from "@/lib/projects";
 
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
+import LibraryCard from "@/app/components/LibraryCard";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
@@ -45,6 +48,9 @@ export default function VideoLibrary() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +89,53 @@ export default function VideoLibrary() {
       setBusy(false);
     }
   }, [newName, reload]);
+
+  // Builder 목록과 같은 방식입니다 — 바뀐 줄만 고치고 목록을 다시
+  // 받지 않습니다.
+  const rename = useCallback(async (id: number, name: string) => {
+    const updated = await updateVideoProject(id, { name });
+    setState((current) =>
+      current.phase === "ready"
+        ? {
+            phase: "ready",
+            projects: current.projects.map((item) => (item.id === id ? updated : item)),
+          }
+        : current,
+    );
+  }, []);
+
+  const remove = useCallback(async (id: number) => {
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await deleteVideoProject(id);
+      setConfirm(null);
+      setState((current) =>
+        current.phase === "ready"
+          ? { phase: "ready", projects: current.projects.filter((item) => item.id !== id) }
+          : current,
+      );
+    } catch (error) {
+      // 창은 열어 둡니다 — 왜 안 되었는지 읽을 자리가 거기뿐입니다.
+      setRemoveError(describeError(error));
+    } finally {
+      setRemoving(false);
+    }
+  }, []);
+
+  const askToDelete = useCallback(
+    (project: VideoProject) => {
+      setRemoveError(null);
+      setConfirm({
+        title: "영상 프로젝트 삭제",
+        effect: `'${project.name}' 영상 프로젝트을 삭제합니다. 만든 버전도 함께 사라지지만 관리자가 되살릴 수 있고, 사용량 기록은 그대로 남습니다.`,
+        confirmLabel: "삭제",
+        danger: true,
+        onConfirm: () => remove(project.id),
+      });
+    },
+    [remove],
+  );
 
   // 브라우저 안에서 거릅니다. 서버 검색으로 옮길 때는 이 블록만 요청으로
   // 바뀌고 화면 구조는 그대로입니다.
@@ -249,13 +302,20 @@ export default function VideoLibrary() {
       {state.phase === "ready" && visible.length > 0 && (
         <div className={styles.grid}>
           {visible.map((project) => (
-            <Link className={styles.card} href={`/video/${project.id}`} key={project.id}>
-              <div className={styles.cardTop}>
-                <span className={styles.cardName}>{project.name}</span>
+            <LibraryCard
+              badge={
                 <span className={`badge ${VIDEO_STATUS_BADGE[project.status]}`}>
                   {VIDEO_STATUS_LABEL[project.status]}
                 </span>
-              </div>
+              }
+              href={`/video/${project.id}`}
+              key={project.id}
+              lockedHint={NOT_PARTICIPATING_HINT}
+              mayEdit={mayCreate}
+              name={project.name}
+              onDelete={() => askToDelete(project)}
+              onRename={(name) => rename(project.id, name)}
+            >
               <p className={styles.cardDescription}>
                 {project.prompt || "아직 프롬프트를 적지 않았습니다."}
               </p>
@@ -266,7 +326,7 @@ export default function VideoLibrary() {
                 </span>
                 <span>{project.final_version_id ? "최종본 선택됨" : "최종본 미선택"}</span>
               </p>
-            </Link>
+            </LibraryCard>
           ))}
 
           <button
@@ -284,6 +344,13 @@ export default function VideoLibrary() {
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        busy={removing}
+        error={removeError}
+        request={confirm}
+        onClose={() => setConfirm(null)}
+      />
     </>
   );
 }

@@ -13,17 +13,23 @@
 
 import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
+import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
   BUILDER_STATUS_BADGE,
   BUILDER_STATUS_LABEL,
+  builderProjectDownloadUrl,
+  deleteBuilderProject,
   describeError,
   getBuilderProject,
   listBuilderProjects,
+  updateBuilderProject,
   type BuilderProject,
 } from "@/lib/projects";
 import { MOCK_BUILDER_CHAT, MOCK_FILE_CONTENTS, MOCK_FILE_TREE } from "@/lib/mock-data";
@@ -46,13 +52,15 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 있어야 하니까요. 막히는 것은 바꾸는 쪽뿐입니다.
   const mayCreate = useMayCreate();
 
+  const router = useRouter();
+
   const [state, setState] = useState<State>({ phase: "loading" });
   const [siblings, setSiblings] = useState<BuilderProject[]>([]);
-  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [activeFile, setActiveFile] = useState(ENTRY_FILE);
   const [mode, setMode] = useState<Mode>("code");
-
-  const switcherRef = useRef<HTMLDivElement | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
   // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
@@ -87,26 +95,50 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       });
   }, []);
 
-  // 바깥을 누르면 전환 메뉴를 닫습니다.
-  useEffect(() => {
-    if (!switcherOpen) return;
+  // 이름을 바꿉니다. 거절 사유는 그대로 올려 보내 WorkspaceTitle이
+  // 제목 옆에 보여 줍니다 — 백엔드가 이미 한국어 문장을 돌려줍니다.
+  const rename = useCallback(
+    async (name: string) => {
+      const updated = await updateBuilderProject(projectId, { name });
+      setState({ phase: "ready", project: updated });
+      // 건너가기 메뉴에도 새 이름이 보이도록.
+      setSiblings((list) =>
+        list.map((item) => (item.id === updated.id ? { ...item, name: updated.name } : item)),
+      );
+    },
+    [projectId],
+  );
 
-    const onPointerDown = (event: PointerEvent) => {
-      if (!switcherRef.current?.contains(event.target as Node)) setSwitcherOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSwitcherOpen(false);
-    };
+  // 지운 뒤에는 이 화면이 가리킬 것이 없으므로 목록으로 돌아갑니다.
+  // `refresh`까지 부르는 것은 목록이 캐시된 채로 지워진 프로젝트를
+  // 계속 보여 주지 않도록 하기 위해서입니다.
+  //
+  // 실패하면 창을 닫지 않고 그 안에 이유를 보여 줍니다 — 작업 공간에는
+  // 달리 알릴 자리가 없습니다.
+  const remove = useCallback(async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteBuilderProject(projectId);
+      router.push("/builder");
+      router.refresh();
+    } catch (error) {
+      setDeleteError(describeError(error));
+    } finally {
+      setDeleting(false);
+    }
+  }, [projectId, router]);
 
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [switcherOpen]);
-
-  const closeSwitcher = useCallback(() => setSwitcherOpen(false), []);
+  const askToDelete = useCallback((name: string) => {
+    setDeleteError(null);
+    setConfirm({
+      title: "프로젝트 삭제",
+      effect: `'${name}' 프로젝트를 삭제합니다. 목록에서 사라지지만 관리자가 되살릴 수 있고, 지금까지 쓴 사용량 기록은 그대로 남습니다.`,
+      confirmLabel: "삭제",
+      danger: true,
+      onConfirm: () => remove(),
+    });
+  }, [remove]);
 
   if (state.phase === "loading") {
     return (
@@ -151,45 +183,30 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         </Link>
         <span className={ws.topbarDivider} aria-hidden="true" />
 
-        <div className={ws.switcher} ref={switcherRef}>
-          <button
-            className={ws.switcherButton}
-            type="button"
-            onClick={() => setSwitcherOpen((open) => !open)}
-            aria-expanded={switcherOpen}
-            aria-haspopup="menu"
-          >
-            <span className={ws.switcherName}>{project.name}</span>
-            <span className={ws.switcherCaret} aria-hidden="true">
-              ▾
-            </span>
-          </button>
-
-          {switcherOpen && (
-            <ul className={ws.switcherMenu} role="menu">
-              {siblings.length === 0 && (
-                <li className={ws.switcherEmpty}>다른 프로젝트가 없습니다</li>
-              )}
-              {siblings.map((item) => (
-                <li key={item.id} role="none">
-                  <Link
-                    className={`${ws.switcherItem} ${
-                      item.id === project.id ? ws.switcherItemActive : ""
-                    }`}
-                    href={`/builder/${item.id}`}
-                    role="menuitem"
-                    onClick={closeSwitcher}
-                  >
-                    <span>{item.name}</span>
-                    <span className={ws.switcherItemMeta}>
-                      {BUILDER_STATUS_LABEL[item.status]}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <WorkspaceTitle
+          currentId={project.id}
+          emptyLabel="다른 프로젝트가 없습니다"
+          lockedHint={NOT_PARTICIPATING_HINT}
+          mayEdit={mayCreate}
+          name={project.name}
+          // 다운로드는 참여 여부와 무관합니다 — 내가 만든 것을 꺼내
+          // 오는 일이고, 백엔드도 같은 이유로 열어 두었습니다.
+          extraActions={[
+            {
+              label: "코드 다운로드 (ZIP)",
+              href: builderProjectDownloadUrl(project.id),
+              title: "프로젝트 파일을 압축 파일로 받습니다",
+            },
+          ]}
+          onDelete={() => askToDelete(project.name)}
+          onRename={rename}
+          siblings={siblings.map((item) => ({
+            id: item.id,
+            name: item.name,
+            href: `/builder/${item.id}`,
+            meta: BUILDER_STATUS_LABEL[item.status],
+          }))}
+        />
 
         <span className={`badge ${BUILDER_STATUS_BADGE[project.status]}`}>
           {BUILDER_STATUS_LABEL[project.status]}
@@ -355,6 +372,13 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           </div>
         </aside>
       </div>
+
+      <ConfirmDialog
+        busy={deleting}
+        error={deleteError}
+        request={confirm}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }

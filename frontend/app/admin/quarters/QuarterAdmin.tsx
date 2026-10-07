@@ -27,7 +27,7 @@ import { formatDate, formatKrw, updateQuarter } from "@/lib/quarters";
 
 import { useAdminQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
-import ConfirmDialog, { type ConfirmRequest } from "../components/ConfirmDialog";
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
 import { QuarterBadge } from "../components/StatusBadge";

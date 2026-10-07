@@ -14,22 +14,27 @@
  * 재생. Higgsfield는 호출하지 않으며, "생성"은 시도를 기록만 합니다.
  */
 
-import { ArrowLeft, Lock, Pause, Play } from "lucide-react";
+import { ArrowLeft, Download, Lock, Pause, Play } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
+import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
   VIDEO_STATUS_BADGE,
   VIDEO_STATUS_LABEL,
   createVideoVersion,
+  deleteVideoProject,
   describeError,
   getVideoProject,
   listVideoModels,
   listVideoProjects,
   updateVideoProject,
+  videoVersionDownloadUrl,
   type VideoModel,
   type VideoProject,
   type VideoProjectDetail,
@@ -113,11 +118,14 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   // 있습니다. 막히는 것은 저장·생성·최종본 선택처럼 바꾸는 쪽입니다.
   // 실제 거절은 백엔드가 합니다 — 아래 잠금은 설명일 뿐입니다.
   const mayCreate = useMayCreate();
+  const router = useRouter();
 
   const [state, setState] = useState<State>({ phase: "loading" });
   const [siblings, setSiblings] = useState<VideoProject[]>([]);
   const [models, setModels] = useState<VideoModel[]>([]);
-  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [prompt, setPrompt] = useState("");
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
@@ -137,8 +145,6 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   const [sound, setSound] = useState(true);
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
-
-  const switcherRef = useRef<HTMLDivElement | null>(null);
 
   /* ---------- 불러오기 ---------- */
 
@@ -265,25 +271,45 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   const settingNotice =
     adjustments.length > 0 ? `이 모델에 맞춰 ${adjustments.join(", ")} 바꿨습니다.` : null;
 
-  /* ---------- 바깥 클릭으로 전환 메뉴 닫기 ---------- */
+  /* ---------- 이름 바꾸기 · 삭제 ---------- */
 
-  useEffect(() => {
-    if (!switcherOpen) return;
+  // Builder의 작업 공간과 같은 모양입니다 — 제목·메뉴·확인 창은
+  // WorkspaceTitle과 ConfirmDialog에 한 번만 적혀 있습니다.
+  const rename = useCallback(
+    async (name: string) => {
+      const updated = await updateVideoProject(projectId, { name });
+      applyProject(updated);
+      setSiblings((list) =>
+        list.map((item) => (item.id === updated.id ? { ...item, name: updated.name } : item)),
+      );
+    },
+    [applyProject, projectId],
+  );
 
-    const onPointerDown = (event: PointerEvent) => {
-      if (!switcherRef.current?.contains(event.target as Node)) setSwitcherOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSwitcherOpen(false);
-    };
+  const remove = useCallback(async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteVideoProject(projectId);
+      router.push("/video");
+      router.refresh();
+    } catch (error) {
+      setDeleteError(describeError(error));
+    } finally {
+      setDeleting(false);
+    }
+  }, [projectId, router]);
 
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [switcherOpen]);
+  const askToDelete = useCallback((name: string) => {
+    setDeleteError(null);
+    setConfirm({
+      title: "영상 프로젝트 삭제",
+      effect: `'${name}' 영상 프로젝트를 삭제합니다. 만든 버전도 함께 사라지지만 관리자가 되살릴 수 있고, 사용량 기록은 그대로 남습니다.`,
+      confirmLabel: "삭제",
+      danger: true,
+      onConfirm: () => remove(),
+    });
+  }, [remove]);
 
   /* ---------- 저장 ---------- */
 
@@ -457,45 +483,21 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         </Link>
         <span className={ws.topbarDivider} aria-hidden="true" />
 
-        <div className={ws.switcher} ref={switcherRef}>
-          <button
-            className={ws.switcherButton}
-            type="button"
-            onClick={() => setSwitcherOpen((open) => !open)}
-            aria-expanded={switcherOpen}
-            aria-haspopup="menu"
-          >
-            <span className={ws.switcherName}>{project.name}</span>
-            <span className={ws.switcherCaret} aria-hidden="true">
-              ▾
-            </span>
-          </button>
-
-          {switcherOpen && (
-            <ul className={ws.switcherMenu} role="menu">
-              {siblings.length === 0 && (
-                <li className={ws.switcherEmpty}>다른 프로젝트가 없습니다</li>
-              )}
-              {siblings.map((item) => (
-                <li key={item.id} role="none">
-                  <Link
-                    className={`${ws.switcherItem} ${
-                      item.id === project.id ? ws.switcherItemActive : ""
-                    }`}
-                    href={`/video/${item.id}`}
-                    role="menuitem"
-                    onClick={() => setSwitcherOpen(false)}
-                  >
-                    <span>{item.name}</span>
-                    <span className={ws.switcherItemMeta}>
-                      {VIDEO_STATUS_LABEL[item.status]}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <WorkspaceTitle
+          currentId={project.id}
+          emptyLabel="다른 프로젝트가 없습니다"
+          lockedHint={NOT_PARTICIPATING_HINT}
+          mayEdit={mayCreate}
+          name={project.name}
+          onDelete={() => askToDelete(project.name)}
+          onRename={rename}
+          siblings={siblings.map((item) => ({
+            id: item.id,
+            name: item.name,
+            href: `/video/${item.id}`,
+            meta: VIDEO_STATUS_LABEL[item.status],
+          }))}
+        />
 
         <span className={`badge ${VIDEO_STATUS_BADGE[project.status]}`}>
           {VIDEO_STATUS_LABEL[project.status]}
@@ -928,6 +930,20 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               {!mayCreate && <Lock size={12} aria-hidden="true" />}{" "}
               {isFinal ? "최종본으로 지정됨" : "최종본으로 선택"}
             </button>
+            {/* 링크입니다 — 실제로 파일을 받아 오는 일이고, 참여 여부와
+                무관합니다. 내가 만든 것을 꺼내 오는 길은 늘 열려 있어야
+                합니다. 받을 파일이 없는 버전에는 보여 주지 않습니다:
+                눌러도 아무 일이 없는 단추보다 없는 쪽이 낫습니다. */}
+            {selected?.has_asset && (
+              <a
+                className="btn btn-sm"
+                download
+                href={videoVersionDownloadUrl(projectId, selected.id)}
+                title="이 버전을 파일로 내려받습니다"
+              >
+                <Download size={12} aria-hidden="true" /> 다운로드
+              </a>
+            )}
             <button
               className="btn btn-sm btn-primary"
               type="button"
@@ -943,6 +959,13 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
           </span>
         </div>
       </div>
+
+      <ConfirmDialog
+        busy={deleting}
+        error={deleteError}
+        request={confirm}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }

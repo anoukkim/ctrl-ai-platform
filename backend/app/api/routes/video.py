@@ -1,16 +1,23 @@
 """Video Generator routes: the member-facing model list and projects.
 
-No provider is called here. Creating a version records the attempt and
-marks it ready; a real Higgsfield call replaces that in Phase 6.
+Higgsfield is still not called — that is Phase 6. What a version does get
+now is a **file**, from the mock provider, stored through the storage
+interface: without one there would be nothing to download, and
+`project-video-management` asks for the download to work end to end
+before a provider exists.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date, datetime, timezone
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import User, VideoModel, VideoProject, VideoVersion
+from app.models import User, VideoModel, VideoProject, VideoVersion, VideoVersionStatus
 from app.schemas.video import (
     VideoModelRead,
     VideoProjectCreate,
@@ -20,20 +27,40 @@ from app.schemas.video import (
     VideoVersionCreate,
     VideoVersionRead,
 )
+from app.services import project_zip, video_assets
+from app.services.storage import StorageKeyError, get_storage
+from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/video", tags=["video"])
 
 
 def _owned_project(project_id: int, db: Session, user: User) -> VideoProject:
+    """Load one live project of this member's, or 404.
+
+    "Someone else's" and "deleted" both answer 404, for the same reason
+    Builder does: the member is told it is gone, so every route has to
+    agree that it is gone.
+    """
     project = db.scalar(
         select(VideoProject).where(
             VideoProject.id == project_id,
             VideoProject.owner_user_id == user.id,
+            VideoProject.deleted_at.is_(None),
         )
     )
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="프로젝트를 찾을 수 없습니다.")
     return project
+
+
+def _checked_name(raw: str) -> str:
+    """`clean_name`, as a 400 with a Korean sentence — see Builder's copy."""
+    try:
+        return clean_name(raw)
+    except InvalidNameError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)
+        ) from error
 
 
 def _allowed_models(db: Session) -> list[VideoModel]:
@@ -67,7 +94,10 @@ def list_projects(
     return list(
         db.scalars(
             select(VideoProject)
-            .where(VideoProject.owner_user_id == user.id)
+            .where(
+                VideoProject.owner_user_id == user.id,
+                VideoProject.deleted_at.is_(None),
+            )
             .order_by(VideoProject.updated_at.desc())
         )
     )
@@ -95,7 +125,7 @@ def create_project(
 
     project = VideoProject(
         owner_user_id=user.id,
-        name=payload.name,
+        name=_checked_name(payload.name),
         prompt=payload.prompt,
         selected_model_id=model_id,
     )
@@ -138,6 +168,9 @@ def update_project(
     project = _owned_project(project_id, db, user)
     changes = payload.model_dump(exclude_unset=True)
 
+    if "name" in changes:
+        changes["name"] = _checked_name(changes["name"])
+
     if "selected_model_id" in changes and changes["selected_model_id"] is not None:
         if changes["selected_model_id"] not in {m.id for m in _allowed_models(db)}:
             raise HTTPException(
@@ -161,6 +194,28 @@ def update_project(
     return project
 
 
+@router.delete(
+    "/projects/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a video project",
+)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> None:
+    """Delete a video project. The owner, while participating, only.
+
+    Video had no delete route at all until now, so the only way to lose a
+    project was for an admin to remove the row by hand. It mirrors
+    Builder's exactly, including the soft delete: the versions stay, so a
+    restore brings back every attempt rather than an empty shell.
+    """
+    project = _owned_project(project_id, db, user)
+    project.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+
+
 @router.post(
     "/projects/{project_id}/versions",
     response_model=VideoVersionRead,
@@ -172,6 +227,9 @@ def create_version(
     settings: VideoVersionCreate | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    # Named `config` because `settings` above is already taken by the
+    # request body — the generation settings the member asked for.
+    config: Settings = Depends(get_settings),
 ) -> VideoVersion:
     """Add a version using the project's current prompt and model.
 
@@ -237,7 +295,90 @@ def create_version(
         auto_selected=auto_selected,
     )
     db.add(version)
+    # Flushed rather than committed: the version needs its id to build a
+    # storage key, and the row must not be visible without its file.
+    db.flush()
+
+    if video_assets.is_mock(config):
+        # The mock provider's whole job: leave a file the member can
+        # actually open, so the download is real before Higgsfield exists.
+        # Phase 6 replaces this branch with the provider call and keeps
+        # the two lines that store the result.
+        asset = video_assets.make_placeholder(version.aspect_ratio)
+        version.asset_storage_key = video_assets.store(
+            get_storage(config),
+            project_id=project.id,
+            version_id=version.id,
+            asset=asset,
+        )
+
     db.commit()
     db.refresh(version)
     db.refresh(project)
     return version
+
+
+@router.get(
+    "/projects/{project_id}/versions/{version_id}/download",
+    summary="Download a finished version",
+    response_class=Response,
+    responses={200: {"content": {"video/mp4": {}}, "description": "The generated file"}},
+)
+def download_version(
+    project_id: int,
+    version_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """Send back the file this version produced.
+
+    **`get_current_user`, not `require_active_member`** — the same rule as
+    the Builder ZIP, for the same reason. A member who did not join this
+    quarter cannot generate anything new, but the videos they already made
+    are theirs to take away.
+
+    Serves what CTRL+AI stored, never the provider's URL: a provider link
+    can expire or need their credentials, and a member's own download must
+    not depend on either.
+    """
+    project = _owned_project(project_id, db, user)
+
+    version = next((row for row in project.versions if row.id == version_id), None)
+    if version is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="버전을 찾을 수 없습니다."
+        )
+
+    if version.status is not VideoVersionStatus.READY or not version.asset_storage_key:
+        # Not an error in the file-missing sense — the version simply has
+        # nothing to give yet, and the member is told which it is.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="아직 내려받을 수 있는 영상이 없습니다.",
+        )
+
+    try:
+        payload = get_storage(settings).load(version.asset_storage_key)
+    except (OSError, StorageKeyError) as error:
+        # The row says there is a file and there is not. Saying so plainly
+        # beats a 500, and beats pretending the version never existed.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="영상 파일을 찾을 수 없습니다. 다시 생성해 주세요.",
+        ) from error
+
+    extension = version.asset_storage_key.rsplit(".", 1)[-1]
+    filename = project_zip.safe_filename(
+        f"{project.name} {version.label}", date.today(), extension
+    )
+
+    disposition = f'attachment; filename="video-{version.id}.{extension}"; ' + (
+        f"filename*=UTF-8''{quote(filename)}"
+    )
+
+    return Response(
+        content=payload,
+        media_type=video_assets.content_type_for(version.asset_storage_key),
+        headers={"Content-Disposition": disposition},
+    )

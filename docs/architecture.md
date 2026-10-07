@@ -71,12 +71,15 @@ the same commit that adds it.
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/builder/projects/{id}` | **`require_active_member`** | Editing |
 | `DELETE /api/builder/projects/{id}` | **`require_active_member`** | Changing your work |
+| `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |
 | `GET /api/video/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/video/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/video/projects/{id}` | **`require_active_member`** | Editing |
 | `POST /api/video/projects/{id}/versions` | **`require_active_member`** | Generating — spends budget |
+| `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work |
+| `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
 | `GET /api/quarters/me` | `get_current_user` | |
 | `POST /api/quarters/{id}/apply` | `get_current_user` | **Deliberately open** — see below |
@@ -109,6 +112,9 @@ the same commit that adds it.
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |
 | `POST /api/admin/simulate-usage` | `require_admin` | 404 outside development |
+| `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
+| `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
+| `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |
 | `GET /` | none | Service banner |
 
 Two entries that look like exceptions and are not:

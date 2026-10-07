@@ -88,6 +88,9 @@ def guarded_calls(work: dict[str, int]) -> list[tuple[str, str, str, dict | None
         ("Video 만들기", "post", "/api/video/projects", {"name": "새 영상"}),
         ("Video 수정", "patch", f"/api/video/projects/{video_id}", {"prompt": "밤의 서울"}),
         ("Video 생성", "post", f"/api/video/projects/{video_id}/versions", None),
+        # Last in the list on purpose: the calls above need the project to
+        # still be there.
+        ("Video 삭제", "delete", f"/api/video/projects/{video_id}", None),
     ]
 
 
@@ -288,6 +291,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/video/projects"): "require_active_member",
     ("PATCH", "/api/video/projects/{project_id}"): "require_active_member",
     ("POST", "/api/video/projects/{project_id}/versions"): "require_active_member",
+    ("DELETE", "/api/video/projects/{project_id}"): "require_active_member",
+    # Taking a copy of your own work out. Deliberately `get_current_user`:
+    # a member who did not join this quarter may not create, but their
+    # work is theirs and must stay downloadable.
+    ("GET", "/api/builder/projects/{project_id}/download"): "get_current_user",
+    ("GET", "/api/video/projects/{project_id}/versions/{version_id}/download"): "get_current_user",
     # Quarters — applying must stay reachable while inactive, or the only
     # way out of being inactive is behind the door it unlocks.
     ("GET", "/api/quarters/current"): "get_current_user",
@@ -326,6 +335,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/providers"): "require_admin",
     ("POST", "/api/admin/providers/{provider}/check"): "require_admin",
     ("POST", "/api/admin/simulate-usage"): "require_admin",
+    # Deleted work. Admin-only and deliberately *not* participation-gated:
+    # moderating is not creating, so an admin who did not join this
+    # quarter can still restore a member's project.
+    ("GET", "/api/admin/deleted-items"): "require_admin",
+    ("POST", "/api/admin/work/{kind}/{item_id}/restore"): "require_admin",
+    ("DELETE", "/api/admin/work/{kind}/{item_id}"): "require_admin",
 }
 
 

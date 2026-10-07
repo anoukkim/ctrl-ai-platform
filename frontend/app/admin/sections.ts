@@ -14,6 +14,7 @@
 import {
   Clapperboard,
   FileText,
+  Trash2,
   LayoutDashboard,
   ScrollText,
   Server,
@@ -99,6 +100,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Video Models",
     description: "회원에게 열어 줄 영상 모델을 고릅니다.",
     Icon: Clapperboard,
+  },
+  {
+    // 회원이 지운 것을 되살리는 곳. Audit Log 앞에 둡니다 — 둘 다 지난
+    // 일을 들여다보는 구역이고, 되살리기는 감사 기록에 남습니다.
+    key: "deleted",
+    href: "/admin/deleted",
+    label: "Deleted Items",
+    description: "회원이 삭제한 프로젝트와 영상을 되살립니다.",
+    Icon: Trash2,
   },
   {
     key: "audit",

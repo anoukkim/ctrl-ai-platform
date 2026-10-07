@@ -50,6 +50,11 @@ class AuditAction:
     TOPUP_CONFIRMED = "topup.confirmed"
     TOPUP_REJECTED = "topup.rejected"
     USAGE_SIMULATED = "usage.simulated"
+    # A project or video an admin removed, or put back. A member deleting
+    # their own work is not an admin change and is not logged here; an
+    # admin reaching into someone else's library is.
+    WORK_DELETED = "work.deleted"
+    WORK_RESTORED = "work.restored"
 
 
 #: What each action is called on the Admin screen.
@@ -64,6 +69,8 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.TOPUP_CONFIRMED: "충전 확인",
     AuditAction.TOPUP_REJECTED: "충전 거절",
     AuditAction.USAGE_SIMULATED: "사용량 시뮬레이션",
+    AuditAction.WORK_DELETED: "작업물 삭제",
+    AuditAction.WORK_RESTORED: "작업물 복구",
 }
 
 

@@ -57,6 +57,11 @@
 }
 
 .card {
+  /* 카드 전체가 눌리는 자리입니다. 예전에는 카드가 <Link> 자체였는데,
+     그 안에 단추를 둘 수 없습니다 — 링크 안의 단추는 올바른 HTML이
+     아니고, 어느 쪽이 눌렸는지도 예측할 수 없습니다. 그래서 카드는
+     평범한 칸이 되고, 링크는 아래 .cardLink로 카드를 덮습니다. */
+  position: relative;
   display: grid;
   gap: 0.4rem;
   align-content: start;
@@ -123,6 +128,150 @@
 }
 
 /* 새 프로젝트 카드 — 목록의 일부지만 눈에 띄게. */
+/* 메뉴가 열려 있는 동안에만 카드를 들어 올립니다.
+ *
+ * `.cardMenu`가 z-index를 가지므로 그 자체가 쌓임 맥락이고, 안에 있는
+ * `.cardMenuList`의 z-index 20은 **그 맥락 안에서만** 유효합니다. 바깥에서
+ * 보면 펼친 메뉴도 결국 2입니다. 다음 카드의 `.cardMenu`도 2이고 DOM에서
+ * 뒤에 오므로, 같은 값끼리는 뒤가 이깁니다 — 펼친 메뉴가 아랫줄 카드의
+ * ⋯ 단추에 덮입니다. 실제 브라우저에서 확인했습니다: 겹치는 지점의
+ * `elementFromPoint`가 메뉴가 아니라 다음 카드를 돌려줍니다.
+ *
+ * 그래서 열려 있는 카드만 2보다 위로 올립니다. 닫혀 있는 `.card`는 그대로
+ * 맥락을 만들지 않습니다 — 항상 올려 두면 카드마다 맥락이 생겨, 지금 고친
+ * 것과 같은 종류의 문제를 다른 자리에서 다시 만듭니다. */
+.cardOpen {
+  z-index: 3;
+}
+
+/* 카드를 덮는 링크. 보이는 것은 없고, 이름만 읽어 줍니다. */
+.cardLink {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--radius);
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 링크 위에 올라와야 하는 것들 — 메뉴 단추와 이름 고치는 칸. */
+.cardMenu,
+.cardNameInput {
+  position: relative;
+  z-index: 1;
+}
+
+.cardMenu {
+  /* 메뉴를 이 자리에 맞춰 띄웁니다. */
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.cardMenuButton {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cardMenuButton:hover,
+.cardMenuButton[aria-expanded="true"] {
+  border-color: var(--border-strong);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.cardMenuList {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 20;
+  min-width: 10rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--elevated);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  list-style: none;
+}
+
+.cardMenuItem {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cardMenuItem:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.cardMenuItem:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cardMenuItemDanger {
+  color: var(--error-text);
+}
+
+.cardMenuItemDanger:hover:not(:disabled) {
+  background: var(--error-soft);
+  color: #ffd2d4;
+}
+
+.cardNameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.cardNameInput:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* 이름을 바꾼 뒤의 확인과 거절 사유. 카드 안에 머무릅니다. */
+.cardNote {
+  position: relative;
+  z-index: 1;
+  font-size: 0.75rem;
+  color: var(--ok-text);
+}
+
+.cardError {
+  position: relative;
+  z-index: 1;
+  font-size: 0.75rem;
+  color: var(--error-text);
+}
+
 .newCard {
   display: grid;
   place-content: center;

@@ -938,7 +938,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its nine sections are named in English too:
+and its ten sections are named in English too:
 
 ```text
 Admin
@@ -948,10 +948,16 @@ Admin
   Quarters
   Top-ups
   Video Models
+  Deleted Items
   Audit Log
   System
   Dev Tools        (development only)
 ```
+
+**Deleted Items** is where work a member deleted is restored. Deleting is
+soft — the row keeps its `deleted_at` and every member route answers 404 —
+and a soft delete with no way back would only mislead the member while
+growing the database.
 
 Budget and Content exist in the code with their routes but are hidden
 until their features land. Those names live in **one file**,
@@ -1365,6 +1371,13 @@ Implement:
 - threaded replies
 - inactive/former creator attribution
 
+**Every listing query must filter on the project's `deleted_at`.** Deleting
+is soft (`project-video-management`): the row stays so an admin can restore
+it, and a member who deletes their work is told it is gone. If a published
+listing joins the project without that filter, the work disappears from the
+member's own library and stays on the community screen — the one place they
+cannot remove it from. The models carry the same note.
+
 ## Phase 6 — Video Generator
 
 > **Groundwork already exists — extend it, do not rebuild it.** The Phase 1
@@ -1415,6 +1428,13 @@ Implement:
 - CTRL+AI comments
 - threaded replies
 - optionally show YouTube comments in a separate labeled area
+
+**Every listing query must filter on the project's `deleted_at`.** Deleting
+is soft (`project-video-management`): the row stays so an admin can restore
+it, and a member who deletes their work is told it is gone. If a published
+listing joins the project without that filter, the work disappears from the
+member's own library and stays on the community screen — the one place they
+cannot remove it from. The models carry the same note.
 
 **Phase 8 does not depend on Phase 7.** A member can paste the URL of a
 video they uploaded to YouTube themselves; CTRL+AI extracts the video ID and

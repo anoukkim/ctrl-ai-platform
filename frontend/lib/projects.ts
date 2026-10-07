@@ -8,6 +8,7 @@
  * 소유권은 백엔드가 정합니다. 여기서 사용자 id를 보내지 않습니다.
  */
 
+import { API_BASE_URL } from "./api";
 import { describeError, request } from "./http";
 
 export { describeError };
@@ -76,6 +77,31 @@ export function updateBuilderProject(
     method: "PATCH",
     body: JSON.stringify(changes),
   });
+}
+
+/**
+ * 프로젝트를 지웁니다.
+ *
+ * 백엔드에서는 행이 사라지지 않고 `deleted_at`만 찍힙니다. 회원 쪽에서는
+ * 모든 경로에서 404가 되므로 결과는 같고, 관리자가 되살릴 수 있습니다.
+ */
+export function deleteBuilderProject(id: number | string): Promise<void> {
+  return request<void>(`/builder/projects/${id}`, { method: "DELETE" });
+}
+
+/**
+ * 프로젝트의 코드를 ZIP으로 받는 주소.
+ *
+ * `request`를 쓰지 않습니다. 내려오는 것이 JSON이 아니고, 브라우저가
+ * 파일로 저장해 주기를 바라는 응답입니다. 그래서 이 주소로 그냥
+ * 이동시키면 됩니다 — `Content-Disposition: attachment`가 붙어 있어
+ * 화면은 그대로 있고 파일만 내려옵니다.
+ *
+ * 같은 출처이므로 세션 쿠키도 함께 갑니다. 참여하지 않는 분기에도
+ * 열려 있는 길입니다 — 내가 만든 것을 꺼내 오는 일이니까요.
+ */
+export function builderProjectDownloadUrl(id: number | string): string {
+  return `${API_BASE_URL}/api/builder/projects/${id}/download`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -153,6 +179,13 @@ export interface VideoVersion {
   sound: boolean | null;
   /** Auto가 고른 모델인지. 화면에는 "Auto → Kling 3.0 Pro"로 나옵니다. */
   auto_selected: boolean | null;
+  /**
+   * 내려받을 파일이 있는지.
+   *
+   * 보관 위치는 백엔드의 일이라 내려오지 않습니다. 화면에 필요한 것은
+   * 단추를 눌러도 되는지 여부뿐입니다.
+   */
+  has_asset: boolean;
 }
 
 export interface VideoProject {
@@ -213,6 +246,28 @@ export function updateVideoProject(
   });
 }
 
+/**
+ * 만들어진 영상 한 편을 받는 주소.
+ *
+ * Builder의 ZIP과 같은 방식입니다 — 링크로 두면 브라우저가 파일로
+ * 저장하고, 참여하지 않는 분기에도 열려 있습니다.
+ *
+ * 내려오는 것은 CTRL+AI가 보관한 파일이지 제공자의 주소가 아닙니다.
+ * 제공자 링크는 만료되거나 그쪽 자격 증명을 요구할 수 있고, 내가 만든
+ * 것을 받는 일이 거기에 매여서는 안 됩니다.
+ */
+export function videoVersionDownloadUrl(
+  projectId: number | string,
+  versionId: number,
+): string {
+  return `${API_BASE_URL}/api/video/projects/${projectId}/versions/${versionId}/download`;
+}
+
+/** 영상 프로젝트를 지웁니다. Builder와 같은 soft delete입니다. */
+export function deleteVideoProject(id: number | string): Promise<void> {
+  return request<void>(`/video/projects/${id}`, { method: "DELETE" });
+}
+
 /** 생성 시도를 기록합니다. 아직 실제 영상은 만들어지지 않습니다.
  *
  *  프롬프트와 모델은 백엔드가 프로젝트에서 읽습니다. 길이·비율·소리는
@@ -237,6 +292,48 @@ export interface AdminVideoModel extends VideoModel {
   member_visible: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** 어느 제품의 작업물인지. 주소에 그대로 들어가는 두 낱말입니다. */
+export type WorkKind = "builder" | "video";
+
+export const WORK_KIND_LABEL: Record<WorkKind, string> = {
+  builder: "프로젝트",
+  video: "영상 프로젝트",
+};
+
+/**
+ * 삭제된 프로젝트 또는 영상 한 줄.
+ *
+ * 회원 쪽에서는 없는 것으로 보이는 행입니다 — 모든 회원 경로가 404로
+ * 답합니다. 이 목록만이 그것을 볼 수 있고, 되살릴 수 있는 곳입니다.
+ *
+ * 두 제품을 한 표에 섞어 내려 주는 이유: 되살리려는 관리자는 그것이
+ * 어느 제품에서 왔는지보다 누구의 것이고 언제 사라졌는지를 봅니다.
+ */
+export interface DeletedItem {
+  kind: WorkKind;
+  id: number;
+  name: string;
+  owner_user_id: number;
+  owner_username: string;
+  owner_display_name: string;
+  deleted_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function listDeletedItems(): Promise<DeletedItem[]> {
+  return request<DeletedItem[]>("/admin/deleted-items");
+}
+
+export function restoreWork(kind: WorkKind, id: number): Promise<void> {
+  return request<void>(`/admin/work/${kind}/${id}/restore`, { method: "POST" });
+}
+
+/** 남의 작업물을 지웁니다. 감사 로그에 남습니다. */
+export function deleteWork(kind: WorkKind, id: number): Promise<void> {
+  return request<void>(`/admin/work/${kind}/${id}`, { method: "DELETE" });
 }
 
 export function listAdminVideoModels(): Promise<AdminVideoModel[]> {
