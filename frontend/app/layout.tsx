@@ -5,6 +5,8 @@ import AppShell from "@/app/components/AppShell";
 import CurrentUserProvider from "@/app/components/CurrentUserProvider";
 import MyQuarterProvider from "@/app/components/MyQuarterProvider";
 
+import { THEME_BOOT_SCRIPT } from "@/lib/theme-boot";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +20,13 @@ export const metadata: Metadata = {
 // checkout where `.next/types` has not been generated yet.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
+    // data-theme은 기본값(어둡게)이고, 아래 스크립트가 그리기 전에 회원이
+    // 고른 값으로 바꿉니다. 서버가 그린 값과 달라지는 것이 정상이라
+    // suppressHydrationWarning을 둡니다.
+    <html lang="ko" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>
         <CurrentUserProvider>
           <MyQuarterProvider>

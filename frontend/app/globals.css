@@ -1,16 +1,22 @@
 /* CTRL+AI — 디자인 시스템
  *
- * 개발 도구(코드 에디터)에서 영감을 받은 어두운 테마입니다. 색은 여기에서
+ * 개발 도구(코드 에디터)에서 영감을 받은 테마입니다. 색은 여기에서
  * 토큰으로 한 번만 정의하고, 각 화면은 토큰만 사용합니다.
  *
- * 밝은 테마는 두지 않고 어두운 테마 하나로 고정합니다. 프로토타입을 여러
- * 사람에게 보여 줄 때 화면이 항상 같아 보여야 하기 때문입니다.
+ * 테마는 둘입니다. **어두운 테마가 기본**이고, 회원이 사이드바의 ☀ 단추로
+ * 밝은 테마를 고를 수 있습니다. 고른 값은 `<html data-theme>`에 붙고
+ * localStorage(`ctrlai-theme`)에 남습니다 — `app/layout.tsx`의 작은
+ * 스크립트가 첫 화면을 그리기 전에 읽으므로 깜빡이지 않습니다.
+ * 밝은 테마는 아래 `[data-theme="light"]` 블록이 같은 토큰 이름의 값만
+ * 바꿉니다. 화면 파일에 색을 직접 쓰면 그 화면만 테마를 따라오지
+ * 않으므로, 언제나 토큰을 씁니다.
  *
  * 아래쪽에는 여러 화면이 함께 쓰는 클래스(.card, .btn, .badge ...)가 있습니다.
  * 특정 화면에서만 쓰는 스타일은 그 화면의 CSS 모듈에 둡니다.
  */
 
-:root {
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
 
   /*
@@ -102,9 +108,24 @@
   --logo-from: #3485fe;
   --logo-to: #bb33ff;
 
-  --radius: 10px;
-  --radius-sm: 6px;
-  --rail-width: 15rem;
+  /* 배지 테두리. 배지 바탕(-soft)보다 한 단계 진한 같은 색입니다. */
+  --ok-border: rgba(93, 219, 164, 0.3);
+  --warn-border: rgba(240, 180, 41, 0.3);
+  --error-border: rgba(230, 77, 84, 0.4);
+  --error-hover: rgba(230, 77, 84, 0.22);
+  --error-strong-text: #ffd2d4;
+
+  /* 영상 진행 막대의 밝은 끝. */
+  --video-bright: #7df6ff;
+
+  /* 코드 편집기의 글자색. */
+  --code-keyword: #d7a6ff;
+  --code-string: #9fe3b8;
+
+  /* 그림자 아래 덧씌우는 어둠 — 모달 뒤, 좁은 화면의 서랍 뒤. */
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  --rail-width: 15.25rem;
 
   /*
    * 코드·숫자·날짜 전용 글꼴.
@@ -120,6 +141,63 @@
   --mono:
     ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Pretendard",
     "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", monospace;
+}
+
+/* ---------- 밝은 테마 ----------
+ * 같은 토큰 이름의 값만 바꿉니다. 영상 무대(--video-letterbox)는 밝은
+ * 테마에서도 어둡게 둡니다 — 영상은 어두운 틀 위에서 봐야 합니다. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f6f7;
+  --bg-rail: #efeff1;
+  --panel: #ffffff;
+  --panel-2: #f2f2f4;
+  --elevated: #ffffff;
+  --border: #e2e2e6;
+  --border-strong: #8a8a94;
+  --text: #17171a;
+  --text-muted: #3d3d44;
+  --text-dim: #686871;
+  --accent: #0153cc;
+  --accent-soft: rgba(1, 83, 204, 0.08);
+  --accent-border: rgba(1, 83, 204, 0.35);
+  --accent-strong: #0153cc;
+  --accent-strong-edge: #0153cc;
+  --on-accent: #ffffff;
+  --focus: #0153cc;
+  --build: #9b1fe0;
+  --build-text: #7a17b3;
+  --build-soft: rgba(155, 31, 224, 0.09);
+  --video: #00a9b8;
+  --video-text: #00737d;
+  --video-soft: rgba(0, 169, 184, 0.1);
+  --video-glow: rgba(0, 169, 184, 0.06);
+  --video-letterbox: #101215;
+  --video-bright: #4fd8e4;
+  --ok: #1f9d63;
+  --ok-text: #16764a;
+  --ok-soft: rgba(22, 118, 74, 0.09);
+  --warn: #c58f0f;
+  --warn-text: #835a00;
+  --warn-soft: rgba(224, 167, 34, 0.14);
+  --error: #c7362b;
+  --error-text: #b42318;
+  --error-soft: rgba(180, 35, 24, 0.08);
+  --ok-border: rgba(22, 118, 74, 0.3);
+  --warn-border: rgba(131, 90, 0, 0.3);
+  --error-border: rgba(180, 35, 24, 0.35);
+  --error-hover: rgba(180, 35, 24, 0.14);
+  --error-strong-text: #8f1b12;
+  --code-keyword: #8a1fc4;
+  --code-string: #16764a;
+  --scrim: rgba(23, 23, 26, 0.35);
+}
+
+/* ---------- 모양 (변형 B): 두 테마 모두 ---------- */
+:root {
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 *,
@@ -201,7 +279,7 @@ code {
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #3a4459;
+  background: var(--text-dim);
   background-clip: content-box;
 }
 
@@ -211,9 +289,9 @@ code {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.4rem 0.75rem;
-  margin-bottom: 1.1rem;
-  padding-bottom: 0.75rem;
+  gap: 0.4rem 0.9rem;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -222,8 +300,38 @@ code {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.15rem;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+/* 제목 위의 작은 머리표: 점 하나와 영역 이름("Create"). 영역 색은
+   .page-eyebrow-build / -video 로 바꿉니다. */
+.page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+  color: var(--accent);
+  font-size: 12px;
   font-weight: 650;
+}
+
+.page-eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.page-eyebrow-build {
+  color: var(--build-text);
+}
+
+.page-eyebrow-video {
+  color: var(--video-text);
 }
 
 /* 제목과 설명을 세로로 쌓는 머리말.
@@ -235,26 +343,131 @@ code {
 
 .page-header-stacked .page-subtitle {
   display: block;
-  margin-top: 0.3rem;
-  max-width: 48rem;
+  margin-top: 0.35rem;
+  max-width: 720px;
 }
 
 .page-subtitle {
   flex: 1 1 20rem;
   min-width: 0;
+  max-width: 720px;
   color: var(--text-muted);
-  font-size: 0.83rem;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .section-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.6rem;
-  font-size: 0.78rem;
+  margin-bottom: 0.7rem;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* 사이드바의 Create / Explore 처럼 작은 묶음 이름. */
+.section-label {
+  font-size: 11px;
   font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+/* ---------- 칩: <select> 대신 쓰는 고르기 묶음 ---------- */
+
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* 한 덩어리로 붙은 칩(전체 / Draft / 게시됨). */
+.segmented {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: none;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
   color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.segmented .chip {
+  border-color: transparent;
+  border-radius: calc(var(--radius-sm) - 3px);
+  background: transparent;
+  padding: 0.2rem 0.7rem;
+}
+
+.chip:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.chip[aria-pressed="true"],
+.chip[aria-checked="true"],
+.chip-selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.segmented .chip[aria-pressed="true"],
+.segmented .chip[aria-checked="true"],
+.segmented .chip-selected {
+  border-color: var(--accent-border);
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- 목록 화면의 도구 줄 ---------- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin-bottom: 14px;
+}
+
+.toolbar-count {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.toolbar-count span {
+  color: var(--text-dim);
+  font-weight: 500;
 }
 
 /* ---------- 카드 ---------- */
@@ -263,7 +476,8 @@ code {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+  padding: 1.1rem 1.2rem;
 }
 
 .card-tight {
@@ -288,19 +502,19 @@ code {
 .badge-ok {
   color: var(--ok-text);
   background: var(--ok-soft);
-  border-color: rgba(93, 219, 164, 0.3);
+  border-color: var(--ok-border);
 }
 
 .badge-warn {
   color: var(--warn-text);
   background: var(--warn-soft);
-  border-color: rgba(240, 180, 41, 0.3);
+  border-color: var(--warn-border);
 }
 
 .badge-error {
   color: var(--error-text);
   background: var(--error-soft);
-  border-color: rgba(230, 77, 84, 0.35);
+  border-color: var(--error-border);
 }
 
 .badge-muted {
@@ -312,7 +526,7 @@ code {
 .badge-accent {
   color: var(--accent);
   background: var(--accent-soft);
-  border-color: rgba(154, 194, 254, 0.3);
+  border-color: var(--accent-border);
 }
 
 /* 아직 동작하지 않는 자리를 표시합니다. */
@@ -337,8 +551,9 @@ code {
   color: var(--text);
   font: inherit;
   font-size: 0.83rem;
-  font-weight: 500;
+  font-weight: 550;
   line-height: 1.7;
+  white-space: nowrap;
   cursor: pointer;
   text-align: center;
   transition:
@@ -373,15 +588,20 @@ code {
    아니기 때문입니다. */
 .btn-danger {
   background: var(--error-soft);
-  border-color: rgba(230, 77, 84, 0.5);
+  border-color: var(--error-border);
   color: var(--error-text);
   font-weight: 600;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: rgba(230, 77, 84, 0.22);
+  background: var(--error-hover);
   border-color: var(--error);
-  color: #ffd2d4;
+  color: var(--error-strong-text);
+}
+
+/* 테두리만 있는 버튼(취소 등). */
+.btn-outline {
+  background: transparent;
 }
 
 .btn-sm {
@@ -413,7 +633,7 @@ code {
 }
 
 .field:hover:not(:disabled) {
-  border-color: #3a4459;
+  border-color: var(--text-dim);
 }
 
 .field:focus-visible {
@@ -431,21 +651,20 @@ code {
 /* ---------- 진행 막대 ---------- */
 
 .meter {
-  height: 5px;
+  height: 4px;
   border-radius: 999px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--panel-2);
   overflow: hidden;
 }
 
 .meter-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--build), var(--build-text));
+  background: var(--build);
 }
 
 .meter-fill-blue {
-  background: linear-gradient(90deg, var(--video), #7df6ff);
+  background: var(--video);
 }
 
 /* ---------- 공용 ---------- */
@@ -534,9 +753,17 @@ code {
   white-space: nowrap;
 }
 
+.table-wrap {
+  box-shadow: var(--shadow);
+}
+
+.table {
+  font-size: 13.5px;
+}
+
 .table th {
   background: var(--panel-2);
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 650;
   color: var(--text-muted);
 }
