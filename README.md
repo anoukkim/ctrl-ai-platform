@@ -9,9 +9,10 @@ hold API keys — and records usage per member and quarter.
 
 ## Where we are
 
-**M1 베타 오픈: 1/5** — an invite-only beta on `ctrlai.my` with real Claude
-chat, everything else labelled test mode. Done: video-higgsfield-only.
-Next: Phase 2 Chat. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
+**M1 베타 오픈: 2/9** — an invite-only beta on `ctrlai.my` with real Claude
+chat, everything else labelled test mode. Done: video-higgsfield-only,
+Phase 2 Chat. Next: chat-model-choice, then invite-only-signup and the
+three Chat+ items. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
 milestone and [`docs/BACKLOG.md`](docs/BACKLOG.md) for the order.
 
 Every external provider runs as a **mock by default**, so the whole
@@ -83,6 +84,7 @@ npm.cmd test; npx tsc --noEmit; npm.cmd run lint; npm.cmd run build
 | [`docs/development.md`](docs/development.md) | Full setup, sign-in, how the pieces fit, environment files, providers, testing, troubleshooting, operator notes, repository layout |
 | [`docs/deployment.md`](docs/deployment.md) | Deployment notes; the beta's hosting decisions |
 | [`docs/architecture.md`](docs/architecture.md) | Target infrastructure, storage and security principles |
+| [`docs/research/chat-plus-research.md`](docs/research/chat-plus-research.md) | Prices and terms behind the Chat+ specs: Claude vision, PDF, Files API, server tools; image generation; Gemini, Grok, OpenRouter |
 | [`docs/archive/done.md`](docs/archive/done.md) | Every merged item, newest first |
 | [`docs/archive/done-specs.md`](docs/archive/done-specs.md) | Full specs of merged items |
 | [`docs/archive/phase-table.md`](docs/archive/phase-table.md) | The old phase table, superseded by the roadmap |
