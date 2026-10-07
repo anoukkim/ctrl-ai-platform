@@ -31,6 +31,7 @@ const SAVED_REPLY: ChatMessage = {
   status: "complete",
   action: null,
   action_title: "",
+  model_id: "claude-sonnet-5-5",
   created_at: "2026-10-07T00:00:00Z",
 };
 
@@ -111,6 +112,7 @@ const chatApi = {
   listConversations: vi.fn(),
   getConversation: vi.fn(),
   createConversation: vi.fn(),
+  setConversationModel: vi.fn(),
   renameConversation: vi.fn(),
   deleteConversation: vi.fn(),
   sendMessage: vi.fn(),
@@ -124,6 +126,7 @@ vi.mock("@/lib/chat", async (importOriginal) => {
     listConversations: (...args: unknown[]) => chatApi.listConversations(...args),
     getConversation: (...args: unknown[]) => chatApi.getConversation(...args),
     createConversation: (...args: unknown[]) => chatApi.createConversation(...args),
+    setConversationModel: (...args: unknown[]) => chatApi.setConversationModel(...args),
     renameConversation: (...args: unknown[]) => chatApi.renameConversation(...args),
     deleteConversation: (...args: unknown[]) => chatApi.deleteConversation(...args),
     sendMessage: (...args: unknown[]) => chatApi.sendMessage(...args),
@@ -143,6 +146,26 @@ const CONVERSATION = {
   title: "가계부 아이디어",
   created_at: "2026-10-07T00:00:00Z",
   last_message_at: "2026-10-07T00:00:00Z",
+  chat_model_id: 2,
+};
+
+const HAIKU = {
+  id: 1,
+  model_id: "claude-haiku-4-5",
+  label: "빠른 답변 (Haiku 4.5)",
+  description: "가장 빠르고 저렴합니다.",
+  admin_only: false,
+  is_default: false,
+  estimated_reply_krw: 10,
+};
+const SONNET = {
+  id: 2,
+  model_id: "claude-sonnet-5-5",
+  label: "균형 잡힌 답변 (Sonnet 5.5)",
+  description: "대부분의 대화에 알맞습니다.",
+  admin_only: false,
+  is_default: true,
+  estimated_reply_krw: 20,
 };
 
 async function renderChat() {
@@ -165,6 +188,8 @@ describe("ChatWorkspace", () => {
       is_mock: true,
       rate_limit_per_minute: 10,
       max_message_length: 8000,
+      models: [HAIKU, SONNET],
+      default_model_id: SONNET.id,
     });
     chatApi.listConversations.mockResolvedValue([]);
     chatApi.createConversation.mockResolvedValue(CONVERSATION);
@@ -275,5 +300,69 @@ describe("ChatWorkspace", () => {
     expect(
       (screen.getByLabelText("CTRL+AI에게 보낼 메시지") as HTMLTextAreaElement).disabled,
     ).toBe(true);
+  });
+
+  test("the picker starts on the default model and shows its estimated cost", async () => {
+    await renderChat();
+    const trigger = await screen.findByRole("button", { name: /모델: 균형 잡힌 답변/ });
+    expect(trigger.textContent).toContain("답장 1회 약 20원");
+
+    fireEvent.click(trigger);
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(2);
+    expect(options[0].textContent).toContain("가장 빠르고 저렴합니다.");
+    expect(options[0].textContent).toContain("답장 1회 약 10원");
+  });
+
+  test("a model chosen before the first message creates the conversation with it", async () => {
+    chatApi.createConversation.mockResolvedValue({ ...CONVERSATION, chat_model_id: HAIKU.id });
+    chatApi.sendMessage.mockResolvedValue({
+      kind: "done",
+      chargedKrw: 1,
+      message: { ...SAVED_REPLY, model_id: "claude-haiku-4-5" },
+    });
+    await renderChat();
+
+    fireEvent.click(await screen.findByRole("button", { name: /모델: 균형 잡힌 답변/ }));
+    fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
+    typeAndSend("안녕");
+
+    await waitFor(() => expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id));
+    expect(chatApi.setConversationModel).not.toHaveBeenCalled();
+    // The reply names the model that wrote it.
+    expect(await screen.findByText("빠른 답변 (Haiku 4.5)", { selector: "p" })).toBeTruthy();
+  });
+
+  test("changing the model of an open conversation saves it for later replies", async () => {
+    chatApi.listConversations.mockResolvedValue([CONVERSATION]);
+    chatApi.getConversation.mockResolvedValue({ ...CONVERSATION, messages: [SAVED_REPLY] });
+    chatApi.setConversationModel.mockResolvedValue({ ...CONVERSATION, chat_model_id: HAIKU.id });
+    await renderChat();
+
+    fireEvent.click(await screen.findByRole("button", { name: "가계부 아이디어" }));
+    // The earlier reply keeps the name of the model that wrote it.
+    expect(await screen.findByText("균형 잡힌 답변 (Sonnet 5.5)", { selector: "p" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /모델: 균형 잡힌 답변/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
+    });
+
+    expect(chatApi.setConversationModel).toHaveBeenCalledWith(CONVERSATION.id, HAIKU.id);
+    expect(await screen.findByRole("button", { name: /모델: 빠른 답변/ })).toBeTruthy();
+  });
+
+  test("a conversation whose model is no longer offered asks for another", async () => {
+    chatApi.listConversations.mockResolvedValue([{ ...CONVERSATION, chat_model_id: 99 }]);
+    chatApi.getConversation.mockResolvedValue({
+      ...CONVERSATION,
+      chat_model_id: 99,
+      messages: [],
+    });
+    await renderChat();
+
+    fireEvent.click(await screen.findByRole("button", { name: "가계부 아이디어" }));
+
+    expect(await screen.findByRole("button", { name: "모델을 골라 주세요" })).toBeTruthy();
   });
 });

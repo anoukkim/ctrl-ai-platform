@@ -51,7 +51,7 @@ describe("Admin 구역 목록", () => {
     expect(visibleSections(false).map((s) => s.key)).not.toContain("dev");
   });
 
-  test("보이는 구역은 아홉 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("보이는 구역은 열 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -61,6 +61,7 @@ describe("Admin 구역 목록", () => {
       "quarters",
       "topups",
       "video-models",
+      "claude-models",
       "deleted",
       "audit",
       "system",
@@ -112,6 +113,7 @@ describe("지금 보고 있는 구역", () => {
     expect(activeSection("/admin/applications")?.key).toBe("applications");
     expect(activeSection("/admin/quarters")?.key).toBe("quarters");
     expect(activeSection("/admin/deleted")?.key).toBe("deleted");
+    expect(activeSection("/admin/claude-models")?.key).toBe("claude-models");
   });
 
   test("Admin 밖의 경로는 어느 구역도 아니다", () => {

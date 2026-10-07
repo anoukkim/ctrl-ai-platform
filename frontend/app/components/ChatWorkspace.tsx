@@ -10,6 +10,10 @@
  * 화면은 받은 조각을 말풍선에 이어 붙입니다. **중지**는 연결을 끊습니다 —
  * 백엔드는 그때까지 만든 답장을 저장하고 쓴 만큼만 차감합니다.
  *
+ * 입력창 옆에서 **대화마다** 모델을 고릅니다(`ChatModelPicker`). 새 대화는
+ * 기본 모델로 시작하고, 바꾸면 다음 답장부터 적용됩니다. 답장마다 그것을
+ * 쓴 모델 이름이 작게 붙습니다.
+ *
  * 처음에는 환영 인사와 바로가기 카드를 보여 주고, 대화가 한 번이라도
  * 오가면 감춥니다.
  *
@@ -39,16 +43,20 @@ import {
   ACTION_LABEL,
   actionHref,
   createConversation,
+  currentModel,
   deleteConversation,
   getChatInfo,
   getConversation,
   listConversations,
+  modelLabel,
   renameConversation,
   sendMessage,
+  setConversationModel,
   type ChatAction,
   type ChatInfo,
   type ChatMessage,
   type ChatMessageStatus,
+  type ChatModelOption,
   type Conversation,
 } from "@/lib/chat";
 import { describeError } from "@/lib/http";
@@ -56,6 +64,7 @@ import { CHAT_SHORTCUTS } from "@/lib/mock-data";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
+import ChatModelPicker from "./ChatModelPicker";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate } from "./MyQuarterProvider";
@@ -91,6 +100,8 @@ interface ViewMessage {
   status: ChatMessageStatus;
   action: ChatAction | null;
   actionTitle: string;
+  /** 답장을 쓴 모델의 ID. 내 메시지와 오고 있는 답장은 null. */
+  modelId: string | null;
   /** 답장이 아직 오고 있습니다. */
   streaming?: boolean;
   /** 이 메시지 다음에 보여 줄 오류. 답장이 실패했을 때 붙습니다. */
@@ -105,6 +116,7 @@ function toView(message: ChatMessage): ViewMessage {
     status: message.status,
     action: message.action,
     actionTitle: message.action_title,
+    modelId: message.model_id,
   };
 }
 
@@ -122,6 +134,11 @@ export default function ChatWorkspace() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
+  /**
+   * 지금 대화가 쓰는 모델. 아직 만들지 않은 새 대화라면 회원이 고른 값을
+   * 여기 들고 있다가 첫 메시지로 대화를 만들 때 함께 보냅니다. null은 기본.
+   */
+  const [chosenModelId, setChosenModelId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ViewMessage[]>([]);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [draft, setDraft] = useState("");
@@ -216,6 +233,7 @@ export default function ChatWorkspace() {
     try {
       const detail = await getConversation(id);
       setMessages(detail.messages.map(toView));
+      setChosenModelId(detail.chat_model_id);
     } catch (error) {
       setMessages([]);
       setSendError(describeError(error));
@@ -229,9 +247,32 @@ export default function ChatWorkspace() {
     setListOpen(false);
     setActiveId(null);
     setMessages([]);
+    setChosenModelId(null);
     setSendError(null);
     textareaRef.current?.focus();
   }, []);
+
+  /**
+   * 모델 바꾸기. 이미 있는 대화면 바로 저장하고, 새 대화면 첫 메시지 때
+   * 함께 보냅니다. 어느 쪽이든 지난 답장은 그대로입니다.
+   */
+  const chooseModel = useCallback(
+    async (model: ChatModelOption) => {
+      setSendError(null);
+      if (activeId === null) {
+        setChosenModelId(model.id);
+        return;
+      }
+      try {
+        const updated = await setConversationModel(activeId, model.id);
+        setChosenModelId(updated.chat_model_id);
+        setConversations((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+      } catch (error) {
+        setSendError(describeError(error));
+      }
+    },
+    [activeId],
+  );
 
   const send = useCallback(async () => {
     if (!mayCreate || streaming) return;
@@ -245,9 +286,10 @@ export default function ChatWorkspace() {
     let conversationId = activeId;
     if (conversationId === null) {
       try {
-        const created = await createConversation();
+        const created = await createConversation(chosenModelId);
         conversationId = created.id;
         setActiveId(created.id);
+        setChosenModelId(created.chat_model_id);
         setConversations((rows) => [created, ...rows]);
       } catch (error) {
         setSendError(describeError(error));
@@ -262,7 +304,15 @@ export default function ChatWorkspace() {
     setDraft("");
     setMessages((rows) => [
       ...rows,
-      { key: userKey, role: "user", content: text, status: "complete", action: null, actionTitle: "" },
+      {
+        key: userKey,
+        role: "user",
+        content: text,
+        status: "complete",
+        action: null,
+        actionTitle: "",
+        modelId: null,
+      },
       {
         key: replyKey,
         role: "assistant",
@@ -270,6 +320,7 @@ export default function ChatWorkspace() {
         status: "complete",
         action: null,
         actionTitle: "",
+        modelId: null,
         streaming: true,
       },
     ]);
@@ -316,7 +367,7 @@ export default function ChatWorkspace() {
       setStreaming(false);
       void refreshList();
     }
-  }, [activeId, draft, mayCreate, refreshList, streaming]);
+  }, [activeId, chosenModelId, draft, mayCreate, refreshList, streaming]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -356,6 +407,7 @@ export default function ChatWorkspace() {
             if (activeId === conversation.id) {
               setActiveId(null);
               setMessages([]);
+              setChosenModelId(null);
             }
             setConfirm(null);
           } catch (error) {
@@ -376,6 +428,8 @@ export default function ChatWorkspace() {
     }
     return "";
   };
+
+  const selectedModel = currentModel(info, chosenModelId);
 
   const hint = !mayCreate
     ? "참여 중인 분기가 되면 다시 보낼 수 있습니다. 지난 대화는 그대로 볼 수 있습니다."
@@ -532,6 +586,11 @@ export default function ChatWorkspace() {
                         )}
                       </div>
                     )}
+                    {message.role === "assistant" &&
+                      !message.streaming &&
+                      modelLabel(info, message.modelId) && (
+                        <p className={styles.modelNote}>{modelLabel(info, message.modelId)}</p>
+                      )}
                     {!message.streaming && STATUS_NOTE[message.status] && (
                       <p className={styles.statusNote}>{STATUS_NOTE[message.status]}</p>
                     )}
@@ -563,6 +622,16 @@ export default function ChatWorkspace() {
               <p className={styles.errorNote} role="alert">
                 {sendError}
               </p>
+            )}
+            {info && info.models.length > 0 && (
+              <div className={styles.composerTools}>
+                <ChatModelPicker
+                  models={info.models}
+                  current={selectedModel}
+                  onChange={(model) => void chooseModel(model)}
+                  disabled={!mayCreate || streaming}
+                />
+              </div>
             )}
             <label className="sr-only" htmlFor={inputId}>
               CTRL+AI에게 보낼 메시지

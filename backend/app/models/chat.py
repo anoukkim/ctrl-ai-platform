@@ -65,6 +65,14 @@ class Conversation(TimestampMixin, Base):
     last_message_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    #: The catalogue model this conversation's *next* reply uses. Set to the
+    #: default when the conversation is created; the member may change it,
+    #: which affects later replies only — each reply records its own model
+    #: in `ChatMessage.model_id`. NULL (a conversation from before
+    #: chat-model-choice, or a model since removed) means the default.
+    chat_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_models.id", ondelete="SET NULL"), nullable=True
+    )
 
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="conversation",
@@ -105,7 +113,9 @@ class ChatMessage(Base):
     )
     action_title: Mapped[str] = mapped_column(String(100), default="", nullable=False)
 
-    #: For an assistant reply: what it cost, so the screen can say so.
+    #: For an assistant reply: the catalogue model that wrote it (the
+    #: provider's id, e.g. "claude-haiku-4-5" — also under the mock, which
+    #: is priced as the model chosen) and what it cost.
     model_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

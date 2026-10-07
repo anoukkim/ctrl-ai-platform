@@ -22,6 +22,7 @@ from app.main import app
 from app.models import (
     AuditLog,
     BudgetCategory,
+    ChatModel,
     ChatMessage,
     ChatMessageStatus,
     ChatRole,
@@ -40,6 +41,7 @@ from app.services.claude_provider import (
     MockClaudeProvider,
     thinking_params,
 )
+from app.services.chat_models import default_model
 from app.services.pricing import price_for
 from app.services.quarters import set_membership
 from tests.conftest import MEMBER_PASSWORD
@@ -111,9 +113,9 @@ class CountingProvider:
         async for event in self.inner.stream_chat(request):
             yield event
 
-    def rewrite_video_prompt(self, prompt: str, request: str):
+    def rewrite_video_prompt(self, prompt: str, request: str, model: str = ""):
         self.calls += 1
-        return self.inner.rewrite_video_prompt(prompt, request)
+        return self.inner.rewrite_video_prompt(prompt, request, model)
 
 
 @pytest.fixture
@@ -278,7 +280,8 @@ def test_each_reply_records_model_tokens_dollars_rate_and_won(
     event = db_session.query(UsageEvent).one()
     assert event.provider == "claude"
     assert event.feature == "chat"
-    assert event.model_id == "mock"
+    # The catalogue default, Sonnet 5.5 — recorded under the mock too.
+    assert event.model_id == "claude-sonnet-5-5"
     assert event.category.value == "build"
     assert event.funding_source.value == "community_build"
     assert event.conversation_id == conversation
@@ -296,9 +299,10 @@ def test_each_reply_records_model_tokens_dollars_rate_and_won(
 
     message = db_session.query(ChatMessage).filter_by(role=ChatRole.ASSISTANT).one()
     assert message.usage_event_id == event.id
+    assert message.model_id == "claude-sonnet-5-5"
 
 
-def test_the_priced_model_follows_anthropic_model(
+def test_anthropic_model_no_longer_decides_while_the_catalogue_has_rows(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
     use_settings(anthropic_model="claude-opus-5-5")
@@ -306,7 +310,8 @@ def test_the_priced_model_follows_anthropic_model(
     send(client, conversation, "안녕하세요")
 
     event = db_session.query(UsageEvent).one()
-    usd = (Decimal(event.input_tokens) * 4 + Decimal(event.output_tokens) * 20) / 1_000_000
+    assert event.model_id == "claude-sonnet-5-5"
+    usd = (Decimal(event.input_tokens) * 2 + Decimal(event.output_tokens) * 10) / 1_000_000
     assert event.charged_krw == math.ceil(usd * 1400)
 
 
@@ -332,7 +337,7 @@ def test_the_budget_check_uses_the_worst_case(
     """Enough for a short reply is not enough: the check assumes the longest."""
     use_settings(chat_max_output_tokens=4096)
     conversation = new_conversation(client)
-    worst = price_for(db_session, "mock", config).krw(0, 4096)
+    worst = price_for(db_session, default_model(db_session, config)).krw(0, 4096)
     budgeted.build_budget_krw = worst - 1
     db_session.commit()
 
@@ -435,6 +440,9 @@ def test_the_rate_limit_counts_only_the_last_minute(
 def test_a_missing_price_refuses_before_calling_claude(
     client: TestClient, db_session: Session, budgeted, counting, config
 ) -> None:
+    """Only reachable through the empty-catalogue fallback to ANTHROPIC_MODEL."""
+    db_session.query(ChatModel).delete()
+    db_session.commit()
     use_settings(anthropic_model="claude-unpriced-9")
     conversation = new_conversation(client)
 
@@ -461,7 +469,13 @@ def _prepared(db_session, settings, user, text="안녕하세요"):
     db_session.add(conversation)
     db_session.commit()
     return chat_service.prepare_turn(
-        db_session, settings, user=user, conversation=conversation, text=text, model_id="mock"
+        db_session,
+        settings,
+        user=user,
+        conversation=conversation,
+        text=text,
+        model=default_model(db_session, settings),
+        is_mock=True,
     )
 
 
@@ -746,6 +760,7 @@ def test_the_key_never_appears_in_any_response(
         client.get("/api/chat/conversations").text,
         client.get(f"/api/chat/conversations/{conversation}").text,
         client.get("/api/admin/claude-pricing").text,
+        client.get("/api/admin/chat-models").text,
         client.get("/api/admin/providers").text,
         client.get("/api/usage/me").text,
     ]
@@ -780,49 +795,19 @@ def test_chat_info_says_test_mode_on_mock(client: TestClient, config) -> None:
     assert info["rate_limit_per_minute"] == 10
 
 
-def test_a_real_provider_without_its_key_or_model_is_reported_missing() -> None:
+def test_a_real_provider_without_its_key_is_reported_missing() -> None:
     assert Settings(claude_provider="mock").missing_provider_settings() == []
     missing = Settings(
         claude_provider="anthropic", anthropic_api_key="", anthropic_model=""
     ).missing_provider_settings()
-    assert missing == ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"]
+    # The model comes from the catalogue; ANTHROPIC_MODEL is only its fallback.
+    assert missing == ["ANTHROPIC_API_KEY"]
     assert Settings(
-        claude_provider="anthropic", anthropic_api_key="k", anthropic_model="claude-sonnet-5-5"
+        claude_provider="anthropic", anthropic_api_key="k", anthropic_model=""
     ).missing_provider_settings() == []
 
 
 # ------------------------------------------------------------- admin pricing
-
-
-def test_admin_can_change_a_price_and_it_is_audited(
-    client: TestClient, db_session: Session, config
-) -> None:
-    response = client.put(
-        "/api/admin/claude-pricing/models/claude-sonnet-5-5",
-        json={"input_usd_per_mtok": "3", "output_usd_per_mtok": "15"},
-    )
-    assert response.status_code == 200
-    sonnet = next(p for p in response.json()["prices"] if p["model_id"] == "claude-sonnet-5-5")
-    assert Decimal(sonnet["input_usd_per_mtok"]) == 3
-
-    entry = db_session.query(AuditLog).filter_by(action="claude_price.updated").one()
-    assert entry.detail["before"]["input_usd_per_mtok"].startswith("2")
-    assert entry.detail["after"]["input_usd_per_mtok"] == "3"
-
-
-def test_admin_can_add_a_model(client: TestClient, config) -> None:
-    response = client.put(
-        "/api/admin/claude-pricing/models/claude-new-6",
-        json={"display_name": "New 6", "input_usd_per_mtok": "1.5", "output_usd_per_mtok": "7.5"},
-    )
-    assert response.status_code == 200
-    assert "claude-new-6" in {p["model_id"] for p in response.json()["prices"]}
-
-    bad = client.put(
-        "/api/admin/claude-pricing/models/Bad Model",
-        json={"input_usd_per_mtok": "1", "output_usd_per_mtok": "1"},
-    )
-    assert bad.status_code in (400, 404)
 
 
 def test_a_new_rate_applies_to_later_charges_and_not_earlier_ones(

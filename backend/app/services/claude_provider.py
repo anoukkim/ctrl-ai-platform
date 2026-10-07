@@ -83,6 +83,9 @@ class ChatRequest:
     #: starting and ending with the member.
     messages: list[dict[str, str]]
     max_tokens: int
+    #: The provider's model id, from the chat model catalogue. Empty means
+    #: the provider's own `model_id` (the `ANTHROPIC_MODEL` fallback).
+    model: str = ""
 
 
 @dataclass(frozen=True)
@@ -118,12 +121,15 @@ class PromptRewrite:
 
 
 class ClaudeProvider(Protocol):
-    #: "mock" or the real model id — what a usage event records.
+    #: "mock", or the model used when a call names none (`ANTHROPIC_MODEL`).
+    #: Which model a call actually uses comes from the catalogue.
     model_id: str
 
     def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]: ...
 
-    def rewrite_video_prompt(self, prompt: str, request: str) -> PromptRewrite: ...
+    def rewrite_video_prompt(
+        self, prompt: str, request: str, model: str = ""
+    ) -> PromptRewrite: ...
 
 
 # -------------------------------------------------------------- the prompt
@@ -304,7 +310,7 @@ class MockClaudeProvider:
             yield UsageUpdate(input_tokens=input_tokens, output_tokens=sent)
         yield StreamEnd("end_turn")
 
-    def rewrite_video_prompt(self, prompt: str, request: str) -> PromptRewrite:
+    def rewrite_video_prompt(self, prompt: str, request: str, model: str = "") -> PromptRewrite:
         for pattern, reply, addition in _PROMPT_RULES:
             if pattern.search(request):
                 revised = None if addition is None else f"{prompt.strip()} {addition}".strip()
@@ -422,16 +428,15 @@ class AnthropicClaudeProvider:
         }
 
     def request_params(
-        self, system: str, messages: list[dict[str, str]], max_tokens: int
+        self, system: str, messages: list[dict[str, str]], max_tokens: int, model: str = ""
     ) -> dict[str, Any]:
+        model = model or self.model_id
         return {
-            "model": self.model_id,
+            "model": model,
             "max_tokens": max_tokens,
             "system": system,
             "messages": messages,
-            **thinking_params(
-                self.model_id, self._settings.chat_thinking, self._settings.chat_effort
-            ),
+            **thinking_params(model, self._settings.chat_thinking, self._settings.chat_effort),
         }
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]:
@@ -447,7 +452,9 @@ class AnthropicClaudeProvider:
         stop_reason = "end_turn"
         try:
             async with client.messages.stream(
-                **self.request_params(request.system, request.messages, request.max_tokens)
+                **self.request_params(
+                    request.system, request.messages, request.max_tokens, request.model
+                )
             ) as stream:
                 async for event in stream:
                     if event.type == "message_start":
@@ -471,7 +478,7 @@ class AnthropicClaudeProvider:
             raise classify(error) from None
         yield StreamEnd(stop_reason)
 
-    def rewrite_video_prompt(self, prompt: str, request: str) -> PromptRewrite:
+    def rewrite_video_prompt(self, prompt: str, request: str, model: str = "") -> PromptRewrite:
         import anthropic
 
         kwargs = self._client_kwargs()
@@ -486,6 +493,7 @@ class AnthropicClaudeProvider:
                     PROMPT_HELP_SYSTEM,
                     [{"role": "user", "content": content}],
                     min(self._settings.chat_max_output_tokens, 2048),
+                    model,
                 )
             )
         except anthropic.APIError as error:
@@ -498,7 +506,7 @@ class AnthropicClaudeProvider:
         return PromptRewrite(
             reply=reply,
             revised_prompt=revised or None,
-            model=message.model or self.model_id,
+            model=message.model or model or self.model_id,
             input_tokens=message.usage.input_tokens or 0,
             output_tokens=message.usage.output_tokens or 0,
         )
@@ -518,7 +526,7 @@ class UnconfiguredClaudeProvider:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
         yield  # pragma: no cover — makes this an async generator
 
-    def rewrite_video_prompt(self, prompt: str, request: str) -> PromptRewrite:
+    def rewrite_video_prompt(self, prompt: str, request: str, model: str = "") -> PromptRewrite:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 
 

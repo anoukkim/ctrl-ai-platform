@@ -13,7 +13,7 @@ from app.models.provider import (
     ProviderErrorKind,
     ProviderStatus,
 )
-from app.models.pricing import ClaudeModelPrice, ExchangeRate
+from app.models.pricing import ChatModel, ChatModelVisibility, ExchangeRate
 from app.models.quarter import (
     ApplicationStatus,
     BudgetCategory,
@@ -48,7 +48,8 @@ __all__ = [
     "ChatMessage",
     "ChatMessageStatus",
     "ChatRole",
-    "ClaudeModelPrice",
+    "ChatModel",
+    "ChatModelVisibility",
     "Conversation",
     "ExchangeRate",
     "AccountWithdrawal",

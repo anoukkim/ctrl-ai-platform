@@ -1346,9 +1346,9 @@ button.statCardActive:hover {
   gap: 0.5rem;
 }
 
-/* ---------- 시스템 › Claude 요금 ---------- */
+/* ---------- 시스템 › Claude 환율과 설정 ---------- */
 
-/* 한 장의 카드: 사실 네 칸 → 요금표 → (위에 선) 환율. */
+/* 한 장의 카드: 사실 네 칸 → (위에 선) 환율. 요금은 Claude Models에. */
 .pricingCard {
   display: grid;
   gap: 14px;
@@ -1387,27 +1387,6 @@ button.statCardActive:hover {
   color: var(--text-dim);
   font-size: var(--fs-chip);
   line-height: 1.5;
-}
-
-/* 카드 안의 표라 그림자는 빼고 테두리만 남깁니다. */
-.priceTable {
-  box-shadow: none;
-}
-
-.priceField {
-  width: var(--admin-price-input);
-  padding: 5px 9px;
-  font-size: var(--fs-count);
-}
-
-.priceModelField {
-  min-width: 12rem;
-  padding: 5px 9px;
-  font-size: var(--fs-count);
-}
-
-.inUseBadge {
-  margin-left: 0.45rem;
 }
 
 .rateBlock {

@@ -5,9 +5,13 @@ Who may do what:
 * **Reading** (the list, one conversation) needs only a signed-in member.
   A member who is not participating this quarter keeps their past
   conversations, as they keep every other piece of their work.
-* **Everything that writes** — a new conversation, a message, rename,
-  delete — needs `require_active_member`, as every create, edit and
-  delete route does.
+* **Everything that writes** — a new conversation, a message, rename or
+  a change of model, delete — needs `require_active_member`, as every
+  create, edit and delete route does.
+
+Which model a reply uses is the conversation's (`chat_model_id`), chosen
+from the catalogue in `services/chat_models.py`; a model this member may
+not use is a Korean 400, refused before anything is spent.
 
 Every query is scoped to the signed-in member: another member's
 conversation is a 404, not a 403, so its existence is not revealed.
@@ -39,10 +43,11 @@ from starlette.concurrency import run_in_threadpool
 from app.api.deps import get_current_user, require_active_member
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import Conversation, ProviderErrorKind, UsageEvent, User
+from app.models import ChatModelVisibility, Conversation, ProviderErrorKind, UsageEvent, User
 from app.schemas.chat import (
     MAX_MESSAGE_LENGTH,
     ChatInfo,
+    ChatModelOption,
     ChatMessageCreate,
     ChatMessageRead,
     ConversationCreate,
@@ -51,7 +56,7 @@ from app.schemas.chat import (
     ConversationUpdate,
 )
 from app.services import chat as chat_service
-from app.services import pricing
+from app.services import chat_models, pricing
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     ClaudeError,
@@ -73,15 +78,39 @@ def _owned(db: Session, user: User, conversation_id: int) -> Conversation:
     return conversation
 
 
-@router.get("/info", response_model=ChatInfo, summary="How replies are made — mock or real")
+def _model_error(error: chat_models.ModelChoiceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=str(error))
+
+
+@router.get(
+    "/info", response_model=ChatInfo, summary="How replies are made, and the models to pick from"
+)
 def chat_info(
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> ChatInfo:
+    rate = pricing.current_rate(db)
+    default = chat_models.default_row(db)
     return ChatInfo(
         is_mock=settings.provider_is_mock("claude"),
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
         max_message_length=MAX_MESSAGE_LENGTH,
+        models=[
+            ChatModelOption(
+                id=row.id,
+                model_id=row.model_id,
+                label=row.label,
+                description=row.description,
+                admin_only=row.visibility is ChatModelVisibility.ADMIN,
+                is_default=default is not None and row.id == default.id,
+                estimated_reply_krw=pricing.typical_reply_krw(
+                    chat_models.ChosenModel.of(row), rate
+                ),
+            )
+            for row in chat_models.models_for(db, user)
+        ],
+        default_model_id=default.id if default else None,
     )
 
 
@@ -101,7 +130,17 @@ def create_conversation(
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
 ) -> Conversation:
-    conversation = Conversation(user_id=user.id, title=payload.title.strip())
+    if payload.chat_model_id is not None:
+        try:
+            model_id: int | None = chat_models.checked_choice(db, user, payload.chat_model_id).id
+        except chat_models.ModelChoiceError as error:
+            raise _model_error(error) from error
+    else:
+        default = chat_models.default_row(db)
+        model_id = default.id if default else None
+    conversation = Conversation(
+        user_id=user.id, title=payload.title.strip(), chat_model_id=model_id
+    )
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
@@ -125,19 +164,32 @@ def read_conversation(
 
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationRead)
-def rename_conversation(
+def update_conversation(
     conversation_id: int,
     payload: ConversationUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
 ) -> Conversation:
+    """Rename, or change the model later replies use. Earlier replies keep theirs."""
     conversation = _owned(db, user, conversation_id)
-    title = payload.title.strip()
-    if not title:
+    if payload.title is None and payload.chat_model_id is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="대화 이름을 입력해 주세요."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="바꿀 내용을 보내 주세요."
         )
-    conversation.title = title
+    if payload.title is not None:
+        title = payload.title.strip()
+        if not title:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="대화 이름을 입력해 주세요."
+            )
+        conversation.title = title
+    if payload.chat_model_id is not None:
+        try:
+            conversation.chat_model_id = chat_models.checked_choice(
+                db, user, payload.chat_model_id
+            ).id
+        except chat_models.ModelChoiceError as error:
+            raise _model_error(error) from error
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -207,17 +259,24 @@ def send_message(
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     conversation = _owned(db, user, conversation_id)
-    provider = get_claude_provider(settings)
 
     try:
+        # Checked before anything else: a model this member may not use is
+        # refused whatever the budget says.
+        model = chat_models.for_conversation(db, settings, user, conversation)
+        chat_models.require_adapter(model)
+        provider = get_claude_provider(settings)
         turn = chat_service.prepare_turn(
             db,
             settings,
             user=user,
             conversation=conversation,
             text=payload.content,
-            model_id=provider.model_id,
+            model=model,
+            is_mock=settings.provider_is_mock("claude"),
         )
+    except chat_models.ModelChoiceError as error:
+        raise _model_error(error) from error
     except chat_service.ChatRefusal as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
     except usage_service.InsufficientBudgetError as error:

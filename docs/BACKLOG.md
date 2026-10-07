@@ -18,8 +18,8 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
-`main`.
+**In progress: `chat-model-choice`** on branch `feat-chat-model-choice`,
+pushed and awaiting review (2026-10-07). Not merged.
 
 Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
 
@@ -37,10 +37,11 @@ Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
   (`ctrlai.sidebar-collapsed`).
 
 **Open check carried from Phase 2 — Chat: point 10 has not been run.**
-One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`,
-`ANTHROPIC_MODEL=claude-sonnet-5-5`) — confirm the reply streams, the
-usage event and deduction are right, and a wrong key shows the Korean
-message with no charge. **It must be done before `prep-beta-launch`**,
+One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`;
+once `chat-model-choice` is merged the model comes from the catalogue —
+send one message on the default Sonnet 5.5 and one on Haiku 4.5) — confirm
+the reply streams, the usage event and deduction are right, and a wrong
+key shows the Korean message with no charge. **It must be done before `prep-beta-launch`**,
 whose one real feature is this chat; the request shape has so far only
 been checked against a fake transport.
 
@@ -50,6 +51,9 @@ inherit — owner-approved defaults, with two changes by the owner:
 - **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
   over Opus because the club starts on a small budget. Opus 5.5 and Haiku
   4.5 are in the price table, so switching is a `.env` change only.
+  *Superseded by `chat-model-choice`: the model is chosen per conversation
+  from a catalogue (Sonnet 5.5 the default); `ANTHROPIC_MODEL` is only the
+  fallback for an empty catalogue.*
 - **Thinking: off where the model allows it, otherwise low effort**, as a
   setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
   turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off
@@ -225,27 +229,33 @@ the list; Phase 2 — Chat merged later the same day, so it now starts
 at `invite-only-signup`. The launch items stay at the end, in the order
 settled on 2026-10-01.
 
-1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+1. **chat-model-choice** · M1 · branch `feat-chat-model-choice`
+   Members pick the Claude model per conversation from an admin-run
+   catalogue (Haiku 4.5, Sonnet 5.5, Opus 5.5 to start). Added 2026-10-07
+   and built straight away at the developer's request. Spec saved
+   verbatim below.
+
+2. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-2. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+3. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-3. **prep-beta-launch** · M1 · no branch named yet
+4. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 2.** Running the suite against a live
+   **Do not start before item 3.** Running the suite against a live
    database is a different order of mistake once the database holds
    members' work rather than one developer's test rows.
    **Also not before Phase 2's point 10** — the one real Claude message
@@ -419,6 +429,24 @@ Two notes for whoever builds it, from the work that raised it:
 → **fix-video-workspace-hang — full spec** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-video-workspace-hang--full-spec).
 
 → **Phase 2 — Chat — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#phase-2--chat--full-spec-merged-2026-10-07).
+
+## chat-model-choice — full spec
+
+Branch `feat-chat-model-choice`. Added 2026-10-07. Saved exactly as
+written by the developer.
+
+**What it replaces.** Until this item, members could not choose a model in
+Chat: `ANTHROPIC_MODEL` in `.env` decided it for every reply (and the mock
+was priced as that model). The `claude_model_prices` table held prices
+only, edited in Admin › System.
+
+> 1. A model catalogue generalised to "provider + model" (provider = anthropic for now), so another provider later (e.g. Gemini) is a new adapter plus catalogue rows. Seed Haiku 4.5, Sonnet 5.5 and Opus 5.5 with prices, a Korean label, a one-line description, and visibility: enabled for members / admin only / disabled. Defaults: Haiku and Sonnet for members, Opus admin only, Sonnet the default. Admin edits it in a Claude Models section styled like Video Models; changes are audited. ANTHROPIC_MODEL is only the fallback when the catalogue is empty.
+> 2. Chat: a model picker next to the composer, per conversation, with label, description and estimated cost per reply in 원. New conversations use the default; changing the model affects later messages only.
+> 3. Backend: refuse models not enabled for this member (Korean 400); budget pre-check and charge use the chosen model's price; record the model on each message and usage event. The video prompt helper keeps the default model.
+>
+> Tests: disabled and admin-only refused for members; price matches the chosen model; choice persists per conversation; default for new conversations.
+
+---
 
 ## invite-only-signup — full spec
 
