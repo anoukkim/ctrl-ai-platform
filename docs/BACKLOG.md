@@ -1260,6 +1260,25 @@ chosen resolution.
 that already exists for exactly this purpose but whose shape is not
 enforced. Point 1's "with validation" is what finally fixes that shape.
 
+### Fixes before merge — 2026-10-07
+
+Added after the developer's click-through, to be built on this branch
+because it already reworks the workspace and the version strip. Saved
+exactly as written by the developer.
+
+> 1. Status badge
+>    - Placement: on library cards the "Draft" badge floats between the name and ⋯. Put it right after the name (name truncates with an ellipsis), ⋯ alone on the right. Mark ui-library-cards item 1 done.
+>    - Meaning: a project with a chosen final version still shows "Draft", on the card and in the workspace header (my probe project has v8 as 최종본). Decide the rule in the backend, apply it to existing projects too, use the same label in both places, and tell me which rule you chose.
+>
+> 2. Download any version
+>    - Any version with a stored file can be downloaded at any time, final or not, through the existing route and its rules (owner only, works when not participating, refused for deleted projects).
+>    - Workspace: a "다운로드" button in the preview header for the version shown, and a 다운로드 entry on each version in the version strip.
+>    - Versions without a stored file (made before asset storage existed, like v1–v7 on probe): disabled, tooltip "파일이 없는 이전 버전입니다". Don't generate files after the fact.
+>    - Library card ⋯ menu: "최종본 다운로드" when a final with a file exists, otherwise disabled with the tooltip "최종본을 먼저 고르세요". Mark ui-library-cards item 7 done.
+>    - File name: <project>_v<n>.<ext>, e.g. probe_v8.gif.
+>
+> Tests for both, then the full suites, lint, tsc, next build, push, and tell me what to re-check. Don't merge.
+
 ---
 
 ## Archived specs
