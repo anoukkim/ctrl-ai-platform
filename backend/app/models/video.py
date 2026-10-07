@@ -136,6 +136,37 @@ class VideoProject(SoftDeleteMixin, TimestampMixin, Base):
     )
     selected_model: Mapped["VideoModel | None"] = relationship(lazy="joined")
 
+    def apply_final_version_rule(self) -> None:
+        """Keep `status` honest about the final version.
+
+        The rule, decided 2026-10-07: **choosing a final version makes a
+        draft project Ready**, and clearing the final puts a Ready project
+        back to Draft. Published and Archived are left alone — they say
+        something a final version does not.
+
+        Called wherever `final_version_id` changes, so every reader of the
+        API — the library card, the workspace header, anything later —
+        sees the same status. Migration `4b8e2d6f1a90` applied it to the
+        projects that already existed.
+        """
+        if self.final_version_id is not None and self.status in (
+            VideoProjectStatus.DRAFT,
+            VideoProjectStatus.GENERATING,
+        ):
+            self.status = VideoProjectStatus.READY
+        elif self.final_version_id is None and self.status is VideoProjectStatus.READY:
+            self.status = VideoProjectStatus.DRAFT
+
+    @property
+    def final_version_has_asset(self) -> bool:
+        """Whether the final version has a file — the card's 최종본 다운로드."""
+        if self.final_version_id is None:
+            return False
+        return any(
+            version.id == self.final_version_id and version.has_asset
+            for version in self.versions
+        )
+
     def __repr__(self) -> str:
         return f"<VideoProject {self.id} {self.name!r} owner={self.owner_user_id}>"
 

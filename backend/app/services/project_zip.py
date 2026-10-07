@@ -196,6 +196,24 @@ def build(project_name: str, files: list[tuple[str, str]]) -> bytes:
     return buffer.getvalue()
 
 
+def _safe_stem(title: str) -> str:
+    """The title with everything risky for a filesystem removed. May be empty."""
+    stem = unicodedata.normalize("NFC", title).strip()
+    stem = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "", stem)
+    stem = re.sub(r"\s+", " ", stem).strip(" .")
+    return stem[:60].strip(" .")
+
+
+def version_filename(project_name: str, label: str, extension: str) -> str:
+    """A video version's download name: `<project>_v<n>.<ext>`, e.g. `probe_v8.gif`.
+
+    Decided 2026-10-07. No date, unlike the ZIP: the version label already
+    tells two downloads of the same project apart, and the same version
+    downloaded twice should land under the same name.
+    """
+    return f"{_safe_stem(project_name) or 'video'}_{label}.{extension}"
+
+
 def safe_filename(title: str, when: date, extension: str) -> str:
     """A readable download name: the title, the date, and nothing risky.
 

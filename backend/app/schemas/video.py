@@ -284,6 +284,9 @@ class VideoProjectRead(VideoProjectBase):
     selected_model_id: int | None
     status: VideoProjectStatus
     final_version_id: int | None
+    #: Whether the final version can be downloaded. The library card has
+    #: no versions to look at, and offers 최종본 다운로드 only when true.
+    final_version_has_asset: bool = False
     created_at: datetime
     updated_at: datetime
 

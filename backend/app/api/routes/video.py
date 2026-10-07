@@ -12,7 +12,7 @@ What a model allows and costs is its catalogue entry
 """
 
 from collections.abc import Callable
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -217,6 +217,9 @@ def update_project(
 
     for field, value in changes.items():
         setattr(project, field, value)
+    # After the changes, so a status sent in the same request cannot leave
+    # a project with a final version marked Draft.
+    project.apply_final_version_rule()
 
     db.commit()
     db.refresh(project)
@@ -718,11 +721,11 @@ def download_version(
         ) from error
 
     extension = version.asset_storage_key.rsplit(".", 1)[-1]
-    filename = project_zip.safe_filename(
-        f"{project.name} {version.label}", date.today(), extension
-    )
+    filename = project_zip.version_filename(project.name, version.label, extension)
 
-    disposition = f'attachment; filename="video-{version.id}.{extension}"; ' + (
+    # `filename` for old clients that cannot read UTF-8, `filename*` for
+    # everyone else — which is where the Korean project name survives.
+    disposition = f'attachment; filename="video_{version.label}.{extension}"; ' + (
         f"filename*=UTF-8''{quote(filename)}"
     )
 
