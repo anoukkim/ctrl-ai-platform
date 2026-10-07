@@ -19,8 +19,7 @@ authority on order** — each item in **Next** names its milestone.
 ## Now
 
 **Nothing is in progress.** Branch the next item from an up-to-date
-`main`. `docs-chat-plus` (documentation only — the Chat+ specs and a new
-**Next** order) waits for review.
+`main`.
 
 Decisions from **chat-model-choice** (merged 2026-10-07) that later items
 inherit:
@@ -59,7 +58,7 @@ Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
 
 **Open check carried from Phase 2 — Chat: point 10 has not been run.**
 One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`;
-once `chat-model-choice` is merged the model comes from the catalogue —
+the model now comes from the catalogue (`chat-model-choice`) —
 send one message on the default Sonnet 5.5 and one on Haiku 4.5) — confirm
 the reply streams, the usage event and deduction are right, and a wrong
 key shows the Korean message with no charge. **It must be done before `prep-beta-launch`**,
@@ -241,15 +240,13 @@ assumption they came first. Four notes were rewritten to match:
 
 ## Next (in order)
 
-Order settled 2026-10-02, with two changes since: `budget-by-provider`
-and `usage-analytics` left for *After the prototype (needs discussion)*
-below, and `test-database-isolation` was inserted ahead of
-`prep-beta-launch` on 2026-10-07. `project-video-management`,
-`account-withdrawal` and `video-higgsfield-only` merged that day and left
-the list; Phase 2 — Chat merged later the same day, so it now starts
-at `invite-only-signup`. `chat-model-choice` was added at the top and
-merged the same day. The launch items stay at the end, in the order
-settled on 2026-10-01.
+Order set by the developer on 2026-10-07 (`docs-chat-plus`): the beta's
+one real feature is Chat, and members have never used Claude, so Chat
+should show what Claude can do before the site goes public. Three
+`chat-plus-*` items come in ahead of the launch work; the post-beta
+items are specced under **After the beta** below and are not in this
+list. `chat-model-choice`, added at the top the same day, has merged
+and left it.
 
 1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
@@ -258,29 +255,70 @@ settled on 2026-10-01.
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-2. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+2. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+   Replies render Markdown — tables, code blocks with a copy button — and
+   the four Chat welcome cards become **기능 둘러보기**, example prompts
+   (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
+
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+   Images, PDF, CSV and text attached to a message through the storage
+   interface, with limits, an estimated cost before sending and Korean
+   errors. Spec below.
+
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+   HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
+   `allow-scripts` only, no same-origin, no network), with 코드 보기,
+   다운로드 and Builder로 보내기. Spec below.
+
+5. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-3. **prep-beta-launch** · M1 · no branch named yet
+   **Open check before item 6 — Phase 2's point 10 (real key).** One
+   short real message with the owner's key; see **Now**. Not a branch,
+   but `prep-beta-launch` does not start until it has been run.
+
+6. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 2.** Running the suite against a live
-   database is a different order of mistake once the database holds
-   members' work rather than one developer's test rows.
-   **Also not before Phase 2's point 10** — the one real Claude message
-   with the owner's key (see **Now**). It is still open.
+   **Do not start before item 5**, nor before Phase 2's point 10.
+   Running the suite against a live database is a different order of
+   mistake once the database holds members' work rather than one
+   developer's test rows. **Storage on the VM** now also holds chat
+   attachments (`chat-plus-files`): its 30 GB disk budget is in that
+   spec.
 
 ### Merge order
 
-`docs-chat-plus` (documentation only) waits for review. `main` has been
-merged into it, so it merges cleanly.
+Nothing is waiting. Branch the next item from an up-to-date `main`.
+
+---
+
+## After the beta (specced, not in Next)
+
+Added 2026-10-07 (`docs-chat-plus`). Specced now so the beta's design
+leaves room for them; **none starts before `prep-beta-launch` has
+shipped**, and each has a milestone in [`ROADMAP.md`](ROADMAP.md). Full
+specs are at the end of this file; the research behind them is in
+[`research/chat-plus-research.md`](research/chat-plus-research.md).
+
+- **chat-plus-tools** · M2 — web search, web fetch and code execution in
+  Chat (Anthropic server tools), with per-search fees in the ledger.
+- **builder-static-runtime** · M2 — Phase 3's generation (Claude writes
+  the project's files) plus static member apps served from a separate,
+  sandboxed origin. Absorbs the Builder MVP [3].
+- **image-generation** · M2 — raster images through an
+  `ImageGenerationProvider` (mock first; Gemini image models the first
+  real candidate). Waits on the budget-by-provider decision.
+- **more-chat-providers** (optional) · M3 — Gemini, Grok or an
+  aggregator as further catalogue providers, on the seam
+  `chat-model-choice` left.
 
 ---
 
@@ -488,6 +526,254 @@ section would.
 > 8. Existing accounts are unaffected by the migration.
 >
 > Tests: signup without a code or with an invalid, expired, exhausted or deactivated code is refused with the same message; a valid code creates the account and increments its uses; the last use cannot be taken twice concurrently; the pre-filled signup link works; admin actions are audited; code management is admin-only.
+
+---
+
+## Chat+ — what the three M1 items share
+
+Added 2026-10-07 (`docs-chat-plus`). Members have never used Claude; Chat
+should let them try what it can do — read a table, summarise a file, draw
+a chart, build a small web page — before the beta opens. Prices and
+limits below come from
+[`research/chat-plus-research.md`](research/chat-plus-research.md)
+(Anthropic's docs, 2026-10-07; won at 1,400원/$).
+
+Rules all three follow:
+
+- **Everything is charged to Build**, through the same `charge()` as a
+  chat reply: tokens × the chosen model's catalogue price × the rate,
+  rounded up. No new budget category, no flat fees. A failed call is free,
+  a stopped reply is charged for what was used — Phase 2's rules.
+- **Every file and every preview is the member's own.** Scoped by owner
+  like conversations: another member's attachment is a 404.
+- **The provider stays behind the adapter.** Attachments travel as
+  base64 content blocks, which every provider in the research accepts —
+  not Anthropic's Files API, whose file ids are workspace-wide and whose
+  uploads cannot be downloaded again (we keep our own copy either way).
+- **Mock first.** The mock Claude provider gains canned replies with a
+  table, a code block, an HTML page and an SVG chart, so each item is
+  built and tested with no key. The mock reports image and PDF token
+  counts from the same formulas the estimate uses.
+
+### chat-plus-rendering — full spec
+
+Branch `feat-chat-plus-rendering`. M1. Effort: **S** (1–2 days). No
+migration.
+
+1. **Replies render Markdown.** Headings, lists, bold, links, tables
+   (GitHub-flavoured) and fenced code blocks. One renderer —
+   `react-markdown` with `remark-gfm`, new dependencies — and **no raw
+   HTML**: an HTML tag in a reply shows as text. Links open in a new tab
+   with `rel="noopener noreferrer"`, and only `http(s)` and `mailto`
+   survive. Wide tables scroll inside their own box; the page never
+   scrolls sideways.
+2. **Code blocks** show the language and a **복사** button ("복사됨" for
+   two seconds). Monospace from the existing `--mono` token. No syntax
+   highlighting in this item (it is another dependency and a colour set
+   for both themes; a later UI batch can add it).
+3. **The system prompt changes** from "Write plain text. The screen does
+   not render Markdown" to: Markdown is rendered; use a table when the
+   member asks to compare or organise, a fenced block for code, and keep
+   headings to a minimum. Still Korean, still beginner-level.
+4. **기능 둘러보기 replaces the four welcome cards.** Same grid and
+   tokens, new content: four example prompts that **fill the composer**
+   (the member presses 보내기 — they see the model and its estimated cost
+   first; a click on a card sends nothing):
+   - **표 만들기** — "서울 여행 2박 3일 일정을 표로 정리해 줘"
+   - **파일 요약** — until `chat-plus-files` lands: "아래 글을 세 줄로
+     요약해 줘:" plus a line break for pasting; after it, the card opens
+     the attach dialog.
+   - **차트 그리기** — until `chat-plus-artifacts` lands: a table plus a
+     one-line reading of it; after it, an SVG bar chart preview.
+   - **웹페이지 만들기** — "동아리 소개 한 장짜리 웹페이지를 만들어 줘";
+     a code block now, a live preview after `chat-plus-artifacts`.
+
+   The card list lives in one file (`lib/chat-examples.ts`), not in
+   `mock-data.ts`: it is product content, not mock data. The old cards'
+   destinations (Builder, Video, CtrlAIApps, CtrlAITube) stay reachable
+   from the sidebar and from the reply action buttons.
+5. **Streaming stays smooth.** Markdown is re-rendered as pieces arrive;
+   an unfinished table or code fence must not flash raw pipes or
+   backticks (render an open fence as a code block until it closes).
+
+**Charged:** unchanged — Build, by the token. Tables and code are longer
+than prose, so the average reply grows; the picker's "답장 1회 약 N원"
+(3,000 in / 800 out) stays a fair guide. `CHAT_MAX_OUTPUT_TOKENS` stays
+4,096 here.
+
+**Tests:** a table, a code block and a list render as elements, not
+text; `<script>` and `<img onerror>` in a reply render as text; a
+`javascript:` link is dropped; 복사 writes the block's exact text to the
+clipboard (mocked); a half-streamed fence renders as code; each example
+card fills the composer and sends nothing; the system prompt no longer
+says "does not render Markdown" (backend unit test).
+
+**Risks:** XSS through Markdown — no raw HTML and a link allow-list,
+both tested. Bundle size (two packages) on the Chat page only.
+
+### chat-plus-files — full spec
+
+Branch `feat-chat-plus-files`. M1. Effort: **M–L** (4–6 days). One
+migration (`chat_attachments`, plus the cache columns in point 5).
+
+1. **What can be attached**, per message, up to **5 files**:
+
+   | Kind | Formats | Upload limit | Sent to Claude as |
+   | ---- | ------- | ------------ | ----------------- |
+   | Image | JPEG, PNG, WebP, GIF (first frame) | 10 MB | `image` block, **re-encoded server-side to a long edge of at most 1,568 px** |
+   | PDF | PDF, not encrypted | 10 MB and **30 pages** | `document` block (base64) |
+   | Table | CSV | 1 MB | text, in a `document` block |
+   | Text | TXT, MD | 1 MB | text, in a `document` block |
+
+   The type is decided from the bytes (magic numbers; `pypdf` opening
+   the PDF), never from the extension. CSV and text are decoded as UTF-8,
+   falling back to **CP949** — Korean Excel exports are CP949, and a
+   garbled summary is a support question. A file over a limit is
+   **refused, never truncated**: a silently cut table gives a confident
+   wrong answer.
+2. **Storage.** Through the existing storage interface
+   (`app/services/storage.py`), key
+   `chat/<user_id>/<conversation_id>/<attachment_id>`. A new
+   `ChatAttachment` row: owner, conversation, message, kind, original
+   name, stored size, page count or pixel size, estimated tokens,
+   created. **Re-encoding images strips EXIF** — phone photos carry GPS.
+   Per member: **200 MB** of attachments. On the beta VM: the upload
+   route refuses once the attachment folder passes **5 GB** of the VM's
+   30 GB disk, and the Admin dashboard shows the figure. Both are
+   settings (`CHAT_ATTACHMENT_*`).
+3. **Deleting.** Deleting a conversation (a real delete, Phase 2) deletes
+   its attachments' bytes and rows. Withdrawal anonymisation
+   (`app/jobs/anonymise_withdrawn`) deletes them too. Usage events stay,
+   as now.
+4. **Estimated cost before sending.** As soon as a file is attached, the
+   composer shows "첨부 포함 답장 1회 약 N원" for the conversation's
+   model — and, because the history is resent every turn, "이 대화에서
+   이어지는 답장마다 약 M원씩 더 듭니다" while the file stays in the
+   context. The token estimate is the same in the browser and in the
+   budget pre-check:
+   - image: `ceil(w/28) × ceil(h/28)` after the resize (1,568 px → at
+     most about 2,350 tokens for 4:3): ≈ 3원 Haiku, 7원 Sonnet, 13원 Opus;
+   - PDF: pages × 3,000 (text) + pages × 1,600 (page image) — the upper
+     end of the documented range until real Korean PDFs are measured with
+     the token-counting endpoint; a 10-page PDF ≈ 46,000 tokens ≈ 64원 /
+     129원 / 258원 on Haiku / Sonnet / Opus;
+   - CSV and text: characters (the existing 1 token per character).
+5. **Prompt caching** turns on with this item, because a file resent on
+   every turn is where the money goes (a 35k-token PDF over five turns:
+   ≈ 490원 → 162원 on Sonnet). Automatic caching (`cache_control` at the
+   top level). The ledger must then price **cache writes at 1.25×** and
+   **cache reads at 0.1×** the input price (Opus 5.5: 0.05×) instead of
+   adding them to input at full price, as the adapter does today: two new
+   catalogue columns (`cache_write_usd_per_mtok`,
+   `cache_read_usd_per_mtok`) and two new `UsageEvent` columns for the
+   split. Haiku 4.5 caches nothing under 4,096 tokens — short Haiku chats
+   see no saving, and that is correct.
+6. **Korean errors**, each tested: 지원하지 않는 형식입니다 (JPEG, PNG,
+   WebP, GIF, PDF, CSV, TXT, MD만 올릴 수 있습니다) · 파일이 너무 큽니다
+   (최대 10MB) · PDF가 너무 깁니다 (최대 30쪽) · 암호가 걸린 PDF는 읽을 수
+   없습니다 · 한 번에 5개까지 올릴 수 있습니다 · 첨부 공간이 가득 찼습니다
+   (지난 대화를 지우면 공간이 생깁니다) · 지원금이 부족합니다 (with the
+   estimate) · and the existing Claude error set for a provider rejection.
+7. **Screens.** A 📎 button and drag-and-drop on the composer; chips with
+   name, size and ✕; an uploading state; image thumbnails in the member's
+   bubble; PDFs and tables as a chip that downloads the stored copy.
+   Members not participating this quarter can still read and download
+   what they attached.
+
+**Charged:** Build, by the token, with the cache split above. Uploading
+and storing cost nothing in won (the VM disk is the limit, not money).
+The 파일 요약 welcome card now opens the attach dialog.
+
+**Tests:** each format accepted by its bytes and refused under a renamed
+extension; size, page-count, count and quota limits refused with the
+exact Korean message and **nothing stored**; images re-encoded under
+1,568 px with EXIF gone; a CP949 CSV decoded; the estimate equals the
+pre-check's figure; a turn with an attachment charges the mock's
+reported tokens; cache reads and writes priced at their multipliers;
+another member's attachment is 404; deleting a conversation removes the
+bytes; an attachment is never sent as a Files API id.
+
+**Risks:** cost — files are resent each turn (caching and the visible
+estimate are the mitigation; a later option drops a file from the context
+after N turns, with a notice). VM disk and memory — Pillow on a 1 GB VM
+handles one 12 MP image at a time (decode with a pixel cap, process
+uploads one by one). Malicious files — nothing but Pillow and pypdf ever
+opens a file, both under size limits, and nothing is executed. Personal
+data — members may upload documents with personal information: the attach
+dialog says files are sent to Anthropic for the reply and kept until the
+conversation is deleted.
+
+### chat-plus-artifacts — full spec
+
+Branch `feat-chat-plus-artifacts`. M1. Effort: **M** (3–4 days). No
+migration (`builder_project_files` exists since `f3b8d41c9e27`; at most
+one Builder route to write a file).
+
+1. **What becomes a preview.** A fenced block tagged `html` or `svg` in a
+   finished reply — not while it is streaming — gets a **미리보기** card
+   under the code. The system prompt tells Claude: a web page or a chart
+   is one self-contained `html` block (inline CSS and JS, inline SVG for
+   charts, **no external scripts, fonts or images** — they would not
+   load). Charts are inline SVG or a few lines of plain JS on a canvas;
+   no chart library from a CDN.
+2. **The sandbox — non-negotiable, and tested exactly:**
+   - an `<iframe srcdoc=…>` with **`sandbox="allow-scripts"` and nothing
+     else** — never `allow-same-origin` (together with `allow-scripts` it
+     lets the frame remove its own sandbox), never `allow-forms`,
+     `allow-popups`, `allow-top-navigation`, `allow-modals` or
+     `allow-downloads`;
+   - the frame therefore has an **opaque origin**: no access to CTRL+AI's
+     cookies, storage or `/api`;
+   - **no network**: the srcdoc starts with a CSP meta tag —
+     `default-src 'none'; script-src 'unsafe-inline'; style-src
+     'unsafe-inline'; img-src data: blob:; font-src data:` — so `fetch`,
+     external images and beacons fail;
+   - **SVG is never put into the page** with `innerHTML` or
+     `dangerouslySetInnerHTML`; it goes into the same sandboxed frame (an
+     SVG can carry `<script>` and event handlers);
+   - the preview runs **only after a click on 미리보기 열기** (a runaway
+     loop in a generated page can freeze the tab; a click makes that the
+     member's choice and keeps long conversations light), and has 새로
+     고침 and 닫기;
+   - a fixed label over the frame: "Claude가 만든 미리보기입니다. 여기에
+     비밀번호나 개인 정보를 입력하지 마세요." — a generated page can draw
+     a convincing fake login form.
+
+   Blocks over **200 KB** show code only.
+3. **코드 보기** toggles the source (the `chat-plus-rendering` code block,
+   with 복사). **다운로드** saves `ctrlai-<conversation>-<n>.html` or
+   `.svg`, built as a Blob by CTRL+AI's page, not by the frame (which has
+   no download permission).
+4. **Builder로 보내기** (HTML only) creates a Project Builder project —
+   name from the conversation title, description from the member's
+   message — with the block as `index.html`, then opens it. Through the
+   Builder routes and `require_active_member`, like creating a project
+   from the library. Free (no Claude call).
+5. **Output length.** A one-page site in Korean can exceed 4,096 output
+   tokens and arrive cut off. This item proposes
+   `CHAT_MAX_OUTPUT_TOKENS=8192` — **the owner decides**, because the
+   worst-case pre-check roughly doubles (Sonnet: about 60원 → 115원 per
+   message before the real, usually far smaller, charge). A cut-off block
+   shows "답장이 길어 미리보기를 만들 수 없습니다 — \"계속\"이라고 보내
+   주세요" instead of a broken page.
+
+**Charged:** Build, by the token, as any reply. Previews, downloads and
+Builder로 보내기 cost nothing.
+
+**Tests:** the iframe's `sandbox` attribute is exactly `allow-scripts`;
+the srcdoc begins with the CSP above; no SVG reaches the DOM outside an
+iframe; nothing runs before 미리보기 열기; over 200 KB shows code only; a
+cut-off reply shows the notice; 다운로드 builds the right file name and
+type; Builder로 보내기 creates one project with one `index.html` and is
+refused for a member not participating; the mock's HTML and SVG replies
+produce previews.
+
+**Risks:** artifact security is the whole item — the sandbox list above
+is the mitigation, and every attribute is asserted by a test so a later
+"small fix" cannot widen it unnoticed. Phishing inside a preview (the
+label; no forms). Tab freezes (click to run). The cost of long pages (the
+output-limit decision). Nothing generated runs on the backend: the
+preview runs in the member's own browser, in a frame with no origin.
 
 ---
 
@@ -834,6 +1120,221 @@ Branch `fix-test-database-isolation`. **Must land before
 → **video-higgsfield-only — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#video-higgsfield-only--full-spec-merged-2026-10-07).
 
 → **Archived specs** moved to [`archive/done-specs.md`](archive/done-specs.md#archived-specs).
+
+## chat-plus-tools — full spec
+
+After the beta · M2 · branch `feat-chat-plus-tools`. Effort: **M**
+(3–5 days). Added 2026-10-07.
+
+1. **Three Anthropic server tools**, each switched on per catalogue model
+   by an admin (new catalogue columns), and per conversation by the
+   member with a toggle next to the model picker — per conversation, not
+   per message, because changing the tool list breaks the prompt cache:
+   - **웹 검색** — `web_search_20260209` on Sonnet 5.5 and Opus 5.5;
+     `web_search_20250305` on Haiku 4.5 (no dynamic filtering there).
+     `max_uses` 3, `user_location` Korea. **$10 per 1,000 searches (≈ 14원
+     each) plus the result tokens**, which stay in the history and are
+     billed again on later turns.
+   - **웹 페이지 읽기** — `web_fetch_20260209`; only URLs already in the
+     conversation. No fee beyond tokens, so `max_content_tokens` 20,000
+     and `max_uses` 2 — one fetched 500 KB PDF would otherwise be about
+     125k tokens (≈ 350원 on Sonnet).
+   - **코드 실행** — `code_execution_20260521`; free when web search or
+     fetch `_20260209` is in the request, otherwise inside the
+     organisation's 1,550 free container-hours a month (then $0.05 an
+     hour, 5-minute minimum). Files it creates come back through the
+     Files API; the backend copies them into the storage interface at once
+     and serves them as chat attachments. **File ids from a member are
+     never accepted** — they are workspace-wide.
+2. **The ledger.** `UsageEvent` records the response's `server_tool_use`
+   counts (searches, fetches). KRW = tokens as now + searches × the
+   per-search price (a catalogue value, `web_search_usd_per_call`, seeded
+   $0.01) × the rate. The worst-case pre-check adds `max_uses` × the
+   search price and the fetch cap.
+3. **Screens.** "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool
+   runs; sources under the reply as numbered links showing their domain
+   (web search answers carry citations); code output — text, an image, a
+   file — as an attachment chip. The picker's estimate gains "+ 검색 1회당
+   약 14원".
+
+**Charged:** Build, by the token plus per search. A typical question with
+two searches: ≈ 50원 Haiku / 73원 Sonnet / 118원 Opus (research doc; the
+result-token size is an estimate this item measures).
+
+**Tests:** a tool is sent only when both the model and the conversation
+allow it; Haiku gets the basic search version; searches are charged at
+the catalogue price; the pre-check includes `max_uses`; a member-supplied
+file id is refused; a tool error (HTTP 200 with an error block) shows
+Korean and charges only tokens; mock replies cover search, fetch and code
+output.
+
+**Risks:** cost — the per-search fee and re-billed results (caps, the
+visible estimate). Untrusted web content in the context (prompt
+injection): there are no client tools, so a page can only steer the
+text, and links in replies show their domain. The member's query goes to
+the search provider (said in the toggle's tooltip). Code execution is not
+ZDR-eligible and runs on Anthropic's servers, never ours.
+
+## builder-static-runtime — full spec
+
+After the beta · M2 · branch `feat-builder-static-runtime`. Effort:
+**L–XL** (2–3 weeks, in two halves). Added 2026-10-07. **Absorbs the
+Builder MVP [3]** of `CLAUDE.md` section 20.
+
+**Half 1 — generation (Phase 3).** Claude writes and edits the project's
+files: "만들어 줘" creates `index.html`, `style.css`, `app.js` (static
+only — HTML, CSS, browser JS); "버튼 색을 바꿔 줘" edits them. Through the
+existing `BuilderProject` / `BuilderProjectFile` models and the
+workspace's file tree and editor. Claude returns whole files through one
+tool, `write_file`, with `strict: true`; the backend checks names (the
+storage key rules), sizes (≤ 200 KB a file, ≤ 30 files, ≤ 2 MB a
+project) and types (text only). Every generation is a saved version the
+member can go back to. Charged to Build by the token; a generation may
+write up to 16,000 output tokens, so the worst-case pre-check (≈ 230원 on
+Sonnet) is shown before the member presses 만들기.
+
+**Half 2 — the static runtime.** The preview pane and, later, the
+CtrlAIApps launch button serve a project's files from **a separate
+origin**:
+
+- **A separate registrable domain, not `apps.ctrlai.my`.** A subdomain
+  is *same-site* with `ctrlai.my`: `SameSite` cookies are sent on
+  requests from it, and a cookie set with `Domain=ctrlai.my` would reach
+  it. A different domain (in the manner of `googleusercontent.com`, e.g.
+  `ctrlai-apps.net`) makes member apps cross-site to CTRL+AI. ⚠ **Buying
+  it costs money — ask the owner first.** If the owner prefers
+  `apps.ctrlai.my` anyway, the conditions are: CTRL+AI's session cookie
+  stays host-only (no `Domain` attribute), and every state-changing route
+  keeps requiring a JSON body, which a cross-origin page cannot send
+  without a CORS preflight the API refuses.
+- **One path per app** to start (`/<app-slug>/`), served by Caddy from a
+  read-only volume the backend writes when the member presses 미리보기
+  갱신 or 게시. Apps share that origin, so one app can read another's
+  `localStorage`: acceptable for a club beta and written down; one
+  subdomain per app (wildcard certificate, DNS challenge) is the later
+  step.
+- **Headers on every response:** `Content-Security-Policy: default-src
+  'self'; script-src 'self' 'unsafe-inline'; style-src 'self'
+  'unsafe-inline'; img-src 'self' data:; connect-src 'self';
+  frame-ancestors https://ctrlai.my` (only CTRL+AI may frame it),
+  `X-Content-Type-Options: nosniff`, and never a `Set-Cookie`.
+- **The workspace preview** frames that origin with `sandbox="allow-scripts
+  allow-forms"`.
+- **Nothing runs on the backend.** Static files execute in visitors'
+  browsers only; server code (Python, Node) is refused when written. This
+  is the line `CLAUDE.md` section 20 draws before the **Secure App
+  Runtime**, which stays *Later*.
+- **Storage:** 2 MB per project; all apps together ≤ 2 GB of the VM disk
+  (a setting), checked before writing.
+
+**Charged:** Build for generation (tokens). Hosting costs nothing per app;
+the separate domain is a yearly cost for the club.
+
+**Tests:** generated files land as `BuilderProjectFile` rows within the
+limits; a server-side file type is refused; the static origin's responses
+carry the headers above and no `Set-Cookie`; a project's path serves only
+that project; the preview frame's sandbox list is exact; a deleted
+project stops being served (the `deleted_at` rule in section 20).
+
+**Risks:** runtime security (separate site, CSP, no cookies, no server
+code). A member app used for phishing under the club's name (a report
+button on CtrlAIApps; an admin can unpublish from Content). Cost —
+generations are the most expensive calls in the product, so the
+pre-check figure is shown before each one. VM disk (the caps above).
+
+## image-generation — full spec
+
+After the beta · M2 · branch `feat-image-generation`. Effort: **M** (3–5
+days). Added 2026-10-07. **Waits on the budget-by-provider decision**
+(see *After the prototype*).
+
+1. **Claude cannot make raster images** (Anthropic's docs). What Chat can
+   already do without this item: SVG, HTML and chart code, previewed by
+   `chat-plus-artifacts` — token cost only (≈ 14–42원 Haiku, 28–84원
+   Sonnet for a typical drawing).
+2. **A provider interface with a mock**, as for video:
+   `ImageGenerationProvider` behind `IMAGE_PROVIDER` (`mock` default |
+   `gemini`), and an image model catalogue like Video Models (provider,
+   model id, label, per-image price in won by size, visibility).
+3. **First real candidate: Google's Gemini image models** — Nano Banana
+   2.1 about **$0.034 (≈ 47원) per 1K image**, 2K ≈ 71원, 4K ≈ 158원;
+   Gemini 3 Pro Image ≈ 188원. xAI's image models (≈ 28–70원) are the
+   alternative. Imagen 4 is shut down. (Research doc.)
+4. **In Chat:** 이미지 만들기 in the composer, or Claude offering it the
+   way it offers the Builder and Video buttons. Claude may improve the
+   prompt (Build, tokens); the image provider generates (the image
+   budget, per image); the result is stored through the storage interface
+   as a chat attachment with 다운로드.
+5. **Which budget — not decided here.** Google is a different prepaid
+   provider; credit cannot move between Anthropic and Google. Options for
+   the owner: (a) a third pot under budget-by-provider — the clean
+   answer; (b) until then, charge Video, which already pays a non-Claude
+   provider — simplest, but it blurs the per-provider purchase the 팀장
+   files in Concur.
+6. **Data terms.** Gemini's *free* tier uses submitted content for
+   training and lets humans read it — **member prompts must only ever go
+   through a paid (billed) project**. A key on an unbilled project
+   silently becomes free tier, so startup refuses `IMAGE_PROVIDER=gemini`
+   unless `GEMINI_BILLING_CONFIRMED=true`, and `docs/deployment.md` says
+   why. Gemini's terms require users to be 18 or over.
+
+**Charged:** the image budget per image at the catalogue price (in won,
+snapshotted like video prices); Build for Claude's prompt help.
+
+**Tests:** mock generation end to end (budget check before, charge after,
+nothing on failure); the price by size from the catalogue; hidden and
+disabled image models refused; the billing-confirmation guard; the image
+stored and downloadable by its owner only.
+
+**Risks:** a new provider pot and receipt trail for Concur (whether
+Gemini's prepaid purchases produce downloadable receipts is *unverified*
+— check before buying). The data terms above. Content safety (provider
+filters; a refusal shown in Korean and not charged). Generated images on
+the VM disk count toward the member's attachment quota.
+
+## more-chat-providers — full spec (optional)
+
+After the beta · M3 · branch `feat-more-chat-providers`. Effort: **M per
+provider**. Added 2026-10-07. Optional — the owner decides whether it is
+wanted at all.
+
+1. **The seam exists.** `chat-model-choice` made the catalogue *provider
+   + model*; another provider is a new adapter (a `ChatProvider` with the
+   same stream, usage and error events as `claude_provider.py`), chosen by
+   the row's `provider`, plus rows. Screens do not change.
+2. **Candidates** (research doc, 2026-10-07):
+
+   | | API | Price $/MTok (in / out) | Billing | Data |
+   | - | --- | ----------------------- | ------- | ---- |
+   | Google Gemini (AI Studio) | own SDK; OpenAI-compatible layer | 3.1 Pro preview 2 / 12; 3.8 Flash 0.75 / 3.75 (doubles 2027-01-01); Flash-Lite from 0.10 / 0.40 | prepaid credit (default since 2026-03), expires after 12 months; at $0 every key on the account stops | free tier trains on data — paid tier only |
+   | xAI Grok | OpenAI-compatible | grok-4.7 2 / 6; grok-4.3 1.25 / 2.50 | prepaid credit or monthly invoice; invoices in the console | no training without permission; 30-day retention |
+   | OpenRouter (aggregator) | OpenAI-compatible | provider list price, no markup | one prepaid balance for every model; **5.5% card fee** | per upstream provider; free models may train |
+
+3. **Effect on budget-by-provider and Concur.** A direct provider is one
+   more prepaid pot and one more purchase per quarter (Gemini: on its own
+   billing account, not the VM's). An aggregator collapses every model
+   into **one pot at about 1.055× list price** with one Stripe receipt per
+   top-up — simpler for the 팀장, but per-model attribution then comes
+   from our own ledger only. Decide this together with
+   `budget-by-provider`.
+4. **File input and streaming** are supported by all three; Gemini reads
+   PDFs at 258 tokens a page, far cheaper than Claude, which matters for
+   `chat-plus-files`.
+
+**Charged:** each provider's own budget (or the aggregator's single one),
+by the token at the catalogue price.
+
+**Tests:** an adapter conformance suite — the stream, usage and error
+cases `test_chat.py` runs for Claude, against each adapter's fake
+transport; a row whose provider has no adapter is refused (already tested
+by `chat-model-choice`).
+
+**Risks:** data terms differ per provider (paid tiers only; Gemini users
+18+). Another set of keys to keep and rotate. Korean quality is
+unmeasured — compare on a handful of real club prompts before opening a
+model to members.
+
+---
 
 ## Done
 
