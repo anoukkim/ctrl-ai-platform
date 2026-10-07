@@ -92,10 +92,10 @@ result is a database that has some of a branch's schema and none of its
 migrations recorded, which is exactly the state that makes
 `alembic upgrade head` fail later.
 
-That is pre-existing and not this item's work, but it is worth an item of
-its own: the concurrency test should create its tables in a **separate
-database** (or a schema it drops afterwards) rather than in the one the
-developer runs the product on.
+That is pre-existing and not this item's work. It is now **item 6,
+`test-database-isolation`, and must land before `prep-beta-launch`** —
+running the suite against a live database stops being a developer's
+inconvenience and starts being members' data the moment the beta exists.
 
 Do not merge until the developer says so (section 22).
 
@@ -220,10 +220,20 @@ the end, in the order settled on 2026-10-01.
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-6. **prep-beta-launch** · no branch named yet
+6. **test-database-isolation** · branch `fix-test-database-isolation`
+   ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
+   The test suite writes to the database named by `DATABASE_URL` — the
+   one the developer runs the product on. Found on 2026-10-07, after it
+   put a branch's table into the development database and left
+   `alembic upgrade head` unable to run.
+
+7. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
+   **Do not start before item 6.** Running the suite against a live
+   database is a different order of mistake once the database holds
+   members' work rather than one developer's test rows.
 
 ### Merge order
 
@@ -1090,6 +1100,54 @@ genuinely unknown and must not be guessed), accepted on
 `POST /api/video/projects/{id}/versions` and validated against the model's
 `capabilities`, returned on `VideoVersionRead`, after which the in-memory
 map in `VideoWorkspace.tsx` is deleted.
+
+---
+
+## test-database-isolation — full spec
+
+Branch `fix-test-database-isolation`. **Must land before
+`prep-beta-launch`.** Raised 2026-10-07.
+
+> **The problem.** `tests/test_usage.py` proves the budget row lock, and
+> SQLite ignores `SELECT ... FOR UPDATE`, so that one test needs real
+> PostgreSQL. It gets it by calling `get_settings().database_url` — the
+> developer's own database — and then runs
+> `Base.metadata.create_all(bind=engine)` against it.
+>
+> Two consequences, both seen for real on 2026-10-07:
+>
+> 1. Running the suite on a branch **creates that branch's new tables in
+>    the development database**, without recording anything in
+>    `alembic_version`. The result is a database holding part of a
+>    branch's schema and none of its migrations, which is exactly the
+>    state in which `alembic upgrade head` later fails with
+>    `relation "builder_project_files" already exists`.
+> 2. The test writes rows (members, quarters, allocations) into the
+>    database the developer is looking at while they work.
+>
+> **What to build.**
+>
+> - A dedicated test database, from its own setting — `TEST_DATABASE_URL`,
+>   defaulting to something obviously separate such as
+>   `postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai_test`.
+> - **Refuse to run if it resolves to the same database as
+>   `DATABASE_URL`.** Compare the parsed database name and host, not the
+>   raw string: the same database can be written two ways. A test that
+>   silently falls back to the developer's database is the bug being
+>   fixed, so the failure must be loud and must name both URLs.
+> - Skip politely, as today, when no test database is reachable — the
+>   suite must still run with Docker down.
+> - Create the schema from **migrations** (`alembic upgrade head`) rather
+>   than `create_all`, so what the tests run against is what production
+>   runs against. `create_all` is what let the schemas drift apart in the
+>   first place.
+> - Drop or truncate what the test created afterwards.
+>
+> Tests: the suite leaves `DATABASE_URL`'s database untouched (compare
+> the table list and `alembic_version` before and after a full run); the
+> guard refuses when both URLs name the same database, including when
+> they are spelled differently; the row-lock test still proves
+> overspending is impossible.
 
 ---
 

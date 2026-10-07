@@ -138,7 +138,7 @@ export default function LibraryCard({
   }, [onDelete]);
 
   return (
-    <article className={styles.card}>
+    <article className={`${styles.card} ${open ? styles.cardOpen : ""}`}>
       {/* 카드를 덮는 링크. 이름 칸을 쓰는 동안에는 깔지 않습니다 —
           글자를 고치려 눌렀을 뿐인데 화면이 바뀌면 안 됩니다. */}
       {!editing && <Link aria-label={name} className={styles.cardLink} href={href} />}

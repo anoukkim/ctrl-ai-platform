@@ -273,6 +273,29 @@ describe("이름 바꾸기", () => {
   });
 });
 
+describe("메뉴가 열린 카드", () => {
+  test("열려 있는 동안에만 카드가 들어 올려진다", async () => {
+    // CSS는 "열린 카드는 2보다 위"라고만 말합니다. 그 클래스를 실제로
+    // 붙였다 떼는지는 여기서 봅니다 — 둘 중 하나만 맞으면 고쳐지지
+    // 않습니다. 겹침 자체는 jsdom이 볼 수 없어 실제 브라우저에서
+    // 확인했고, 그 규칙은 card-overlay.test.ts가 지킵니다.
+    const user = userEvent.setup();
+    const { container } = render(<BuilderLibrary />);
+
+    await screen.findByText("가계부");
+    const card = container.querySelector(".card")!;
+    expect(card.className).not.toContain("cardOpen");
+
+    await user.click(screen.getByRole("button", { name: "가계부 메뉴" }));
+    expect(card.className).toContain("cardOpen");
+
+    // 닫으면 다시 내려와야 합니다. 올라간 채로 남으면 카드마다 쌓임
+    // 맥락이 생겨 같은 문제가 다른 자리에서 납니다.
+    await user.keyboard("{Escape}");
+    expect(card.className).not.toContain("cardOpen");
+  });
+});
+
 describe("코드 다운로드", () => {
   test("메뉴에 ZIP 받는 링크가 있고, 그 프로젝트를 가리킨다", async () => {
     const user = userEvent.setup();
