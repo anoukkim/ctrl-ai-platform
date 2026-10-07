@@ -466,6 +466,13 @@
     padding: 36px 40px 56px;
   }
 
+  /* Chat과 작업 공간은 위의 여백을 쓰지 않습니다 — 여백은 각 화면이
+     직접 두고, 높이는 화면 전체를 씁니다. */
+  .mainWorkspace,
+  .mainChat {
+    padding: 0;
+  }
+
   /* 작업 공간은 화면 높이를 고정하고, 스크롤은 각 판 안에서만 생깁니다. */
   .mainWorkspace,
   .mainChat {

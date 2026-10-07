@@ -21,16 +21,20 @@
   line-height: 1.6;
 }
 
+/* 번호는 글자 흐름 밖(왼쪽 26px 칸)에 둡니다. li를 grid나 flex로 만들면
+   문장 안의 <strong>까지 따로 떨어진 칸이 되어 줄이 깨집니다. */
 .steps li {
-  display: grid;
-  grid-template-columns: 26px 1fr;
-  align-items: start;
-  gap: 12px;
+  position: relative;
+  min-height: 26px;
+  padding: 2px 0 0 38px;
   counter-increment: step;
 }
 
 .steps li::before {
   content: counter(step);
+  position: absolute;
+  top: 0;
+  left: 0;
   display: grid;
   place-items: center;
   width: 26px;
@@ -41,8 +45,6 @@
   font-family: var(--mono);
   font-size: 12.5px;
   font-weight: 700;
-  /* 첫 줄 글자의 가운데와 맞춥니다. */
-  margin-top: -1px;
 }
 
 .steps strong {

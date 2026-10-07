@@ -182,7 +182,7 @@
 }
 
 /* 지우기 단추(두 번째)는 가리키면 빨갛게 — 되돌릴 수 없는 일입니다. */
-.iconButton:last-child:hover:not(:disabled) {
+.iconButtonDanger:hover:not(:disabled) {
   color: var(--error-text);
 }
 

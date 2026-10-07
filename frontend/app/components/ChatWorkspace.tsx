@@ -449,7 +449,7 @@ export default function ChatWorkspace() {
                   </button>
                   <button
                     type="button"
-                    className={styles.iconButton}
+                    className={`${styles.iconButton} ${styles.iconButtonDanger}`}
                     aria-label="지우기"
                     title="지우기"
                     disabled={streaming}
