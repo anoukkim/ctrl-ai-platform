@@ -36,6 +36,7 @@ import RowMenu from "../components/RowMenu";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import SharedPageHeader from "@/app/components/PageHeader";
 
 export default function DeletedWorkAdmin() {
   const [items, setItems] = useState<DeletedItem[] | null>(null);
@@ -211,12 +212,15 @@ export default function DeletedWorkAdmin() {
 
 function PageHeader() {
   return (
-    <header className="page-header page-header-stacked">
-      <h1 className="page-title">{sectionLabel("deleted")}</h1>
-      <p className="page-subtitle">
-        회원이 삭제한 프로젝트와 영상입니다. 행은 지워지지 않으므로 잘못 지운 것을 되살릴 수
-        있습니다.
-      </p>
-    </header>
+    <SharedPageHeader
+      eyebrow="Admin"
+      title={sectionLabel("deleted")}
+      subtitle={
+        <>
+          회원이 삭제한 프로젝트와 영상입니다. 행은 지워지지 않으므로 잘못 지운 것을 되살릴 수
+          있습니다.
+        </>
+      }
+    />
   );
 }

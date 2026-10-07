@@ -19,6 +19,7 @@ import { QuarterBadge } from "./components/StatusBadge";
 import { visibleSections, type AdminSection } from "./sections";
 
 import styles from "./admin.module.css";
+import PageHeader from "@/app/components/PageHeader";
 
 export default function AdminDashboard() {
   const { selected, dashboard, error } = useAdminQuarter();
@@ -61,13 +62,15 @@ export default function AdminDashboard() {
 
   return (
     <div className={styles.sections}>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">Admin</h1>
-        <p className="page-subtitle">
-          회원, 분기, 지원금을 관리합니다. 제공자 이용 권한은 CTRL+AI가 갖고 회원별 사용량을
-          기록하므로, 회원이 직접 API 키를 보관하지 않습니다.
-        </p>
-      </header>
+      <PageHeader
+        title={"Admin"}
+        subtitle={
+          <>
+            회원, 분기, 지원금을 관리합니다. 제공자 이용 권한은 CTRL+AI가 갖고 회원별 사용량을
+            기록하므로, 회원이 직접 API 키를 보관하지 않습니다.
+          </>
+        }
+      />
 
       {needsAction.length > 0 && (
         <section aria-labelledby="admin-todo">

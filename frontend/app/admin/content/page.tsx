@@ -9,18 +9,21 @@
  */
 
 import { sectionLabel } from "../sections";
+import PageHeader from "@/app/components/PageHeader";
 
 export default function AdminContentPage() {
   return (
     <>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">
-          {sectionLabel("content")} <span className="badge badge-mock">준비 중</span>
-        </h1>
-        <p className="page-subtitle">
-          게시된 앱과 영상을 숨기거나 댓글을 정리하는 화면입니다.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Admin"
+        title={sectionLabel("content")}
+        titleAddon={<span className="badge badge-mock">준비 중</span>}
+        subtitle={
+          <>
+            게시된 앱과 영상을 숨기거나 댓글을 정리하는 화면입니다.
+          </>
+        }
+      />
 
       <div className="card">
         <p className="small muted">

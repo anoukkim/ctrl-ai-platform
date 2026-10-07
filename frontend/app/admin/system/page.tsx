@@ -18,16 +18,20 @@ import ProviderPanel from "./ProviderPanel";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import PageHeader from "@/app/components/PageHeader";
 
 export default function AdminSystemPage() {
   return (
     <div className={styles.sections}>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">{sectionLabel("system")}</h1>
-        <p className="page-subtitle">
-          CTRL+AI의 서버와 데이터베이스, 그리고 연결된 외부 서비스의 상태입니다.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Admin"
+        title={sectionLabel("system")}
+        subtitle={
+          <>
+            CTRL+AI의 서버와 데이터베이스, 그리고 연결된 외부 서비스의 상태입니다.
+          </>
+        }
+      />
 
       <section aria-labelledby="admin-server">
         <h2 className="section-title" id="admin-server">

@@ -24,6 +24,7 @@ import ResultMessage, { type Result } from "../components/ResultMessage";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import SharedPageHeader from "@/app/components/PageHeader";
 
 export default function DevTools() {
   const { dashboard, refresh } = useAdminQuarter();
@@ -134,12 +135,15 @@ export default function DevTools() {
 
 function PageHeader() {
   return (
-    <header className="page-header page-header-stacked">
-      <h1 className="page-title">{sectionLabel("dev")}</h1>
-      <p className="page-subtitle">
-        제공자를 붙이기 전에 예산과 기록이 실제로 움직이는지 확인하는 도구입니다. 배포
-        환경에서는 동작하지 않습니다.
-      </p>
-    </header>
+    <SharedPageHeader
+      eyebrow="Admin"
+      title={sectionLabel("dev")}
+      subtitle={
+        <>
+          제공자를 붙이기 전에 예산과 기록이 실제로 움직이는지 확인하는 도구입니다. 배포
+          환경에서는 동작하지 않습니다.
+        </>
+      }
+    />
   );
 }

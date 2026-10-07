@@ -47,6 +47,7 @@ import {
 import styles from "../../admin.module.css";
 import Fact from "./Fact";
 import WithdrawalPanel from "./WithdrawalPanel";
+import PageHeader from "@/app/components/PageHeader";
 
 export default function MemberDetailView({ userId }: { userId: number }) {
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
@@ -204,16 +205,17 @@ export default function MemberDetailView({ userId }: { userId: number }) {
 
   return (
     <div className={styles.sections}>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">
-          {member.display_name}
-          <span className={styles.titleHandle}>@{member.username}</span>
-        </h1>
-        <p className="page-subtitle">
-          계정 상태는 로그인할 수 있는지를, 참여 상태는 그 분기에 만들 수 있는지를 말합니다.
-          두 가지는 서로 다른 질문이라 따로 관리합니다.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Admin"
+        title={member.display_name}
+        titleAddon={<span className={styles.titleHandle}>@{member.username}</span>}
+        subtitle={
+          <>
+            계정 상태는 로그인할 수 있는지를, 참여 상태는 그 분기에 만들 수 있는지를 말합니다.
+            두 가지는 서로 다른 질문이라 따로 관리합니다.
+          </>
+        }
+      />
 
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
 
