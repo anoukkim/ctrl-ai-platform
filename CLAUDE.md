@@ -1451,6 +1451,13 @@ costs money and the only one that needs a domain or an API key.
 > databases, hosting plans and provider API keys all bill someone. Confirm
 > first — this is also rule 5 of section 21.
 
+> **Beta hosting is decided (2026-10-07).** The domain `ctrlai.my` is
+> bought. The beta runs on one e2-micro VM with Docker Compose and
+> PostgreSQL on the VM, billed on the Google Cloud free trial from the
+> deploy step. See `docs/BACKLOG.md` › prep-beta-launch › **Hosting
+> decisions**. The managed PostgreSQL and Secret Manager lines below
+> describe the target after the beta.
+
 Implement:
 
 - **domain** — register and point DNS

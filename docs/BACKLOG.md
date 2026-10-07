@@ -166,6 +166,15 @@ each one cost an investigation.
   rm -rf frontend/.next && cd frontend && npm run dev
   ```
 
+- **`alembic` can take about two minutes per command on Windows** while
+  the app itself answers in 0.1 s. Unconfirmed suspicion: `localhost`
+  resolves to IPv6 `::1` first, and Docker publishes PostgreSQL on
+  `127.0.0.1` only, so each connection waits for the IPv6 attempt to
+  fail. Try `127.0.0.1` instead of `localhost` in `DATABASE_URL` and time
+  `alembic current`; if it fixes it, change `.env.example` too. Until
+  then, give a slow `alembic upgrade head` a couple of minutes before
+  stopping it.
+
 - **`pytest` writes to the database named by `DATABASE_URL`.** The
   row-lock test needs real PostgreSQL and calls `create_all` on it, so
   running the suite on a branch creates that branch's new tables in the
@@ -209,8 +218,10 @@ launch items stay at the end, in the order settled on 2026-10-01.
 
 4. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
-   keeping its **Launch data rules** section. ⚠ **Costs money** —
-   domain, two hosts and a managed database; ask first.
+   keeping its **Launch data rules** section. ⚠ **Costs money** — the
+   domain is already bought (`ctrlai.my`); the rest is one Google Cloud
+   VM on the 90-day free trial, started only at the deploy step. See
+   **Hosting decisions** in its spec; ask before creating anything.
    **Do not start before item 3.** Running the suite against a live
    database is a different order of mistake once the database holds
    members' work rather than one developer's test rows.
@@ -245,6 +256,33 @@ them now use the budgets that exist today, and record the fields these
 two will want — so when the cost model is settled, neither has to go
 back and fill in history. The three notes below were written for
 `budget-by-provider` and still apply whenever it is picked up.
+
+### Funding model — 2026-10-07
+
+Stated by the owner; recorded here so the cost-model discussion starts
+from it.
+
+> CTRL+AI is a club and runs by quarter. Members apply before the quarter starts. The club leader (팀장) then buys provider credit for exactly that headcount with the company card and files the receipts in Concur. Expense handling happens outside the app.
+
+What follows from that for the specs below:
+
+- **The "pool smaller than requests" problem mostly disappears.**
+  *Application and purchase model* left open what happens when
+  auto-approved allocations exceed what the company approves. Here the
+  purchase is sized to the applications, so allocations members can
+  already see are not cut afterwards.
+- **Still open:** what happens to a member who applies after the purchase
+  (a second purchase, or the next quarter); the per-provider split has to
+  be fixed before the purchase, because credit cannot move between
+  providers; and what the 팀장 needs from the app as Concur evidence —
+  most likely point 6's quarter report (headcount, purchase per provider,
+  usage), plus the purchase records in *Application and purchase model*
+  point 3.
+- **Expense filing stays out of scope.** The app records purchases; it
+  does not talk to Concur.
+
+The owner still confirms the decisions before `budget-by-provider` leaves
+this section.
 
 Three things to carry into **budget-by-provider**:
 
@@ -623,10 +661,12 @@ top-ups, dev tools unavailable, the feedback form — is untouched and is
 still this item's work. The spec below is kept verbatim; this note records
 what moved, not an edit to the developer's words.
 
-**This is the item that costs money** — a domain, a frontend host, a
-backend host and a managed PostgreSQL. CLAUDE.md section 21 rule 5 and
-section 20's Phase 9 both apply: ask before creating any paid cloud
-resource. Point 4 below says the same thing.
+**This is the item that costs money** — originally a domain, a frontend
+host, a backend host and a managed PostgreSQL. **Superseded for the beta
+by Hosting decisions below (2026-10-07):** the domain is bought, and
+everything runs on one Google Cloud VM on the free trial. CLAUDE.md
+section 21 rule 5 and section 20's Phase 9 both still apply: ask before
+creating any paid cloud resource. Point 4 below says the same thing.
 
 > Goal: an invite-only beta on my own domain, with real Claude chat and everything else clearly labelled as test mode.
 >
@@ -662,6 +702,52 @@ Added 2026-10-01. Saved exactly as written by the developer.
 > - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
 > - Never copy the local database to production; the deployment guide says so explicitly.
 > - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
+
+### Hosting decisions — 2026-10-07
+
+Decided by the owner. **Where these conflict with points 3–4 above, or
+with Phase 9 in `CLAUDE.md`, these win for the beta.** Points 1, 2 and 5
+and the Launch data rules are unchanged.
+
+- **Domain: `ctrlai.my`, already bought.** Use it instead of
+  `ctrlai.example` in `.env.example` and `docs/deployment.md`. DNS at the
+  registrar: `@` A → the VM's static IP; `www` CNAME → `ctrlai.my`
+  (Caddy redirects to the apex). Keep point 3's `api` subdomain only if
+  it is useful; if it exists, FastAPI's `/docs` must not be public in
+  `APP_ENV=beta`.
+- **One host, not two hosts and a managed database.** A single Compute
+  Engine **e2-micro** VM in `us-west1`, `us-central1` or `us-east1` (the
+  Always Free regions), 30 GB *standard* persistent disk, a reserved
+  static external IP, firewall open on 80 and 443 only. Docker Compose
+  runs four services: `caddy` (80/443, automatic Let's Encrypt HTTPS),
+  `web` (Next.js standalone output), `api` (FastAPI) and `db`
+  (`postgres:16-alpine`, **no published port**, a named volume).
+- **No Cloud SQL, Cloud Run or Secret Manager for the beta.** Cloud SQL
+  has no free tier (the smallest instance is about $10 a month with
+  storage). Production secrets live in a `.env` on the VM readable only
+  by the deploy user; Secret Manager comes after the beta.
+- **Images are built off the VM.** 1 GB of RAM cannot run `next build`.
+  GitHub Actions builds both images and pushes them to ghcr.io; the VM
+  only pulls. Next.js rewrites are compiled at build time, so
+  `BACKEND_ORIGIN` (`http://api:8000`) is a **build argument**, not a
+  runtime variable. The VM gets a 2 GB swap file.
+- **Billing: the Google Cloud 90-day / $300 free trial, activated at the
+  deploy step — not before.** The trial clock starts at sign-up, so
+  everything this item can do locally (including running the production
+  compose file on a laptop) is finished first. Set a budget alert on day
+  one. **Before day 90 the account must be upgraded to paid, or the VM
+  stops;** after the upgrade an e2-micro in those regions stays free.
+  `docs/deployment.md` says both, with the date to act.
+- **The first background job runs from host cron:** once a day,
+  `docker compose exec api python -m app.jobs.anonymise_withdrawn`.
+- **Backups:** `pg_dump` from the `db` container before every update,
+  kept off the VM.
+- **Growing later is configuration, not a rewrite**, and
+  `docs/deployment.md` lists the paths: resize the VM (e2-small or
+  e2-medium, a few minutes of downtime); move PostgreSQL to Cloud SQL by
+  dump and restore plus a new `DATABASE_URL`; move to the Seoul region by
+  disk snapshot and a DNS change; or run the same images on Cloud Run.
+  Each one ends the free tier for what it touches.
 
 ---
 

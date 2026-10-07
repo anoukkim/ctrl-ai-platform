@@ -191,6 +191,16 @@ usage per member and quarter.
 Hosting is expected to be Google Cloud, but nothing here is created until
 Phase 9, and every item below bills someone.
 
+### Beta hosting (decided 2026-10-07)
+
+The invite-only beta does **not** use the full layout below. It runs on
+`ctrlai.my` from one Compute Engine e2-micro VM (Always Free region) with
+Docker Compose: Caddy for HTTPS, the Next.js app, FastAPI, and PostgreSQL
+on the same VM with no published port. Billing starts on the Google Cloud
+free trial at the deploy step. The full decision, and how to grow out of
+it, is in `docs/BACKLOG.md` › prep-beta-launch › **Hosting decisions**.
+The layout below is the target after the beta.
+
 ```text
 Google Cloud
 │
