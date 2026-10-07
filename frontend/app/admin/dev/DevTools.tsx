@@ -79,23 +79,32 @@ export default function DevTools() {
           <span className={styles.sectionNote}>개발 환경 전용</span>
         </h2>
 
-        <ResultMessage result={result} onDismiss={() => setResult(null)} />
-
         <div className="card">
           <p className="small muted" style={{ marginBottom: "0.7rem" }}>
             제공자를 부르지 않고 내 예산에서 금액을 차감합니다. 실제 차감 코드를 그대로
             지나가므로 Usage 화면과 Audit Log가 함께 바뀝니다.
           </p>
           <div className={styles.simulateRow}>
-            <select
-              className="field"
-              value={category}
-              onChange={(event) => setCategory(event.target.value as "build" | "video")}
-              aria-label="구분"
-            >
-              <option value="build">Build (Claude)</option>
-              <option value="video">Video (Higgsfield)</option>
-            </select>
+            {/* 고를 것이 두 가지뿐이라 펼쳐 두는 칩으로 둡니다. */}
+            <div className="segmented" role="radiogroup" aria-label="구분">
+              {(
+                [
+                  ["build", "Build (Claude)"],
+                  ["video", "Video (Higgsfield)"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  className="chip"
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={category === value}
+                  onClick={() => setCategory(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <input
               className="field"
               inputMode="numeric"
@@ -112,6 +121,10 @@ export default function DevTools() {
             >
               {busy ? "차감 중…" : "사용해 보기"}
             </button>
+          </div>
+          {/* 결과는 같은 카드 안, 바로 아래에 둡니다. */}
+          <div className={styles.devResult}>
+            <ResultMessage result={result} onDismiss={() => setResult(null)} />
           </div>
         </div>
       </section>

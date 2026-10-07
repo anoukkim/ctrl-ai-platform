@@ -186,7 +186,7 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
           </p>
         </div>
       ) : (
-        <div className="card">
+        <div className={`card ${styles.dangerCard}`}>
           {withdrawal?.restored_at && (
             <p className="small dim" style={{ marginBottom: "0.5rem" }}>
               {formatWhen(withdrawal.withdrawn_at)}에 탈퇴했다가 {formatWhen(withdrawal.restored_at)}

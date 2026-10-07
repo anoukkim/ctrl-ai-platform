@@ -242,36 +242,53 @@ export default function MemberDetailView({ userId }: { userId: number }) {
           />
         </div>
 
-        <div className={styles.actionRow}>
-          <button
-            className="btn btn-sm"
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              setConfirm({
-                title: member.role === "admin" ? "관리자 권한 해제" : "관리자로 지정",
-                effect:
-                  member.role === "admin"
-                    ? `${member.display_name}은(는) 더 이상 Admin 화면을 열 수 없고, 회원 자격과 지원금을 바꿀 수 없습니다.`
-                    : `${member.display_name}이(가) 모든 회원의 자격과 지원금을 바꿀 수 있게 됩니다.`,
-                confirmLabel: member.role === "admin" ? "권한 해제" : "관리자로 지정",
-                danger: member.role !== "admin",
-                onConfirm: () =>
-                  run(
+        {/* 역할: 지금 역할이 눌린 두 칸짜리 단추. 다른 칸을 누르면 같은
+            확인창이 뜹니다. */}
+        <div
+          className={`segmented ${styles.segmentedControl}`}
+          role="group"
+          aria-label="역할"
+        >
+          {(["member", "admin"] as const).map((role) => (
+            <button
+              className="chip"
+              key={role}
+              type="button"
+              aria-pressed={member.role === role}
+              disabled={busy || member.role === role}
+              title={
+                member.role === role
+                  ? undefined
+                  : member.role === "admin"
+                    ? "관리자 권한 해제"
+                    : "관리자로 지정"
+              }
+              onClick={() =>
+                setConfirm({
+                  title: member.role === "admin" ? "관리자 권한 해제" : "관리자로 지정",
+                  effect:
                     member.role === "admin"
-                      ? `${member.display_name}의 관리자 권한을 해제했습니다.`
-                      : `${member.display_name}을(를) 관리자로 지정했습니다.`,
-                    () =>
-                      setMemberRole(
-                        member.user_id,
-                        member.role === "admin" ? "member" : "admin",
-                      ),
-                  ),
-              })
-            }
-          >
-            {member.role === "admin" ? "관리자 권한 해제" : "관리자로 지정"}
-          </button>
+                      ? `${member.display_name}은(는) 더 이상 Admin 화면을 열 수 없고, 회원 자격과 지원금을 바꿀 수 없습니다.`
+                      : `${member.display_name}이(가) 모든 회원의 자격과 지원금을 바꿀 수 있게 됩니다.`,
+                  confirmLabel: member.role === "admin" ? "권한 해제" : "관리자로 지정",
+                  danger: member.role !== "admin",
+                  onConfirm: () =>
+                    run(
+                      member.role === "admin"
+                        ? `${member.display_name}의 관리자 권한을 해제했습니다.`
+                        : `${member.display_name}을(를) 관리자로 지정했습니다.`,
+                      () =>
+                        setMemberRole(
+                          member.user_id,
+                          member.role === "admin" ? "member" : "admin",
+                        ),
+                    ),
+                })
+              }
+            >
+              {ROLE_LABEL[role]}
+            </button>
+          ))}
         </div>
       </section>
 
@@ -309,12 +326,17 @@ export default function MemberDetailView({ userId }: { userId: number }) {
               />
             </div>
 
-            <div className={styles.actionRow}>
+            <div
+              className={`segmented ${styles.segmentedControl}`}
+              role="group"
+              aria-label="참여 상태 바꾸기"
+            >
               {membershipActions.map((action) => (
                 <button
-                  className="btn btn-sm"
+                  className="chip"
                   key={action.status}
                   type="button"
+                  aria-pressed={currentRow?.membership_status === action.status}
                   disabled={
                     busy || currentRow?.membership_status === action.status || withdrawn
                   }
@@ -554,17 +576,45 @@ function AllocationSection({
           </p>
         </div>
       ) : (
-        <div className={`card ${styles.factGrid}`}>
-          <Fact
-            label="Build 배정"
-            value={formatKrw(allocation.build_budget_krw)}
-            mono
-          />
-          <Fact label="Build 사용" value={formatKrw(allocation.build_consumed_krw)} mono />
-          <Fact label="Build 남음" value={formatKrw(allocation.build_remaining_krw)} mono />
-          <Fact label="Video 배정" value={formatKrw(allocation.video_budget_krw)} mono />
-          <Fact label="Video 사용" value={formatKrw(allocation.video_consumed_krw)} mono />
-          <Fact label="Video 남음" value={formatKrw(allocation.video_remaining_krw)} mono />
+        <div className={`card ${styles.allocationCard}`}>
+          {/* 쓴 만큼 차는 막대 — Usage 화면과 같은 뜻입니다. */}
+          <div className={styles.allocationMeters}>
+            {(
+              [
+                ["Build", allocation.build_consumed_krw, allocation.build_budget_krw, ""],
+                ["Video", allocation.video_consumed_krw, allocation.video_budget_krw, "meter-fill-blue"],
+              ] as const
+            ).map(([label, used, budget, tone]) => (
+              <div className={styles.allocationMeter} key={label}>
+                <div className={styles.allocationMeterLabel}>
+                  <span>{label}</span>
+                  <span className="numeric">
+                    {formatKrw(used)} / {formatKrw(budget)}
+                  </span>
+                </div>
+                <div className="meter">
+                  <div
+                    className={`meter-fill ${tone}`}
+                    style={{
+                      width: `${budget > 0 ? Math.min(100, Math.round((used / budget) * 100)) : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className={styles.factGrid}>
+            <Fact
+              label="Build 배정"
+              value={formatKrw(allocation.build_budget_krw)}
+              mono
+            />
+            <Fact label="Build 사용" value={formatKrw(allocation.build_consumed_krw)} mono />
+            <Fact label="Build 남음" value={formatKrw(allocation.build_remaining_krw)} mono />
+            <Fact label="Video 배정" value={formatKrw(allocation.video_budget_krw)} mono />
+            <Fact label="Video 사용" value={formatKrw(allocation.video_consumed_krw)} mono />
+            <Fact label="Video 남음" value={formatKrw(allocation.video_remaining_krw)} mono />
+          </div>
         </div>
       )}
 
