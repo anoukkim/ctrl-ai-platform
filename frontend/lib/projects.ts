@@ -17,12 +17,7 @@ export { describeError };
 /* Project Builder                                                     */
 /* ------------------------------------------------------------------ */
 
-export type BuilderProjectStatus =
-  | "draft"
-  | "building"
-  | "ready"
-  | "published"
-  | "archived";
+export type BuilderProjectStatus = "draft" | "building" | "ready" | "published";
 
 export interface BuilderProject {
   id: number;
@@ -34,25 +29,78 @@ export interface BuilderProject {
   updated_at: string;
 }
 
+/* ---------- 상태: 회원에게는 둘뿐입니다 ----------
+ *
+ * 데이터베이스에는 draft / building(generating) / ready / published가
+ * 있지만, 회원이 보는 배지는 **Draft**와 **게시됨** 둘뿐입니다
+ * (2026-10-07 결정). 만드는 중(building, generating)은 상태가 아니라
+ * 지금 일어나는 일이라 배지 대신 "생성 중…" 표시를 붙입니다.
+ * 보관(archived)은 없어졌습니다 — 지우기가 되살릴 수 있는 삭제입니다.
+ *
+ * 화면은 `projectBadge()` 하나를 씁니다. 아래 LABEL / BADGE 표는 예전
+ * 이름 그대로 남겨 둔 것이고, 같은 규칙을 따릅니다. */
+
+export type ProjectStatus = BuilderProjectStatus | VideoProjectStatus;
+
+export const DRAFT_LABEL = "Draft";
+export const PUBLISHED_LABEL = "게시됨";
+export const WORKING_LABEL = "생성 중…";
+
+/** 배지 하나, 또는 만드는 중 표시. */
+export type ProjectBadge =
+  | { kind: "badge"; label: string; className: string }
+  | { kind: "working"; label: string };
+
+export function projectBadge(status: ProjectStatus): ProjectBadge {
+  if (status === "building" || status === "generating") {
+    return { kind: "working", label: WORKING_LABEL };
+  }
+  if (status === "published") {
+    return { kind: "badge", label: PUBLISHED_LABEL, className: "badge-ok" };
+  }
+  return { kind: "badge", label: DRAFT_LABEL, className: "badge-muted" };
+}
+
+function labelOf(status: ProjectStatus): string {
+  return projectBadge(status).label;
+}
+
+/** `badge ${…}`에 그대로 넣을 수 있는 클래스. 만드는 중은 .working. */
+function badgeClassOf(status: ProjectStatus): string {
+  const badge = projectBadge(status);
+  return badge.kind === "badge" ? badge.className : "working";
+}
+
 export const BUILDER_STATUS_LABEL: Record<BuilderProjectStatus, string> = {
-  draft: "Draft",
-  building: "Building",
-  ready: "Ready",
-  published: "Published",
-  archived: "Archived",
+  draft: labelOf("draft"),
+  building: labelOf("building"),
+  ready: labelOf("ready"),
+  published: labelOf("published"),
 };
 
 /** 상태 배지에 쓸 색. globals.css의 배지 클래스 이름입니다. */
 export const BUILDER_STATUS_BADGE: Record<BuilderProjectStatus, string> = {
-  draft: "badge-muted",
-  building: "badge-warn",
-  ready: "badge-accent",
-  published: "badge-ok",
-  archived: "badge-muted",
+  draft: badgeClassOf("draft"),
+  building: badgeClassOf("building"),
+  ready: badgeClassOf("ready"),
+  published: badgeClassOf("published"),
 };
 
-export function listBuilderProjects(): Promise<BuilderProject[]> {
-  return request<BuilderProject[]>("/builder/projects");
+/** 목록의 세 거르기 — 전체 / Draft / 게시됨. 백엔드의 `?status=`와 같은 값. */
+export type LibraryFilter = "all" | "draft" | "published";
+
+export const LIBRARY_FILTERS: { value: LibraryFilter; label: string }[] = [
+  { value: "all", label: "전체" },
+  { value: "draft", label: DRAFT_LABEL },
+  { value: "published", label: PUBLISHED_LABEL },
+];
+
+function filterQuery(filter: LibraryFilter): string {
+  return filter === "all" ? "" : `?status=${filter}`;
+}
+
+export function listBuilderProjects(filter: LibraryFilter = "all"): Promise<BuilderProject[]> {
+  return request<BuilderProject[]>(`/builder/projects${filterQuery(filter)}`);
 }
 
 export function getBuilderProject(id: number | string): Promise<BuilderProject> {
@@ -108,29 +156,22 @@ export function builderProjectDownloadUrl(id: number | string): string {
 /* Video Generator                                                     */
 /* ------------------------------------------------------------------ */
 
-export type VideoProjectStatus =
-  | "draft"
-  | "generating"
-  | "ready"
-  | "published"
-  | "archived";
+export type VideoProjectStatus = "draft" | "generating" | "ready" | "published";
 
 export type VideoVersionStatus = "queued" | "generating" | "ready" | "failed";
 
 export const VIDEO_STATUS_LABEL: Record<VideoProjectStatus, string> = {
-  draft: "Draft",
-  generating: "Generating",
-  ready: "Ready",
-  published: "Published",
-  archived: "Archived",
+  draft: labelOf("draft"),
+  generating: labelOf("generating"),
+  ready: labelOf("ready"),
+  published: labelOf("published"),
 };
 
 export const VIDEO_STATUS_BADGE: Record<VideoProjectStatus, string> = {
-  draft: "badge-muted",
-  generating: "badge-warn",
-  ready: "badge-accent",
-  published: "badge-ok",
-  archived: "badge-muted",
+  draft: badgeClassOf("draft"),
+  generating: badgeClassOf("generating"),
+  ready: badgeClassOf("ready"),
+  published: badgeClassOf("published"),
 };
 
 /**
@@ -225,6 +266,11 @@ export interface VideoProject {
   final_version_id: number | null;
   /** 최종본에 내려받을 파일이 있는지. 목록 카드의 "최종본 다운로드"가 씁니다. */
   final_version_has_asset: boolean;
+  /** 목록 카드의 그림: 최종본, 없으면 파일이 있는 마지막 버전. 없으면 null. */
+  thumbnail_version_id?: number | null;
+  thumbnail_aspect_ratio?: string | null;
+  /** "image"(mock의 GIF)면 <img>, "video"(실제 MP4)면 <video>로 보여 줍니다. */
+  thumbnail_kind?: "image" | "video" | null;
   created_at: string;
   updated_at: string;
 }
@@ -241,8 +287,8 @@ export function listVideoModels(): Promise<VideoModel[]> {
   return request<VideoModel[]>("/video/models");
 }
 
-export function listVideoProjects(): Promise<VideoProject[]> {
-  return request<VideoProject[]>("/video/projects");
+export function listVideoProjects(filter: LibraryFilter = "all"): Promise<VideoProject[]> {
+  return request<VideoProject[]>(`/video/projects${filterQuery(filter)}`);
 }
 
 export function getVideoProject(id: number | string): Promise<VideoProjectDetail> {

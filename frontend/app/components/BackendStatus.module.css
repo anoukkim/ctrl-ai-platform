@@ -5,7 +5,8 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow);
+  padding: var(--card-pad-y) var(--card-pad-x);
 }
 
 .header {
@@ -27,8 +28,35 @@
 }
 
 .title {
-  font-size: 0.92rem;
-  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-card-name);
+  font-weight: var(--fw-card-name);
+}
+
+/* 제목 앞의 상태 점. */
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.toneMuted {
+  background: var(--text-dim);
+}
+
+.toneOk {
+  background: var(--ok);
+}
+
+.toneWarn {
+  background: var(--warn);
+}
+
+.toneError {
+  background: var(--error);
 }
 
 .rows {
@@ -41,9 +69,9 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.5rem;
-  padding-bottom: 0.3rem;
+  padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.83rem;
+  font-size: var(--fs-body);
 }
 
 .row:last-child {
@@ -52,12 +80,13 @@
 }
 
 .label {
-  color: var(--text-muted);
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
 }
 
 .value {
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: var(--fs-count);
   word-break: break-all;
 }
 
@@ -73,9 +102,9 @@
   margin-top: 0.75rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-left: 2px solid var(--border-strong);
+  border-left: 2px solid var(--warn);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--warn-soft);
   color: var(--text-muted);
   font-size: 0.79rem;
   line-height: 1.6;

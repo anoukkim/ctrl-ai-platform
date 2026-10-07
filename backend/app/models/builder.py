@@ -14,13 +14,20 @@ from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
 
 
 class BuilderProjectStatus(str, enum.Enum):
-    """Where a project sits in its life."""
+    """Where a project sits in its life.
+
+    A member sees only two of these — **Draft** (draft, building, ready)
+    and **게시됨** (published) — and `building` as a "생성 중…" note. The
+    finer values stay in the database because later phases act on them.
+    There is no archived state: deleting is soft, and a project nobody
+    wants any more is deleted, not archived (decided 2026-10-07,
+    migration `7c1d5e93a4b2`).
+    """
 
     DRAFT = "draft"
     BUILDING = "building"
     READY = "ready"
     PUBLISHED = "published"
-    ARCHIVED = "archived"
 
 
 class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):

@@ -242,7 +242,8 @@ describe("모델 바꾸기", () => {
 
     await user.click(within(screen.getByRole("group", { name: "길이" })).getByText("10초"));
     await user.click(within(screen.getByRole("group", { name: "화질" })).getByText("1080p"));
-    await user.selectOptions(screen.getByLabelText("Model"), String(SEEDANCE.id));
+    // 모델은 라디오 카드입니다 — 예전 <select>와 같은 값(모델 id)을 보냅니다.
+    await user.click(screen.getByRole("radio", { name: /Seedance 2\.0/ }));
 
     const notice = await screen.findByRole("status");
     // 10초는 Seedance에도 있어 남고, 1080p와 소리는 바뀝니다.
@@ -324,7 +325,7 @@ describe("수정 · 이어서 만들기", () => {
 });
 
 describe("상태 배지", () => {
-  test("최종본을 고르면 머리글은 백엔드가 돌려준 상태(Ready)를 보여 준다", async () => {
+  test("최종본을 골라도 배지는 Draft — Ready는 회원에게 보이지 않는다", async () => {
     const user = userEvent.setup();
     const chosen = { ...project(KLING, [version()]), final_version_id: 11, status: "ready" as const };
     api.updateVideoProject.mockResolvedValue(chosen);
@@ -333,8 +334,9 @@ describe("상태 배지", () => {
 
     await user.click(screen.getByRole("button", { name: /최종본으로 선택/ }));
 
-    await waitFor(() => expect(screen.getByText("Ready")).toBeDefined());
-    expect(screen.queryByText("Draft")).toBeNull();
+    await waitFor(() => expect(api.updateVideoProject).toHaveBeenCalled());
+    expect(screen.getByText("Draft")).toBeDefined();
+    expect(screen.queryByText("Ready")).toBeNull();
   });
 });
 

@@ -67,6 +67,7 @@ export default function BackendStatus() {
     <section className={styles.card} aria-labelledby="backend-status-title">
       <div className={styles.header}>
         <h2 className={styles.title} id="backend-status-title">
+          <span className={`${styles.statusDot} ${styles[toneOf(state)]}`} aria-hidden="true" />
           서버 상태
         </h2>
         <div className={styles.headerRight}>
@@ -121,6 +122,13 @@ export default function BackendStatus() {
       )}
     </section>
   );
+}
+
+/** 제목 앞 점의 색 — 오른쪽 배지와 같은 뜻입니다. */
+function toneOf(state: State): "toneMuted" | "toneOk" | "toneWarn" | "toneError" {
+  if (state.phase === "loading") return "toneMuted";
+  if (state.phase === "error") return "toneError";
+  return state.health.status === "ok" ? "toneOk" : "toneWarn";
 }
 
 function StatusBadge({ state }: { state: State }) {

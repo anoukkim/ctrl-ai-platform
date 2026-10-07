@@ -1,47 +1,54 @@
 /* CtrlAITube — 영상 피드. 카드가 주인공이 되도록 구성합니다. */
 
-.grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+/* 정렬 칩(왼쪽)과 검색(오른쪽)이 한 줄에 섭니다. */
+.toolbar {
+  margin-bottom: 18px;
 }
 
+.searchSlot {
+  flex: 1 1 18rem;
+  max-width: 30rem;
+  margin-left: auto;
+}
+
+.searchSlot > * {
+  margin-bottom: 0;
+  flex-wrap: nowrap;
+}
+
+.grid {
+  display: grid;
+  gap: var(--card-gap);
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min-community), 1fr));
+}
+
+/* 카드 한 장: 16:10 썸네일과 아래의 글. */
 .card {
   display: grid;
   align-content: start;
-  gap: 0.5rem;
-  color: var(--text);
-}
-
-.thumbnail {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--radius);
+  background: var(--panel);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   overflow: hidden;
+  color: var(--text);
   transition:
     border-color 0.14s ease,
     transform 0.14s ease;
 }
 
-.thumbnail::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(transparent 55%, rgba(6, 8, 12, 0.6)),
-    repeating-linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.05) 0 1px,
-      transparent 1px 9px
-    );
+.card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
 }
 
-.card:hover .thumbnail {
-  border-color: var(--accent);
-  transform: translateY(-2px);
+/* 썸네일. 색은 softTint()가 정하고 두 테마 모두에서 어둡습니다. */
+.thumbnail {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
 }
 
 .playGlyph {
@@ -49,51 +56,67 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: rgba(8, 10, 15, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: color-mix(in oklch, var(--video-letterbox) 45%, transparent);
+  border: 1px solid color-mix(in oklch, var(--on-accent) 30%, transparent);
   color: var(--on-accent);
-  font-size: 0.8rem;
   transition: background-color 0.14s ease;
 }
 
 .card:hover .playGlyph {
   background: var(--accent-strong);
-  border-color: var(--accent);
+  border-color: var(--accent-strong-edge);
 }
 
 .duration {
   position: absolute;
-  right: 0.45rem;
-  bottom: 0.45rem;
+  right: 8px;
+  bottom: 8px;
   z-index: 1;
-  padding: 0.02rem 0.35rem;
-  border-radius: 4px;
-  background: rgba(6, 8, 12, 0.8);
+  padding: 0.05rem 0.4rem;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--video-letterbox) 80%, transparent);
   color: var(--on-accent);
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-strong);
 }
 
 .cardBody {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  padding: var(--card-pad-y) var(--card-pad-x);
 }
 
 .title {
-  font-size: 0.9rem;
-  font-weight: 650;
+  font-size: var(--fs-card-name);
+  font-weight: var(--fw-card-name);
 }
 
 .meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.metaDate {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 검색 결과가 없을 때 */
@@ -102,9 +125,10 @@
   justify-items: center;
   gap: 0.6rem;
   padding: 2.5rem 1.5rem;
-  border: 1px dashed var(--border-strong);
+  border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-section);
   text-align: center;
 }
+

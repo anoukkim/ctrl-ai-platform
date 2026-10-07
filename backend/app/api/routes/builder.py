@@ -10,13 +10,15 @@ than only the ones that remembered to check.
 from datetime import date, datetime, timezone
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
 from app.db.session import get_db
-from app.models import BuilderProject, BuilderProjectFile, User
+from app.models import BuilderProject, BuilderProjectFile, BuilderProjectStatus, User
 from app.schemas.builder import (
     BuilderProjectCreate,
     BuilderProjectRead,
@@ -64,19 +66,33 @@ def _checked_name(raw: str) -> str:
         ) from error
 
 
+#: The library's three filters: 전체 / Draft / 게시됨.
+LibraryFilter = Literal["all", "draft", "published"]
+
+
 @router.get("/projects", response_model=list[BuilderProjectRead], summary="List my projects")
 def list_projects(
+    status_filter: LibraryFilter = Query(default="all", alias="status"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[BuilderProject]:
+    """The member's own projects, newest first.
+
+    `status` is the library's filter, exactly as the member sees it:
+    `all`, `draft` (everything not yet published — draft, building
+    and ready) or `published`.
+    """
+    query = select(BuilderProject).where(
+        BuilderProject.owner_user_id == user.id,
+        BuilderProject.deleted_at.is_(None),
+    )
+    if status_filter == "published":
+        query = query.where(BuilderProject.status == BuilderProjectStatus.PUBLISHED)
+    elif status_filter == "draft":
+        query = query.where(BuilderProject.status != BuilderProjectStatus.PUBLISHED)
     return list(
         db.scalars(
-            select(BuilderProject)
-            .where(
-                BuilderProject.owner_user_id == user.id,
-                BuilderProject.deleted_at.is_(None),
-            )
-            .order_by(BuilderProject.updated_at.desc())
+            query.order_by(BuilderProject.updated_at.desc())
         )
     )
 

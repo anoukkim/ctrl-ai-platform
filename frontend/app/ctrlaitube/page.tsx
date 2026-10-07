@@ -11,6 +11,8 @@
 import type { Metadata } from "next";
 import { MOCK_VIDEOS } from "@/lib/mock-data";
 
+import PageHeader from "@/app/components/PageHeader";
+
 import VideoGrid from "./VideoGrid";
 
 export const metadata: Metadata = {
@@ -20,16 +22,18 @@ export const metadata: Metadata = {
 export default function CtrlAITubePage() {
   return (
     <>
-      <header className="page-header">
-        <h1 className="page-title">
-          CtrlAITube <span className="badge badge-mock">준비 중</span>
-        </h1>
-        <p className="page-subtitle">
-          회원들이 만들어 자기 YouTube 채널에 올린 영상입니다. 여기에서 나누는 이야기는
-          CTRL+AI 안에만 쌓입니다.
-        </p>
-        <span className="badge badge-muted">{MOCK_VIDEOS.length}개</span>
-      </header>
+      <PageHeader
+        eyebrow="Explore"
+        title="CtrlAITube"
+        titleAddon={<span className="badge badge-mock">준비 중</span>}
+        subtitle={
+          <>
+            회원들이 만들어 자기 YouTube 채널에 올린 영상입니다. 여기에서 나누는 이야기는
+            CTRL+AI 안에만 쌓입니다.
+          </>
+        }
+        actions={<span className="badge badge-muted">{MOCK_VIDEOS.length}개</span>}
+      />
 
       <VideoGrid />
     </>

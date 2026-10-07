@@ -39,6 +39,7 @@ import { AccountBadge, MembershipBadge } from "../components/StatusBadge";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import SharedPageHeader from "@/app/components/PageHeader";
 
 type SortKey = "name" | "role" | "account" | "membership";
 
@@ -449,15 +450,16 @@ export default function MemberList() {
 
 function PageHeader({ note }: { note?: string }) {
   return (
-    <header className="page-header page-header-stacked">
-      <h1 className="page-title">
-        {sectionLabel("members")}
-        {note && <span className={styles.sectionNote}> {note}</span>}
-      </h1>
-      <p className="page-subtitle">
-        카드를 눌러 걸러 보거나, 검색해서 찾습니다. 참여 상태는 줄의 관리 메뉴에서 바로
-        바꿀 수 있고, 역할과 지원금은 그 사람을 보고 정해야 하므로 상세 화면에 있습니다.
-      </p>
-    </header>
+    <SharedPageHeader
+      eyebrow="Admin"
+      title={sectionLabel("members")}
+      titleAddon={<>{note && <span className={styles.sectionNote}> {note}</span>}</>}
+      subtitle={
+        <>
+          카드를 눌러 걸러 보거나, 검색해서 찾습니다. 참여 상태는 줄의 관리 메뉴에서 바로
+          바꿀 수 있고, 역할과 지원금은 그 사람을 보고 정해야 하므로 상세 화면에 있습니다.
+        </>
+      }
+    />
   );
 }

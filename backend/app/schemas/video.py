@@ -287,6 +287,12 @@ class VideoProjectRead(VideoProjectBase):
     #: Whether the final version can be downloaded. The library card has
     #: no versions to look at, and offers 최종본 다운로드 only when true.
     final_version_has_asset: bool = False
+    #: The library card's picture: the final version, else the latest one
+    #: with a file. Served by the version download route.
+    thumbnail_version_id: int | None = None
+    thumbnail_aspect_ratio: str | None = None
+    #: "image" or "video" — which element can show the file.
+    thumbnail_kind: str | None = None
     created_at: datetime
     updated_at: datetime
 

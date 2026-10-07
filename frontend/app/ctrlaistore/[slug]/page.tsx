@@ -32,6 +32,7 @@ import {
 import { MEMBERSHIP_BADGE } from "@/lib/quarters";
 
 import styles from "../ctrlaistore.module.css";
+import { softTint } from "../softTint";
 import AppTabs from "./AppTabs";
 
 interface AppDetailProps {
@@ -67,7 +68,7 @@ export default async function AppDetailPage({ params }: AppDetailProps) {
       <div className={styles.hero}>
         <div
           className={styles.heroArtwork}
-          style={{ background: `linear-gradient(140deg, ${app.artwork[0]}, ${app.artwork[1]})` }}
+          style={{ background: softTint(app.artwork) }}
           aria-hidden="true"
         >
           <span className={styles.artworkText}>{app.name}</span>
@@ -166,9 +167,7 @@ export default async function AppDetailPage({ params }: AppDetailProps) {
               >
                 <span
                   className={styles.otherThumb}
-                  style={{
-                    background: `linear-gradient(140deg, ${other.artwork[0]}, ${other.artwork[1]})`,
-                  }}
+                  style={{ background: softTint(other.artwork) }}
                   aria-hidden="true"
                 />
                 <span className={styles.otherBody}>

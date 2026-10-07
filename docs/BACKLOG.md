@@ -21,6 +21,21 @@ authority on order** — each item in **Next** names its milestone.
 **Nothing is in progress.** Branch the next item from an up-to-date
 `main`.
 
+Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
+
+- **Two themes, dark by default.** Every colour, size and spacing is a
+  token in `globals.css`; the light block redefines only the colours. A
+  screen that writes a raw value will not follow the theme.
+- **Pretendard Variable 1.3.9** comes from the npm package `pretendard`
+  (dynamic subset, imported in `app/layout.tsx`).
+- **`PageHeader`** (`app/components/PageHeader.tsx`) is the one list-page
+  header: eyebrow, title, subtitle, action, divider. New list screens use it.
+- **Project status as members see it:** only "Draft" and "게시됨", with
+  "생성 중…" while building or generating (`projectBadge()` in
+  `lib/projects.ts`). There is no archived status (migration `7c1d5e93a4b2`).
+- **The sidebar collapses** to an icon rail, remembered per browser
+  (`ctrlai.sidebar-collapsed`).
+
 **Open check carried from Phase 2 — Chat: point 10 has not been run.**
 One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`,
 `ANTHROPIC_MODEL=claude-sonnet-5-5`) — confirm the reply streams, the
@@ -324,6 +339,8 @@ New UI requests go here until they are folded into a UI batch.
 **ui-naming**, were each large enough to get their own item and branch in
 **Next** rather than wait for a batch.)*
 
+→ **ui-polish — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#ui-polish--final-ui-pass-merged-2026-10-07). Its decisions that later work inherits are in **Now**.
+
 ### ui-library-cards
 
 Raised 2026-10-07, while reviewing `project-video-management`. **Not in
@@ -350,6 +367,23 @@ item. Saved exactly as written by the developer.
 > Tests: CSS-contract checks for badge placement and ⋯ size; thumbnail
 > picks final over latest and falls back to the empty frame; no "Draft"
 > when a final exists; one meta format.
+
+**Status after `ui-polish` (2026-10-07, not merged):**
+
+- ✅ **Item 2** — ⋯ is a 32px button, visible at rest, with hover and focus
+  states and the title "더보기".
+- ✅ **Item 3** — video cards show the final version, else the latest one
+  with a file, at its real aspect ratio and letterboxed; no version →
+  "아직 만든 버전이 없습니다". (Shown on top of the card, not as a side
+  tile — see the ui-polish decisions above.)
+- **Item 4 — superseded** by the ui-polish status decision: a project with
+  a final version now shows the **Draft** badge (ready counts as Draft) plus
+  the "최종본 선택됨" meta line. The backend rule (a final makes a project
+  ready) is unchanged.
+- **Item 5 — not done:** the date format is unchanged and stays monospace,
+  because the mockup sets it in monospace.
+- **Item 6 — not done:** the dashed new-project card is kept next to the
+  cards, as the mockup shows it.
 
 **Done on `feat-video-higgsfield-only` (2026-10-07), awaiting merge:**
 

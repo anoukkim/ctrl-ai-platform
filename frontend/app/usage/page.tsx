@@ -13,6 +13,8 @@
 
 import type { Metadata } from "next";
 
+import PageHeader from "@/app/components/PageHeader";
+
 import UsageView from "./UsageView";
 
 export const metadata: Metadata = {
@@ -22,12 +24,11 @@ export const metadata: Metadata = {
 export default function UsagePage() {
   return (
     <>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">Usage</h1>
-        <p className="page-subtitle">
-          이번 분기에 남은 지원 금액입니다. 동아리 지원과 개인 충전금은 따로 계산됩니다.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Account"
+        title="Usage"
+        subtitle="이번 분기에 남은 지원 금액입니다. 동아리 지원과 개인 충전금은 따로 계산됩니다."
+      />
 
       <UsageView />
     </>

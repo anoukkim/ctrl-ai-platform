@@ -62,6 +62,14 @@ import { useMayCreate } from "./MyQuarterProvider";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 
 /** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
+/** 바로가기 아이콘 칸의 색. 만드는 곳은 영역 색, 둘러보는 곳은 강조색입니다. */
+const SHORTCUT_TONE: Record<string, string> = {
+  build: "toneBuild",
+  video: "toneVideo",
+  apps: "toneAccent",
+  tube: "toneAccent",
+};
+
 const SHORTCUT_ICON: Record<string, LucideIcon> = {
   build: Code2,
   video: Clapperboard,
@@ -160,10 +168,12 @@ export default function ChatWorkspace() {
   // 화면을 떠나면 오고 있던 답장도 멈춥니다.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // 새 메시지나 조각이 오면 맨 아래로 내립니다.
+  // 새 메시지나 조각이 오면 맨 아래로 내립니다. 아직 대화가 없으면
+  // 내리지 않습니다 — 좁은 화면에서는 환영 안내가 길어, 내리면 제목이
+  // 화면 위로 밀려 올라간 채 열립니다.
   useEffect(() => {
     const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
+    if (thread && messages.length > 0) thread.scrollTop = thread.scrollHeight;
   }, [messages]);
 
   /**
@@ -385,6 +395,8 @@ export default function ChatWorkspace() {
           <p className={styles.listNote}>아직 대화가 없습니다.</p>
         )}
 
+        {conversations.length > 0 && <p className={`section-label ${styles.listLabel}`}>최근 대화</p>}
+
         <ul className={styles.listItems}>
           {conversations.map((conversation) => (
             <li
@@ -439,7 +451,7 @@ export default function ChatWorkspace() {
                   </button>
                   <button
                     type="button"
-                    className={styles.iconButton}
+                    className={`${styles.iconButton} ${styles.iconButtonDanger}`}
                     aria-label="지우기"
                     title="지우기"
                     disabled={streaming}
@@ -474,7 +486,7 @@ export default function ChatWorkspace() {
             ) : !started ? (
               // 아직 대화가 없을 때만 보이는 안내. 대화가 시작되면 사라집니다.
               <div className={styles.empty}>
-                <BrandMark size={44} />
+                <BrandMark size={52} variant="soft" />
                 <h1 className={styles.emptyTitle}>CTRL+AI에 오신 것을 환영합니다</h1>
                 <p className={styles.emptyText}>
                   코드를 몰라도 괜찮습니다. 만들고 싶은 것을 한국어로 이야기하면 앱이나 짧은
@@ -485,8 +497,14 @@ export default function ChatWorkspace() {
                   {CHAT_SHORTCUTS.map((shortcut) => {
                     const Icon = SHORTCUT_ICON[shortcut.icon];
                     return (
-                      <Link className={styles.shortcut} href={shortcut.href} key={shortcut.title}>
-                        <Icon className={styles.shortcutIcon} aria-hidden="true" />
+                      <Link
+                        className={`${styles.shortcut} ${styles[SHORTCUT_TONE[shortcut.icon]] ?? ""}`}
+                        href={shortcut.href}
+                        key={shortcut.title}
+                      >
+                        <span className={styles.shortcutTile} aria-hidden="true">
+                          <Icon className={styles.shortcutIcon} />
+                        </span>
                         <span className={styles.shortcutTitle}>{shortcut.title}</span>
                         <span className={styles.shortcutDescription}>{shortcut.description}</span>
                       </Link>
@@ -581,7 +599,7 @@ export default function ChatWorkspace() {
                   aria-label="중지"
                   title="중지"
                 >
-                  <Square size={13} aria-hidden="true" />
+                  <Square size={11} fill="currentColor" aria-hidden="true" />
                 </button>
               ) : (
                 <button

@@ -14,6 +14,7 @@
  * 받았다"고 오해합니다.
  */
 
+import { Clapperboard, Code2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -127,6 +128,14 @@ export default function UsageView() {
             return (
               <section className={styles.card} key={item.category}>
                 <div className={styles.cardHead}>
+                  <span
+                    className={`${styles.cardIcon} ${
+                      item.category === "build" ? styles.cardIconBuild : styles.cardIconVideo
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {item.category === "build" ? <Code2 size={15} /> : <Clapperboard size={15} />}
+                  </span>
                   <span className={styles.cardTitle}>
                     {item.category === "build" ? "Build" : "Video"}
                   </span>

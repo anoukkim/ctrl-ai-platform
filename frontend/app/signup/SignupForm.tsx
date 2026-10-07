@@ -63,10 +63,10 @@ export default function SignupForm() {
   }
 
   return (
-    <div className={styles.screen}>
-      <div className={styles.card}>
+    <div className={`${styles.screen} ${styles.screenSignup}`}>
+      <div className={`${styles.card} ${styles.cardSignup}`}>
         <span className={styles.brand}>
-          <BrandMark size={28} />
+          <BrandMark size={18} variant="glyph" />
           CTRL+AI
         </span>
 
@@ -98,7 +98,12 @@ export default function SignupForm() {
               autoFocus
               required
             />
-            <span className={styles.hint}>
+            {/* 입력을 시작하면 규칙을 지켰는지에 따라 색이 바뀝니다. */}
+            <span
+              className={`${styles.hint} ${
+                trimmedUsername ? (usernameValid ? styles.hintOk : styles.hintError) : ""
+              }`}
+            >
               영문, 숫자, 밑줄(_)만 쓸 수 있고 3자 이상이어야 합니다.
             </span>
           </div>
@@ -149,7 +154,13 @@ export default function SignupForm() {
               autoComplete="new-password"
               required
             />
-            <span className={styles.hint}>{MIN_PASSWORD_LENGTH}자 이상 입력해 주세요.</span>
+            <span
+              className={`${styles.hint} ${
+                password ? (passwordValid ? styles.hintOk : styles.hintError) : ""
+              }`}
+            >
+              {MIN_PASSWORD_LENGTH}자 이상 입력해 주세요.
+            </span>
           </div>
 
           <button className="btn btn-primary" type="submit" disabled={busy || !canSubmit}>

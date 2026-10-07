@@ -13,8 +13,8 @@
 .reactionRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.6rem 0.7rem;
+  gap: 0.4rem;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -24,14 +24,15 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.22rem 0.6rem;
-  border: 1px solid var(--border-strong);
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--bg);
+  background: var(--panel);
   color: var(--text-muted);
   font: inherit;
-  font-size: 0.76rem;
-  font-weight: 500;
+  font-size: var(--fs-count);
+  font-weight: 550;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     border-color 0.12s ease,
@@ -40,7 +41,7 @@
 }
 
 .reactionChip:hover {
-  border-color: var(--accent-border);
+  background: var(--panel-2);
   color: var(--text);
 }
 
@@ -52,7 +53,7 @@
 
 .reactionCount {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   color: var(--text-dim);
 }
 
@@ -76,14 +77,16 @@
 
 .tab {
   min-width: 0;
-  padding: 0.5rem 0.75rem;
+  margin-bottom: -1px;
+  padding: 0.65rem 0.9rem;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
   color: var(--text-dim);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--fs-body);
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -91,9 +94,11 @@
   color: var(--text-muted);
 }
 
-.tabOn {
+.tabOn,
+.tabOn:hover {
   border-bottom-color: var(--accent);
   color: var(--text);
+  font-weight: var(--fw-card-name);
 }
 
 /* ---------- 댓글칸 전체 ---------- */
@@ -127,13 +132,13 @@
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.45rem 0.7rem;
+  padding: 10px 14px 6px;
 }
 
 .sortLabel {
   margin-right: 0.15rem;
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-size: var(--fs-meta);
 }
 
 .sortButton {
@@ -143,7 +148,7 @@
   background: none;
   color: var(--text-dim);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: var(--fs-meta);
   cursor: pointer;
 }
 
@@ -153,7 +158,9 @@
 
 .sortButtonOn {
   border-color: var(--accent-border);
+  background: var(--accent-soft);
   color: var(--accent);
+  font-weight: var(--fw-strong);
 }
 
 /* ---------- 댓글 ---------- */
@@ -161,14 +168,14 @@
 .list {
   display: grid;
   align-content: start;
-  gap: 0.9rem;
-  padding: 0.2rem 0.7rem 0.7rem;
+  gap: 1rem;
+  padding: 6px 14px 14px;
 }
 
 .comment,
 .reply {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.65rem;
   min-width: 0;
 }
 
@@ -183,28 +190,28 @@
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--panel-2);
   border: 1px solid var(--border-strong);
   color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 650;
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-strong);
 }
 
 .avatarSmall {
-  width: 1.4rem;
-  height: 1.4rem;
-  font-size: 0.66rem;
+  width: 22px;
+  height: 22px;
+  font-size: var(--page-tiny);
 }
 
 .authorLine {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.76rem;
+  gap: 0.35rem;
+  font-size: var(--fs-count);
 }
 
 .authorName {
@@ -214,12 +221,12 @@
 
 .commentTime {
   color: var(--text-dim);
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
   cursor: default;
 }
 
 .commentText {
-  font-size: 0.83rem;
+  font-size: var(--fs-section);
   line-height: 1.6;
   /* 띄어쓰기 없이 붙여 쓴 긴 낱말이나 주소가 칸을 넘지 않게 합니다. */
   overflow-wrap: anywhere;
@@ -243,7 +250,7 @@
   background: none;
   color: var(--text-dim);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: var(--fs-meta);
   cursor: pointer;
 }
 
@@ -273,8 +280,8 @@
   background: none;
   color: var(--accent);
   font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
+  font-size: var(--fs-chip);
+  font-weight: var(--fw-strong);
   cursor: pointer;
 }
 
@@ -284,10 +291,10 @@
 
 .commentEmpty {
   padding: 1.4rem 0.9rem;
-  border: 1px dashed var(--border-strong);
+  border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   color: var(--text-dim);
-  font-size: 0.82rem;
+  font-size: var(--fs-body);
   text-align: center;
 }
 
@@ -295,7 +302,7 @@
 
 .foot {
   margin-top: auto;
-  padding: 0.6rem 0.7rem;
+  padding: 12px 14px;
   border-top: 1px solid var(--border);
 }
 
@@ -320,15 +327,15 @@
    않습니다. */
 .composerField {
   width: 100%;
-  min-height: 2.1rem;
+  min-height: 2.5rem;
   max-height: 9rem;
-  padding: 0.4rem 0.6rem;
+  padding: 0.55rem 0.75rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 0.83rem;
+  font-size: var(--fs-section);
   line-height: 1.5;
   resize: none;
   overflow-y: auto;
@@ -354,7 +361,7 @@
 
 .composerHint {
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--fs-meta);
 }
 
 .composerButtons {
@@ -366,5 +373,5 @@
 .mockNote {
   margin-top: 0.4rem;
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--fs-meta);
 }

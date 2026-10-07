@@ -36,6 +36,7 @@ import { sectionLabel } from "../sections";
 import QuarterForm from "./QuarterForm";
 
 import styles from "../admin.module.css";
+import SharedPageHeader from "@/app/components/PageHeader";
 
 export default function QuarterAdmin() {
   const { selected, select, refresh: refreshDashboard } = useAdminQuarter();
@@ -302,12 +303,15 @@ export default function QuarterAdmin() {
 
 function PageHeader() {
   return (
-    <header className="page-header page-header-stacked">
-      <h1 className="page-title">{sectionLabel("quarters")}</h1>
-      <p className="page-subtitle">
-        분기를 만들고 신청을 열고 닫습니다. 올라온 신청을 심사하는 일은 Applications 화면에서
-        합니다.
-      </p>
-    </header>
+    <SharedPageHeader
+      eyebrow="Admin"
+      title={sectionLabel("quarters")}
+      subtitle={
+        <>
+          분기를 만들고 신청을 열고 닫습니다. 올라온 신청을 심사하는 일은 Applications 화면에서
+          합니다.
+        </>
+      }
+    />
   );
 }

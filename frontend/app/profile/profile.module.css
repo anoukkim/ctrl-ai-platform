@@ -4,102 +4,113 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  margin-bottom: 18px;
 }
 
 .avatar {
   display: grid;
+  flex: none;
   place-items: center;
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: var(--accent-strong);
   color: var(--on-accent);
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: var(--page-title-sm);
+  font-weight: var(--fw-card-name);
 }
 
+/* 이름과 @아이디는 한 줄에, 배지는 그 아래 줄에. */
 .identityText {
-  display: grid;
-  gap: 0.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  min-width: 0;
 }
 
 .displayName {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--page-stat);
+  font-weight: var(--fw-title);
+  letter-spacing: -0.01em;
 }
 
 .username {
   font-family: var(--mono);
   color: var(--text-dim);
-  font-size: 0.78rem;
+  font-size: var(--fs-chip);
 }
 
 .badges {
   display: flex;
+  flex-basis: 100%;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.2rem;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
 }
 
 /* ---------- 분기 카드 ---------- */
 
 .season {
   display: grid;
-  gap: 0.7rem;
-  margin-bottom: 1.1rem;
-  padding: 0.9rem 1rem;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 20px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-left: 2px solid var(--accent);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .seasonTop {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .seasonName {
-  font-size: 1rem;
-  font-weight: 650;
+  font-size: var(--page-name);
+  font-weight: var(--fw-title);
 }
 
+/* 분기 기간 / 신청 기간 / 종료까지 — 세 개의 사실 칸. */
 .seasonGrid {
   display: grid;
-  gap: 0.8rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
 
 .seasonCell {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.3rem;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
 }
 
 .seasonLabel {
-  font-size: 0.72rem;
-  font-weight: 650;
-  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  color: var(--text-dim);
 }
 
 .seasonValue {
   font-family: var(--mono);
-  font-size: 0.88rem;
+  font-size: var(--fs-count);
+  font-weight: 600;
 }
 
 .seasonDday {
-  font-family: var(--mono);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent);
+  font-size: var(--fs-section);
+  font-weight: var(--fw-card-name);
+  color: var(--text);
 }
 
 .seasonNote {
   color: var(--text-dim);
-  font-size: 0.76rem;
+  font-size: var(--fs-count);
   line-height: 1.55;
 }
 
@@ -115,13 +126,12 @@
 
 .columns {
   display: grid;
-  gap: 0.9rem;
-  margin-bottom: 1.1rem;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .rows {
   display: grid;
-  gap: 0.35rem;
 }
 
 .row {
@@ -130,18 +140,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding-bottom: 0.35rem;
+  padding: 9px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.84rem;
+  font-size: var(--fs-body);
 }
 
 .row:last-child {
-  padding-bottom: 0;
   border-bottom: none;
 }
 
 .rowLabel {
-  color: var(--text-muted);
+  color: var(--text-dim);
 }
 
 .connection {
@@ -150,22 +159,22 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
 }
 
 .connection:last-of-type {
-  border-bottom: none;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
 }
 
 .connectionName {
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: var(--fs-section);
+  font-weight: var(--fw-strong);
 }
 
 .connectionHint {
   color: var(--text-dim);
-  font-size: 0.76rem;
+  font-size: var(--fs-chip);
 }
 
 .connectionRight {
@@ -178,13 +187,13 @@
 
 .lists {
   display: grid;
-  gap: 0.9rem;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
 .list {
   display: grid;
-  gap: 0.3rem;
+  gap: 6px;
   list-style: none;
 }
 
@@ -194,11 +203,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.4rem 0.55rem;
+  padding: 8px 12px;
   background: var(--panel-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.83rem;
+  font-size: var(--fs-body);
 }
 
 .listLink {
@@ -217,37 +225,54 @@
 
 /* ---------- 분기 참여 신청 ---------- */
 
+/* 승인된 지원금, 신청 미리보기 — Build와 Video 금액 칸 두 개. */
 .approvedGrid,
 .splitGrid {
   display: grid;
-  gap: 0.8rem;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--border);
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  width: 100%;
 }
 
 .approvedCell,
 .splitCell {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.2rem;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* 첫 칸은 Build, 둘째 칸은 Video — 이름을 영역 색으로. */
+.approvedCell:first-child .seasonLabel,
+.splitCell:first-child .seasonLabel {
+  color: var(--build-text);
+  font-weight: var(--fw-strong);
+}
+
+.approvedCell:nth-child(2) .seasonLabel,
+.splitCell:nth-child(2) .seasonLabel {
+  color: var(--video-text);
+  font-weight: var(--fw-strong);
 }
 
 .approvedValue,
 .splitAmount {
   font-family: var(--mono);
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: var(--page-stat);
+  font-weight: var(--fw-card-name);
+  font-variant-numeric: tabular-nums;
 }
 
 .approvedSub {
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-size: var(--fs-chip);
 }
 
 .splitPercent {
   font-family: var(--mono);
-  font-size: 0.85rem;
-  color: var(--accent);
+  font-size: var(--fs-count);
+  color: var(--text-muted);
   font-weight: 600;
 }
 
@@ -255,64 +280,71 @@
 .applyRow,
 .applyForm {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.6rem;
   justify-items: start;
-  padding-top: 0.7rem;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 
 .pendingTitle {
-  font-size: 0.9rem;
-  font-weight: 650;
+  font-size: var(--fs-section);
+  font-weight: var(--fw-strong);
 }
 
 .limitValue {
   font-family: var(--mono);
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: var(--page-title-sm);
+  font-weight: var(--fw-card-name);
 }
 
 .sliderLabel {
-  font-size: 0.74rem;
-  font-weight: 650;
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-strong);
   color: var(--text-muted);
 }
 
 /* 한쪽을 움직이면 다른 쪽이 따라오므로 합이 100%가 아닐 수 없습니다. */
 .slider {
   width: 100%;
-  max-width: 24rem;
+  max-width: 32rem;
   accent-color: var(--accent);
 }
 
 .presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .preset {
-  padding: 0.15rem 0.6rem;
-  border: 1px solid var(--border-strong);
+  flex: none;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--panel-2);
+  background: var(--panel);
   color: var(--text-muted);
   font: inherit;
   font-family: var(--mono);
-  font-size: 0.74rem;
+  font-size: var(--fs-chip);
+  white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
 .preset:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--panel-2);
+  color: var(--text);
 }
 
-.presetActive {
+.presetActive,
+.presetActive:hover {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--fw-strong);
 }
 
 .applyActions {
@@ -327,8 +359,8 @@
    아니어야 합니다. */
 .withdrawal {
   display: grid;
-  gap: 0.7rem;
-  margin-top: 1.6rem;
+  gap: 0.8rem;
+  margin-top: 28px;
   justify-items: start;
 }
 
@@ -337,16 +369,15 @@
   display: grid;
   gap: 0.3rem;
   width: 100%;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--accent);
+  padding: 12px 14px;
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  background: var(--panel);
+  background: var(--accent-soft);
 }
 
 .withdrawReminderTitle {
   margin: 0;
-  font-weight: 650;
+  font-weight: var(--fw-strong);
 }
 
 .withdrawLinks {
@@ -354,18 +385,18 @@
   gap: 0.2rem;
   margin: 0;
   padding-left: 1.1rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-body);
 }
 
 /* 개인 충전 잔액 경고. 돈 이야기이므로 다른 안내와 구분합니다. */
 .withdrawWarning {
   margin: 0;
   padding: 0.5rem 0.65rem;
-  border: 1px solid rgba(230, 77, 84, 0.35);
+  border: 1px solid var(--error-border);
   border-radius: var(--radius-sm);
   background: var(--error-soft);
   color: var(--error-text);
-  font-size: 0.82rem;
+  font-size: var(--fs-count);
   line-height: 1.55;
 }
 
@@ -381,7 +412,7 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.88rem;
+  font-size: var(--fs-section);
 }
 
 .withdrawPassword {

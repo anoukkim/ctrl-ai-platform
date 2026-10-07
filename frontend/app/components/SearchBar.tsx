@@ -11,6 +11,7 @@
  * 전역 검색은 만들지 않습니다. 화면마다 그 화면에 맞는 검색을 둡니다.
  */
 
+import { Search, X } from "lucide-react";
 import { useId } from "react";
 
 import styles from "./SearchBar.module.css";
@@ -54,9 +55,7 @@ export default function SearchBar({
   return (
     <div className={styles.bar}>
       <div className={styles.searchWrap}>
-        <span className={styles.glyph} aria-hidden="true">
-          ⌕
-        </span>
+        <Search className={styles.glyph} size={15} aria-hidden="true" />
         <input
           className={`field ${styles.input}`}
           id={inputId}
@@ -73,7 +72,7 @@ export default function SearchBar({
             onClick={() => onChange("")}
             aria-label="검색어 지우기"
           >
-            ✕
+            <X size={11} aria-hidden="true" />
           </button>
         )}
       </div>

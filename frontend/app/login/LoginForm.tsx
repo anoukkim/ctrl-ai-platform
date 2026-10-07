@@ -48,10 +48,10 @@ export default function LoginForm() {
   }
 
   return (
-    <div className={styles.screen}>
-      <div className={styles.card}>
+    <div className={`${styles.screen} ${styles.screenLogin}`}>
+      <div className={`${styles.card} ${styles.cardLogin}`}>
         <span className={styles.brand}>
-          <BrandMark size={28} />
+          <BrandMark size={18} variant="glyph" />
           CTRL+AI
         </span>
 

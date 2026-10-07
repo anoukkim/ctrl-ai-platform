@@ -20,27 +20,12 @@
  */
 
 import {
-  Bell,
-  CalendarDays,
-  ChartColumn,
   Check,
   ChevronDown,
   Clock,
   ExternalLink,
-  FileText,
   Image as ImageIcon,
   LayoutGrid,
-  Link2,
-  ListChecks,
-  PenLine,
-  Repeat,
-  Search,
-  Share2,
-  ShoppingCart,
-  Sparkles,
-  Tags,
-  Users,
-  Vote,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -52,39 +37,12 @@ import {
   TabBar,
   useCommentThread,
 } from "@/app/components/CommentSection";
-import {
-  formatDate,
-  lastUpdated,
-  type App,
-  type AppFeatureIcon,
-  type AppScreenshot,
-} from "@/lib/mock-data";
+import { formatDate, lastUpdated, type App, type AppScreenshot } from "@/lib/mock-data";
 
 import styles from "../ctrlaistore.module.css";
+import { softTint } from "../softTint";
 
 type Tab = "about" | "comments" | "updates";
-
-/** 기능 카드의 아이콘. 데이터 파일은 이름만 들고 있고, 이름을 아이콘으로
- *  바꾸는 일은 화면이 합니다 — `AppFeatureIcon`을 키로 썼으므로 데이터에만
- *  새 이름을 넣으면 `tsc`가 여기서 빠진 것을 알려 줍니다. */
-const FEATURE_ICON: Record<AppFeatureIcon, LucideIcon> = {
-  checklist: ListChecks,
-  chart: ChartColumn,
-  calendar: CalendarDays,
-  link: Link2,
-  share: Share2,
-  people: Users,
-  bell: Bell,
-  search: Search,
-  sparkle: Sparkles,
-  clock: Clock,
-  note: FileText,
-  cart: ShoppingCart,
-  repeat: Repeat,
-  pen: PenLine,
-  tag: Tags,
-  vote: Vote,
-};
 
 export default function AppTabs({ app }: { app: App }) {
   const [tab, setTab] = useState<Tab>("about");
@@ -153,20 +111,19 @@ function About({ app }: { app: App }) {
         <h2 className={styles.blockTitle}>주요 기능</h2>
         {app.features.length > 0 ? (
           <ul className={styles.features}>
-            {app.features.map((feature) => {
-              const Icon = FEATURE_ICON[feature.icon];
-              return (
-                <li className={styles.feature} key={feature.title}>
-                  <span className={styles.featureIcon} aria-hidden="true">
-                    <Icon size={16} strokeWidth={1.75} />
-                  </span>
-                  <span className={styles.featureText}>
-                    <span className={styles.featureTitle}>{feature.title}</span>
-                    <span className={styles.featureNote}>{feature.description}</span>
-                  </span>
-                </li>
-              );
-            })}
+            {/* 기능마다 같은 ✓ 칸을 둡니다. 기능별 그림은 데이터(`icon`)에
+                남아 있지만, 그림이 제각각이면 카드 줄이 산만해 보입니다. */}
+            {app.features.map((feature) => (
+              <li className={styles.feature} key={feature.title}>
+                <span className={styles.featureIcon} aria-hidden="true">
+                  <Check size={15} strokeWidth={2.25} />
+                </span>
+                <span className={styles.featureText}>
+                  <span className={styles.featureTitle}>{feature.title}</span>
+                  <span className={styles.featureNote}>{feature.description}</span>
+                </span>
+              </li>
+            ))}
           </ul>
         ) : (
           <Empty icon={LayoutGrid}>만든 사람이 아직 기능 설명을 올리지 않았습니다.</Empty>
@@ -192,9 +149,7 @@ function About({ app }: { app: App }) {
                   >
                     <span
                       className={styles.shotArt}
-                      style={{
-                        background: `linear-gradient(140deg, ${shot.artwork[0]}, ${shot.artwork[1]})`,
-                      }}
+                      style={{ background: softTint(shot.artwork, 160) }}
                       aria-hidden="true"
                     />
                     <span className={styles.shotLabel}>{shot.label}</span>
@@ -287,9 +242,7 @@ function Lightbox({ shot, onClose }: { shot: AppScreenshot; onClose: () => void 
       <div className={styles.lightboxInner} onClick={(event) => event.stopPropagation()}>
         <div
           className={styles.lightboxArt}
-          style={{
-            background: `linear-gradient(140deg, ${shot.artwork[0]}, ${shot.artwork[1]})`,
-          }}
+          style={{ background: softTint(shot.artwork, 160) }}
           aria-hidden="true"
         />
         <p className={styles.lightboxLabel}>{shot.label}</p>

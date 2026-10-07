@@ -145,3 +145,69 @@ describe("최종본 다운로드", () => {
     expect(item.getAttribute("title")).toBe("최종본을 먼저 고르세요");
   });
 });
+
+describe("상태 필터 — 전체 / Draft / 게시됨", () => {
+  test("세 칩뿐이고, 고르면 그 값으로 목록을 다시 받는다", async () => {
+    listVideoProjects.mockImplementation((filter: string = "all") =>
+      Promise.resolve(
+        filter === "published"
+          ? [video({ id: 2, name: "게시한 하나", status: "published" })]
+          : [video({ id: 1, name: "초안 하나" })],
+      ),
+    );
+    render(<VideoLibrary />);
+    await screen.findByText("초안 하나");
+    expect(listVideoProjects).toHaveBeenLastCalledWith("all");
+
+    const group = screen.getByRole("group", { name: "상태" });
+    const chips = within(group).getAllByRole("button").map((chip) => chip.textContent);
+    expect(chips).toEqual(["전체", "Draft", "게시됨"]);
+
+    const all = within(group).getByRole("button", { name: "전체" });
+    expect(all.getAttribute("aria-pressed")).toBe("true");
+
+    const published = within(group).getByRole("button", { name: "게시됨" });
+    await userEvent.click(published);
+
+    expect(listVideoProjects).toHaveBeenLastCalledWith("published");
+    expect(await screen.findByText("게시한 하나")).toBeTruthy();
+    expect(published.getAttribute("aria-pressed")).toBe("true");
+    expect(all.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByText("초안 하나")).toBeNull();
+
+    await userEvent.click(within(group).getByRole("button", { name: "Draft" }));
+    expect(listVideoProjects).toHaveBeenLastCalledWith("draft");
+  });
+});
+
+describe("영상 카드의 그림 (ui-library-cards 3)", () => {
+  test("버전의 실제 화면을 그 비율로 보여 준다", async () => {
+    listVideoProjects.mockResolvedValue([
+      video({ thumbnail_version_id: 8, thumbnail_aspect_ratio: "16:9", thumbnail_kind: "image" }),
+    ]);
+    render(<VideoLibrary />);
+    await screen.findByText("probe");
+
+    const image = document.querySelector("article img") as HTMLImageElement;
+    expect(image.getAttribute("src")).toBe("/api/video/projects/12/versions/8/download");
+    expect(image.style.aspectRatio).toBe("16 / 9");
+  });
+
+  test("실제 영상(MP4)은 <video>로 보여 준다", async () => {
+    listVideoProjects.mockResolvedValue([
+      video({ thumbnail_version_id: 9, thumbnail_aspect_ratio: "9:16", thumbnail_kind: "video" }),
+    ]);
+    render(<VideoLibrary />);
+    await screen.findByText("probe");
+    expect(document.querySelector("article video")?.getAttribute("src")).toBe(
+      "/api/video/projects/12/versions/9/download",
+    );
+  });
+
+  test("버전이 없으면 빈 틀에 그렇다고 적는다", async () => {
+    listVideoProjects.mockResolvedValue([video()]);
+    render(<VideoLibrary />);
+    expect(await screen.findByText("아직 만든 버전이 없습니다")).toBeTruthy();
+    expect(document.querySelector("article img, article video")).toBeNull();
+  });
+});

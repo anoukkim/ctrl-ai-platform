@@ -10,11 +10,14 @@ from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
 
 
 class VideoProjectStatus(str, enum.Enum):
+    """Members see **Draft** (draft, generating, ready) or **게시됨**
+    (published), and `generating` as a "생성 중…" note. No archived state —
+    see `BuilderProjectStatus`."""
+
     DRAFT = "draft"
     GENERATING = "generating"
     READY = "ready"
     PUBLISHED = "published"
-    ARCHIVED = "archived"
 
 
 class VideoVersionStatus(str, enum.Enum):
@@ -141,8 +144,8 @@ class VideoProject(SoftDeleteMixin, TimestampMixin, Base):
 
         The rule, decided 2026-10-07: **choosing a final version makes a
         draft project Ready**, and clearing the final puts a Ready project
-        back to Draft. Published and Archived are left alone — they say
-        something a final version does not.
+        back to Draft. Published is left alone — it says something a final
+        version does not.
 
         Called wherever `final_version_id` changes, so every reader of the
         API — the library card, the workspace header, anything later —
@@ -156,6 +159,39 @@ class VideoProject(SoftDeleteMixin, TimestampMixin, Base):
             self.status = VideoProjectStatus.READY
         elif self.final_version_id is None and self.status is VideoProjectStatus.READY:
             self.status = VideoProjectStatus.DRAFT
+
+    @property
+    def thumbnail_version(self) -> "VideoVersion | None":
+        """What the library card shows: the final version, else the latest.
+
+        Only a version with a stored file can be shown. With none, the card
+        draws an empty frame ("아직 만든 버전이 없습니다").
+        """
+        with_file = [version for version in self.versions if version.has_asset]
+        if not with_file:
+            return None
+        final = next((v for v in with_file if v.id == self.final_version_id), None)
+        return final or with_file[-1]
+
+    @property
+    def thumbnail_version_id(self) -> int | None:
+        version = self.thumbnail_version
+        return version.id if version else None
+
+    @property
+    def thumbnail_aspect_ratio(self) -> str | None:
+        version = self.thumbnail_version
+        return version.aspect_ratio if version else None
+
+    @property
+    def thumbnail_kind(self) -> str | None:
+        """"image" (the mock's GIF) or "video" (a real MP4) — the card needs
+        an <img> for one and a <video> for the other."""
+        version = self.thumbnail_version
+        if version is None or not version.asset_storage_key:
+            return None
+        extension = version.asset_storage_key.rsplit(".", 1)[-1].lower()
+        return "image" if extension in {"gif", "png", "jpg", "jpeg", "webp"} else "video"
 
     @property
     def final_version_has_asset(self) -> bool:

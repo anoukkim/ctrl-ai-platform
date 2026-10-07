@@ -24,6 +24,7 @@ import AdminTable, { type Column } from "../components/AdminTable";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import PageHeader from "@/app/components/PageHeader";
 
 export default function AuditLogView() {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
@@ -96,13 +97,16 @@ export default function AuditLogView() {
 
   return (
     <div className={styles.sections}>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">{sectionLabel("audit")}</h1>
-        <p className="page-subtitle">
-          관리자가 회원 자격이나 지원금을 바꾼 모든 기록입니다. 읽기 전용이며 수정하거나
-          지울 수 없습니다 — 고칠 수 있는 기록은 기록이 아닙니다.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Admin"
+        title={sectionLabel("audit")}
+        subtitle={
+          <>
+            관리자가 회원 자격이나 지원금을 바꾼 모든 기록입니다. 읽기 전용이며 수정하거나
+            지울 수 없습니다 — 고칠 수 있는 기록은 기록이 아닙니다.
+          </>
+        }
+      />
 
       {error !== null && (
         <div className="card">

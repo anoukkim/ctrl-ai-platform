@@ -43,6 +43,7 @@ import { ApplicationBadge } from "../components/StatusBadge";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import SharedPageHeader from "@/app/components/PageHeader";
 
 /** 상태 탭. 기본은 승인 대기 — 이 화면에 온 이유가 그것입니다. */
 const TABS: { key: string; label: string; status: ApplicationStatus | null }[] = [
@@ -420,12 +421,15 @@ export default function ApplicationReview() {
 
 function PageHeader() {
   return (
-    <header className="page-header page-header-stacked">
-      <h1 className="page-title">{sectionLabel("applications")}</h1>
-      <p className="page-subtitle">
-        승인하면 신청한 금액 그대로 지원금이 만들어지고 참여 기록도 함께 쓰입니다. 금액을
-        고치는 일은 회원 상세 화면에서 합니다.
-      </p>
-    </header>
+    <SharedPageHeader
+      eyebrow="Admin"
+      title={sectionLabel("applications")}
+      subtitle={
+        <>
+          승인하면 신청한 금액 그대로 지원금이 만들어지고 참여 기록도 함께 쓰입니다. 금액을
+          고치는 일은 회원 상세 화면에서 합니다.
+        </>
+      }
+    />
   );
 }

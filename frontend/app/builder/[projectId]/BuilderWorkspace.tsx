@@ -22,7 +22,6 @@ import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
-  BUILDER_STATUS_BADGE,
   BUILDER_STATUS_LABEL,
   builderProjectDownloadUrl,
   deleteBuilderProject,
@@ -32,6 +31,7 @@ import {
   updateBuilderProject,
   type BuilderProject,
 } from "@/lib/projects";
+import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import { MOCK_BUILDER_CHAT, MOCK_FILE_CONTENTS, MOCK_FILE_TREE } from "@/lib/mock-data";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
@@ -46,6 +46,41 @@ type State =
   | { phase: "error"; message: string };
 
 const ENTRY_FILE = "page.tsx";
+
+/**
+ * 코드에 색을 입힙니다 — 화면용 장식일 뿐, 코드를 바꾸지 않습니다.
+ *
+ * 문법을 제대로 읽는 편집기(Monaco)는 Phase 3 이후입니다. 그때까지는
+ * 예약어, 문자열, JSX 태그, 주석 네 가지만 색으로 구분합니다. 색은
+ * 토큰(--code-keyword, --code-string, --accent)이라 밝은 테마에서도
+ * 읽힙니다.
+ */
+const TOKEN_PATTERN =
+  /(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|(<\/?[A-Za-z][\w.]*)|\b(import|from|export|default|function|const|let|var|return|if|else|type|interface|async|await|new|extends)\b/g;
+
+function highlight(code: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  for (const match of code.matchAll(TOKEN_PATTERN)) {
+    const start = match.index ?? 0;
+    if (start > last) nodes.push(code.slice(last, start));
+    const className = match[1]
+      ? styles.tokComment
+      : match[2]
+        ? styles.tokString
+        : match[3]
+          ? styles.tokTag
+          : styles.tokKeyword;
+    nodes.push(
+      <span className={className} key={start}>
+        {match[0]}
+      </span>,
+    );
+    last = start + match[0].length;
+  }
+  if (last < code.length) nodes.push(code.slice(last));
+  return nodes;
+}
 
 export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 참여하지 않는 분기에도 이 화면은 열립니다 — 내 작업물은 언제든 볼 수
@@ -208,9 +243,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           }))}
         />
 
-        <span className={`badge ${BUILDER_STATUS_BADGE[project.status]}`}>
-          {BUILDER_STATUS_LABEL[project.status]}
-        </span>
+        <ProjectStatusBadge status={project.status} />
         <span className="badge badge-muted">
           {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
         </span>
@@ -305,7 +338,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     <span className={styles.gutter} aria-hidden="true">
                       {Array.from({ length: lineCount }, (_, i) => i + 1).join("\n")}
                     </span>
-                    <code className={styles.codeText}>{code}</code>
+                    <code className={styles.codeText}>{highlight(code)}</code>
                   </pre>
                 </div>
               </div>

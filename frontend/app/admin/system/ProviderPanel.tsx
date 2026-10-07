@@ -109,7 +109,21 @@ export default function ProviderPanel() {
                 key={provider.key}
               >
                 <div className={styles.providerTop}>
-                  <span className={styles.providerName}>{provider.name}</span>
+                  <span className={styles.providerName}>
+                    {/* 점 하나로 상태를 먼저 보여 줍니다: 실패면 빨강, 실제
+                        연결이면 초록, mock이면 회색. */}
+                    <span
+                      className={`${styles.statusDot} ${
+                        failing
+                          ? styles.statusDotError
+                          : provider.is_mock
+                            ? styles.statusDotMuted
+                            : styles.statusDotOk
+                      }`}
+                      aria-hidden="true"
+                    />
+                    {provider.name}
+                  </span>
                   <span className={`badge ${provider.is_mock ? "badge-mock" : "badge-accent"}`}>
                     {provider.is_mock ? "mock (테스트)" : "실제 연결"}
                   </span>

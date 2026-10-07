@@ -67,7 +67,7 @@ def test_a_project_with_a_final_cannot_be_sent_back_to_draft(client: TestClient,
     assert response.json()["status"] == "ready"
 
 
-def test_published_and_archived_are_left_alone(
+def test_published_is_left_alone(
     client: TestClient, db_session: Session, probe
 ) -> None:
     project = db_session.get(VideoProject, probe["id"])

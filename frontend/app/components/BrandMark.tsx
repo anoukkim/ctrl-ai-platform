@@ -14,10 +14,63 @@
 export default function BrandMark({
   size = 28,
   className,
+  variant = "tile",
 }: {
   size?: number;
   className?: string;
+  /**
+   * tile: 그라데이션 네모 안의 흰 +.
+   * glyph: 네모 없이 + 자체를 그라데이션으로 — 사이드바의 이름 옆.
+   * soft: 패널색 네모 위의 그라데이션 + — Chat의 첫 화면.
+   */
+  variant?: "tile" | "glyph" | "soft";
 }) {
+  if (variant !== "tile") {
+    return (
+      <svg
+        className={className}
+        width={size}
+        height={size}
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient
+            id={`ctrlai-mark-${variant}`}
+            x1="0"
+            y1="0"
+            x2="32"
+            y2="32"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stopColor="var(--logo-from)" />
+            <stop offset="1" stopColor="var(--logo-to)" />
+          </linearGradient>
+        </defs>
+        {variant === "soft" && (
+          <rect
+            x="0.5"
+            y="0.5"
+            width="31"
+            height="31"
+            rx="8"
+            fill="var(--panel)"
+            stroke="var(--border)"
+          />
+        )}
+        <path
+          d={variant === "soft" ? "M16 11V21M11 16H21" : "M16 6V26M6 16H26"}
+          stroke={`url(#ctrlai-mark-${variant})`}
+          strokeWidth={variant === "soft" ? 2 : 4.5}
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg
       className={className}

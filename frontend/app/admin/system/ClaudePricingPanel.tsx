@@ -178,8 +178,8 @@ export default function ClaudePricingPanel() {
       {error === null && settings === null && <p className="small muted">불러오는 중…</p>}
 
       {settings !== null && (
-        <div className="card">
-          <dl className={styles.providerFacts}>
+        <div className={`card ${styles.pricingCard}`}>
+          <dl className={styles.factTiles}>
             <div>
               <dt>모델</dt>
               <dd className="numeric">
@@ -206,12 +206,12 @@ export default function ClaudePricingPanel() {
               <dd className="numeric">1분에 {settings.rate_limit_per_minute}개</dd>
             </div>
           </dl>
-          <p className="small dim" style={{ marginTop: "0.5rem" }}>
+          <p className={styles.pricingNote}>
             모델과 한도는 .env의 ANTHROPIC_MODEL, CHAT_* 값으로 정하고 서버를 다시 시작하면
             바뀝니다.
           </p>
 
-          <div className="table-wrap" style={{ marginTop: "1rem" }}>
+          <div className={`table-wrap ${styles.priceTable}`}>
             <table className="table">
               <thead>
                 <tr>
@@ -236,7 +236,7 @@ export default function ClaudePricingPanel() {
                       <td>
                         <span className="numeric">{price.model_id}</span>
                         {inUse && (
-                          <span className="badge badge-accent" style={{ marginLeft: "0.4rem" }}>
+                          <span className={`badge badge-accent ${styles.inUseBadge}`}>
                             사용 중
                           </span>
                         )}
@@ -244,11 +244,10 @@ export default function ClaudePricingPanel() {
                       {(["input", "output"] as const).map((field) => (
                         <td key={field}>
                           <input
-                            className="field numeric"
+                            className={`field numeric ${styles.priceField}`}
                             aria-label={`${price.model_id} ${field === "input" ? "입력" : "출력"} 요금`}
                             inputMode="decimal"
                             value={draft[field]}
-                            style={{ width: "6.5rem" }}
                             onChange={(event) =>
                               setDrafts((current) => ({
                                 ...current,
@@ -279,7 +278,7 @@ export default function ClaudePricingPanel() {
                 <tr>
                   <td>
                     <input
-                      className="field numeric"
+                      className={`field numeric ${styles.priceModelField}`}
                       aria-label="추가할 모델 ID"
                       placeholder="claude-…"
                       value={newModel.id}
@@ -288,20 +287,18 @@ export default function ClaudePricingPanel() {
                   </td>
                   <td>
                     <input
-                      className="field numeric"
+                      className={`field numeric ${styles.priceField}`}
                       aria-label="추가할 모델 입력 요금"
                       inputMode="decimal"
-                      style={{ width: "6.5rem" }}
                       value={newModel.input}
                       onChange={(event) => setNewModel({ ...newModel, input: event.target.value })}
                     />
                   </td>
                   <td>
                     <input
-                      className="field numeric"
+                      className={`field numeric ${styles.priceField}`}
                       aria-label="추가할 모델 출력 요금"
                       inputMode="decimal"
-                      style={{ width: "6.5rem" }}
                       value={newModel.output}
                       onChange={(event) => setNewModel({ ...newModel, output: event.target.value })}
                     />
@@ -321,20 +318,19 @@ export default function ClaudePricingPanel() {
               </tbody>
             </table>
           </div>
-          <p className="small dim" style={{ marginTop: "0.4rem" }}>
+          <p className={styles.pricingNote}>
             &quot;답장 1번 약&quot;은 입력 2,000 · 출력 800 토큰으로 어림한 값입니다.
           </p>
 
-          <div style={{ marginTop: "1.2rem" }}>
-            <label className="section-title" htmlFor="claude-exchange-rate">
+          <div className={styles.rateBlock}>
+            <label className={styles.rateLabel} htmlFor="claude-exchange-rate">
               환율 (1달러 = 원)
             </label>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <div className={styles.rateRow}>
               <input
-                className="field numeric"
+                className={`field numeric ${styles.rateField}`}
                 id="claude-exchange-rate"
                 inputMode="decimal"
-                style={{ width: "8rem" }}
                 value={rateDraft}
                 onChange={(event) => setRateDraft(event.target.value)}
               />
@@ -348,7 +344,7 @@ export default function ClaudePricingPanel() {
               </button>
             </div>
             {settings.rate_history.length > 0 && (
-              <ul className="small dim" style={{ marginTop: "0.5rem", listStyle: "none" }}>
+              <ul className={styles.rateHistory}>
                 {settings.rate_history.map((rate) => (
                   <li key={rate.set_at} className="numeric">
                     {formatWhen(rate.set_at)} · {Number(rate.krw_per_usd).toLocaleString()}원
@@ -360,7 +356,7 @@ export default function ClaudePricingPanel() {
           </div>
 
           {saved !== null && (
-            <p className="small" role="status" style={{ marginTop: "0.6rem" }}>
+            <p className={`${styles.result} ${styles.resultOk} ${styles.pricingSaved}`} role="status">
               {saved}
             </p>
           )}

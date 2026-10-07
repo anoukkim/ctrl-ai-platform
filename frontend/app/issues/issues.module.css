@@ -1,47 +1,98 @@
-/* Report Issue 화면. */
+/* Report Issue 화면. 읽는 글이라 폭을 좁혀 가운데에 둡니다. */
 
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.page > section + section {
+  margin-top: 16px;
+}
+
+/* 번호 단계. 숫자는 옅은 강조색 동그라미 안에 둡니다. */
 .steps {
   display: grid;
-  gap: 0.5rem;
-  margin: 0 0 1rem 1.1rem;
+  gap: 12px;
+  margin: 0.2rem 0 20px;
+  list-style: none;
+  counter-reset: step;
   color: var(--text-muted);
-  font-size: 0.87rem;
-  line-height: 1.65;
+  font-size: var(--fs-section);
+  line-height: 1.6;
+}
+
+/* 번호는 글자 흐름 밖(왼쪽 26px 칸)에 둡니다. li를 grid나 flex로 만들면
+   문장 안의 <strong>까지 따로 떨어진 칸이 되어 줄이 깨집니다. */
+.steps li {
+  position: relative;
+  min-height: 26px;
+  padding: 2px 0 0 38px;
+  counter-increment: step;
+}
+
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  font-weight: var(--fw-card-name);
 }
 
 .steps strong {
   color: var(--text);
-  font-weight: 650;
+  font-weight: var(--fw-strong);
+}
+
+/* 버튼과 "새 탭에서 열립니다"를 한 줄에. */
+.action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
 }
 
 .newTab {
-  margin-top: 0.5rem;
   color: var(--text-dim);
-  font-size: 0.76rem;
+  font-size: var(--fs-chip);
 }
 
-/* 주의 사항. 공개된다는 점을 놓치면 곤란하므로 눈에 띄는 선을 둡니다. */
+/* 주의 사항. 공개된다는 점을 놓치면 곤란하므로 주의 색을 옅게 깝니다. */
 .caution {
-  margin-top: 1.1rem;
-  border-left: 2px solid var(--warn);
+  background: var(--warn-soft);
+  border-color: var(--warn-border);
+  box-shadow: none;
+}
+
+.cautionTitle {
+  color: var(--warn-text);
 }
 
 .cautionList {
   display: grid;
   gap: 0.6rem;
-  margin-left: 1.1rem;
+  list-style: none;
   color: var(--text-muted);
-  font-size: 0.87rem;
+  font-size: var(--fs-section);
   line-height: 1.65;
 }
 
 .cautionList strong {
   color: var(--text);
-  font-weight: 650;
+  font-weight: var(--fw-strong);
 }
 
 /* 아직 만들지 않은 자리. 점선으로 "여기 올 것이 있다"만 표시합니다. */
 .placeholder {
-  margin-top: 1.1rem;
-  border-style: dashed;
+  background: transparent;
+  border: 1.5px dashed var(--border);
+  box-shadow: none;
 }

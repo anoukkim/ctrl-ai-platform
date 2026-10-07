@@ -89,14 +89,13 @@ export const CHAT_SHORTCUTS: ShortcutAction[] = [
 /* Project Builder                                                     */
 /* ------------------------------------------------------------------ */
 
-export type ProjectStatus = "draft" | "building" | "ready" | "published" | "archived";
+export type ProjectStatus = "draft" | "building" | "ready" | "published";
 
 export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   draft: "초안",
   building: "작업 중",
   ready: "완료",
   published: "게시됨",
-  archived: "보관됨",
 };
 
 export interface Project {

@@ -1,31 +1,31 @@
 /* Project Builder 작업 공간 전용 스타일.
-   공통 골격(위쪽 막대, 판, 대화)은 components/workspace.module.css. */
+   공통 골격(틀, 위쪽 막대, 판, 대화)은 components/workspace.module.css. */
 
 /* ---------- 왼쪽: 파일만 ---------- */
 
 .left {
-  flex: 0 0 14rem;
+  flex: 0 0 220px;
 }
 
 .fileList {
   display: grid;
-  gap: 0.05rem;
+  gap: 2px;
   list-style: none;
 }
 
 .fileRow {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   width: 100%;
-  padding: 0.22rem 0.4rem;
+  padding: 5px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
   font-family: var(--mono);
-  font-size: 0.76rem;
+  font-size: 12.5px;
   text-align: left;
   cursor: pointer;
 }
@@ -35,7 +35,8 @@
   color: var(--text);
 }
 
-.fileRowActive {
+.fileRowActive,
+.fileRowActive:hover {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 600;
@@ -43,7 +44,7 @@
 
 .folderRow {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 650;
   cursor: default;
 }
 
@@ -64,35 +65,42 @@
   min-width: 0;
 }
 
+/* 코드 / 미리보기 / 나란히 — 알약 모양 탭. */
 .modeTabs {
   display: flex;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
-  padding: 0.3rem 0.5rem;
+  min-height: 44px;
+  padding: 7px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel-2);
+  background: var(--panel);
 }
 
 .modeTab {
-  padding: 0.2rem 0.75rem;
+  padding: 4px 14px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .modeTab:hover {
+  background: var(--panel-2);
   color: var(--text);
 }
 
-.modeTabActive {
+.modeTabActive,
+.modeTabActive:hover {
   background: var(--accent-soft);
   border-color: var(--accent-border);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .modeSpacer {
@@ -101,7 +109,11 @@
 
 .splitToggle {
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 코드와 미리보기를 함께 볼 때 */
@@ -128,39 +140,39 @@
   border-left: 1px solid var(--border);
 }
 
+/* 열린 파일 이름. 탭이 하나뿐이라 조용한 꼬리표로 둡니다. */
 .tabs {
   display: flex;
   gap: 1px;
   flex: 0 0 auto;
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--border);
+  padding: 6px 14px 0;
+  background: var(--panel);
   overflow-x: auto;
 }
 
 .tab {
-  padding: 0.3rem 0.8rem;
+  padding: 3px 10px;
   border: none;
-  border-top: 2px solid transparent;
-  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-dim);
   font: inherit;
   font-family: var(--mono);
-  font-size: 0.74rem;
+  font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .tabActive {
-  background: var(--bg);
-  border-top-color: var(--accent);
-  color: var(--text);
+  background: var(--panel-2);
+  color: var(--text-muted);
 }
 
 .codeScroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  background: var(--bg);
+  background: var(--panel);
 }
 
 .code {
@@ -168,24 +180,42 @@
   margin: 0;
   min-height: 100%;
   font-family: var(--mono);
-  font-size: 0.78rem;
-  line-height: 1.7;
+  font-size: 13px;
+  line-height: 1.75;
 }
 
 .gutter {
   flex: none;
-  padding: 0.7rem 0.6rem 0.7rem 0.9rem;
-  border-right: 1px solid var(--border);
+  padding: 12px 10px 12px 16px;
   color: var(--text-dim);
+  opacity: 0.75;
   text-align: right;
   user-select: none;
   white-space: pre;
 }
 
 .codeText {
-  padding: 0.7rem 1rem;
+  padding: 12px 16px;
   white-space: pre;
-  color: var(--text-muted);
+  color: var(--text);
+}
+
+/* 글자 색칠. 색은 토큰이라 밝은 테마에서는 어두운 쪽 값으로 바뀝니다. */
+.tokKeyword {
+  color: var(--code-keyword);
+}
+
+.tokString {
+  color: var(--code-string);
+}
+
+.tokTag {
+  color: var(--accent);
+}
+
+.tokComment {
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 /* ---------- 미리보기 ---------- */
@@ -195,7 +225,7 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  background: var(--bg);
+  background: var(--panel);
 }
 
 /* 크게 보기: 화면 전체를 덮습니다. */
@@ -211,16 +241,16 @@
   align-items: center;
   gap: 0.5rem;
   flex: 0 0 auto;
-  padding: 0.35rem 0.6rem;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel-2);
+  background: var(--panel);
 }
 
 .previewBarTitle {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.74rem;
+  font-size: 12.5px;
   font-weight: 650;
   color: var(--text-muted);
 }
@@ -229,6 +259,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  background: var(--bg);
 }
 
 .previewPlaceholder {
@@ -243,27 +274,27 @@
 }
 
 .previewTitle {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 650;
 }
 
 .previewText {
   max-width: 26rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 13.5px;
   line-height: 1.6;
 }
 
 .previewMeta {
   margin-top: 0.3rem;
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-size: 12px;
 }
 
 /* ---------- 오른쪽: Claude ---------- */
 
 .right {
-  flex: 0 0 18rem;
+  flex: 0 0 320px;
 }
 
 .rightInner {
@@ -275,14 +306,22 @@
 
 .hint {
   margin-top: 0.4rem;
-  font-size: 0.72rem;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
-/* ---------- 상태 ---------- */
+/* ---------- 좁은 화면 ---------- */
 
-@media (max-width: 75rem) {
-  .left,
+/* 1250px 아래: 파일 목록을 접어 코드와 Claude에 자리를 줍니다. */
+@media (max-width: 78.124rem) {
+  /* 판(.pane)의 display: flex 를 이기도록 요소 이름까지 붙입니다. */
+  aside.left {
+    display: none;
+  }
+}
+
+/* 사이드바가 위로 접히는 폭: 판을 세로로 쌓습니다. */
+@media (max-width: 59.99rem) {
   .right {
     flex: 1 1 auto;
   }
