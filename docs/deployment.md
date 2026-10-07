@@ -7,6 +7,24 @@
 > Everything below is the earlier README section, moved here unchanged
 > on 2026-10-07.
 
+## Anthropic credit — decided 2026-10-07
+
+Real Claude (`CLAUDE_PROVIDER=anthropic`) is paid from **prepaid Anthropic
+credit**, not from the budgets in the app — those are what members are
+*charged*, in won; the credit is what the club *pays*. To start:
+
+- buy a **small prepaid credit**: the free sign-up credit if the account
+  gets one, otherwise about **$5–10**;
+- keep **auto-reload OFF** in the Anthropic Console, so nothing is topped
+  up without a decision;
+- set a **monthly spend limit** in the Console (also a condition of the
+  beta-only `.env` exception in `CLAUDE.md` section 17).
+
+At the default model (Sonnet 5.5) a typical reply costs about 17원, so $5
+covers several hundred replies.
+
+---
+
 **Nothing is deployed, and no cloud resource has been created.** Going live
 is **Phase 9** — domain, HTTPS, hosting, managed PostgreSQL, Secret Manager
 and switching providers from mock to real. Every phase before it is built

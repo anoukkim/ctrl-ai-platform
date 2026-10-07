@@ -42,7 +42,7 @@ principles.
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
 | Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
-| Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
+| Chat (default page)   | **Built** — conversations, streamed replies with 중지, action buttons into Builder/Video; mock Claude by default, charged to Build by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
@@ -53,12 +53,13 @@ principles.
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
-| Claude / Higgsfield   | Mock providers behind `CLAUDE_PROVIDER` / `VIDEO_PROVIDER`; real adapters not built |
+| Claude                | Real adapter built behind `CLAUDE_PROVIDER` (mock by default); not yet run with a real key |
+| Higgsfield            | Mock provider behind `VIDEO_PROVIDER`; real adapter not built                     |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
 No mock data remains anywhere money is involved. What is still mock: the
-CtrlAIApps and CtrlAITube listings (Phases 5 and 8) and the Chat replies
-(Phase 2).
+CtrlAIApps and CtrlAITube listings (Phases 5 and 8), and Claude's replies
+until `CLAUDE_PROVIDER=anthropic` is set with a key.
 
 Everything that is not built yet renders a **준비 중** badge, and its controls are
 disabled, so the shell is never mistaken for working functionality.
@@ -170,9 +171,38 @@ there until an admin saves the model. Each version records how it was made
 (생성 / 수정 / 이어서), its source version and its exact settings.
 
 The Claude panel, **프롬프트 도움받기 (선택)**, starts collapsed. It only
-rewrites prompt text, never generates video, and costs a flat
-`VIDEO_PROMPT_HELP_CHARGE_KRW` (10원) from the **Build** budget until Phase 2
-prices Claude by the token.
+rewrites prompt text, never generates video, and is charged to the **Build**
+budget by the token, exactly like a Chat reply (below).
+
+## Chat
+
+Chat is the opening screen and a real conversation with Claude, behind
+`CLAUDE_PROVIDER` (mock by default; the screen says
+**테스트 모드 – 실제 AI 결과가 아닙니다** while it is).
+
+- **Conversations** are listed on the left: 새 대화, rename, delete. They are
+  private to the member. Deleting is a real delete — a chat is not *work*,
+  so it does not go to Deleted Items — but the money it spent stays in Usage.
+- **Replies stream** in as Claude writes them, with a **중지** button. A
+  stopped reply keeps its text and is charged for the tokens used so far.
+- **Action buttons.** When a message is about building an app or making a
+  video, the reply ends with **Project Builder에서 시작** or **Video Generator
+  열기**. The button opens that library with the new-project form already
+  filled: the member's message becomes the description (Builder) or the
+  prompt (Video). Claude chooses the button with a hidden marker the server
+  removes; there is no agent routing.
+- **Money.** Before Claude is called, the Build budget is checked against the
+  worst case (the history sent plus the longest reply). Afterwards the tokens
+  actually used are charged: input × input price + output × output price in
+  dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
+  records the model, both token counts, the dollar cost and the rate. Prices
+  and the rate are edited in Admin › System and audited.
+- **A failed call is never charged.** Errors are shown in Korean: invalid
+  key, out of credit, Claude's rate limit, timeouts, network failures.
+- **Limits.** 10 messages per member per minute; up to 4,096 output tokens
+  per reply; up to about 16,000 tokens of history, oldest dropped first.
+- **Who may use it.** Sending, starting, renaming and deleting need
+  participation this quarter. Reading past conversations does not.
 
 ## Language
 

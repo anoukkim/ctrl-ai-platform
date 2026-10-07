@@ -18,8 +18,46 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
-`main`.
+**Phase 2 — Chat is in progress** on `phase-2-chat`. Points 1–9 are built
+and tested on the mock provider; **point 10 (one real message with the
+owner's key) has not been run** and is the owner's step. Not merged.
+
+Decisions taken for it on 2026-10-07 (owner-approved defaults, with two
+changes by the owner):
+
+- **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
+  over Opus because the club starts on a small budget. Opus 5.5 and Haiku
+  4.5 are in the price table, so switching is a `.env` change only.
+- **Thinking: off where the model allows it, otherwise low effort**, as a
+  setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
+  turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off
+  and runs adaptive at low effort; Haiku 4.5 gets neither field.
+- Max output 4,096 tokens; history up to 16,000 estimated tokens, oldest
+  dropped first; 10 messages per member per minute, counted from saved
+  messages; USD→KRW 1,400 to start.
+- **Prices and the rate are admin-editable** (Admin › System, audited).
+  Seeded: Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Haiku 4.5 $1/$5 per million
+  input/output tokens. The rate keeps its history as rows.
+- **KRW is rounded up**, minimum 1원 for any call that used a token.
+- **Budget check before the call uses the worst case**; if a concurrent
+  charge wins the race anyway, the charge takes what is left and still
+  records the full dollar cost (`charge(cap_to_available=True)`).
+- **A stopped reply is saved and charged for the tokens used**; only an
+  error is free. A refusal is saved and charged.
+- **Inactive members can read** their conversations; sending, creating,
+  renaming and deleting need participation.
+- **Deleting a conversation is a real delete**; its usage events stay with
+  `conversation_id` set to NULL.
+- **The video prompt helper is priced by the token too**;
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` is gone.
+- **Settings are `CHAT_*`, not `CLAUDE_*`** — Claude Code sets
+  `CLAUDE_EFFORT` in its terminals and a backend started from one would
+  pick it up.
+
+**Anthropic credit (owner, 2026-10-07).** The club starts with a small
+prepaid Anthropic credit — the free sign-up credit if there is one,
+otherwise about $5–10 — with **auto-reload OFF** and a **monthly spend
+limit** set in the Anthropic Console. Recorded in `docs/deployment.md`.
 
 Decisions from **video-higgsfield-only** (merged 2026-10-07) that later
 items inherit:
@@ -386,6 +424,9 @@ What follows from that:
 > 10. Real-provider check at the end: with my key in .env and CLAUDE_PROVIDER=anthropic, send one short real message, confirm the reply streams, the usage event and deduction are correct, and the error paths show Korean messages.
 >
 > Tests (all with the mock provider): conversations CRUD and ownership; inactive members get 403; insufficient budget is refused without a provider call; usage events store model, tokens, USD, rate and KRW; failed calls are not charged; the key never appears in any response.
+
+**Built on `phase-2-chat` (2026-10-07)** — see **Now** for the decisions
+taken. Point 10 is still open.
 
 **Point 10 is the first time this project spends real money.** It needs a
 key in `.env` and `CLAUDE_PROVIDER=anthropic`, so it is a step to take

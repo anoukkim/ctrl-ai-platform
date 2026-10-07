@@ -154,8 +154,32 @@ token. Where a real adapter does not exist yet, the check says so rather
 than showing a green light that means nothing.
 
 **No route returns a credential.** The screen asks only whether a key is
-present. `backend/tests/test_admin_providers.py` searches every response
-for the configured secret.
+present. `backend/tests/test_admin_providers.py` and
+`backend/tests/test_chat.py` search every response for the configured
+secret.
+
+### Claude in Chat
+
+The mock streams canned Korean replies and charges the Build budget as if
+it were `ANTHROPIC_MODEL` (Sonnet 5.5 when unset), so the ledger and the
+budget behave as they will for real. To see an error path without a key,
+put a marker in a message:
+
+| Message contains | Shows |
+| ---------------- | ----- |
+| `[mock-error:auth]` | invalid key |
+| `[mock-error:credit]` | out of provider credit |
+| `[mock-error:rate_limited]` | Claude's rate limit |
+| `[mock-error:timeout]` | timeout |
+| `[mock-error:unavailable]` | network / overloaded |
+| `[mock-refusal]` | Claude declining |
+
+A failed call is never charged. The real adapter's tests talk to a fake
+transport inside the test process — no test contacts Anthropic.
+
+The chat settings are `CHAT_*`, not `CLAUDE_*`, on purpose: **Claude Code
+sets `CLAUDE_EFFORT` in its own terminals**, and a backend started from one
+would have picked it up as its own setting.
 
 Useful extra URLs:
 
