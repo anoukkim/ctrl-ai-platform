@@ -18,8 +18,8 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
-`main`.
+**In progress: `chat-model-choice`** on branch `feat-chat-model-choice`,
+pushed and awaiting review (2026-10-07). Not merged.
 
 Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
 
@@ -37,10 +37,11 @@ Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
   (`ctrlai.sidebar-collapsed`).
 
 **Open check carried from Phase 2 — Chat: point 10 has not been run.**
-One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`,
-`ANTHROPIC_MODEL=claude-sonnet-5-5`) — confirm the reply streams, the
-usage event and deduction are right, and a wrong key shows the Korean
-message with no charge. **It must be done before `prep-beta-launch`**,
+One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`;
+once `chat-model-choice` is merged the model comes from the catalogue —
+send one message on the default Sonnet 5.5 and one on Haiku 4.5) — confirm
+the reply streams, the usage event and deduction are right, and a wrong
+key shows the Korean message with no charge. **It must be done before `prep-beta-launch`**,
 whose one real feature is this chat; the request shape has so far only
 been checked against a fake transport.
 
@@ -50,6 +51,9 @@ inherit — owner-approved defaults, with two changes by the owner:
 - **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
   over Opus because the club starts on a small budget. Opus 5.5 and Haiku
   4.5 are in the price table, so switching is a `.env` change only.
+  *Superseded by `chat-model-choice`: the model is chosen per conversation
+  from a catalogue (Sonnet 5.5 the default); `ANTHROPIC_MODEL` is only the
+  fallback for an empty catalogue.*
 - **Thinking: off where the model allows it, otherwise low effort**, as a
   setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
   turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off

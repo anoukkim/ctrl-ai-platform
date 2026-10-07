@@ -87,6 +87,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
+| `/admin/claude-models` | Claude Models  | Chat models, their prices, who may pick them, the default |
 | `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
 | `/admin/system`       | System          | Server health and external service status    |
@@ -196,7 +197,16 @@ Chat is the opening screen and a real conversation with Claude, behind
   actually used are charged: input × input price + output × output price in
   dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
   records the model, both token counts, the dollar cost and the rate. Prices
-  and the rate are edited in Admin › System and audited.
+  are edited with the models in Admin › Claude Models, the rate in Admin ›
+  System; both are audited.
+- **Choosing a model** (chat-model-choice). Next to the composer, per
+  conversation: each model shows its Korean label, a one-line description
+  and "답장 1회 약 N원" (3,000 input + 800 output tokens). A new conversation
+  starts on the default (Sonnet 5.5); changing the model affects later
+  replies only, and each reply shows the model that wrote it. Members see
+  Haiku 4.5 and Sonnet 5.5; Opus 5.5 is admin-only until an admin opens it.
+  A model a member may not use is refused with a Korean 400. The video
+  prompt helper always uses the default.
 - **A failed call is never charged.** Errors are shown in Korean: invalid
   key, out of credit, Claude's rate limit, timeouts, network failures.
 - **Limits.** 10 messages per member per minute; up to 4,096 output tokens
@@ -330,6 +340,7 @@ its own screen needs:
 | Admin — Top-ups | member name, username | top-up status |
 | Admin — Audit Log | summary, admin, action, target | action |
 | Admin — Video Models | model name, provider, model id | — |
+| Admin — Claude Models | label, provider, model id | — |
 
 Filtering currently happens in the browser, because the data is small and
 each screen already holds its list. `SearchBar` only lifts the query out, so

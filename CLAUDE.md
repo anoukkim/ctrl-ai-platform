@@ -938,7 +938,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its ten sections are named in English too:
+and its eleven sections are named in English too:
 
 ```text
 Admin
@@ -948,6 +948,7 @@ Admin
   Quarters
   Top-ups
   Video Models
+  Claude Models
   Deleted Items
   Audit Log
   System
