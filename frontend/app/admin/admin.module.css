@@ -1144,3 +1144,20 @@ button.statCardActive:hover {
   font-size: 0.74rem;
   font-weight: 600;
 }
+
+/* ---------- 회원 상세 › 회원 탈퇴 ---------- */
+
+.withdrawChoice {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.withdrawOption {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+}

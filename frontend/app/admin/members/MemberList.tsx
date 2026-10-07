@@ -398,7 +398,15 @@ export default function MemberList() {
                 onSelect: () =>
                   setConfirm({
                     title: `탈퇴 처리 — ${member.display_name}`,
-                    effect: `탈퇴 처리하면 ${member.display_name}은(는) 로그인할 수 없습니다. 열려 있는 로그인도 다음 요청에서 끊깁니다. 게시한 작품에는 이름이 "탈퇴 회원"으로 계속 남습니다.`,
+                    // 회원 상세의 탈퇴 처리와 같은 규칙으로 처리됩니다(백엔드가
+                    // 같은 서비스를 부릅니다). 게시 작품을 내릴지는 여기서 고를
+                    // 수 없어 기본값인 공개 유지로 처리하고, 그렇다고 적습니다.
+                    effect: [
+                      `${member.display_name}은(는) 로그인할 수 없습니다. 열려 있는 로그인도 바로 끊깁니다.`,
+                      "남은 동아리 지원은 해제됩니다. 개인 충전 잔액이 있으면 '환불 대기'가 됩니다.",
+                      `게시한 작품은 공개된 채 "탈퇴 회원"으로 표시됩니다. 게시를 취소하려면 회원 상세에서 탈퇴 처리하세요.`,
+                      "30일 안에는 회원 상세에서 복구할 수 있습니다.",
+                    ],
                     confirmLabel: "탈퇴 처리",
                     danger: true,
                     onConfirm: () => changeMembership(member, "former"),

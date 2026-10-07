@@ -33,6 +33,7 @@ from app.models import (
 )
 from app.services import audit
 from app.services import usage as usage_service
+from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
 from app.services.wallet import get_or_create_balance
 from app.schemas.usage import SimulateUsageRequest, UsageEventRead
@@ -416,10 +417,17 @@ def set_quarter_membership(
 ) -> MemberWithMembership:
     """Enrol a member, mark them inactive, or record that they have left.
 
-    Setting `former` also closes the account: a former member keeps their
-    name on everything they published but cannot sign in again. The two
-    are changed together so the admin cannot leave an account that is
-    former in one place and active in another.
+    Setting `former` is a withdrawal, and goes through the same service as
+    the member's own 회원 탈퇴 and Admin's 탈퇴 처리: the account closes,
+    remaining 동아리 지원 is released, a personal balance puts a refund on
+    hold, and the 30-day grace period starts. Published work is kept, the
+    default. Without this, the oldest route to `former` would skip every
+    rule the newer ones keep.
+
+    A withdrawn account comes back through 복구, not through here — 복구 is
+    what puts the released budget and the earlier participation back. Only
+    an account made `former` before withdrawals were recorded, which has
+    nothing to restore, is re-opened by this route as it always was.
     """
     quarter = db.get(Quarter, quarter_id)
     if quarter is None:
@@ -429,13 +437,33 @@ def set_quarter_membership(
     if member is None:
         raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
 
-    membership = set_membership(db, user_id, quarter_id, payload.status)
-
     if payload.status is MembershipStatus.FORMER:
-        member.account_status = AccountStatus.FORMER
-    elif member.account_status is AccountStatus.FORMER:
-        # Bringing a former member back re-opens the account.
-        member.account_status = AccountStatus.ACTIVE
+        if member.id == _.id:
+            raise HTTPException(
+                status_code=400,
+                detail="자신은 여기서 탈퇴 처리할 수 없습니다. Profile에서 탈퇴해 주세요.",
+            )
+        try:
+            withdrawal_service.withdraw(db, member=member, actor=_)
+        except withdrawal_service.WithdrawalError as error:
+            raise HTTPException(status_code=error.status_code, detail=error.message) from error
+        # The service has already moved any row this member had. None is
+        # written where there was none: a missing row means "not
+        # participating", and a new `former` row would outlive a 복구.
+        membership = membership_for(db, user_id, quarter_id)
+    else:
+        if (
+            member.account_status is AccountStatus.FORMER
+            and withdrawal_service.latest_withdrawal(db, member.id) is not None
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="탈퇴한 계정은 회원 상세의 '복구'로만 되돌릴 수 있습니다.",
+            )
+        membership = set_membership(db, user_id, quarter_id, payload.status)
+        if member.account_status is AccountStatus.FORMER:
+            # Bringing a former member back re-opens the account.
+            member.account_status = AccountStatus.ACTIVE
 
     audit.record(
         db,
@@ -453,7 +481,8 @@ def set_quarter_membership(
 
     db.commit()
     db.refresh(member)
-    db.refresh(membership)
+    if membership is not None:
+        db.refresh(membership)
 
     return MemberWithMembership(
         user_id=member.id,
@@ -461,7 +490,7 @@ def set_quarter_membership(
         display_name=member.display_name,
         role=member.role,
         account_status=member.account_status,
-        membership_status=membership.status,
+        membership_status=membership.status if membership else None,
     )
 
 

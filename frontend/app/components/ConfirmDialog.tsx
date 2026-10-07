@@ -30,8 +30,14 @@ import styles from "./confirm-dialog.module.css";
 
 export interface ConfirmRequest {
   title: string;
-  /** 이 작업이 실제로 무엇을 바꾸는지. 한 문장이면 충분합니다. */
-  effect: string;
+  /**
+   * 이 작업이 실제로 무엇을 바꾸는지. 대개 한 문장이면 충분합니다.
+   *
+   * 여러 가지가 한꺼번에 바뀌는 작업은 목록으로 줍니다 — 회원 탈퇴가
+   * 그렇습니다. 로그인, 지원금, 환불, 게시한 작품이 함께 바뀌고, 그것을
+   * 한 문단에 이어 쓰면 하나를 놓치고 읽게 됩니다.
+   */
+  effect: string | string[];
   confirmLabel: string;
   /** 계정을 닫거나 돈을 움직이는 작업은 빨간 버튼으로 구분합니다. */
   danger?: boolean;
@@ -124,9 +130,17 @@ function Dialog({
         <h2 className={styles.dialogTitle} id="confirm-dialog-title">
           {request.title}
         </h2>
-        <p className={styles.dialogEffect} id="confirm-dialog-effect">
-          {request.effect}
-        </p>
+        {Array.isArray(request.effect) ? (
+          <ul className={`${styles.dialogEffect} ${styles.dialogEffectList}`} id="confirm-dialog-effect">
+            {request.effect.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.dialogEffect} id="confirm-dialog-effect">
+            {request.effect}
+          </p>
+        )}
 
         {request.reason && (
           <div className={styles.dialogField}>

@@ -278,6 +278,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/auth/login"): None,
     ("POST", "/api/auth/logout"): None,
     ("GET", "/api/auth/me"): "get_current_user",
+    # Leaving CTRL+AI. Not participation-gated: the way out must not be
+    # behind participating.
+    ("GET", "/api/account/withdrawal"): "get_current_user",
+    ("POST", "/api/account/withdrawal"): "get_current_user",
     # Builder — reads open, writes gated.
     ("GET", "/api/builder/projects"): "get_current_user",
     ("GET", "/api/builder/projects/{project_id}"): "get_current_user",
@@ -341,6 +345,11 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/deleted-items"): "require_admin",
     ("POST", "/api/admin/work/{kind}/{item_id}/restore"): "require_admin",
     ("DELETE", "/api/admin/work/{kind}/{item_id}"): "require_admin",
+    # Withdrawal, from the member detail page. Audited in the service.
+    ("GET", "/api/admin/members/{user_id}/withdrawal"): "require_admin",
+    ("POST", "/api/admin/members/{user_id}/withdrawal"): "require_admin",
+    ("POST", "/api/admin/members/{user_id}/withdrawal/restore"): "require_admin",
+    ("POST", "/api/admin/members/{user_id}/withdrawal/refund"): "require_admin",
 }
 
 
@@ -428,6 +437,9 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # The member's own money, which is not community budget.
         ("PATCH", "/api/quarters/me/wallet"),
         ("POST", "/api/quarters/me/top-ups"),
+        # Leaving. Spends nothing, and must work for a member who is not
+        # participating this quarter. The password is checked again.
+        ("POST", "/api/account/withdrawal"),
     }
 
     offenders = [

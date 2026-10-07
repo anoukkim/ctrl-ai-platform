@@ -55,6 +55,14 @@ class AuditAction:
     # admin reaching into someone else's library is.
     WORK_DELETED = "work.deleted"
     WORK_RESTORED = "work.restored"
+    # Leaving CTRL+AI. Logged even when the member does it themselves:
+    # it releases club money and may leave a refund owed, both of which an
+    # admin has to be able to trace.
+    ACCOUNT_WITHDRAWN = "account.withdrawn"
+    ACCOUNT_RESTORED = "account.restored"
+    ACCOUNT_ANONYMISED = "account.anonymised"
+    ALLOCATION_RELEASED = "allocation.released"
+    REFUND_RECORDED = "refund.recorded"
 
 
 #: What each action is called on the Admin screen.
@@ -71,6 +79,11 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.USAGE_SIMULATED: "사용량 시뮬레이션",
     AuditAction.WORK_DELETED: "작업물 삭제",
     AuditAction.WORK_RESTORED: "작업물 복구",
+    AuditAction.ACCOUNT_WITHDRAWN: "회원 탈퇴",
+    AuditAction.ACCOUNT_RESTORED: "탈퇴 복구",
+    AuditAction.ACCOUNT_ANONYMISED: "개인정보 삭제",
+    AuditAction.ALLOCATION_RELEASED: "지원금 해제",
+    AuditAction.REFUND_RECORDED: "환불 완료 기록",
 }
 
 

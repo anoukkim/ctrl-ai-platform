@@ -11,6 +11,7 @@
 
 import { request } from "./http";
 
+import type { Withdrawal } from "./account";
 import type { AccountStatus } from "./auth";
 import type {
   ApplicationStatus,
@@ -77,6 +78,8 @@ export interface MemberDetail {
   } | null;
   top_ups: TopUp[];
   audit: AuditEntry[];
+  /** 가장 최근의 탈퇴. 복구된 것도 포함합니다. 없으면 null. */
+  withdrawal: Withdrawal | null;
 }
 
 export function getAdminDashboard(quarterId?: number | null): Promise<AdminDashboard> {

@@ -45,6 +45,8 @@ import {
 } from "../../components/StatusBadge";
 
 import styles from "../../admin.module.css";
+import Fact from "./Fact";
+import WithdrawalPanel from "./WithdrawalPanel";
 
 export default function MemberDetailView({ userId }: { userId: number }) {
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
@@ -122,6 +124,8 @@ export default function MemberDetailView({ userId }: { userId: number }) {
   }
 
   const quarterRows = member.quarters;
+  // 탈퇴가 열려 있으면 참여 상태로는 되돌리지 않습니다 — 백엔드도 거절합니다.
+  const withdrawn = member.withdrawal !== null && member.withdrawal.restored_at === null;
   const currentRow = quarterRows.find((row) => row.quarter_id === selected?.id) ?? null;
 
   const membershipActions: { status: MembershipStatus; label: string; effect: string }[] = [
@@ -135,11 +139,8 @@ export default function MemberDetailView({ userId }: { userId: number }) {
       label: "비활동으로",
       effect: `${member.display_name}은(는) 로그인과 조회는 되지만, 이 분기에 새로 만들 수 없습니다. 이미 만든 것은 그대로 남습니다.`,
     },
-    {
-      status: "former",
-      label: "탈퇴 처리",
-      effect: `탈퇴 처리하면 ${member.display_name}은(는) 로그인할 수 없습니다. 열려 있는 로그인도 다음 요청에서 끊깁니다. 게시한 작품에는 이름이 "탈퇴 회원"으로 계속 남습니다.`,
-    },
+    // 탈퇴 처리는 아래 "회원 탈퇴" 영역에 있습니다. 게시 작품을 어떻게
+    // 할지 함께 골라야 하고, 복구와 환불도 같은 자리에서 다루기 때문입니다.
   ];
 
   const historyColumns: Column<MemberDetail["quarters"][number]>[] = [
@@ -314,7 +315,10 @@ export default function MemberDetailView({ userId }: { userId: number }) {
                   className="btn btn-sm"
                   key={action.status}
                   type="button"
-                  disabled={busy || currentRow?.membership_status === action.status}
+                  disabled={
+                    busy || currentRow?.membership_status === action.status || withdrawn
+                  }
+                  title={withdrawn ? "탈퇴한 계정은 아래 '복구'로 되돌립니다" : undefined}
                   onClick={() =>
                     setConfirm({
                       title: `${action.label} — ${member.display_name}`,
@@ -451,6 +455,15 @@ export default function MemberDetailView({ userId }: { userId: number }) {
         )}
       </section>
 
+      {/* ---------- 회원 탈퇴 ---------- */}
+      <WithdrawalPanel
+        askToConfirm={setConfirm}
+        busy={busy}
+        member={member}
+        run={run}
+        onError={(text) => setResult({ kind: "error", text })}
+      />
+
       {/* ---------- 이 회원의 감사 기록 ---------- */}
       <section aria-labelledby="member-audit">
         <h2 className="section-title" id="member-audit">
@@ -486,23 +499,6 @@ export default function MemberDetailView({ userId }: { userId: number }) {
       </section>
 
       <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
-    </div>
-  );
-}
-
-function Fact({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className={styles.fact}>
-      <span className={styles.factLabel}>{label}</span>
-      <span className={mono ? `${styles.factValue} numeric` : styles.factValue}>{value}</span>
     </div>
   );
 }

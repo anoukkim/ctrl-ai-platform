@@ -66,6 +66,8 @@ the same commit that adds it.
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
 | `GET /api/auth/me` | `get_current_user` | |
+| `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
+| `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
@@ -115,6 +117,10 @@ the same commit that adds it.
 | `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
 | `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
 | `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |
+| `GET /api/admin/members/{user_id}/withdrawal` | `require_admin` | Read-only; what withdrawing would do |
+| `POST /api/admin/members/{user_id}/withdrawal` | `require_admin` | Same rules as the member's own; audited |
+| `POST /api/admin/members/{user_id}/withdrawal/restore` | `require_admin` | 복구, within 30 days only; audited |
+| `POST /api/admin/members/{user_id}/withdrawal/refund` | `require_admin` | 환불 완료 기록; audited |
 | `GET /` | none | Service banner |
 
 Two entries that look like exceptions and are not:
@@ -126,6 +132,10 @@ Two entries that look like exceptions and are not:
   sat out the quarter still has to run the community. The same admin is
   still refused on every creation route above: the role opens Admin, it
   does not open creation.
+* **Withdrawing stays on `get_current_user`.** A member who sat the
+  quarter out still owns their account, and leaving CTRL+AI must not be
+  behind participating in it. It spends nothing, and the password is
+  asked for again.
 
 ### Not yet in the table
 

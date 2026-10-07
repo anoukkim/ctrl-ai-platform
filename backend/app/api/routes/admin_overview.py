@@ -35,6 +35,7 @@ from app.models import (
     User,
     VideoModel,
 )
+from app.schemas.withdrawal import WithdrawalRead
 from app.schemas.quarter import (
     AdminDashboard,
     AllocationRead,
@@ -54,6 +55,7 @@ from app.schemas.quarter import (
     TopUpRead,
 )
 from app.services import admin_stats, audit, providers
+from app.services.withdrawal import latest_withdrawal
 from app.services.quarters import current_quarter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -302,6 +304,9 @@ def read_member(
         ),
         top_ups=[TopUpRead.model_validate(row) for row in top_ups],
         audit=_audit_rows(audit.for_member(db, member.id, member.username)),
+        withdrawal=(
+            WithdrawalRead.of(withdrawal) if (withdrawal := latest_withdrawal(db, member.id)) else None
+        ),
     )
 
 
