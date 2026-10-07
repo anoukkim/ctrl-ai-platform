@@ -10,17 +10,24 @@ is a legitimate user, so the interesting failure is one member reaching
 another member's data.
 """
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from tests.conftest import DEV_PASSWORD, MEMBER_PASSWORD
+from tests.conftest import DEV_PASSWORD, INVITE_CODE, MEMBER_PASSWORD
 
 GOOD_SIGNUP = {
     "username": "newmember",
     "email": "new@ctrl.ai",
     "password": "a-good-password",
     "display_name": "새 회원",
+    "invite_code": INVITE_CODE,
 }
+
+
+@pytest.fixture(autouse=True)
+def _signups_need_a_code(invite_code):
+    """Every signup here uses the shared code from conftest."""
 
 
 # ---------------------------------------------------------------- register

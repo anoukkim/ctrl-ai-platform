@@ -24,6 +24,10 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=128)
     display_name: str = Field(min_length=1, max_length=100)
+    #: Required in every environment (invite-only-signup). Optional *here*
+    #: only so that a missing code gets the Korean message from the route
+    #: rather than a generic validation error.
+    invite_code: str = Field(default="", max_length=60)
 
 
 class LoginRequest(BaseModel):

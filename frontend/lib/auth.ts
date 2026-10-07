@@ -31,6 +31,8 @@ export interface SignupInput {
   email: string;
   password: string;
   display_name: string;
+  /** 초대 코드. 대소문자와 앞뒤 공백은 백엔드가 정리합니다. */
+  invite_code: string;
 }
 
 export const MIN_PASSWORD_LENGTH = 8;

@@ -58,6 +58,30 @@ def db_session() -> Generator[Session, None, None]:
 
 DEV_PASSWORD = "devpassword"
 MEMBER_PASSWORD = "memberpassword"
+#: A usable invite code (`invite_code` fixture) — signing up needs one.
+INVITE_CODE = "TEST-CODE-0001"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """The sign-up limits are in memory; each test starts with none spent."""
+    from app.services import rate_limit
+
+    rate_limit.reset_all()
+    yield
+    rate_limit.reset_all()
+
+
+@pytest.fixture
+def invite_code(db_session: Session):
+    """A code good for 50 signups, so tests can sign members up."""
+    from app.models import InviteCode
+
+    invite = InviteCode(code=INVITE_CODE, label="테스트", max_uses=50, is_active=True)
+    db_session.add(invite)
+    db_session.commit()
+    db_session.refresh(invite)
+    return invite
 
 
 @pytest.fixture
