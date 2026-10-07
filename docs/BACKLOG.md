@@ -15,11 +15,11 @@ says what order things happen in.
 
 ## Now
 
-**account-withdrawal is built and waiting for approval** on
-`feat-account-withdrawal` (2026-10-07). Not merged — merging is the
-developer's call. Migration `b6d4e2f81a37` adds `account_withdrawals`.
+**Nothing is in progress.** Branch the next item from an up-to-date
+`main`.
 
-Decisions taken with the developer before building it:
+Two decisions from **account-withdrawal** (merged 2026-10-07) that later
+items inherit:
 
 - **The scheduled job is a CLI, not an in-process scheduler** —
   `python -m app.jobs.anonymise_withdrawn` (with `--dry-run`), run by hand
@@ -30,7 +30,8 @@ Decisions taken with the developer before building it:
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
 admin-restructure, ui-naming, fix-video-workspace-hang, ui-tube-watch,
-ui-apps-detail and **project-video-management** (merged 2026-10-07).
+ui-apps-detail, project-video-management and **account-withdrawal**
+(both merged 2026-10-07).
 
 **Three components are now shared between Project Builder and Video
 Generator**, which is where a later change should go rather than into
@@ -144,7 +145,7 @@ each one cost an investigation.
   running the suite on a branch creates that branch's new tables in the
   development database while leaving `alembic_version` alone — after
   which `alembic upgrade head` fails with `relation ... already exists`.
-  Item 5, `test-database-isolation`, fixes it; until then, drop the
+  Item 4, `test-database-isolation`, fixes it; until then, drop the
   stray table before migrating.
 
 ---
@@ -154,53 +155,48 @@ each one cost an investigation.
 Order settled 2026-10-02, with two changes since: `budget-by-provider`
 and `usage-analytics` left for *After the prototype (needs discussion)*
 below, and `test-database-isolation` was inserted ahead of
-`prep-beta-launch` on 2026-10-07. `project-video-management` merged that
-day and left the list, so it now starts at `account-withdrawal`. The
+`prep-beta-launch` on 2026-10-07. `project-video-management` and
+`account-withdrawal` merged that day and left the list, so it now starts
+at `video-higgsfield-only`. The
 launch items stay at the end, in the order settled on 2026-10-01.
 
-1. **account-withdrawal** · branch `feat-account-withdrawal`
-   Member self-withdrawal, the refund hold and the 30-day grace period.
-   Spec saved verbatim below. **It releases the member's remaining
-   allocation rather than returning it to a club reserve** — there is no
-   reserve until `budget-by-provider` builds one.
-
-2. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
+1. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
    Spec saved verbatim below, including **Model-driven video settings**,
    which replaced the earlier Length slider section. **Charges the
    existing Video budget** through the current budget service.
 
-3. **Phase 2 — Chat** · branch `phase-2-chat`
+2. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20. **Charges the
    existing Build (Claude) budget**, while recording every field the two
    deferred items will need — see the note on its spec.
 
-4. **invite-only-signup** · branch `feat-invite-only-signup`
+3. **invite-only-signup** · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-5. **test-database-isolation** · branch `fix-test-database-isolation`
+4. **test-database-isolation** · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-6. **prep-beta-launch** · no branch named yet
+5. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
-   **Do not start before item 5.** Running the suite against a live
+   **Do not start before item 4.** Running the suite against a live
    database is a different order of mistake once the database holds
    members' work rather than one developer's test rows.
 
 ### Merge order
 
-`feat-account-withdrawal` is waiting for approval. Nothing else is.
+Nothing is waiting. Branch the next item from an up-to-date `main`.
 
 ---
 
@@ -1153,7 +1149,7 @@ Branch `fix-test-database-isolation`. **Must land before
 
 ---
 
-## account-withdrawal — full spec
+## account-withdrawal — full spec (merged 2026-10-07)
 
 Branch `feat-account-withdrawal`. Saved exactly as written by the developer.
 
@@ -1320,6 +1316,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-07 | **account-withdrawal** — 회원 탈퇴 from Profile (password re-entered, a download reminder linking both libraries, keep-or-unpublish choice, a confirmation listing every effect) and from Admin › member detail, both through one service in `services/withdrawal.py`; Admin's older participation → former setting goes through it too, and a withdrawn account comes back only through 복구. Withdrawing closes the account and ends every session, **releases** remaining 동아리 지원 in every unclosed quarter (allocation lowered to what was consumed, one `allocation.released` audit row each — no reserve yet), cancels a live application, and puts a refund on hold (**환불 대기**) for a remaining 개인 충전 balance *or* an unreviewed top-up request; 환불 완료 기록 refuses until that request is settled and takes the refunded amount out of the wallet. `reversal` stores what was changed, so 복구 within 30 days puts back exactly that — the released budget added onto any later adjustment, participation, unpublished work — while a recorded refund stays paid out. After 30 days `python -m app.jobs.anonymise_withdrawn` (the project's first job: a CLI, not an in-process scheduler, idempotent, `--dry-run`) replaces username, email and display name, skipping anything still owed a refund; usage history and the append-only audit log are left as they are. Anonymised email is `withdrawn-<id>@withdrawn.example.com` because `.invalid` fails `EmailStr` and would break `GET /api/users`. `ConfirmDialog` now also takes a list of effects. Migration `b6d4e2f81a37` adds `account_withdrawals` | `feat-account-withdrawal` |
 | 2026-10-07 | **project-video-management** — deleting, renaming and taking work out, across both products. **Delete is soft**: `deleted_at` on `builder_projects` and `video_projects` (migration `e5c2a1f73b84`), so a member sees it gone through every route while an admin can put it back from the new **Deleted Items** section; Video had no delete route at all before. Usage history survives by construction — `UsageEvent` points at these rows with `ON DELETE SET NULL`, so a hard delete would have kept the spending and detached it from the project that caused it. Both admin actions are audited; a member deleting their own work is not, because the log is for admin changes. **Rename** works from three places that all send the same PATCH — the workspace title, its ▾ menu, each card's ⋯ menu — trimmed to 1–60 characters by one `clean_name` shared by both products, refused with a Korean 400 rather than the 422 whose list-shaped `detail` the frontend cannot render; duplicates stay legal. **코드 다운로드 (ZIP)** packs the project's files plus a Korean guide, refusing any path that leaves the project and every `.env`, key, `node_modules` and `.git`, capped because the archive is built in memory; `builder_project_files` (`f3b8d41c9e27`) arrives with it and **Phase 3 is what fills it**, so a project made today downloads as a guide that says so. **영상 다운로드** serves bytes CTRL+AI stored under its own key (`asset_storage_key`, `a71f5c38d904`) rather than a provider URL that can expire or want their credentials, through a storage interface — local folder now, cloud in Phase 9 — and the mock provider leaves a real **animated GIF** built in pure Python, named `.gif` because an `.mp4` no player opens would make the download look finished while being broken. Both downloads are guarded by `get_current_user`, not `require_active_member`: a member who did not join this quarter cannot create, but their work is theirs to take away. `WorkspaceTitle`, `LibraryCard` and `ConfirmDialog` came out of it as shared components, the last moving out of `app/admin/`. One defect found only in a browser: an open card menu was painted over by the next card's ⋯, because `.cardMenu` carries a z-index and is therefore its own stacking context, sealing the dropdown's z-index inside it — the open card is now raised, and a closed one still creates no context | `feat-project-video-management` |
 | 2026-10-02 | **ui-tube-watch** — the CtrlAITube watch page rebuilt as two columns at 7:3: the player, title, a one-line meta strip where a six-row table used to be, and the prompt on the left; a sticky full-height panel on the right holding the reaction chips and a real comment section that scrolls inside itself. The player sits in a letterbox frame capped at 75vh, which is what keeps the title above the fold — 16:9 fills the column, 9:16 and 1:1 are capped and centred at their true ratio. The comment section has avatars, relative time with the exact date on hover, 답글 and a like count, threads on a thin line collapsing past three replies, 최신순/인기순, and tabs that keep CTRL+AI comments and YouTube comments from mixing; comments still live in local state (Phase 8 stores them) but the composer works, because a disabled input cannot show that Enter posts or that a long thread stays in its column. `CommunityVideo` gained `aspectRatio` with one example video per ratio, comments gained `likes`, and `totalComments` counts replies so the feed card and the tab cannot disagree. Two defects came out of the browser checks rather than the tests: the breakpoint measured the viewport, so at 1280px a 1024px rule was true while only ~990px of content existed (now a container query on the content box), and the prerendered "6일 전" would disagree with a later reader's clock (now `suppressHydrationWarning` on the `<time>`). `lib/aspect.ts` holds the ratio constants both screens use; `lib/relative-time.ts` is new and survives Phase 8 | `ui-tube-watch` |
 | 2026-10-01 | **fix-video-workspace-hang** — the workspace sat on "불러오는 중" forever although every request returned 200: the load effect's cleanup marked its run superseded and threw away the response that would have ended it, leaving nothing to leave `loading` when the second request never delivered. A response is now applied whichever run asked for it, and each page gives the workspace a `key` of its projectId so one instance only ever shows one project; Project Builder had the same effect and was fixed with it. Then four problems found testing the same screen: the 16:9 player grew out of its column and covered both side panels (now a letterbox frame sized to the smaller of the column's width and its height through the ratio, with a minimum height so the stacked narrow layout cannot collapse it); the raw provider id shown beside a settings panel saying "Auto" (now "Auto → Kling 3.0 Pro"); a hard-coded 15-second player (now the version's own length); and a scripted Claude conversation in brand-new projects (now empty). Made the last two true by recording settings per version — migration `d7e1b4a9c052` adds `duration_seconds`, `aspect_ratio`, `sound` and `auto_selected`, validated against the model's capabilities on the server — which takes that scope out of project-video-management. Finally the navigation: the Video workspace's "내 영상" button opened Profile, so it is gone and the back link is the single way back in both workspaces, and Chat routes 내 영상 and 내 프로젝트 to their libraries instead of Profile | `fix-video-workspace-hang` |
