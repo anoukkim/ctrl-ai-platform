@@ -34,6 +34,10 @@ next-env.d.ts
 # whole team gets them. Per-developer settings are not.
 .claude/settings.local.json
 
+# Git worktrees Claude Code creates for a branch. Each is a full checkout
+# of the repository, so committing one would nest the project in itself.
+.claude/worktrees/
+
 # Transcript exports. Claude Code writes them into whichever directory it
 # was started from, named <date>-<time>-<slug>.txt, and they can be over a
 # megabyte of session log. Keep them out of git. Only the date-prefixed
