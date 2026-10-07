@@ -9,12 +9,14 @@ from fastapi import APIRouter
 from app.api.routes import (
     account,
     admin,
+    admin_claude,
     admin_overview,
     admin_quarters,
     admin_withdrawals,
     admin_work,
     auth,
     builder,
+    chat,
     health,
     quarters,
     usage,
@@ -28,10 +30,12 @@ api_router.include_router(auth.router)
 api_router.include_router(account.router)
 api_router.include_router(users.router)
 api_router.include_router(builder.router)
+api_router.include_router(chat.router)
 api_router.include_router(video.router)
 api_router.include_router(quarters.router)
 api_router.include_router(usage.router)
 api_router.include_router(admin.router)
+api_router.include_router(admin_claude.router)
 api_router.include_router(admin_quarters.router)
 api_router.include_router(admin_overview.router)
 api_router.include_router(admin_work.router)

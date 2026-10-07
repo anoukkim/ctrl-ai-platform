@@ -324,6 +324,15 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # behind participating.
     ("GET", "/api/account/withdrawal"): "get_current_user",
     ("POST", "/api/account/withdrawal"): "get_current_user",
+    # Chat — reads open (past conversations stay readable while inactive),
+    # writes gated. Sending is the call that spends the Build budget.
+    ("GET", "/api/chat/info"): "get_current_user",
+    ("GET", "/api/chat/conversations"): "get_current_user",
+    ("GET", "/api/chat/conversations/{conversation_id}"): "get_current_user",
+    ("POST", "/api/chat/conversations"): "require_active_member",
+    ("PATCH", "/api/chat/conversations/{conversation_id}"): "require_active_member",
+    ("DELETE", "/api/chat/conversations/{conversation_id}"): "require_active_member",
+    ("POST", "/api/chat/conversations/{conversation_id}/messages"): "require_active_member",
     # Builder — reads open, writes gated.
     ("GET", "/api/builder/projects"): "get_current_user",
     ("GET", "/api/builder/projects/{project_id}"): "get_current_user",
@@ -381,6 +390,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/quarters-with-stats"): "require_admin",
     # External services. The check writes (it records the outcome), so it
     # is a POST — and it is still admin-only, not participation-gated.
+    # Claude's prices and the exchange rate. Admin-only; both audited.
+    ("GET", "/api/admin/claude-pricing"): "require_admin",
+    ("PUT", "/api/admin/claude-pricing/models/{model_id}"): "require_admin",
+    ("POST", "/api/admin/claude-pricing/exchange-rate"): "require_admin",
     ("GET", "/api/admin/providers"): "require_admin",
     ("POST", "/api/admin/providers/{provider}/check"): "require_admin",
     ("POST", "/api/admin/simulate-usage"): "require_admin",

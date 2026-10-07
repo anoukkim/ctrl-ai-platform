@@ -2,7 +2,8 @@
 
 Four providers, each behind the `*_PROVIDER` setting with **mock as the
 default** (CLAUDE.md section 20). This module does not generate anything
-— the real Claude and Higgsfield adapters arrive in Phases 2 and 6. What
+— the real Claude adapter is `app/services/claude_provider.py`, and
+Higgsfield's arrives in Phase 6. What
 it does is answer, for the Admin 시스템 screen:
 
 * which implementation is selected, mock or real;
@@ -232,7 +233,7 @@ def _check_claude(settings: Settings) -> CheckResult:
         401: ProviderErrorKind.AUTH,
         403: ProviderErrorKind.AUTH,
         402: ProviderErrorKind.CREDIT,
-        429: ProviderErrorKind.CREDIT,
+        429: ProviderErrorKind.RATE_LIMITED,
     }.get(response.status_code, ProviderErrorKind.UNAVAILABLE)
 
     return CheckResult(
