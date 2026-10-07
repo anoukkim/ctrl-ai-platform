@@ -382,6 +382,14 @@
   font-size: var(--fs-meta);
 }
 
+/* 답장 아래 작은 글씨 — 그 답장을 쓴 모델. */
+.modelNote {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
 .errorNote {
   margin: 0.4rem 0 0.45rem;
   padding: 0.55rem 0.8rem;
@@ -527,6 +535,15 @@
 .composerInner {
   max-width: 49rem;
   margin: 0 auto;
+}
+
+/* 입력창 바로 위 — 모델 고르기. */
+.composerTools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  min-width: 0;
 }
 
 .composer {

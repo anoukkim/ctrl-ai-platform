@@ -1,0 +1,139 @@
+/* Chat 입력창 옆 모델 고르기. 색과 크기는 모두 globals.css의 토큰입니다. */
+
+.root {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-count);
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.trigger:hover:not(:disabled),
+.trigger:focus-visible {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.triggerWarn {
+  border-color: var(--error-border);
+  color: var(--error-text);
+}
+
+.triggerLabel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+
+.triggerWarn .triggerLabel {
+  color: var(--error-text);
+}
+
+.triggerCost {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* 입력창이 바닥에 있으므로 위로 열립니다. */
+.popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: min(24rem, calc(100vw - 2.5rem));
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: var(--panel-2);
+}
+
+.optionSelected {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.optionHead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.optionLabel {
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+}
+
+.check {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.optionDescription {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
+
+.optionCost {
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
+.footnote {
+  margin: 6px 4px 2px;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
