@@ -15,8 +15,60 @@ says what order things happen in.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
-`main`.
+**`project-video-management` is built and waiting for approval**, on
+branch `feat-project-video-management` (branched from `ebafc3e`). All
+four parts of its spec are implemented, with the backend suite at 285
+tests and the frontend at 127, `next build` clean, and the three new
+migrations applied up, down and up again against PostgreSQL.
+
+What is in it:
+
+- **Delete** — soft (`deleted_at`) on both products. Video had no delete
+  route at all before. Admin › **Deleted Items** is the new section that
+  restores one, and both admin actions are audited.
+- **Rename** — from the workspace title, the title's ▾ menu and each
+  library card's ⋯ menu, all three sending the same PATCH. Trimmed,
+  1–60 characters, refused in Korean.
+- **코드 다운로드 (ZIP)** — the project's files plus a Korean guide, with
+  no path that escapes the project and no `.env`, key, `node_modules` or
+  `.git`.
+- **영상 다운로드** — any finished version, through a new storage
+  interface (local folder now, cloud in Phase 9).
+
+**Three things the spec asks for that nothing can satisfy yet.** None is
+a gap in the work; each is waiting on an item that has not been built.
+
+1. *"Deleting also removes the item from CtrlAI Apps or CtrlAITube if it
+   was published."* There is no published-app or published-video table —
+   those listings are still mock (Phases 5 and 8). The models carry a
+   note saying those listings must filter on `deleted_at` when they are
+   built, and there is no test because there is nothing to test.
+2. *The ZIP contains the project's files.* It does, but nothing writes
+   project files yet: `builder_project_files` arrives with this item and
+   **Phase 3** is what fills it. A project made today downloads as a ZIP
+   holding only the guide, and the guide says so rather than explaining
+   how to run code that is not there.
+3. *The mock provider produces a placeholder video.* It produces an
+   **animated GIF**, named `.gif`. There is no ffmpeg on these machines
+   and no pure-Python H.264 encoder; GIF89a is the one animated format
+   that can be written correctly by hand. Writing a file with an `.mp4`
+   name that no player opens would make the download look finished while
+   being broken. Phase 6 swaps in Higgsfield's MP4 and nothing
+   downstream changes — the provider states its own content type and
+   extension.
+
+**Two pieces of shared code came out of this**, in the same spirit as
+`ui-apps-detail` lifting `CommentSection`:
+
+- `app/components/WorkspaceTitle.tsx` and `app/components/LibraryCard.tsx`
+  are used by **both** Project Builder and Video Generator, so the two
+  products cannot drift apart on renaming or deleting.
+- `ConfirmDialog` moved from `app/admin/components/` to
+  `app/components/` and is now the only one. A member deleting a project
+  is the same kind of act as an admin closing an account; a second dialog
+  would be a second set of words for the same question.
+
+Do not merge until the developer says so (section 22).
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
 admin-restructure, ui-naming, fix-video-workspace-hang, **ui-tube-watch**
