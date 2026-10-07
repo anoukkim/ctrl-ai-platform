@@ -168,10 +168,12 @@ export default function ChatWorkspace() {
   // 화면을 떠나면 오고 있던 답장도 멈춥니다.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // 새 메시지나 조각이 오면 맨 아래로 내립니다.
+  // 새 메시지나 조각이 오면 맨 아래로 내립니다. 아직 대화가 없으면
+  // 내리지 않습니다 — 좁은 화면에서는 환영 안내가 길어, 내리면 제목이
+  // 화면 위로 밀려 올라간 채 열립니다.
   useEffect(() => {
     const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
+    if (thread && messages.length > 0) thread.scrollTop = thread.scrollHeight;
   }, [messages]);
 
   /**

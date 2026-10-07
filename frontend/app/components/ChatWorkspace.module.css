@@ -269,6 +269,21 @@
   }
 }
 
+/* 휴대폰 폭: 목록 단추와 테스트 모드 표시가 겹치지 않도록 한 줄에
+   나란히 둡니다(단추 왼쪽, 표시 오른쪽). */
+@container (max-width: 560px) {
+  .topBar {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .listToggle {
+    position: static;
+  }
+}
+
 .threadScroll {
   flex: 1 1 auto;
   /* flex 자식이 내용 때문에 늘어나지 않도록. 이게 없으면 목록이 부모를
