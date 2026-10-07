@@ -31,6 +31,8 @@ import {
 import { MEMBERSHIP_BADGE } from "@/lib/quarters";
 
 import WatchPanel from "./WatchPanel";
+import { softTint } from "@/app/ctrlaistore/softTint";
+
 import styles from "./watch.module.css";
 
 /** 영상을 만든 도구. 지금은 Higgsfield 한 곳입니다 — 제공자가 여러
@@ -80,9 +82,7 @@ export default async function VideoDetailPage({ params }: VideoDetailProps) {
           >
             <div
               className={styles.player}
-              style={{
-                background: `linear-gradient(140deg, ${video.artwork[0]}, ${video.artwork[1]})`,
-              }}
+              style={{ background: softTint(video.artwork) }}
             >
               <div className={styles.playerInner}>
                 <strong>{video.title}</strong>

@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import { MOCK_VIDEOS } from "@/lib/mock-data";
 
 import VideoGrid from "./VideoGrid";
+import styles from "./tube.module.css";
 
 export const metadata: Metadata = {
   title: "CtrlAITube — CTRL+AI",
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 export default function CtrlAITubePage() {
   return (
     <>
-      <header className="page-header">
+      <header className={`page-header ${styles.pageHeader}`}>
         <h1 className="page-title">
           CtrlAITube <span className="badge badge-mock">준비 중</span>
         </h1>

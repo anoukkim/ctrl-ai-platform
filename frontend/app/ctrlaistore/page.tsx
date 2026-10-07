@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import { MOCK_APPS } from "@/lib/mock-data";
 
 import AppGrid from "./AppGrid";
+import styles from "./ctrlaistore.module.css";
 
 export const metadata: Metadata = {
   title: "CtrlAIApps — CTRL+AI",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 export default function CtrlAIStorePage() {
   return (
     <>
-      <header className="page-header">
+      <header className={`page-header ${styles.pageHeader}`}>
         <h1 className="page-title">
           CtrlAIApps <span className="badge badge-mock">준비 중</span>
         </h1>

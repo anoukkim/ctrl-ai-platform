@@ -1,10 +1,27 @@
 /* CtrlAIApps — 커뮤니티 쪽 화면이라 작업 공간보다 조금 더 여유 있게,
    그러나 관리자 대시보드처럼 보이지 않도록 카드 중심으로 구성합니다. */
 
+/* 분류 칩(왼쪽)과 검색·정렬(오른쪽)이 한 줄에 섭니다. */
+.toolbar {
+  margin-bottom: 18px;
+}
+
+/* 검색창은 최대 380px. SearchBar 자체의 아래 여백은 이 줄에서 지웁니다. */
+.searchSlot {
+  flex: 1 1 18rem;
+  max-width: 30rem;
+  margin-left: auto;
+}
+
+.searchSlot > * {
+  margin-bottom: 0;
+  flex-wrap: nowrap;
+}
+
 .grid {
   display: grid;
-  gap: 0.9rem;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
 }
 
 .card {
@@ -13,6 +30,7 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
   overflow: hidden;
   color: var(--text);
   transition:
@@ -21,70 +39,56 @@
 }
 
 .card:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   transform: translateY(-2px);
 }
 
+/* 표지. 색은 softTint()가 정하고, 그 위의 글자는 늘 흰색입니다 — 표지는
+   두 테마 모두에서 어둡게 칠해집니다. */
 .artwork {
   position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 16 / 10;
   color: var(--on-accent);
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 750;
   text-align: center;
   padding: 0.9rem;
-}
-
-/* 썸네일 위에 옅은 격자를 얹어 밋밋함을 줄입니다. */
-.artwork::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(transparent 60%, rgba(6, 8, 12, 0.45)),
-    repeating-linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.05) 0 1px,
-      transparent 1px 9px
-    );
 }
 
 .artworkText {
   position: relative;
   z-index: 1;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
 }
 
 .category {
   position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
+  top: 10px;
+  left: 10px;
   z-index: 1;
-  padding: 0.05rem 0.45rem;
+  padding: 0.05rem 0.5rem;
   border-radius: 999px;
-  background: rgba(8, 10, 15, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: var(--text);
-  font-size: 0.68rem;
-  font-weight: 600;
+  background: color-mix(in oklch, var(--video-letterbox) 55%, transparent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .body {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.7rem 0.8rem 0.8rem;
+  gap: 0.35rem;
+  padding: 14px 16px 14px;
 }
 
 .name {
-  font-size: 0.92rem;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .tagline {
   color: var(--text-muted);
-  font-size: 0.79rem;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -92,27 +96,33 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.15rem;
-  padding-top: 0.45rem;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 0.6rem;
   border-top: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 0.72rem;
+  font-size: 12px;
 }
 
 .metaItem {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.3rem;
+}
+
+.metaDate {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 상세 ---------- */
 
 .back {
   display: inline-block;
-  margin-bottom: 0.7rem;
+  margin-bottom: 1rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 
 .back:hover {
@@ -125,46 +135,37 @@
  * 버튼. 넓은 화면에서는 아래 @media가 둘을 나란히 놓습니다. */
 .hero {
   display: grid;
-  gap: 1rem;
-  margin-bottom: 1.1rem;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
+/* 16:10 표지. */
 .heroArtwork {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   color: var(--on-accent);
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 750;
   text-align: center;
   padding: 1rem;
   overflow: hidden;
 }
 
-.heroArtwork::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.05) 0 1px,
-    transparent 1px 9px
-  );
-}
-
 .heroMeta {
   display: grid;
-  align-content: start;
-  gap: 0.5rem;
+  align-content: center;
+  gap: 0.7rem;
   min-width: 0;
 }
 
 .heroTagline {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 16px;
   line-height: 1.6;
 }
 
@@ -173,21 +174,21 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.83rem;
+  gap: 0.45rem;
+  font-size: 14px;
 }
 
 .creatorAvatar {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--panel-2);
   border: 1px solid var(--border-strong);
   color: var(--text-muted);
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -203,7 +204,7 @@
   align-items: center;
   gap: 0.4rem;
   color: var(--text-dim);
-  font-size: 0.78rem;
+  font-size: 13px;
 }
 
 .metaDot {
@@ -216,16 +217,19 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.actions > :global(.btn) {
+  flex: none;
 }
 
 /* ---------- 탭 ---------- */
 
+/* 밑줄 탭. 상자로 감싸지 않습니다 — 탭은 본문을 나누는 표시일 뿐,
+   또 하나의 카드가 아닙니다. */
 .tabWrap {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel);
-  overflow: hidden;
+  min-width: 0;
 }
 
 .tabPanel {
@@ -245,7 +249,7 @@
  */
 .about,
 .updatesPane {
-  padding: 1.25rem 0.75rem 1.2rem;
+  padding: 1.4rem 0.75rem 1.2rem;
 }
 
 /* ---------- 소개 탭 ---------- */
@@ -270,8 +274,8 @@
 .description {
   max-width: 76ch;
   color: var(--text-muted);
-  font-size: 0.88rem;
-  line-height: 1.85;
+  font-size: 15px;
+  line-height: 1.8;
 }
 
 .aboutBlock {
@@ -280,17 +284,16 @@
 }
 
 .blockTitle {
-  color: var(--text-dim);
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 /* ---------- 주요 기능 ---------- */
 
 .features {
   display: grid;
-  gap: 0.55rem;
+  gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   margin: 0;
   padding: 0;
@@ -300,21 +303,23 @@
 .feature {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
+  gap: 0.75rem;
   min-width: 0;
-  padding: 0.65rem 0.75rem;
-  background: var(--bg);
+  padding: 14px 16px;
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
+/* ✓ 칸. */
 .featureIcon {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   background: var(--accent-soft);
   border: 1px solid var(--accent-border);
   color: var(--accent);
@@ -328,13 +333,13 @@
 
 .featureTitle {
   color: var(--text);
-  font-size: 0.83rem;
-  font-weight: 620;
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .featureNote {
   color: var(--text-dim);
-  font-size: 0.76rem;
+  font-size: 12.5px;
   line-height: 1.55;
 }
 
@@ -347,7 +352,7 @@
  */
 .gallery {
   display: flex;
-  gap: 0.6rem;
+  gap: 12px;
   align-items: flex-start;
   margin: 0;
   padding: 0 0 0.3rem;
@@ -355,9 +360,10 @@
   overflow-x: auto;
 }
 
+/* 휴대폰 화면처럼 세로 9:16. */
 .shot {
   flex: 0 0 auto;
-  width: min(14rem, 70vw);
+  width: min(12rem, 45vw);
 }
 
 /* 눌러서 크게 볼 수 있습니다. 단추로 만든 이유는 키보드와 화면 낭독기
@@ -377,8 +383,8 @@
 .shotArt {
   display: block;
   position: relative;
-  aspect-ratio: 16 / 10;
-  border-radius: var(--radius-sm);
+  aspect-ratio: 9 / 16;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
   transition:
@@ -387,7 +393,7 @@
 }
 
 .shotButton:hover .shotArt {
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   transform: translateY(-2px);
 }
 
@@ -396,22 +402,11 @@
   outline-offset: 2px;
 }
 
-.shotArt::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.05) 0 1px,
-    transparent 1px 9px
-  );
-}
-
 .shotLabel {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-size: 12px;
 }
 
 /* 그림 줄 바로 아래. 줄 안에 두었더니 네 번째 화면처럼 읽혔습니다. */
@@ -429,35 +424,31 @@
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: rgba(5, 6, 9, 0.84);
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
 }
 
+/* 스크린샷이 9:16이므로 크게 볼 때도 세로로, 화면 높이에 맞춥니다. */
 .lightboxInner {
-  width: min(52rem, 100%);
+  width: min(24rem, 100%, calc((100vh - 6rem) * 9 / 16));
 }
 
 .lightboxArt {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 9 / 16;
   border-radius: var(--radius);
   border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
-.lightboxArt::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.05) 0 1px,
-    transparent 1px 9px
-  );
-}
-
 .lightboxLabel {
-  margin-top: 0.6rem;
-  color: var(--text-muted);
+  width: fit-content;
+  margin: 0.7rem auto 0;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
   font-size: 0.82rem;
   text-align: center;
 }
@@ -486,8 +477,8 @@
 
 .details {
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
+  border-radius: var(--radius);
+  background: var(--panel);
   overflow: hidden;
 }
 
@@ -496,9 +487,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.75rem 1rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   /* 기본 삼각형을 지웁니다 — 돌아가는 꺾쇠를 대신 둡니다. */
@@ -525,7 +516,7 @@
 .detailsBody {
   display: grid;
   margin: 0;
-  padding: 0 0.75rem 0.35rem;
+  padding: 0 1rem 0.35rem;
   border-top: 1px solid var(--border);
 }
 
@@ -534,9 +525,9 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.5rem 0;
+  padding: 0.6rem 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.82rem;
+  font-size: 13.5px;
   /* 주소처럼 띄어쓰기 없이 긴 글자가 칸을 넘지 않게 합니다. */
   overflow-wrap: anywhere;
 }
@@ -610,12 +601,12 @@
 .entryDot {
   position: absolute;
   left: -1.1rem;
-  top: 0.35rem;
-  width: 7px;
-  height: 7px;
+  top: 0.4rem;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--border-strong);
-  box-shadow: 0 0 0 3px var(--panel);
+  box-shadow: 0 0 0 3px var(--bg);
 }
 
 /* 맨 위 하나는 최신이라 점도 진합니다. */
@@ -661,8 +652,8 @@
 
 .entryTitle {
   color: var(--text);
-  font-size: 0.86rem;
-  font-weight: 620;
+  font-size: 15px;
+  font-weight: 650;
 }
 
 .entryChanges {
@@ -678,14 +669,14 @@
   align-items: flex-start;
   gap: 0.4rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 13.5px;
   line-height: 1.6;
 }
 
 .entryChange svg {
   flex: 0 0 auto;
-  margin-top: 0.3rem;
-  color: var(--text-dim);
+  margin-top: 0.35rem;
+  color: var(--ok-text);
 }
 
 /* 아직 예시라는 사실. 작게, 그러나 적어 둡니다. */
@@ -716,7 +707,7 @@
 /* ---------- 같은 회원의 다른 앱 ---------- */
 
 .others {
-  margin-top: 1.3rem;
+  margin-top: 2rem;
 }
 
 /*
@@ -729,7 +720,7 @@
  */
 .othersGrid {
   display: grid;
-  gap: 0.6rem;
+  gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
   margin-top: 0.6rem;
 }
@@ -737,12 +728,13 @@
 .otherCard {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
   min-width: 0;
-  padding: 0.55rem 0.7rem;
+  padding: 10px 12px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
   color: var(--text);
   transition:
     border-color 0.14s ease,
@@ -750,7 +742,7 @@
 }
 
 .otherCard:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   transform: translateY(-1px);
 }
 
@@ -758,21 +750,9 @@
   position: relative;
   flex: 0 0 auto;
   width: 4.25rem;
-  height: 4.25rem;
+  aspect-ratio: 16 / 10;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
   overflow: hidden;
-}
-
-.otherThumb::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.05) 0 1px,
-    transparent 1px 9px
-  );
 }
 
 .otherBody {
@@ -804,8 +784,8 @@
 
 @media (min-width: 60rem) {
   .hero {
-    grid-template-columns: 22rem minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: center;
   }
 
   /* `auto-fill`로는 칸 수의 위를 막을 수 없어 여기서 못을 박습니다.
@@ -827,9 +807,26 @@
   justify-items: center;
   gap: 0.6rem;
   padding: 2.5rem 1.5rem;
-  border: 1px dashed var(--border-strong);
+  border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 14px;
   text-align: center;
+}
+
+/* 머리말: 제목이 위, 설명이 아래, 개수는 설명 줄의 오른쪽 끝. */
+.pageHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 1rem;
+  row-gap: 0.35rem;
+}
+
+.pageHeader > :first-child {
+  grid-column: 1 / -1;
+}
+
+.pageHeader > :last-child {
+  justify-self: end;
 }
