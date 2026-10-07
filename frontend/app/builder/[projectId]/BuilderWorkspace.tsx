@@ -22,7 +22,6 @@ import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
-  BUILDER_STATUS_BADGE,
   BUILDER_STATUS_LABEL,
   builderProjectDownloadUrl,
   deleteBuilderProject,
@@ -32,6 +31,7 @@ import {
   updateBuilderProject,
   type BuilderProject,
 } from "@/lib/projects";
+import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import { MOCK_BUILDER_CHAT, MOCK_FILE_CONTENTS, MOCK_FILE_TREE } from "@/lib/mock-data";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
@@ -243,9 +243,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           }))}
         />
 
-        <span className={`badge ${BUILDER_STATUS_BADGE[project.status]}`}>
-          {BUILDER_STATUS_LABEL[project.status]}
-        </span>
+        <ProjectStatusBadge status={project.status} />
         <span className="badge badge-muted">
           {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
         </span>

@@ -27,7 +27,6 @@ import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
-  VIDEO_STATUS_BADGE,
   VIDEO_STATUS_LABEL,
   createVideoVersion,
   deleteVideoProject,
@@ -43,6 +42,7 @@ import {
   type VideoProjectDetail,
   type VideoVersion,
 } from "@/lib/projects";
+import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 import {
   VERSION_KIND_LABEL,
@@ -525,9 +525,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
           }))}
         />
 
-        <span className={`badge ${VIDEO_STATUS_BADGE[project.status]}`}>
-          {VIDEO_STATUS_LABEL[project.status]}
-        </span>
+        <ProjectStatusBadge status={project.status} />
 
         <span className={ws.topbarSpacer} />
       </div>

@@ -325,7 +325,7 @@ describe("수정 · 이어서 만들기", () => {
 });
 
 describe("상태 배지", () => {
-  test("최종본을 고르면 머리글은 백엔드가 돌려준 상태(Ready)를 보여 준다", async () => {
+  test("최종본을 골라도 배지는 Draft — Ready는 회원에게 보이지 않는다", async () => {
     const user = userEvent.setup();
     const chosen = { ...project(KLING, [version()]), final_version_id: 11, status: "ready" as const };
     api.updateVideoProject.mockResolvedValue(chosen);
@@ -334,8 +334,9 @@ describe("상태 배지", () => {
 
     await user.click(screen.getByRole("button", { name: /최종본으로 선택/ }));
 
-    await waitFor(() => expect(screen.getByText("Ready")).toBeDefined());
-    expect(screen.queryByText("Draft")).toBeNull();
+    await waitFor(() => expect(api.updateVideoProject).toHaveBeenCalled());
+    expect(screen.getByText("Draft")).toBeDefined();
+    expect(screen.queryByText("Ready")).toBeNull();
   });
 });
 

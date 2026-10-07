@@ -11,8 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  VIDEO_STATUS_BADGE,
-  VIDEO_STATUS_LABEL,
+  LIBRARY_FILTERS,
   createVideoProject,
   deleteVideoProject,
   describeError,
@@ -20,15 +19,19 @@ import {
   listVideoProjects,
   updateVideoProject,
   videoVersionDownloadUrl,
+  type LibraryFilter,
   type VideoProject,
 } from "@/lib/projects";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
+import PageHeader from "@/app/components/PageHeader";
+import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import { useChatIdea } from "@/app/components/useChatIdea";
+import { ASPECT_RATIO_CSS, type Aspect } from "@/lib/aspect";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
@@ -52,7 +55,9 @@ export default function VideoLibrary() {
   const [idea, setIdea] = useState(() => chatIdea.idea);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // 전체 / Draft / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
+  // 브라우저 안에서 합니다.
+  const [statusFilter, setStatusFilter] = useState<LibraryFilter>("all");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -60,7 +65,7 @@ export default function VideoLibrary() {
   useEffect(() => {
     let cancelled = false;
 
-    listVideoProjects()
+    listVideoProjects(statusFilter)
       .then((projects) => {
         if (!cancelled) setState({ phase: "ready", projects });
       })
@@ -71,7 +76,7 @@ export default function VideoLibrary() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, statusFilter]);
 
   const reload = useCallback(() => {
     setState({ phase: "loading" });
@@ -146,25 +151,20 @@ export default function VideoLibrary() {
   // 브라우저 안에서 거릅니다. 서버 검색으로 옮길 때는 이 블록만 요청으로
   // 바뀌고 화면 구조는 그대로입니다.
   const projects = state.phase === "ready" ? state.projects : [];
-  const visible = projects.filter(
-    (project) =>
-      matchesQuery(query, project.name, project.prompt) &&
-      (statusFilter === "all" || project.status === statusFilter),
+  const visible = projects.filter((project) =>
+    matchesQuery(query, project.name, project.prompt),
   );
 
   return (
     <>
-      <header className={styles.head}>
-        <div className={styles.headText}>
-          <p className="page-eyebrow page-eyebrow-video">Create</p>
-          <h1 className={styles.title}>Video Generator</h1>
-          <p className={styles.subtitle}>
-            아이디어를 적고, 다듬고, 여러 번 만들어 보면서 마음에 드는 영상을 고릅니다.
-          </p>
-        </div>
-        <div className={styles.headActions}>
+      <PageHeader
+        eyebrow="Create"
+        tone="video"
+        title="Video Generator"
+        subtitle="아이디어를 적고, 다듬고, 여러 번 만들어 보면서 마음에 드는 영상을 고릅니다."
+        actions={
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-lg"
             type="button"
             onClick={() => setCreating((open) => !open)}
             disabled={!mayCreate}
@@ -172,8 +172,8 @@ export default function VideoLibrary() {
           >
             + 새 영상 프로젝트
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <NotParticipatingBanner />
 
@@ -238,7 +238,7 @@ export default function VideoLibrary() {
           )}
         </p>
 
-        {state.phase === "ready" && state.projects.length > 0 && (
+        {state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") && (
           <>
             <div className={styles.toolbarSearch}>
               <SearchBar
@@ -249,15 +249,9 @@ export default function VideoLibrary() {
                 totalCount={state.projects.length}
               />
             </div>
-            {/* 상태 필터. 예전의 <select>와 같은 값, 같은 상태입니다. */}
+            {/* 전체 / Draft / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
             <div className="segmented" role="group" aria-label="상태">
-              {[
-                { value: "all", label: "전체" },
-                ...Object.entries(VIDEO_STATUS_LABEL).map(([value, label]) => ({
-                  value,
-                  label,
-                })),
-              ].map((option) => (
+              {LIBRARY_FILTERS.map((option) => (
                 <button
                   aria-pressed={statusFilter === option.value}
                   className="chip"
@@ -294,7 +288,10 @@ export default function VideoLibrary() {
         </div>
       )}
 
-      {state.phase === "ready" && state.projects.length === 0 && !creating && (
+      {state.phase === "ready" &&
+        state.projects.length === 0 &&
+        statusFilter === "all" &&
+        !creating && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>아직 만든 영상 프로젝트가 없습니다</p>
           <p className={styles.emptyText}>
@@ -312,7 +309,9 @@ export default function VideoLibrary() {
         </div>
       )}
 
-      {state.phase === "ready" && state.projects.length > 0 && visible.length === 0 && (
+      {state.phase === "ready" &&
+        (state.projects.length > 0 || statusFilter !== "all") &&
+        visible.length === 0 && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>검색 결과가 없습니다</p>
           <p className={styles.emptyText}>다른 낱말로 찾아보거나 상태 필터를 바꿔보세요.</p>
@@ -333,11 +332,7 @@ export default function VideoLibrary() {
         <div className={styles.grid}>
           {visible.map((project) => (
             <LibraryCard
-              badge={
-                <span className={`badge ${VIDEO_STATUS_BADGE[project.status]}`}>
-                  {VIDEO_STATUS_LABEL[project.status]}
-                </span>
-              }
+              badge={<ProjectStatusBadge status={project.status} />}
               extraActions={[
                 // 최종본에 파일이 있을 때만 받을 수 있습니다. 작업 공간의
                 // 다운로드와 같은 길이고, 참여 여부와는 상관없습니다
@@ -361,13 +356,8 @@ export default function VideoLibrary() {
               name={project.name}
               onDelete={() => askToDelete(project)}
               onRename={(name) => rename(project.id, name)}
-              thumbnail={
-                <span
-                  className={styles.thumbVideo}
-                  style={{ background: `var(--video-art-${(project.id % 4) + 1})` }}
-                />
-              }
-              thumbnailPlacement="side"
+              thumbnail={<VideoThumbnail project={project} />}
+              thumbnailPlacement="top"
             >
               <p className={styles.cardDescription}>
                 {project.prompt || "아직 프롬프트를 적지 않았습니다."}
@@ -409,5 +399,40 @@ export default function VideoLibrary() {
         onClose={() => setConfirm(null)}
       />
     </>
+  );
+}
+
+/**
+ * 영상 카드의 그림 — 최종본, 없으면 파일이 있는 마지막 버전
+ * (ui-library-cards 3). 실제 비율 그대로, 어두운 바탕 가운데에 둡니다.
+ * 아직 버전이 없으면 빈 틀에 그렇다고 적습니다.
+ *
+ * mock이 남기는 파일은 GIF라 <img>로, 실제 영상(MP4)은 <video>의 첫
+ * 장면으로 보여 줍니다. 주소는 작업 공간의 다운로드와 같은 길입니다.
+ */
+function VideoThumbnail({ project }: { project: VideoProject }) {
+  if (!project.thumbnail_version_id) {
+    return <span className={styles.thumbEmpty}>아직 만든 버전이 없습니다</span>;
+  }
+  const src = videoVersionDownloadUrl(project.id, project.thumbnail_version_id);
+  const ratio =
+    ASPECT_RATIO_CSS[(project.thumbnail_aspect_ratio ?? "9:16") as Aspect] ?? ASPECT_RATIO_CSS["9:16"];
+  return (
+    <span className={styles.thumbStage}>
+      {project.thumbnail_kind === "video" ? (
+        <video
+          className={styles.thumbMedia}
+          muted
+          playsInline
+          preload="metadata"
+          src={src}
+          style={{ aspectRatio: ratio }}
+        />
+      ) : (
+        // 회원 세션으로만 열리는 주소라 next/image의 최적화를 거칠 수 없습니다.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img alt="" className={styles.thumbMedia} src={src} style={{ aspectRatio: ratio }} />
+      )}
+    </span>
   );
 }

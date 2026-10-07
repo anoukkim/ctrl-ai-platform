@@ -46,8 +46,8 @@ export interface LibraryCardProps {
   extraActions?: CardAction[];
   /**
    * 카드의 그림 자리. 장식이라 읽어 주지 않습니다.
-   * `top`은 카드 위쪽 전체(Project Builder), `side`는 왼쪽의 세로 9:16
-   * 칸(Video Generator)입니다.
+   * `top`은 카드 위쪽 전체 — 두 목록 모두 이것을 씁니다(Builder는 빗금
+   * 자리, Video는 버전의 실제 화면). `side`는 왼쪽의 좁은 칸입니다.
    */
   thumbnail?: ReactNode;
   thumbnailPlacement?: "top" | "side";
@@ -210,6 +210,7 @@ export default function LibraryCard({
               aria-label={`${name} 메뉴`}
               className={styles.cardMenuButton}
               onClick={() => setOpen((value) => !value)}
+              title="더보기"
               type="button"
             >
               <span aria-hidden="true">⋯</span>

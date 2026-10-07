@@ -263,6 +263,20 @@
   --button-height: 40px;
   --icon-button: 30px;
 
+  /* Project Builder·Video Generator 목록 */
+  --lib-gap-xs: 4px;
+  --lib-gap-sm: 8px;
+  --lib-gap-md: 10px;
+  --lib-gap-lg: 14px;
+  --lib-search-max: 380px;
+  --lib-side-thumb-width: 72px;
+  --lib-side-thumb-height: 128px;
+  --lib-stripe: 10px;
+  --lib-menu-button: 32px;
+  --lib-menu-min: 160px;
+  --lib-new-card-min: 144px;
+  --lib-empty-pad: 44px;
+
   /* 커뮤니티 카드(CtrlAIApps·CtrlAITube) — 시안처럼 1120px에 네 장. */
   --card-min-community: 15.5rem;
 

@@ -13,8 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  BUILDER_STATUS_BADGE,
-  BUILDER_STATUS_LABEL,
+  LIBRARY_FILTERS,
   builderProjectDownloadUrl,
   createBuilderProject,
   deleteBuilderProject,
@@ -22,11 +21,14 @@ import {
   formatRelative,
   listBuilderProjects,
   updateBuilderProject,
+  type LibraryFilter,
   type BuilderProject,
 } from "@/lib/projects";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
+import PageHeader from "@/app/components/PageHeader";
+import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
@@ -54,7 +56,9 @@ export default function BuilderLibrary() {
   const [idea, setIdea] = useState(() => chatIdea.idea);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // 전체 / Draft / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
+  // 브라우저 안에서 합니다.
+  const [statusFilter, setStatusFilter] = useState<LibraryFilter>("all");
   // 지우려고 고른 프로젝트. 창에 이름을 보여 줘야 하므로 id만으로는
   // 모자랍니다.
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -64,7 +68,7 @@ export default function BuilderLibrary() {
   useEffect(() => {
     let cancelled = false;
 
-    listBuilderProjects()
+    listBuilderProjects(statusFilter)
       .then((projects) => {
         if (!cancelled) setState({ phase: "ready", projects });
       })
@@ -75,7 +79,7 @@ export default function BuilderLibrary() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, statusFilter]);
 
   const reload = useCallback(() => {
     setState({ phase: "loading" });
@@ -151,25 +155,20 @@ export default function BuilderLibrary() {
   // 브라우저 안에서 거릅니다. 서버 검색으로 옮길 때는 이 블록만 요청으로
   // 바뀌고 화면 구조는 그대로입니다.
   const projects = state.phase === "ready" ? state.projects : [];
-  const visible = projects.filter(
-    (project) =>
-      matchesQuery(query, project.name, project.description) &&
-      (statusFilter === "all" || project.status === statusFilter),
+  const visible = projects.filter((project) =>
+    matchesQuery(query, project.name, project.description),
   );
 
   return (
     <>
-      <header className={styles.head}>
-        <div className={styles.headText}>
-          <p className="page-eyebrow page-eyebrow-build">Create</p>
-          <h1 className={styles.title}>Project Builder</h1>
-          <p className={styles.subtitle}>
-            만들고 싶은 것을 한국어로 설명하면 Claude가 프로젝트를 만들어 줍니다.
-          </p>
-        </div>
-        <div className={styles.headActions}>
+      <PageHeader
+        eyebrow="Create"
+        tone="build"
+        title="Project Builder"
+        subtitle="만들고 싶은 것을 한국어로 설명하면 Claude가 프로젝트를 만들어 줍니다."
+        actions={
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-lg"
             type="button"
             onClick={() => setCreating((open) => !open)}
             disabled={!mayCreate}
@@ -177,8 +176,8 @@ export default function BuilderLibrary() {
           >
             + 새 프로젝트
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <NotParticipatingBanner />
 
@@ -245,7 +244,7 @@ export default function BuilderLibrary() {
           )}
         </p>
 
-        {state.phase === "ready" && state.projects.length > 0 && (
+        {state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") && (
           <>
             <div className={styles.toolbarSearch}>
               <SearchBar
@@ -256,15 +255,9 @@ export default function BuilderLibrary() {
                 totalCount={state.projects.length}
               />
             </div>
-            {/* 상태 필터. 예전의 <select>와 같은 값, 같은 상태입니다. */}
+            {/* 전체 / Draft / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
             <div className="segmented" role="group" aria-label="상태">
-              {[
-                { value: "all", label: "전체" },
-                ...Object.entries(BUILDER_STATUS_LABEL).map(([value, label]) => ({
-                  value,
-                  label,
-                })),
-              ].map((option) => (
+              {LIBRARY_FILTERS.map((option) => (
                 <button
                   aria-pressed={statusFilter === option.value}
                   className="chip"
@@ -301,7 +294,10 @@ export default function BuilderLibrary() {
         </div>
       )}
 
-      {state.phase === "ready" && state.projects.length === 0 && !creating && (
+      {state.phase === "ready" &&
+        state.projects.length === 0 &&
+        statusFilter === "all" &&
+        !creating && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>아직 만든 프로젝트가 없습니다</p>
           <p className={styles.emptyText}>
@@ -318,7 +314,9 @@ export default function BuilderLibrary() {
         </div>
       )}
 
-      {state.phase === "ready" && state.projects.length > 0 && visible.length === 0 && (
+      {state.phase === "ready" &&
+        (state.projects.length > 0 || statusFilter !== "all") &&
+        visible.length === 0 && (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>검색 결과가 없습니다</p>
           <p className={styles.emptyText}>다른 낱말로 찾아보거나 상태 필터를 바꿔보세요.</p>
@@ -339,11 +337,7 @@ export default function BuilderLibrary() {
         <div className={styles.grid}>
           {visible.map((project) => (
             <LibraryCard
-              badge={
-                <span className={`badge ${BUILDER_STATUS_BADGE[project.status]}`}>
-                  {BUILDER_STATUS_LABEL[project.status]}
-                </span>
-              }
+              badge={<ProjectStatusBadge status={project.status} />}
               extraActions={[
                 {
                   label: "코드 다운로드 (ZIP)",
@@ -358,7 +352,9 @@ export default function BuilderLibrary() {
               name={project.name}
               onDelete={() => askToDelete(project)}
               onRename={(name) => rename(project.id, name)}
-              thumbnail={<span className={styles.thumbPlaceholder} />}
+              thumbnail={
+                <span className={styles.thumbPlaceholder}>미리보기 썸네일</span>
+              }
               thumbnailPlacement="top"
             >
               <p className={styles.cardDescription}>
