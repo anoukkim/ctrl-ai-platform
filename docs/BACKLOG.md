@@ -15,8 +15,33 @@ says what order things happen in.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
-`main`.
+**video-higgsfield-only is built and waiting for approval** on
+`feat-video-higgsfield-only` (2026-10-07). Not merged — merging is the
+developer's call. Migration `9c4e7a2b1d63` reshapes `video_models.capabilities`
+and adds columns to `video_versions` and `usage_events`.
+
+Decisions taken with the developer before building it:
+
+- **Seed prices are placeholders** — Kling 3.0 Pro 720p 700원/s, 1080p
+  1,000원/s; Seedance 2.0 480p 300원/s, 720p 500원/s; Wan 3.0 720p 400원/s.
+  `prices_are_examples` marks them, Admin shows 예시, and saving a model
+  clears it.
+- **Edit and extend use the same per-second rate** — edit: source length
+  × price at the source resolution; extend: added length × that price.
+- **The prompt helper is a minimal mock Claude provider** with a flat
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` (default 10원) from Build, feature tag
+  `video_prompt`. Phase 2 extends `app/services/claude_provider.py` and
+  replaces the flat amount with token pricing.
+
+Two things Phase 2 inherits from this branch:
+
+- **`UsageEvent.feature` and `video_version_id` already exist.** Phase 2
+  adds its token, USD and rate columns next to them.
+- **`usage.ensure_affordable()` and `charge(commit=False)`** exist so a
+  provider is never called for a member who cannot pay, and a row created
+  by the call lands in the same transaction as the charge.
+
+The item that was here before, kept for the record:
 
 Two decisions from **account-withdrawal** (merged 2026-10-07) that later
 items inherit:
@@ -196,7 +221,7 @@ launch items stay at the end, in the order settled on 2026-10-01.
 
 ### Merge order
 
-Nothing is waiting. Branch the next item from an up-to-date `main`.
+`feat-video-higgsfield-only` is waiting for approval. Nothing else is.
 
 ---
 
