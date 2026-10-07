@@ -1121,6 +1121,12 @@ selected.
 
 # 20. Development Phases
 
+> **Status and order now live in [`docs/ROADMAP.md`](docs/ROADMAP.md)
+> (milestones M0–M4) and [`docs/BACKLOG.md`](docs/BACKLOG.md) › Next (in
+> order).** The phases below stay as **feature names** — "Phase 3" still
+> means the Builder MVP — and their specs and rules still apply, but the
+> ✅ markers and the numbering are not the plan.
+
 Do not build the whole platform at once.
 
 **Build every phase locally first. Deploy last.** There is no domain, no
@@ -1518,11 +1524,15 @@ At the beginning of every task:
 3. read `README.md`
 4. read `CLAUDE.md`
 5. read `docs/BACKLOG.md` — it decides what to work on (section 22)
-6. inspect relevant project files
-7. explain the next small milestone
-8. implement incrementally
-9. run tests/build
-10. summarize:
+6. read `docs/ROADMAP.md` — which milestone the work belongs to
+7. read the `docs/` file relevant to the task — `development.md` to run
+   or test, `product.md` for screens and rules, `deployment.md` for
+   hosting, `architecture.md` for infrastructure
+8. inspect relevant project files
+9. explain the next small milestone
+10. implement incrementally
+11. run tests/build
+12. summarize:
    - what changed
    - changed files
    - commands to run
@@ -1650,7 +1660,8 @@ upcoming work. It exists so that work arrives in one place and in one
 order, instead of being inferred from whatever was said most recently.
 
 - **At the start of every session, read `docs/BACKLOG.md`.** It comes
-  after `README.md` and `CLAUDE.md` in the working method (section 21).
+  after `README.md` and `CLAUDE.md`, and before `docs/ROADMAP.md`, in the
+  working method (section 21).
 - **Work only on the item the developer names**, or the top of **Next**
   if they say *"next item"*. Do not start the item that merely looks most
   urgent.
@@ -1658,8 +1669,9 @@ order, instead of being inferred from whatever was said most recently.
   is NOT implemented in the current branch** — unless the developer says
   *"do it now"*. This keeps a branch about one thing, which is what makes
   it reviewable and what keeps its tests meaningful.
-- **When an item is merged, move it to "Done"** with the merge date,
-  newest first, and take it out of **Next**.
+- **When an item is merged, move it to "Done"** — a row with the merge
+  date, newest first, in `docs/archive/done.md`, and its full spec to
+  `docs/archive/done-specs.md` — and take it out of **Next**.
 
 Keeping the backlog current is part of finishing an item, not a separate
 chore.
