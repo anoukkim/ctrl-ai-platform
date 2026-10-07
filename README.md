@@ -9,9 +9,9 @@ hold API keys — and records usage per member and quarter.
 
 ## Where we are
 
-**M1 베타 오픈: 1/5** — an invite-only beta on `ctrlai.my` with real Claude
-chat, everything else labelled test mode. Done: video-higgsfield-only.
-Next: Phase 2 Chat. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
+**M1 베타 오픈: 3/6** — an invite-only beta on `ctrlai.my` with real Claude
+chat, everything else labelled test mode. Done: video-higgsfield-only,
+Phase 2 Chat, chat-model-choice. Next: invite-only-signup. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
 milestone and [`docs/BACKLOG.md`](docs/BACKLOG.md) for the order.
 
 Every external provider runs as a **mock by default**, so the whole
