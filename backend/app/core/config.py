@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     # Nothing reads these to show them. The Admin screen asks only whether
     # a key is *present* — the value never leaves the backend.
     anthropic_api_key: str = ""
+    # Only the fallback when the chat model catalogue is empty
+    # (chat-model-choice). Members pick the model per conversation from the
+    # catalogue in Admin › Claude Models; with any row there, this decides
+    # nothing — so it is not required to start.
     anthropic_model: str = ""
     hf_credentials: str = ""
     github_client_secret: str = ""
@@ -99,8 +103,8 @@ class Settings(BaseSettings):
 
     # ---------- Claude ----------
     # How Chat (and the Video prompt helper) call Claude. The model itself
-    # is ANTHROPIC_MODEL above and is never written into the code; these
-    # are the limits around it. Agreed 2026-10-07.
+    # comes from the chat model catalogue and is never written into the
+    # code; these are the limits around it. Agreed 2026-10-07.
     #
     # "off" turns thinking off where the model allows it (Sonnet 5.5 via
     # `between_tools`; Haiku 4.5 does not think unless asked). Opus 5.5
@@ -176,8 +180,6 @@ class Settings(BaseSettings):
                 missing.append("CLAUDE_PROVIDER (mock 또는 anthropic)")
             if not self.anthropic_api_key.strip():
                 missing.append("ANTHROPIC_API_KEY")
-            if not self.anthropic_model.strip():
-                missing.append("ANTHROPIC_MODEL")
         return missing
 
     @property

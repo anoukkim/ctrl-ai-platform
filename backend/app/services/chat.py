@@ -3,7 +3,8 @@
 A message goes through two steps, and the split is the important part:
 
 1. **`prepare_turn`** — before Claude is called. Checks the per-member
-   rate limit, prices the call, trims the history to the context limit,
+   rate limit, prices the call at the conversation's model (see
+   `services/chat_models.py`), trims the history to the context limit,
    and checks the Build budget against the **worst case** (the trimmed
    input plus the maximum reply). Anything refused here costs nothing,
    because nothing has been sent. Only then is the member's message saved.
@@ -46,6 +47,7 @@ from app.models import (
 )
 from app.services import pricing, providers
 from app.services import usage as usage_service
+from app.services.chat_models import ChosenModel
 from app.services.claude_provider import (
     CHAT_SYSTEM_PROMPT,
     ChatRequest,
@@ -253,8 +255,12 @@ class PreparedTurn:
     user_message: ChatMessage
     request: ChatRequest
     price: Price
+    #: The catalogue model the reply uses — recorded on the reply and on
+    #: its usage event. Under the mock too: the mock is priced as it.
     model_id: str
     estimated_input_tokens: int
+    #: The mock answered rather than Claude — for the Admin status board.
+    is_mock: bool = False
 
 
 @dataclass
@@ -276,7 +282,8 @@ def prepare_turn(
     user: User,
     conversation: Conversation,
     text: str,
-    model_id: str,
+    model: ChosenModel,
+    is_mock: bool = False,
 ) -> PreparedTurn:
     """Every check that can refuse a message, then the message saved.
 
@@ -289,7 +296,7 @@ def prepare_turn(
         raise ChatRefusal("메시지를 입력해 주세요.", status_code=400)
 
     check_rate_limit(db, user, settings)
-    price = pricing.price_for(db, model_id, settings)
+    price = pricing.price_for(db, model)
 
     history = messages_of(db, conversation)
     messages, estimated_input = build_context(history, text, settings)
@@ -323,10 +330,12 @@ def prepare_turn(
             system=CHAT_SYSTEM_PROMPT,
             messages=messages,
             max_tokens=settings.chat_max_output_tokens,
+            model=model.model_id,
         ),
         price=price,
-        model_id=model_id,
+        model_id=model.model_id,
         estimated_input_tokens=estimated_input,
+        is_mock=is_mock,
     )
 
 
@@ -356,8 +365,7 @@ def finish_turn(
     than reusing objects from `prepare_turn`: the request's session may
     have been closed in between.
     """
-    mock = turn.model_id == "mock"
-    label_suffix = " (mock)" if mock else ""
+    label_suffix = " (mock)" if turn.is_mock else ""
 
     if state.error is not None:
         providers.record_failure(db, "claude", state.error.kind, state.error.detail)

@@ -49,7 +49,14 @@ from app.schemas.video import (
     VideoVersionCreate,
     VideoVersionRead,
 )
-from app.services import pricing, project_zip, providers, video_assets, video_catalog
+from app.services import (
+    chat_models,
+    pricing,
+    project_zip,
+    providers,
+    video_assets,
+    video_catalog,
+)
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     PROMPT_HELP_SYSTEM,
@@ -282,6 +289,8 @@ def _http_error(error: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
     if isinstance(error, video_catalog.SettingsError):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
+    if isinstance(error, chat_models.ModelChoiceError):
+        return HTTPException(status_code=error.status_code, detail=str(error))
     if isinstance(error, (ProviderUnavailableError, ClaudeError, pricing.PricingError)):
         return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
     raise error
@@ -660,12 +669,18 @@ def prompt_help(
     Priced by the token, like Chat: the budget is checked against the
     worst case before the call, and the tokens actually used are charged
     after it. A failed call is not charged.
+
+    Always the catalogue's **default** model (chat-model-choice): the
+    member picks a model in Chat, not here.
     """
     project = _owned_project(project_id, db, user)
     provider = get_claude_provider(config)
+    is_mock = config.provider_is_mock("claude")
     max_output = min(config.chat_max_output_tokens, 2048)
     try:
-        price = pricing.price_for(db, provider.model_id, config)
+        model = chat_models.default_model(db, config)
+        chat_models.require_adapter(model)
+        price = pricing.price_for(db, model)
         estimated_input = pricing.estimate_tokens(
             PROMPT_HELP_SYSTEM + payload.prompt + payload.request
         )
@@ -676,7 +691,9 @@ def prompt_help(
             amount_krw=price.krw(estimated_input, max_output),
         )
         try:
-            answer = provider.rewrite_video_prompt(payload.prompt, payload.request)
+            answer = provider.rewrite_video_prompt(
+                payload.prompt, payload.request, model.model_id
+            )
         except ClaudeError as error:
             providers.record_failure(db, "claude", error.kind, error.detail)
             db.commit()
@@ -688,7 +705,7 @@ def prompt_help(
             amount_krw=price.krw(answer.input_tokens, answer.output_tokens),
             provider="claude",
             feature=UsageFeature.VIDEO_PROMPT.value,
-            model_id=answer.model,
+            model_id=model.model_id,
             provider_units=answer.input_tokens + answer.output_tokens,
             provider_unit="tokens",
             provider_cost=price.usd(answer.input_tokens, answer.output_tokens).quantize(
@@ -702,7 +719,7 @@ def prompt_help(
             cap_to_available=True,
         )
         providers.record_success(
-            db, "claude", "프롬프트 도움" + (" (mock)" if answer.model == "mock" else "")
+            db, "claude", "프롬프트 도움" + (" (mock)" if is_mock else "")
         )
         db.commit()
         amount = result.event.charged_krw
@@ -711,6 +728,7 @@ def prompt_help(
         usage_service.NoQuarterError,
         ClaudeError,
         pricing.PricingError,
+        chat_models.ModelChoiceError,
     ) as error:
         raise _http_error(error) from error
 
