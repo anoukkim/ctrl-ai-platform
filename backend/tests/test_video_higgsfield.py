@@ -497,3 +497,16 @@ def test_the_prompt_helper_with_no_real_claude_is_not_charged(
 
     assert response.status_code == 503
     assert allocation(db_session).build_consumed_krw == 0
+
+
+def test_usage_names_what_each_video_charge_was_for(
+    client: TestClient, project, source
+) -> None:
+    client.post(
+        f"/api/video/projects/{project.id}/prompt-help",
+        json={"prompt": "밤", "request": "더 밝게"},
+    )
+
+    labels = [event["label"] for event in client.get("/api/usage/me").json()["events"]]
+
+    assert labels == ["프롬프트 도움 — 밤의 서울", "영상 생성 — 밤의 서울"]
