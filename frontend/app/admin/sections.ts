@@ -12,6 +12,7 @@
  */
 
 import {
+  Bot,
   Clapperboard,
   FileText,
   Trash2,
@@ -100,6 +101,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Video Models",
     description: "회원에게 열어 줄 영상 모델을 고릅니다.",
     Icon: Clapperboard,
+  },
+  {
+    // chat-model-choice. Video Models와 같은 모양이라 바로 옆에 둡니다.
+    key: "claude-models",
+    href: "/admin/claude-models",
+    label: "Claude Models",
+    description: "회원이 Chat에서 고를 수 있는 Claude 모델과 요금을 정합니다.",
+    Icon: Bot,
   },
   {
     // 회원이 지운 것을 되살리는 곳. Audit Log 앞에 둡니다 — 둘 다 지난

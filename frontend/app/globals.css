@@ -297,7 +297,6 @@
   /* Admin */
   --admin-card-min: 15.5rem; /* 대시보드·외부 서비스 카드 — 1120px에 네 장 */
   --admin-stat-value: 22px;
-  --admin-price-input: 100px;
   --admin-rate-input: 120px;
 }
 
