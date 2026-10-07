@@ -637,15 +637,16 @@ No branch named yet. Rewritten on 2026-10-01: the item used to be only the
 launch data rules, and now carries the full beta specification. Saved
 exactly as written by the developer.
 
-**Last in the queue, position 6, since the 2026-10-02 reorder.** The
+**Last in the queue: position 4 in Next as of 2026-10-07.** The
 order is still deliberate: the beta is an invite-only launch whose one real
-feature is Claude chat, so Phase 2 (position 4) and `invite-only-signup`
-(position 5) both have to exist first, and everything else ships behind a
-test-mode label. Launching last still means every build-out item in
+feature is Claude chat, so Phase 2 (position 1) and `invite-only-signup`
+(position 2) both have to exist first, and `test-database-isolation`
+(position 3) has to land before the suite can be pointed anywhere near a
+live database. Everything else ships behind a test-mode label. Launching last still means every build-out item in
 **Next** is done before anything is exposed on a public domain.
 
 **The invite codes are no longer this item's work.**
-`invite-only-signup` at position 5 owns them, and requires a code in every
+`invite-only-signup` at position 2 owns them, and requires a code in every
 environment rather than only in the beta — so by the time this item runs,
 signup is already closed. Two parts of the spec below are therefore
 already satisfied when it starts:
@@ -705,9 +706,21 @@ Added 2026-10-01. Saved exactly as written by the developer.
 
 ### Hosting decisions — 2026-10-07
 
-Decided by the owner. **Where these conflict with points 3–4 above, or
-with Phase 9 in `CLAUDE.md`, these win for the beta.** Points 1, 2 and 5
-and the Launch data rules are unchanged.
+Decided by the owner. **Where these conflict with points 1, 3 and 4
+above, or with Phase 9 in `CLAUDE.md`, these win for the beta.** Points 2
+and 5 and the Launch data rules are unchanged.
+
+**Point 1 changes in two details only; the rest of it stands:**
+
+- **The domain is `ctrlai.my`**, not the `ctrlai.example` placeholder —
+  in `.env.example` and everywhere else point 1 mentions a domain.
+- **`BACKEND_ORIGIN` is a build argument, not a runtime environment
+  variable.** Point 1 lists "backend URL for the Next.js /api rewrite"
+  among the settings read from the environment, but Next.js compiles
+  rewrites at build time, so the value has to be supplied when the image
+  is built (see **Images are built off the VM** below). The other point 1
+  settings — CORS origins, secure cookies, cookie domain, `APP_ENV`,
+  `DATABASE_URL` — are runtime environment variables as written.
 
 - **Domain: `ctrlai.my`, already bought.** Use it instead of
   `ctrlai.example` in `.env.example` and `docs/deployment.md`. DNS at the
@@ -724,8 +737,17 @@ and the Launch data rules are unchanged.
   (`postgres:16-alpine`, **no published port**, a named volume).
 - **No Cloud SQL, Cloud Run or Secret Manager for the beta.** Cloud SQL
   has no free tier (the smallest instance is about $10 a month with
-  storage). Production secrets live in a `.env` on the VM readable only
-  by the deploy user; Secret Manager comes after the beta.
+  storage). Secret Manager comes after the beta.
+- **Production secrets live in a `.env` on the VM — a beta-only exception
+  to `CLAUDE.md` section 17, decided by the owner.** It holds as long as
+  every condition holds:
+  - the file is readable only by the deploy user (`chmod 600`);
+  - it is never committed and never baked into a Docker image — the
+    compose file passes it at run time;
+  - the Anthropic key has a **monthly spend limit** set in the Anthropic
+    Console;
+  - **every key is rotated** when the secrets move to Secret Manager
+    after the beta.
 - **Images are built off the VM.** 1 GB of RAM cannot run `next build`.
   GitHub Actions builds both images and pushes them to ghcr.io; the VM
   only pulls. Next.js rewrites are compiled at build time, so
@@ -1100,7 +1122,9 @@ cut preview possible. Under auto-approval the allocations already exist by
 then, so a pool smaller than the requests has to cut allocations that
 members can already see. The cut preview itself is unaffected; when it
 runs, and what a member is told when their approved budget drops, is not
-decided here.
+decided here. **See *Funding model — 2026-10-07* above:** with credit
+bought per headcount after applications close, this mostly no longer
+arises.
 
 **Point 6's operator note has a home again — the 2026-10-02 reorder
 reversed this twice.** `docs/deployment.md` does not exist today, but

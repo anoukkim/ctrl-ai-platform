@@ -1031,6 +1031,13 @@ Non-negotiable:
 - arbitrary generated app code must NOT execute on the main backend
 - app execution requires an isolated sandbox/runtime later
 - production credentials belong in a secret manager
+  - **Beta-only exception (decided by the owner, 2026-10-07):** on the
+    single beta VM, production secrets may live in a `.env` file, provided
+    it is readable only by the deploy user (`chmod 600`), never committed
+    and never baked into a Docker image; the Anthropic key has a monthly
+    spend limit set in the Anthropic Console; and every key is rotated
+    when the secrets move to Secret Manager after the beta. See
+    `docs/BACKLOG.md` › prep-beta-launch › **Hosting decisions**.
 - maintain audit logs for admin credit/membership changes
 
 ---
