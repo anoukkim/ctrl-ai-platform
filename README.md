@@ -38,7 +38,7 @@ principles.
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
-| Profile               | Live signed-in member, quarter participation and application form                 |
+| Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
 | Admin                 | **Live** — section hub, member/application/quarter figures, KRW budgets, audit log |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
@@ -67,7 +67,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
 | `/usage`              | Usage           | Club support and personal balance, in KRW    |
-| `/profile`            | Profile         | Quarter participation, application, accounts |
+| `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
 | `/issues`             | Report Issue    | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
 | `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
@@ -336,6 +336,40 @@ Leaving them blank creates no administrator — there is deliberately no
 default password in the code.
 
 Anyone else can register at `/signup`, which creates an ordinary member.
+
+## Leaving CTRL+AI (회원 탈퇴)
+
+A member withdraws from the bottom of **Profile**, after re-entering their
+password; an admin can do the same from **Admin › Members › (member)**.
+Both go through one service, `backend/app/services/withdrawal.py`, so the
+rules are the same either way:
+
+- the account becomes `former` at once, every session ends, and signing in
+  is refused;
+- remaining 동아리 지원 in any quarter that is not closed is **released**
+  and written to the audit log (there is no club reserve to return it to
+  yet — `budget-by-provider` adds one);
+- a remaining 개인 충전 balance, or a top-up request nobody has reviewed,
+  marks the withdrawal **환불 대기**; an admin records the refund with
+  **환불 완료 기록**;
+- published work stays up labelled 탈퇴 회원, or is unpublished if the
+  member chose that;
+- usage history is untouched, so quarter reports still add up.
+
+For **30 days** an admin can **복구** the account, which puts back the
+released budget, participation and anything unpublished. After that, a
+job anonymises the username, email and display name:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.jobs.anonymise_withdrawn --dry-run   # report only
+.\.venv\Scripts\python.exe -m app.jobs.anonymise_withdrawn
+```
+
+It is run from outside the server — by hand or from cron locally, by Cloud
+Scheduler in Phase 9 — and is safe to run again. A withdrawal still
+waiting for its refund is skipped and listed: an account is not finalised
+while money is owed. The audit log is left as written; it is append-only.
 
 ### How sign-in works
 

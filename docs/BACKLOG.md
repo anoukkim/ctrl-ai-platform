@@ -15,8 +15,18 @@ says what order things happen in.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
-`main`.
+**account-withdrawal is built and waiting for approval** on
+`feat-account-withdrawal` (2026-10-07). Not merged — merging is the
+developer's call. Migration `b6d4e2f81a37` adds `account_withdrawals`.
+
+Decisions taken with the developer before building it:
+
+- **The scheduled job is a CLI, not an in-process scheduler** —
+  `python -m app.jobs.anonymise_withdrawn` (with `--dry-run`), run by hand
+  or cron now and by Cloud Scheduler in Phase 9. No new dependency.
+  `app/jobs/` is where later jobs go; each must be idempotent.
+- **Anonymisation leaves the audit log untouched.** It stays strictly
+  append-only; the anonymisation row itself carries no personal data.
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
 admin-restructure, ui-naming, fix-video-workspace-hang, ui-tube-watch,
@@ -190,7 +200,7 @@ launch items stay at the end, in the order settled on 2026-10-01.
 
 ### Merge order
 
-Nothing is waiting. Branch the next item from an up-to-date `main`.
+`feat-account-withdrawal` is waiting for approval. Nothing else is.
 
 ---
 
