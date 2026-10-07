@@ -4,7 +4,7 @@ Longer-term architecture: what the platform is expected to look like once it
 is deployed, and the rules that hold while it is built.
 
 **Nothing in this document is built yet.** It is direction, not status. For
-what exists today see [`README.md`](../README.md); for the product
+what exists today see [`product.md`](product.md); for the product
 definition and the phase plan see [`CLAUDE.md`](../CLAUDE.md), which wins
 wherever the two disagree.
 
