@@ -21,6 +21,19 @@ authority on order** — each item in **Next** names its milestone.
 **Nothing is in progress.** Branch the next item from an up-to-date
 `main`.
 
+**Working order set by the developer (2026-10-07)** — one branch each,
+stopping after each for the developer to check and merge:
+
+1. `invite-only-signup`
+2. `chat-plus-rendering`
+3. `test-database-isolation`
+4. `prep-beta-launch` — **code part only, cloud-neutral** (see *Cloud-neutral
+   code part — 2026-10-07* in its spec)
+
+`chat-plus-files` and `chat-plus-artifacts` keep their specs and are not
+in this run. Mock providers only, no real API call, the developer's
+database untouched, no cloud resource created.
+
 Decisions from **chat-model-choice** (merged 2026-10-07) that later items
 inherit:
 
@@ -849,6 +862,15 @@ Added 2026-10-01. Saved exactly as written by the developer.
 > - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
 > - Never copy the local database to production; the deployment guide says so explicitly.
 > - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
+
+### Cloud-neutral code part — 2026-10-07
+
+Set by the developer. **Where this conflicts with Hosting decisions
+below, this wins for now**: the cloud, the region and the VM size are
+being decided in a meeting, so the code part is built first without
+assuming any of them. Saved exactly as written by the developer.
+
+> prep-beta-launch, code part only and cloud-neutral: the cloud, region and VM size are being decided in a meeting. Put provider/region/size-dependent settings in .env with defaults for a 2 GB VM and about 40 members, write docs/dns-for-domain-owner.md in Korean, add an editable data-location notice on sign-up, run the production compose locally, and stop with a list of what's left once the cloud is chosen.
 
 ### Hosting decisions — 2026-10-07
 
