@@ -68,6 +68,35 @@ a gap in the work; each is waiting on an item that has not been built.
   is the same kind of act as an admin closing an account; a second dialog
   would be a second set of words for the same question.
 
+**Before merging, the dev database needs two things.** It is still at
+`d7e1b4a9c052` (main's head), so the moment this branch's code runs
+against it, every `/api/builder/projects` and `/api/video/projects` call
+answers 500 — `column "deleted_at" does not exist`. Verified against the
+running database, not guessed.
+
+```bash
+# 1. drop the stray empty table (see below) — otherwise step 2 fails with
+#    "relation builder_project_files already exists"
+docker exec ctrlai-postgres psql -U ctrlai -d ctrlai -c "DROP TABLE builder_project_files;"
+# 2. migrate
+cd backend && alembic upgrade head
+```
+
+**Why there is a stray table: `tests/test_usage.py` writes to the real
+development database.** The row-lock concurrency test needs PostgreSQL —
+SQLite ignores `SELECT ... FOR UPDATE` — so it connects to
+`settings.database_url` and calls `Base.metadata.create_all`. Running the
+backend suite on *any* branch therefore creates that branch's new tables
+in the developer's own database, without touching `alembic_version`. The
+result is a database that has some of a branch's schema and none of its
+migrations recorded, which is exactly the state that makes
+`alembic upgrade head` fail later.
+
+That is pre-existing and not this item's work, but it is worth an item of
+its own: the concurrency test should create its tables in a **separate
+database** (or a schema it drops afterwards) rather than in the one the
+developer runs the product on.
+
 Do not merge until the developer says so (section 22).
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,

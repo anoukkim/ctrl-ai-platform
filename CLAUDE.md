@@ -1371,6 +1371,13 @@ Implement:
 - threaded replies
 - inactive/former creator attribution
 
+**Every listing query must filter on the project's `deleted_at`.** Deleting
+is soft (`project-video-management`): the row stays so an admin can restore
+it, and a member who deletes their work is told it is gone. If a published
+listing joins the project without that filter, the work disappears from the
+member's own library and stays on the community screen — the one place they
+cannot remove it from. The models carry the same note.
+
 ## Phase 6 — Video Generator
 
 > **Groundwork already exists — extend it, do not rebuild it.** The Phase 1
@@ -1421,6 +1428,13 @@ Implement:
 - CTRL+AI comments
 - threaded replies
 - optionally show YouTube comments in a separate labeled area
+
+**Every listing query must filter on the project's `deleted_at`.** Deleting
+is soft (`project-video-management`): the row stays so an admin can restore
+it, and a member who deletes their work is told it is gone. If a published
+listing joins the project without that filter, the work disappears from the
+member's own library and stays on the community screen — the one place they
+cannot remove it from. The models carry the same note.
 
 **Phase 8 does not depend on Phase 7.** A member can paste the URL of a
 video they uploaded to YouTube themselves; CTRL+AI extracts the video ID and
