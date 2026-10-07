@@ -405,6 +405,59 @@ def test_restore_works_within_the_grace_period(
     assert login.status_code == 200
 
 
+def test_restore_after_a_recorded_refund_returns_the_budget_but_not_the_money(
+    other_client: TestClient,
+    admin_client: TestClient,
+    other_user,
+    funded_member,
+    db_session: Session,
+) -> None:
+    """The refund was really paid out. Restoring must not pay it twice.
+
+    The released 동아리 지원 is club money that was only frozen, so it
+    comes back. The personal balance left the club when the refund was
+    recorded; giving it back to the wallet would hand the member the same
+    money a second time.
+    """
+    usage_service.charge(
+        db_session, user=other_user, category=BudgetCategory.BUILD,
+        amount_krw=10_000, provider="claude",
+    )
+    balance = get_or_create_balance(db_session, other_user.id)
+    balance.balance_krw = 20_000
+    balance.consumed_krw = 5_000
+    db_session.commit()
+
+    withdraw(other_client)
+    refund = admin_client.post(
+        f"/api/admin/members/{other_user.id}/withdrawal/refund", json={"reference": "이체 77"}
+    )
+    assert refund.json()["refund_amount_krw"] == 15_000
+
+    response = admin_client.post(f"/api/admin/members/{other_user.id}/withdrawal/restore")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # The refund stays on record as done — it is not reset to "none".
+    assert body["refund_status"] == "recorded"
+    assert body["refund_amount_krw"] == 15_000
+
+    db_session.refresh(balance)
+    db_session.refresh(funded_member)
+    db_session.refresh(other_user)
+    assert other_user.account_status is AccountStatus.ACTIVE
+    # The wallet does not get the refunded 15,000원 back.
+    assert balance.remaining_krw == 0
+    assert (balance.balance_krw, balance.consumed_krw) == (5_000, 5_000)
+    # The club budget does: back to 70,000 / 30,000, with the 10,000 spent kept.
+    assert (funded_member.build_budget_krw, funded_member.video_budget_krw) == (70_000, 30_000)
+    assert funded_member.build_consumed_krw == 10_000
+
+    restored = db_session.scalar(
+        select(AuditLog).where(AuditLog.action == AuditAction.ACCOUNT_RESTORED)
+    )
+    assert restored.detail["restored_krw"] == 90_000
+
+
 def test_restore_is_refused_after_the_grace_period(
     other_client: TestClient, admin_client: TestClient, other_user, db_session: Session
 ) -> None:
