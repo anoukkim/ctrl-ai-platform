@@ -5,79 +5,121 @@
   place-items: center;
   min-height: 100vh;
   padding: 2rem 1rem;
+  background: var(--bg);
+}
+
+/* 바탕 위쪽의 옅은 빛. 로그인은 강조색, 회원가입은 Build 색입니다. */
+.screenLogin {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--bg);
+}
+
+.screenSignup {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, var(--build-soft), transparent 70%),
+    var(--bg);
 }
 
 .card {
   width: 100%;
-  max-width: 24rem;
+  max-width: 400px;
   display: grid;
-  gap: 1rem;
-  padding: 1.75rem;
+  gap: 1.1rem;
+  padding: 28px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow);
+}
+
+.cardSignup {
+  max-width: 440px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 700;
-  font-size: 1.1rem;
+  gap: 0.55rem;
+  font-weight: 750;
+  font-size: 17px;
 }
 
 .title {
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
 .subtitle {
+  margin: 0.3rem 0 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  margin: 0;
+  font-size: 13.5px;
 }
 
 .form {
   display: grid;
-  gap: 0.8rem;
+  gap: 14px;
 }
 
 .field {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.35rem;
+}
+
+.form :global(.field) {
+  padding: 0.6rem 0.8rem;
+}
+
+.form :global(.btn-primary) {
+  margin-top: 0.3rem;
+  padding: 0.55rem 1rem;
+  font-size: 14px;
 }
 
 .label {
-  font-size: 0.78rem;
+  font-size: 12.5px;
   font-weight: 650;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .hint {
-  font-size: 0.72rem;
+  font-size: 12px;
   color: var(--text-dim);
+  transition: color 0.12s ease;
+}
+
+/* 입력을 시작하면 규칙을 지켰는지에 따라 바뀝니다. */
+.hintOk {
+  color: var(--ok-text);
+}
+
+.hintError {
+  color: var(--error-text);
 }
 
 /* 오류는 색만으로 알리지 않고 문장으로도 설명합니다. */
 .error {
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--error);
+  border: 1px solid var(--error-border);
   border-radius: var(--radius-sm);
   background: var(--error-soft);
   color: var(--error-text);
-  font-size: 0.82rem;
+  font-size: 13px;
 }
 
 .footer {
   display: flex;
   justify-content: center;
-  gap: 0.35rem;
-  font-size: 0.82rem;
+  gap: 0.4rem;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
   color: var(--text-muted);
 }
 
 .footerLink {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 650;
 }

@@ -20,7 +20,7 @@ const NEW_ISSUE_URL = "https://github.com/anoukkim/ctrl-ai-platform/issues/new/c
 
 export default function IssuesPage() {
   return (
-    <>
+    <div className={styles.page}>
       <header className="page-header page-header-stacked">
         <h1 className="page-title">Report Issue</h1>
         <p className="page-subtitle">
@@ -42,20 +42,22 @@ export default function IssuesPage() {
           <li>화면 사진이 있으면 원인을 훨씬 빨리 찾을 수 있습니다.</li>
         </ol>
 
-        <a
-          className="btn btn-primary"
-          href={NEW_ISSUE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          GitHub에서 신고하기
-          <span aria-hidden="true">↗</span>
-        </a>
-        <p className={styles.newTab}>새 탭에서 열립니다.</p>
+        <div className={styles.action}>
+          <a
+            className="btn btn-primary"
+            href={NEW_ISSUE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub에서 신고하기
+            <span aria-hidden="true">↗</span>
+          </a>
+          <p className={styles.newTab}>새 탭에서 열립니다.</p>
+        </div>
       </section>
 
       <section className={`card ${styles.caution}`}>
-        <h2 className="section-title">먼저 알아 두세요</h2>
+        <h2 className={`section-title ${styles.cautionTitle}`}>먼저 알아 두세요</h2>
         <ul className={styles.cautionList}>
           <li>
             <strong>GitHub 계정이 필요합니다.</strong> 계정이 없다면 무료로 만들 수 있습니다.
@@ -83,6 +85,6 @@ export default function IssuesPage() {
           위의 GitHub 링크를 이용해 주세요.
         </p>
       </section>
-    </>
+    </div>
   );
 }
