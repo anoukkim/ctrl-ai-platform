@@ -38,6 +38,7 @@ class ProviderErrorKind:
 
     AUTH = "auth"  # key missing, wrong, or revoked
     CREDIT = "credit"  # out of credit or over a quota
+    RATE_LIMITED = "rate_limited"  # too many requests for now; retry later
     UNAVAILABLE = "unavailable"  # the service is down or unreachable
     TIMEOUT = "timeout"
     NOT_IMPLEMENTED = "not_implemented"  # real adapter not built yet
@@ -50,6 +51,7 @@ PROVIDER_ERROR_LABEL: dict[str, str] = {
     ProviderErrorKind.AUTH: "API 키가 거부되었습니다. 키가 잘못되었거나 만료되었습니다.",
     ProviderErrorKind.CREDIT: "제공자 쪽 잔액이나 사용 한도가 바닥났습니다.",
     ProviderErrorKind.UNAVAILABLE: "제공자 서비스에 연결할 수 없습니다.",
+    ProviderErrorKind.RATE_LIMITED: "제공자의 요청 한도에 걸렸습니다. 잠시 후 다시 시도하세요.",
     ProviderErrorKind.TIMEOUT: "제공자가 제시간에 응답하지 않았습니다.",
     ProviderErrorKind.NOT_IMPLEMENTED: "실제 연동이 아직 만들어지지 않았습니다.",
     ProviderErrorKind.UNKNOWN: "알 수 없는 오류입니다.",
