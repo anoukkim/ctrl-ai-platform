@@ -1,36 +1,30 @@
-"""Admin › System — what Claude costs.
+"""Admin › System — the won-per-dollar rate and how Claude is called.
 
 Two figures decide what every Chat reply and prompt-helper call costs a
-member: the per-model token price and the won-per-dollar rate. Both are
-edited here rather than in code, and both changes are written to the
-audit log, because they move what every later call is charged.
+member: the per-model token price and the won-per-dollar rate. The rate
+is edited here; the prices live with the models in Admin › Claude Models
+(`admin_chat_models.py`). Both changes are written to the audit log,
+because they move what every later call is charged.
 
 Admin-only, and — like every other Admin screen — not gated on
 participation: setting prices is administration, not creation.
 """
 
-import re
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import AuditAction, ClaudeModelPrice, ExchangeRate, User
+from app.models import AuditAction, ExchangeRate, User
 from app.schemas.pricing import (
-    ClaudeModelPriceRead,
-    ClaudeModelPriceWrite,
     ClaudeSettingsRead,
     ExchangeRateRead,
     ExchangeRateWrite,
 )
-from app.services import audit, pricing
+from app.services import audit, chat_models, pricing
 
 router = APIRouter(prefix="/admin/claude-pricing", tags=["admin"])
-
-#: An Anthropic model id: lower-case letters, digits, dots and dashes.
-MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9.\-]{1,119}$")
 
 
 def _rate_read(db: Session, row: ExchangeRate) -> ExchangeRateRead:
@@ -44,84 +38,28 @@ def _rate_read(db: Session, row: ExchangeRate) -> ExchangeRateRead:
 
 def _settings_read(db: Session, settings: Settings) -> ClaudeSettingsRead:
     current = pricing.current_rate(db)
+    default = chat_models.default_row(db)
     return ClaudeSettingsRead(
         is_mock=settings.provider_is_mock("claude"),
-        model=settings.anthropic_model.strip(),
-        priced_as=pricing.priced_model(
-            "mock" if settings.provider_is_mock("claude") else settings.anthropic_model.strip(),
-            settings,
-        ),
+        default_model_label=default.label if default else "",
+        default_model_id=default.model_id if default else "",
+        fallback_model=settings.anthropic_model.strip(),
         thinking=settings.chat_thinking,
         effort=settings.chat_effort,
         max_output_tokens=settings.chat_max_output_tokens,
         context_tokens=settings.chat_context_tokens,
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
-        prices=[ClaudeModelPriceRead.model_validate(row) for row in pricing.all_prices(db)],
         exchange_rate=_rate_read(db, current) if current else None,
         rate_history=[_rate_read(db, row) for row in pricing.rate_history(db)],
     )
 
 
-@router.get("", response_model=ClaudeSettingsRead, summary="Claude prices, rate and limits")
+@router.get("", response_model=ClaudeSettingsRead, summary="The rate, the default model and the chat limits")
 def read_claude_pricing(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
     settings: Settings = Depends(get_settings),
 ) -> ClaudeSettingsRead:
-    return _settings_read(db, settings)
-
-
-@router.put(
-    "/models/{model_id}",
-    response_model=ClaudeSettingsRead,
-    summary="Set one model's token prices (adds the model if it is new)",
-)
-def put_model_price(
-    model_id: str,
-    payload: ClaudeModelPriceWrite,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-    settings: Settings = Depends(get_settings),
-) -> ClaudeSettingsRead:
-    if not MODEL_ID.match(model_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="모델 ID는 영문 소문자, 숫자, 점(.)과 대시(-)만 쓸 수 있습니다.",
-        )
-
-    row = db.get(ClaudeModelPrice, model_id)
-    before = (
-        {
-            "input_usd_per_mtok": str(row.input_usd_per_mtok),
-            "output_usd_per_mtok": str(row.output_usd_per_mtok),
-        }
-        if row
-        else None
-    )
-    if row is None:
-        row = ClaudeModelPrice(model_id=model_id)
-        db.add(row)
-    row.display_name = payload.display_name.strip() or row.display_name or model_id
-    row.input_usd_per_mtok = payload.input_usd_per_mtok
-    row.output_usd_per_mtok = payload.output_usd_per_mtok
-
-    after = {
-        "input_usd_per_mtok": str(payload.input_usd_per_mtok),
-        "output_usd_per_mtok": str(payload.output_usd_per_mtok),
-    }
-    audit.record(
-        db,
-        actor=admin,
-        action=AuditAction.CLAUDE_PRICE_UPDATED,
-        target_type="claude_model",
-        target_label=model_id,
-        summary=(
-            f"{model_id} 요금: 입력 ${payload.input_usd_per_mtok} · "
-            f"출력 ${payload.output_usd_per_mtok} (100만 토큰당)"
-        ),
-        detail={"before": before, "after": after},
-    )
-    db.commit()
     return _settings_read(db, settings)
 
 

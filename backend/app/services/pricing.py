@@ -8,8 +8,9 @@ Rounded **up** to whole won, with a minimum of 1원 for any call that used
 a token: the club pays Anthropic in fractions of a cent, and a member's
 budget must never be charged less than what their use cost.
 
-The prices and the rate live in the database (`app/models/pricing.py`),
-editable in Admin › System. Every charge copies the dollar figure and the
+The prices live in the chat model catalogue (Admin › Claude Models) and
+the rate in Admin › System, both in the database
+(`app/models/pricing.py`). Every charge copies the dollar figure and the
 rate onto its `UsageEvent`, so a later change moves nothing already
 charged.
 """
@@ -23,24 +24,20 @@ from decimal import ROUND_CEILING, Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
-from app.models import ClaudeModelPrice, ExchangeRate
+from app.models import ExchangeRate
+from app.services import chat_models
+from app.services.chat_models import ChosenModel
 
-#: The mock provider has no price of its own. It is priced as the model
-#: the deployment is configured to use (`ANTHROPIC_MODEL`), or, with no
-#: model configured, as this one — the agreed default (2026-10-07) — so
-#: the budget and the ledger behave locally the way they will for real.
-MOCK_PRICED_AS = "claude-sonnet-5-5"
-
-#: Anthropic's list prices on 2026-10-07, in dollars per million tokens.
-#: The migration seeds the same figures; this copy serves the tests, which
-#: build their schema without migrations.
-DEFAULT_PRICES: list[tuple[str, str, Decimal, Decimal]] = [
-    ("claude-sonnet-5-5", "Claude Sonnet 5.5", Decimal("2"), Decimal("10")),
-    ("claude-opus-5-5", "Claude Opus 5.5", Decimal("4"), Decimal("20")),
-    ("claude-haiku-4-5", "Claude Haiku 4.5", Decimal("1"), Decimal("5")),
-]
 DEFAULT_USD_KRW = Decimal("1400")
+
+#: What "one reply" means for the estimate the Chat picker shows. A
+#: conversation a few turns in sends about this much (system prompt plus
+#: history) and a Korean answer of a few paragraphs comes back at about
+#: this length. The estimate is a guide, not the charge: what is charged
+#: is the real count, and the budget check before a call uses the worst
+#: case.
+TYPICAL_INPUT_TOKENS = 3000
+TYPICAL_OUTPUT_TOKENS = 800
 
 MILLION = Decimal(1_000_000)
 
@@ -77,21 +74,11 @@ class Price:
 
 
 def seed_defaults(db: Session) -> None:
-    """Add any missing default price and the default rate. Does not commit.
+    """The default rate and, into an empty catalogue, the default models.
 
-    Idempotent, and never overwrites a price an admin has set.
+    Does not commit. Idempotent, and never overwrites what an admin set.
     """
-    existing = set(db.scalars(select(ClaudeModelPrice.model_id)))
-    for model_id, name, input_price, output_price in DEFAULT_PRICES:
-        if model_id not in existing:
-            db.add(
-                ClaudeModelPrice(
-                    model_id=model_id,
-                    display_name=name,
-                    input_usd_per_mtok=input_price,
-                    output_usd_per_mtok=output_price,
-                )
-            )
+    chat_models.seed_defaults(db)
     if current_rate(db) is None:
         db.add(ExchangeRate(currency="USD", krw_per_unit=DEFAULT_USD_KRW))
     db.flush()
@@ -118,35 +105,36 @@ def rate_history(db: Session, limit: int = 10) -> list[ExchangeRate]:
     )
 
 
-def all_prices(db: Session) -> list[ClaudeModelPrice]:
-    return list(db.scalars(select(ClaudeModelPrice).order_by(ClaudeModelPrice.model_id)))
-
-
-def priced_model(model_id: str, settings: Settings) -> str:
-    """Which price row a call is charged at. The mock borrows a real model's."""
-    if model_id == "mock":
-        return settings.anthropic_model.strip() or MOCK_PRICED_AS
-    return model_id
-
-
-def price_for(db: Session, model_id: str, settings: Settings) -> Price:
+def price_for(db: Session, model: ChosenModel) -> Price:
     """The price and rate in force for one model, or `PricingError`."""
-    name = priced_model(model_id, settings)
-    row = db.get(ClaudeModelPrice, name)
-    if row is None:
+    if model.input_usd_per_mtok <= 0 or model.output_usd_per_mtok <= 0:
+        # Only the empty-catalogue fallback can get here: a catalogue row's
+        # prices are checked when an admin saves them.
         raise PricingError(
-            f"Claude 모델 {name}의 가격이 등록되지 않아 지금은 쓸 수 없습니다. "
+            f"Claude 모델 {model.model_id}의 가격이 등록되지 않아 지금은 쓸 수 없습니다. "
             "관리자에게 알려 주세요."
         )
     rate = current_rate(db)
     if rate is None:
         raise PricingError("환율이 등록되지 않아 지금은 쓸 수 없습니다. 관리자에게 알려 주세요.")
     return Price(
-        model_id=name,
-        input_usd_per_mtok=Decimal(row.input_usd_per_mtok),
-        output_usd_per_mtok=Decimal(row.output_usd_per_mtok),
+        model_id=model.model_id,
+        input_usd_per_mtok=model.input_usd_per_mtok,
+        output_usd_per_mtok=model.output_usd_per_mtok,
         usd_krw=Decimal(rate.krw_per_unit),
     )
+
+
+def typical_reply_krw(model: ChosenModel, rate: ExchangeRate | None) -> int | None:
+    """The picker's "답장 1회 약 N원". None without a rate to convert with."""
+    if rate is None:
+        return None
+    return Price(
+        model_id=model.model_id,
+        input_usd_per_mtok=model.input_usd_per_mtok,
+        output_usd_per_mtok=model.output_usd_per_mtok,
+        usd_krw=Decimal(rate.krw_per_unit),
+    ).krw(TYPICAL_INPUT_TOKENS, TYPICAL_OUTPUT_TOKENS)
 
 
 def estimate_tokens(text: str) -> int:

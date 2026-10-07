@@ -800,3 +800,19 @@ building/generating, ready and published. Members see only **Draft**
 the "최종본 선택됨" meta line. The libraries' filters are exactly
 전체 / Draft / 게시됨 and come from the list endpoint
 (`?status=all|draft|published`).
+
+## chat-model-choice — full spec (merged 2026-10-07)
+
+Branch `feat-chat-model-choice`. Added 2026-10-07. Saved exactly as
+written by the developer.
+
+**What it replaces.** Until this item, members could not choose a model in
+Chat: `ANTHROPIC_MODEL` in `.env` decided it for every reply (and the mock
+was priced as that model). The `claude_model_prices` table held prices
+only, edited in Admin › System.
+
+> 1. A model catalogue generalised to "provider + model" (provider = anthropic for now), so another provider later (e.g. Gemini) is a new adapter plus catalogue rows. Seed Haiku 4.5, Sonnet 5.5 and Opus 5.5 with prices, a Korean label, a one-line description, and visibility: enabled for members / admin only / disabled. Defaults: Haiku and Sonnet for members, Opus admin only, Sonnet the default. Admin edits it in a Claude Models section styled like Video Models; changes are audited. ANTHROPIC_MODEL is only the fallback when the catalogue is empty.
+> 2. Chat: a model picker next to the composer, per conversation, with label, description and estimated cost per reply in 원. New conversations use the default; changing the model affects later messages only.
+> 3. Backend: refuse models not enabled for this member (Korean 400); budget pre-check and charge use the chosen model's price; record the model on each message and usage event. The video prompt helper keeps the default model.
+>
+> Tests: disabled and admin-only refused for members; price matches the chosen model; choice persists per conversation; default for new conversations.

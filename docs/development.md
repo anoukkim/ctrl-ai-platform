@@ -161,8 +161,11 @@ secret.
 ### Claude in Chat
 
 The mock streams canned Korean replies and charges the Build budget as if
-it were `ANTHROPIC_MODEL` (Sonnet 5.5 when unset), so the ledger and the
-budget behave as they will for real. To see an error path without a key,
+it were the conversation's chosen model (chat-model-choice: Sonnet 5.5 by
+default, Haiku 4.5 if the member picks it), so the ledger and the budget
+behave as they will for real. The model comes from the catalogue in
+Admin › Claude Models; `ANTHROPIC_MODEL` is only the fallback when that
+catalogue is empty. To see an error path without a key,
 put a marker in a message:
 
 | Message contains | Shows |

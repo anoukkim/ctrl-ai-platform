@@ -21,6 +21,8 @@ export interface Conversation {
   title: string;
   created_at: string;
   last_message_at: string;
+  /** 다음 답장이 쓸 모델(`ChatModelOption.id`). null이면 기본 모델. */
+  chat_model_id: number | null;
 }
 
 export type ChatRole = "user" | "assistant";
@@ -34,6 +36,8 @@ export interface ChatMessage {
   status: ChatMessageStatus;
   action: ChatAction | null;
   action_title: string;
+  /** 답장을 쓴 모델의 ID (예: "claude-haiku-4-5"). 내 메시지는 null. */
+  model_id: string | null;
   created_at: string;
 }
 
@@ -41,10 +45,26 @@ export interface ConversationDetail extends Conversation {
   messages: ChatMessage[];
 }
 
+/** 입력창 옆 모델 고르기의 한 줄. 회원이 고를 수 있는 것만 옵니다. */
+export interface ChatModelOption {
+  id: number;
+  model_id: string;
+  label: string;
+  description: string;
+  /** 관리자에게만 보이는 모델. */
+  admin_only: boolean;
+  is_default: boolean;
+  /** 답장 1회 어림값(원). 환율이 없으면 null. */
+  estimated_reply_krw: number | null;
+}
+
 export interface ChatInfo {
   is_mock: boolean;
   rate_limit_per_minute: number;
   max_message_length: number;
+  models: ChatModelOption[];
+  /** 새 대화가 쓰는 모델. 모델 목록이 비었을 때만 null. */
+  default_model_id: number | null;
 }
 
 export function getChatInfo(): Promise<ChatInfo> {
@@ -59,11 +79,42 @@ export function getConversation(id: number): Promise<ConversationDetail> {
   return request<ConversationDetail>(`/chat/conversations/${id}`);
 }
 
-export function createConversation(): Promise<Conversation> {
+/** 새 대화. 모델을 고르지 않았으면 백엔드가 기본 모델을 넣습니다. */
+export function createConversation(chatModelId: number | null = null): Promise<Conversation> {
   return request<Conversation>("/chat/conversations", {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify(chatModelId === null ? {} : { chat_model_id: chatModelId }),
   });
+}
+
+/** 대화의 모델을 바꿉니다. 이후 답장부터 적용되고, 지난 답장은 그대로입니다. */
+export function setConversationModel(id: number, chatModelId: number): Promise<Conversation> {
+  return request<Conversation>(`/chat/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ chat_model_id: chatModelId }),
+  });
+}
+
+/**
+ * 지금 화면이 보여 줄 모델. 대화가 고른 것, 없으면 기본.
+ *
+ * 고른 모델이 목록에 없으면(관리자가 닫았거나 회원에게 열려 있지 않으면)
+ * null — 화면은 "다른 모델을 골라 주세요"라고 말합니다. 보낼 때는
+ * 백엔드도 같은 이유로 거절합니다.
+ */
+export function currentModel(
+  info: ChatInfo | null,
+  chosenId: number | null,
+): ChatModelOption | null {
+  if (!info) return null;
+  const id = chosenId ?? info.default_model_id;
+  return info.models.find((model) => model.id === id) ?? null;
+}
+
+/** 답장 아래 작은 글씨로 보일 모델 이름. 모르는 ID면 빈 문자열. */
+export function modelLabel(info: ChatInfo | null, modelId: string | null): string {
+  if (!info || !modelId) return "";
+  return info.models.find((model) => model.model_id === modelId)?.label ?? "";
 }
 
 export function renameConversation(id: number, title: string): Promise<Conversation> {

@@ -8,7 +8,7 @@ feature names, not the plan.
 | | Milestone | Status |
 | - | --------- | ------ |
 | M0 | Foundation | ✅ done |
-| **M1** | **Beta launch** | **in progress — 2/9** |
+| **M1** | **Beta launch** | **in progress — 3/9** |
 | M2 | Real creation | not started |
 | M3 | Sharing | not started |
 | M4 | Running costs | needs discussion |
@@ -24,7 +24,7 @@ ui-naming, fix-video-workspace-hang, ui-tube-watch, ui-apps-detail.
 **M1 Beta launch** — an invite-only beta on `ctrlai.my` with real Claude
 chat, everything else labelled test mode.
 ✅ video-higgsfield-only [6, mock] · ✅ Phase 2 Chat [2] (real-key check still open) ·
-⬜ chat-model-choice (built, awaiting review) · ⬜ invite-only-signup ·
+✅ chat-model-choice · ⬜ invite-only-signup ·
 ⬜ chat-plus-rendering · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
 ⬜ test-database-isolation · ⬜ prep-beta-launch [9, beta subset].
 The three `chat-plus-*` items joined on 2026-10-07: members have never

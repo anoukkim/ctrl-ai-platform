@@ -18,8 +18,28 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Awaiting review:** `feat-chat-model-choice` (code) and `docs-chat-plus`
-(the Chat+ specs and this order). See **Merge order** under Next.
+**Nothing is in progress.** Branch the next item from an up-to-date
+`main`.
+
+Decisions from **chat-model-choice** (merged 2026-10-07) that later items
+inherit:
+
+- **Chat models are a catalogue, `chat_models`** (provider + model,
+  Korean label and description, prices, `members` / `admin` / `disabled`,
+  one default that must stay open to members), edited in Admin › Claude
+  Models and audited (`chat_model.created`, `chat_model.updated`). It
+  replaced `claude_model_prices` (migration `b2f7e4c81d36`). Another
+  provider is a new adapter plus rows — `services/chat_models.py`
+  (`require_adapter`) is the seam.
+- **The model is per conversation** (`conversations.chat_model_id`, NULL =
+  the default). Each reply and usage event records the model that wrote
+  it — **the chosen model's id under the mock too**, no longer `"mock"`.
+- **The video prompt helper uses the default model.**
+- **`ANTHROPIC_MODEL` is only the fallback for an empty catalogue**, priced
+  at the list prices in `chat_models.DEFAULT_CATALOGUE`; it is no longer
+  required at startup.
+- **"답장 1회 약 N원"** is 3,000 input + 800 output tokens
+  (`pricing.TYPICAL_*`); Haiku 10원, Sonnet 20원, Opus 40원 at 1,400원/$.
 
 Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
 
@@ -37,10 +57,11 @@ Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
   (`ctrlai.sidebar-collapsed`).
 
 **Open check carried from Phase 2 — Chat: point 10 has not been run.**
-One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`,
-`ANTHROPIC_MODEL=claude-sonnet-5-5`) — confirm the reply streams, the
-usage event and deduction are right, and a wrong key shows the Korean
-message with no charge. **It must be done before `prep-beta-launch`**,
+One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`;
+the model now comes from the catalogue (`chat-model-choice`) —
+send one message on the default Sonnet 5.5 and one on Haiku 4.5) — confirm
+the reply streams, the usage event and deduction are right, and a wrong
+key shows the Korean message with no charge. **It must be done before `prep-beta-launch`**,
 whose one real feature is this chat; the request shape has so far only
 been checked against a fake transport.
 
@@ -50,6 +71,9 @@ inherit — owner-approved defaults, with two changes by the owner:
 - **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
   over Opus because the club starts on a small budget. Opus 5.5 and Haiku
   4.5 are in the price table, so switching is a `.env` change only.
+  *Superseded by `chat-model-choice`: the model is chosen per conversation
+  from a catalogue (Sonnet 5.5 the default); `ANTHROPIC_MODEL` is only the
+  fallback for an empty catalogue.*
 - **Thinking: off where the model allows it, otherwise low effort**, as a
   setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
   turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off
@@ -221,54 +245,49 @@ one real feature is Chat, and members have never used Claude, so Chat
 should show what Claude can do before the site goes public. Three
 `chat-plus-*` items come in ahead of the launch work; the post-beta
 items are specced under **After the beta** below and are not in this
-list.
+list. `chat-model-choice`, added at the top the same day, has merged
+and left it.
 
-1. **chat-model-choice** · M1 · branch `feat-chat-model-choice`
-   Members pick the Claude model per conversation from an admin-run
-   catalogue (Haiku 4.5, Sonnet 5.5, Opus 5.5 to start). **Built and
-   pushed, awaiting review**; its spec is on that branch and joins this
-   file when it merges.
-
-2. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-3. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+2. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-4. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-5. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-6. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+5. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-   **Open check before item 7 — Phase 2's point 10 (real key).** One
+   **Open check before item 6 — Phase 2's point 10 (real key).** One
    short real message with the owner's key; see **Now**. Not a branch,
    but `prep-beta-launch` does not start until it has been run.
 
-7. **prep-beta-launch** · M1 · no branch named yet
+6. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 6**, nor before Phase 2's point 10.
+   **Do not start before item 5**, nor before Phase 2's point 10.
    Running the suite against a live database is a different order of
    mistake once the database holds members' work rather than one
    developer's test rows. **Storage on the VM** now also holds chat
@@ -277,13 +296,7 @@ list.
 
 ### Merge order
 
-Two branches wait for review (2026-10-07):
-
-1. `feat-chat-model-choice` — code; merge it first.
-2. `docs-chat-plus` — documentation only. It was branched from `main`
-   before the first one merged, so `docs/BACKLOG.md` may conflict in
-   **Now** and **Next**: keep this branch's **Next** list, and keep the
-   `chat-model-choice — full spec` section from the other.
+Nothing is waiting. Branch the next item from an up-to-date `main`.
 
 ---
 
@@ -471,6 +484,8 @@ Two notes for whoever builds it, from the work that raised it:
 → **fix-video-workspace-hang — full spec** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-video-workspace-hang--full-spec).
 
 → **Phase 2 — Chat — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#phase-2--chat--full-spec-merged-2026-10-07).
+
+→ **chat-model-choice — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-model-choice--full-spec-merged-2026-10-07).
 
 ## invite-only-signup — full spec
 

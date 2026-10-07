@@ -457,7 +457,7 @@ def test_the_prompt_helper_rewrites_text_and_charges_build(
     assert body["revised_prompt"].startswith("비 오는 밤 서울 골목")
 
     event = db_session.query(UsageEvent).one()
-    assert (event.provider, event.feature, event.model_id) == ("claude", "video_prompt", "mock")
+    assert (event.provider, event.feature, event.model_id) == ("claude", "video_prompt", "claude-sonnet-5-5")
     assert event.category.value == "build"
     assert event.provider_unit == "tokens"
     assert event.provider_units == event.input_tokens + event.output_tokens > 0
