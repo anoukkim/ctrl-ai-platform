@@ -5,6 +5,9 @@ every call the mock received, which is how a test proves a route did —
 or did not — reach the video provider.
 """
 
+import math
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -452,18 +455,26 @@ def test_the_prompt_helper_rewrites_text_and_charges_build(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["revised_prompt"].startswith("비 오는 밤 서울 골목")
-    assert body["charged_krw"] == 10
+
+    event = db_session.query(UsageEvent).one()
+    assert (event.provider, event.feature, event.model_id) == ("claude", "video_prompt", "mock")
+    assert event.category.value == "build"
+    assert event.provider_unit == "tokens"
+    assert event.provider_units == event.input_tokens + event.output_tokens > 0
+
+    # Priced by the token since Phase 2 — the mock at Sonnet 5.5's list
+    # price ($2 in / $10 out per million) and 1,400원 to the dollar, rounded up.
+    usd = (Decimal(event.input_tokens) * 2 + Decimal(event.output_tokens) * 10) / 1_000_000
+    expected = math.ceil(usd * 1400)
+    assert event.provider_cost == usd.quantize(Decimal("0.000001"))
+    assert event.exchange_rate_krw == 1400
+    assert body["charged_krw"] == event.charged_krw == expected
 
     # Claude, not Higgsfield: no provider call, no version, no Video money.
     assert len(MockVideoProvider.calls) == calls
     assert db_session.query(VideoVersion).count() == 0
     assert allocation(db_session).video_consumed_krw == 0
-    assert allocation(db_session).build_consumed_krw == 10
-
-    event = db_session.query(UsageEvent).one()
-    assert (event.provider, event.feature, event.model_id) == ("claude", "video_prompt", "mock")
-    assert event.category.value == "build"
-    assert event.provider_unit == "tokens" and event.provider_units > 0
+    assert allocation(db_session).build_consumed_krw == expected
 
     # The project's prompt is the member's to change, not the helper's.
     db_session.refresh(project)

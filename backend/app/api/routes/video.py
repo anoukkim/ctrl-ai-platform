@@ -13,6 +13,7 @@ What a model allows and costs is its catalogue entry
 
 from collections.abc import Callable
 from datetime import datetime, timezone
+from decimal import Decimal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -45,9 +46,13 @@ from app.schemas.video import (
     VideoVersionCreate,
     VideoVersionRead,
 )
-from app.services import project_zip, video_assets, video_catalog
+from app.services import pricing, project_zip, providers, video_assets, video_catalog
 from app.services import usage as usage_service
-from app.services.claude_provider import ClaudeUnavailableError, get_claude_provider
+from app.services.claude_provider import (
+    PROMPT_HELP_SYSTEM,
+    ClaudeError,
+    get_claude_provider,
+)
 from app.services.storage import StorageKeyError, get_storage
 from app.services.video_provider import (
     EditRequest,
@@ -264,7 +269,7 @@ def _http_error(error: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
     if isinstance(error, video_catalog.SettingsError):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
-    if isinstance(error, (ProviderUnavailableError, ClaudeUnavailableError)):
+    if isinstance(error, (ProviderUnavailableError, ClaudeError, pricing.PricingError)):
         return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
     raise error
 
@@ -638,30 +643,61 @@ def prompt_help(
     Charged to the **Build** (Claude) budget, not Video: it is a Claude
     call, and the Video budget is for Higgsfield. The project's prompt is
     not changed here; the member applies the suggestion themselves.
+
+    Priced by the token, like Chat: the budget is checked against the
+    worst case before the call, and the tokens actually used are charged
+    after it. A failed call is not charged.
     """
     project = _owned_project(project_id, db, user)
-    amount = config.video_prompt_help_charge_krw
+    provider = get_claude_provider(config)
+    max_output = min(config.chat_max_output_tokens, 2048)
     try:
-        usage_service.ensure_affordable(
-            db, user=user, category=BudgetCategory.BUILD, amount_krw=amount
+        price = pricing.price_for(db, provider.model_id, config)
+        estimated_input = pricing.estimate_tokens(
+            PROMPT_HELP_SYSTEM + payload.prompt + payload.request
         )
-        answer = get_claude_provider(config).rewrite_video_prompt(payload.prompt, payload.request)
-        usage_service.charge(
+        usage_service.ensure_affordable(
             db,
             user=user,
             category=BudgetCategory.BUILD,
-            amount_krw=amount,
+            amount_krw=price.krw(estimated_input, max_output),
+        )
+        try:
+            answer = provider.rewrite_video_prompt(payload.prompt, payload.request)
+        except ClaudeError as error:
+            providers.record_failure(db, "claude", error.kind, error.detail)
+            db.commit()
+            raise
+        result = usage_service.charge(
+            db,
+            user=user,
+            category=BudgetCategory.BUILD,
+            amount_krw=price.krw(answer.input_tokens, answer.output_tokens),
             provider="claude",
             feature=UsageFeature.VIDEO_PROMPT.value,
             model_id=answer.model,
             provider_units=answer.input_tokens + answer.output_tokens,
             provider_unit="tokens",
+            provider_cost=price.usd(answer.input_tokens, answer.output_tokens).quantize(
+                Decimal("0.000001")
+            ),
+            input_tokens=answer.input_tokens,
+            output_tokens=answer.output_tokens,
+            exchange_rate_krw=price.usd_krw,
             video_project_id=project.id,
+            commit=False,
+            cap_to_available=True,
         )
+        providers.record_success(
+            db, "claude", "프롬프트 도움" + (" (mock)" if answer.model == "mock" else "")
+        )
+        db.commit()
+        amount = result.event.charged_krw
     except (
         usage_service.InsufficientBudgetError,
         usage_service.NoQuarterError,
-        ClaudeUnavailableError,
+        ClaudeError,
+        pricing.PricingError,
     ) as error:
         raise _http_error(error) from error
 
