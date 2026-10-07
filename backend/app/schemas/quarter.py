@@ -8,6 +8,7 @@ from app.models.quarter import ApplicationStatus, QuarterStatus
 from app.models.user import AccountStatus, UserRole
 from app.models.membership import MembershipStatus
 from app.models.wallet import TopUpStatus
+from app.schemas.withdrawal import WithdrawalRead
 
 
 class QuarterRead(BaseModel):
@@ -430,3 +431,5 @@ class MemberDetail(BaseModel):
     top_ups: list[TopUpRead] = Field(default_factory=list)
     #: 이 회원을 대상으로 한 감사 기록만.
     audit: list[AuditLogRead] = Field(default_factory=list)
+    #: 가장 최근의 탈퇴. 복구된 것도 포함 — 없었던 일이 아니니까요.
+    withdrawal: WithdrawalRead | None = None
