@@ -22,9 +22,12 @@ import {
   Code2,
   Gauge,
   LayoutGrid,
+  LogOut,
   MessageSquare,
+  Moon,
   PlayCircle,
   Shield,
+  Sun,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -33,6 +36,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
+
+import { useTheme } from "@/lib/theme";
 
 import BrandMark from "./BrandMark";
 
@@ -54,6 +59,8 @@ interface NavItem {
   label: string;
   /** lucide 아이콘 한 벌만 씁니다. 크기와 선 굵기는 CSS가 정합니다. */
   Icon: LucideIcon;
+  /** 아이콘을 영역 색으로 칠합니다 — Project Builder는 보라, Video는 청록. */
+  tone?: "build" | "video";
 }
 
 interface NavGroup {
@@ -75,8 +82,8 @@ const TOP_GROUPS: NavGroup[] = [
     label: "Create",
     items: [
       { href: "/", label: "Chat", Icon: MessageSquare },
-      { href: "/builder", label: "Project Builder", Icon: Code2 },
-      { href: "/video", label: "Video Generator", Icon: Clapperboard },
+      { href: "/builder", label: "Project Builder", Icon: Code2, tone: "build" },
+      { href: "/video", label: "Video Generator", Icon: Clapperboard, tone: "video" },
     ],
   },
   {
@@ -126,6 +133,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const { state, signOut } = useCurrentUser();
+  const { theme, toggle: toggleTheme } = useTheme();
 
   // 로그인/회원가입 화면에는 사이드바를 두지 않습니다.
   if (isPublicPath(pathname)) {
@@ -175,7 +183,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className={styles.navBrand}>
           <span className={styles.brandMark}>
-            <BrandMark size={28} />
+            <BrandMark size={18} variant="glyph" />
             CTRL+AI
           </span>
           <span className={styles.brandPhase}>함께 만들고 함께 나누는 AI 창작 커뮤니티</span>
@@ -209,6 +217,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               group={PERSONAL_GROUP}
               pathname={pathname}
               onNavigate={() => setMenuOpen(false)}
+              compact
             />
             <MemberStatus onNavigate={() => setMenuOpen(false)} />
           </div>
@@ -224,8 +233,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span className={styles.navUserHandle}>@{user.username}</span>
             </span>
           </span>
-          <button className={styles.signOut} type="button" onClick={() => void signOut()}>
-            로그아웃
+          <button
+            className={styles.footerButton}
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
+            title={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
+          >
+            {theme === "dark" ? (
+              <Sun size={16} aria-hidden="true" />
+            ) : (
+              <Moon size={16} aria-hidden="true" />
+            )}
+          </button>
+          <button
+            className={styles.footerButton}
+            type="button"
+            onClick={() => void signOut()}
+            aria-label="로그아웃"
+            title="로그아웃"
+          >
+            <LogOut size={16} aria-hidden="true" />
           </button>
         </div>
       </nav>
@@ -246,15 +274,18 @@ function NavGroupBlock({
   group,
   pathname,
   onNavigate,
+  compact = false,
 }: {
   group: NavGroup;
   pathname: string;
   onNavigate: () => void;
+  /** Account 묶음: 세 항목을 한 줄에, 아이콘 위·이름 아래로. */
+  compact?: boolean;
 }) {
   return (
     <div>
       <p className={styles.navGroupLabel}>{group.label}</p>
-      <ul className={styles.navList}>
+      <ul className={`${styles.navList} ${compact ? styles.navListCompact : ""}`}>
         {group.items.map((item) => {
           // "/"는 Chat이므로 정확히 일치할 때만 선택 표시를 합니다.
           const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -262,7 +293,9 @@ function NavGroupBlock({
           return (
             <li key={item.href}>
               <Link
-                className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
+                className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""} ${
+                  item.tone ? styles[`tone-${item.tone}`] : ""
+                }`}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 onClick={onNavigate}
@@ -437,7 +470,10 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
       aria-label={`${quarter.display_name} 사용량 보기`}
     >
       <div className={styles.memberTop}>
-        <span className={styles.memberSeason}>{quarter.display_name}</span>
+        <span className={styles.memberSeason}>
+          {quarter.display_name}
+          {days_remaining !== null && <span className={styles.memberDday}>D-{days_remaining}</span>}
+        </span>
         <span className={`badge ${MEMBERSHIP_BADGE[status]}`}>{MEMBERSHIP_LABEL[status]}</span>
       </div>
 
@@ -445,7 +481,6 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
         <span>
           {formatDate(quarter.starts_at)} – {formatDate(quarter.ends_at)}
         </span>
-        {days_remaining !== null && <span className={styles.memberDday}>D-{days_remaining}</span>}
       </div>
 
       {meters.length > 0 ? (
