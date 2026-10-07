@@ -320,3 +320,78 @@
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+
+/* ---------- 회원 탈퇴 ---------- */
+
+/* 페이지 맨 아래, 다른 카드와 떨어뜨려 둡니다. 실수로 닿을 자리가
+   아니어야 합니다. */
+.withdrawal {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1.6rem;
+  justify-items: start;
+}
+
+/* 내려받기 안내. 탈퇴 양식보다 먼저 보이도록 맨 위에 둡니다. */
+.withdrawReminder {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.withdrawReminderTitle {
+  margin: 0;
+  font-weight: 650;
+}
+
+.withdrawLinks {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+/* 개인 충전 잔액 경고. 돈 이야기이므로 다른 안내와 구분합니다. */
+.withdrawWarning {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(230, 77, 84, 0.35);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  color: var(--error-text);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.withdrawChoice {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.withdrawOption {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+}
+
+.withdrawPassword {
+  display: grid;
+  gap: 0.25rem;
+  width: min(100%, 18rem);
+}
+
+.withdrawActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

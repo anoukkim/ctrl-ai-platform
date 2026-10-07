@@ -42,6 +42,13 @@
   overflow-wrap: anywhere;
 }
 
+/* 여러 가지가 함께 바뀌는 작업의 목록. 한 줄에 한 가지. */
+.dialogEffectList {
+  display: grid;
+  gap: 0.3rem;
+  padding-left: 1.1rem;
+}
+
 /* 창 안에서 알리는 실패. 창은 닫지 않습니다 — 왜 안 되었는지 읽을
    자리가 사라지면 아무 일도 없었던 것처럼 보입니다. */
 .dialogError {

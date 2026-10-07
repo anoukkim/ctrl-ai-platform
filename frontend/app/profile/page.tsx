@@ -19,6 +19,7 @@ import { MOCK_APPS } from "@/lib/mock-data";
 import { AccountSettings, Identity } from "./AccountIdentity";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
+import WithdrawalSection from "./WithdrawalSection";
 import styles from "./profile.module.css";
 
 export const metadata: Metadata = {
@@ -101,6 +102,8 @@ export default function ProfilePage() {
         </section>
 
       </div>
+
+      <WithdrawalSection />
     </>
   );
 }
