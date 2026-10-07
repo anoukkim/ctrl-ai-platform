@@ -26,6 +26,8 @@ chat, everything else labelled test mode.
 ✅ video-higgsfield-only [6, mock] · ✅ Phase 2 Chat [2] (real-key check still open) ·
 ⬜ invite-only-signup · ⬜ test-database-isolation · ⬜ prep-beta-launch
 [9, beta subset].
+Also shipped: ui-polish (themes, Pretendard, collapsible sidebar,
+Draft / 게시됨 status).
 
 **M2 Real creation** — members make real videos and real projects.
 ⬜ real Higgsfield adapter [6] · ⬜ Builder MVP [3].

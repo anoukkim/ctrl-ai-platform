@@ -21,6 +21,21 @@ authority on order** — each item in **Next** names its milestone.
 **Nothing is in progress.** Branch the next item from an up-to-date
 `main`.
 
+Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
+
+- **Two themes, dark by default.** Every colour, size and spacing is a
+  token in `globals.css`; the light block redefines only the colours. A
+  screen that writes a raw value will not follow the theme.
+- **Pretendard Variable 1.3.9** comes from the npm package `pretendard`
+  (dynamic subset, imported in `app/layout.tsx`).
+- **`PageHeader`** (`app/components/PageHeader.tsx`) is the one list-page
+  header: eyebrow, title, subtitle, action, divider. New list screens use it.
+- **Project status as members see it:** only "Draft" and "게시됨", with
+  "생성 중…" while building or generating (`projectBadge()` in
+  `lib/projects.ts`). There is no archived status (migration `7c1d5e93a4b2`).
+- **The sidebar collapses** to an icon rail, remembered per browser
+  (`ctrlai.sidebar-collapsed`).
+
 **Open check carried from Phase 2 — Chat: point 10 has not been run.**
 One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`,
 `ANTHROPIC_MODEL=claude-sonnet-5-5`) — confirm the reply streams, the
@@ -324,70 +339,7 @@ New UI requests go here until they are folded into a UI batch.
 **ui-naming**, were each large enough to get their own item and branch in
 **Next** rather than wait for a batch.)*
 
-### ui-polish — final UI pass (branch `ui-polish`, 2026-10-07)
-
-Raised 2026-10-07 and built on `ui-polish`, which also holds the earlier
-design-handoff pass (light/dark themes, variant B shape, the restyle of
-every route). **Not merged.** Saved exactly as written by the developer:
-
-> Final UI pass on the current UI branch (same branch is fine). I've attached screenshots of the Claude Design mockup; match its look. If you need the design source, tell me and I'll export it from Claude Design.
->
-> 1. Typography
->    - Match the mockup's typeface. Tell me which font it is before adding it. If it's Pretendard (not on Google Fonts), self-host it from the npm package or a local woff2. That's a new dependency, so ask me first.
->    - Keep Korean rules: Hangul-first font stack, word-break: keep-all, IME check before Enter.
->    - Use the mockup's type scale: page title, the small coloured eyebrow ("● Create"), card names, body and meta. Meta lines (dates) stay in the UI font unless the mockup clearly uses monospace.
->
-> 2. Sidebar
->    - Wider, like the mockup, so "함께 만들고 함께 나누는 AI 창작 커뮤니티" fits on one line, with larger nav items and more spacing.
->    - Collapsible: a toggle button collapses it to an icon-only rail (tooltips with the item names) and expands it again. Remember the choice per browser in localStorage (wrapped in try/catch, default expanded). The narrow-screen menu button keeps working.
->    - The Admin item shows the count of items waiting (pending applications/top-ups) as a small badge, like the mockup's "2".
->
-> 3. Page layout
->    - The mockup's page header: eyebrow, title, subtitle, primary button on the right, divider.
->    - A wider content area, and the mockup's card style: a thumbnail area on top (video: the version thumbnail; builder: a striped placeholder labelled 미리보기 썸네일 until Phase 3), larger padding and names, badge right after the name, ⋯ on the right.
->    - Apply it consistently to Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile and Admin, not just the two libraries.
->
-> 4. Status simplification (include in this branch)
->    - Remove ARCHIVED from BuilderProjectStatus and VideoProjectStatus with an Alembic migration (map existing archived rows to draft; the downgrade re-adds the value). Keep draft, building/generating, ready and published in the DB.
->    - Library filters become exactly 전체 / Draft / 게시됨 ("Draft" = draft + ready + building/generating; "게시됨" = published), backed by the list endpoint.
->    - Badges show only "Draft" or "게시됨"; while generating, a small "생성 중…" indicator instead. Video's final version stays as the "최종본 선택됨" meta line.
->
-> 5. Design tokens: every new colour, size and spacing goes into globals.css as a token; no hard-coded values in components. Dark theme stays the default. If the mockup's light theme is easy to support through the same tokens, propose it but don't build it yet.
->
-> 6. Record the decisions in BACKLOG (ui-library-cards items they complete, plus the status decision), saved verbatim.
->
-> Tests: the existing card-overlay and sidebar tests still pass; add tests for the collapsed sidebar (state persists, nav still reachable, tooltips present), the three filters, and badges only ever showing Draft or 게시됨.
-> Check it in a browser at 1280px and 1920px wide and on a narrow screen, and send me screenshots of Chat, Builder, Video and Admin.
->
-> Mock providers only, don't touch my dev DB, don't merge. Tell me the alembic step to try it.
-
-**Decisions taken with the owner (2026-10-07):**
-
-- **Mockup source:** no screenshots came through; the owner chose the
-  Claude Design HTML export already in the repo's working tree
-  (`design_handoff_ui_polish/CTRL+AI Full Site.html`). Sizes were measured
-  from it in the browser.
-- **Font: Pretendard Variable 1.3.9**, the mockup's font, added as the npm
-  dependency `pretendard` (SIL Open Font License) and loaded from its
-  **dynamic-subset** CSS in `app/layout.tsx` — self-hosted, and a page
-  downloads only the Hangul ranges it shows.
-- **Light theme: kept as built** on this branch (the owner's choice), with
-  dark still the default. New tokens follow the same scheme.
-- **Meta dates stay monospace** on the library and community cards,
-  because the mockup clearly sets them in `ui-monospace`.
-- **Thumbnail on top for both libraries**, as the request says, although
-  the mockup draws the video card's picture as a 72×128 tile at the left.
-
-**Status decision (owner, 2026-10-07):** `archived` is gone from both
-`BuilderProjectStatus` and `VideoProjectStatus` — migration
-`7c1d5e93a4b2` turns archived rows into draft and rebuilds the CHECK
-constraints; the downgrade restores the value. The database keeps draft,
-building/generating, ready and published. Members see only **Draft**
-(draft, building/generating, ready) and **게시됨** (published), with a
-"생성 중…" note while building or generating; a chosen final version is
-the "최종본 선택됨" meta line. The libraries' filters are exactly
-전체 / Draft / 게시됨 and come from the list endpoint
-(`?status=all|draft|published`).
+→ **ui-polish — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#ui-polish--final-ui-pass-merged-2026-10-07). Its decisions that later work inherits are in **Now**.
 
 ### ui-library-cards
 
