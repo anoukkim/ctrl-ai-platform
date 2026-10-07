@@ -8,8 +8,9 @@
 import type { Metadata } from "next";
 import { MOCK_APPS } from "@/lib/mock-data";
 
+import PageHeader from "@/app/components/PageHeader";
+
 import AppGrid from "./AppGrid";
-import styles from "./ctrlaistore.module.css";
 
 export const metadata: Metadata = {
   title: "CtrlAIApps — CTRL+AI",
@@ -18,16 +19,18 @@ export const metadata: Metadata = {
 export default function CtrlAIStorePage() {
   return (
     <>
-      <header className={`page-header ${styles.pageHeader}`}>
-        <h1 className="page-title">
-          CtrlAIApps <span className="badge badge-mock">준비 중</span>
-        </h1>
-        <p className="page-subtitle">
-          회원들이 Project Builder로 만들어 게시한 앱입니다. 만든 사람이 이번 분기에
-          참여하지 않더라도 앱은 그대로 남아 있습니다.
-        </p>
-        <span className="badge badge-muted">{MOCK_APPS.length}개</span>
-      </header>
+      <PageHeader
+        eyebrow="Explore"
+        title="CtrlAIApps"
+        titleAddon={<span className="badge badge-mock">준비 중</span>}
+        subtitle={
+          <>
+            회원들이 Project Builder로 만들어 게시한 앱입니다. 만든 사람이 이번 분기에
+            참여하지 않더라도 앱은 그대로 남아 있습니다.
+          </>
+        }
+        actions={<span className="badge badge-muted">{MOCK_APPS.length}개</span>}
+      />
 
       <AppGrid />
     </>

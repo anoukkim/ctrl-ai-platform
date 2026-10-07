@@ -32,7 +32,7 @@
   display: inline-block;
   margin-bottom: 1rem;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-count);
 }
 
 .back:hover {
@@ -100,7 +100,7 @@
 
 .playerNote {
   margin-top: 0.5rem;
-  font-size: 12.5px;
+  font-size: var(--fs-chip);
   line-height: 1.6;
   opacity: 0.8;
 }
@@ -113,8 +113,8 @@
   align-items: center;
   gap: 0.5rem;
   margin-top: 1.25rem;
-  font-size: 22px;
-  font-weight: 750;
+  font-size: var(--page-title-sm);
+  font-weight: var(--fw-title);
   line-height: 1.35;
 }
 
@@ -127,7 +127,7 @@
   gap: 0.4rem;
   margin-top: 0.5rem;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-count);
 }
 
 .metaCreator {
@@ -146,7 +146,7 @@
   margin-top: 0.9rem;
   margin-bottom: 1.4rem;
   color: var(--text-muted);
-  font-size: 14.5px;
+  font-size: var(--page-message);
   line-height: 1.65;
 }
 
@@ -157,7 +157,7 @@
   background: var(--panel);
   box-shadow: var(--shadow);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--fs-section);
   line-height: 1.65;
 }
 
@@ -177,7 +177,7 @@
 .detailsSummary {
   padding: 0.75rem 1rem;
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: var(--fs-body);
   font-weight: 600;
   cursor: pointer;
 }
@@ -199,7 +199,7 @@
   gap: 0.5rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border);
-  font-size: 13.5px;
+  font-size: var(--fs-body);
 }
 
 .detailRow:last-child {
@@ -235,7 +235,7 @@
 
 .youtubeNote {
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: var(--fs-body);
   line-height: 1.6;
 }
 

@@ -20,8 +20,8 @@
 
 .grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: var(--card-gap);
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min-community), 1fr));
 }
 
 .card {
@@ -51,8 +51,8 @@
   place-items: center;
   aspect-ratio: 16 / 10;
   color: var(--on-accent);
-  font-size: 18px;
-  font-weight: 750;
+  font-size: var(--page-artwork);
+  font-weight: var(--fw-title);
   text-align: center;
   padding: 0.9rem;
 }
@@ -71,24 +71,24 @@
   border-radius: 999px;
   background: color-mix(in oklch, var(--video-letterbox) 55%, transparent);
   color: var(--on-accent);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-strong);
 }
 
 .body {
   display: grid;
   gap: 0.35rem;
-  padding: 14px 16px 14px;
+  padding: var(--card-pad-y) var(--card-pad-x);
 }
 
 .name {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--fs-card-name);
+  font-weight: var(--fw-card-name);
 }
 
 .tagline {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-count);
   line-height: 1.5;
 }
 
@@ -101,7 +101,7 @@
   padding-top: 0.6rem;
   border-top: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .metaItem {
@@ -122,7 +122,7 @@
   display: inline-block;
   margin-bottom: 1rem;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-count);
 }
 
 .back:hover {
@@ -149,8 +149,8 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   color: var(--on-accent);
-  font-size: 26px;
-  font-weight: 750;
+  font-size: var(--page-detail-title);
+  font-weight: var(--fw-title);
   text-align: center;
   padding: 1rem;
   overflow: hidden;
@@ -165,7 +165,7 @@
 
 .heroTagline {
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: var(--fs-card-name);
   line-height: 1.6;
 }
 
@@ -175,7 +175,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
-  font-size: 14px;
+  font-size: var(--fs-section);
 }
 
 .creatorAvatar {
@@ -188,8 +188,8 @@
   background: var(--panel-2);
   border: 1px solid var(--border-strong);
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-strong);
 }
 
 .creatorName {
@@ -204,7 +204,7 @@
   align-items: center;
   gap: 0.4rem;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-count);
 }
 
 .metaDot {
@@ -274,7 +274,7 @@
 .description {
   max-width: 76ch;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: var(--page-lead);
   line-height: 1.8;
 }
 
@@ -285,8 +285,8 @@
 
 .blockTitle {
   color: var(--text);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-section);
+  font-weight: var(--fw-card-name);
 }
 
 /* ---------- 주요 기능 ---------- */
@@ -305,7 +305,7 @@
   align-items: flex-start;
   gap: 0.75rem;
   min-width: 0;
-  padding: 14px 16px;
+  padding: var(--card-pad-y) var(--card-pad-x);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -333,13 +333,13 @@
 
 .featureTitle {
   color: var(--text);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: var(--fs-section);
+  font-weight: var(--fw-strong);
 }
 
 .featureNote {
   color: var(--text-dim);
-  font-size: 12.5px;
+  font-size: var(--fs-chip);
   line-height: 1.55;
 }
 
@@ -406,13 +406,13 @@
   display: block;
   margin-top: 0.4rem;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 /* 그림 줄 바로 아래. 줄 안에 두었더니 네 번째 화면처럼 읽혔습니다. */
 .galleryNote {
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--fs-label);
 }
 
 /* ---------- 크게 보기 ---------- */
@@ -449,7 +449,7 @@
   border-radius: 999px;
   background: var(--panel);
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: var(--fs-count);
   text-align: center;
 }
 
@@ -489,7 +489,7 @@
   gap: 0.6rem;
   padding: 0.75rem 1rem;
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: var(--fs-body);
   font-weight: 600;
   cursor: pointer;
   /* 기본 삼각형을 지웁니다 — 돌아가는 꺾쇠를 대신 둡니다. */
@@ -527,7 +527,7 @@
   gap: 0.5rem;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--border);
-  font-size: 13.5px;
+  font-size: var(--fs-body);
   /* 주소처럼 띄어쓰기 없이 긴 글자가 칸을 넘지 않게 합니다. */
   overflow-wrap: anywhere;
 }
@@ -629,14 +629,14 @@
   background: var(--panel-2);
   color: var(--text-muted);
   font-family: var(--mono);
-  font-size: 0.7rem;
-  font-weight: 650;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-strong);
 }
 
 .entryDate {
   color: var(--text-dim);
   font-family: var(--mono);
-  font-size: 0.74rem;
+  font-size: var(--fs-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -646,14 +646,14 @@
   background: var(--accent-soft);
   border: 1px solid var(--accent-border);
   color: var(--accent);
-  font-size: 0.68rem;
-  font-weight: 650;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-strong);
 }
 
 .entryTitle {
   color: var(--text);
-  font-size: 15px;
-  font-weight: 650;
+  font-size: var(--fs-card-name);
+  font-weight: var(--fw-strong);
 }
 
 .entryChanges {
@@ -669,7 +669,7 @@
   align-items: flex-start;
   gap: 0.4rem;
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: var(--fs-body);
   line-height: 1.6;
 }
 
@@ -683,7 +683,7 @@
 .mockNote {
   margin-top: 0.9rem;
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--fs-label);
 }
 
 /* ---------- 비어 있을 때 ---------- */
@@ -697,7 +697,7 @@
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
-  font-size: 0.8rem;
+  font-size: var(--fs-chip);
 }
 
 .empty svg {
@@ -765,7 +765,7 @@
    들쭉날쭉해집니다. */
 .otherName {
   overflow: hidden;
-  font-size: 0.84rem;
+  font-size: var(--fs-body);
   font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -774,7 +774,7 @@
 .otherTagline {
   overflow: hidden;
   color: var(--text-dim);
-  font-size: 0.75rem;
+  font-size: var(--fs-meta);
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -810,23 +810,7 @@
   border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--fs-section);
   text-align: center;
 }
 
-/* 머리말: 제목이 위, 설명이 아래, 개수는 설명 줄의 오른쪽 끝. */
-.pageHeader {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  column-gap: 1rem;
-  row-gap: 0.35rem;
-}
-
-.pageHeader > :first-child {
-  grid-column: 1 / -1;
-}
-
-.pageHeader > :last-child {
-  justify-self: end;
-}

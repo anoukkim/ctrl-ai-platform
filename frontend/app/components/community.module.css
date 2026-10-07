@@ -7,7 +7,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  font-size: 12.5px;
+  font-size: var(--fs-chip);
   color: var(--text-muted);
 }
 

@@ -10,6 +10,8 @@
 
 import type { Metadata } from "next";
 
+import PageHeader from "@/app/components/PageHeader";
+
 import styles from "./issues.module.css";
 
 export const metadata: Metadata = {
@@ -21,12 +23,11 @@ const NEW_ISSUE_URL = "https://github.com/anoukkim/ctrl-ai-platform/issues/new/c
 export default function IssuesPage() {
   return (
     <div className={styles.page}>
-      <header className="page-header page-header-stacked">
-        <h1 className="page-title">Report Issue</h1>
-        <p className="page-subtitle">
-          잘 안 되는 것을 알려 주시거나, 있었으면 하는 기능을 제안해 주세요.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Account"
+        title="Report Issue"
+        subtitle="잘 안 되는 것을 알려 주시거나, 있었으면 하는 기능을 제안해 주세요."
+      />
 
       <section className="card">
         <h2 className="section-title">어떻게 알리나요</h2>

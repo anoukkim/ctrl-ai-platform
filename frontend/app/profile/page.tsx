@@ -16,6 +16,8 @@ import Link from "next/link";
 
 import { MOCK_APPS } from "@/lib/mock-data";
 
+import PageHeader from "@/app/components/PageHeader";
+
 import { AccountSettings, Identity } from "./AccountIdentity";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
@@ -32,12 +34,12 @@ const myApps = MOCK_APPS.filter((app) => app.creator.username === "yurikim");
 export default function ProfilePage() {
   return (
     <>
-      <header className="page-header">
-        <h1 className="page-title">
-          Profile <span className="badge badge-mock">준비 중</span>
-        </h1>
-        <p className="page-subtitle">내 계정과 참여 분기, 지금까지 만든 결과물입니다.</p>
-      </header>
+      <PageHeader
+        eyebrow="Account"
+        title="Profile"
+        titleAddon={<span className="badge badge-mock">준비 중</span>}
+        subtitle="내 계정과 참여 분기, 지금까지 만든 결과물입니다."
+      />
 
       <Identity />
 
