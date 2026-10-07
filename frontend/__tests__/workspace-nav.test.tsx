@@ -25,6 +25,7 @@ const VIDEO_PROJECT: VideoProjectDetail = {
   status: "draft",
   selected_model_id: null,
   final_version_id: null,
+  final_version_has_asset: false,
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-01T00:00:00Z",
   versions: [],

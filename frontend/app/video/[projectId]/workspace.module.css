@@ -627,3 +627,148 @@
   text-overflow: ellipsis;
   max-width: 10rem;
 }
+
+/* ---------- video-higgsfield-only ---------- */
+
+/* 예상 비용은 생성 버튼 바로 옆에 둡니다. 누르기 전에 눈에 들어와야
+   하는 숫자이기 때문입니다. */
+.costRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cost {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* 지원금이 모자라거나 제공자가 거절한 경우. 화면 전체를 덮지 않고
+   버튼 아래에 이유만 적습니다. */
+.actionError {
+  padding: 0.4rem 0.6rem;
+  border-left: 2px solid var(--error);
+  background: var(--error-soft);
+  border-radius: var(--radius-sm);
+  color: var(--error-text);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+/* 수정 · 이어서 만들기 패널 */
+.actionPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.sourceSummary {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* 버전 조각의 "수정 ← v1". 어떻게, 무엇에서 만들었는지. */
+.versionKind {
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  font-weight: 400;
+}
+
+/* 이 모델이 수정·이어서 만들기를 지원하지 않을 때의 짧은 안내. */
+.actionNote {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  max-width: 16rem;
+}
+
+/* 접혀 있는 프롬프트 도움받기. 좁은 세로 띠 하나만 차지합니다. */
+.helperCollapsed {
+  flex: 0 0 auto;
+}
+
+.helperOpen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 0.9rem 0.55rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.helperOpen:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.helperOpenLabel {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.04em;
+}
+
+.helperCharge {
+  margin-bottom: 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+/* 좁은 화면에서는 칸이 세로로 쌓이므로 띠도 가로로 눕힙니다. */
+@media (max-width: 75rem) {
+  .helperOpen {
+    flex-direction: row;
+    height: auto;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .helperOpenLabel {
+    writing-mode: horizontal-tb;
+  }
+}
+
+/* ---------- 버전 다운로드 ---------- */
+
+.previewHeadEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* 버전 조각 옆의 작은 다운로드 단추. 조각과 한 묶음으로 보이게 붙입니다. */
+.versionItem {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+}
+
+.versionDownload {
+  display: grid;
+  place-items: center;
+  min-width: 1.9rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.versionDownload:hover {
+  color: var(--text);
+}
+
+/* 파일이 없는 이전 버전. 누를 수 없다는 것만 보이면 됩니다. */
+.downloadUnavailable {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

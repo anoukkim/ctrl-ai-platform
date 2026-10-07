@@ -1,13 +1,18 @@
-"""Video Generator routes: the member-facing model list and projects.
+"""Video Generator routes: the member-facing model list, projects and versions.
 
-Higgsfield is still not called — that is Phase 6. What a version does get
-now is a **file**, from the mock provider, stored through the storage
-interface: without one there would be nothing to download, and
-`project-video-management` asks for the download to work end to end
-before a provider exists.
+Every generation, edit and extension goes through the video provider
+behind `VIDEO_PROVIDER` (mock by default — see
+`app/services/video_provider.py`) and is charged to the member's **Video**
+budget through `app/services/usage.py`. The prompt helper is a Claude call
+and is charged to **Build**; it rewrites text and never reaches the video
+provider.
+
+What a model allows and costs is its catalogue entry
+(`app/services/video_catalog.py`).
 """
 
-from datetime import date, datetime, timezone
+from collections.abc import Callable
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -17,8 +22,21 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_active_member
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import User, VideoModel, VideoProject, VideoVersion, VideoVersionStatus
+from app.models import (
+    BudgetCategory,
+    UsageFeature,
+    User,
+    VideoModel,
+    VideoProject,
+    VideoVersion,
+    VideoVersionKind,
+    VideoVersionStatus,
+)
 from app.schemas.video import (
+    PromptHelpRead,
+    PromptHelpRequest,
+    VideoEditCreate,
+    VideoExtendCreate,
     VideoModelRead,
     VideoProjectCreate,
     VideoProjectDetail,
@@ -27,8 +45,19 @@ from app.schemas.video import (
     VideoVersionCreate,
     VideoVersionRead,
 )
-from app.services import project_zip, video_assets
+from app.services import project_zip, video_assets, video_catalog
+from app.services import usage as usage_service
+from app.services.claude_provider import ClaudeUnavailableError, get_claude_provider
 from app.services.storage import StorageKeyError, get_storage
+from app.services.video_provider import (
+    EditRequest,
+    ExtendRequest,
+    GenerateRequest,
+    ProviderResult,
+    ProviderUnavailableError,
+    VideoGenerationProvider,
+    get_video_provider,
+)
 from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/video", tags=["video"])
@@ -188,6 +217,9 @@ def update_project(
 
     for field, value in changes.items():
         setattr(project, field, value)
+    # After the changes, so a status sent in the same request cannot leave
+    # a project with a final version marked Draft.
+    project.apply_final_version_rule()
 
     db.commit()
     db.refresh(project)
@@ -216,11 +248,153 @@ def delete_project(
     db.commit()
 
 
+# ---------------------------------------------------------------- versions
+#
+# Generate, edit and extend share one path through `_produce`: check the
+# budget, call the provider, store the file, then charge — the version row
+# and the deduction committed together, so neither exists without the
+# other. A refused or failed call is never charged.
+
+
+def _http_error(error: Exception) -> HTTPException:
+    """The budget and provider failures as the status the screen expects."""
+    if isinstance(error, usage_service.InsufficientBudgetError):
+        return HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(error))
+    if isinstance(error, usage_service.NoQuarterError):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
+    if isinstance(error, video_catalog.SettingsError):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
+    if isinstance(error, (ProviderUnavailableError, ClaudeUnavailableError)):
+        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
+    raise error
+
+
+def _produce(
+    db: Session,
+    *,
+    user: User,
+    project: VideoProject,
+    model: VideoModel,
+    config: Settings,
+    call: Callable[[VideoGenerationProvider], ProviderResult],
+    feature: UsageFeature,
+    charged_seconds: int,
+    version: VideoVersion,
+) -> VideoVersion:
+    """Run one paid video operation and record it. See the note above."""
+    try:
+        amount = video_catalog.cost_krw(model, version.resolution or "", charged_seconds)
+        # Refused here, nothing has been spent: the provider is not called.
+        usage_service.ensure_affordable(
+            db, user=user, category=BudgetCategory.VIDEO, amount_krw=amount
+        )
+        result = call(get_video_provider(config))
+    except (
+        usage_service.InsufficientBudgetError,
+        usage_service.NoQuarterError,
+        video_catalog.SettingsError,
+        ProviderUnavailableError,
+    ) as error:
+        raise _http_error(error) from error
+
+    version.provider_job_id = result.job_id
+    db.add(version)
+    # Flushed rather than committed: the version needs its id to build a
+    # storage key, and the row must not be visible without its file.
+    db.flush()
+    version.asset_storage_key = video_assets.store(
+        get_storage(config), project_id=project.id, version_id=version.id, asset=result.asset
+    )
+
+    try:
+        usage_service.charge(
+            db,
+            user=user,
+            category=BudgetCategory.VIDEO,
+            amount_krw=amount,
+            provider=model.provider,
+            feature=feature.value,
+            model_id=model.model_id,
+            provider_units=charged_seconds,
+            provider_unit="seconds",
+            provider_cost=None,
+            video_project_id=project.id,
+            video_version_id=version.id,
+            commit=False,
+        )
+    except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
+        # Lost a race with another charge after the pre-check. The version
+        # goes with the rollback, so the member is not left with a video
+        # nobody paid for — nor charged for one they were refused.
+        db.rollback()
+        raise _http_error(error) from error
+
+    db.commit()
+    db.refresh(version)
+    db.refresh(project)
+    return version
+
+
+def _source_version(project: VideoProject, version_id: int) -> VideoVersion:
+    """A finished version of this project with its settings recorded.
+
+    Edit and extend inherit length, ratio and resolution from the source,
+    and the price depends on them. A version made before those were
+    recorded has no honest price, so it cannot be the source.
+    """
+    source = next((row for row in project.versions if row.id == version_id), None)
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="버전을 찾을 수 없습니다.")
+    if source.status is not VideoVersionStatus.READY or not source.asset_storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="아직 완성되지 않은 버전은 수정하거나 이어서 만들 수 없습니다.",
+        )
+    if not (source.duration_seconds and source.aspect_ratio and source.resolution):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이 버전은 만든 설정이 기록되지 않아 수정하거나 이어서 만들 수 없습니다.",
+        )
+    return source
+
+
+def _model_of(db: Session, version: VideoVersion) -> VideoModel:
+    """The model that made `version`, if members may still use it.
+
+    Edit and extend run on the source's own model: framing and resolution
+    come from the source, and another model may not offer them.
+    """
+    model = next(
+        (
+            m
+            for m in _allowed_models(db)
+            if m.provider == version.provider and m.model_id == version.model_id
+        ),
+        None,
+    )
+    if model is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이 버전을 만든 모델은 지금 사용할 수 없습니다.",
+        )
+    return model
+
+
+def _load_source_file(config: Settings, source: VideoVersion) -> bytes:
+    try:
+        return get_storage(config).load(source.asset_storage_key or "")
+    except (OSError, StorageKeyError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="원본 영상 파일을 찾을 수 없어 이어서 작업할 수 없습니다.",
+        ) from error
+
+
 @router.post(
     "/projects/{project_id}/versions",
     response_model=VideoVersionRead,
     status_code=status.HTTP_201_CREATED,
-    summary="Record a generation attempt",
+    summary="Generate a version (text-to-video)",
 )
 def create_version(
     project_id: int,
@@ -231,17 +405,13 @@ def create_version(
     # request body — the generation settings the member asked for.
     config: Settings = Depends(get_settings),
 ) -> VideoVersion:
-    """Add a version using the project's current prompt and model.
+    """Generate a version from the project's current prompt and model.
 
-    Phase 1 records the attempt only — nothing is generated. The row is
-    marked ready so the workspace has something to show; Phase 6 will
-    create it as `queued` and let a provider job move it along.
-
-    The length, aspect ratio and sound come from the request because they
-    live in the workspace's controls rather than on the project. They are
-    checked against the chosen model's capabilities here: a browser can
-    send anything, so a model that only does 9:16 must refuse 16:9 on the
-    server, not merely grey the button out.
+    Length, ratio, resolution and sound come from the request; anything
+    left out is the model's default, so a version always records the
+    exact settings it was made with. Anything the model's catalogue entry
+    does not offer is refused — a browser can send anything, so a model
+    that only does 9:16 must refuse 16:9 here, not merely hide the button.
     """
     project = _owned_project(project_id, db, user)
 
@@ -259,63 +429,245 @@ def create_version(
             detail="사용할 수 있는 영상 모델이 없습니다.",
         )
 
-    asked = settings or VideoVersionCreate()
-    capabilities = model.capabilities or {}
-
-    durations = capabilities.get("durations") or []
-    if asked.duration_seconds is not None and durations and asked.duration_seconds not in durations:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{model.display_name} 모델은 {asked.duration_seconds}초를 지원하지 않습니다."
-            ),
-        )
-
-    aspects = capabilities.get("aspect_ratios") or []
-    if asked.aspect_ratio is not None and aspects and asked.aspect_ratio not in aspects:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{model.display_name} 모델은 {asked.aspect_ratio} 비율을 지원하지 않습니다.",
-        )
-
-    # A model with no sound can only produce a silent version. This is not
-    # an error — the screen already says so — so it is corrected quietly.
-    sound = asked.sound
-    if sound and not capabilities.get("sound", True):
-        sound = False
+    try:
+        chosen = video_catalog.resolve_generation(model, settings or VideoVersionCreate())
+    except video_catalog.SettingsError as error:
+        raise _http_error(error) from error
 
     version = VideoVersion(
         project_id=project.id,
         provider=model.provider,
         model_id=model.model_id,
         prompt_snapshot=project.prompt,
-        duration_seconds=asked.duration_seconds,
-        aspect_ratio=asked.aspect_ratio,
-        sound=sound,
+        kind=VideoVersionKind.GENERATE,
+        duration_seconds=chosen.duration_seconds,
+        aspect_ratio=chosen.aspect_ratio,
+        resolution=chosen.resolution,
+        sound=chosen.sound,
         auto_selected=auto_selected,
     )
-    db.add(version)
-    # Flushed rather than committed: the version needs its id to build a
-    # storage key, and the row must not be visible without its file.
-    db.flush()
+    return _produce(
+        db,
+        user=user,
+        project=project,
+        model=model,
+        config=config,
+        call=lambda provider: provider.generate(
+            GenerateRequest(
+                model_id=model.model_id,
+                prompt=project.prompt,
+                duration_seconds=chosen.duration_seconds,
+                aspect_ratio=chosen.aspect_ratio,
+                resolution=chosen.resolution,
+                sound=chosen.sound,
+            )
+        ),
+        feature=UsageFeature.VIDEO_GENERATE,
+        charged_seconds=chosen.duration_seconds,
+        version=version,
+    )
 
-    if video_assets.is_mock(config):
-        # The mock provider's whole job: leave a file the member can
-        # actually open, so the download is real before Higgsfield exists.
-        # Phase 6 replaces this branch with the provider call and keeps
-        # the two lines that store the result.
-        asset = video_assets.make_placeholder(version.aspect_ratio)
-        version.asset_storage_key = video_assets.store(
-            get_storage(config),
-            project_id=project.id,
-            version_id=version.id,
-            asset=asset,
+
+@router.post(
+    "/projects/{project_id}/versions/{version_id}/edit",
+    response_model=VideoVersionRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="이 영상 수정하기 — edit a version into a new one",
+)
+def edit_version(
+    project_id: int,
+    version_id: int,
+    payload: VideoEditCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> VideoVersion:
+    """Send a version and an instruction to its model's edit workflow.
+
+    The result is a new version linked to its source; the source is left
+    as it was. Length, ratio and resolution are the source's, so the
+    price is the source's length at the source's resolution.
+    """
+    project = _owned_project(project_id, db, user)
+    source = _source_version(project, version_id)
+    model = _model_of(db, source)
+    try:
+        caps = video_catalog.capabilities_of(model)
+    except video_catalog.SettingsError as error:
+        raise _http_error(error) from error
+    if not caps.supports_edit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{model.display_name} 모델은 영상 수정을 지원하지 않습니다.",
         )
 
-    db.commit()
-    db.refresh(version)
-    db.refresh(project)
-    return version
+    instruction = payload.instruction.strip()
+    if not instruction:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="무엇을 바꿀지 적어 주세요."
+        )
+    source_file = _load_source_file(config, source)
+    seconds = source.duration_seconds or 0
+
+    version = VideoVersion(
+        project_id=project.id,
+        provider=model.provider,
+        model_id=model.model_id,
+        prompt_snapshot=source.prompt_snapshot,
+        kind=VideoVersionKind.EDIT,
+        source_version_id=source.id,
+        instruction=instruction,
+        duration_seconds=seconds,
+        aspect_ratio=source.aspect_ratio,
+        resolution=source.resolution,
+        sound=bool(source.sound),
+        auto_selected=False,
+    )
+    return _produce(
+        db,
+        user=user,
+        project=project,
+        model=model,
+        config=config,
+        call=lambda provider: provider.edit(
+            EditRequest(
+                model_id=model.model_id,
+                source=source_file,
+                instruction=instruction,
+                aspect_ratio=source.aspect_ratio or "",
+                resolution=source.resolution or "",
+            )
+        ),
+        feature=UsageFeature.VIDEO_EDIT,
+        charged_seconds=seconds,
+        version=version,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/versions/{version_id}/extend",
+    response_model=VideoVersionRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="이어서 만들기 — extend a version by a chosen length",
+)
+def extend_version(
+    project_id: int,
+    version_id: int,
+    payload: VideoExtendCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> VideoVersion:
+    """Continue a version by `duration_seconds`, one of its model's lengths.
+
+    The new version's length is the source's plus what was added; only
+    the added seconds are charged.
+    """
+    project = _owned_project(project_id, db, user)
+    source = _source_version(project, version_id)
+    model = _model_of(db, source)
+    try:
+        caps = video_catalog.capabilities_of(model)
+    except video_catalog.SettingsError as error:
+        raise _http_error(error) from error
+    if not caps.supports_extend:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{model.display_name} 모델은 이어서 만들기를 지원하지 않습니다.",
+        )
+    added = payload.duration_seconds
+    if added not in caps.durations:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{model.display_name} 모델은 {added}초를 이어서 만들 수 없습니다.",
+        )
+    source_file = _load_source_file(config, source)
+
+    version = VideoVersion(
+        project_id=project.id,
+        provider=model.provider,
+        model_id=model.model_id,
+        prompt_snapshot=source.prompt_snapshot,
+        kind=VideoVersionKind.EXTEND,
+        source_version_id=source.id,
+        duration_seconds=(source.duration_seconds or 0) + added,
+        aspect_ratio=source.aspect_ratio,
+        resolution=source.resolution,
+        sound=bool(source.sound),
+        auto_selected=False,
+    )
+    return _produce(
+        db,
+        user=user,
+        project=project,
+        model=model,
+        config=config,
+        call=lambda provider: provider.extend(
+            ExtendRequest(
+                model_id=model.model_id,
+                source=source_file,
+                prompt=source.prompt_snapshot,
+                duration_seconds=added,
+                aspect_ratio=source.aspect_ratio or "",
+                resolution=source.resolution or "",
+            )
+        ),
+        feature=UsageFeature.VIDEO_EXTEND,
+        charged_seconds=added,
+        version=version,
+    )
+
+
+# ---------------------------------------------------------- prompt helper
+
+
+@router.post(
+    "/projects/{project_id}/prompt-help",
+    response_model=PromptHelpRead,
+    summary="프롬프트 도움받기 — Claude rewrites the prompt text",
+)
+def prompt_help(
+    project_id: int,
+    payload: PromptHelpRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> PromptHelpRead:
+    """Ask Claude to rewrite the prompt. Text only — never generates video.
+
+    Charged to the **Build** (Claude) budget, not Video: it is a Claude
+    call, and the Video budget is for Higgsfield. The project's prompt is
+    not changed here; the member applies the suggestion themselves.
+    """
+    project = _owned_project(project_id, db, user)
+    amount = config.video_prompt_help_charge_krw
+    try:
+        usage_service.ensure_affordable(
+            db, user=user, category=BudgetCategory.BUILD, amount_krw=amount
+        )
+        answer = get_claude_provider(config).rewrite_video_prompt(payload.prompt, payload.request)
+        usage_service.charge(
+            db,
+            user=user,
+            category=BudgetCategory.BUILD,
+            amount_krw=amount,
+            provider="claude",
+            feature=UsageFeature.VIDEO_PROMPT.value,
+            model_id=answer.model,
+            provider_units=answer.input_tokens + answer.output_tokens,
+            provider_unit="tokens",
+            video_project_id=project.id,
+        )
+    except (
+        usage_service.InsufficientBudgetError,
+        usage_service.NoQuarterError,
+        ClaudeUnavailableError,
+    ) as error:
+        raise _http_error(error) from error
+
+    return PromptHelpRead(
+        reply=answer.reply, revised_prompt=answer.revised_prompt, charged_krw=amount
+    )
 
 
 @router.get(
@@ -369,11 +721,11 @@ def download_version(
         ) from error
 
     extension = version.asset_storage_key.rsplit(".", 1)[-1]
-    filename = project_zip.safe_filename(
-        f"{project.name} {version.label}", date.today(), extension
-    )
+    filename = project_zip.version_filename(project.name, version.label, extension)
 
-    disposition = f'attachment; filename="video-{version.id}.{extension}"; ' + (
+    # `filename` for old clients that cannot read UTF-8, `filename*` for
+    # everyone else — which is where the Korean project name survives.
+    disposition = f'attachment; filename="video_{version.label}.{extension}"; ' + (
         f"filename*=UTF-8''{quote(filename)}"
     )
 

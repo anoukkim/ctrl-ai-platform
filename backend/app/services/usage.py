@@ -32,6 +32,14 @@ when the member has explicitly enabled overage *and* has enough. Splitting
 a single action across both pots would make the Usage screen much harder
 to explain, and CLAUDE.md is explicit that the two are never added
 together.
+
+## Checking before calling a provider
+
+A provider call costs the club money whether or not the member can pay
+for it. `ensure_affordable()` answers "would this charge succeed?" before
+the call, so a member without budget is refused with nothing spent.
+`charge()` still re-checks under the lock afterwards — the pre-check is a
+courtesy, the lock is the guarantee.
 """
 
 from dataclasses import dataclass
@@ -78,6 +86,43 @@ def _community_source(category: BudgetCategory) -> FundingSource:
     )
 
 
+def ensure_affordable(
+    db: Session, *, user: User, category: BudgetCategory, amount_krw: int
+) -> None:
+    """Raise exactly what `charge()` would, without locking or changing anything.
+
+    For use before a provider call. It reads without `FOR UPDATE`, so a
+    concurrent charge can still win the race; `charge()` catches that.
+    """
+    quarter = current_quarter(db)
+    if quarter is None:
+        raise NoQuarterError("지금은 진행 중인 분기가 없습니다.")
+
+    allocation = db.scalar(
+        select(QuarterAllocation).where(
+            QuarterAllocation.user_id == user.id,
+            QuarterAllocation.quarter_id == quarter.id,
+        )
+    )
+    if allocation is not None:
+        remaining = (
+            allocation.build_remaining_krw
+            if category is BudgetCategory.BUILD
+            else allocation.video_remaining_krw
+        )
+        if amount_krw <= remaining:
+            return
+
+    balance = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == user.id))
+    if balance is not None and balance.overage_enabled:
+        if amount_krw <= max(0, balance.balance_krw - balance.consumed_krw):
+            return
+        raise InsufficientBudgetError("남은 지원금과 개인 잔액이 모두 부족합니다.")
+    raise InsufficientBudgetError(
+        "이번 분기 지원금이 부족합니다. 개인 잔액을 쓰려면 Usage에서 개인 사용을 켜 주세요."
+    )
+
+
 def charge(
     db: Session,
     *,
@@ -85,6 +130,7 @@ def charge(
     category: BudgetCategory,
     amount_krw: int,
     provider: str,
+    feature: str | None = None,
     model_id: str | None = None,
     provider_units: int = 0,
     provider_unit: str = "",
@@ -92,11 +138,18 @@ def charge(
     provider_currency: str = "USD",
     builder_project_id: int | None = None,
     video_project_id: int | None = None,
+    video_version_id: int | None = None,
+    commit: bool = True,
 ) -> ChargeResult:
     """Deduct `amount_krw` and record the matching usage event.
 
     Commits on success. Raises `InsufficientBudgetError` without changing
     anything when the money is not there.
+
+    `commit=False` leaves the commit to the caller, for a route whose own
+    rows — a new video version — must land in the same transaction as the
+    deduction, so that neither can exist without the other. The locks are
+    held until that commit.
     """
     if amount_krw < 0:
         raise ValueError("금액은 0보다 작을 수 없습니다.")
@@ -161,6 +214,7 @@ def charge(
         category=category,
         funding_source=funding_source,
         provider=provider,
+        feature=feature,
         model_id=model_id,
         provider_units=provider_units,
         provider_unit=provider_unit,
@@ -169,12 +223,16 @@ def charge(
         charged_krw=amount_krw,
         builder_project_id=builder_project_id,
         video_project_id=video_project_id,
+        video_version_id=video_version_id,
     )
     db.add(event)
 
     # One commit for the deduction and the ledger row together.
-    db.commit()
-    db.refresh(event)
+    if commit:
+        db.commit()
+        db.refresh(event)
+    else:
+        db.flush()
 
     return ChargeResult(
         event=event,

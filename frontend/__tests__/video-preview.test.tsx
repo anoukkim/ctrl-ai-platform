@@ -17,7 +17,7 @@
  * 길이와 모델 이름은 순수한 계산이므로 여기서 제대로 증명됩니다.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { VideoModel, VideoProjectDetail, VideoVersion } from "@/lib/projects";
@@ -32,7 +32,13 @@ const KLING: VideoModel = {
   capabilities: {
     durations: [5, 10, 15],
     aspect_ratios: ["9:16", "16:9", "1:1"],
+    resolutions: ["720p", "1080p"],
     sound: true,
+    supports_edit: true,
+    supports_extend: true,
+    price_per_second_krw: { "720p": 700, "1080p": 1000 },
+    defaults: { duration_seconds: 5, aspect_ratio: "9:16", resolution: "720p", sound: true },
+    prices_are_examples: true,
   },
 };
 
@@ -52,7 +58,11 @@ function version(overrides: Partial<VideoVersion> = {}): VideoVersion {
     duration_seconds: 10,
     aspect_ratio: "16:9",
     sound: true,
+    resolution: "720p",
     auto_selected: true,
+    kind: "generate",
+    source_version_id: null,
+    instruction: null,
     ...overrides,
   };
 }
@@ -65,6 +75,7 @@ function project(versions: VideoVersion[]): VideoProjectDetail {
     status: "draft",
     selected_model_id: null,
     final_version_id: null,
+    final_version_has_asset: false,
     created_at: "2026-10-01T00:00:00Z",
     updated_at: "2026-10-01T00:00:00Z",
     versions,
@@ -86,7 +97,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
 
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => true,
-  useMyQuarter: () => ({ quarter: null, loading: false }),
+  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -211,26 +222,52 @@ describe("모델 이름", () => {
 });
 
 describe("다운로드", () => {
-  test("파일이 있는 버전에는 받는 링크가 있고, 그 버전을 가리킨다", async () => {
-    getVideoProject.mockResolvedValue(project([version({ id: 7, has_asset: true })]));
+  test("미리보기 머리글의 다운로드는 지금 보이는 버전을 받는다 — 최종본이 아니어도", async () => {
+    getVideoProject.mockResolvedValue(
+      project([version({ id: 7, label: "v1" }), version({ id: 8, label: "v2" })]),
+    );
 
     render(<VideoWorkspace projectId="3" />);
     await waitFor(() => playerEl());
 
-    const link = screen.getByRole("link", { name: /다운로드/ });
-    expect(link.getAttribute("href")).toBe("/api/video/projects/3/versions/7/download");
-    expect(link.hasAttribute("download")).toBe(true);
+    // 아무것도 최종본이 아니면 가장 최근 버전(v2)이 보입니다.
+    const header = screen.getByRole("link", { name: "다운로드" });
+    expect(header.getAttribute("href")).toBe("/api/video/projects/3/versions/8/download");
+    expect(header.hasAttribute("download")).toBe(true);
   });
 
-  test("받을 파일이 없는 버전에는 단추를 보여 주지 않는다", async () => {
-    // 눌러도 아무 일이 없는 단추보다 없는 쪽이 낫습니다. 생성 전에
-    // 만들어진 옛 버전이 이 경우입니다.
-    getVideoProject.mockResolvedValue(project([version({ has_asset: false })]));
+  test("버전 줄의 조각마다 자기 버전을 받는 다운로드가 있다", async () => {
+    getVideoProject.mockResolvedValue(
+      project([version({ id: 7, label: "v1" }), version({ id: 8, label: "v2" })]),
+    );
+
+    render(<VideoWorkspace projectId="3" />);
+    await waitFor(() => playerEl());
+
+    expect(screen.getByRole("link", { name: "v1 다운로드" }).getAttribute("href")).toBe(
+      "/api/video/projects/3/versions/7/download",
+    );
+    expect(screen.getByRole("link", { name: "v2 다운로드" }).getAttribute("href")).toBe(
+      "/api/video/projects/3/versions/8/download",
+    );
+  });
+
+  test("파일이 없는 이전 버전은 흐린 단추와 이유, 링크는 없다", async () => {
+    // 파일을 보관하기 전에 만든 버전입니다. 뒤늦게 만들어 주지 않습니다.
+    getVideoProject.mockResolvedValue(
+      project([version({ id: 7, label: "v1", has_asset: false })]),
+    );
 
     render(<VideoWorkspace projectId="3" />);
     await waitFor(() => playerEl());
 
     expect(screen.queryByRole("link", { name: /다운로드/ })).toBeNull();
+    const chip = screen.getByRole("button", { name: "v1 다운로드" });
+    const header = screen.getByRole("button", { name: "다운로드" });
+    for (const button of [chip, header]) {
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+      expect(button.getAttribute("title")).toBe("파일이 없는 이전 버전입니다");
+    }
   });
 });
 
@@ -240,7 +277,10 @@ describe("Claude 칸", () => {
 
     render(<VideoWorkspace projectId="3" />);
 
-    await waitFor(() => expect(screen.getByText(/영상 아이디어를 Claude와 다듬어/)).toBeDefined());
+    // 접혀서 시작하므로 먼저 엽니다.
+    const open = await screen.findByRole("button", { name: "프롬프트 도움받기 (선택)" });
+    act(() => open.click());
+    await waitFor(() => expect(screen.getByText(/바꾸고 싶은 것을 한국어로 적으면/)).toBeDefined());
     // 예전에 미리 들어 있던 예시 대화.
     expect(screen.queryByText(/조금 더 어두운 분위기로 바꿔줘/)).toBeNull();
   });
@@ -260,7 +300,7 @@ describe("버전 조각", () => {
       return el as HTMLElement;
     });
 
-    expect(within(list).getByText("10초 · 16:9")).toBeDefined();
+    expect(within(list).getByText("10초 · 16:9 · 720p")).toBeDefined();
     expect(within(list).getByText("Auto → Kling 3.0 Pro")).toBeDefined();
   });
 });

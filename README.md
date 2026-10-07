@@ -34,7 +34,7 @@ principles.
 | Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
 | Chat (default page)   | Mock UI with quick actions and local Korean keyword routing                       |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
-| Video Generator       | Full-viewport workspace with an iterative version loop (see below)                |
+| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
@@ -43,7 +43,7 @@ principles.
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
-| Claude / Higgsfield   | Not started (Phases 2 and 6)                                                      |
+| Claude / Higgsfield   | Mock providers behind `CLAUDE_PROVIDER` / `VIDEO_PROVIDER`; real adapters not built |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
 No mock data remains anywhere money is involved. What is still mock: the
@@ -141,14 +141,28 @@ extension.
 real creator works in:
 
 ```text
-아이디어 → 생성 → 미리보기 → Claude와 상의 → 프롬프트 수정
-        → 다시 생성 → 버전 비교 → 최종본 선택 → YouTube에 게시
+아이디어 → 생성 → 미리보기 → 수정하거나 이어서 만들기 → 버전 비교
+        → 최종본 선택 → YouTube에 게시
 ```
 
-For demonstration, the following actually work in the browser (mock state only,
-reset on refresh): editing the Korean prompt, asking Claude for a revision and
-applying it, generating a new version, switching between versions, replaying the
-9:16 preview, and marking a version as final. No provider is contacted.
+Every generation, edit (이 영상 수정하기) and extension (이어서 만들기) goes
+through the video provider behind `VIDEO_PROVIDER` — **mock by default**, which
+returns a placeholder clip; the `higgsfield` setting refuses rather than calling
+anything, because the real adapter is not written yet. Each one is charged to
+the member's **Video** budget at `seconds × the model's price per second for the
+chosen resolution`, and the same figure is shown as the estimate next to the
+button.
+
+What a member can choose — lengths, ratios, resolutions, sound, whether edit and
+extend exist — is the selected model's **catalogue entry**, edited in
+Admin › Video Models. The seeded prices are placeholders and are marked 예시
+there until an admin saves the model. Each version records how it was made
+(생성 / 수정 / 이어서), its source version and its exact settings.
+
+The Claude panel, **프롬프트 도움받기 (선택)**, starts collapsed. It only
+rewrites prompt text, never generates video, and costs a flat
+`VIDEO_PROMPT_HELP_CHARGE_KRW` (10원) from the **Build** budget until Phase 2
+prices Claude by the token.
 
 ## Language
 

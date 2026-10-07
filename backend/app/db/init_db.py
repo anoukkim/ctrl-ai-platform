@@ -68,6 +68,12 @@ SEED_QUARTERS = [
 # Seed catalogue only. Provider catalogues change, so this is a starting
 # point an admin edits — never the permanent list, and never hard-coded
 # into the frontend.
+#
+# **The prices are placeholders** (`prices_are_examples: True`), agreed as
+# such on 2026-10-07: nobody has confirmed Higgsfield's per-second rates
+# yet. Admin › Video Models labels them 예시 until an admin saves the
+# model. The migration `9c4e7a2b1d63` writes the same figures into rows
+# that already existed.
 SEED_VIDEO_MODELS = [
     {
         "provider": "higgsfield",
@@ -80,8 +86,18 @@ SEED_VIDEO_MODELS = [
         "capabilities": {
             "durations": [5, 10, 15],
             "aspect_ratios": ["9:16", "16:9", "1:1"],
+            "resolutions": ["720p", "1080p"],
             "sound": True,
-            "generation_types": ["text_to_video", "image_to_video"],
+            "supports_edit": True,
+            "supports_extend": True,
+            "price_per_second_krw": {"720p": 700, "1080p": 1000},
+            "defaults": {
+                "duration_seconds": 5,
+                "aspect_ratio": "9:16",
+                "resolution": "720p",
+                "sound": True,
+            },
+            "prices_are_examples": True,
         },
     },
     {
@@ -95,8 +111,18 @@ SEED_VIDEO_MODELS = [
         "capabilities": {
             "durations": [5, 10],
             "aspect_ratios": ["9:16"],
+            "resolutions": ["480p", "720p"],
             "sound": False,
-            "generation_types": ["text_to_video"],
+            "supports_edit": False,
+            "supports_extend": True,
+            "price_per_second_krw": {"480p": 300, "720p": 500},
+            "defaults": {
+                "duration_seconds": 5,
+                "aspect_ratio": "9:16",
+                "resolution": "480p",
+                "sound": False,
+            },
+            "prices_are_examples": True,
         },
     },
     {
@@ -110,8 +136,18 @@ SEED_VIDEO_MODELS = [
         "capabilities": {
             "durations": [5],
             "aspect_ratios": ["16:9"],
+            "resolutions": ["720p"],
             "sound": False,
-            "generation_types": ["text_to_video"],
+            "supports_edit": False,
+            "supports_extend": False,
+            "price_per_second_krw": {"720p": 400},
+            "defaults": {
+                "duration_seconds": 5,
+                "aspect_ratio": "16:9",
+                "resolution": "720p",
+                "sound": False,
+            },
+            "prices_are_examples": True,
         },
     },
 ]

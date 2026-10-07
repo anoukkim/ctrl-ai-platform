@@ -1,11 +1,10 @@
 """The file a generated version leaves behind.
 
-Phase 6 is what calls Higgsfield. What this module does now is the part
-`project-video-management` needs in order to have a download at all: when
-`VIDEO_PROVIDER` is `mock`, a version is given a small placeholder clip,
-stored through the storage interface, so the download flow is real end to
-end — permissions, file name, bytes on the wire — before a provider
-exists.
+The provider (`app/services/video_provider.py`) produces a `VideoAsset`;
+this module stores it through the storage interface and says what to
+serve it as. The mock provider's asset is a small placeholder clip from
+`make_placeholder`, so the download flow is real end to end —
+permissions, file name, bytes on the wire — before Higgsfield is called.
 
 The seam is `VideoAsset`: the provider says what it produced and what to
 call it. The mock makes a GIF; Higgsfield will return an MP4. The route
@@ -17,7 +16,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.core.config import Settings
 from app.services import placeholder_clip
 from app.services.storage import AssetStorage
 
@@ -85,11 +83,3 @@ def content_type_for(key: str) -> str:
         "mov": "video/quicktime",
     }.get(extension, "application/octet-stream")
 
-
-def is_mock(settings: Settings) -> bool:
-    """Whether the video provider is the mock one.
-
-    Named here so the route reads as "the mock provider makes a
-    placeholder" rather than as a string comparison about configuration.
-    """
-    return settings.provider_is_mock("video")

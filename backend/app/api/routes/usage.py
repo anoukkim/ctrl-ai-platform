@@ -40,6 +40,17 @@ CATEGORY_PROVIDER = {
 }
 
 
+#: What a video charge was for, when the event says. The prompt helper is
+#: named because it is paid from Build, and a Build charge labelled only
+#: "영상" would look like a mistake.
+_VIDEO_FEATURE_LABEL = {
+    "video_generate": "영상 생성",
+    "video_edit": "영상 수정",
+    "video_extend": "이어서 만들기",
+    "video_prompt": "프롬프트 도움",
+}
+
+
 def _label_for(db: Session, event) -> str:
     """A name the member recognises for where a charge came from."""
     if event.builder_project_id is not None:
@@ -49,7 +60,7 @@ def _label_for(db: Session, event) -> str:
     if event.video_project_id is not None:
         project = db.get(VideoProject, event.video_project_id)
         if project is not None:
-            return f"영상 — {project.name}"
+            return f"{_VIDEO_FEATURE_LABEL.get(event.feature or '', '영상')} — {project.name}"
     return "Project Builder" if event.category is BudgetCategory.BUILD else "영상"
 
 

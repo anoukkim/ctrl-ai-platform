@@ -18,6 +18,32 @@ says what order things happen in.
 **Nothing is in progress.** Branch the next item from an up-to-date
 `main`.
 
+Decisions from **video-higgsfield-only** (merged 2026-10-07) that later
+items inherit:
+
+- **Seed prices are placeholders** — Kling 3.0 Pro 720p 700원/s, 1080p
+  1,000원/s; Seedance 2.0 480p 300원/s, 720p 500원/s; Wan 3.0 720p 400원/s.
+  `prices_are_examples` marks them, Admin shows 예시, and saving a model
+  clears it.
+- **Edit and extend use the same per-second rate** — edit: source length
+  × price at the source resolution; extend: added length × that price.
+- **The prompt helper is a minimal mock Claude provider** with a flat
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` (default 10원) from Build, feature tag
+  `video_prompt`. Phase 2 extends `app/services/claude_provider.py` and
+  replaces the flat amount with token pricing.
+
+- **A chosen final version makes a Draft or Generating project Ready**,
+  and clearing it returns Ready to Draft; Published and Archived are left
+  alone. `VideoProject.apply_final_version_rule` runs on every update.
+
+Two things Phase 2 inherits from it:
+
+- **`UsageEvent.feature` and `video_version_id` already exist.** Phase 2
+  adds its token, USD and rate columns next to them.
+- **`usage.ensure_affordable()` and `charge(commit=False)`** exist so a
+  provider is never called for a member who cannot pay, and a row created
+  by the call lands in the same transaction as the charge.
+
 Two decisions from **account-withdrawal** (merged 2026-10-07) that later
 items inherit:
 
@@ -30,8 +56,8 @@ items inherit:
 
 `main` holds Phase 1, UI batch 1, membership-access-fix,
 admin-restructure, ui-naming, fix-video-workspace-hang, ui-tube-watch,
-ui-apps-detail, project-video-management and **account-withdrawal**
-(both merged 2026-10-07).
+ui-apps-detail, project-video-management, account-withdrawal and
+**video-higgsfield-only** (all three merged 2026-10-07).
 
 **Three components are now shared between Project Builder and Video
 Generator**, which is where a later change should go rather than into
@@ -145,7 +171,7 @@ each one cost an investigation.
   running the suite on a branch creates that branch's new tables in the
   development database while leaving `alembic_version` alone — after
   which `alembic upgrade head` fails with `relation ... already exists`.
-  Item 4, `test-database-isolation`, fixes it; until then, drop the
+  Item 3, `test-database-isolation`, fixes it; until then, drop the
   stray table before migrating.
 
 ---
@@ -155,42 +181,37 @@ each one cost an investigation.
 Order settled 2026-10-02, with two changes since: `budget-by-provider`
 and `usage-analytics` left for *After the prototype (needs discussion)*
 below, and `test-database-isolation` was inserted ahead of
-`prep-beta-launch` on 2026-10-07. `project-video-management` and
-`account-withdrawal` merged that day and left the list, so it now starts
-at `video-higgsfield-only`. The
+`prep-beta-launch` on 2026-10-07. `project-video-management`,
+`account-withdrawal` and `video-higgsfield-only` merged that day and left
+the list, so it now starts at Phase 2 — Chat. The
 launch items stay at the end, in the order settled on 2026-10-01.
 
-1. **video-higgsfield-only** · branch `feat-video-higgsfield-only`
-   Spec saved verbatim below, including **Model-driven video settings**,
-   which replaced the earlier Length slider section. **Charges the
-   existing Video budget** through the current budget service.
-
-2. **Phase 2 — Chat** · branch `phase-2-chat`
+1. **Phase 2 — Chat** · branch `phase-2-chat`
    Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
    streaming, budget checks and usage recording. Spec saved verbatim
    below, replacing the pointer to `CLAUDE.md` section 20. **Charges the
    existing Build (Claude) budget**, while recording every field the two
    deferred items will need — see the note on its spec.
 
-3. **invite-only-signup** · branch `feat-invite-only-signup`
+2. **invite-only-signup** · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-4. **test-database-isolation** · branch `fix-test-database-isolation`
+3. **test-database-isolation** · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-5. **prep-beta-launch** · no branch named yet
+4. **prep-beta-launch** · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** —
    domain, two hosts and a managed database; ask first.
-   **Do not start before item 4.** Running the suite against a live
+   **Do not start before item 3.** Running the suite against a live
    database is a different order of mistake once the database holds
    members' work rather than one developer's test rows.
 
@@ -282,9 +303,23 @@ item. Saved exactly as written by the developer.
 > picks final over latest and falls back to the empty frame; no "Draft"
 > when a final exists; one meta format.
 
+**Done on `feat-video-higgsfield-only` (2026-10-07), awaiting merge:**
+
+- ✅ **Item 1** — name and badge together on the left (the name truncates
+  with an ellipsis), ⋯ alone on the right. The card also needed
+  `grid-template-columns: minmax(0, 1fr)`: without it a long name pushed
+  the card into the next column instead of truncating.
+- ✅ **Item 7** — "최종본 다운로드" in the video card's ⋯ menu when a final
+  with a stored file exists, otherwise disabled with "최종본을 먼저
+  고르세요". The list now carries `final_version_has_asset`.
+- **Item 4 is settled by the same branch** in the backend: a final version
+  makes a Draft (or Generating) project Ready; clearing it returns Ready
+  to Draft; Published and Archived are untouched. Not marked done here
+  because the developer did not ask for it to be — say so if it should be.
+
 Two notes for whoever builds it, from the work that raised it:
 
-- **Point 4 is a real backend question.** `status` and `final_version_id`
+- **Point 4 is a real backend question** (since answered — see above). `status` and `final_version_id`
   are independent columns today, so a project can honestly be `draft`
   with a final version chosen. Deciding it in the card would leave the
   API still saying `draft` to everything else that reads it.
@@ -1183,7 +1218,7 @@ reserve is only where it goes next, and that is a line
 
 ---
 
-## video-higgsfield-only — full spec
+## video-higgsfield-only — full spec (merged 2026-10-07)
 
 Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
 
@@ -1234,6 +1269,34 @@ chosen resolution.
 **Point 1 overlaps `VideoModel.capabilities`**, the free-form JSON column
 that already exists for exactly this purpose but whose shape is not
 enforced. Point 1's "with validation" is what finally fixes that shape.
+
+### Fixes before merge — 2026-10-07
+
+Added after the developer's click-through, to be built on this branch
+because it already reworks the workspace and the version strip. Saved
+exactly as written by the developer.
+
+> 1. Status badge
+>    - Placement: on library cards the "Draft" badge floats between the name and ⋯. Put it right after the name (name truncates with an ellipsis), ⋯ alone on the right. Mark ui-library-cards item 1 done.
+>    - Meaning: a project with a chosen final version still shows "Draft", on the card and in the workspace header (my probe project has v8 as 최종본). Decide the rule in the backend, apply it to existing projects too, use the same label in both places, and tell me which rule you chose.
+>
+> 2. Download any version
+>    - Any version with a stored file can be downloaded at any time, final or not, through the existing route and its rules (owner only, works when not participating, refused for deleted projects).
+>    - Workspace: a "다운로드" button in the preview header for the version shown, and a 다운로드 entry on each version in the version strip.
+>    - Versions without a stored file (made before asset storage existed, like v1–v7 on probe): disabled, tooltip "파일이 없는 이전 버전입니다". Don't generate files after the fact.
+>    - Library card ⋯ menu: "최종본 다운로드" when a final with a file exists, otherwise disabled with the tooltip "최종본을 먼저 고르세요". Mark ui-library-cards item 7 done.
+>    - File name: <project>_v<n>.<ext>, e.g. probe_v8.gif.
+>
+> Tests for both, then the full suites, lint, tsc, next build, push, and tell me what to re-check. Don't merge.
+
+**Built.** The status rule chosen: **a chosen final version makes a Draft
+or Generating project Ready; clearing the final turns Ready back into
+Draft; Published and Archived are never changed by it.** It runs on every
+`PATCH` of a project (after any `status` sent in the same request), and
+migration `4b8e2d6f1a90` applies it to existing rows. Card and workspace
+header both read `VIDEO_STATUS_LABEL[project.status]`, so they cannot
+disagree. Downloads are named `<project>_v<n>.<ext>`; the plain
+`filename=` fallback for old clients is `video_v<n>.<ext>`.
 
 ---
 
@@ -1316,6 +1379,7 @@ Newest first.
 
 | Merged | Item | Branch |
 | ------ | ---- | ------ |
+| 2026-10-07 | **video-higgsfield-only** — every video generation, edit (이 영상 수정하기) and extension (이어서 만들기) goes through a `VideoGenerationProvider` behind `VIDEO_PROVIDER`: mock by default, returning a placeholder clip; `higgsfield` refuses before anything is charged, because the real adapter is Phase 6's. Each is charged to the **Video** budget at `seconds × price_per_second_krw[resolution]` — the same figure the workspace shows as 예상 비용 beside the button — with the budget checked before the provider is called and the version and its charge committed together (`usage.ensure_affordable`, `charge(commit=False)`). **Model-driven settings**: `VideoModel.capabilities` finally has a validated shape (`VideoCapabilities`: lengths, ratios, resolutions, sound, edit/extend support, defaults, per-resolution prices) edited in Admin › Video Models with Korean errors and an audited before/after; the seed prices are agreed placeholders shown as 예시 until an admin saves the model. The workspace shows only the model's options, keeps choices that survive a model switch and says what changed, refuses anything outside the catalogue on the server, and hides length/ratio in edit mode. Versions record 생성/수정/이어서, their source, instruction and resolution; usage events record a `feature` tag and the version. The Claude panel, 프롬프트 도움받기 (선택), starts collapsed, only rewrites text through a mock `ClaudeProvider` Phase 2 extends, and charges a flat `VIDEO_PROMPT_HELP_CHARGE_KRW` to **Build**. Two fixes added before merge: a chosen final version makes a Draft project **Ready** (rule enforced on update, applied to existing rows by `4b8e2d6f1a90`), and any version with a stored file downloads as `<project>_v<n>.<ext>` from the preview header and each version in the strip, with older file-less versions disabled. Library cards put the badge right after the truncating name (ui-library-cards 1) and offer 최종본 다운로드 (ui-library-cards 7). Migrations `9c4e7a2b1d63`, `4b8e2d6f1a90` | `feat-video-higgsfield-only` |
 | 2026-10-07 | **account-withdrawal** — 회원 탈퇴 from Profile (password re-entered, a download reminder linking both libraries, keep-or-unpublish choice, a confirmation listing every effect) and from Admin › member detail, both through one service in `services/withdrawal.py`; Admin's older participation → former setting goes through it too, and a withdrawn account comes back only through 복구. Withdrawing closes the account and ends every session, **releases** remaining 동아리 지원 in every unclosed quarter (allocation lowered to what was consumed, one `allocation.released` audit row each — no reserve yet), cancels a live application, and puts a refund on hold (**환불 대기**) for a remaining 개인 충전 balance *or* an unreviewed top-up request; 환불 완료 기록 refuses until that request is settled and takes the refunded amount out of the wallet. `reversal` stores what was changed, so 복구 within 30 days puts back exactly that — the released budget added onto any later adjustment, participation, unpublished work — while a recorded refund stays paid out. After 30 days `python -m app.jobs.anonymise_withdrawn` (the project's first job: a CLI, not an in-process scheduler, idempotent, `--dry-run`) replaces username, email and display name, skipping anything still owed a refund; usage history and the append-only audit log are left as they are. Anonymised email is `withdrawn-<id>@withdrawn.example.com` because `.invalid` fails `EmailStr` and would break `GET /api/users`. `ConfirmDialog` now also takes a list of effects. Migration `b6d4e2f81a37` adds `account_withdrawals` | `feat-account-withdrawal` |
 | 2026-10-07 | **project-video-management** — deleting, renaming and taking work out, across both products. **Delete is soft**: `deleted_at` on `builder_projects` and `video_projects` (migration `e5c2a1f73b84`), so a member sees it gone through every route while an admin can put it back from the new **Deleted Items** section; Video had no delete route at all before. Usage history survives by construction — `UsageEvent` points at these rows with `ON DELETE SET NULL`, so a hard delete would have kept the spending and detached it from the project that caused it. Both admin actions are audited; a member deleting their own work is not, because the log is for admin changes. **Rename** works from three places that all send the same PATCH — the workspace title, its ▾ menu, each card's ⋯ menu — trimmed to 1–60 characters by one `clean_name` shared by both products, refused with a Korean 400 rather than the 422 whose list-shaped `detail` the frontend cannot render; duplicates stay legal. **코드 다운로드 (ZIP)** packs the project's files plus a Korean guide, refusing any path that leaves the project and every `.env`, key, `node_modules` and `.git`, capped because the archive is built in memory; `builder_project_files` (`f3b8d41c9e27`) arrives with it and **Phase 3 is what fills it**, so a project made today downloads as a guide that says so. **영상 다운로드** serves bytes CTRL+AI stored under its own key (`asset_storage_key`, `a71f5c38d904`) rather than a provider URL that can expire or want their credentials, through a storage interface — local folder now, cloud in Phase 9 — and the mock provider leaves a real **animated GIF** built in pure Python, named `.gif` because an `.mp4` no player opens would make the download look finished while being broken. Both downloads are guarded by `get_current_user`, not `require_active_member`: a member who did not join this quarter cannot create, but their work is theirs to take away. `WorkspaceTitle`, `LibraryCard` and `ConfirmDialog` came out of it as shared components, the last moving out of `app/admin/`. One defect found only in a browser: an open card menu was painted over by the next card's ⋯, because `.cardMenu` carries a z-index and is therefore its own stacking context, sealing the dropdown's z-index inside it — the open card is now raised, and a closed one still creates no context | `feat-project-video-management` |
 | 2026-10-02 | **ui-tube-watch** — the CtrlAITube watch page rebuilt as two columns at 7:3: the player, title, a one-line meta strip where a six-row table used to be, and the prompt on the left; a sticky full-height panel on the right holding the reaction chips and a real comment section that scrolls inside itself. The player sits in a letterbox frame capped at 75vh, which is what keeps the title above the fold — 16:9 fills the column, 9:16 and 1:1 are capped and centred at their true ratio. The comment section has avatars, relative time with the exact date on hover, 답글 and a like count, threads on a thin line collapsing past three replies, 최신순/인기순, and tabs that keep CTRL+AI comments and YouTube comments from mixing; comments still live in local state (Phase 8 stores them) but the composer works, because a disabled input cannot show that Enter posts or that a long thread stays in its column. `CommunityVideo` gained `aspectRatio` with one example video per ratio, comments gained `likes`, and `totalComments` counts replies so the feed card and the tab cannot disagree. Two defects came out of the browser checks rather than the tests: the breakpoint measured the viewport, so at 1280px a 1024px rule was true while only ~990px of content existed (now a container query on the content box), and the prerendered "6일 전" would disagree with a later reader's clock (now `suppressHydrationWarning` on the `<time>`). `lib/aspect.ts` holds the ratio constants both screens use; `lib/relative-time.ts` is new and survives Phase 8 | `ui-tube-watch` |

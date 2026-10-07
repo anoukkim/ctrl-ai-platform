@@ -24,7 +24,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import MembershipStatus, Quarter, QuarterStatus
+from app.models import MembershipStatus, Quarter, QuarterAllocation, QuarterStatus
 from app.services.quarters import current_quarter, set_membership
 
 
@@ -62,14 +62,38 @@ def work(client: TestClient, dev_user, quarter, db_session, video_models) -> dic
     that really exists, or a 404 could be mistaken for a refusal.
     """
     participate(db_session, dev_user.id, quarter.id, MembershipStatus.ACTIVE)
+    # A budget too, so that "allowed" means allowed: generating, editing
+    # and extending all spend, and without money they would be refused
+    # with 402 rather than let through.
+    db_session.add(
+        QuarterAllocation(
+            user_id=dev_user.id,
+            quarter_id=quarter.id,
+            community_total_budget_krw=100_000,
+            build_budget_krw=30_000,
+            video_budget_krw=70_000,
+            build_percentage=30,
+            video_percentage=70,
+        )
+    )
+    db_session.commit()
 
     builder = client.post("/api/builder/projects", json={"name": "내 앱"})
     assert builder.status_code == 201, builder.text
 
     video = client.post("/api/video/projects", json={"name": "내 영상"})
     assert video.status_code == 201, video.text
+    video_id = video.json()["id"]
 
-    return {"builder_id": builder.json()["id"], "video_id": video.json()["id"]}
+    # Something to edit and extend. Auto picks Kling, which supports both.
+    version = client.post(f"/api/video/projects/{video_id}/versions")
+    assert version.status_code == 201, version.text
+
+    return {
+        "builder_id": builder.json()["id"],
+        "video_id": video_id,
+        "version_id": version.json()["id"],
+    }
 
 
 def guarded_calls(work: dict[str, int]) -> list[tuple[str, str, str, dict | None]]:
@@ -88,6 +112,24 @@ def guarded_calls(work: dict[str, int]) -> list[tuple[str, str, str, dict | None
         ("Video 만들기", "post", "/api/video/projects", {"name": "새 영상"}),
         ("Video 수정", "patch", f"/api/video/projects/{video_id}", {"prompt": "밤의 서울"}),
         ("Video 생성", "post", f"/api/video/projects/{video_id}/versions", None),
+        (
+            "Video 수정하기",
+            "post",
+            f"/api/video/projects/{video_id}/versions/{work['version_id']}/edit",
+            {"instruction": "더 어둡게"},
+        ),
+        (
+            "Video 이어서 만들기",
+            "post",
+            f"/api/video/projects/{video_id}/versions/{work['version_id']}/extend",
+            {"duration_seconds": 5},
+        ),
+        (
+            "Video 프롬프트 도움받기",
+            "post",
+            f"/api/video/projects/{video_id}/prompt-help",
+            {"prompt": "밤의 서울", "request": "더 밝게"},
+        ),
         # Last in the list on purpose: the calls above need the project to
         # still be there.
         ("Video 삭제", "delete", f"/api/video/projects/{video_id}", None),
@@ -295,6 +337,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/video/projects"): "require_active_member",
     ("PATCH", "/api/video/projects/{project_id}"): "require_active_member",
     ("POST", "/api/video/projects/{project_id}/versions"): "require_active_member",
+    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/edit"): "require_active_member",
+    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/extend"): "require_active_member",
+    ("POST", "/api/video/projects/{project_id}/prompt-help"): "require_active_member",
     ("DELETE", "/api/video/projects/{project_id}"): "require_active_member",
     # Taking a copy of your own work out. Deliberately `get_current_user`:
     # a member who did not join this quarter may not create, but their

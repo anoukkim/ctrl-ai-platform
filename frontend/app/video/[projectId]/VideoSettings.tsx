@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * Video Generator의 생성 설정 — 길이, 비율, 소리.
+ * Video Generator의 생성 설정 — 길이, 비율, 화질, 소리.
  *
- * 예전에는 모델이 지원하는 값을 똑같이 생긴 알약 한 줄로 늘어놓았습니다.
- * 읽기 전용 꼬리표처럼 보였고, 무엇이 골라져 있는지 알 수 없었습니다.
- * 이제는 셋을 각자 이름 붙은 조작부로 나눕니다.
- *
- * 고를 수 없는 값은 지우지 않고 흐리게 둔 채 이유를 붙입니다. 사라져
- * 버리면 "원래 없는 기능"인지 "이 모델만 안 되는 것"인지 알 수 없습니다.
+ * 전부 고른 모델의 카탈로그를 따릅니다. 모델이 주지 않는 값은 흐리게
+ * 두지 않고 **아예 보여 주지 않습니다** — 회원이 고를 수 있는 것만 눈에
+ * 들어오게 하기 위해서입니다. 소리를 지원하지 않는 모델이면 소리 줄도
+ * 없습니다. 무엇을 바꿨는지는 작업 공간이 한 줄로 알려 줍니다.
  */
 
 import { Check, Volume2, VolumeX } from "lucide-react";
 
-import { ALL_ASPECTS, ASPECT_LABEL, type Aspect } from "@/lib/aspect";
+import { ASPECT_LABEL, type Aspect } from "@/lib/aspect";
+import type { VideoCapabilities } from "@/lib/projects";
+import type { VideoChoice } from "@/lib/video-settings";
 
 import styles from "./workspace.module.css";
 
@@ -23,11 +23,11 @@ import styles from "./workspace.module.css";
  */
 export { ALL_ASPECTS, ASPECT_LABEL, ASPECT_RATIO_CSS, type Aspect } from "@/lib/aspect";
 
-export const ALL_DURATIONS = [5, 10, 15];
-
 /** 비율을 작은 네모로 그려 줍니다. 글자보다 모양이 먼저 읽힙니다. */
-function AspectGlyph({ aspect }: { aspect: Aspect }) {
-  const box = { "9:16": { w: 9, h: 15 }, "16:9": { w: 16, h: 9 }, "1:1": { w: 12, h: 12 } }[aspect];
+function AspectGlyph({ aspect }: { aspect: string }) {
+  const box =
+    { "9:16": { w: 9, h: 15 }, "16:9": { w: 16, h: 9 }, "1:1": { w: 12, h: 12 } }[aspect] ??
+    { w: 12, h: 12 };
   return (
     <svg
       className={styles.aspectGlyph}
@@ -51,124 +51,131 @@ function AspectGlyph({ aspect }: { aspect: Aspect }) {
   );
 }
 
+interface SegmentedProps<T extends string | number> {
+  id: string;
+  label: string;
+  values: T[];
+  active: T;
+  locked: boolean;
+  lockedReason?: string;
+  render: (value: T) => React.ReactNode;
+  onPick: (value: T) => void;
+}
+
+/** 한 줄짜리 선택 단추 묶음. 길이·비율·화질이 같은 모양을 씁니다. */
+export function Segmented<T extends string | number>({
+  id,
+  label,
+  values,
+  active,
+  locked,
+  lockedReason,
+  render,
+  onPick,
+}: SegmentedProps<T>) {
+  return (
+    <div className={styles.settingRow}>
+      <span className={styles.settingLabel} id={id}>
+        {label}
+      </span>
+      <div className={styles.segmented} role="group" aria-labelledby={id}>
+        {values.map((value) => {
+          const isActive = value === active;
+          return (
+            <button
+              className={`${styles.segment} ${isActive ? styles.segmentActive : ""}`}
+              key={value}
+              type="button"
+              onClick={() => onPick(value)}
+              disabled={locked}
+              aria-pressed={isActive}
+              title={lockedReason}
+            >
+              {isActive && <Check className={styles.segmentCheck} size={13} aria-hidden="true" />}
+              {render(value)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
-  duration: number;
-  aspect: Aspect;
-  sound: boolean;
-  /** 고른 모델이 지원하는 값. 비어 있으면 모델이 알려 주지 않은 것입니다. */
-  supportedDurations: number[];
-  supportedAspects: string[];
-  supportsSound: boolean;
-  onDuration: (value: number) => void;
-  onAspect: (value: Aspect) => void;
-  onSound: (value: boolean) => void;
+  caps: VideoCapabilities;
+  choice: VideoChoice;
+  onChange: (choice: VideoChoice) => void;
   /**
-   * 이번 분기에 참여하지 않아 전부 잠겼을 때의 이유.
-   *
-   * 값이 있으면 모든 조작부를 잠그고 이 문장을 안내로 씁니다. 모델이
-   * 지원하지 않아서 잠긴 것과는 이유가 다르므로, 그 경우의 안내는
-   * 그대로 두고 이쪽이 우선합니다.
+   * 이번 분기에 참여하지 않아 전부 잠겼을 때의 이유. 값이 있으면 모든
+   * 조작부를 잠그고 이 문장을 안내로 씁니다.
    */
   lockedReason?: string;
 }
 
-export default function VideoSettings({
-  duration,
-  aspect,
-  sound,
-  supportedDurations,
-  supportedAspects,
-  supportsSound,
-  onDuration,
-  onAspect,
-  onSound,
-  lockedReason,
-}: Props) {
+export default function VideoSettings({ caps, choice, onChange, lockedReason }: Props) {
   const locked = Boolean(lockedReason);
-  // 모델이 목록을 주지 않았다면 전부 고를 수 있게 둡니다. 비어 있다고
-  // 아무것도 못 고르게 하면 화면이 멈춘 것처럼 보입니다.
-  const durations = supportedDurations.length > 0 ? supportedDurations : ALL_DURATIONS;
-  const aspects = supportedAspects.length > 0 ? supportedAspects : ALL_ASPECTS;
+  const pick = (changes: Partial<VideoChoice>) => onChange({ ...choice, ...changes });
 
   return (
     <>
-      <div className={styles.settingRow}>
-        <span className={styles.settingLabel} id="video-duration-label">
-          길이
-        </span>
-        <div className={styles.segmented} role="group" aria-labelledby="video-duration-label">
-          {ALL_DURATIONS.map((value) => {
-            const allowed = durations.includes(value);
-            const active = value === duration;
-            return (
-              <button
-                className={`${styles.segment} ${active ? styles.segmentActive : ""}`}
-                key={value}
-                type="button"
-                onClick={() => onDuration(value)}
-                disabled={locked || !allowed}
-                aria-pressed={active}
-                title={
-                  lockedReason ??
-                  (allowed ? undefined : "이 모델은 이 길이를 지원하지 않습니다")
-                }
-              >
-                {active && <Check className={styles.segmentCheck} size={13} aria-hidden="true" />}
-                {value}초
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <Segmented
+        id="video-duration-label"
+        label="길이"
+        values={caps.durations}
+        active={choice.duration_seconds}
+        locked={locked}
+        lockedReason={lockedReason}
+        render={(value) => `${value}초`}
+        onPick={(value) => pick({ duration_seconds: value })}
+      />
 
-      <div className={styles.settingRow}>
-        <span className={styles.settingLabel} id="video-aspect-label">
-          비율
-        </span>
-        <div className={styles.segmented} role="group" aria-labelledby="video-aspect-label">
-          {ALL_ASPECTS.map((value) => {
-            const allowed = aspects.includes(value);
-            const active = value === aspect;
-            return (
-              <button
-                className={`${styles.segment} ${active ? styles.segmentActive : ""}`}
-                key={value}
-                type="button"
-                onClick={() => onAspect(value)}
-                disabled={locked || !allowed}
-                aria-pressed={active}
-                title={
-                  lockedReason ??
-                  (allowed ? undefined : "이 모델은 이 비율을 지원하지 않습니다")
-                }
-              >
-                {active && <Check className={styles.segmentCheck} size={13} aria-hidden="true" />}
-                <AspectGlyph aspect={value} />
-                {ASPECT_LABEL[value]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <Segmented
+        id="video-aspect-label"
+        label="비율"
+        values={caps.aspect_ratios}
+        active={choice.aspect_ratio}
+        locked={locked}
+        lockedReason={lockedReason}
+        render={(value) => (
+          <>
+            <AspectGlyph aspect={value} />
+            {ASPECT_LABEL[value as Aspect] ?? value}
+          </>
+        )}
+        onPick={(value) => pick({ aspect_ratio: value })}
+      />
 
-      <div className={styles.settingRow}>
-        <span className={styles.settingLabel}>소리</span>
-        {supportsSound ? (
+      <Segmented
+        id="video-resolution-label"
+        label="화질"
+        values={caps.resolutions}
+        active={choice.resolution}
+        locked={locked}
+        lockedReason={lockedReason}
+        render={(value) => value}
+        onPick={(value) => pick({ resolution: value })}
+      />
+
+      {caps.sound && (
+        <div className={styles.settingRow}>
+          <span className={styles.settingLabel}>소리</span>
           <button
-            className={`${styles.soundToggle} ${sound ? styles.soundToggleOn : ""}`}
+            className={`${styles.soundToggle} ${choice.sound ? styles.soundToggleOn : ""}`}
             type="button"
-            onClick={() => onSound(!sound)}
+            onClick={() => pick({ sound: !choice.sound })}
             disabled={locked}
             title={lockedReason}
-            aria-pressed={sound}
+            aria-pressed={choice.sound}
           >
-            {sound ? <Volume2 size={15} aria-hidden="true" /> : <VolumeX size={15} aria-hidden="true" />}
-            {sound ? "소리 켬" : "소리 끔"}
+            {choice.sound ? (
+              <Volume2 size={15} aria-hidden="true" />
+            ) : (
+              <VolumeX size={15} aria-hidden="true" />
+            )}
+            {choice.sound ? "소리 켬" : "소리 끔"}
           </button>
-        ) : (
-          <p className={styles.settingHint}>이 모델은 소리를 지원하지 않습니다.</p>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 }

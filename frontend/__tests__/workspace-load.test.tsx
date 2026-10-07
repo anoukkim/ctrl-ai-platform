@@ -32,6 +32,7 @@ const VIDEO_PROJECT: VideoProjectDetail = {
   status: "draft",
   selected_model_id: null,
   final_version_id: null,
+  final_version_has_asset: false,
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-01T00:00:00Z",
   versions: [],
@@ -70,7 +71,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
 // 참여 여부는 이 테스트가 묻는 것이 아닙니다. 활동 회원으로 둡니다.
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => true,
-  useMyQuarter: () => ({ quarter: null, loading: false }),
+  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 

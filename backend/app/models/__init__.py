@@ -20,15 +20,17 @@ from app.models.quarter import (
     QuarterApplication,
     QuarterStatus,
 )
-from app.models.usage import FundingSource, UsageEvent
+from app.models.usage import FundingSource, UsageEvent, UsageFeature
 from app.models.membership import MembershipStatus, QuarterMembership
 from app.models.session import UserSession
 from app.models.user import AccountStatus, User, UserRole
 from app.models.video import (
+    VIDEO_VERSION_KIND_LABEL,
     VideoModel,
     VideoProject,
     VideoProjectStatus,
     VideoVersion,
+    VideoVersionKind,
     VideoVersionStatus,
 )
 from app.models.wallet import PersonalBalance, PersonalTopUp, TopUpStatus
@@ -63,6 +65,7 @@ __all__ = [
     "QuarterStatus",
     "TopUpStatus",
     "UsageEvent",
+    "UsageFeature",
     "AUDIT_ACTION_LABEL",
     "AccountStatus",
     "AuditAction",
@@ -73,6 +76,8 @@ __all__ = [
     "VideoModel",
     "VideoProject",
     "VideoProjectStatus",
+    "VIDEO_VERSION_KIND_LABEL",
     "VideoVersion",
+    "VideoVersionKind",
     "VideoVersionStatus",
 ]
