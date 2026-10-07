@@ -63,6 +63,9 @@ class AuditAction:
     ACCOUNT_ANONYMISED = "account.anonymised"
     ALLOCATION_RELEASED = "allocation.released"
     REFUND_RECORDED = "refund.recorded"
+    # A model's catalogue entry — its options and per-second prices. Logged
+    # because a price change moves what every later generation costs.
+    VIDEO_MODEL_UPDATED = "video_model.updated"
 
 
 #: What each action is called on the Admin screen.
@@ -84,6 +87,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.ACCOUNT_ANONYMISED: "개인정보 삭제",
     AuditAction.ALLOCATION_RELEASED: "지원금 해제",
     AuditAction.REFUND_RECORDED: "환불 완료 기록",
+    AuditAction.VIDEO_MODEL_UPDATED: "영상 모델 설정 변경",
 }
 
 

@@ -24,6 +24,21 @@ class VideoVersionStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class VideoVersionKind(str, enum.Enum):
+    """How a version was made. Shown in the version strip as 생성 / 수정 / 이어서."""
+
+    GENERATE = "generate"
+    EDIT = "edit"
+    EXTEND = "extend"
+
+
+VIDEO_VERSION_KIND_LABEL = {
+    VideoVersionKind.GENERATE: "생성",
+    VideoVersionKind.EDIT: "수정",
+    VideoVersionKind.EXTEND: "이어서",
+}
+
+
 class VideoModel(TimestampMixin, Base):
     """One video model a provider offers.
 
@@ -57,10 +72,14 @@ class VideoModel(TimestampMixin, Base):
 
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    # What this particular model supports — durations, aspect ratios,
-    # sound, generation type. Free-form on purpose: models differ, and the
-    # settings a member sees should eventually be driven by this rather
-    # than by one fixed global list. Shape is not enforced yet.
+    # Everything video creation follows for this model: allowed lengths,
+    # ratios and resolutions, sound, edit and extend support, the default
+    # choices and the price per second for each resolution.
+    #
+    # Stored as JSON because the set of options is the model's, not the
+    # schema's — but the *shape* is enforced: `VideoCapabilities` in
+    # `app/schemas/video.py` validates every write, and the migration
+    # `9c4e7a2b1d63` brought the rows that predate it into that shape.
     capabilities: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
     def __repr__(self) -> str:
@@ -177,6 +196,25 @@ class VideoVersion(TimestampMixin, Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     aspect_ratio: Mapped[str | None] = mapped_column(String(10), nullable=True)
     sound: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    #: The 화질 chosen, e.g. "720p". The price depends on it, so a version
+    #: without one cannot be edited or extended — there is no honest price.
+    resolution: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+    #: How this version was made, and from which version when it was an
+    #: edit or an extension. Every version before this column was a plain
+    #: generation, so `generate` is the truth for them, not a guess.
+    kind: Mapped[VideoVersionKind] = mapped_column(
+        status_enum(VideoVersionKind, "videoversionkind"),
+        default=VideoVersionKind.GENERATE,
+        server_default=VideoVersionKind.GENERATE.value,
+        nullable=False,
+    )
+    #: A plain integer for the same reason as `final_version_id`: a
+    #: self-referencing foreign key adds nothing the application does not
+    #: already check, and the versions of a project are never hard-deleted.
+    source_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: What the member asked the edit to change. Empty for the other kinds.
+    instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Whether the member had "Auto" selected when this was generated.
     # `model_id` above records which model Auto resolved to; this records

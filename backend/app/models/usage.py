@@ -12,8 +12,10 @@ They are not the same number and must not be conflated: the platform may
 round, batch, or absorb a difference. The KRW figure is the one that moves
 a balance.
 
-Nothing writes to this table yet — no provider is called in Phase 1. The
-shape exists so that when one is, the accounting is already in place.
+`feature` says which product action spent the money, independently of
+which budget paid: the Video workspace's Claude prompt helper charges the
+Build budget, but it is still `video_prompt`, not `build`. The tags are the
+ones `budget-by-provider` will report on, so nothing needs backfilling.
 """
 
 import enum
@@ -35,6 +37,22 @@ class FundingSource(str, enum.Enum):
     COMMUNITY_BUILD = "community_build"
     COMMUNITY_VIDEO = "community_video"
     PERSONAL = "personal"
+
+
+class UsageFeature(str, enum.Enum):
+    """Which product action a charge came from.
+
+    Stored as a plain string, not an enum column, so a new feature is a
+    new value rather than a migration. Null on rows written before the
+    column existed: what they were for is not recorded anywhere.
+    """
+
+    CHAT = "chat"
+    BUILD = "build"
+    VIDEO_PROMPT = "video_prompt"
+    VIDEO_GENERATE = "video_generate"
+    VIDEO_EDIT = "video_edit"
+    VIDEO_EXTEND = "video_extend"
 
 
 class UsageEvent(TimestampMixin, Base):
@@ -59,6 +77,8 @@ class UsageEvent(TimestampMixin, Base):
     )
 
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    #: A `UsageFeature` value. See that class for why it is a string.
+    feature: Mapped[str | None] = mapped_column(String(30), nullable=True)
     #: The provider's model id, when the action used one.
     model_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
@@ -80,6 +100,11 @@ class UsageEvent(TimestampMixin, Base):
     )
     video_project_id: Mapped[int | None] = mapped_column(
         ForeignKey("video_projects.id", ondelete="SET NULL"), nullable=True
+    )
+    #: The version a video charge produced — so a member's version strip
+    #: and an admin's ledger can point at the same attempt.
+    video_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("video_versions.id", ondelete="SET NULL"), nullable=True
     )
 
     def __repr__(self) -> str:
