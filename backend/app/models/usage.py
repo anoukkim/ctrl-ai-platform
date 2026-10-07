@@ -19,6 +19,7 @@ ones `budget-by-provider` will report on, so nothing needs backfilling.
 """
 
 import enum
+from decimal import Decimal
 
 from sqlalchemy import ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -87,9 +88,21 @@ class UsageEvent(TimestampMixin, Base):
     provider_units: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     provider_unit: Mapped[str] = mapped_column(String(20), default="", nullable=False)
     #: What the provider charged, in their billing currency. Numeric, not
-    #: float: money must not drift.
-    provider_cost: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    #: float: money must not drift. Six decimal places because one chat
+    #: reply costs about a cent.
+    provider_cost: Mapped[float | None] = mapped_column(Numeric(14, 6), nullable=True)
     provider_currency: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
+
+    #: Token counts, split, for a Claude call. `provider_units` keeps their
+    #: sum so older reports still add up; these two say which was which,
+    #: because input and output are priced differently. Null for anything
+    #: that is not priced by the token.
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The won per unit of `provider_currency` this charge was converted
+    #: at, copied from the rate in force. A later rate change does not move
+    #: a charge that already happened.
+    exchange_rate_krw: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     #: What Ctrl AI deducted from a budget.
     charged_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -105,6 +118,12 @@ class UsageEvent(TimestampMixin, Base):
     #: and an admin's ledger can point at the same attempt.
     video_version_id: Mapped[int | None] = mapped_column(
         ForeignKey("video_versions.id", ondelete="SET NULL"), nullable=True
+    )
+
+    #: The chat conversation a reply belonged to. SET NULL because deleting
+    #: a conversation is a real delete, and the money record must outlive it.
+    conversation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     def __repr__(self) -> str:

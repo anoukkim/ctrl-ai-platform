@@ -68,6 +68,13 @@ the same commit that adds it.
 | `GET /api/auth/me` | `get_current_user` | |
 | `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
 | `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
+| `GET /api/chat/info` | `get_current_user` | Mock or real, and the rate limit |
+| `GET /api/chat/conversations` | `get_current_user` | Reading your own conversations — works while inactive |
+| `GET /api/chat/conversations/{id}` | `get_current_user` | Reading your own conversation |
+| `POST /api/chat/conversations` | **`require_active_member`** | Creating |
+| `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
+| `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
+| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends Build budget |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
@@ -114,6 +121,9 @@ the same commit that adds it.
 | `GET /api/admin/stats/applications` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/quarters-with-stats` | `require_admin` | Read-only; every quarter with its figures |
+| `GET /api/admin/claude-pricing` | `require_admin` | Claude prices, exchange rate, chat limits |
+| `PUT /api/admin/claude-pricing/models/{model_id}` | `require_admin` | Audited |
+| `POST /api/admin/claude-pricing/exchange-rate` | `require_admin` | A new rate row; history kept; audited |
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |
 | `POST /api/admin/simulate-usage` | `require_admin` | 404 outside development |

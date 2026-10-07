@@ -6,23 +6,28 @@ production code is unchanged: FastAPI's dependency override system swaps
 the `get_db` dependency for a test session.
 """
 
+import os
 from collections.abc import Generator
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+# The mock Claude pauses between streamed pieces so the typing effect shows
+# locally. Tests have no one watching. Set before the settings are built.
+os.environ.setdefault("CHAT_MOCK_DELAY_MS", "0")
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+
+from app.db.base import Base  # noqa: E402
+from app.db.session import get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 # Importing the models registers the tables on `Base.metadata`.
 # Note the `from app import models` form: writing `import app.models`
 # here would rebind the name `app` to the package and shadow the
 # FastAPI instance imported above.
-from app import models  # noqa: F401
+from app import models  # noqa: F401, E402
 
 
 @pytest.fixture
@@ -39,6 +44,12 @@ def db_session() -> Generator[Session, None, None]:
     testing_session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
     with testing_session() as session:
+        # The migration seeds Claude's prices and the exchange rate; the
+        # tests build their schema without migrations, so seed them here.
+        from app.services.pricing import seed_defaults
+
+        seed_defaults(session)
+        session.commit()
         yield session
 
     Base.metadata.drop_all(bind=engine)

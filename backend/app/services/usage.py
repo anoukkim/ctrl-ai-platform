@@ -43,6 +43,7 @@ courtesy, the lock is the guarantee.
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -134,12 +135,17 @@ def charge(
     model_id: str | None = None,
     provider_units: int = 0,
     provider_unit: str = "",
-    provider_cost: float | None = None,
+    provider_cost: float | Decimal | None = None,
     provider_currency: str = "USD",
     builder_project_id: int | None = None,
     video_project_id: int | None = None,
     video_version_id: int | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    exchange_rate_krw: Decimal | None = None,
+    conversation_id: int | None = None,
     commit: bool = True,
+    cap_to_available: bool = False,
 ) -> ChargeResult:
     """Deduct `amount_krw` and record the matching usage event.
 
@@ -150,6 +156,15 @@ def charge(
     rows — a new video version — must land in the same transaction as the
     deduction, so that neither can exist without the other. The locks are
     held until that commit.
+
+    `cap_to_available=True` is for a charge whose cost is only known
+    *after* the provider has already been paid — a Chat reply. Its budget
+    was checked against the worst case before the call, so this only
+    matters when a concurrent charge won the race in between. Refusing
+    then would leave a reply the club paid for with no ledger row at all;
+    instead the event is written, the pot that would have paid gives what
+    it has left, and `provider_cost` still records the full dollar figure,
+    so the shortfall is visible rather than lost.
     """
     if amount_krw < 0:
         raise ValueError("금액은 0보다 작을 수 없습니다.")
@@ -201,6 +216,24 @@ def charge(
         balance.consumed_krw += amount_krw
         personal_remaining -= amount_krw
 
+    elif cap_to_available:
+        # Never split across pots (see the module note): take what is left
+        # of the one that would have paid.
+        if balance.overage_enabled and personal_remaining > community_remaining:
+            funding_source = FundingSource.PERSONAL
+            amount_krw = personal_remaining
+            balance.consumed_krw += amount_krw
+            personal_remaining = 0
+        else:
+            funding_source = _community_source(category)
+            amount_krw = community_remaining
+            if allocation is not None:
+                if category is BudgetCategory.BUILD:
+                    allocation.build_consumed_krw += amount_krw
+                else:
+                    allocation.video_consumed_krw += amount_krw
+            community_remaining = 0
+
     else:
         if not balance.overage_enabled:
             raise InsufficientBudgetError(
@@ -224,6 +257,10 @@ def charge(
         builder_project_id=builder_project_id,
         video_project_id=video_project_id,
         video_version_id=video_version_id,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        exchange_rate_krw=exchange_rate_krw,
+        conversation_id=conversation_id,
     )
     db.add(event)
 

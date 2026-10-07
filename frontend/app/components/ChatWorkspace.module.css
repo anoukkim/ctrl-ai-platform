@@ -10,12 +10,208 @@
  * 눈이 다음 줄 첫 글자를 찾기 어려워집니다.
  */
 
-.chat {
-  display: flex;
-  flex-direction: column;
+/* 대화 목록 + 대화. 화면 폭이 아니라 이 영역의 폭으로 나눕니다 — 사이드바가
+   열려 있으면 같은 화면 폭에서도 남는 자리가 훨씬 좁기 때문입니다
+   (ui-tube-watch에서 배운 것). */
+.layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
   /* 부모(.mainChat .mainInner)가 높이를 정해 줍니다. */
   height: 100%;
   min-height: 0;
+  container-type: inline-size;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---------- 대화 목록 ---------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+  padding: 0.9rem 0.6rem;
+  border-right: 1px solid var(--border);
+  background: var(--bg-rail);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.newChat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.newChat:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+
+.newChat:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.listNote {
+  padding: 0.3rem 0.4rem;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.listItems {
+  display: grid;
+  gap: 0.15rem;
+  list-style: none;
+}
+
+.listItem {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.15rem;
+  border-radius: var(--radius-sm);
+}
+
+.listItem:hover,
+.listItemActive {
+  background: var(--panel-2);
+}
+
+.listOpenButton {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.listItemActive .listOpenButton {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.listOpenButton:disabled {
+  cursor: not-allowed;
+}
+
+.listTools {
+  display: flex;
+  flex: 0 0 auto;
+  opacity: 0;
+}
+
+.listItem:hover .listTools,
+.listItem:focus-within .listTools,
+.listItemActive .listTools {
+  opacity: 1;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.renameInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--focus);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+/* ---------- 위쪽 줄: 좁은 화면의 목록 단추, 테스트 모드 표시 ---------- */
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-height: 0;
+  padding: 0.5rem 1rem 0;
+}
+
+.topBar:empty {
+  display: none;
+}
+
+.listToggle {
+  display: none;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: auto;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+@container (max-width: 48rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 5;
+    width: min(17rem, 85%);
+    display: none;
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
+  }
+
+  .listOpen {
+    display: flex;
+  }
+
+  .listToggle {
+    display: inline-flex;
+  }
 }
 
 .threadScroll {
@@ -75,6 +271,50 @@
   font-size: 0.9rem;
   /* 한글은 글자가 빽빽해 라틴 문자보다 줄 간격이 더 필요합니다. */
   line-height: 1.75;
+  /* 답장의 줄바꿈과 "-" 목록을 그대로 보여 줍니다. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 답장이 오는 중에 끝에서 깜빡이는 막대. */
+.caret {
+  display: inline-block;
+  width: 0.45rem;
+  height: 1em;
+  margin-left: 0.15rem;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    animation: none;
+  }
+}
+
+.statusNote {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.errorNote {
+  margin: 0.35rem 0 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--error);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  color: var(--error-text);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .rowUser .bubble {
@@ -240,6 +480,16 @@
 
 .send:hover:not(:disabled) {
   background: var(--accent-strong-edge);
+}
+
+.stop {
+  background: var(--panel-2);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.stop:hover {
+  background: var(--panel) !important;
 }
 
 .send:disabled {

@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.models import (
     BudgetCategory,
     BuilderProject,
+    Conversation,
     QuarterAllocation,
     User,
     VideoProject,
@@ -53,6 +54,13 @@ _VIDEO_FEATURE_LABEL = {
 
 def _label_for(db: Session, event) -> str:
     """A name the member recognises for where a charge came from."""
+    if event.feature == "chat":
+        # Named by the conversation while it exists. A deleted one leaves
+        # the charge, so the label falls back to the screen's name.
+        conversation = (
+            db.get(Conversation, event.conversation_id) if event.conversation_id else None
+        )
+        return f"Chat — {conversation.title}" if conversation and conversation.title else "Chat"
     if event.builder_project_id is not None:
         project = db.get(BuilderProject, event.builder_project_id)
         if project is not None:

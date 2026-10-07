@@ -682,3 +682,56 @@ description of the access rule. Saved exactly as written by the developer.
 > Frontend: a calm banner on Chat, Project Builder and Video Generator: "이번 분기에 참여하지 않아 AI 기능을 사용할 수 없습니다. 내 작업물 보기와 다운로드는 가능합니다." with a link to Profile; disabled composers and action buttons with a lock icon and the reason on hover. The backend must still refuse.
 >
 > Tests: inactive and not-enrolled members get 403 on every AI/create/edit/publish endpoint; active members succeed; inactive members can browse and read their own work; former members cannot log in; admin pages work for admins.
+
+## Phase 2 — Chat — full spec (merged 2026-10-07)
+
+Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
+pointed at `CLAUDE.md` section 20. Saved exactly as written by the
+developer.
+
+**At position 4 since the 2026-10-02 reorder.** It has moved twice, and
+the note below replaces what the earlier moves implied.
+
+**Charge chat to the existing Build (Claude) budget through the current
+budget service. Still record every field `budget-by-provider` and
+`usage-analytics` will need (provider, feature tag "chat", exact model,
+input and output tokens, USD cost from an admin-editable per-model token
+price, the USD→KRW rate used, and KRW), so no backfill is needed
+later.**
+
+What follows from that:
+
+- **Point 6 introduces the `UsageEvent` fields.** `budget-by-provider` is
+  deferred, so there is no earlier migration to write into; this item
+  adds the columns it records and the deferred item extends that shape.
+- **The Claude/Higgsfield budget rename has not happened yet.** Chat
+  charges the **Build** budget — the pot shown as 동아리 지원 — through
+  the budget service that exists today. The rename is
+  `budget-by-provider` point 1, and it is this item's recorded fields
+  that make it a rename rather than a reconstruction.
+- **Point 1's `ANTHROPIC_MODEL`** is already in `.env.example` and
+  `Settings`; this item is what finally reads it.
+
+> Goal: real Claude chat for members, ready for an invite-only beta.
+>
+> 1. Provider: a Claude adapter behind CLAUDE_PROVIDER (mock by default, "anthropic" for real). The model comes from ANTHROPIC_MODEL in the environment, never hard-coded. Max output tokens per reply and max conversation context are settings.
+> 2. Conversations: Conversation and Message tables with an Alembic migration. A conversation list in Chat (새 대화, rename, delete), the current conversation's history sent to Claude within the context limit (oldest messages trimmed first).
+> 3. Streaming replies in the existing chat UI, with a stop button. The Korean IME check before Enter stays.
+> 4. System prompt: Claude answers in Korean, explains simply for beginners, and suggests CTRL+AI features when relevant. When a message is about building an app or making a video, the reply shows simple action buttons ("Project Builder에서 시작", "Video Generator 열기") that open those screens with the idea pre-filled. No complex agent routing.
+> 5. Access and budget: require_active_member on every chat endpoint. Before each call, check the member's remaining Build (Claude) budget; if it is insufficient, refuse with a Korean message and no provider call.
+> 6. Usage recording from the start, so later items need no backfill: each reply writes a UsageEvent with provider, feature tag "chat", exact model, input tokens, output tokens, cost in USD from an admin-editable per-model token price setting, the USD→KRW rate used, and the KRW amount, deducted through the existing budget service in the same transaction.
+> 7. Errors: clear Korean messages for invalid key, out of provider credit, rate limits, timeouts and network failures. A failed call is never charged to the member.
+> 8. Safety: the API key lives only in the backend environment and never reaches the browser or logs. A per-member rate limit (requests per minute) protects the budget.
+> 9. Admin › 시스템 shows Claude as "실제 연결" when configured, and the 연결 확인 check works with the real key.
+> 10. Real-provider check at the end: with my key in .env and CLAUDE_PROVIDER=anthropic, send one short real message, confirm the reply streams, the usage event and deduction are correct, and the error paths show Korean messages.
+>
+> Tests (all with the mock provider): conversations CRUD and ownership; inactive members get 403; insufficient budget is refused without a provider call; usage events store model, tokens, USD, rate and KRW; failed calls are not charged; the key never appears in any response.
+
+**Merged 2026-10-07.** The decisions taken are in `BACKLOG.md` › **Now**.
+**Point 10 was not run before the merge** and is carried there as an open
+check before `prep-beta-launch`.
+
+**Point 10 is the first time this project spends real money.** It needs a
+key in `.env` and `CLAUDE_PROVIDER=anthropic`, so it is a step to take
+with the developer present — CLAUDE.md section 21 rule 5. Points 1–9 and
+every test above run on the mock provider with no key.

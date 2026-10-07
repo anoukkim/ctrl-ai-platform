@@ -16,6 +16,15 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+# A real provider selected without its key or model is refused here, at
+# startup, rather than on the first member's message (CLAUDE.md section
+# 19). With every provider on mock — the default — nothing is required.
+_missing = settings.missing_provider_settings()
+if _missing:
+    raise RuntimeError(
+        "A real provider is selected but these settings are missing: " + ", ".join(_missing)
+    )
+
 app = FastAPI(
     title="Ctrl AI Backend",
     version="0.1.0",

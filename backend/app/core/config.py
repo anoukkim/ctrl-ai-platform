@@ -97,10 +97,32 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     google_client_secret: str = ""
 
-    # What one use of the Video workspace's 프롬프트 도움받기 costs, in won,
-    # taken from the Build (Claude) budget. Flat until Phase 2 prices
-    # Claude by the token; agreed 2026-10-07.
-    video_prompt_help_charge_krw: int = 10
+    # ---------- Claude ----------
+    # How Chat (and the Video prompt helper) call Claude. The model itself
+    # is ANTHROPIC_MODEL above and is never written into the code; these
+    # are the limits around it. Agreed 2026-10-07.
+    #
+    # "off" turns thinking off where the model allows it (Sonnet 5.5 via
+    # `between_tools`; Haiku 4.5 does not think unless asked). Opus 5.5
+    # cannot turn it off, so there "off" means adaptive thinking at the
+    # effort below. "on" asks for adaptive thinking on every model.
+    chat_thinking: str = "off"
+    # low / medium / high. Lower effort means fewer tokens per reply.
+    chat_effort: str = "low"
+    # The most a single reply may produce, thinking included.
+    chat_max_output_tokens: int = 4096
+    # The most conversation history sent with one message, in (estimated)
+    # input tokens. The oldest messages are dropped first.
+    chat_context_tokens: int = 16_000
+    # Seconds to wait for Claude before giving up on a reply.
+    chat_timeout_seconds: float = 60.0
+    # The mock provider's pause between streamed chunks, so the typing
+    # effect is visible locally. Tests set it to 0.
+    chat_mock_delay_ms: int = 25
+
+    # Messages one member may send per minute, across all conversations.
+    # Protects the budget from a stuck key or a runaway script.
+    chat_rate_limit_per_minute: int = 10
 
     # ---------- Seed administrator ----------
     # Read by `python -m app.db.init_db` only. Blank means "no admin to
@@ -139,6 +161,24 @@ class Settings(BaseSettings):
                 "youtube": self.google_client_secret,
             }[provider].strip()
         )
+
+    def missing_provider_settings(self) -> list[str]:
+        """Settings a selected *real* provider cannot run without.
+
+        Empty while every provider is mock — an empty key is not an error
+        then (CLAUDE.md section 19). Checked at startup by `app.main`, so
+        a misconfigured server refuses to start instead of failing on the
+        first member's message.
+        """
+        missing: list[str] = []
+        if not self.provider_is_mock("claude"):
+            if self.provider_mode("claude") != "anthropic":
+                missing.append("CLAUDE_PROVIDER (mock 또는 anthropic)")
+            if not self.anthropic_api_key.strip():
+                missing.append("ANTHROPIC_API_KEY")
+            if not self.anthropic_model.strip():
+                missing.append("ANTHROPIC_MODEL")
+        return missing
 
     @property
     def cors_origins(self) -> list[str]:

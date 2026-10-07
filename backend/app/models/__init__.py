@@ -6,12 +6,14 @@ imported here is invisible to both.
 """
 
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
+from app.models.chat import ChatAction, ChatMessage, ChatMessageStatus, ChatRole, Conversation
 from app.models.builder import BuilderProject, BuilderProjectFile, BuilderProjectStatus
 from app.models.provider import (
     PROVIDER_ERROR_LABEL,
     ProviderErrorKind,
     ProviderStatus,
 )
+from app.models.pricing import ClaudeModelPrice, ExchangeRate
 from app.models.quarter import (
     ApplicationStatus,
     BudgetCategory,
@@ -42,6 +44,13 @@ from app.models.withdrawal import (
 )
 
 __all__ = [
+    "ChatAction",
+    "ChatMessage",
+    "ChatMessageStatus",
+    "ChatRole",
+    "ClaudeModelPrice",
+    "Conversation",
+    "ExchangeRate",
     "AccountWithdrawal",
     "GRACE_PERIOD_DAYS",
     "PublishedWorkChoice",

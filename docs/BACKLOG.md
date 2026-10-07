@@ -21,6 +21,51 @@ authority on order** — each item in **Next** names its milestone.
 **Nothing is in progress.** Branch the next item from an up-to-date
 `main`.
 
+**Open check carried from Phase 2 — Chat: point 10 has not been run.**
+One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`,
+`ANTHROPIC_MODEL=claude-sonnet-5-5`) — confirm the reply streams, the
+usage event and deduction are right, and a wrong key shows the Korean
+message with no charge. **It must be done before `prep-beta-launch`**,
+whose one real feature is this chat; the request shape has so far only
+been checked against a fake transport.
+
+Decisions from **Phase 2 — Chat** (merged 2026-10-07) that later items
+inherit — owner-approved defaults, with two changes by the owner:
+
+- **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
+  over Opus because the club starts on a small budget. Opus 5.5 and Haiku
+  4.5 are in the price table, so switching is a `.env` change only.
+- **Thinking: off where the model allows it, otherwise low effort**, as a
+  setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
+  turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off
+  and runs adaptive at low effort; Haiku 4.5 gets neither field.
+- Max output 4,096 tokens; history up to 16,000 estimated tokens, oldest
+  dropped first; 10 messages per member per minute, counted from saved
+  messages; USD→KRW 1,400 to start.
+- **Prices and the rate are admin-editable** (Admin › System, audited).
+  Seeded: Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Haiku 4.5 $1/$5 per million
+  input/output tokens. The rate keeps its history as rows.
+- **KRW is rounded up**, minimum 1원 for any call that used a token.
+- **Budget check before the call uses the worst case**; if a concurrent
+  charge wins the race anyway, the charge takes what is left and still
+  records the full dollar cost (`charge(cap_to_available=True)`).
+- **A stopped reply is saved and charged for the tokens used**; only an
+  error is free. A refusal is saved and charged.
+- **Inactive members can read** their conversations; sending, creating,
+  renaming and deleting need participation.
+- **Deleting a conversation is a real delete**; its usage events stay with
+  `conversation_id` set to NULL.
+- **The video prompt helper is priced by the token too**;
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` is gone.
+- **Settings are `CHAT_*`, not `CLAUDE_*`** — Claude Code sets
+  `CLAUDE_EFFORT` in its terminals and a backend started from one would
+  pick it up.
+
+**Anthropic credit (owner, 2026-10-07).** The club starts with a small
+prepaid Anthropic credit — the free sign-up credit if there is one,
+otherwise about $5–10 — with **auto-reload OFF** and a **monthly spend
+limit** set in the Anthropic Console. Recorded in `docs/deployment.md`.
+
 Decisions from **video-higgsfield-only** (merged 2026-10-07) that later
 items inherit:
 
@@ -161,39 +206,35 @@ and `usage-analytics` left for *After the prototype (needs discussion)*
 below, and `test-database-isolation` was inserted ahead of
 `prep-beta-launch` on 2026-10-07. `project-video-management`,
 `account-withdrawal` and `video-higgsfield-only` merged that day and left
-the list, so it now starts at Phase 2 — Chat. The
-launch items stay at the end, in the order settled on 2026-10-01.
+the list; Phase 2 — Chat merged later the same day, so it now starts
+at `invite-only-signup`. The launch items stay at the end, in the order
+settled on 2026-10-01.
 
-1. **Phase 2 — Chat** · M1 · branch `phase-2-chat`
-   Real Claude chat behind `CLAUDE_PROVIDER`, conversations and messages,
-   streaming, budget checks and usage recording. Spec saved verbatim
-   below, replacing the pointer to `CLAUDE.md` section 20. **Charges the
-   existing Build (Claude) budget**, while recording every field the two
-   deferred items will need — see the note on its spec.
-
-2. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-3. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+2. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-4. **prep-beta-launch** · M1 · no branch named yet
+3. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 3.** Running the suite against a live
+   **Do not start before item 2.** Running the suite against a live
    database is a different order of mistake once the database holds
    members' work rather than one developer's test rows.
+   **Also not before Phase 2's point 10** — the one real Claude message
+   with the owner's key (see **Now**). It is still open.
 
 ### Merge order
 
@@ -343,56 +384,7 @@ Two notes for whoever builds it, from the work that raised it:
 
 → **fix-video-workspace-hang — full spec** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-video-workspace-hang--full-spec).
 
-## Phase 2 — Chat — full spec
-
-Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
-pointed at `CLAUDE.md` section 20. Saved exactly as written by the
-developer.
-
-**At position 4 since the 2026-10-02 reorder.** It has moved twice, and
-the note below replaces what the earlier moves implied.
-
-**Charge chat to the existing Build (Claude) budget through the current
-budget service. Still record every field `budget-by-provider` and
-`usage-analytics` will need (provider, feature tag "chat", exact model,
-input and output tokens, USD cost from an admin-editable per-model token
-price, the USD→KRW rate used, and KRW), so no backfill is needed
-later.**
-
-What follows from that:
-
-- **Point 6 introduces the `UsageEvent` fields.** `budget-by-provider` is
-  deferred, so there is no earlier migration to write into; this item
-  adds the columns it records and the deferred item extends that shape.
-- **The Claude/Higgsfield budget rename has not happened yet.** Chat
-  charges the **Build** budget — the pot shown as 동아리 지원 — through
-  the budget service that exists today. The rename is
-  `budget-by-provider` point 1, and it is this item's recorded fields
-  that make it a rename rather than a reconstruction.
-- **Point 1's `ANTHROPIC_MODEL`** is already in `.env.example` and
-  `Settings`; this item is what finally reads it.
-
-> Goal: real Claude chat for members, ready for an invite-only beta.
->
-> 1. Provider: a Claude adapter behind CLAUDE_PROVIDER (mock by default, "anthropic" for real). The model comes from ANTHROPIC_MODEL in the environment, never hard-coded. Max output tokens per reply and max conversation context are settings.
-> 2. Conversations: Conversation and Message tables with an Alembic migration. A conversation list in Chat (새 대화, rename, delete), the current conversation's history sent to Claude within the context limit (oldest messages trimmed first).
-> 3. Streaming replies in the existing chat UI, with a stop button. The Korean IME check before Enter stays.
-> 4. System prompt: Claude answers in Korean, explains simply for beginners, and suggests CTRL+AI features when relevant. When a message is about building an app or making a video, the reply shows simple action buttons ("Project Builder에서 시작", "Video Generator 열기") that open those screens with the idea pre-filled. No complex agent routing.
-> 5. Access and budget: require_active_member on every chat endpoint. Before each call, check the member's remaining Build (Claude) budget; if it is insufficient, refuse with a Korean message and no provider call.
-> 6. Usage recording from the start, so later items need no backfill: each reply writes a UsageEvent with provider, feature tag "chat", exact model, input tokens, output tokens, cost in USD from an admin-editable per-model token price setting, the USD→KRW rate used, and the KRW amount, deducted through the existing budget service in the same transaction.
-> 7. Errors: clear Korean messages for invalid key, out of provider credit, rate limits, timeouts and network failures. A failed call is never charged to the member.
-> 8. Safety: the API key lives only in the backend environment and never reaches the browser or logs. A per-member rate limit (requests per minute) protects the budget.
-> 9. Admin › 시스템 shows Claude as "실제 연결" when configured, and the 연결 확인 check works with the real key.
-> 10. Real-provider check at the end: with my key in .env and CLAUDE_PROVIDER=anthropic, send one short real message, confirm the reply streams, the usage event and deduction are correct, and the error paths show Korean messages.
->
-> Tests (all with the mock provider): conversations CRUD and ownership; inactive members get 403; insufficient budget is refused without a provider call; usage events store model, tokens, USD, rate and KRW; failed calls are not charged; the key never appears in any response.
-
-**Point 10 is the first time this project spends real money.** It needs a
-key in `.env` and `CLAUDE_PROVIDER=anthropic`, so it is a step to take
-with the developer present — CLAUDE.md section 21 rule 5. Points 1–9 and
-every test above run on the mock provider with no key.
-
----
+→ **Phase 2 — Chat — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#phase-2--chat--full-spec-merged-2026-10-07).
 
 ## invite-only-signup — full spec
 
