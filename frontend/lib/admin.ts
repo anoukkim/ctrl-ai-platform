@@ -260,3 +260,69 @@ export function checkProvider(key: string): Promise<ProviderCheckResult> {
 export function formatWhenOrNever(iso: string | null): string {
   return iso === null ? "기록 없음" : formatWhen(iso);
 }
+
+/* ------------------------------------------------------------------ */
+/* Claude 요금 (Admin › System)                                        */
+/* ------------------------------------------------------------------ */
+
+/** 모델 한 개의 토큰 요금. 달러, 100만 토큰당. 소수는 문자열로 옵니다. */
+export interface ClaudeModelPrice {
+  model_id: string;
+  display_name: string;
+  input_usd_per_mtok: string;
+  output_usd_per_mtok: string;
+  updated_at: string;
+}
+
+export interface ExchangeRate {
+  krw_per_usd: string;
+  set_at: string;
+  set_by_username: string;
+}
+
+/** `GET /api/admin/claude-pricing`. API 키는 들어 있지 않습니다. */
+export interface ClaudeSettings {
+  is_mock: boolean;
+  model: string;
+  priced_as: string;
+  thinking: string;
+  effort: string;
+  max_output_tokens: number;
+  context_tokens: number;
+  rate_limit_per_minute: number;
+  prices: ClaudeModelPrice[];
+  exchange_rate: ExchangeRate | null;
+  rate_history: ExchangeRate[];
+}
+
+export function getClaudeSettings(): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>("/admin/claude-pricing");
+}
+
+export function saveClaudePrice(
+  modelId: string,
+  input: { display_name?: string; input_usd_per_mtok: string; output_usd_per_mtok: string },
+): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>(`/admin/claude-pricing/models/${encodeURIComponent(modelId)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function setExchangeRate(krwPerUsd: string): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>("/admin/claude-pricing/exchange-rate", {
+    method: "POST",
+    body: JSON.stringify({ krw_per_usd: krwPerUsd }),
+  });
+}
+
+/**
+ * 답장 한 번이 대략 얼마인지 — 입력 2,000 토큰, 출력 800 토큰으로 어림합니다.
+ * 관리자가 요금을 바꿀 때 "그래서 회원에게 얼마인가"를 바로 보려는 것입니다.
+ */
+export function typicalReplyKrw(price: ClaudeModelPrice, krwPerUsd: string): number {
+  const usd =
+    (2000 * Number(price.input_usd_per_mtok) + 800 * Number(price.output_usd_per_mtok)) /
+    1_000_000;
+  return Math.ceil(usd * Number(krwPerUsd));
+}

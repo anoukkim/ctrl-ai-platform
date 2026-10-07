@@ -428,3 +428,25 @@
   border-color: var(--border);
   background: transparent;
 }
+
+/* Chat에서 가져온 아이디어. 새 프로젝트 칸 아래에 그대로 보여 줍니다. */
+.createIdea {
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 2px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.createIdeaLabel {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+}

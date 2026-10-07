@@ -28,6 +28,7 @@ import LibraryCard from "@/app/components/LibraryCard";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
+import { useChatIdea } from "@/app/components/useChatIdea";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
@@ -44,8 +45,11 @@ export default function VideoLibrary() {
 
   const [state, setState] = useState<State>({ phase: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
+  // Chat의 액션 단추로 왔다면 새 프로젝트 칸을 열고 채워 둡니다.
+  const chatIdea = useChatIdea();
+  const [creating, setCreating] = useState(() => chatIdea.idea !== "");
+  const [newName, setNewName] = useState(() => chatIdea.name);
+  const [idea, setIdea] = useState(() => chatIdea.idea);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -80,8 +84,9 @@ export default function VideoLibrary() {
 
     setBusy(true);
     try {
-      await createVideoProject({ name });
+      await createVideoProject({ name, prompt: idea });
       setNewName("");
+      setIdea("");
       setCreating(false);
       reload();
     } catch (error) {
@@ -89,7 +94,7 @@ export default function VideoLibrary() {
     } finally {
       setBusy(false);
     }
-  }, [newName, reload]);
+  }, [idea, newName, reload]);
 
   // Builder 목록과 같은 방식입니다 — 바뀐 줄만 고치고 목록을 다시
   // 받지 않습니다.
@@ -204,11 +209,18 @@ export default function VideoLibrary() {
               onClick={() => {
                 setCreating(false);
                 setNewName("");
+                setIdea("");
               }}
             >
               취소
             </button>
           </div>
+          {idea && (
+            <p className={styles.createIdea}>
+              <span className={styles.createIdeaLabel}>Chat에서 가져온 아이디어 — 프롬프트로 저장됩니다</span>
+              {idea}
+            </p>
+          )}
         </div>
       )}
 

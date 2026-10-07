@@ -6,6 +6,7 @@
  */
 
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import VideoLibrary from "./VideoLibrary";
 
@@ -14,5 +15,10 @@ export const metadata: Metadata = {
 };
 
 export default function VideoLibraryPage() {
-  return <VideoLibrary />;
+  // 목록이 주소의 ?idea=(Chat의 액션 단추)를 읽으므로 Suspense로 감쌉니다.
+  return (
+    <Suspense fallback={<p className="small muted">불러오는 중…</p>}>
+      <VideoLibrary />
+    </Suspense>
+  );
 }

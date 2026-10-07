@@ -13,6 +13,7 @@
 
 import BackendStatus from "@/app/components/BackendStatus";
 
+import ClaudePricingPanel from "./ClaudePricingPanel";
 import ProviderPanel from "./ProviderPanel";
 import { sectionLabel } from "../sections";
 
@@ -36,6 +37,8 @@ export default function AdminSystemPage() {
       </section>
 
       <ProviderPanel />
+
+      <ClaudePricingPanel />
     </div>
   );
 }
