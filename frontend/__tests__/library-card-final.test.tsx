@@ -145,3 +145,26 @@ describe("최종본 다운로드", () => {
     expect(item.getAttribute("title")).toBe("최종본을 먼저 고르세요");
   });
 });
+
+describe("상태 필터 — <select> 대신 칩", () => {
+  test("같은 값으로 거르고, 고른 칩은 눌린 상태다", async () => {
+    listVideoProjects.mockResolvedValue([
+      video({ id: 1, name: "초안 하나" }),
+      video({ id: 2, name: "완성 하나", status: "ready", final_version_id: 5 }),
+    ]);
+    render(<VideoLibrary />);
+    await screen.findByText("초안 하나");
+
+    const group = screen.getByRole("group", { name: "상태" });
+    const all = within(group).getByRole("button", { name: "전체" });
+    expect(all.getAttribute("aria-pressed")).toBe("true");
+
+    const ready = within(group).getByRole("button", { name: VIDEO_STATUS_LABEL.ready });
+    await userEvent.click(ready);
+
+    expect(ready.getAttribute("aria-pressed")).toBe("true");
+    expect(all.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByText("초안 하나")).toBeNull();
+    expect(screen.getByText("완성 하나")).toBeTruthy();
+  });
+});

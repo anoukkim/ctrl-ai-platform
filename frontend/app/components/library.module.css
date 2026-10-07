@@ -1,59 +1,91 @@
 /* Project Builder와 Video Generator의 프로젝트 목록이 함께 쓰는 스타일.
-   작업 공간과 같은 어두운 언어를 유지하되, 목록 화면이므로 조금 더
-   여유 있게 둡니다. 큰 마케팅용 머리말은 두지 않습니다. */
+   색은 모두 globals.css의 토큰이라 밝은 테마와 어두운 테마를 함께
+   따라갑니다. 영역 색(보라 / 청록)은 새 카드와 아이디어 칸에서만
+   바뀝니다. */
+
+/* ---------- 머리말 ---------- */
 
 .head {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--border);
+}
+
+.headText {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 20rem;
 }
 
 .title {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.15rem;
-  font-weight: 650;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
 .subtitle {
-  flex: 1 1 16rem;
-  min-width: 0;
+  max-width: 720px;
+  margin-top: 0.35rem;
   color: var(--text-muted);
-  font-size: 0.83rem;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .headActions {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
+/* ---------- 도구 줄: 개수 · 검색 · 상태 ---------- */
+
+.toolbar {
+  margin-bottom: 16px;
+}
+
 .sectionLabel {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
-  font-size: 0.78rem;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 13.5px;
   font-weight: 650;
   color: var(--text-muted);
 }
 
 .count {
-  font-size: 0.74rem;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-dim);
+}
+
+.toolbarSearch {
+  flex: 1 1 14rem;
+  max-width: 380px;
+  min-width: 0;
+}
+
+/* SearchBar는 혼자 쓰일 때 아래 여백을 둡니다. 도구 줄 안에서는 줄이
+   여백을 맡습니다. */
+.toolbarSearch > div {
+  margin-bottom: 0;
 }
 
 /* ---------- 목록 ---------- */
 
 .grid {
   display: grid;
-  gap: 0.7rem;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
 .card {
@@ -67,12 +99,13 @@
      긴 이름이 말줄임표로 줄지 않고 카드를 옆 칸까지 밀어냅니다. */
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  gap: 0.4rem;
+  gap: 0;
   align-content: start;
-  padding: 0.85rem 1rem;
+  padding: 0;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
   color: var(--text);
   transition:
     border-color 0.14s ease,
@@ -80,13 +113,70 @@
 }
 
 .card:hover {
-  background: var(--panel-2);
-  border-color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+/* 영상 카드: 왼쪽에 세로 9:16 그림, 오른쪽에 내용. */
+.cardSide {
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+}
+
+/* 내용 칸. 그림 아래(또는 옆)에 이름, 설명, 메타 줄이 쌓입니다. */
+.cardBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 0.45rem;
+  align-content: start;
+  padding: 16px 18px 14px;
+}
+
+.cardSide .cardBody {
+  padding: 0;
+}
+
+/* 프로젝트 카드 위쪽의 그림 자리. 카드가 넘침을 잘라내지 않으므로
+   (펼친 메뉴가 보여야 합니다) 둥근 모서리는 그림 자체에 둡니다. */
+.cardThumbTop {
+  height: 120px;
+  border-bottom: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+  overflow: hidden;
+}
+
+.cardThumbSide {
+  width: 72px;
+  height: 128px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* 아직 미리보기가 없는 프로젝트의 빗금 자리. */
+.thumbPlaceholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--panel-2) 0,
+    var(--panel-2) 10px,
+    var(--panel) 10px,
+    var(--panel) 20px
+  );
+}
+
+/* 영상 카드의 그림. 색은 --video-art-* 토큰 중 하나를 인라인으로 받습니다. */
+.thumbVideo {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .cardTop {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
@@ -96,7 +186,7 @@
 .cardTitle {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -109,8 +199,8 @@
 
 .cardName {
   min-width: 0;
-  font-size: 0.95rem;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -118,14 +208,14 @@
 
 .cardDescription {
   color: var(--text-muted);
-  font-size: 0.81rem;
+  font-size: 13.5px;
   line-height: 1.55;
   /* 두 줄까지만 보여 주고 넘치면 줄임표. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.5rem;
+  min-height: 2.6rem;
 }
 
 .cardMeta {
@@ -133,11 +223,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.15rem;
-  padding-top: 0.5rem;
+  margin-top: 0.2rem;
+  padding-top: 0.6rem;
   border-top: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 0.74rem;
+  font-size: 12px;
 }
 
 .metaTime {
@@ -148,7 +238,12 @@
   color: var(--border-strong);
 }
 
-/* 새 프로젝트 카드 — 목록의 일부지만 눈에 띄게. */
+/* 최종본을 고른 영상 — 끝난 일이라 성공 색으로. */
+.metaOk {
+  color: var(--ok-text);
+  font-weight: 600;
+}
+
 /* 메뉴가 열려 있는 동안에만 카드를 들어 올립니다.
  *
  * `.cardMenu`가 z-index를 가지므로 그 자체가 쌓임 맥락이고, 안에 있는
@@ -192,11 +287,12 @@
   flex-shrink: 0;
 }
 
+/* ⋯ — 쉬고 있을 때도 보이고, 누를 자리는 32×32 이상입니다. */
 .cardMenuButton {
   display: grid;
   place-items: center;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -208,8 +304,8 @@
 
 .cardMenuButton:hover,
 .cardMenuButton[aria-expanded="true"] {
-  border-color: var(--border-strong);
-  background: var(--panel);
+  border-color: var(--border);
+  background: var(--panel-2);
   color: var(--text);
 }
 
@@ -219,24 +315,24 @@
   right: 0;
   z-index: 20;
   min-width: 10rem;
-  padding: 0.25rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: var(--elevated);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow);
   list-style: none;
 }
 
 .cardMenuItem {
   display: block;
   width: 100%;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.6rem;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius-sm) - 3px);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
@@ -257,20 +353,20 @@
 
 .cardMenuItemDanger:hover:not(:disabled) {
   background: var(--error-soft);
-  color: #ffd2d4;
+  color: var(--error-strong-text);
 }
 
 .cardNameInput {
   flex: 1;
   min-width: 0;
-  padding: 0.1rem 0.35rem;
+  padding: 0.1rem 0.4rem;
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .cardNameInput:focus-visible {
@@ -282,24 +378,32 @@
 .cardNote {
   position: relative;
   z-index: 1;
-  font-size: 0.75rem;
+  font-size: 12px;
   color: var(--ok-text);
 }
 
 .cardError {
   position: relative;
   z-index: 1;
-  font-size: 0.75rem;
+  font-size: 12px;
   color: var(--error-text);
 }
 
+/* ---------- 새 프로젝트 칸 ----------
+ * 점선 칸. 가리키면 테두리가 영역 색이 되고, 옅은 영역 색이 깔립니다.
+ * 영역 색은 .newCardBuild / .newCardVideo 가 정합니다. */
+
 .newCard {
+  --area: var(--accent);
+  --area-soft: var(--accent-soft);
+
   display: grid;
   place-content: center;
-  gap: 0.25rem;
-  min-height: 7.5rem;
+  justify-items: center;
+  gap: 0.3rem;
+  min-height: 9rem;
   padding: 1rem;
-  border: 1px dashed var(--border-strong);
+  border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-muted);
@@ -312,109 +416,47 @@
     background-color 0.14s ease;
 }
 
+.newCardBuild {
+  --area: var(--build);
+  --area-soft: var(--build-soft);
+}
+
+.newCardVideo {
+  --area: var(--video);
+  --area-soft: var(--video-soft);
+}
+
 .newCard:hover {
-  background: var(--panel);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--area-soft);
+  border-color: var(--area);
+  color: var(--text);
 }
 
 .newCardGlyph {
-  font-size: 1.1rem;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.newCard:hover .newCardGlyph {
+  border-color: var(--area);
 }
 
 .newCardLabel {
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .newCardHint {
-  font-size: 0.75rem;
+  font-size: 12.5px;
   color: var(--text-dim);
-}
-
-/* ---------- 비어 있을 때 / 오류 ---------- */
-
-.empty {
-  display: grid;
-  gap: 0.4rem;
-  justify-items: center;
-  padding: 2.5rem 1.5rem;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius);
-  text-align: center;
-}
-
-.emptyTitle {
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.emptyText {
-  color: var(--text-muted);
-  font-size: 0.83rem;
-  max-width: 26rem;
-}
-
-.error {
-  display: grid;
-  gap: 0.5rem;
-  justify-items: start;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--warn);
-  border-radius: var(--radius);
-  background: var(--panel);
-}
-
-.errorTitle {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.errorText {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  line-height: 1.6;
-}
-
-/* ---------- 불러오는 중 ---------- */
-
-.skeletonGrid {
-  display: grid;
-  gap: 0.7rem;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-}
-
-.skeleton {
-  min-height: 7.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel);
-  opacity: 0.55;
-}
-
-/* ---------- 새 프로젝트 만들기 ---------- */
-
-.createForm {
-  display: grid;
-  gap: 0.6rem;
-  margin-bottom: 1.1rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--panel);
-}
-
-.createRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.createInput {
-  flex: 1 1 14rem;
-  min-width: 0;
 }
 
 /* 참여하지 않는 분기에는 새로 만들 수 없습니다. 눌리지 않는다는 것이
@@ -425,18 +467,114 @@
 }
 
 .newCard:disabled:hover {
-  border-color: var(--border);
+  border-color: var(--border-strong);
   background: transparent;
 }
 
-/* Chat에서 가져온 아이디어. 새 프로젝트 칸 아래에 그대로 보여 줍니다. */
+/* ---------- 비어 있을 때 / 오류 ---------- */
+
+.empty {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: center;
+  padding: 2.75rem 1.5rem;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.emptyText {
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 28rem;
+}
+
+.error {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
+  background: var(--warn-soft);
+  box-shadow: var(--shadow);
+}
+
+.errorTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--warn-text);
+}
+
+.errorText {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ---------- 불러오는 중 ---------- */
+
+.skeletonGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.skeleton {
+  min-height: 9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  opacity: 0.55;
+}
+
+/* ---------- 새 프로젝트 만들기 ---------- */
+
+.createForm {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 22px;
+  padding: 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.createTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.createRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.createRow > :global(.btn) {
+  flex: none;
+}
+
+.createInput {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* Chat에서 가져온 아이디어. 새 프로젝트 칸 아래에 그대로 보여 줍니다.
+   Project Builder는 강조색, Video Generator는 영상 색입니다. */
 .createIdea {
-  margin-top: 0.6rem;
-  padding: 0.55rem 0.75rem;
-  border-left: 2px solid var(--accent);
-  background: var(--accent-soft);
+  padding: 0.7rem 0.9rem;
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
   max-height: 8rem;
@@ -445,8 +583,17 @@
 
 .createIdeaLabel {
   display: block;
-  margin-bottom: 0.2rem;
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: normal;
+}
+
+.createIdeaVideo {
+  background: var(--video-soft);
+}
+
+.createIdeaVideo .createIdeaLabel {
+  color: var(--video-text);
 }

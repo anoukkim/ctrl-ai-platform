@@ -155,13 +155,16 @@ export default function VideoLibrary() {
   return (
     <>
       <header className={styles.head}>
-        <h1 className={styles.title}>Video Generator</h1>
-        <p className={styles.subtitle}>
-          아이디어를 적고, 다듬고, 여러 번 만들어 보면서 마음에 드는 영상을 고릅니다.
-        </p>
+        <div className={styles.headText}>
+          <p className="page-eyebrow page-eyebrow-video">Create</p>
+          <h1 className={styles.title}>Video Generator</h1>
+          <p className={styles.subtitle}>
+            아이디어를 적고, 다듬고, 여러 번 만들어 보면서 마음에 드는 영상을 고릅니다.
+          </p>
+        </div>
         <div className={styles.headActions}>
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary"
             type="button"
             onClick={() => setCreating((open) => !open)}
             disabled={!mayCreate}
@@ -176,7 +179,8 @@ export default function VideoLibrary() {
 
       {creating && (
         <div className={styles.createForm}>
-          <label className="section-title" htmlFor="new-video-project">
+          <p className={styles.createTitle}>새 영상 프로젝트</p>
+          <label className="sr-only" htmlFor="new-video-project">
             새 영상 프로젝트 이름
           </label>
           <div className={styles.createRow}>
@@ -196,7 +200,7 @@ export default function VideoLibrary() {
               autoFocus
             />
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary"
               type="button"
               onClick={() => void create()}
               disabled={!newName.trim() || busy}
@@ -204,7 +208,7 @@ export default function VideoLibrary() {
               {busy ? "만드는 중…" : "만들기"}
             </button>
             <button
-              className="btn btn-sm"
+              className="btn btn-outline"
               type="button"
               onClick={() => {
                 setCreating(false);
@@ -216,45 +220,58 @@ export default function VideoLibrary() {
             </button>
           </div>
           {idea && (
-            <p className={styles.createIdea}>
-              <span className={styles.createIdeaLabel}>Chat에서 가져온 아이디어 — 프롬프트로 저장됩니다</span>
+            <p className={`${styles.createIdea} ${styles.createIdeaVideo}`}>
+              <span className={styles.createIdeaLabel}>
+                Chat에서 가져온 아이디어 — 프롬프트로 저장됩니다
+              </span>
               {idea}
             </p>
           )}
         </div>
       )}
 
-      <p className={styles.sectionLabel}>
-        내 영상 프로젝트
-        {state.phase === "ready" && (
-          <span className={styles.count}>{state.projects.length}개</span>
-        )}
-      </p>
+      <div className={`toolbar ${styles.toolbar}`}>
+        <p className={`toolbar-count ${styles.sectionLabel}`}>
+          내 영상 프로젝트
+          {state.phase === "ready" && (
+            <span className={styles.count}>{state.projects.length}개</span>
+          )}
+        </p>
 
-      {state.phase === "ready" && state.projects.length > 0 && (
-        <SearchBar
-          value={query}
-          onChange={setQuery}
-          placeholder="영상 제목이나 프롬프트로 검색"
-          resultCount={visible.length}
-          totalCount={state.projects.length}
-          filters={[
-            {
-              key: "status",
-              label: "상태",
-              value: statusFilter,
-              onChange: setStatusFilter,
-              options: [
+        {state.phase === "ready" && state.projects.length > 0 && (
+          <>
+            <div className={styles.toolbarSearch}>
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                placeholder="영상 제목이나 프롬프트로 검색"
+                resultCount={visible.length}
+                totalCount={state.projects.length}
+              />
+            </div>
+            {/* 상태 필터. 예전의 <select>와 같은 값, 같은 상태입니다. */}
+            <div className="segmented" role="group" aria-label="상태">
+              {[
                 { value: "all", label: "전체" },
                 ...Object.entries(VIDEO_STATUS_LABEL).map(([value, label]) => ({
                   value,
                   label,
                 })),
-              ],
-            },
-          ]}
-        />
-      )}
+              ].map((option) => (
+                <button
+                  aria-pressed={statusFilter === option.value}
+                  className="chip"
+                  key={option.value}
+                  onClick={() => setStatusFilter(option.value)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {state.phase === "loading" && (
         <div className={styles.skeletonGrid} aria-busy="true" aria-label="불러오는 중">
@@ -344,6 +361,13 @@ export default function VideoLibrary() {
               name={project.name}
               onDelete={() => askToDelete(project)}
               onRename={(name) => rename(project.id, name)}
+              thumbnail={
+                <span
+                  className={styles.thumbVideo}
+                  style={{ background: `var(--video-art-${(project.id % 4) + 1})` }}
+                />
+              }
+              thumbnailPlacement="side"
             >
               <p className={styles.cardDescription}>
                 {project.prompt || "아직 프롬프트를 적지 않았습니다."}
@@ -353,13 +377,17 @@ export default function VideoLibrary() {
                 <span className={styles.metaDot} aria-hidden="true">
                   ·
                 </span>
-                <span>{project.final_version_id ? "최종본 선택됨" : "최종본 미선택"}</span>
+                {project.final_version_id ? (
+                  <span className={styles.metaOk}>최종본 선택됨</span>
+                ) : (
+                  <span>최종본 미선택</span>
+                )}
               </p>
             </LibraryCard>
           ))}
 
           <button
-            className={styles.newCard}
+            className={`${styles.newCard} ${styles.newCardVideo}`}
             type="button"
             onClick={() => setCreating(true)}
             disabled={!mayCreate}
