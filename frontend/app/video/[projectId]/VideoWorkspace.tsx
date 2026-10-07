@@ -593,34 +593,56 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 </div>
 
                 <div className={styles.settings}>
-                  <div className={styles.settingRow}>
-                    <label className={styles.settingLabel} htmlFor="video-model">
+                  {/* 모델은 라디오 카드로 고릅니다 — 이름과 한 줄 설명을 함께
+                      보여 줍니다. 값은 예전 <select>와 같습니다: "auto" 또는
+                      모델 id. */}
+                  <fieldset
+                    className={`${styles.settingRow} ${styles.modelCards}`}
+                    aria-labelledby="video-model-label"
+                  >
+                    <span className={styles.settingLabel} id="video-model-label">
                       Model
-                    </label>
-                    <select
-                      className="field"
-                      id="video-model"
-                      value={project.selected_model_id ?? "auto"}
-                      onChange={(event) => void chooseModel(event.target.value)}
-                      disabled={!mayCreate}
-                      title={lockedReason}
-                    >
-                      {/* Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다. */}
-                      <option value="auto">
-                        Auto — 추천{models[0] ? ` (${models[0].display_name})` : ""}
-                      </option>
-                      {models.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.display_name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className={styles.settingHint}>
-                      {project.selected_model
-                        ? project.selected_model.description
-                        : "CTRL+AI가 알맞은 모델을 고릅니다."}
-                    </p>
-                  </div>
+                    </span>
+                    {[
+                      {
+                        value: "auto",
+                        // Auto는 CTRL+AI의 선택지이지 Higgsfield 모델이 아닙니다.
+                        name: `Auto — 추천${models[0] ? ` (${models[0].display_name})` : ""}`,
+                        description: "CTRL+AI가 알맞은 모델을 고릅니다.",
+                      },
+                      ...models.map((model) => ({
+                        value: String(model.id),
+                        name: model.display_name,
+                        description: model.description,
+                      })),
+                    ].map((option) => {
+                      const checked =
+                        String(project.selected_model_id ?? "auto") === option.value;
+                      return (
+                        <label
+                          className={`${styles.modelCard} ${
+                            checked ? styles.modelCardActive : ""
+                          } ${mayCreate ? "" : styles.modelCardDisabled}`}
+                          key={option.value}
+                          title={lockedReason}
+                        >
+                          <input
+                            className={styles.modelRadio}
+                            type="radio"
+                            name="video-model"
+                            value={option.value}
+                            checked={checked}
+                            onChange={(event) => void chooseModel(event.target.value)}
+                            disabled={!mayCreate}
+                          />
+                          <span className={styles.modelName}>{option.name}</span>
+                          {option.description && (
+                            <span className={styles.modelDesc}>{option.description}</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </fieldset>
 
                   {caps && choice ? (
                     <VideoSettings

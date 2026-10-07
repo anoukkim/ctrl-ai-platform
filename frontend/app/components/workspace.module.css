@@ -6,12 +6,20 @@
  * 높이 규칙: AppShell이 작업 공간 화면에서 100vh를 고정해 주므로, 여기서는
  * flex로 남은 높이를 나눠 가집니다. 스크롤은 각 판(pane) 안에서만 생깁니다. */
 
+/* 작업 공간은 화면 가장자리에 붙지 않고 16px 안쪽에 떠 있는 틀입니다
+ * (변형 B). 틀 하나에 둥근 모서리와 그림자를 주고, 안의 판들은 선으로만
+ * 나눕니다. */
 .shell {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100% - 32px);
   min-height: 0;
-  background: var(--bg);
+  margin: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 /* ---------- 위쪽 막대 ---------- */
@@ -21,7 +29,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
-  padding: 0.5rem 0.9rem;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
@@ -76,7 +84,7 @@
   align-items: center;
   gap: 0.3rem;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -98,8 +106,8 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.88rem;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
   max-width: 16rem;
 }
@@ -128,11 +136,11 @@
   min-width: 15rem;
   max-height: 18rem;
   overflow-y: auto;
-  padding: 0.25rem;
-  border: 1px solid var(--border-strong);
+  padding: 0.3rem;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--elevated);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow);
   list-style: none;
 }
 
@@ -257,7 +265,7 @@
 
 .switcherActionDanger:hover:not(:disabled) {
   background: var(--error-soft);
-  color: #ffd2d4;
+  color: var(--error-strong-text);
 }
 
 /* ---------- 상태 화면 ---------- */
@@ -309,7 +317,7 @@
 
 .paneCenter {
   flex: 1 1 auto;
-  background: var(--bg);
+  background: var(--panel);
 }
 
 .paneHead {
@@ -318,11 +326,12 @@
   justify-content: space-between;
   gap: 0.5rem;
   flex: 0 0 auto;
-  padding: 0.4rem 0.7rem;
+  min-height: 44px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel-2);
-  font-size: 0.74rem;
-  font-weight: 650;
+  background: var(--panel);
+  font-size: 12.5px;
+  font-weight: 700;
   color: var(--text-muted);
 }
 
@@ -337,7 +346,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.6rem 0.7rem;
+  padding: 12px 14px;
 }
 
 /* 여백 없이 꽉 채우는 내용(코드, 영상)에 씁니다. */
@@ -359,10 +368,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.4rem 0.7rem;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel-2);
-  font-size: 0.74rem;
+  background: var(--panel);
+  font-size: 12.5px;
   font-weight: 650;
   color: var(--text-muted);
 }
@@ -372,32 +381,34 @@
 .chatThread {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.7rem;
 }
 
 .chatMessage {
-  padding: 0.45rem 0.6rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.82rem;
-  line-height: 1.55;
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 
+/* 내 말: 옅은 강조색. Claude의 말: 판 색에 테두리만. */
 .chatUser {
   align-self: flex-end;
-  max-width: 95%;
   background: var(--accent-soft);
   border: 1px solid var(--accent-border);
 }
 
 .chatAssistant {
-  background: var(--panel-2);
+  align-self: flex-start;
+  background: var(--panel);
   border: 1px solid var(--border);
 }
 
 .chatRole {
   display: block;
-  margin-bottom: 0.15rem;
-  font-size: 0.68rem;
+  margin-bottom: 0.2rem;
+  font-size: 11px;
   font-weight: 650;
   color: var(--text-dim);
 }
@@ -406,8 +417,13 @@
   flex: 0 0 auto;
   display: grid;
   gap: 0.4rem;
-  padding: 0.6rem 0.7rem;
+  padding: 12px 14px;
   border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.chatComposer :global(.field) {
+  border-radius: calc(var(--radius) - 4px);
   background: var(--panel);
 }
 
@@ -423,9 +439,17 @@
 
 /* ---------- 좁은 화면 ---------- */
 
-/* 데스크톱이 우선입니다. 좁은 화면에서는 판을 세로로 쌓고, 고정 높이를
+/* 데스크톱이 우선입니다. 1250px 아래에서는 각 화면이 곁 패널 하나를
+   숨겨 세 칸을 두 칸으로 줄입니다(Builder는 파일, Video는 Claude).
+   사이드바가 위로 접히는 폭(60rem)부터는 판을 세로로 쌓고, 고정 높이를
    풀어 페이지 전체가 스크롤되게 합니다. */
-@media (max-width: 75rem) {
+@media (max-width: 59.99rem) {
+  .shell {
+    height: auto;
+    margin: 12px;
+    overflow: visible;
+  }
+
   .body {
     flex-direction: column;
     overflow: visible;

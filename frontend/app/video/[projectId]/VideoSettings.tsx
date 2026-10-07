@@ -137,10 +137,10 @@ export default function VideoSettings({ caps, choice, onChange, lockedReason }: 
         locked={locked}
         lockedReason={lockedReason}
         render={(value) => (
-          <>
+          <span className={styles.aspectChoice}>
             <AspectGlyph aspect={value} />
             {ASPECT_LABEL[value as Aspect] ?? value}
-          </>
+          </span>
         )}
         onPick={(value) => pick({ aspect_ratio: value })}
       />

@@ -242,7 +242,8 @@ describe("모델 바꾸기", () => {
 
     await user.click(within(screen.getByRole("group", { name: "길이" })).getByText("10초"));
     await user.click(within(screen.getByRole("group", { name: "화질" })).getByText("1080p"));
-    await user.selectOptions(screen.getByLabelText("Model"), String(SEEDANCE.id));
+    // 모델은 라디오 카드입니다 — 예전 <select>와 같은 값(모델 id)을 보냅니다.
+    await user.click(screen.getByRole("radio", { name: /Seedance 2\.0/ }));
 
     const notice = await screen.findByRole("status");
     // 10초는 Seedance에도 있어 남고, 1080p와 소리는 바뀝니다.
