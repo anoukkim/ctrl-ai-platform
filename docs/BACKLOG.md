@@ -35,6 +35,12 @@ Mock providers only, never a real API call; the developer's database
 untouched (pytest with `DATABASE_URL` at an unreachable port until
 `test-database-isolation` lands); no cloud resources; no merging.
 
+**Money wording in older notes.** Since `single-wallet` (2026-10-08)
+every paid feature spends from one 동아리 지원 wallet per member per
+quarter. Notes below that say a feature "charges Build" or "the Video
+budget" record what was true when they were written; read them as "the
+wallet", with the provider on the usage event.
+
 **Earlier working order (2026-10-07)** — now after the three above,
 one branch each,
 stopping after each for the developer to check and merge:
@@ -285,6 +291,8 @@ Everything below them moved down three places.
    quarter) pays for Chat, video and every other paid feature. Replaces
    the Build/Video buckets with a migration that keeps the totals.
    Spec saved verbatim below.
+   **Built on `feat-single-wallet`, waiting for the developer's check** —
+   see *Decisions taken while implementing* under its spec.
 
 2. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
    Friendlier, less developer-like screens with short, tasteful motion
@@ -347,7 +355,10 @@ Everything below them moved down three places.
 
 ### Merge order
 
-Nothing is waiting. Branch the next item from an up-to-date `main`.
+1. `feat-single-wallet` — built, waiting for the developer's check.
+2. `docs-deepseek` — research only, waiting; touches different sections
+   of this file, so it merges cleanly in either order.
+3. `feat-ui-friendly-motion` — starts after `feat-single-wallet` merges.
 
 ---
 
@@ -385,9 +396,11 @@ and how a member's share is decided) is not settled, and four items that
 *are* ready were queued behind them.
 
 - **budget-by-provider** · M4 · branch `feat-budget-by-provider`
-  Two budgets per member per quarter named by provider, the club pool,
-  the reserve and the quarter report. Full spec below, including
-  **Application flow** and **Application and purchase model (decided)**.
+  The club side of the money: pool per provider, the reserve, purchase
+  planning forecast from usage by provider, and the quarter report. Members
+  already have one wallet (`single-wallet`); the spec below was rewritten
+  for that on 2026-10-08, including **Application flow** and **Application
+  and purchase model (decided)**.
 - **usage-analytics** · M4 · branch `feat-usage-analytics`
   Admin and member usage charts. **Depends on budget-by-provider** and
   must stay behind it, whenever the two are taken up.
@@ -415,10 +428,18 @@ What follows from that for the specs below:
 - **Still open:** what happens to a member who applies after the purchase
   (a second purchase, or the next quarter); the per-provider split has to
   be fixed before the purchase, because credit cannot move between
-  providers; and what the 팀장 needs from the app as Concur evidence —
+  providers — **since `single-wallet` (2026-10-08) that split is the
+  club's forecast, not the members' choice** (see the next bullet); and what the 팀장 needs from the app as Concur evidence —
   most likely point 6's quarter report (headcount, purchase per provider,
   usage), plus the purchase records in *Application and purchase model*
   point 3.
+- **The club still buys per provider, forecast from usage by provider**
+  (`single-wallet`, 2026-10-08). Members have one 동아리 지원 wallet each
+  and never choose a split; every usage event still records its provider,
+  feature, model and native units, and Admin › Budget totals each
+  quarter's spend by provider. The 팀장 sizes each provider's purchase from
+  that: headcount × the quarter's amount, divided by last quarter's (or this
+  quarter's to date) share of spend per provider, plus the reserve.
 - **Expense filing stays out of scope.** The app records purchases; it
   does not talk to Concur.
 
@@ -427,23 +448,21 @@ this section.
 
 Three things to carry into **budget-by-provider**:
 
-- **The Budget section already exists**, defined in
-  `frontend/app/admin/sections.ts` with `hidden: true` and the route
-  `/admin/budget`. Deleting that one line turns it on everywhere —
-  sidebar, tabs, breadcrumbs, the dashboard card and the page heading.
-  Its label is already English.
+- **The Budget section is on** (`single-wallet` turned it on):
+  `/admin/budget` lists every wallet and the quarter's spend by provider
+  from `GET /api/admin/quarters/{id}/budget`
+  (`backend/app/services/quarter_budget.py`). Pools, the reserve and
+  purchase records extend that screen rather than adding a new one.
 - **A section is named once.** All eleven names live in that same file,
   and screens read them through `sectionLabel(key)` rather than writing
   their own heading. A new section needs an entry there, not a string in
   a component. `__tests__/admin-sections.test.ts` asserts the visible
   list and that every name is English, so adding one touches that test.
-- **The budget rename lands on 동아리 지원, not 공동체 지원.** Item 1 of
-  the spec renames the Build budget to Claude; the pot it comes out of
-  is called 동아리 지원 on screen, and `FUNDING_LABEL` in
-  `frontend/lib/quarters.ts` is where that word is written. The
-  `FundingSource` *values* are still `community_build` /
-  `community_video` — ui-naming deliberately left the data alone, so a
-  provider rename there is a real migration, not a label change.
+- **There is no budget rename any more.** `single-wallet` replaced the
+  Build/Video buckets with one wallet, called 동아리 지원 on screen
+  (`FUNDING_LABEL` in `frontend/lib/quarters.ts`), and migrated
+  `FundingSource` to `community | personal` (migration `e8a4c2f6b1d7`).
+  Which provider a charge paid is `UsageEvent.provider`.
 
 ---
 
@@ -560,6 +579,55 @@ is unchanged, and is now forecast from usage by provider.
 > - Update budget-by-provider and usage-analytics specs (After the prototype) and docs/product.md so nothing still describes the two-bucket split. Note in Funding model that the club still buys per provider, forecast from usage by provider.
 > Tests: migration preserves totals; Chat and video both draw from one balance; pre-check refuses when the single balance is short; application has no split; admin per-quarter amount; per-provider totals match usage.
 
+### Decisions taken while implementing — 2026-10-08
+
+Built on `feat-single-wallet`, not merged.
+
+- **Data.** `quarter_allocations` has `budget_krw` and `consumed_krw`
+  (renamed from `community_total_budget_krw`; the six per-bucket columns
+  are gone). `quarter_applications` has only `requested_budget_krw`.
+  `usage_events.category` is **dropped** — what a charge was for is
+  `provider` + `feature`; the downgrade rebuilds it (video features and
+  Higgsfield → video, everything else → build). `FundingSource` is
+  `community | personal`.
+- **Migration `e8a4c2f6b1d7`** sums each wallet (`budget = build + video`,
+  `consumed = build consumed + video consumed`) and keeps the original
+  split in `pricing_snapshot.split_before_single_wallet`, so the downgrade
+  restores it exactly; a wallet whose total changed after the upgrade gets
+  Video = what Video spent and the rest Build, so neither starts overdrawn.
+  Withdrawal reversals become one `amount`. A bucket an admin had lowered
+  below its spend is absorbed by the other — the wallet's remaining figure
+  is the true total. Checked on SQLite (tests) and round-tripped on a
+  throwaway PostgreSQL 16 container (upgrade → downgrade → upgrade, plus
+  `alembic check`), never on the developer's database.
+- **The amount.** `Quarter.subsidy_limit_krw` (unchanged column name) is the
+  quarter's per-member amount, labelled **1인 지원금** in Admin; the
+  default `QUARTERLY_SUBSIDY_LIMIT_KRW` is now **80,000**. Existing quarters
+  keep the amount they were created with. Changing a quarter's amount does
+  not move wallets already approved (audited as before); one member's
+  wallet is adjusted in member detail.
+- **Application.** `POST /api/quarters/{id}/apply` takes no body; anything
+  sent is ignored. Admin approval stays as it is (auto-approval is
+  `budget-by-provider`'s).
+- **Breakdown.** 채팅 = `chat`; 영상 = `video_generate`, `video_edit`,
+  `video_extend` **and `video_prompt`** (the member was making a video,
+  although it is Claude spend); 기타 = everything else. Counts wallet
+  money only, so the three lines add up to "used"; personal money has its
+  own card.
+- **Personal money — current rule kept:** the wallet first; personal money
+  only with 개인 사용 on and enough for the whole charge; never split.
+  Usage and Profile now say so in one sentence (`SPENDING_ORDER_NOTE`).
+- **Admin › Budget is on** (`GET /api/admin/quarters/{id}/budget`): every
+  wallet, and per provider the KRW charged (wallet / personal), provider
+  cost per currency, native units, share, and the wallet total × that share
+  as a reference figure. Personal-money spend is included because it uses
+  the same purchased credit.
+- **Estimates vs the wallet.** `WalletCheck` under Chat's model picker and
+  next to 생성 / 수정 / 이어서: "남은 지원금 N원", or "지원금이 부족합니다"
+  when the estimate exceeds it (or "개인 잔액에서 결제" when overage covers
+  it). Chat now refreshes the sidebar wallet after every reply.
+- **Dev simulator** records a provider and feature instead of a category.
+
 ## ui-friendly-motion — full spec
 
 Branch `feat-ui-friendly-motion`. M1. Added 2026-10-08 at position 2.
@@ -640,9 +708,10 @@ limits below come from
 
 Rules all three follow:
 
-- **Everything is charged to Build**, through the same `charge()` as a
-  chat reply: tokens × the chosen model's catalogue price × the rate,
-  rounded up. No new budget category, no flat fees. A failed call is free,
+- **Everything is charged to the member's one wallet** (`single-wallet`;
+  these specs said "Build" before 2026-10-08), through the same `charge()`
+  as a chat reply, recorded as Claude spend: tokens × the chosen model's
+  catalogue price × the rate, rounded up. No flat fees. A failed call is free,
   a stopped reply is charged for what was used — Phase 2's rules.
 - **Every file and every preview is the member's own.** Scoped by owner
   like conversations: another member's attachment is a 404.
@@ -696,7 +765,7 @@ migration.
    an unfinished table or code fence must not flash raw pipes or
    backticks (render an open fence as a code block until it closes).
 
-**Charged:** unchanged — Build, by the token. Tables and code are longer
+**Charged:** unchanged — the wallet, by the token. Tables and code are longer
 than prose, so the average reply grows; the picker's "답장 1회 약 N원"
 (3,000 in / 800 out) stays a fair guide. `CHAT_MAX_OUTPUT_TOKENS` stays
 4,096 here.
@@ -780,7 +849,7 @@ migration (`chat_attachments`, plus the cache columns in point 5).
    Members not participating this quarter can still read and download
    what they attached.
 
-**Charged:** Build, by the token, with the cache split above. Uploading
+**Charged:** the wallet, by the token, with the cache split above. Uploading
 and storing cost nothing in won (the VM disk is the limit, not money).
 The 파일 요약 welcome card now opens the attach dialog.
 
@@ -857,7 +926,7 @@ one Builder route to write a file).
    shows "답장이 길어 미리보기를 만들 수 없습니다 — \"계속\"이라고 보내
    주세요" instead of a broken page.
 
-**Charged:** Build, by the token, as any reply. Previews, downloads and
+**Charged:** the wallet, by the token, as any reply. Previews, downloads and
 Builder로 보내기 cost nothing.
 
 **Tests:** the iframe's `sandbox` attribute is exactly `allow-scripts`;
@@ -1034,143 +1103,186 @@ and 5 and the Launch data rules are unchanged.
 
 ## budget-by-provider — full spec
 
-Branch `feat-budget-by-provider`. Saved exactly as written by the
-developer.
+Branch `feat-budget-by-provider`. **Rewritten on 2026-10-08 for
+single-wallet**: the developer's original spec — two budgets per member,
+named by provider — is archived word for word in
+[`archive/done-specs.md`](archive/done-specs.md#superseded-by-single-wallet-2026-10-08).
+What follows keeps every point that still applies to one wallet per member
+and says what single-wallet already delivered. **Still deferred:** do not
+start until the owner confirms the cost model.
 
-**Deferred on 2026-10-02** to *After the prototype (needs discussion)*:
-the cost model is still being decided, so do not start this until the
-owner confirms. The spec below is unchanged. Two things it had been
-promised no longer hold, because the items that promised them now run
-first:
+**What single-wallet already did.** One 동아리 지원 wallet per member per
+quarter (80,000원 default, per quarter, audited); Chat, video and the
+prompt helper all spend from it; `FundingSource` is `community | personal`;
+every `UsageEvent` records provider, feature tag, model, native units, USD
+cost and the rate; Admin › Budget lists every wallet and the quarter's spend
+**by provider** (wallet vs personal, provider cost, units, share, and the
+wallet total divided by that share). Estimated costs beside Chat and video
+buttons compare against the one balance.
 
-- **It no longer owns the `UsageEvent` migration.** Phase 2 — Chat adds
-  the columns it writes, and `video-higgsfield-only` records its own
-  fields; point 2 here extends that shape rather than creating it.
-- **Point 4's reserve does not exist yet when `account-withdrawal`
-  runs.** That item releases a withdrawing member's remaining allocation
-  and audits it; routing the released amount into the reserve is a line
-  this item adds once the reserve is real.
+**What is left — the club side.** Members no longer split anything, but the
+club still buys credit **per provider** (Anthropic, Higgsfield), and credit
+cannot move between providers once bought. So the per-provider split is now
+the club's **forecast from usage by provider**, not the members' choice.
 
-> Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
->
-> 1. Two budgets per member per quarter, named by provider: "Claude" and "Higgsfield". Rename the current Build budget to Claude everywhere (data, API, UI, docs) with an Alembic migration that keeps existing data. Chat, Project Builder and the Video prompt helper all charge Claude; video generation, editing and extension charge Higgsfield.
-> 2. Every UsageEvent records: provider, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), the native unit and amount (Claude input and output tokens; Higgsfield credits), the KRW amount, and the rate used for conversion. Conversion rates live in an admin-editable settings table with history, so past events keep the rate they were charged at.
-> 3. Club pool per quarter and provider: the admin enters the company-approved amount for Claude and for Higgsfield. Member allocations plus reserve can never exceed the pool (enforced in the backend).
-> 4. Reserve: by default 20% of each provider pool is held back as club reserve; the admin can change this percentage per quarter. Members can request extra budget from Usage with a short reason; admin approves or rejects in Admin, paid from the reserve, written to the audit log.
-> 5. Admin pool dashboard per provider: approved pool, allocated to members, actually used, reserve remaining, usage by feature tag.
-> 6. Quarter report: Admin can download a CSV (and an on-screen summary) per quarter with usage by provider and feature, native units and KRW, number of active members, and utilisation rate, for the next funding application.
-> 7. Member side: Usage shows the two provider budgets, with usage broken down by feature. A one-time notice at 80% used. Before any Higgsfield action, show the estimated cost in KRW next to the button.
-> 8. Members cannot move budget between providers.
->
-> Tests: allocations plus reserve cannot exceed the pool, the default reserve is 20%, reserve requests deduct from the reserve, usage events store native units and the rate, rate changes do not alter past events, the CSV totals match the database, and every feature charges the correct provider.
+1. ~~Two budgets per member named by provider~~ — **replaced by
+   single-wallet.** Nothing is renamed; members have one wallet.
+2. **The ledger** — done, except Higgsfield's native unit: when the real
+   Higgsfield adapter lands, record Higgsfield credits as the native unit
+   (seconds today). Conversion rates already live in an admin-editable table
+   with history (USD→KRW); add Higgsfield's credit→KRW rate there if its
+   prices are in credits.
+3. **Club pool per quarter and provider.** The admin enters the
+   company-approved amount for Claude and for Higgsfield. The backend refuses
+   to approve a wallet if **all wallets plus the reserve** would exceed the
+   **total** pool (KRW, both providers together). Per provider, the pool is
+   tracked against that provider's spend: a warning card when a provider's
+   spend reaches 80% of its pool. *Open question for the owner:* when one
+   provider's pool runs out while wallets still hold money, does the backend
+   refuse that provider's features, or does the 팀장 top up that provider
+   from the reserve?
+4. **Reserve.** By default 20% of the total pool is held back; the admin can
+   change the percentage per quarter. Members can request extra from Usage
+   with a short reason; the admin approves or rejects in Admin; an approval
+   **adds to that member's one wallet**, paid from the reserve, audited.
+5. **Pool dashboard per provider** — extends Admin › Budget: approved pool,
+   actually used, remaining, the reserve, usage by feature tag, and a
+   **forecast** (spend so far ÷ days elapsed × days in the quarter).
+6. **Quarter report.** A CSV (and on-screen summary) per quarter with usage
+   by provider and feature, native units and KRW, active members, wallet
+   utilisation, and each provider's share — the basis of the next funding
+   application and purchase.
+7. **Member side.** Usage shows the one wallet with its 채팅 / 영상 / 기타
+   breakdown (done). Add a one-time notice at 80% of the wallet used.
+   Estimated cost next to every paid action (done for Chat and video; every
+   later paid action must do the same).
+8. ~~Members cannot move budget between providers~~ — moot. Instead: **the
+   club cannot move credit between providers**, so purchase planning
+   (below) forecasts each provider from usage by provider.
+
+Tests: wallets plus reserve cannot exceed the total pool; the default
+reserve is 20%; reserve requests add to the member's wallet and deduct from
+the reserve; usage events store native units and the rate; rate changes do
+not alter past events; the CSV totals match the database; the per-provider
+forecast matches the ledger.
 
 ### Application flow
 
-Added 2026-10-01. Saved exactly as written by the developer.
+Rewritten 2026-10-08 for single-wallet (original archived).
 
-**Point 4's approval path is superseded** by "Application and purchase
-model (decided)" below: approval is automatic, and these tools serve
-수동 승인 mode and exceptions. Everything else here still stands.
-
-> Goal: member applications feed the club's funding application to the company.
->
-> 1. Application form: presets 균형 50/50, Claude 중심 70/30, 영상 중심 30/70, or a custom split, within the quarter's per-member limit. Show a rough plain-language meaning of each budget (e.g. approximate video seconds at the default model's price).
-> 2. 신청 합계 view in Admin: total requested per provider, number of applicants, list of members who have not applied yet with the deadline countdown, and a CSV export for the company application. Show the suggested company request = member totals + reserve (default 20%, on top of member totals, not taken out of them).
-> 3. After the company decides, the admin enters the approved pool per provider. If the pool covers all requests plus reserve, approvals give members exactly what they asked for. If it is smaller, show a proportional cut preview per member before applying, then hold the reserve at the configured percentage of the approved pool.
-> 4. Approving: single approve, approve with adjustment (changed split or amount, required reason, written to the audit log), bulk approve with one confirmation, reject with a reason the member sees on Profile.
-> 5. Active status and budget go together: a member becomes active for a quarter through an approved application, or through admin enrolment that also sets an allocation. If an admin sets a member active without any allocation, show a warning in Admin, and the member's sidebar says clearly that no budget is approved yet. (Currently testmember2 shows 활동 회원 with "승인된 지원금이 없습니다".)
-> 6. Tests: totals match applications; the suggested request includes the reserve on top; the proportional cut never exceeds the pool; adjustments and bulk approvals are audited; rejected members see the reason; active-without-allocation shows the warning.
+1. ~~Application form presets and splits~~ — **gone.** "이번 분기 참여"
+   applies for the quarter's one amount (done in single-wallet).
+2. **신청 합계 view** in Admin: number of applicants, total requested
+   (applicants × the quarter's amount), list of members who have not applied
+   with the deadline countdown, and a CSV export for the company
+   application. Show the **suggested company request per provider** = total
+   requested × each provider's forecast share (last quarter's usage by
+   provider, or an admin-entered share for the first quarter) + reserve
+   (default 20%, on top of member totals, not taken out of them).
+3. After the company decides, the admin enters the approved pool per
+   provider. If the total pool covers all wallets plus reserve, approvals
+   give members the full amount. If it is smaller, show a proportional cut
+   preview per member before applying, then hold the reserve at the
+   configured percentage of the approved pool.
+4. Approving: single approve, approve with adjustment (changed amount,
+   required reason, audited), bulk approve with one confirmation, reject
+   with a reason the member sees on Profile.
+5. Active status and budget go together: a member becomes active for a
+   quarter through an approved application, or through admin enrolment that
+   also creates a wallet. Active without a wallet shows a warning in Admin,
+   and the member's sidebar says clearly that no support is approved yet.
+6. Tests: totals match applications; the suggested request per provider
+   uses the forecast share and includes the reserve on top; the
+   proportional cut never exceeds the pool; adjustments and bulk approvals
+   are audited; rejected members see the reason; active-without-wallet
+   shows the warning.
 
 ### Application and purchase model (decided)
 
-Added 2026-10-01. Saved exactly as written by the developer.
+Rewritten 2026-10-08 for single-wallet (original archived). **This section
+wins where it conflicts with Application flow above.** Auto-approval is the
+normal path: a member presses "이번 분기 참여" and the wallet exists
+immediately. The approval tools in Application flow point 4 serve **수동
+승인** mode and the exceptions in point 1.
 
-**This section wins where it conflicts with Application flow above.**
-Auto-approval is the normal path: a member presses "이번 분기 참여" and the
-allocation exists immediately, with no admin step in between. The approval
-tools in Application flow point 4 — single approve, approve with
-adjustment, bulk approve, reject with a reason — are all kept, but they
-serve **수동 승인** mode and the exceptions named in point 1 below
-(requests above the per-member limit, late applications, reserve
-requests), not the ordinary case.
+**Point 6's operator note** goes to `docs/deployment.md`, which
+`prep-beta-launch` creates; if this item lands first, write it into a new
+`docs/operations.md` and have whichever lands second point at the first.
 
-**Why this reshapes the item.** Both providers are prepaid. The money is
-spent *before* any member uses it, and credits cannot be moved between
-providers once bought — so the club must know the per-provider split in
-time to buy. That turns the application period into a purchasing
-deadline rather than a review queue, and it adds three things the
-original spec has nowhere to put: purchase records, club-level provider
-balance tracking, and carry-over between quarters.
+1. **One-click application with auto-approval.** During the application
+   period a member presses "이번 분기 참여" and receives the quarter's
+   amount — no split, nothing to adjust. The admin can switch a quarter to
+   "수동 승인" mode; exceptions (late applications, reserve requests) still
+   reach the admin.
+2. **Purchase planning** (Admin › Budget), after the application period:
+   suggested purchase per provider = member total × the provider's forecast
+   share + reserve (default 20%, on top) − usable balance carried over from
+   earlier purchases. KRW total and, for Claude, the USD equivalent at the
+   current rate.
+3. **Purchase records:** provider, date, amount paid in KRW and original
+   currency, credits received, expiry. Claude credits expire one year after
+   purchase; warn 30 days before any purchased credit expires.
+4. **Provider balance tracking:** per provider, purchased − used = remaining
+   club balance, on Admin › Budget and the dashboard; a warning card when a
+   provider's remaining balance falls below its share of the reserve.
+5. **Carry-over:** unused, unexpired balance carries into the next quarter
+   and reduces that quarter's suggested purchase.
+6. **Docs:** keep auto-reload OFF in the Anthropic Console and any
+   Higgsfield equivalent, and top up manually from the reserve.
 
-**Still to settle:** Application flow point 3 assumes allocations are
-created *after* the company decides, which is what makes its proportional
-cut preview possible. Under auto-approval the allocations already exist by
-then, so a pool smaller than the requests has to cut allocations that
-members can already see. The cut preview itself is unaffected; when it
-runs, and what a member is told when their approved budget drops, is not
-decided here. **See *Funding model — 2026-10-07* above:** with credit
-bought per headcount after applications close, this mostly no longer
-arises.
-
-**Point 6's operator note has a home again — the 2026-10-02 reorder
-reversed this twice.** `docs/deployment.md` does not exist today, but
-`prep-beta-launch` point 4 creates it, and that item is now in **Next**
-while this one is deferred — so by the time this runs the file exists and
-already carries the "keep Anthropic auto-reload OFF" line. Add the
-manual-top-up guidance there rather than creating a second file. (If the
-order moves again and this item lands first, write the same guidance into
-a new `docs/operations.md` and have whichever lands second point at the
-first, rather than duplicating it.)
-
-> Context: Claude API and Higgsfield are both prepaid. Credits must be bought per provider before use and cannot be moved between providers afterwards, so the club needs each quarter's split before buying.
->
-> 1. One-click application with auto-approval:
->    - During the application period, a member presses "이번 분기 참여". The split is pre-filled with a default (admin-set per quarter: 50/50, or last quarter's club-wide ratio) and the member may adjust it with the presets or a custom split, within the per-member limit.
->    - Applications are approved automatically. The admin can switch a quarter to "수동 승인" mode if needed; in that mode the existing 신청 승인 flow applies.
->    - Exceptions still reach the admin: requests above the limit, late applications, and reserve requests.
-> 2. Purchase planning (Admin › 예산), after the application period closes:
->    - Suggested purchase per provider = member totals + reserve (default 20%, on top) − usable balance carried over from earlier purchases.
->    - Shows the KRW total and, for Claude, the USD equivalent at the current rate setting.
-> 3. Purchase records: the admin records each actual purchase (provider, date, amount paid in KRW and original currency, credits received, expiry date). Claude credits expire one year after purchase; the app warns 30 days before any purchased credits expire.
-> 4. Provider balance tracking: per provider, purchased − used = remaining club balance, shown on the 예산 page and the dashboard. If a provider's remaining club balance falls below the reserve, show a warning card.
-> 5. Carry-over: unused, unexpired balance carries into the next quarter and reduces that quarter's suggested purchase.
-> 6. Docs: add a short operator note to docs/deployment.md (or a new docs/operations.md): keep auto-reload OFF in the Anthropic Console and any Higgsfield equivalent, and top up manually from the reserve, because the club budget is fixed.
->
-> Tests: auto-approval creates allocations immediately; manual mode routes to 신청 승인; the suggested purchase includes the reserve and subtracts carry-over; balances equal purchases minus usage; expiry warnings appear 30 days before.
+Tests: auto-approval creates the wallet immediately; manual mode routes to
+신청 승인; the suggested purchase uses the forecast share, includes the
+reserve and subtracts carry-over; balances equal purchases minus usage;
+expiry warnings appear 30 days before.
 
 ---
 
 ## usage-analytics — full spec
 
-Branch `feat-usage-analytics`. Added 2026-10-01. Saved exactly as written
-by the developer.
+Branch `feat-usage-analytics`. Added 2026-10-01; **updated 2026-10-08 for
+single-wallet** (the original is archived with budget-by-provider's in
+[`archive/done-specs.md`](archive/done-specs.md#superseded-by-single-wallet-2026-10-08)).
+Still deferred with budget-by-provider; it reads that item's pools.
 
-**Deferred on 2026-10-02 along with `budget-by-provider`**, to *After the
-prototype (needs discussion)*. The spec is unchanged.
+What changed: members have one wallet, so nothing here is "a member's
+Claude budget" or "Video budget". Spend is broken down **by provider and
+model** for the club (what to buy) and **by 채팅 / 영상 / 기타 and feature**
+for the member (what they did). The `UsageEvent` fields it reads —
+provider, feature tag, model, native units, KRW, rate — all exist since
+Phase 2 / video-higgsfield-only / single-wallet, so point 1 is done.
 
-**Why it must stay directly after budget-by-provider.** Every chart here
-reads the `UsageEvent` fields that item adds — provider, feature tag,
-native units and KRW. Point 1 below also says where the exact model goes:
-into budget-by-provider if that item has not already recorded it,
-otherwise into this one with its own migration. Phase 2 — Chat records
-provider, feature tag, model, tokens, USD, rate and KRW when it lands, so
-by the time these two are taken up some of that shape already exists.
+1. ~~Record the exact model on every UsageEvent~~ — done (`model_id`).
+2. Admin › 사용량 분석 (`/admin/analytics`), admin-only, added to the Admin
+   tabs, sidebar sub-menu and dashboard cards:
+   - Time-series charts by day or week, within a quarter or a custom range.
+   - Breakdown by provider and by model, with a toggle for the measure: KRW,
+     native units (Claude tokens split into input/output; Higgsfield credits
+     and video seconds), or request count.
+   - Filters: quarter, provider, model, feature tag (chat / build /
+     video_prompt / video_generate / video_edit / video_extend), member.
+   - Summary cards: total KRW per provider, the most-used model per
+     provider, average cost per request, share of each provider's pool used,
+     and wallet utilisation (consumed ÷ budget across all wallets).
+   - Top members by usage, a data table matching the chart, and CSV
+     download of exactly what is shown.
+3. Member side: Usage gets a "내 사용량" chart of their own wallet over the
+   current quarter by 채팅 / 영상 / 기타 (the existing breakdown) and
+   feature. Members never see other members' data.
+4. Charts use one charting library consistent with the design tokens (dark
+   theme; provider colours Claude = build accent, Higgsfield = video
+   accent), Korean labels, tooltips with exact values, tabular numbers, a
+   Korean empty state.
+5. Development data: the dev-only usage simulator already records provider
+   and feature (single-wallet); add a model choice and a dev-only "샘플 사용
+   기록 생성" that creates 30 days of realistic usage across members and
+   models. Both unavailable outside `APP_ENV=development`.
+6. Performance: aggregate in the database (grouped queries), not in the
+   browser — as Admin › Budget already does.
 
-> Depends on budget-by-provider (UsageEvent with provider, feature tag, native units and KRW).
->
-> 1. Every UsageEvent also records the exact model used (e.g. the Claude model name, or the Higgsfield model ID from the 영상 모델 catalogue). Add this field in budget-by-provider if it is not already there, otherwise add it here with a migration.
-> 2. Admin › 사용량 분석 (/admin/analytics), admin-only, added to the Admin tabs, sidebar sub-menu and dashboard cards:
->    - Time-series charts by day or week, within a quarter or a custom date range.
->    - Breakdown by provider and by model, with a toggle for the measure: KRW, native units (Claude tokens split into input/output; Higgsfield credits and video seconds), or request count.
->    - Filters: quarter, provider, model, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), member.
->    - Summary cards: total KRW per provider, the most-used model per provider, average cost per request, and share of the pool used.
->    - Top members by usage, a data table matching the chart, and CSV download of exactly what is shown.
-> 3. Member side: the Usage page gets a "내 사용량" chart of their own usage over the current quarter by provider and feature. Members never see other members' data.
-> 4. Charts use one charting library consistent with the design tokens (dark theme, provider colours: Claude = build accent, Higgsfield = video accent), with Korean labels, tooltips with exact values, tabular numbers, and a Korean empty state.
-> 5. Development data: extend the dev-only usage simulator to choose a provider, model and feature, and add a dev-only "샘플 사용 기록 생성" action that creates 30 days of realistic usage across members and models. Both are unavailable outside APP_ENV=development.
-> 6. Performance: aggregate in the database (grouped queries), not in the browser.
->
-> Tests: totals in the charts and the CSV match the database; filters change the results correctly; members cannot request other members' data; analytics routes are admin-only; sample-data tools return 404 outside development.
+Tests: totals in the charts and the CSV match the database; filters change
+the results correctly; members cannot request other members' data;
+analytics routes are admin-only; sample-data tools return 404 outside
+development.
 
 ---
 
@@ -1266,7 +1378,7 @@ After the beta · M2 · branch `feat-chat-plus-tools`. Effort: **M**
    file — as an attachment chip. The picker's estimate gains "+ 검색 1회당
    약 14원".
 
-**Charged:** Build, by the token plus per search. A typical question with
+**Charged:** the wallet, by the token plus per search. A typical question with
 two searches: ≈ 50원 Haiku / 73원 Sonnet / 118원 Opus (research doc; the
 result-token size is an estimate this item measures).
 
@@ -1298,7 +1410,7 @@ workspace's file tree and editor. Claude returns whole files through one
 tool, `write_file`, with `strict: true`; the backend checks names (the
 storage key rules), sizes (≤ 200 KB a file, ≤ 30 files, ≤ 2 MB a
 project) and types (text only). Every generation is a saved version the
-member can go back to. Charged to Build by the token; a generation may
+member can go back to. Charged to the wallet by the token; a generation may
 write up to 16,000 output tokens, so the worst-case pre-check (≈ 230원 on
 Sonnet) is shown before the member presses 만들기.
 
@@ -1336,7 +1448,7 @@ origin**:
 - **Storage:** 2 MB per project; all apps together ≤ 2 GB of the VM disk
   (a setting), checked before writing.
 
-**Charged:** Build for generation (tokens). Hosting costs nothing per app;
+**Charged:** the wallet for generation (tokens). Hosting costs nothing per app;
 the separate domain is a yearly cost for the club.
 
 **Tests:** generated files land as `BuilderProjectFile` rows within the
@@ -1371,15 +1483,15 @@ days). Added 2026-10-07. **Waits on the budget-by-provider decision**
    alternative. Imagen 4 is shut down. (Research doc.)
 4. **In Chat:** 이미지 만들기 in the composer, or Claude offering it the
    way it offers the Builder and Video buttons. Claude may improve the
-   prompt (Build, tokens); the image provider generates (the image
-   budget, per image); the result is stored through the storage interface
+   prompt (tokens); the image provider generates (per image); both from
+   the member's one wallet; the result is stored through the storage interface
    as a chat attachment with 다운로드.
-5. **Which budget — not decided here.** Google is a different prepaid
-   provider; credit cannot move between Anthropic and Google. Options for
-   the owner: (a) a third pot under budget-by-provider — the clean
-   answer; (b) until then, charge Video, which already pays a non-Claude
-   provider — simplest, but it blurs the per-provider purchase the 팀장
-   files in Concur.
+5. **Which budget — settled by `single-wallet` (2026-10-08):** the
+   member's one wallet, recorded with `provider="gemini"` (or whichever
+   image provider) so Admin › Budget shows it as its own line. Google is a
+   different prepaid provider and credit cannot move between Anthropic and
+   Google, so it becomes a **third per-provider purchase** forecast from
+   usage by provider under budget-by-provider — no third member pot.
 6. **Data terms.** Gemini's *free* tier uses submitted content for
    training and lets humans read it — **member prompts must only ever go
    through a paid (billed) project**. A key on an unbilled project

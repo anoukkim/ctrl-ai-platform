@@ -160,7 +160,7 @@ secret.
 
 ### Claude in Chat
 
-The mock streams canned Korean replies and charges the Build budget as if
+The mock streams canned Korean replies and charges the member's wallet as if
 it were the conversation's chosen model (chat-model-choice: Sonnet 5.5 by
 default, Haiku 4.5 if the member picks it), so the ledger and the budget
 behave as they will for real. The model comes from the catalogue in
@@ -284,7 +284,7 @@ ctrl-ai-platform/
 │  │  ├─ db/                  # base.py, session.py, init_db.py
 │  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
-│  │  ├─ services/            # budget split, wallet, admin stats, providers
+│  │  ├─ services/            # usage (the one wallet), quarter budget, admin stats, providers
 │  │  └─ main.py              # FastAPI app, CORS
 │  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite
