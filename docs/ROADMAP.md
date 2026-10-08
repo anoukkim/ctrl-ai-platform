@@ -24,7 +24,8 @@ ui-naming, fix-video-workspace-hang, ui-tube-watch, ui-apps-detail.
 **M1 Beta launch** — an invite-only beta on `ctrlai.my` with real Claude
 chat, everything else labelled test mode.
 ✅ video-higgsfield-only [6, mock] · ✅ Phase 2 Chat [2] (real-key check still open) ·
-✅ chat-model-choice · ⬜ invite-only-signup ·
+✅ chat-model-choice · ⬜ single-wallet · ⬜ ui-friendly-motion ·
+⬜ invite-only-signup ·
 ⬜ chat-plus-rendering · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
 ⬜ test-database-isolation · ⬜ prep-beta-launch [9, beta subset].
 The three `chat-plus-*` items joined on 2026-10-07: members have never
@@ -41,8 +42,8 @@ MVP [3] plus static member apps on a separate, sandboxed origin) ·
 
 **M3 Sharing** — work leaves CTRL+AI and comes back as community posts.
 ⬜ GitHub [4] · ⬜ CtrlAIApps [5] · ⬜ YouTube [7] · ⬜ CtrlAITube [8] ·
-⬜ more-chat-providers (optional; Gemini, Grok or an aggregator — decided
-with budget-by-provider).
+⬜ more-chat-providers (optional; Gemini, Grok, DeepSeek or an aggregator —
+decided with budget-by-provider; `deepseek-research` reports on DeepSeek).
 
 **M4 Running costs** — the club can buy, track and justify provider
 credit. ⬜ budget-by-provider · ⬜ usage-analytics · ⬜ purchase records /

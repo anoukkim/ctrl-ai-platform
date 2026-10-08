@@ -21,7 +21,22 @@ authority on order** — each item in **Next** names its milestone.
 **Nothing is in progress.** Branch the next item from an up-to-date
 `main`.
 
-**Working order set by the developer (2026-10-07)** — one branch each,
+**Working order set by the developer (2026-10-08)** — three items ahead
+of everything else, one branch each, stopping after each for the
+developer to check and merge:
+
+1. `single-wallet` — branch `feat-single-wallet`
+2. `ui-friendly-motion` — branch `feat-ui-friendly-motion`, **after
+   single-wallet is merged**
+3. `deepseek-research` — branch `docs-deepseek`, research only; can run
+   any time
+
+Mock providers only, never a real API call; the developer's database
+untouched (pytest with `DATABASE_URL` at an unreachable port until
+`test-database-isolation` lands); no cloud resources; no merging.
+
+**Earlier working order (2026-10-07)** — now after the three above,
+one branch each,
 stopping after each for the developer to check and merge:
 
 1. `invite-only-signup`
@@ -261,46 +276,69 @@ items are specced under **After the beta** below and are not in this
 list. `chat-model-choice`, added at the top the same day, has merged
 and left it.
 
-1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+**Items 1–3 were put at the top by the developer on 2026-10-08.**
+Everything below them moved down three places.
+
+1. **single-wallet** · M1 · branch `feat-single-wallet`
+   Members no longer split their quarter support. One 동아리 지원 wallet
+   per member per quarter (80,000원 by default, admin-editable per
+   quarter) pays for Chat, video and every other paid feature. Replaces
+   the Build/Video buckets with a migration that keeps the totals.
+   Spec saved verbatim below.
+
+2. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+   Friendlier, less developer-like screens with short, tasteful motion
+   (the `motion` library), plain-Korean copy, empty states and a
+   first-visit guide. **Starts after single-wallet is merged.** Spec saved
+   verbatim below.
+
+3. **deepseek-research** · M3 (research for more-chat-providers) · branch
+   `docs-deepseek`
+   Research only, no code: can DeepSeek join the chat model catalogue —
+   its own API, and hosts that serve DeepSeek models outside China. Writes
+   `docs/research/` and a note under `more-chat-providers`. Can run any
+   time. Spec saved verbatim below.
+
+4. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-2. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+5. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+6. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+7. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-5. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+8. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-   **Open check before item 6 — Phase 2's point 10 (real key).** One
+   **Open check before item 9 — Phase 2's point 10 (real key).** One
    short real message with the owner's key; see **Now**. Not a branch,
    but `prep-beta-launch` does not start until it has been run.
 
-6. **prep-beta-launch** · M1 · no branch named yet
+9. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 5**, nor before Phase 2's point 10.
+   **Do not start before item 8**, nor before Phase 2's point 10.
    Running the suite against a live database is a different order of
    mistake once the database holds members' work rather than one
    developer's test rows. **Storage on the VM** now also holds chat
@@ -499,6 +537,55 @@ Two notes for whoever builds it, from the work that raised it:
 → **Phase 2 — Chat — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#phase-2--chat--full-spec-merged-2026-10-07).
 
 → **chat-model-choice — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-model-choice--full-spec-merged-2026-10-07).
+
+## single-wallet — full spec
+
+Branch `feat-single-wallet`. M1. Added 2026-10-08 at position 1. Saved
+exactly as written by the developer.
+
+**It settles the member side of the cost model.** `budget-by-provider`
+and `usage-analytics` (*After the prototype*) assumed two budgets per
+member, named by provider; this item replaces both buckets with one
+wallet, and its last bullet rewrites those two specs to match. The club
+still buys credit per provider — that part of the cost-model discussion
+is unchanged, and is now forecast from usage by provider.
+
+> ITEM 1 — single-wallet (branch feat-single-wallet)
+> Decision: members no longer split their quarter support by percentage. Each participating member gets one 동아리 지원 wallet per quarter, 80,000원 by default (admin-editable per quarter), and Chat, video and every other paid feature spend from that one balance.
+> - Data: replace build_budget_krw / video_budget_krw with one budget in QuarterAllocation, with an Alembic migration that sums existing allocations and usage correctly, and a downgrade. FundingSource: one community value instead of community_build / community_video (migrate existing rows). Usage events keep provider, feature, model and native units, so we still know what was spent on Anthropic vs Higgsfield.
+> - Application: no split, no presets. "이번 분기 참여" applies for the quarter's fixed amount.
+> - Member UI: a wallet card ("이번 분기 지원금 80,000원 중 52,300원 남음") in the sidebar and on Usage, with a breakdown of what was spent on 채팅 / 영상 / 기타 as information only. Estimated costs next to buttons compare against the one balance.
+> - Admin: per-quarter amount, each member's balance, and quarter totals by provider so the club leader can decide how much credit to buy from each provider. Audited as before.
+> - Personal top-ups stay a separate balance (still off in the beta); say in the UI which balance is spent first and keep the current rule unless it conflicts.
+> - Update budget-by-provider and usage-analytics specs (After the prototype) and docs/product.md so nothing still describes the two-bucket split. Note in Funding model that the club still buys per provider, forecast from usage by provider.
+> Tests: migration preserves totals; Chat and video both draw from one balance; pre-check refuses when the single balance is short; application has no split; admin per-quarter amount; per-provider totals match usage.
+
+## ui-friendly-motion — full spec
+
+Branch `feat-ui-friendly-motion`. M1. Added 2026-10-08 at position 2.
+**Starts after single-wallet is merged** — its wallet card and the
+animated wallet number build on that item's screens. Saved exactly as
+written by the developer.
+
+> ITEM 2 — ui-friendly-motion (branch feat-ui-friendly-motion), after Item 1 is merged
+> Goal: friendlier, less developer-like, with tasteful motion, inspired by https://www.easyui.site/ (animated React components). Our members are beginners.
+> - Motion: add the `motion` library (ask me before adding any other dependency; no Tailwind). Card hover lift, button press feedback, page and panel transitions, sidebar collapse animation, skeleton loaders instead of "불러오는 중", toast notifications for saves/deletes/downloads, a typing indicator while Chat streams, an animated wallet number when the balance changes, and gentle success states. Respect prefers-reduced-motion (no motion at all), keep animations short (150–300 ms), and never block input.
+> - Friendlier copy: replace developer terms members see with plain Korean (e.g. Draft → 작성 중, Build/Video budget wording → the single wallet, provider/model jargon → simple descriptions). Keep the English menu names unless you think a change clearly helps; propose, don't decide.
+> - Empty states with a short explanation and one clear action on every list; a short first-visit guide (3–4 steps, dismissible, remembered per browser) that shows Chat, Builder, Video and the wallet.
+> - Keep design tokens in globals.css, Pretendard, dark default, and the existing accessibility rules. Check at 1280px, 1920px and a phone width; send me screenshots (or a short screen recording) of Chat, Builder, Video, Usage and Admin.
+> Tests: reduced-motion disables animations; the guide shows once and can be reopened; empty states render; existing tests still pass.
+
+## deepseek-research — full spec
+
+Branch `docs-deepseek`. Research only — nothing is built. Added
+2026-10-08 at position 3; can run any time. Its findings go to
+`docs/research/` and into **more-chat-providers** (*After the beta*).
+Saved exactly as written by the developer.
+
+> ITEM 3 — research only (branch docs-deepseek), can run any time
+> Can we add DeepSeek to the chat model catalogue? Using current docs, report: DeepSeek's own API (pricing, OpenAI-compatible API, streaming, file/image input, where data is stored and the privacy terms, billing and receipts for Concur), and alternatives that host DeepSeek models elsewhere (via OpenRouter with a provider/region choice, or US-hosted providers), with price differences. Recommend whether and how, noting that our company may restrict sending data to servers in China. Write it into docs/research/ and add a "more-chat-providers" note in BACKLOG. Don't build.
+
+---
 
 ## invite-only-signup — full spec
 
