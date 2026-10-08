@@ -172,10 +172,7 @@ export default function MemberDetailView({ userId }: { userId: number }) {
         row.application ? (
           <span className={styles.stackCell}>
             <ApplicationBadge status={row.application.status} />
-            <span className="small dim">
-              Build {row.application.build_percentage}% · Video{" "}
-              {row.application.video_percentage}%
-            </span>
+            <span className="small dim">{formatKrw(row.application.requested_budget_krw)}</span>
           </span>
         ) : (
           <span className="small dim">신청 없음</span>
@@ -187,15 +184,8 @@ export default function MemberDetailView({ userId }: { userId: number }) {
       numeric: true,
       render: (row) =>
         row.allocation ? (
-          <span className={styles.stackCell}>
-            <span>
-              Build {formatKrw(row.allocation.build_remaining_krw)} /{" "}
-              {formatKrw(row.allocation.build_budget_krw)}
-            </span>
-            <span>
-              Video {formatKrw(row.allocation.video_remaining_krw)} /{" "}
-              {formatKrw(row.allocation.video_budget_krw)}
-            </span>
+          <span>
+            {formatKrw(row.allocation.remaining_krw)} / {formatKrw(row.allocation.budget_krw)}
           </span>
         ) : (
           <span className="small dim">배정 없음</span>
@@ -375,13 +365,11 @@ export default function MemberDetailView({ userId }: { userId: number }) {
           member={member}
           quarterName={selected.display_name}
           row={currentRow}
-          onAdjust={(buildKrw, videoKrw) =>
+          onAdjust={(budgetKrw) =>
             setConfirm({
               title: `지원금 조정 — ${member.display_name}`,
-              effect: `${selected.display_name}의 지원금을 Build ${formatKrw(
-                buildKrw,
-              )}, Video ${formatKrw(
-                videoKrw,
+              effect: `${selected.display_name}의 동아리 지원을 ${formatKrw(
+                budgetKrw,
               )}으로 바꿉니다. 이미 쓴 금액은 그대로 남고, 남은 금액이 달라집니다.`,
               confirmLabel: "지원금 조정",
               danger: true,
@@ -392,8 +380,7 @@ export default function MemberDetailView({ userId }: { userId: number }) {
                     adjustAllocation(
                       selected.id,
                       member.user_id,
-                      buildKrw,
-                      videoKrw,
+                      budgetKrw,
                       "회원 상세 화면에서 조정",
                     ),
                 ),
@@ -528,13 +515,10 @@ export default function MemberDetailView({ userId }: { userId: number }) {
 }
 
 /**
- * 지원금 조정 — 원 단위.
+ * 지원금 조정 — 원 단위, 지갑 하나.
  *
- * 퍼센트가 아니라 금액을 적습니다. 회원이 Usage에서 보는 것이 금액이고,
- * 퍼센트는 금액에서 다시 계산되므로 둘이 어긋날 수 없습니다.
- *
- * 처음 값은 지금 배정된 금액입니다. 빈 칸에서 시작하면 한쪽만 적고 저장해
- * 다른 쪽을 0으로 만들기 쉽습니다.
+ * 처음 값은 지금 배정된 금액입니다. 빈 칸에서 시작하면 실수로 0원을
+ * 저장하기 쉽습니다.
  */
 function AllocationSection({
   member,
@@ -547,19 +531,16 @@ function AllocationSection({
   row: MemberDetail["quarters"][number] | null;
   quarterName: string;
   busy: boolean;
-  onAdjust: (buildKrw: number, videoKrw: number) => void;
+  onAdjust: (budgetKrw: number) => void;
 }) {
   const allocation = row?.allocation ?? null;
-  const [build, setBuild] = useState("");
-  const [video, setVideo] = useState("");
+  const [budget, setBudget] = useState("");
   const [open, setOpen] = useState(false);
 
-  const buildKrw = Number(build.replaceAll(",", "")) || 0;
-  const videoKrw = Number(video.replaceAll(",", "")) || 0;
+  const budgetKrw = Number(budget.replaceAll(",", "")) || 0;
 
   function start() {
-    setBuild(String(allocation?.build_budget_krw ?? 0));
-    setVideo(String(allocation?.video_budget_krw ?? 0));
+    setBudget(String(allocation?.budget_krw ?? 0));
     setOpen(true);
   }
 
@@ -581,41 +562,34 @@ function AllocationSection({
         <div className={`card ${styles.allocationCard}`}>
           {/* 쓴 만큼 차는 막대 — Usage 화면과 같은 뜻입니다. */}
           <div className={styles.allocationMeters}>
-            {(
-              [
-                ["Build", allocation.build_consumed_krw, allocation.build_budget_krw, ""],
-                ["Video", allocation.video_consumed_krw, allocation.video_budget_krw, "meter-fill-blue"],
-              ] as const
-            ).map(([label, used, budget, tone]) => (
-              <div className={styles.allocationMeter} key={label}>
-                <div className={styles.allocationMeterLabel}>
-                  <span>{label}</span>
-                  <span className="numeric">
-                    {formatKrw(used)} / {formatKrw(budget)}
-                  </span>
-                </div>
-                <div className="meter">
-                  <div
-                    className={`meter-fill ${tone}`}
-                    style={{
-                      width: `${budget > 0 ? Math.min(100, Math.round((used / budget) * 100)) : 0}%`,
-                    }}
-                  />
-                </div>
+            <div className={styles.allocationMeter}>
+              <div className={styles.allocationMeterLabel}>
+                <span>동아리 지원</span>
+                <span className="numeric">
+                  {formatKrw(allocation.consumed_krw)} / {formatKrw(allocation.budget_krw)}
+                </span>
               </div>
-            ))}
+              <div className="meter">
+                <div
+                  className="meter-fill"
+                  style={{
+                    width: `${
+                      allocation.budget_krw > 0
+                        ? Math.min(
+                            100,
+                            Math.round((allocation.consumed_krw / allocation.budget_krw) * 100),
+                          )
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
           </div>
           <div className={styles.factGrid}>
-            <Fact
-              label="Build 배정"
-              value={formatKrw(allocation.build_budget_krw)}
-              mono
-            />
-            <Fact label="Build 사용" value={formatKrw(allocation.build_consumed_krw)} mono />
-            <Fact label="Build 남음" value={formatKrw(allocation.build_remaining_krw)} mono />
-            <Fact label="Video 배정" value={formatKrw(allocation.video_budget_krw)} mono />
-            <Fact label="Video 사용" value={formatKrw(allocation.video_consumed_krw)} mono />
-            <Fact label="Video 남음" value={formatKrw(allocation.video_remaining_krw)} mono />
+            <Fact label="배정" value={formatKrw(allocation.budget_krw)} mono />
+            <Fact label="사용" value={formatKrw(allocation.consumed_krw)} mono />
+            <Fact label="남음" value={formatKrw(allocation.remaining_krw)} mono />
           </div>
         </div>
       )}
@@ -640,36 +614,27 @@ function AllocationSection({
             {member.display_name}의 {quarterName} 지원금을 원 단위로 정합니다.
           </p>
           <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel} htmlFor="allocation-build">
-              Build (원)
+            <label className={styles.fieldLabel} htmlFor="allocation-budget">
+              동아리 지원 (원)
             </label>
             <input
               className="field"
-              id="allocation-build"
+              id="allocation-budget"
               inputMode="numeric"
-              value={build}
-              onChange={(event) => setBuild(event.target.value)}
+              value={budget}
+              onChange={(event) => setBudget(event.target.value)}
             />
           </div>
-          <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel} htmlFor="allocation-video">
-              Video (원)
-            </label>
-            <input
-              className="field"
-              id="allocation-video"
-              inputMode="numeric"
-              value={video}
-              onChange={(event) => setVideo(event.target.value)}
-            />
-          </div>
-          <p className="small dim">합계 {formatKrw(buildKrw + videoKrw)}</p>
+          <p className="small dim">
+            채팅, 영상 등 모든 기능이 이 금액 하나에서 차감됩니다. 이미 쓴{" "}
+            {formatKrw(allocation?.consumed_krw ?? 0)}은 그대로 남습니다.
+          </p>
           <div className={styles.actionRow}>
             <button
               className="btn btn-primary btn-sm"
               type="button"
               disabled={busy}
-              onClick={() => onAdjust(buildKrw, videoKrw)}
+              onClick={() => onAdjust(budgetKrw)}
             >
               저장
             </button>

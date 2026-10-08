@@ -540,6 +540,7 @@
 /* 입력창 바로 위 — 모델 고르기. */
 .composerTools {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.45rem;

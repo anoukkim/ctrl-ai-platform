@@ -110,18 +110,18 @@ describe("새 분기 양식", () => {
     ).toBeTruthy();
   });
 
-  test("한도는 0 이상의 숫자여야 한다", async () => {
+  test("1인 지원금은 0 이상의 숫자여야 한다", async () => {
     const user = userEvent.setup();
     setup();
 
     await fillValid(user);
-    await user.clear(field("1인 한도 (원)"));
-    await user.type(field("1인 한도 (원)"), "열만원");
+    await user.clear(field("1인 지원금 (원)"));
+    await user.type(field("1인 지원금 (원)"), "열만원");
     await user.click(screen.getByRole("button", { name: "분기 만들기" }));
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(
-      await screen.findByText("1인 한도를 0 이상의 숫자로 적어 주세요."),
+      await screen.findByText("1인 지원금을 0 이상의 숫자로 적어 주세요."),
     ).toBeTruthy();
   });
 
@@ -144,7 +144,7 @@ describe("새 분기 양식", () => {
       ends_at: "2027-03-31",
       application_opens_at: "2026-12-01",
       application_closes_at: "2026-12-31",
-      subsidy_limit_krw: 100000,
+      subsidy_limit_krw: 80000,
     });
     // 확인창에 적힐 요약 — 무엇이 만들어지는지 한국어로.
     expect(summary).toContain("2027 Q1");

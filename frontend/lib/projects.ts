@@ -344,7 +344,7 @@ export function deleteVideoProject(id: number | string): Promise<void> {
   return request<void>(`/video/projects/${id}`, { method: "DELETE" });
 }
 
-/** 영상을 만듭니다(Higgsfield, 지금은 mock). Video 지원금에서 차감됩니다.
+/** 영상을 만듭니다(Higgsfield, 지금은 mock). 이번 분기 지원금에서 차감됩니다.
  *
  *  프롬프트와 모델은 백엔드가 프로젝트에서 읽습니다. 길이·비율·화질·소리는
  *  프로젝트가 아니라 작업 공간의 조작부에 있으므로 여기서 보냅니다.
@@ -393,7 +393,7 @@ export interface PromptHelp {
   reply: string;
   /** Claude가 고친 프롬프트. 고치지 않고 답만 했으면 null입니다. */
   revised_prompt: string | null;
-  /** Build(Claude) 지원금에서 빠진 금액. */
+  /** 지원금에서 빠진 금액(Claude 사용으로 기록됩니다). */
   charged_krw: number;
 }
 

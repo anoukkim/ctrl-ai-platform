@@ -28,21 +28,19 @@ import {
 } from "@/app/admin/sections";
 
 describe("Admin 구역 목록", () => {
-  test("Budget과 Content는 메뉴에 보이지 않는다", () => {
+  test("Content는 메뉴에 보이지 않고, Budget은 보인다", () => {
     const visible = visibleSections(true).map((section) => section.key);
 
-    expect(visible).not.toContain("budget");
+    // single-wallet이 Budget을 켰습니다 — 지갑과 제공자별 사용액.
+    expect(visible).toContain("budget");
     expect(visible).not.toContain("content");
   });
 
   test("숨긴 구역도 경로와 정의는 남아 있다", () => {
-    // budget-by-provider와 Phase 5/8이 한 줄만 지우면 켤 수 있도록.
-    const budget = ADMIN_SECTIONS.find((section) => section.key === "budget");
+    // Phase 5/8이 한 줄만 지우면 켤 수 있도록.
     const content = ADMIN_SECTIONS.find((section) => section.key === "content");
 
-    expect(budget?.href).toBe("/admin/budget");
     expect(content?.href).toBe("/admin/content");
-    expect(budget?.hidden).toBe(true);
     expect(content?.hidden).toBe(true);
   });
 
@@ -51,7 +49,7 @@ describe("Admin 구역 목록", () => {
     expect(visibleSections(false).map((s) => s.key)).not.toContain("dev");
   });
 
-  test("보이는 구역은 열 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("보이는 구역은 열한 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -60,6 +58,7 @@ describe("Admin 구역 목록", () => {
       "applications",
       "quarters",
       "topups",
+      "budget",
       "video-models",
       "claude-models",
       "deleted",

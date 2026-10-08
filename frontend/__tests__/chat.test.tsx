@@ -136,7 +136,7 @@ vi.mock("@/lib/chat", async (importOriginal) => {
 let mayCreate = true;
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => mayCreate,
-  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
+  useMyQuarter: () => ({ state: { phase: "loading" }, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 vi.mock("@/app/components/NotParticipatingBanner", () => ({ default: () => null }));

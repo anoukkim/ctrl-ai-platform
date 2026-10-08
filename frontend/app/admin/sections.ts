@@ -17,6 +17,7 @@ import {
   FileText,
   Trash2,
   LayoutDashboard,
+  PiggyBank,
   ScrollText,
   Server,
   Stamp,
@@ -87,13 +88,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: Wallet,
   },
   {
-    // budget-by-provider가 켭니다.
+    // single-wallet이 켰습니다. 회원마다 지갑은 하나지만 동아리는 제공자별로
+    // 크레딧을 사므로, 사용액을 제공자별로 모아 보여 줍니다.
     key: "budget",
     href: "/admin/budget",
     label: "Budget",
-    description: "제공자별 예산 관리.",
-    Icon: Wallet,
-    hidden: true,
+    description: "회원별 지원금 잔액과 제공자별 사용액을 봅니다 — 크레딧 구매의 근거.",
+    Icon: PiggyBank,
   },
   {
     key: "video-models",

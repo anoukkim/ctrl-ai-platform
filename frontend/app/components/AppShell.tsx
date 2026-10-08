@@ -52,6 +52,7 @@ import {
   MEMBERSHIP_LABEL,
   formatDate,
   formatKrw,
+  walletSentence,
 } from "@/lib/quarters";
 
 import styles from "./AppShell.module.css";
@@ -539,20 +540,11 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
   const { quarter, allocation, days_remaining, membership_status } = state.quarter;
   const status = membership_status ?? "inactive";
 
-  const meters = allocation
-    ? [
-        {
-          label: "Build",
-          budget: allocation.build_budget_krw,
-          consumed: allocation.build_consumed_krw,
-        },
-        {
-          label: "Video",
-          budget: allocation.video_budget_krw,
-          consumed: allocation.video_consumed_krw,
-        },
-      ]
-    : [];
+  // 지갑은 하나입니다(single-wallet). 채팅도 영상도 같은 잔액에서 씁니다.
+  const percent =
+    allocation && allocation.budget_krw > 0
+      ? Math.min(100, Math.round((allocation.consumed_krw / allocation.budget_krw) * 100))
+      : 0;
 
   return (
     <Link
@@ -575,31 +567,20 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
         </span>
       </div>
 
-      {meters.length > 0 ? (
-        <div className={styles.memberMeters}>
-          {meters.map((meter, index) => {
-            const percent =
-              meter.budget > 0
-                ? Math.min(100, Math.round((meter.consumed / meter.budget) * 100))
-                : 0;
-
-            return (
-              <div className={styles.meterRow} key={meter.label}>
-                <div className={styles.meterLabel}>
-                  <span>{meter.label}</span>
-                  <span className={styles.meterValue}>
-                    {formatKrw(meter.budget - meter.consumed)} 남음
-                  </span>
-                </div>
-                <div className="meter">
-                  <div
-                    className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+      {allocation ? (
+        <div className={styles.wallet}>
+          <div className={styles.meterLabel}>
+            <span>동아리 지원</span>
+            <span className={styles.meterValue}>{formatKrw(allocation.remaining_krw)}</span>
+          </div>
+          <div
+            className="meter"
+            role="img"
+            aria-label={`지원금 중 ${percent}% 사용`}
+          >
+            <div className="meter-fill" style={{ width: `${percent}%` }} />
+          </div>
+          <p className={styles.walletSentence}>{walletSentence(allocation)}</p>
         </div>
       ) : (
         <p className={styles.memberEmpty}>
