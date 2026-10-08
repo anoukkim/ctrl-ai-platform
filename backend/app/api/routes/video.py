@@ -2,10 +2,11 @@
 
 Every generation, edit and extension goes through the video provider
 behind `VIDEO_PROVIDER` (mock by default — see
-`app/services/video_provider.py`) and is charged to the member's **Video**
-budget through `app/services/usage.py`. The prompt helper is a Claude call
-and is charged to **Build**; it rewrites text and never reaches the video
-provider.
+`app/services/video_provider.py`) and is charged to the member's one
+동아리 지원 wallet through `app/services/usage.py`, recorded under the
+model's provider. The prompt helper is a Claude call, charged to the same
+wallet and recorded under Claude; it rewrites text and never reaches the
+video provider.
 
 What a model allows and costs is its catalogue entry
 (`app/services/video_catalog.py`).
@@ -26,7 +27,6 @@ from app.api.deps import get_current_user, require_active_member
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
-    BudgetCategory,
     UsageFeature,
     User,
     VideoModel,
@@ -312,9 +312,7 @@ def _produce(
     try:
         amount = video_catalog.cost_krw(model, version.resolution or "", charged_seconds)
         # Refused here, nothing has been spent: the provider is not called.
-        usage_service.ensure_affordable(
-            db, user=user, category=BudgetCategory.VIDEO, amount_krw=amount
-        )
+        usage_service.ensure_affordable(db, user=user, amount_krw=amount)
         result = call(get_video_provider(config))
     except (
         usage_service.InsufficientBudgetError,
@@ -337,7 +335,6 @@ def _produce(
         usage_service.charge(
             db,
             user=user,
-            category=BudgetCategory.VIDEO,
             amount_krw=amount,
             provider=model.provider,
             feature=feature.value,
@@ -662,9 +659,11 @@ def prompt_help(
 ) -> PromptHelpRead:
     """Ask Claude to rewrite the prompt. Text only — never generates video.
 
-    Charged to the **Build** (Claude) budget, not Video: it is a Claude
-    call, and the Video budget is for Higgsfield. The project's prompt is
-    not changed here; the member applies the suggestion themselves.
+    Charged to the member's wallet like everything else, and recorded as
+    a Claude charge (`provider="claude"`, feature `video_prompt`) — it is
+    Anthropic credit the club spends, not Higgsfield's. The project's
+    prompt is not changed here; the member applies the suggestion
+    themselves.
 
     Priced by the token, like Chat: the budget is checked against the
     worst case before the call, and the tokens actually used are charged
@@ -687,7 +686,6 @@ def prompt_help(
         usage_service.ensure_affordable(
             db,
             user=user,
-            category=BudgetCategory.BUILD,
             amount_krw=price.krw(estimated_input, max_output),
         )
         try:
@@ -701,7 +699,6 @@ def prompt_help(
         result = usage_service.charge(
             db,
             user=user,
-            category=BudgetCategory.BUILD,
             amount_krw=price.krw(answer.input_tokens, answer.output_tokens),
             provider="claude",
             feature=UsageFeature.VIDEO_PROMPT.value,

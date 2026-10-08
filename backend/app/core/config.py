@@ -48,11 +48,12 @@ class Settings(BaseSettings):
     # simple (a list-typed field would require JSON syntax there).
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
-    # Default community subsidy per member per quarter, in KRW. Each
-    # quarter stores its own limit, copied from this when it is created,
+    # Default 동아리 지원 per participating member per quarter, in KRW —
+    # the one wallet every paid feature spends from (single-wallet). Each
+    # quarter stores its own amount, copied from this when it is created,
     # so an admin can change it for a future quarter without touching
     # code and without altering quarters that already ran.
-    quarterly_subsidy_limit_krw: int = 100_000
+    quarterly_subsidy_limit_krw: int = 80_000
 
     # ---------- Session cookie ----------
     # Every flag comes from the environment so production can tighten them

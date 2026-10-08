@@ -5,7 +5,7 @@ A message goes through two steps, and the split is the important part:
 1. **`prepare_turn`** — before Claude is called. Checks the per-member
    rate limit, prices the call at the conversation's model (see
    `services/chat_models.py`), trims the history to the context limit,
-   and checks the Build budget against the **worst case** (the trimmed
+   and checks the member's wallet against the **worst case** (the trimmed
    input plus the maximum reply). Anything refused here costs nothing,
    because nothing has been sent. Only then is the member's message saved.
 2. **`finish_turn`** — after the stream ends, however it ends. Charges
@@ -36,7 +36,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import (
-    BudgetCategory,
     ChatAction,
     ChatMessage,
     ChatMessageStatus,
@@ -302,9 +301,7 @@ def prepare_turn(
     messages, estimated_input = build_context(history, text, settings)
 
     worst_case = price.krw(estimated_input, settings.chat_max_output_tokens)
-    usage_service.ensure_affordable(
-        db, user=user, category=BudgetCategory.BUILD, amount_krw=worst_case
-    )
+    usage_service.ensure_affordable(db, user=user, amount_krw=worst_case)
 
     now = datetime.now(timezone.utc)
     message = ChatMessage(
@@ -397,7 +394,6 @@ def finish_turn(
             result = usage_service.charge(
                 db,
                 user=user,
-                category=BudgetCategory.BUILD,
                 amount_krw=amount,
                 provider="claude",
                 feature=UsageFeature.CHAT.value,

@@ -74,7 +74,7 @@ the same commit that adds it.
 | `POST /api/chat/conversations` | **`require_active_member`** | Creating |
 | `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
 | `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
-| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends Build budget |
+| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
@@ -87,9 +87,9 @@ the same commit that adds it.
 | `POST /api/video/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/video/projects/{id}` | **`require_active_member`** | Editing |
 | `POST /api/video/projects/{id}/versions` | **`require_active_member`** | Generating — spends budget |
-| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends Video budget |
-| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends Video budget |
-| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends Build budget |
+| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends the wallet |
+| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends the wallet |
+| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends the wallet |
 | `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work |
 | `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
@@ -109,7 +109,8 @@ the same commit that adds it.
 | `POST /api/admin/applications/{id}/review` | `require_admin` | Approving writes the allocation |
 | `GET /api/admin/quarters/{id}/members` | `require_admin` | |
 | `PUT /api/admin/quarters/{id}/members/{user_id}` | `require_admin` | |
-| `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | |
+| `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | Sets a member's one wallet |
+| `GET /api/admin/quarters/{id}/budget` | `require_admin` | Admin › Budget: wallets and spend by provider, read-only |
 | `PUT /api/admin/members/{user_id}/role` | `require_admin` | |
 | `GET /api/admin/top-ups` | `require_admin` | |
 | `POST /api/admin/top-ups/{id}/confirm` | `require_admin` | |

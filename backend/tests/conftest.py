@@ -155,23 +155,19 @@ def participating(db_session: Session, dev_user):
 
 @pytest.fixture
 def budgeted(db_session: Session, dev_user, participating):
-    """`participating`, plus an approved allocation to spend.
+    """`participating`, plus a 100,000원 동아리 지원 wallet to spend.
 
-    Generating, editing and extending a video charge the Video budget, and
-    the prompt helper charges Build, so a test that does any of them needs
-    money as well as membership. Build 30,000원 and Video 70,000원 — enough
-    for a dozen placeholder-priced generations.
+    Chat, video generation, editing, extension and the prompt helper all
+    spend from this one wallet, so a test that does any of them needs money
+    as well as membership. Enough for a dozen placeholder-priced
+    generations.
     """
     from app.models import QuarterAllocation
 
     allocation = QuarterAllocation(
         user_id=dev_user.id,
         quarter_id=participating.id,
-        community_total_budget_krw=100_000,
-        build_budget_krw=30_000,
-        video_budget_krw=70_000,
-        build_percentage=30,
-        video_percentage=70,
+        budget_krw=100_000,
     )
     db_session.add(allocation)
     db_session.commit()

@@ -328,7 +328,7 @@ def main() -> None:
         print(f"Administrator:    {admin.username} / {admin.email}")
     print(f"Quarters:         {quarters} created")
     print(f"Video models:     {models} created")
-    print(f"Subsidy limit:    {settings.quarterly_subsidy_limit_krw:,} KRW per member per quarter")
+    print(f"동아리 지원:      {settings.quarterly_subsidy_limit_krw:,} KRW per member per quarter")
 
 
 if __name__ == "__main__":

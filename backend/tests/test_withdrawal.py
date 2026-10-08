@@ -22,7 +22,6 @@ from app.models import (
     ApplicationStatus,
     AuditAction,
     AuditLog,
-    BudgetCategory,
     BuilderProject,
     BuilderProjectStatus,
     MembershipStatus,
@@ -68,16 +67,12 @@ def quarter(db_session: Session) -> Quarter:
 
 @pytest.fixture
 def funded_member(db_session: Session, other_user, quarter) -> QuarterAllocation:
-    """`other_user` participating, with Build 70,000 / Video 30,000원."""
+    """`other_user` participating, with a 100,000원 wallet."""
     set_membership(db_session, other_user.id, quarter.id, MembershipStatus.ACTIVE)
     allocation = QuarterAllocation(
         user_id=other_user.id,
         quarter_id=quarter.id,
-        community_total_budget_krw=100_000,
-        build_budget_krw=70_000,
-        video_budget_krw=30_000,
-        build_percentage=70,
-        video_percentage=30,
+        budget_krw=100_000,
     )
     db_session.add(allocation)
     db_session.commit()
@@ -184,8 +179,7 @@ def test_remaining_club_allocation_is_released_and_audited(
     other_client: TestClient, other_user, funded_member, db_session: Session
 ) -> None:
     usage_service.charge(
-        db_session, user=other_user, category=BudgetCategory.BUILD,
-        amount_krw=10_000, provider="claude",
+        db_session, user=other_user, amount_krw=10_000, provider="claude",
     )
 
     response = withdraw(other_client)
@@ -195,20 +189,16 @@ def test_remaining_club_allocation_is_released_and_audited(
     db_session.refresh(funded_member)
     # Lowered to what was consumed, so nothing is left to spend and the
     # history still adds up.
-    assert funded_member.build_budget_krw == 10_000
-    assert funded_member.video_budget_krw == 0
-    assert funded_member.community_total_budget_krw == 10_000
-    assert funded_member.build_consumed_krw == 10_000
-    # The approved split is history and is not rewritten.
-    assert (funded_member.build_percentage, funded_member.video_percentage) == (70, 30)
+    assert funded_member.budget_krw == 10_000
+    assert funded_member.consumed_krw == 10_000
+    assert funded_member.remaining_krw == 0
 
     released = db_session.scalar(
         select(AuditLog).where(AuditLog.action == AuditAction.ALLOCATION_RELEASED)
     )
     assert released is not None
     assert released.target_id == funded_member.id
-    assert released.detail["build_released_krw"] == 60_000
-    assert released.detail["video_released_krw"] == 30_000
+    assert released.detail["released_krw"] == 90_000
     assert "90,000원" in released.summary
     assert AuditAction.ACCOUNT_WITHDRAWN in audit_actions(db_session)
 
@@ -228,7 +218,7 @@ def test_a_closed_quarter_is_left_alone(
 
     assert withdraw(other_client).json()["released_krw"] == 0
     db_session.refresh(funded_member)
-    assert funded_member.build_budget_krw == 70_000
+    assert funded_member.budget_krw == 100_000
 
 
 def test_a_live_application_is_cancelled(
@@ -238,11 +228,7 @@ def test_a_live_application_is_cancelled(
     application = QuarterApplication(
         user_id=other_user.id,
         quarter_id=quarter.id,
-        build_percentage=50,
-        video_percentage=50,
-        requested_total_budget_krw=100_000,
-        requested_build_budget_krw=50_000,
-        requested_video_budget_krw=50_000,
+        requested_budget_krw=100_000,
         status=ApplicationStatus.SUBMITTED,
     )
     db_session.add(application)
@@ -257,8 +243,7 @@ def test_usage_history_stays_after_withdrawal(
     other_client: TestClient, other_user, funded_member, db_session: Session
 ) -> None:
     usage_service.charge(
-        db_session, user=other_user, category=BudgetCategory.VIDEO,
-        amount_krw=4_000, provider="higgsfield",
+        db_session, user=other_user, amount_krw=4_000, provider="higgsfield",
     )
     withdraw(other_client)
 
@@ -390,8 +375,7 @@ def test_restore_works_within_the_grace_period(
     db_session.refresh(funded_member)
     db_session.refresh(balance)
     assert other_user.account_status is AccountStatus.ACTIVE
-    assert (funded_member.build_budget_krw, funded_member.video_budget_krw) == (70_000, 30_000)
-    assert funded_member.community_total_budget_krw == 100_000
+    assert funded_member.budget_krw == 100_000
     assert balance.overage_enabled is True
     membership = db_session.scalar(
         select(QuarterMembership).where(QuarterMembership.user_id == other_user.id)
@@ -420,8 +404,7 @@ def test_restore_after_a_recorded_refund_returns_the_budget_but_not_the_money(
     money a second time.
     """
     usage_service.charge(
-        db_session, user=other_user, category=BudgetCategory.BUILD,
-        amount_krw=10_000, provider="claude",
+        db_session, user=other_user, amount_krw=10_000, provider="claude",
     )
     balance = get_or_create_balance(db_session, other_user.id)
     balance.balance_krw = 20_000
@@ -448,9 +431,9 @@ def test_restore_after_a_recorded_refund_returns_the_budget_but_not_the_money(
     # The wallet does not get the refunded 15,000원 back.
     assert balance.remaining_krw == 0
     assert (balance.balance_krw, balance.consumed_krw) == (5_000, 5_000)
-    # The club budget does: back to 70,000 / 30,000, with the 10,000 spent kept.
-    assert (funded_member.build_budget_krw, funded_member.video_budget_krw) == (70_000, 30_000)
-    assert funded_member.build_consumed_krw == 10_000
+    # The club wallet does: back to 100,000, with the 10,000 spent kept.
+    assert funded_member.budget_krw == 100_000
+    assert funded_member.consumed_krw == 10_000
 
     restored = db_session.scalar(
         select(AuditLog).where(AuditLog.action == AuditAction.ACCOUNT_RESTORED)
@@ -484,13 +467,13 @@ def test_restore_keeps_an_adjustment_made_during_the_grace_period(
     withdraw(other_client)
     admin_client.put(
         f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}",
-        json={"build_budget_krw": 5_000, "video_budget_krw": 0},
+        json={"budget_krw": 5_000},
     )
 
     admin_client.post(f"/api/admin/members/{other_user.id}/withdrawal/restore")
 
     db_session.refresh(funded_member)
-    assert (funded_member.build_budget_krw, funded_member.video_budget_krw) == (75_000, 30_000)
+    assert funded_member.budget_krw == 105_000
 
 
 # ------------------------------------------------------------ anonymise
@@ -504,8 +487,7 @@ def test_anonymisation_removes_personal_fields_but_keeps_usage_totals(
     db_session: Session,
 ) -> None:
     usage_service.charge(
-        db_session, user=other_user, category=BudgetCategory.BUILD,
-        amount_krw=12_000, provider="claude",
+        db_session, user=other_user, amount_krw=12_000, provider="claude",
     )
     withdraw(other_client)
     after_grace(db_session, other_user.id)
@@ -526,7 +508,7 @@ def test_anonymisation_removes_personal_fields_but_keeps_usage_totals(
     )
     assert total == 12_000
     db_session.refresh(funded_member)
-    assert funded_member.build_consumed_krw == 12_000
+    assert funded_member.consumed_krw == 12_000
 
     # The old password no longer works, and neither does the old name.
     for username in ("other", other_user.username):

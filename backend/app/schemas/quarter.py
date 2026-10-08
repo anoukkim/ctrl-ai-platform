@@ -72,29 +72,14 @@ class QuarterUpdate(BaseModel):
     subsidy_limit_krw: int | None = Field(default=None, ge=0)
 
 
-class ApplicationCreate(BaseModel):
-    """What a member submits.
-
-    Only the split is sent. The KRW amounts are worked out on the backend
-    from the quarter's limit, so a client cannot ask for more money by
-    posting its own figures.
-    """
-
-    build_percentage: int = Field(ge=0, le=100)
-    video_percentage: int = Field(ge=0, le=100)
-
-
 class ApplicationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     user_id: int
     quarter_id: int
-    build_percentage: int
-    video_percentage: int
-    requested_total_budget_krw: int
-    requested_build_budget_krw: int
-    requested_video_budget_krw: int
+    #: The quarter's amount when the member applied.
+    requested_budget_krw: int
     status: ApplicationStatus
     submitted_at: datetime | None
     reviewed_at: datetime | None
@@ -122,19 +107,15 @@ class ApplicationReview(BaseModel):
 
 
 class AllocationRead(BaseModel):
+    """A member's 동아리 지원 wallet for one quarter."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     quarter_id: int
-    community_total_budget_krw: int
-    build_budget_krw: int
-    video_budget_krw: int
-    build_percentage: int
-    video_percentage: int
-    build_consumed_krw: int
-    video_consumed_krw: int
-    build_remaining_krw: int
-    video_remaining_krw: int
+    budget_krw: int
+    consumed_krw: int
+    remaining_krw: int
     approved_at: datetime | None
 
 
@@ -213,14 +194,13 @@ class RoleUpdate(BaseModel):
 
 
 class AllocationAdjust(BaseModel):
-    """Admin adjusting an approved allocation, in KRW.
+    """Admin adjusting a member's wallet, in KRW.
 
-    Figures are absolute, not deltas: an admin types what the budget
-    should be, which is what the panel shows them.
+    The figure is absolute, not a delta: an admin types what the wallet
+    should hold, which is what the panel shows them.
     """
 
-    build_budget_krw: int = Field(ge=0, le=100_000_000)
-    video_budget_krw: int = Field(ge=0, le=100_000_000)
+    budget_krw: int = Field(ge=0, le=100_000_000)
     note: str = Field(default="", max_length=200)
 
 
@@ -433,3 +413,66 @@ class MemberDetail(BaseModel):
     audit: list[AuditLogRead] = Field(default_factory=list)
     #: 가장 최근의 탈퇴. 복구된 것도 포함 — 없었던 일이 아니니까요.
     withdrawal: WithdrawalRead | None = None
+
+
+# ------------------------------------------------------- Admin › Budget
+#
+# 분기 하나의 지갑과 제공자별 사용액. 팀장이 다음 구매를 정할 때 보는
+# 숫자입니다 — 모두 사용 기록에서 묶음 질의로 셉니다.
+
+
+class MemberWalletRead(BaseModel):
+    """한 회원의 이번 분기 지갑."""
+
+    user_id: int
+    username: str
+    display_name: str
+    account_status: AccountStatus
+    membership_status: MembershipStatus | None
+    budget_krw: int
+    consumed_krw: int
+    remaining_krw: int
+
+
+class ProviderSpendRead(BaseModel):
+    """한 제공자에게 이 분기에 쓴 것.
+
+    `charged_krw`는 지갑과 개인 잔액에서 실제로 빠진 원화이고,
+    `provider_cost`는 제공자가 매긴 금액(통화별)입니다. 둘은 같은 숫자가
+    아닙니다 — 그래서 둘 다 보여 줍니다.
+    """
+
+    provider: str
+    label: str
+    events: int
+    charged_krw: int
+    #: 동아리 지원 지갑에서 나간 몫.
+    community_krw: int
+    #: 회원의 개인 잔액에서 나간 몫.
+    personal_krw: int
+    #: 통화별 제공자 금액. 모르는 행(가격이 원화로만 매겨진 것)은 빠집니다.
+    provider_cost: dict[str, str] = Field(default_factory=dict)
+    #: 단위별 사용량 — tokens, seconds …
+    units: dict[str, int] = Field(default_factory=dict)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    #: 이 분기 전체 사용액 가운데 이 제공자의 몫(0–1). 사용이 없으면 None.
+    share: float | None = None
+    #: 지갑 총액을 이 몫으로 나눈 참고값 — 다음 구매를 가늠하는 숫자일 뿐
+    #: 회원의 돈을 나누지 않습니다.
+    share_of_wallets_krw: int | None = None
+
+
+class QuarterBudgetRead(BaseModel):
+    """Admin › Budget이 한 번에 읽는 것."""
+
+    quarter: QuarterRead
+    #: 이 분기 1인 지원금 — 참여 신청 한 번이 받는 금액.
+    member_budget_krw: int
+    wallets: list[MemberWalletRead] = Field(default_factory=list)
+    total_budget_krw: int = 0
+    total_consumed_krw: int = 0
+    total_remaining_krw: int = 0
+    providers: list[ProviderSpendRead] = Field(default_factory=list)
+    #: 모든 제공자의 `charged_krw` 합계 — 개인 잔액에서 나간 것도 포함.
+    total_charged_krw: int = 0

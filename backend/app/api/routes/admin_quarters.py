@@ -32,10 +32,12 @@ from app.models import (
     User,
 )
 from app.services import audit
+from app.services import quarter_budget as quarter_budget_service
 from app.services import usage as usage_service
 from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
 from app.services.wallet import get_or_create_balance
+from app.models.usage import spending_group
 from app.schemas.usage import SimulateUsageRequest, UsageEventRead
 from app.schemas.quarter import (
     AllocationAdjust,
@@ -47,6 +49,7 @@ from app.schemas.quarter import (
     RoleUpdate,
     ApplicationReview,
     ApplicationWithMember,
+    QuarterBudgetRead,
     QuarterCreate,
     QuarterRead,
     QuarterUpdate,
@@ -246,11 +249,7 @@ def review_application(
     approved_at = datetime.now(timezone.utc)
 
     allocation.application_id = application.id
-    allocation.community_total_budget_krw = application.requested_total_budget_krw
-    allocation.build_budget_krw = application.requested_build_budget_krw
-    allocation.video_budget_krw = application.requested_video_budget_krw
-    allocation.build_percentage = application.build_percentage
-    allocation.video_percentage = application.video_percentage
+    allocation.budget_krw = application.requested_budget_krw
     allocation.approved_at = approved_at
     allocation.approved_by = admin.id
     # Provider prices as they stood at approval. Kept so a member's quota
@@ -275,13 +274,9 @@ def review_application(
         target_label=applicant.username if applicant else str(application.user_id),
         summary=(
             f"{applicant.display_name if applicant else application.user_id}의 참여 신청을 승인하고 "
-            f"Build {application.requested_build_budget_krw:,}원 / "
-            f"Video {application.requested_video_budget_krw:,}원을 배정했습니다."
+            f"동아리 지원 {application.requested_budget_krw:,}원을 배정했습니다."
         ),
-        detail={
-            "build_budget_krw": application.requested_build_budget_krw,
-            "video_budget_krw": application.requested_video_budget_krw,
-        },
+        detail={"budget_krw": application.requested_budget_krw},
     )
 
     db.commit()
@@ -555,15 +550,10 @@ def adjust_allocation(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ) -> QuarterAllocation:
-    """Change the KRW figures on an allocation that already exists.
-
-    Money is the unit here, not percentages: the admin types won, which is
-    what the panel and the member's Usage screen both show. The approved
-    percentages are recomputed from the new figures so the two cannot
-    disagree.
+    """Change what a member's wallet holds this quarter, in KRW.
 
     The budget may be lowered below what has already been spent — the
-    remaining figures clamp at zero rather than going negative — but that
+    remaining figure clamps at zero rather than going negative — but that
     is a deliberate act and it is logged.
     """
     allocation = db.scalar(
@@ -579,18 +569,8 @@ def adjust_allocation(
         )
 
     member = db.get(User, user_id)
-    before = {
-        "build_budget_krw": allocation.build_budget_krw,
-        "video_budget_krw": allocation.video_budget_krw,
-    }
-
-    total = payload.build_budget_krw + payload.video_budget_krw
-    allocation.build_budget_krw = payload.build_budget_krw
-    allocation.video_budget_krw = payload.video_budget_krw
-    allocation.community_total_budget_krw = total
-    # Percentages follow the money, so they can never drift from it.
-    allocation.build_percentage = round(payload.build_budget_krw * 100 / total) if total else 0
-    allocation.video_percentage = 100 - allocation.build_percentage if total else 0
+    before_krw = allocation.budget_krw
+    allocation.budget_krw = payload.budget_krw
 
     audit.record(
         db,
@@ -600,18 +580,36 @@ def adjust_allocation(
         target_id=allocation.id,
         target_label=member.username if member else str(user_id),
         summary=(
-            f"{member.display_name if member else user_id}의 지원금을 "
-            f"Build {payload.build_budget_krw:,}원 / Video {payload.video_budget_krw:,}원으로 "
-            f"조정했습니다."
+            f"{member.display_name if member else user_id}의 동아리 지원을 "
+            f"{before_krw:,}원에서 {payload.budget_krw:,}원으로 조정했습니다."
         ),
-        detail={"before": before, "after": {
-            "build_budget_krw": payload.build_budget_krw,
-            "video_budget_krw": payload.video_budget_krw,
-        }, "note": payload.note},
+        detail={
+            "before": {"budget_krw": before_krw},
+            "after": {"budget_krw": payload.budget_krw},
+            "note": payload.note,
+        },
     )
     db.commit()
     db.refresh(allocation)
     return allocation
+
+
+@router.get(
+    "/quarters/{quarter_id}/budget",
+    response_model=QuarterBudgetRead,
+    summary="Every member's wallet and the quarter's spend by provider",
+)
+def read_quarter_budget(
+    quarter_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> QuarterBudgetRead:
+    """Admin › Budget. Read-only: the per-provider totals are what the 팀장
+    reads before buying the next round of credit from each provider."""
+    quarter = db.get(Quarter, quarter_id)
+    if quarter is None:
+        raise HTTPException(status_code=404, detail="분기를 찾을 수 없습니다.")
+    return quarter_budget_service.quarter_budget(db, quarter)
 
 
 @router.get("/audit", response_model=list[AuditLogRead], summary="Audit log (read-only)")
@@ -669,9 +667,9 @@ def simulate_usage(
         result = usage_service.charge(
             db,
             user=target,
-            category=payload.category,
             amount_krw=payload.amount_krw,
             provider=payload.provider,
+            feature=payload.feature.value if payload.feature else None,
             model_id=payload.model_id,
         )
     except usage_service.NoQuarterError as error:
@@ -688,14 +686,19 @@ def simulate_usage(
         target_id=target.id,
         target_label=target.username,
         summary=(
-            f"{target.display_name}의 {payload.category.value} 예산에서 "
-            f"{payload.amount_krw:,}원을 시뮬레이션으로 사용했습니다."
+            f"{target.display_name}의 지원금에서 {payload.amount_krw:,}원을 "
+            f"시뮬레이션으로 사용했습니다({payload.provider})."
         ),
-        detail={"provider": payload.provider, "funding_source": result.funding_source.value},
+        detail={
+            "provider": payload.provider,
+            "feature": payload.feature.value if payload.feature else None,
+            "funding_source": result.funding_source.value,
+        },
     )
     db.commit()
 
     return UsageEventRead(
-        **UsageEventRead.model_validate(result.event).model_dump(exclude={"label"}),
+        **UsageEventRead.model_validate(result.event).model_dump(exclude={"label", "group"}),
+        group=spending_group(result.event.feature),
         label="시뮬레이션",
     )

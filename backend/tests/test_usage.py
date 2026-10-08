@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     AuditLog,
-    BudgetCategory,
     FundingSource,
     MembershipStatus,
     Quarter,
@@ -30,10 +29,7 @@ from tests.conftest import DEV_PASSWORD
 
 @pytest.fixture
 def funded(db_session: Session, dev_user):
-    """An active quarter, active membership, and an approved allocation.
-
-    Build 70,000원 and Video 30,000원 — the split used throughout the docs.
-    """
+    """An active quarter, active membership, and a 100,000원 wallet."""
     quarter = Quarter(
         code="2026-Q4",
         display_name="2026 Q4",
@@ -49,11 +45,7 @@ def funded(db_session: Session, dev_user):
     allocation = QuarterAllocation(
         user_id=dev_user.id,
         quarter_id=quarter.id,
-        community_total_budget_krw=100_000,
-        build_budget_krw=70_000,
-        video_budget_krw=30_000,
-        build_percentage=70,
-        video_percentage=30,
+        budget_krw=100_000,
     )
     db_session.add(allocation)
     db_session.commit()
@@ -69,22 +61,57 @@ def test_a_charge_deducts_and_records_one_event(
     result = usage_service.charge(
         db_session,
         user=dev_user,
-        category=BudgetCategory.BUILD,
         amount_krw=24_500,
         provider="claude",
     )
 
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.build_consumed_krw == 24_500
-    assert allocation.build_remaining_krw == 45_500
-    # The Video budget is untouched: a Build charge never crosses over.
-    assert allocation.video_consumed_krw == 0
+    assert allocation.consumed_krw == 24_500
+    assert allocation.remaining_krw == 75_500
 
     events = db_session.query(UsageEvent).all()
     assert len(events) == 1
     assert events[0].charged_krw == 24_500
-    assert events[0].funding_source is FundingSource.COMMUNITY_BUILD
-    assert result.community_remaining_krw == 45_500
+    assert events[0].funding_source is FundingSource.COMMUNITY
+    assert result.community_remaining_krw == 75_500
+
+
+def test_claude_and_higgsfield_spend_from_the_same_wallet(
+    db_session: Session, dev_user, funded
+) -> None:
+    """One balance: what Chat spends, video can no longer spend."""
+    usage_service.charge(
+        db_session, user=dev_user, amount_krw=60_000, provider="claude", feature="chat"
+    )
+    usage_service.charge(
+        db_session, user=dev_user, amount_krw=40_000, provider="higgsfield",
+        feature="video_generate",
+    )
+
+    allocation = db_session.query(QuarterAllocation).one()
+    assert allocation.consumed_krw == 100_000
+    assert allocation.remaining_krw == 0
+    with pytest.raises(usage_service.InsufficientBudgetError):
+        usage_service.charge(
+            db_session, user=dev_user, amount_krw=1, provider="claude", feature="chat"
+        )
+    # The ledger still says who was paid for what.
+    by_provider = {e.provider: e.charged_krw for e in db_session.query(UsageEvent)}
+    assert by_provider == {"claude": 60_000, "higgsfield": 40_000}
+
+
+def test_the_pre_check_refuses_when_the_one_balance_is_short(
+    db_session: Session, dev_user, funded
+) -> None:
+    usage_service.charge(
+        db_session, user=dev_user, amount_krw=99_000, provider="claude", feature="chat"
+    )
+
+    usage_service.ensure_affordable(db_session, user=dev_user, amount_krw=1_000)
+    with pytest.raises(usage_service.InsufficientBudgetError):
+        usage_service.ensure_affordable(db_session, user=dev_user, amount_krw=1_001)
+    # Checking spends nothing.
+    assert db_session.query(QuarterAllocation).one().consumed_krw == 99_000
 
 
 def test_charges_accumulate(db_session: Session, dev_user, funded) -> None:
@@ -92,14 +119,13 @@ def test_charges_accumulate(db_session: Session, dev_user, funded) -> None:
         usage_service.charge(
             db_session,
             user=dev_user,
-            category=BudgetCategory.VIDEO,
             amount_krw=10_000,
             provider="higgsfield",
         )
 
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.video_consumed_krw == 30_000
-    assert allocation.video_remaining_krw == 0
+    assert allocation.consumed_krw == 30_000
+    assert allocation.remaining_krw == 70_000
     assert db_session.query(UsageEvent).count() == 3
 
 
@@ -113,13 +139,12 @@ def test_a_charge_larger_than_the_budget_is_refused(
         usage_service.charge(
             db_session,
             user=dev_user,
-            category=BudgetCategory.VIDEO,
-            amount_krw=30_001,
+            amount_krw=100_001,
             provider="higgsfield",
         )
 
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.video_consumed_krw == 0
+    assert allocation.consumed_krw == 0
     # Nothing is written when nothing is charged.
     assert db_session.query(UsageEvent).count() == 0
 
@@ -128,19 +153,17 @@ def test_the_budget_cannot_be_driven_negative(
     db_session: Session, dev_user, funded
 ) -> None:
     usage_service.charge(
-        db_session, user=dev_user, category=BudgetCategory.VIDEO,
-        amount_krw=30_000, provider="higgsfield",
+        db_session, user=dev_user, amount_krw=100_000, provider="higgsfield",
     )
 
     with pytest.raises(usage_service.InsufficientBudgetError):
         usage_service.charge(
-            db_session, user=dev_user, category=BudgetCategory.VIDEO,
-            amount_krw=1, provider="higgsfield",
+            db_session, user=dev_user, amount_krw=1, provider="higgsfield",
         )
 
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.video_remaining_krw == 0
-    assert allocation.video_consumed_krw == 30_000
+    assert allocation.remaining_krw == 0
+    assert allocation.consumed_krw == 100_000
 
 
 # ----------------------------------------------------- personal overage
@@ -150,13 +173,12 @@ def test_personal_money_is_not_touched_unless_the_member_opted_in(
     db_session: Session, dev_user, funded
 ) -> None:
     balance = get_or_create_balance(db_session, dev_user.id)
-    balance.balance_krw = 50_000
+    balance.balance_krw = 150_000
     db_session.commit()
 
     with pytest.raises(usage_service.InsufficientBudgetError) as caught:
         usage_service.charge(
-            db_session, user=dev_user, category=BudgetCategory.VIDEO,
-            amount_krw=40_000, provider="higgsfield",
+            db_session, user=dev_user, amount_krw=120_000, provider="higgsfield",
         )
 
     assert "개인 사용을 켜" in str(caught.value)
@@ -168,21 +190,38 @@ def test_personal_money_is_used_once_opted_in(
     db_session: Session, dev_user, funded
 ) -> None:
     balance = get_or_create_balance(db_session, dev_user.id)
+    balance.balance_krw = 150_000
+    balance.overage_enabled = True
+    db_session.commit()
+
+    result = usage_service.charge(
+        db_session, user=dev_user, amount_krw=120_000, provider="higgsfield",
+    )
+
+    assert result.funding_source is FundingSource.PERSONAL
+    db_session.refresh(balance)
+    assert balance.consumed_krw == 120_000
+    # The wallet is untouched — the two pots never mix, and one charge is
+    # never split between them.
+    allocation = db_session.query(QuarterAllocation).one()
+    assert allocation.consumed_krw == 0
+
+
+def test_the_wallet_is_spent_before_personal_money(
+    db_session: Session, dev_user, funded
+) -> None:
+    balance = get_or_create_balance(db_session, dev_user.id)
     balance.balance_krw = 50_000
     balance.overage_enabled = True
     db_session.commit()
 
     result = usage_service.charge(
-        db_session, user=dev_user, category=BudgetCategory.VIDEO,
-        amount_krw=40_000, provider="higgsfield",
+        db_session, user=dev_user, amount_krw=40_000, provider="claude", feature="chat"
     )
 
-    assert result.funding_source is FundingSource.PERSONAL
+    assert result.funding_source is FundingSource.COMMUNITY
     db_session.refresh(balance)
-    assert balance.consumed_krw == 40_000
-    # The community budget is untouched — the two pots never mix.
-    allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.video_consumed_krw == 0
+    assert balance.consumed_krw == 0
 
 
 # ------------------------------------------------------ inactive member
@@ -204,23 +243,52 @@ def test_an_inactive_member_is_refused_at_the_endpoint(
 # -------------------------------------------------------------- the API
 
 
-def test_usage_me_reports_budgets_and_events(
+def test_usage_me_reports_the_wallet_and_events(
     client: TestClient, dev_user, funded, db_session: Session
 ) -> None:
     usage_service.charge(
-        db_session, user=dev_user, category=BudgetCategory.BUILD,
-        amount_krw=1_200, provider="claude",
+        db_session, user=dev_user, amount_krw=1_200, provider="claude", feature="chat"
     )
 
     body = client.get("/api/usage/me").json()
 
     assert body["quarter_name"] == "2026 Q4"
-    assert body["total_budget_krw"] == 100_000
-    build = next(c for c in body["categories"] if c["category"] == "build")
-    assert build["provider"] == "Claude"
-    assert build["remaining_krw"] == 68_800
+    assert body["wallet"] == {"budget_krw": 100_000, "consumed_krw": 1_200, "remaining_krw": 98_800}
     assert len(body["events"]) == 1
     assert body["events"][0]["charged_krw"] == 1_200
+    assert body["events"][0]["group"] == "chat"
+    assert "category" not in body["events"][0]
+
+
+def test_usage_me_breaks_the_wallet_down_by_chat_video_and_other(
+    client: TestClient, dev_user, funded, db_session: Session
+) -> None:
+    for amount, provider, feature in [
+        (1_000, "claude", "chat"),
+        (2_000, "claude", "chat"),
+        (3_500, "higgsfield", "video_generate"),
+        (300, "claude", "video_prompt"),
+        (700, "claude", None),
+    ]:
+        usage_service.charge(
+            db_session, user=dev_user, amount_krw=amount, provider=provider, feature=feature
+        )
+    # Personal money is not wallet money and stays out of the breakdown.
+    balance = get_or_create_balance(db_session, dev_user.id)
+    balance.balance_krw, balance.overage_enabled = 500_000, True
+    db_session.commit()
+    usage_service.charge(
+        db_session, user=dev_user, amount_krw=200_000, provider="claude", feature="chat"
+    )
+
+    body = client.get("/api/usage/me").json()
+
+    assert [(line["group"], line["label"], line["consumed_krw"]) for line in body["breakdown"]] == [
+        ("chat", "채팅", 3_000),
+        ("video", "영상", 3_800),
+        ("other", "기타", 700),
+    ]
+    assert sum(line["consumed_krw"] for line in body["breakdown"]) == body["wallet"]["consumed_krw"]
 
 
 def test_usage_me_is_empty_but_valid_without_an_allocation(
@@ -229,7 +297,8 @@ def test_usage_me_is_empty_but_valid_without_an_allocation(
     """A member with no approved budget still gets a usable response."""
     body = client.get("/api/usage/me").json()
 
-    assert body["categories"] == []
+    assert body["wallet"] is None
+    assert body["breakdown"] == []
     assert body["events"] == []
     assert body["personal"]["remaining_krw"] == 0
 
@@ -246,12 +315,12 @@ def test_simulate_usage_charges_through_the_real_service(
 ) -> None:
     response = client.post(
         "/api/admin/simulate-usage",
-        json={"category": "build", "amount_krw": 5_000, "provider": "claude"},
+        json={"amount_krw": 5_000, "provider": "claude", "feature": "chat"},
     )
 
     assert response.status_code == 201
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.build_consumed_krw == 5_000
+    assert allocation.consumed_krw == 5_000
     assert db_session.query(UsageEvent).count() == 1
 
 
@@ -266,7 +335,7 @@ def test_simulate_usage_is_absent_outside_development(
 
     response = client.post(
         "/api/admin/simulate-usage",
-        json={"category": "build", "amount_krw": 5_000, "provider": "claude"},
+        json={"amount_krw": 5_000, "provider": "claude"},
     )
 
     assert response.status_code == 404
@@ -276,7 +345,7 @@ def test_simulate_usage_rejects_a_member(other_client: TestClient, funded) -> No
     assert (
         other_client.post(
             "/api/admin/simulate-usage",
-            json={"category": "build", "amount_krw": 1_000, "provider": "claude"},
+            json={"amount_krw": 1_000, "provider": "claude"},
         ).status_code
         == 403
     )
@@ -335,22 +404,23 @@ def test_the_audit_view_is_readable_by_admins_only(
     assert client.get("/api/admin/audit").status_code == 403
 
 
-def test_adjusting_an_allocation_is_logged_and_keeps_percentages_in_step(
+def test_adjusting_a_wallet_is_logged(
     client: TestClient, dev_user, funded, db_session: Session
 ) -> None:
     response = client.put(
         f"/api/admin/quarters/{funded.id}/allocations/{dev_user.id}",
-        json={"build_budget_krw": 40_000, "video_budget_krw": 60_000, "note": "조정"},
+        json={"budget_krw": 60_000, "note": "조정"},
     )
 
     assert response.status_code == 200
+    assert response.json()["remaining_krw"] == 60_000
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.build_budget_krw == 40_000
-    assert allocation.build_percentage == 40
-    assert allocation.video_percentage == 60
+    assert allocation.budget_krw == 60_000
 
     logged = db_session.query(AuditLog).filter_by(action="allocation.adjusted").one()
-    assert "40,000" in logged.summary
+    assert "100,000원에서 60,000원" in logged.summary
+    assert logged.detail["before"] == {"budget_krw": 100_000}
+    assert logged.detail["after"] == {"budget_krw": 60_000}
 
 
 def test_a_rolled_back_change_leaves_no_audit_row(
@@ -362,7 +432,7 @@ def test_a_rolled_back_change_leaves_no_audit_row(
     # No allocation exists for a member who never applied.
     response = client.put(
         f"/api/admin/quarters/{funded.id}/allocations/99999",
-        json={"build_budget_krw": 1, "video_budget_krw": 1},
+        json={"budget_krw": 1},
     )
 
     assert response.status_code == 404
@@ -397,7 +467,7 @@ def _postgres_engine():
 
 
 def test_concurrent_charges_cannot_overspend() -> None:
-    """Eight threads each try to spend 20,000원 of a 100,000원 Video budget.
+    """Eight threads each try to spend 20,000원 of a 100,000원 wallet.
 
     Five can succeed; three must be refused. Without the row lock, several
     threads read the same "remaining" figure before any of them writes,
@@ -448,11 +518,7 @@ def test_concurrent_charges_cannot_overspend() -> None:
             QuarterAllocation(
                 user_id=member.id,
                 quarter_id=quarter.id,
-                community_total_budget_krw=100_000,
-                build_budget_krw=0,
-                video_budget_krw=100_000,
-                build_percentage=0,
-                video_percentage=100,
+                budget_krw=100_000,
             )
         )
         setup.commit()
@@ -476,7 +542,6 @@ def test_concurrent_charges_cannot_overspend() -> None:
                 usage_module.charge(
                     session,
                     user=person,
-                    category=BudgetCategory.VIDEO,
                     amount_krw=20_000,
                     provider="higgsfield",
                 )
@@ -512,10 +577,10 @@ def test_concurrent_charges_cannot_overspend() -> None:
 
             assert not [o for o in outcomes if o.startswith("error:")], outcomes
             # The point of the test:
-            assert allocation.video_consumed_krw <= allocation.video_budget_krw
-            assert allocation.video_remaining_krw >= 0
+            assert allocation.consumed_krw <= allocation.budget_krw
+            assert allocation.remaining_krw >= 0
             # And the ledger agrees with the balance, to the won.
-            assert sum(row[0] for row in charged) == allocation.video_consumed_krw
+            assert sum(row[0] for row in charged) == allocation.consumed_krw
             assert outcomes.count("ok") == 5
             assert outcomes.count("refused") == 3
     finally:

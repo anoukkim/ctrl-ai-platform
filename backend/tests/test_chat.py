@@ -21,7 +21,6 @@ from app.core.config import Settings, get_settings
 from app.main import app
 from app.models import (
     AuditLog,
-    BudgetCategory,
     ChatModel,
     ChatMessage,
     ChatMessageStatus,
@@ -282,8 +281,7 @@ def test_each_reply_records_model_tokens_dollars_rate_and_won(
     assert event.feature == "chat"
     # The catalogue default, Sonnet 5.5 — recorded under the mock too.
     assert event.model_id == "claude-sonnet-5-5"
-    assert event.category.value == "build"
-    assert event.funding_source.value == "community_build"
+    assert event.funding_source.value == "community"
     assert event.conversation_id == conversation
     assert event.input_tokens > 0 and event.output_tokens > 0
     assert event.provider_units == event.input_tokens + event.output_tokens
@@ -295,7 +293,7 @@ def test_each_reply_records_model_tokens_dollars_rate_and_won(
     usd = (Decimal(event.input_tokens) * 2 + Decimal(event.output_tokens) * 10) / 1_000_000
     assert event.provider_cost == usd.quantize(Decimal("0.000001"))
     assert event.charged_krw == math.ceil(usd * 1400) == done["charged_krw"]
-    assert allocation(db_session).build_consumed_krw == event.charged_krw
+    assert allocation(db_session).consumed_krw == event.charged_krw
 
     message = db_session.query(ChatMessage).filter_by(role=ChatRole.ASSISTANT).one()
     assert message.usage_event_id == event.id
@@ -319,7 +317,7 @@ def test_an_unaffordable_message_is_refused_before_claude_is_called(
     client: TestClient, db_session: Session, budgeted, counting, config
 ) -> None:
     conversation = new_conversation(client)
-    budgeted.build_budget_krw = 5  # less than the worst case of one reply
+    budgeted.budget_krw = 5  # less than the worst case of one reply
     db_session.commit()
 
     response = send(client, conversation, "안녕하세요")
@@ -338,7 +336,7 @@ def test_the_budget_check_uses_the_worst_case(
     use_settings(chat_max_output_tokens=4096)
     conversation = new_conversation(client)
     worst = price_for(db_session, default_model(db_session, config)).krw(0, 4096)
-    budgeted.build_budget_krw = worst - 1
+    budgeted.budget_krw = worst - 1
     db_session.commit()
 
     assert send(client, conversation, "안녕").status_code == 402
@@ -366,7 +364,7 @@ def test_a_failed_call_shows_korean_and_is_never_charged(
     assert data["kind"] == kind
     assert words in data["detail"]
     assert db_session.query(UsageEvent).count() == 0
-    assert allocation(db_session).build_consumed_krw == 0
+    assert allocation(db_session).consumed_krw == 0
 
     # The member's message stays, unanswered; no reply is saved.
     roles = [m.role for m in db_session.query(ChatMessage).all()]
@@ -517,7 +515,7 @@ def test_a_charge_that_loses_a_race_takes_what_is_left_and_records_the_full_cost
     settings = Settings(app_env="development")
     turn = _prepared(db_session, settings, dev_user)
     # Another charge spent the money while the reply was streaming.
-    budgeted.build_consumed_krw = budgeted.build_budget_krw - 3
+    budgeted.consumed_krw = budgeted.budget_krw - 3
     db_session.commit()
 
     state = chat_service.TurnState(
@@ -528,7 +526,7 @@ def test_a_charge_that_loses_a_race_takes_what_is_left_and_records_the_full_cost
     event = db_session.query(UsageEvent).one()
     assert event.charged_krw == 3 == result.charged_krw
     assert event.provider_cost == Decimal("0.140000"), "the full dollar cost is still recorded"
-    assert allocation(db_session).build_remaining_krw == 0
+    assert allocation(db_session).remaining_krw == 0
 
 
 def test_a_truncated_reply_is_marked(db_session: Session, dev_user, budgeted) -> None:
@@ -542,13 +540,12 @@ def test_a_truncated_reply_is_marked(db_session: Session, dev_user, budgeted) ->
 
 
 def test_charge_without_cap_still_refuses(db_session: Session, dev_user, budgeted) -> None:
-    budgeted.build_consumed_krw = budgeted.build_budget_krw
+    budgeted.consumed_krw = budgeted.budget_krw
     db_session.commit()
     with pytest.raises(usage_service.InsufficientBudgetError):
         usage_service.charge(
             db_session,
             user=dev_user,
-            category=BudgetCategory.BUILD,
             amount_krw=1,
             provider="claude",
         )
