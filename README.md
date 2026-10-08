@@ -85,6 +85,7 @@ npm.cmd test; npx tsc --noEmit; npm.cmd run lint; npm.cmd run build
 | [`docs/deployment.md`](docs/deployment.md) | Deployment notes; the beta's hosting decisions |
 | [`docs/architecture.md`](docs/architecture.md) | Target infrastructure, storage and security principles |
 | [`docs/research/chat-plus-research.md`](docs/research/chat-plus-research.md) | Prices and terms behind the Chat+ specs: Claude vision, PDF, Files API, server tools; image generation; Gemini, Grok, OpenRouter |
+| [`docs/research/deepseek-research.md`](docs/research/deepseek-research.md) | DeepSeek for the chat catalogue: its own API (prices, data in China, terms), US hosts and OpenRouter routing, price comparison, recommendation |
 | [`docs/archive/done.md`](docs/archive/done.md) | Every merged item, newest first |
 | [`docs/archive/done-specs.md`](docs/archive/done-specs.md) | Full specs of merged items |
 | [`docs/archive/phase-table.md`](docs/archive/phase-table.md) | The old phase table, superseded by the roadmap |
