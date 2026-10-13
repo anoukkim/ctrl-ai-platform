@@ -318,12 +318,14 @@ before the post-beta work, which is specced under **After the beta**.
    다운로드 and Builder로 보내기. Spec below.
 
 8. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
-   Added by the owner on 2026-10-13. Every member can read the
-   improvement notes sent with 의견 보내기, with no name shown; Admin can
-   hide a note and export notes as Markdown for Claude Code
-   ("Claude용으로 내보내기"). **Depends on:** `prep-beta-launch` (the
-   `feedback` table, merged) and `invite-only-signup` (the board is
-   members-only, so the community has to be closed first). Spec below.
+   Added by the owner on 2026-10-13, revised the same day. Report Issue
+   (`/issues`) becomes a board: members write notes there and read every
+   public note with no names; Admin can hide a note, export notes as
+   Markdown ("Claude용으로 내보내기"), and send chosen public notes to
+   GitHub as issues that Claude groups and drafts ("GitHub로 보내기",
+   `FEEDBACK_ISSUES_PROVIDER=mock|github`, never automatic). **Depends
+   on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
+   below, with the owner's revision.
 
 9. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
@@ -1196,6 +1198,33 @@ exactly as written:
 **Risks:** de-anonymisation in a small club (point 2's copy, point 1's
 section instead of path); abusive or personal notes visible until an
 admin hides them (the hourly limit stays; hiding is immediate).
+
+### Owner decision — 2026-10-13 (revises the spec above)
+
+Decided by the owner on 2026-10-13; **where this conflicts with the
+points above, this wins.** Saved exactly as written:
+
+> - No new Feedback menu item: Report Issue (/issues) itself becomes the board. Members write a note there (no GitHub account needed) and read everyone's public notes with no names. Remove the "GitHub에서 신고하기" link for members.
+> - Admin › Feedback: the admin selects notes and presses "GitHub로 보내기". Nothing is ever sent automatically. Only notes public on the board can be selected; notes sent under "운영진만 읽습니다" and any "운영진만 보기" note can never be sent.
+> - Before sending, Claude (catalogue default model, through the provider interface, mock by default) groups similar notes and drafts one issue per group in Korean: 문제, 어디서 (screen section name only, never the raw path or any id), 재현 방법, 수정 제안, 완료 기준, labels (ui / bug / feature / cost). The admin can edit or drop each draft, then confirms. Show the cost estimate first. Record the Claude call in the ledger as club/admin usage without spending any member's wallet; if the ledger cannot do that cleanly, write the question in the progress file and build the rest.
+> - Issues go through a new FeedbackIssues provider behind its own setting FEEDBACK_ISSUES_PROVIDER=mock|github (mock records what it would have sent). Separate from GITHUB_PROVIDER, which stays reserved for Phase 4's per-member GitHub App. Real mode uses one server-only token owned by the club operator (not a member; CLAUDE.md's no-member-PAT rule is unaffected) with Issues read/write on anoukkim/ctrl-ai-platform only, in the server .env, never shown in the UI or logs.
+> - The repository is public: the issue body has no names, emails, user ids or project ids, and the confirm screen says so.
+> - Each note remembers its issue (link in Admin; "반영 중" on the board). Sending a note twice is refused. Audited (feedback.sent_to_github).
+> - Keep "Claude용으로 내보내기" (the Markdown file).
+> - docs/deployment.md: how I create the fine-grained token (this repo only, Issues read/write) and the .env lines, as a later step.
+
+What this changes in the points above:
+
+- **Point 1's page and menu name are replaced:** the board is the Report
+  Issue page (`/issues`), no new menu item. The 의견 보내기 button
+  elsewhere (sidebar, beta banner) stays and writes to the same board.
+- **Points 2–6 stand** (no names, the earlier staff-only notes kept off
+  the board, the "운영진만 보기" choice, hiding, the Markdown export, the
+  tests), plus the GitHub sending above and its tests: only public notes
+  can be selected, a note is sent once, the issue body carries no names,
+  emails, user ids or project ids, nothing is sent without the admin's
+  confirmation, the token is never returned or logged, and the mock
+  records what it would have sent.
 
 ## token-guard — full spec
 
