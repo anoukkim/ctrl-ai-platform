@@ -350,9 +350,9 @@ specs are at the end of this file; the research behind them is in
 - **image-generation** · M2 — raster images through an
   `ImageGenerationProvider` (mock first; Gemini image models the first
   real candidate). Waits on the budget-by-provider decision.
-- **more-chat-providers** (optional) · M3 — Gemini, Grok or an
-  aggregator as further catalogue providers, on the seam
-  `chat-model-choice` left.
+- **more-chat-providers** (optional) · M3 — Gemini, Grok, DeepSeek
+  (hosted outside China only) or an aggregator as further catalogue
+  providers, on the seam `chat-model-choice` left.
 
 ---
 
@@ -548,6 +548,9 @@ Saved exactly as written by the developer.
 
 > ITEM 3 — research only (branch docs-deepseek), can run any time
 > Can we add DeepSeek to the chat model catalogue? Using current docs, report: DeepSeek's own API (pricing, OpenAI-compatible API, streaming, file/image input, where data is stored and the privacy terms, billing and receipts for Concur), and alternatives that host DeepSeek models elsewhere (via OpenRouter with a provider/region choice, or US-hosted providers), with price differences. Recommend whether and how, noting that our company may restrict sending data to servers in China. Write it into docs/research/ and add a "more-chat-providers" note in BACKLOG. Don't build.
+
+Findings (2026-10-08): [`research/deepseek-research.md`](research/deepseek-research.md);
+summary under **more-chat-providers**.
 
 ---
 
@@ -1423,6 +1426,9 @@ wanted at all.
    | Google Gemini (AI Studio) | own SDK; OpenAI-compatible layer | 3.1 Pro preview 2 / 12; 3.8 Flash 0.75 / 3.75 (doubles 2027-01-01); Flash-Lite from 0.10 / 0.40 | prepaid credit (default since 2026-03), expires after 12 months; at $0 every key on the account stops | free tier trains on data — paid tier only |
    | xAI Grok | OpenAI-compatible | grok-4.7 2 / 6; grok-4.3 1.25 / 2.50 | prepaid credit or monthly invoice; invoices in the console | no training without permission; 30-day retention |
    | OpenRouter (aggregator) | OpenAI-compatible | provider list price, no markup | one prepaid balance for every model; **5.5% card fee** | per upstream provider; free models may train |
+   | DeepSeek V4.1 Flash via OpenRouter, US providers only ([research](research/deepseek-research.md), 2026-10-08) | OpenAI-compatible; images in, no PDF | 0.30 / 1.20 at Together (≈2.7원 a typical reply with the fee); 0.45 / 1.80 at `fireworks/us` | the OpenRouter balance above | `only` US allowlist + `data_collection: "deny"` + `zdr: true`, also set account-wide; never reaches China |
+   | DeepSeek V4.1 Flash direct at a US host (Together; Fireworks US) | OpenAI-compatible | Together 0.30 / 1.20 (2.6원); Fireworks US 0.45 / 1.80 (3.9원) | prepaid ($5 minimum at Together) | Together: no training by default, zero retention as an org setting; Fireworks: nothing stored for open models |
+   | ~~DeepSeek's own API~~ — not recommended | OpenAI- and Anthropic-compatible | `deepseek-flash` 0.30 / 1.20 peak, half off-peak (2.6원 / 1.3원) | prepaid, CNY or USD; Concur receipts unverified | **servers in China**, PRC law, inputs may be used for training, no zero retention |
 
 3. **Effect on budget-by-provider and Concur.** A direct provider is one
    more prepaid pot and one more purchase per quarter (Gemini: on its own
@@ -1434,6 +1440,21 @@ wanted at all.
 4. **File input and streaming** are supported by all three; Gemini reads
    PDFs at 258 tokens a page, far cheaper than Claude, which matters for
    `chat-plus-files`.
+
+**DeepSeek (deepseek-research, 2026-10-08).** Full findings in
+[`research/deepseek-research.md`](research/deepseek-research.md).
+**Not DeepSeek's own API**: servers in China, PRC law, inputs may be
+used for training, no zero retention, and Korea's PIPC found prompt
+transfers in 2025. That conflicts with the company's possible China
+restriction. The open-weight model (V4.1 Flash, MIT) is served by US
+hosts at about 1–4원 a typical reply, against Haiku's 10원. If the
+owner wants it, **first ask the company** whether the rule is "no China
+servers" or "no DeepSeek". If it is the first, add one row through
+**OpenRouter pinned to a US allowlist** (`only` + `data_collection:
+"deny"` + `zdr: true`, also account-wide). If DeepSeek is the only extra
+model, a **direct US host** (Together, or Fireworks' US region) is
+another option. One more purchase line for the 팀장 either way. Korean
+quality is unmeasured; low priority.
 
 **Charged:** each provider's own budget (or the aggregator's single one),
 by the token at the catalogue price.
