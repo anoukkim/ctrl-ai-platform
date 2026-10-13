@@ -72,11 +72,13 @@ def upgrade() -> None:
     op.add_column("chat_messages", sa.Column("sources", sa.JSON(), nullable=True))
 
     op.add_column("usage_events", sa.Column("web_search_count", sa.Integer(), nullable=True))
+    op.add_column("usage_events", sa.Column("web_fetch_count", sa.Integer(), nullable=True))
     op.add_column("usage_events", sa.Column("tool_fee_krw", sa.Integer(), nullable=True))
 
 
 def downgrade() -> None:
     op.drop_column("usage_events", "tool_fee_krw")
+    op.drop_column("usage_events", "web_fetch_count")
     op.drop_column("usage_events", "web_search_count")
     op.drop_column("chat_messages", "sources")
     op.drop_column("conversations", "use_code_execution")

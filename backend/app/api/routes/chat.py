@@ -59,7 +59,7 @@ from app.schemas.chat import (
     ReplyReceipt,
 )
 from app.services import chat as chat_service
-from app.services import chat_limits, provider_limiter
+from app.services import chat_limits, chat_tools, provider_limiter
 from app.services import chat_models, pricing
 from app.services import usage as usage_service
 from app.services.claude_provider import (
@@ -428,10 +428,30 @@ def send_message(
                     state.cache_write_tokens = event.cache_write_tokens
                     state.cache_read_tokens = event.cache_read_tokens
                     state.web_search_count = event.web_search_count
+                    state.web_fetch_count = event.web_fetch_count
                 elif isinstance(event, ToolStatus):
                     # 검색 중… / 페이지 읽는 중… / 코드 실행 중… — the
-                    # screen's line while a server tool runs.
-                    queue.put_nowait(("tool", {"kind": event.kind, "status": event.status}))
+                    # screen's line while a server tool runs. A finished
+                    # use carries what it just added in won, so the
+                    # running 약 N원 jumps the moment it lands (the
+                    # ledger's receipt still settles the real figure).
+                    added = 0
+                    if event.status == "done" and (event.result_tokens or event.searches):
+                        added = turn.price.krw(event.result_tokens, 0) + (
+                            chat_tools.search_fee_krw(
+                                turn.price, turn.web_search_usd_per_call, event.searches
+                            )
+                        )
+                    queue.put_nowait(
+                        (
+                            "tool",
+                            {
+                                "kind": event.kind,
+                                "status": event.status,
+                                "added_krw": added,
+                            },
+                        )
+                    )
                 elif isinstance(event, ToolSources):
                     state.sources = [
                         {"title": title, "url": url} for title, url in event.sources

@@ -6,13 +6,14 @@ member, off by default. A tool is **sent only when both switches are on**;
 turning a tool on or off changes the request's tool list, which breaks the
 prompt cache, which is why the member's switch is per conversation.
 
-The money side, same shape as everything else in `services/usage.py`'s
-world: the fee is known exactly after the reply (billed searches × the
-catalogue's per-search dollar price × the rate, rounded up), and the
-pre-check adds the worst case before anything is spent — `max_uses`
-searches plus the fetch cap priced as plain input. token-guard's per-reply
-cap covers the fees too: the output budget shrinks by the worst-case tool
-cost, so the cap means what it says with tools on.
+The money, same shape as everything else around `services/usage.py`: the
+fee is exact after the reply (billed searches × the catalogue's per-search
+dollar price × the rate, rounded up), result tokens are billed once,
+inside this reply — they are **not** persisted and never re-sent on later
+turns — and token-guard's per-reply cap covers all of it: the cap reserves
+each enabled tool's full worst case (`cap_extra_krw`), so a tooled reply's
+charge stays inside the cap, and a tool whose worst case alone reaches the
+cap is refused before anything is spent.
 
 Mock only until Phase 9: no real API call, no real fee. The request
 mapping for the real tools lives in `claude_provider.server_tool_params`.
@@ -33,6 +34,22 @@ from app.services.pricing import Price
 
 #: Every kind there is, in display order.
 KINDS: tuple[str, ...] = ("web_search", "web_fetch", "code_execution")
+
+#: Korean names, for refusals and notices.
+LABELS: dict[str, str] = {
+    "web_search": "웹 검색",
+    "web_fetch": "페이지 읽기",
+    "code_execution": "코드 실행",
+}
+
+#: Result-token reserves the cap sets aside per use. Search results and
+#: code output have no API-side cap, so these are our own defensible
+#: worst cases: a search's result blocks run to roughly a thousand tokens
+#: each in practice — 2,000 is double that; code output is ordinarily a
+#: few lines — 1,000 covers a long traceback. Fetch needs no reserve of
+#: its own constant: the API caps it at `max_content_tokens`.
+SEARCH_RESULT_RESERVE_TOKENS = 2_000
+CODE_RESULT_RESERVE_TOKENS = 1_000
 
 
 def tools_in_force(conversation: Conversation, model: ChosenModel) -> tuple[str, ...]:
@@ -56,19 +73,27 @@ def search_fee_krw(price: Price, per_call_usd: Decimal, searches: int) -> int:
 
 
 def cap_extra_krw(price: Price, tools: tuple[str, ...], per_call_usd: Decimal) -> int:
-    """What token-guard's per-reply cap sets aside for tools: the fees.
+    """What the per-reply cap reserves for the enabled tools: everything.
 
-    Only the deterministic part. Result tokens cannot be bounded by
-    `max_tokens` — they arrive as *input* in the middle of the request,
-    like a fetched page — so, exactly as with thinking tokens, the cap
-    covers them at settle time: the reply is charged its real usage, and
-    the next turn's input-over-cap refusal catches a conversation the
-    results have made too dear. Subtracting the full fetch cap here would
-    make 웹 페이지 읽기 unusable under the default 100원 cap.
+    The owner's rule (2026-10-14): the cap includes tool fees **and**
+    result tokens. Result tokens arrive as input in the middle of the
+    request, outside `max_tokens`' reach, so the only way the cap can
+    honestly include them is to reserve their worst case up front —
+    priced the dear way, like the pre-check prices input. The consequence
+    is real and deliberate: a tool whose worst case alone reaches the cap
+    cannot be used until it is turned off or the admin raises the 1회
+    비용 한도 (웹 페이지 읽기 needs ≈250원 on Sonnet 5.5); the refusal in
+    `chat.prepare_turn` says exactly that.
     """
+    extra = 0
     if "web_search" in tools:
-        return search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
-    return 0
+        extra += search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
+        extra += price.worst_case_krw(WEB_SEARCH_MAX_USES * SEARCH_RESULT_RESERVE_TOKENS, 0)
+    if "web_fetch" in tools:
+        extra += price.worst_case_krw(WEB_FETCH_MAX_USES * WEB_FETCH_MAX_CONTENT_TOKENS, 0)
+    if "code_execution" in tools:
+        extra += price.worst_case_krw(CODE_RESULT_RESERVE_TOKENS, 0)
+    return extra
 
 
 def worst_case_extra_krw(
@@ -84,7 +109,9 @@ def worst_case_extra_krw(
       tools; the organisation's free container-hours otherwise), and its
       output is ordinary tokens.
     """
-    extra = cap_extra_krw(price, tools, per_call_usd)
+    extra = 0
+    if "web_search" in tools:
+        extra += search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
     if "web_fetch" in tools:
         extra += price.krw(WEB_FETCH_MAX_USES * WEB_FETCH_MAX_CONTENT_TOKENS, 0)
     return extra

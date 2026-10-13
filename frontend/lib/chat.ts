@@ -246,8 +246,16 @@ export type StreamOutcome =
 export interface StreamHandlers {
   onStart?: (userMessage: ChatMessage, estimate: StreamEstimate | null) => void;
   onDelta?: (text: string) => void;
-  /** 서버 도구가 돌기 시작했거나 끝났을 때 — "검색 중…" 줄의 재료. */
-  onTool?: (kind: ToolKind, status: "running" | "done" | "error") => void;
+  /**
+   * 서버 도구가 돌기 시작했거나 끝났을 때 — "검색 중…" 줄의 재료.
+   * 끝난 사용은 방금 더해진 비용(원)을 함께 들고 와서, 흐르는 약 N원이
+   * 그 순간 눈에 띄게 뜁니다. 정산은 영수증(장부)이 합니다.
+   */
+  onTool?: (
+    kind: ToolKind,
+    status: "running" | "done" | "error",
+    addedKrw?: number,
+  ) => void;
 }
 
 /**
@@ -307,7 +315,8 @@ export async function sendMessage(
     const payload = JSON.parse(data);
     if (name === "start") handlers.onStart?.(payload.user_message, payload.estimate ?? null);
     else if (name === "delta") handlers.onDelta?.(payload.text);
-    else if (name === "tool") handlers.onTool?.(payload.kind, payload.status);
+    else if (name === "tool")
+      handlers.onTool?.(payload.kind, payload.status, payload.added_krw ?? 0);
     else if (name === "done")
       outcome = {
         kind: "done",

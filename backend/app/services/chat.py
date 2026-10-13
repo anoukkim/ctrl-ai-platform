@@ -409,6 +409,8 @@ class TurnState:
     cache_read_tokens: int = 0
     #: Billed web searches (chat-plus-tools) — the fee rides on these.
     web_search_count: int = 0
+    #: Pages fetched — no fee, recorded in the ledger.
+    web_fetch_count: int = 0
     #: [{"title": str, "url": str}, ...] the reply cited, saved with it.
     sources: list[dict[str, str]] | None = None
     stop_reason: str | None = None
@@ -457,11 +459,10 @@ def prepare_turn(
     # money check below, so neither the wallet nor the cap can be passed
     # by a fee the tokens did not show.
     tools = chat_tools.tools_in_force(conversation, model)
-    # Two different worst cases on purpose: the wallet must cover
-    # everything a turn could possibly cost (fees + the fetch cap), while
-    # the per-reply cap sets aside only the deterministic fees — result
-    # tokens are charged at settle time like thinking tokens are
-    # (`chat_tools.cap_extra_krw` says why).
+    # The wallet covers a turn's full possible cost (fees + the fetch
+    # cap); the per-reply cap reserves every enabled tool's worst case —
+    # fees AND result tokens (the owner's rule) — so a tooled reply's
+    # charge stays inside the cap (`chat_tools.cap_extra_krw`).
     tool_extra = chat_tools.worst_case_extra_krw(price, tools, model.web_search_usd_per_call)
     cap_tool_extra = chat_tools.cap_extra_krw(price, tools, model.web_search_usd_per_call)
 
@@ -474,15 +475,18 @@ def prepare_turn(
         )
         if affordable_output < 1:
             # The input (and any tool worst case) alone reaches the cap:
-            # refuse free of charge, with a way out.
+            # refuse free of charge, naming what to change.
+            if cap_tool_extra > 0:
+                names = ", ".join(chat_tools.LABELS[kind] for kind in tools)
+                raise ChatRefusal(
+                    f"켜 둔 도구({names})의 최대 비용까지 치면 1회 비용 한도"
+                    f"({limits.reply_cap_krw:,}원)에 닿아요. 도구를 끄고 보내거나, "
+                    "관리자가 1회 비용 한도를 올려야 쓸 수 있어요.",
+                    status_code=400,
+                )
             raise ChatRefusal(
-                (
-                    f"대화와 켜 둔 도구 비용만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
-                    "닿아요. 도구를 끄거나 새 대화로 시작해 주세요."
-                    if cap_tool_extra > 0
-                    else f"대화가 길어져 입력만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
-                    "닿아요. 새 대화로 시작해 주세요."
-                ),
+                f"대화가 길어져 입력만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
+                "닿아요. 새 대화로 시작해 주세요.",
                 status_code=400,
             )
         if affordable_output < max_tokens:
@@ -584,6 +588,24 @@ def _status_for(state: TurnState) -> ChatMessageStatus:
     return ChatMessageStatus.COMPLETE
 
 
+def _safe_sources(sources: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
+    """Only http(s) sources are saved — anything else is dropped.
+
+    The provider's citations become clickable links on the member's
+    screen; a javascript: or data: URL there would run as the member
+    (chat-plus-tools review round 2). Filtered at save time, the one
+    place every path goes through. The reply's own text is untouched.
+    """
+    if not sources:
+        return None
+    safe = [
+        source
+        for source in sources
+        if str(source.get("url", "")).lower().startswith(("http://", "https://"))
+    ]
+    return safe or None
+
+
 def finish_turn(
     db: Session, settings: Settings, turn: PreparedTurn, state: TurnState
 ) -> TurnResult:
@@ -662,6 +684,7 @@ def finish_turn(
                 exchange_rate_krw=turn.price.usd_krw,
                 conversation_id=conversation.id if conversation else None,
                 web_search_count=state.web_search_count or None,
+                web_fetch_count=state.web_fetch_count or None,
                 tool_fee_krw=tool_fee or None,
                 commit=False,
                 cap_to_available=True,
@@ -699,7 +722,7 @@ def finish_turn(
             capped_krw=(
                 turn.reply_cap_krw if state.stop_reason == "max_tokens" else None
             ),
-            sources=state.sources or None,
+            sources=_safe_sources(state.sources),
             usage_event_id=event_id,
             created_at=datetime.now(timezone.utc),
         )

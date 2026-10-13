@@ -187,6 +187,44 @@ describe("도구 토글", () => {
     );
   });
 
+  test("도구 사용이 끝나면 흐르는 약 N원이 그만큼 뛴다", async () => {
+    let release: () => void = () => {};
+    chatApi.sendMessage.mockImplementation(
+      async (_id: number, _text: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onStart?.(
+          {
+            id: 1,
+            role: "user",
+            content: "검색",
+            status: "complete",
+            action: null,
+            action_title: "",
+            model_id: null,
+            created_at: "2026-10-14T00:00:00Z",
+          },
+          { base_krw: 5, won_per_1k_output: 10 },
+        );
+        handlers.onDelta?.("가");
+        handlers.onTool?.("web_search", "done", 30);
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return { kind: "done", chargedKrw: 36, message: null };
+      },
+    );
+    await openConversation();
+
+    const box = screen.getByLabelText("CTRL+AI에게 보낼 메시지");
+    fireEvent.change(box, { target: { value: "검색해 줘" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    // base 5 + 글자 1 × 10/1000 = 5.01 → 약 6원, 도구가 +30 → 약 36원.
+    await waitFor(() =>
+      expect(screen.getByTestId("live-cost").textContent).toBe("약 36원"),
+    );
+    release();
+  });
+
   test("검색 중… 이 보이고, 출처가 번호 달린 링크로 붙는다", async () => {
     let release: () => void = () => {};
     chatApi.sendMessage.mockImplementation(

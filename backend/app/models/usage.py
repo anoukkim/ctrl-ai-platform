@@ -126,6 +126,7 @@ class UsageEvent(TimestampMixin, Base):
     #: searches ran, and the won their per-search fee added on top of the
     #: token cost. Null when no tool ran — old rows read unchanged.
     web_search_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    web_fetch_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tool_fee_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: The won per unit of `provider_currency` this charge was converted
     #: at, copied from the rate in force. A later rate change does not move
