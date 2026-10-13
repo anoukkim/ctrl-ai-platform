@@ -192,7 +192,7 @@ The live backend status card is on **Admin → System** (`/admin/system`):
 
 Every provider sits behind an interface with a mock implementation, chosen
 by a `*_PROVIDER` variable, and **mock is the default** — so the platform
-runs with no keys (CLAUDE.md section 20).
+runs with no keys (the provider rule in CLAUDE.md).
 
 **Admin → System** shows one card per provider: mock or real, whether a key
 is configured, when it last worked, and why it last failed in Korean. The

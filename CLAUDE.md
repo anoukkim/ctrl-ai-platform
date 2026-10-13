@@ -12,6 +12,12 @@ security) and the working method. What moved, and where:
 | The long phase plan (Phases 0–9 in full) and the Phase 0–1c delivery history | [`docs/archive/phases.md`](docs/archive/phases.md) |
 | Order of work and open specs | [`docs/BACKLOG.md`](docs/BACKLOG.md) · milestones in [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 
+Older code comments and docs cite this file's pre-2026-10-14 section
+numbers. The map: §9–10 (money, quarters) → section 4 here · §11 → 5 ·
+§13 → 6 · §14 (data model) → `docs/architecture.md` · §15 → 3 ·
+§16 and §20's provider rule → 7 · §17 → 8 · §18–19 → 9 · §20 (phases) →
+10 + `docs/archive/phases.md` · §21 → 11 · §22 → 12 · §23 → 13.
+
 ---
 
 # 1. Product summary

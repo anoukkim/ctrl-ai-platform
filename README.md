@@ -129,8 +129,9 @@ PostgreSQL is running. See
 
 | Document | What it holds |
 | -------- | ------------- |
-| [`CLAUDE.md`](CLAUDE.md) | The product definition, the rules every change follows, and the working method |
+| [`CLAUDE.md`](CLAUDE.md) | The settled decisions, the standing rules every change follows, and the working method |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Milestones M0–M4 and what is done in each |
+| [`docs/archive/phases.md`](docs/archive/phases.md) | The long phase plan (Phases 0–9) and the Phase 0–1c delivery history |
 | [`docs/BACKLOG.md`](docs/BACKLOG.md) | **The order of work**: Now, Next, open specs, UI requests |
 | [`docs/product.md`](docs/product.md) | Screens and routes, the two workspaces, language and design, money, participation, search, leaving CTRL+AI |
 | [`docs/development.md`](docs/development.md) | Full setup, sign-in, how the pieces fit, environment files, providers, testing, troubleshooting, operator notes, repository layout |
