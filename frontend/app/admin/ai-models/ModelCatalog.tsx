@@ -588,7 +588,7 @@ function NewModelForm({
           {!chosen.ready && (
             <p className="small dim">
               {chosen.label}은(는) 아직 연결되지 않았습니다. 모델을 적어 둘 수는 있지만, 연결될
-              때까지 "사용 안 함"으로 남습니다.
+              때까지 &quot;사용 안 함&quot;으로 남습니다.
             </p>
           )}
           <div className={styles.modelEditorGrid}>
