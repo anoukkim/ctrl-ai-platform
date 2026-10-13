@@ -297,6 +297,11 @@ export interface AdminChatModel {
   provider_label?: string;
   /** false: 연결 준비 중 — 공개도 기본도 될 수 없습니다(백엔드가 막습니다). */
   provider_ready?: boolean;
+  /** 서버 도구(chat-plus-tools): 이 모델에 열어 둔 것과 검색 1회 요금($). */
+  tools_web_search: boolean;
+  tools_web_fetch: boolean;
+  tools_code_execution: boolean;
+  web_search_usd_per_call: string;
 }
 
 /** 제공자 한 곳. 화면에 보이는 순서대로 옵니다 — Anthropic이 먼저. */
@@ -320,6 +325,10 @@ export interface ChatModelChanges {
   visibility?: ChatModelVisibility;
   sort_order?: number;
   is_default?: true;
+  tools_web_search?: boolean;
+  tools_web_fetch?: boolean;
+  tools_code_execution?: boolean;
+  web_search_usd_per_call?: string;
 }
 
 export interface NewChatModel {

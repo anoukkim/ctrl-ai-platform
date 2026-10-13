@@ -419,6 +419,11 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
   const [output, setOutput] = useState(String(Number(model.output_usd_per_mtok)));
   const [cacheRead, setCacheRead] = useState(String(cacheReadPrice(model)));
   const [order, setOrder] = useState(String(model.sort_order));
+  // 서버 도구(chat-plus-tools): 회원이 대화에서 켤 수 있게 할지.
+  const [webSearch, setWebSearch] = useState(model.tools_web_search);
+  const [webFetch, setWebFetch] = useState(model.tools_web_fetch);
+  const [codeExec, setCodeExec] = useState(model.tools_code_execution);
+  const [searchCall, setSearchCall] = useState(String(Number(model.web_search_usd_per_call)));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -433,6 +438,10 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
         output_usd_per_mtok: output,
         cache_read_usd_per_mtok: cacheRead,
         sort_order: Number(order),
+        tools_web_search: webSearch,
+        tools_web_fetch: webFetch,
+        tools_code_execution: codeExec,
+        web_search_usd_per_call: searchCall,
       });
       await onSaved();
     } catch (failure) {
@@ -494,7 +503,48 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
             onChange={(e) => setOrder(e.target.value)}
           />
         </label>
+        <label className={styles.modelEditorField}>
+          <span>웹 검색 1회 요금 ($)</span>
+          <input
+            className={`field numeric ${styles.priceInput}`}
+            inputMode="decimal"
+            value={searchCall}
+            onChange={(e) => setSearchCall(e.target.value)}
+          />
+        </label>
       </div>
+
+      {/* 서버 도구 — 회원이 대화에서 켤 수 있는 것(chat-plus-tools).
+          켜 두어도 회원이 대화마다 따로 켜야 쓰입니다. */}
+      <fieldset className={styles.modelEditorField} style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend className="small dim">도구 — 회원이 대화에서 켤 수 있어요 (지금은 테스트 모드)</legend>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <label className="small">
+            <input
+              type="checkbox"
+              checked={webSearch}
+              onChange={(e) => setWebSearch(e.target.checked)}
+            />{" "}
+            웹 검색
+          </label>
+          <label className="small">
+            <input
+              type="checkbox"
+              checked={webFetch}
+              onChange={(e) => setWebFetch(e.target.checked)}
+            />{" "}
+            페이지 읽기
+          </label>
+          <label className="small">
+            <input
+              type="checkbox"
+              checked={codeExec}
+              onChange={(e) => setCodeExec(e.target.checked)}
+            />{" "}
+            코드 실행
+          </label>
+        </div>
+      </fieldset>
 
       {error && (
         <p className={styles.modelEditorError} role="alert">

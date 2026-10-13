@@ -64,8 +64,11 @@ import {
   runningEstimateKrw,
   type ChatModelOption,
   type Conversation,
+  setConversationTool,
   type LongHistory,
   type ReplyReceipt,
+  type ReplySource,
+  type ToolKind,
   type StreamEstimate,
 } from "@/lib/chat";
 import { describeError } from "@/lib/http";
@@ -119,6 +122,8 @@ interface ViewMessage {
   cappedKrw?: number | null;
   /** 답장의 영수증 — 장부의 숫자(live-cost-display). */
   receipt?: ReplyReceipt | null;
+  /** 웹 검색이 인용한 출처(chat-plus-tools). */
+  sources?: ReplySource[] | null;
   /** 오고 있는 답장 옆의 어림값(원). 끝나면 영수증이 대신합니다. */
   estimateKrw?: number | null;
   /** 답장이 아직 오고 있습니다. */
@@ -138,6 +143,7 @@ function toView(message: ChatMessage): ViewMessage {
     modelId: message.model_id,
     cappedKrw: message.capped_krw ?? null,
     receipt: message.receipt ?? null,
+    sources: message.sources ?? null,
   };
 }
 
@@ -154,8 +160,53 @@ export function receiptLine(receipt: ReplyReceipt): string {
   if (receipt.cache_read_tokens !== null) {
     parts.push(`캐시 읽기 ${receipt.cache_read_tokens.toLocaleString()}토큰`);
   }
+  if ((receipt.web_search_count ?? 0) > 0) {
+    parts.push(
+      `검색 ${receipt.web_search_count}회 ${formatKrw(receipt.tool_fee_krw ?? 0)}`,
+    );
+  }
   parts.push(`합계 ${formatKrw(receipt.charged_krw)}`);
   return parts.join(" · ");
+}
+
+/** 출처 링크에 보여 줄 도메인. 주소가 이상하면 주소 그대로. */
+export function sourceDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/** 서버 도구 세 가지의 이름과, 돌고 있을 때·켜기 전에 보여 줄 문장. */
+export const TOOL_META: Record<
+  ToolKind,
+  { label: string; running: string; failed: string }
+> = {
+  web_search: { label: "웹 검색", running: "검색 중…", failed: "검색이 실패했어요. 검색 없이 답을 이어가요." },
+  web_fetch: { label: "페이지 읽기", running: "페이지 읽는 중…", failed: "페이지를 읽지 못했어요." },
+  code_execution: { label: "코드 실행", running: "코드 실행 중…", failed: "코드 실행이 실패했어요." },
+};
+
+/** 도구를 켜기 전에 보여 줄 비용 안내(chat-plus-tools). */
+export function toolCostEffect(kind: ToolKind, searchKrw: number | null): string[] {
+  if (kind === "web_search") {
+    return [
+      `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 3회).`,
+      "검색 결과만큼 입력 토큰 비용도 늘고, 결과는 대화에 남아 다음 답장에도 비용이 들어요.",
+      "검색어가 검색 서비스로 전달돼요.",
+    ];
+  }
+  if (kind === "web_fetch") {
+    return [
+      "대화에 있는 주소의 페이지를 읽어요 (한 답장에 최대 2회, 페이지당 최대 20,000토큰).",
+      "읽은 분량만큼 입력 토큰 비용이 들고, 내용은 대화에 남아 다음 답장에도 비용이 들어요.",
+    ];
+  }
+  return [
+    "코드는 Anthropic 서버에서만 실행돼요 — CTRL+AI 서버에서는 아무것도 실행되지 않아요.",
+    "실행 결과만큼 토큰 비용이 들어요.",
+  ];
 }
 
 /** 답장 아래에 붙는 한 줄 설명. 끝까지 온 답장에는 없습니다. */
@@ -198,6 +249,14 @@ export default function ChatWorkspace() {
   const [streaming, setStreaming] = useState(false);
   /** 대화가 길어졌을 때 입력창 위에 보이는 안내(token-guard). */
   const [longHistory, setLongHistory] = useState<LongHistory | null>(null);
+  /** 이 대화의 도구 토글(chat-plus-tools). 새 대화에는 아직 없습니다. */
+  const [toolFlags, setToolFlags] = useState<Record<ToolKind, boolean>>({
+    web_search: false,
+    web_fetch: false,
+    code_execution: false,
+  });
+  /** 지금 돌고 있는 서버 도구 — "검색 중…" 줄. */
+  const [toolStatus, setToolStatus] = useState<{ kind: ToolKind; status: string } | null>(null);
   /** 스트림 전에 거절된 이유 — 입력창 바로 위에 보여 줍니다. */
   const [sendError, setSendError] = useState<string | null>(null);
   /** 좁은 화면에서 대화 목록을 펼쳤는지. */
@@ -296,6 +355,11 @@ export default function ChatWorkspace() {
       setMessages(detail.messages.map(toView));
       setChosenModelId(detail.chat_model_id);
       setLongHistory(detail.long_history ?? null);
+      setToolFlags({
+        web_search: detail.use_web_search ?? false,
+        web_fetch: detail.use_web_fetch ?? false,
+        code_execution: detail.use_code_execution ?? false,
+      });
     } catch (error) {
       setMessages([]);
       setSendError(describeError(error));
@@ -312,6 +376,7 @@ export default function ChatWorkspace() {
     setChosenModelId(null);
     setSendError(null);
     setLongHistory(null);
+    setToolFlags({ web_search: false, web_fetch: false, code_execution: false });
     textareaRef.current?.focus();
   }, []);
 
@@ -450,6 +515,10 @@ export default function ChatWorkspace() {
               paintEstimate();
             }
           },
+          onTool: (kind, status) => {
+            // "검색 중…" 줄. 끝나면 지우고, 실패하면 실패했다고 남깁니다.
+            setToolStatus(status === "done" ? null : { kind, status });
+          },
         },
         controller.signal,
       );
@@ -500,6 +569,7 @@ export default function ChatWorkspace() {
     } finally {
       abortRef.current = null;
       setStreaming(false);
+      setToolStatus(null);
       void refreshList();
     }
   }, [
@@ -574,6 +644,48 @@ export default function ChatWorkspace() {
   };
 
   const selectedModel = currentModel(info, chosenModelId);
+
+  /**
+   * 도구 토글(chat-plus-tools). 켤 때는 비용을 먼저 보여 주고, 끌 때는
+   * 바로 끕니다. 토글은 대화의 것이라 — 도구 목록이 바뀌면 프롬프트
+   * 캐시가 깨집니다 — 첫 메시지를 보낸 뒤부터 보입니다.
+   */
+  const toggleTool = useCallback(
+    (kind: ToolKind) => {
+      if (activeId === null || streaming) return;
+      const next = !toolFlags[kind];
+      const apply = async () => {
+        const updated = await setConversationTool(activeId, kind, next);
+        setToolFlags({
+          web_search: updated.use_web_search ?? false,
+          web_fetch: updated.use_web_fetch ?? false,
+          code_execution: updated.use_code_execution ?? false,
+        });
+      };
+      if (!next) {
+        void apply().catch((error: unknown) => setSendError(describeError(error)));
+        return;
+      }
+      setConfirmError(null);
+      setConfirm({
+        title: `${TOOL_META[kind].label} 도구를 켤까요?`,
+        effect: toolCostEffect(kind, selectedModel?.web_search_krw_per_call ?? null),
+        confirmLabel: "켜기",
+        onConfirm: async () => {
+          setConfirmBusy(true);
+          try {
+            await apply();
+            setConfirm(null);
+          } catch (error) {
+            setConfirmError(describeError(error));
+          } finally {
+            setConfirmBusy(false);
+          }
+        },
+      });
+    },
+    [activeId, streaming, toolFlags, selectedModel],
+  );
 
   const hint = !mayCreate
     ? "참여 중인 분기가 되면 다시 보낼 수 있습니다. 지난 대화는 그대로 볼 수 있습니다."
@@ -762,6 +874,15 @@ export default function ChatWorkspace() {
                         )}
                       </div>
                     )}
+                    {message.streaming && toolStatus !== null && (
+                      // 서버 도구가 돌고 있습니다 — 검색 중… / 페이지
+                      // 읽는 중… / 코드 실행 중… (chat-plus-tools).
+                      <p className={styles.toolStatus} data-testid="tool-status" role="status">
+                        {toolStatus.status === "error"
+                          ? TOOL_META[toolStatus.kind].failed
+                          : TOOL_META[toolStatus.kind].running}
+                      </p>
+                    )}
                     {message.streaming && message.estimateKrw != null && (
                       // 흐르는 동안의 어림값. 반드시 약을 붙입니다 —
                       // 정산은 끝난 뒤의 영수증(장부)이 합니다.
@@ -769,6 +890,24 @@ export default function ChatWorkspace() {
                         약 {formatKrw(message.estimateKrw)}
                       </p>
                     )}
+                    {message.role === "assistant" &&
+                      !message.streaming &&
+                      (message.sources?.length ?? 0) > 0 && (
+                        <ol className={styles.sources} data-testid="sources">
+                          {message.sources!.map((source, order) => (
+                            <li key={source.url}>
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={source.title || source.url}
+                              >
+                                {order + 1}. {sourceDomain(source.url)}
+                              </a>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
                     {message.role === "assistant" && !message.streaming && message.receipt && (
                       <p className={styles.receipt} data-testid="receipt">
                         {receiptLine(message.receipt)}
@@ -841,6 +980,39 @@ export default function ChatWorkspace() {
                   onChange={(model) => void chooseModel(model)}
                   disabled={!mayCreate || streaming}
                 />
+                {activeId !== null &&
+                  selectedModel &&
+                  (selectedModel.tools_web_search ||
+                    selectedModel.tools_web_fetch ||
+                    selectedModel.tools_code_execution) && (
+                    <div className={styles.toolChips} data-testid="tool-chips">
+                      {(["web_search", "web_fetch", "code_execution"] as ToolKind[]).map(
+                        (kind) => {
+                          const allowed =
+                            kind === "web_search"
+                              ? selectedModel.tools_web_search
+                              : kind === "web_fetch"
+                                ? selectedModel.tools_web_fetch
+                                : selectedModel.tools_code_execution;
+                          if (!allowed) return null;
+                          const on = toolFlags[kind];
+                          return (
+                            <button
+                              key={kind}
+                              type="button"
+                              className={`${styles.toolChip} ${on ? styles.toolChipOn : ""}`}
+                              aria-pressed={on}
+                              disabled={streaming || !mayCreate}
+                              title={on ? undefined : "켜면 답장마다 추가 비용이 들 수 있어요"}
+                              onClick={() => toggleTool(kind)}
+                            >
+                              {TOOL_META[kind].label}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                  )}
                 {mayCreate && (
                   <WalletCheck costKrw={selectedModel?.estimated_reply_krw ?? null} />
                 )}
