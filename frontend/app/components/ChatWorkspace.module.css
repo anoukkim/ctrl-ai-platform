@@ -488,12 +488,25 @@
   line-height: 1.7;
 }
 
+/* 기능 둘러보기 — 카드 위 작은 제목과 한 줄 안내. */
+.examplesTitle {
+  margin: 1.75rem 0 0;
+  font-size: var(--page-message);
+  font-weight: 700;
+}
+
+.examplesHint {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-count);
+}
+
 .shortcuts {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   width: 100%;
-  margin-top: 1.75rem;
+  margin-top: 0.9rem;
   text-align: left;
 }
 
@@ -510,9 +523,17 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition:
     border-color 0.12s ease,
     background-color 0.12s ease;
+}
+
+.shortcut:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .toneBuild {
@@ -530,8 +551,13 @@
   --tone-soft: var(--accent-soft);
 }
 
-.shortcut:hover {
+.shortcut:hover:not(:disabled) {
   border-color: var(--tone);
+}
+
+.shortcut:focus-visible {
+  outline: 2px solid var(--tone);
+  outline-offset: 2px;
 }
 
 /* 34px 칸 안의 아이콘. 칸은 영역 색을 옅게 깝니다. */

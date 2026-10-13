@@ -49,41 +49,7 @@ export function formatDate(iso: string): string {
 /* Chat                                                                */
 /* ------------------------------------------------------------------ */
 
-export interface ShortcutAction {
-  title: string;
-  description: string;
-  href: string;
-  /** 카드에 쓸 lucide 아이콘 이름. 화면이 이 이름을 아이콘으로 바꿉니다.
-   *  데이터 파일에는 컴포넌트를 두지 않으려고 이름만 적습니다. */
-  icon: "build" | "video" | "apps" | "tube";
-}
-
-export const CHAT_SHORTCUTS: ShortcutAction[] = [
-  {
-    title: "앱 만들기",
-    description: "만들고 싶은 것을 이야기하면 Project Builder에서 시작합니다.",
-    href: "/builder",
-    icon: "build",
-  },
-  {
-    title: "영상 만들기",
-    description: "떠오르는 장면을 적으면 짧은 영상으로 만들어 봅니다.",
-    href: "/video",
-    icon: "video",
-  },
-  {
-    title: "CtrlAIApps 둘러보기",
-    description: "다른 회원들이 만든 앱을 구경해 보세요.",
-    href: "/ctrlaistore",
-    icon: "apps",
-  },
-  {
-    title: "CtrlAITube 보기",
-    description: "커뮤니티에서 만든 영상을 감상해 보세요.",
-    href: "/ctrlaitube",
-    icon: "tube",
-  },
-];
+// Chat 첫 화면의 카드는 제품 문구라 `lib/chat-examples.ts`로 옮겼습니다.
 
 /* ------------------------------------------------------------------ */
 /* Project Builder                                                     */
@@ -333,7 +299,7 @@ export interface AppScreenshot {
 export interface AppFeature {
   /** 카드에 쓸 아이콘 이름. 데이터 파일에 컴포넌트를 두지 않으려고
    *  이름만 적고, 화면이 이것을 lucide 아이콘으로 바꿉니다
-   *  (`CHAT_SHORTCUTS`와 같은 방식입니다). */
+   *  (`lib/chat-examples.ts`와 같은 방식입니다). */
   icon: AppFeatureIcon;
   title: string;
   /** 한 줄 설명. 길면 카드가 들쭉날쭉해지므로 한 문장으로 적습니다. */

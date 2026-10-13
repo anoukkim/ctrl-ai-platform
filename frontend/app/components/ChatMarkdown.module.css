@@ -1,0 +1,166 @@
+/* Chat 답장 안의 Markdown. 말풍선의 글자 크기와 색을 그대로 따릅니다. */
+
+.markdown {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote {
+  margin: 0 0 0.75em;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+
+.markdown li + li {
+  margin-top: 0.2em;
+}
+
+/* 제목은 몇 개 없으므로 본문보다 조금만 크게. */
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 1em 0 0.5em;
+  font-size: 1.05em;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.markdown h1 {
+  font-size: 1.15em;
+}
+
+.markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown blockquote {
+  padding-left: 0.8em;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.markdown hr {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* 문장 속 `코드`. */
+.markdown :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--panel-2);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+/* 넓은 표는 이 상자 안에서만 옆으로 밀립니다. 화면 전체는 움직이지 않습니다. */
+.tableWrap {
+  max-width: 100%;
+  margin: 0 0 0.75em;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 0.45em 0.7em;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.tableWrap th {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+.tableWrap tr:last-child td {
+  border-bottom: none;
+}
+
+.codeBlock {
+  margin: 0 0 0.75em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.codeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.codeLanguage {
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 3px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.copy:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.pre code {
+  font-family: inherit;
+}
+
+.imageAlt {
+  color: var(--text-muted);
+}

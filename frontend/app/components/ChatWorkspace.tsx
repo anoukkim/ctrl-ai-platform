@@ -14,8 +14,12 @@
  * 기본 모델로 시작하고, 바꾸면 다음 답장부터 적용됩니다. 답장마다 그것을
  * 쓴 모델 이름이 작게 붙습니다.
  *
- * 처음에는 환영 인사와 바로가기 카드를 보여 주고, 대화가 한 번이라도
- * 오가면 감춥니다.
+ * 처음에는 환영 인사와 **기능 둘러보기** 카드(`lib/chat-examples.ts`)를
+ * 보여 주고, 대화가 한 번이라도 오가면 감춥니다. 카드는 예시 문장을
+ * 입력창에 채울 뿐 보내지 않습니다.
+ *
+ * 답장은 Markdown으로 그립니다(`ChatMarkdown`). 회원이 쓴 글은 쓴 그대로
+ * 보여 줍니다.
  *
  * 이번 분기에 참여하지 않는 회원도 지난 대화는 읽을 수 있습니다. 보내기,
  * 새 대화, 이름 바꾸기, 지우기만 막힙니다 — 실제 차단은 백엔드의
@@ -23,17 +27,17 @@
  */
 
 import {
-  Clapperboard,
-  Code2,
-  LayoutGrid,
+  ChartColumn,
+  FileText,
+  Globe,
   ListIcon,
   Lock,
   MessageSquare,
   Pencil,
-  PlayCircle,
   Plus,
   SendHorizontal,
   Square,
+  Table2,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -61,10 +65,11 @@ import {
   type Conversation,
 } from "@/lib/chat";
 import { describeError } from "@/lib/http";
-import { CHAT_SHORTCUTS } from "@/lib/mock-data";
+import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
+import ChatMarkdown from "./ChatMarkdown";
 import ChatModelPicker from "./ChatModelPicker";
 import TestModeNotice from "./TestModeNotice";
 import styles from "./ChatWorkspace.module.css";
@@ -75,20 +80,19 @@ import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
 import EmptyState from "./EmptyState";
 
-/** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
-/** 바로가기 아이콘 칸의 색. 만드는 곳은 영역 색, 둘러보는 곳은 강조색입니다. */
-const SHORTCUT_TONE: Record<string, string> = {
-  build: "toneBuild",
-  video: "toneVideo",
-  apps: "toneAccent",
-  tube: "toneAccent",
+/** 기능 둘러보기 카드의 아이콘과 아이콘 칸의 색. */
+const EXAMPLE_ICON: Record<ChatExample["icon"], LucideIcon> = {
+  table: Table2,
+  file: FileText,
+  chart: ChartColumn,
+  page: Globe,
 };
 
-const SHORTCUT_ICON: Record<string, LucideIcon> = {
-  build: Code2,
-  video: Clapperboard,
-  apps: LayoutGrid,
-  tube: PlayCircle,
+const EXAMPLE_TONE: Record<ChatExample["icon"], string> = {
+  table: "toneAccent",
+  file: "toneAccent",
+  chart: "toneVideo",
+  page: "toneBuild",
 };
 
 /** 입력창이 늘어날 수 있는 최대 줄 수. 그보다 길어지면 안에서 스크롤됩니다. */
@@ -280,6 +284,20 @@ export default function ChatWorkspace() {
     },
     [activeId],
   );
+
+  /**
+   * 기능 둘러보기 카드: 예시 문장을 입력창에 채우고 커서를 끝에 둡니다.
+   * 보내지는 않습니다 — 회원이 모델과 예상 비용을 보고 직접 보냅니다.
+   */
+  const fillExample = useCallback((example: ChatExample) => {
+    setDraft(example.prompt);
+    requestAnimationFrame(() => {
+      const node = textareaRef.current;
+      if (!node) return;
+      node.focus();
+      node.setSelectionRange(node.value.length, node.value.length);
+    });
+  }, []);
 
   const send = useCallback(async () => {
     if (!mayCreate || streaming) return;
@@ -561,21 +579,28 @@ export default function ChatWorkspace() {
                   영상으로 만들어 보고, 커뮤니티에 나눌 수 있습니다.
                 </p>
 
+                <h2 className={styles.examplesTitle}>기능 둘러보기</h2>
+                <p className={styles.examplesHint}>
+                  카드를 누르면 예시 문장이 입력창에 들어갑니다. 고친 뒤 보내 보세요.
+                </p>
                 <div className={styles.shortcuts}>
-                  {CHAT_SHORTCUTS.map((shortcut) => {
-                    const Icon = SHORTCUT_ICON[shortcut.icon];
+                  {CHAT_EXAMPLES.map((example) => {
+                    const Icon = EXAMPLE_ICON[example.icon];
                     return (
-                      <Link
-                        className={`${styles.shortcut} ${styles[SHORTCUT_TONE[shortcut.icon]] ?? ""}`}
-                        href={shortcut.href}
-                        key={shortcut.title}
+                      <button
+                        type="button"
+                        className={`${styles.shortcut} ${styles[EXAMPLE_TONE[example.icon]] ?? ""}`}
+                        key={example.title}
+                        onClick={() => fillExample(example)}
+                        disabled={!mayCreate}
+                        title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                       >
                         <span className={styles.shortcutTile} aria-hidden="true">
                           <Icon className={styles.shortcutIcon} />
                         </span>
-                        <span className={styles.shortcutTitle}>{shortcut.title}</span>
-                        <span className={styles.shortcutDescription}>{shortcut.description}</span>
-                      </Link>
+                        <span className={styles.shortcutTitle}>{example.title}</span>
+                        <span className={styles.shortcutDescription}>{example.description}</span>
+                      </button>
                     );
                   })}
                 </div>
@@ -594,7 +619,11 @@ export default function ChatWorkspace() {
                     </span>
                     {(message.content || message.streaming) && (
                       <div className={styles.bubble}>
-                        {message.content}
+                        {message.role === "assistant" && message.content ? (
+                          <ChatMarkdown text={message.content} streaming={message.streaming} />
+                        ) : (
+                          message.content
+                        )}
                         {message.streaming && !message.content && (
                           // 첫 글자가 오기 전: 세 점이 차례로 뛰는 "쓰는 중"(ui-friendly-motion).
                           <span className={styles.typing}>
