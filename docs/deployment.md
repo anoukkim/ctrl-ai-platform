@@ -338,8 +338,11 @@ curl.exe -I https://www.ctrlai.my      # 301 → https://ctrlai.my/
 
 ### 회원에게 주소를 알리기 전에
 
-- **초대 코드(`invite-only-signup`)가 `main`에 합쳐졌는지 확인하세요.** 그 전에는
-  주소를 아는 누구나 가입할 수 있습니다.
+- **가입에는 초대 코드가 필요합니다.** 관리자로 로그인해 Admin › Members 아래의
+  **초대 코드**에서 코드를 만듭니다(자동 생성 또는 직접 정한 코드, 몇 명까지,
+  언제까지). **가입 링크 복사**를 누르면 `https://ctrlai.my/signup?code=…`
+  링크가 복사되니, 그 링크를 회원에게 보내면 됩니다. 코드가 새어 나가면
+  **사용 중지** — 새 가입만 막히고 이미 가입한 계정은 그대로입니다.
 - 관리자로 분기를 만들고(Admin › Quarters), 신청을 엽니다.
 - Video Generator, Project Builder, CtrlAIApps, CtrlAITube에 "테스트 모드"
   표시가 보이는지 봅니다. 아직 목업이라는 뜻이고, 정상입니다.

@@ -121,7 +121,10 @@ while `ADMIN_PASSWORD` is a known default (`devpassword`, `admin`,
 and refuses the development database password. The full guide is
 [`deployment.md`](deployment.md).
 
-Anyone else can register at `/signup`, which creates an ordinary member.
+Signing up at `/signup` needs an **invite code** in every environment
+(invite-only-signup). The development seed adds `DEV-WELCOME` (100
+sign-ups) so it can be tried locally; on a server, an admin makes codes in
+Admin › Members › 초대 코드 and sends the `/signup?code=…` link.
 
 ### How sign-in works
 

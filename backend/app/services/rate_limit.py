@@ -6,66 +6,75 @@ Two limits, both counted per client address:
 * **failed codes** — attempts whose invite code was missing or unusable.
   Tighter, because guessing codes is the thing to slow down.
 
-**Kept in memory**, deliberately. The beta runs one backend process, and
-losing the counts on a restart costs nothing worth a table. Several
-processes would each count on their own — the limit would loosen, not
-break — and moving the counts to the database is the fix then.
+**Counted in the database** (`signup_attempts`), not in memory: the
+server runs two API workers, and a count kept in one process's memory
+would let each of them allow the full limit. Rows older than a day are
+deleted as new ones are written.
 
 **Which address.** Requests arrive through Next.js's `/api` rewrite (and,
-in production, a reverse proxy in front of it), so the peer address is a
-proxy's. `client_address` believes `X-Forwarded-For` only when the peer
-is in `TRUSTED_PROXIES`, and then takes the **rightmost** entry — the
-address the nearest trusted proxy saw, which a visitor cannot forge.
+on the server, Caddy in front of it), so the peer address is a proxy's.
+`client_address` believes `X-Forwarded-For` only when the peer is in
+`TRUSTED_PROXIES`, and then takes the **rightmost** entry — the address
+the nearest trusted proxy saw, which a visitor cannot forge. On the
+server, uvicorn (`--proxy-headers`) has already replaced the peer with
+the client Caddy saw, so that peer is used as it is.
 """
 
 from __future__ import annotations
 
-import threading
-import time
-from collections import deque
+from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address, ip_network
 
 from fastapi import Request
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.models import SignupAttempt
+
+ATTEMPT_WINDOW = timedelta(hours=1)
+FAILURE_WINDOW = timedelta(minutes=15)
+#: How long attempts are kept at all.
+RETENTION = timedelta(days=1)
 
 
-class SlidingWindow:
-    """At most `limit` events per key in any `seconds`-long window."""
-
-    def __init__(self) -> None:
-        self._events: dict[str, deque[float]] = {}
-        self._lock = threading.Lock()
-
-    def _trim(self, key: str, seconds: float, now: float) -> deque[float]:
-        events = self._events.setdefault(key, deque())
-        while events and events[0] <= now - seconds:
-            events.popleft()
-        return events
-
-    def blocked(self, key: str, limit: int, seconds: float) -> bool:
-        """True when `key` has already reached `limit`. Does not record."""
-        if limit <= 0:
-            return False
-        with self._lock:
-            return len(self._trim(key, seconds, time.monotonic())) >= limit
-
-    def record(self, key: str, seconds: float) -> None:
-        with self._lock:
-            now = time.monotonic()
-            self._trim(key, seconds, now).append(now)
-
-    def reset(self) -> None:
-        with self._lock:
-            self._events.clear()
+def _count(db: Session, address: str, since: datetime, *, failed_only: bool) -> int:
+    query = select(func.count(SignupAttempt.id)).where(
+        SignupAttempt.address == address, SignupAttempt.created_at >= since
+    )
+    if failed_only:
+        query = query.where(SignupAttempt.failed.is_(True))
+    return db.scalar(query) or 0
 
 
-#: One per kind of event. Module-level so every request shares them.
-signup_attempts = SlidingWindow()
-invite_failures = SlidingWindow()
+def blocked(db: Session, address: str, settings: Settings) -> bool:
+    """True when this address has used up either limit. Records nothing."""
+    now = datetime.now(timezone.utc)
+    failures = settings.invite_failures_per_15_minutes
+    if failures > 0 and _count(db, address, now - FAILURE_WINDOW, failed_only=True) >= failures:
+        return True
+    attempts = settings.signup_attempts_per_hour
+    return attempts > 0 and _count(db, address, now - ATTEMPT_WINDOW, failed_only=False) >= attempts
 
-ATTEMPT_WINDOW_SECONDS = 60 * 60
-FAILURE_WINDOW_SECONDS = 15 * 60
+
+def record(db: Session, address: str) -> SignupAttempt:
+    """Write one attempt and commit it on its own.
+
+    Committed straight away, so it counts even when the sign-up is then
+    refused and the rest rolled back. Rows past `RETENTION` are pruned.
+    """
+    now = datetime.now(timezone.utc)
+    db.execute(delete(SignupAttempt).where(SignupAttempt.created_at < now - RETENTION))
+    attempt = SignupAttempt(address=address[:64], failed=False, created_at=now)
+    db.add(attempt)
+    db.commit()
+    return attempt
+
+
+def mark_failed(db: Session, attempt: SignupAttempt) -> None:
+    """The attempt's invite code was missing or unusable."""
+    attempt.failed = True
+    db.commit()
 
 
 def _in(address: str, networks: list) -> bool:
@@ -91,9 +100,3 @@ def client_address(request: Request, settings: Settings) -> str:
     forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",")]
     forwarded = [p for p in forwarded if p]
     return forwarded[-1] if forwarded else peer or "unknown"
-
-
-def reset_all() -> None:
-    """For the tests."""
-    signup_attempts.reset()
-    invite_failures.reset()

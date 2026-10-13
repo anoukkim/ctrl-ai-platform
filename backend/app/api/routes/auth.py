@@ -96,20 +96,15 @@ def register(
        the same "unusable" message.
     """
     address = rate_limit.client_address(request, settings)
-    too_many = HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="가입 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-    )
-    if rate_limit.invite_failures.blocked(
-        address, settings.invite_failures_per_15_minutes, rate_limit.FAILURE_WINDOW_SECONDS
-    ) or rate_limit.signup_attempts.blocked(
-        address, settings.signup_attempts_per_hour, rate_limit.ATTEMPT_WINDOW_SECONDS
-    ):
-        raise too_many
-    rate_limit.signup_attempts.record(address, rate_limit.ATTEMPT_WINDOW_SECONDS)
+    if rate_limit.blocked(db, address, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="가입 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+        )
+    attempt = rate_limit.record(db, address)
 
     def refuse_code(message: str) -> HTTPException:
-        rate_limit.invite_failures.record(address, rate_limit.FAILURE_WINDOW_SECONDS)
+        rate_limit.mark_failed(db, attempt)
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
     code = invites.normalise(payload.invite_code)

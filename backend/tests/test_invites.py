@@ -275,6 +275,49 @@ def test_signup_attempts_are_rate_limited(
     assert signup(anon_client, "CLUB-2026", username="early3", email="early3@ctrl.ai").status_code == 429
 
 
+def test_attempts_are_counted_in_the_database(
+    anon_client: TestClient, db_session: Session
+) -> None:
+    """Two API workers share the count only if it lives in the database."""
+    from app.models import SignupAttempt
+
+    signup(anon_client, "WRONG-CODE")
+
+    rows = db_session.query(SignupAttempt).all()
+    assert len(rows) == 1
+    assert rows[0].failed is True
+
+
+def test_attempts_older_than_a_day_are_pruned(
+    anon_client: TestClient, db_session: Session
+) -> None:
+    from app.models import SignupAttempt
+
+    db_session.add(
+        SignupAttempt(
+            address="203.0.113.9",
+            failed=True,
+            created_at=datetime.now(timezone.utc) - timedelta(days=2),
+        )
+    )
+    db_session.commit()
+
+    signup(anon_client, "WRONG-CODE")
+
+    assert db_session.query(SignupAttempt).filter_by(address="203.0.113.9").count() == 0
+
+
+def test_a_code_is_required_in_the_beta_too(
+    anon_client: TestClient, db_session: Session, settings_override
+) -> None:
+    """prep-beta-launch point 2's first bullet, checked under APP_ENV=beta."""
+    app.dependency_overrides[get_settings] = lambda: Settings(app_env="beta")
+    make_code(db_session)
+
+    assert signup(anon_client, None).status_code == 400
+    assert signup(anon_client, "CLUB-2026").status_code == 201
+
+
 def _request(peer: str, forwarded: str = ""):
     headers = {"x-forwarded-for": forwarded} if forwarded else {}
     return SimpleNamespace(client=SimpleNamespace(host=peer), headers=headers)

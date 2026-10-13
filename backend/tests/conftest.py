@@ -91,16 +91,6 @@ MEMBER_PASSWORD = "memberpassword"
 INVITE_CODE = "TEST-CODE-0001"
 
 
-@pytest.fixture(autouse=True)
-def _fresh_rate_limits():
-    """The sign-up limits are in memory; each test starts with none spent."""
-    from app.services import rate_limit
-
-    rate_limit.reset_all()
-    yield
-    rate_limit.reset_all()
-
-
 @pytest.fixture
 def invite_code(db_session: Session):
     """A code good for 50 signups, so tests can sign members up."""

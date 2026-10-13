@@ -212,7 +212,7 @@ class Settings(BaseSettings):
     chat_rate_limit_per_minute: int = 10
 
     # ---------- Sign-up (invite-only-signup) ----------
-    # Per client address, counted in memory (`services/rate_limit.py`).
+    # Per client address, counted in the database (`services/rate_limit.py`).
     # Generous enough for a club signing up together from one office
     # network, which shares one public address; tight on failed codes,
     # because guessing codes is what the limit is for.
