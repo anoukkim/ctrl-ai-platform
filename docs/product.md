@@ -52,7 +52,7 @@ principles.
 | Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
-| Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
+| Authentication        | **Built** — Google or username/password for every member (both allowed, at least one kept); invite code to sign up; Argon2 hashes; HttpOnly session cookie |
 | Claude                | Real adapter built behind `CLAUDE_PROVIDER` (mock by default); not yet run with a real key |
 | Higgsfield            | Mock provider behind `VIDEO_PROVIDER`; real adapter not built                     |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
@@ -189,6 +189,30 @@ The Claude panel, **프롬프트 도움받기 (선택)**, starts collapsed. It o
 rewrites prompt text, never generates video, and is charged to the member's
 wallet by the token, exactly like a Chat reply (below), recorded as Claude
 spend.
+
+## Signing in (member-password-login)
+
+Every member may sign in with **Google로 계속하기** or with **username and
+password**, or keep both. `/login` shows the Google button with the
+username/password form below it (the form alone where Google sign-in is
+off); `/login/password` redirects there. Sign-up is with Google (then a
+setup screen: username, name, invite code) or with username + email +
+password + invite code. An invite code is required either way.
+
+**Profile › 로그인 방법** lists both methods:
+
+- **Google 계정** — 연결하기 (linked by Google's `sub`, never by email) or
+  연결 끊기. Unlinking asks for the password and is refused while the
+  password is not set.
+- **아이디와 비밀번호** — 만들기 for a Google member (8 characters or more,
+  typed twice), 바꾸기 (current password; other browsers are signed out),
+  없애기 (current password; refused while Google is not linked).
+
+The backend keeps one method at all times, with the account row locked
+while it checks. Wrong current passwords count towards the sign-in
+attempt limit. Each change is in the audit log (비밀번호 로그인 추가,
+비밀번호 변경, 비밀번호 로그인 삭제, Google 로그인 연결 해제). Withdrawal
+asks for the password when there is one, the username otherwise.
 
 ## Chat
 
