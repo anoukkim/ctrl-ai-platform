@@ -72,6 +72,8 @@ class AuditAction:
     # for the same reason: they decide what every later chat reply costs.
     CLAUDE_PRICE_UPDATED = "claude_price.updated"
     EXCHANGE_RATE_SET = "exchange_rate.set"
+    # token-guard: the per-reply cap, the warning threshold, the daily cap.
+    CHAT_LIMITS_SET = "chat_limits.set"
     # Invite codes (invite-only-signup): who may create accounts.
     INVITE_CREATED = "invite.created"
     INVITE_DEACTIVATED = "invite.deactivated"
@@ -115,6 +117,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.VIDEO_MODEL_UPDATED: "영상 모델 설정 변경",
     AuditAction.CLAUDE_PRICE_UPDATED: "Claude 요금 변경",
     AuditAction.EXCHANGE_RATE_SET: "환율 변경",
+    AuditAction.CHAT_LIMITS_SET: "채팅 한도 변경",
     AuditAction.INVITE_CREATED: "초대 코드 생성",
     AuditAction.INVITE_DEACTIVATED: "초대 코드 사용 중지",
     AuditAction.INVITE_REACTIVATED: "초대 코드 다시 사용",

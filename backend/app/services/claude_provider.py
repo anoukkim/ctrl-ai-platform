@@ -576,6 +576,15 @@ class MockClaudeProvider:
         if action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
 
+        # The mock honors `max_tokens` like the API does (one character =
+        # one token, matching its usage figures), so token-guard's capped
+        # flow — stop_reason "max_tokens", real usage reported — runs end
+        # to end with no key.
+        stop_reason = "end_turn"
+        if request.max_tokens > 0 and len(reply) > request.max_tokens:
+            reply = reply[: request.max_tokens]
+            stop_reason = "max_tokens"
+
         # Small pieces, like the real stream, so the screen and the marker
         # filter see the same shape either way.
         sent = 0
@@ -586,7 +595,7 @@ class MockClaudeProvider:
             sent += len(piece)
             yield TextDelta(piece)
             yield usage(sent)
-        yield StreamEnd("end_turn")
+        yield StreamEnd(stop_reason)
 
     def rewrite_video_prompt(self, prompt: str, request: str, model: str = "") -> PromptRewrite:
         for pattern, reply, addition in _PROMPT_RULES:

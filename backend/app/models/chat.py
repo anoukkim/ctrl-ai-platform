@@ -119,6 +119,11 @@ class ChatMessage(Base):
     model_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Set when the reply stopped at the per-reply cost cap (token-guard):
+    #: the cap in force, in won, so the screen can say why — after a
+    #: reload too. Null for every other ending, including the global
+    #: output limit.
+    capped_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
     usage_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("usage_events.id", ondelete="SET NULL"), nullable=True
     )

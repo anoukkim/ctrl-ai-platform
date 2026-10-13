@@ -47,11 +47,25 @@ class ChatMessageRead(BaseModel):
     action_title: str = ""
     #: For a reply: the provider's model id that wrote it.
     model_id: str | None = None
+    #: Set when the reply stopped at the per-reply cost cap (token-guard):
+    #: the cap in force, in won. Null for every other ending.
+    capped_krw: int | None = None
     created_at: datetime
+
+
+class LongHistoryRead(BaseModel):
+    """The composer's long-conversation warning (token-guard, point 4)."""
+
+    #: Input tokens a reply carries beyond the system prompt.
+    history_tokens: int
+    #: What that adds to one reply — and what a new conversation saves.
+    extra_krw: int
 
 
 class ConversationDetail(ConversationRead):
     messages: list[ChatMessageRead]
+    #: Present while the history is long enough to warrant the warning.
+    long_history: LongHistoryRead | None = None
 
 
 class ChatMessageCreate(BaseModel):
