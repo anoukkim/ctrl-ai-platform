@@ -287,6 +287,11 @@ and left it.
 2026-10-08; 2, 3 and 4 on 2026-10-13). Everything below them moved down
 six places.
 
+**Items 12–16 were added by the owner on 2026-10-13**, after
+`test-database-isolation`, in the order anonymous-feedback-board,
+token-guard, live-cost-display, chat-thinking-view, builder-python.
+Specs only; nothing above them moved.
+
 1. **single-wallet** · M1 · branch `feat-single-wallet`
    Members no longer split their quarter support. One 동아리 지원 wallet
    per member per quarter (80,000원 by default, admin-editable per
@@ -363,6 +368,44 @@ six places.
    (real key).** One short real message with the owner's key; see
    **Now**. Not a branch. `prep-beta-launch` merged on 2026-10-13; the
    site does not open to members until this, item 7 and item 11 are done.
+
+12. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+   Added by the owner on 2026-10-13. Every member can read the
+   improvement notes sent with 의견 보내기, with no name shown; Admin can
+   hide a note and export notes as Markdown for Claude Code
+   ("Claude용으로 내보내기"). **Depends on:** `prep-beta-launch` (the
+   `feedback` table, merged) and `invite-only-signup` (the board is
+   members-only, so the community has to be closed first). Spec below.
+
+13. **token-guard** · M1 · branch `feat-token-guard`
+   Added by the owner on 2026-10-13. A per-reply cost cap (admin
+   setting, about 100원) enforced through `max_tokens`, a warning on long
+   conversations with the saving of starting a new one, and an optional
+   daily cap per member. **Depends on:** `single-wallet`,
+   `prompt-caching` and `cost-calibration` (all merged). Spec below.
+
+14. **live-cost-display** · M1 · branch `feat-live-cost-display`
+   Added by the owner on 2026-10-13. A running cost in won beside a
+   streaming reply, a small receipt when it ends, and the sidebar wallet
+   card updated at once; the ledger stays the source of truth. **Depends
+   on:** `cost-calibration` (merged), `token-guard` (shares its running
+   estimate), and best after `chat-plus-rendering` (same reply bubble).
+   Spec below.
+
+15. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+   Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
+   보기: Claude's summarized thinking as numbered steps under the reply,
+   off by default, with its cost shown before it is turned on. **Depends
+   on:** `chat-model-choice` and `cost-calibration` (merged), and
+   `live-cost-display` (the receipt shows the thinking part). Spec below.
+
+16. **builder-python** · M2 · branch `feat-builder-python`
+   Added by the owner on 2026-10-13. Small Python apps from Project
+   Builder, with a working example, running **in the visitor's browser
+   only** through Pyodide. **Depends on:** `chat-builder-starter`
+   (merged) and **`builder-static-runtime`** (M2, *After the beta*):
+   Pyodide cannot load inside today's network-blocked `srcdoc` preview,
+   so this cannot start before that item's Half 2. Spec below.
 
 ### Merge order
 
@@ -1301,6 +1344,255 @@ Branch `fix-test-database-isolation`. **Must land before
 > overspending is impossible.
 
 ---
+
+## anonymous-feedback-board — full spec
+
+Branch `feat-feedback-board`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> anonymous-feedback-board (extends the feedback from prep-beta-launch): a member-facing page where everyone can read the improvement notes members sent, shown with no name. The author's user_id stays in the database, never shown to members, only for rate limits and abuse. Admin can hide a note. Admin gets "Claude용으로 내보내기": a Markdown file of the notes (date, page, body, no names) filtered by date range, so I can give it to Claude Code and ask for UI/system improvements.
+
+**Depends on:** `prep-beta-launch` (the `feedback` table, merged
+2026-10-13) and `invite-only-signup` (the board is for members only).
+
+1. **The board.** A page every signed-in account can read (guard
+   `get_current_user`: reading spends nothing, so participation is not
+   needed). Newest first, paginated. Each note shows the body, the date,
+   and the **screen section** it came from ("Video Generator", "Chat"),
+   not the raw path: `/video/12` carries a project id that can point at
+   its owner. The menu name follows the English-menu rule (section 15):
+   proposed **Feedback**, under Account next to Report Issue.
+2. **No name anywhere a member can see.** The member-facing schema has
+   no `user_id`, username or display name, and a test asserts the JSON
+   keys. The author's id stays in `feedback.user_id` for the hourly limit
+   and abuse handling only. In a club of about 40, wording and timing can
+   still give a person away, so the dialog says so.
+3. **The promise already made.** Notes sent so far were sent under
+   "운영진만 읽습니다" (the dialog's text since 2026-10-13). They **stay
+   off the board**: a migration marks them not public. Only notes sent
+   after the dialog's new text, "다른 회원에게 이름 없이 보입니다", appear.
+   Decide at build time whether the dialog also offers "운영진만 보기" for
+   a note the member does not want public (recommended: yes, default
+   public).
+4. **Admin hides a note**: `hidden_at`, `hidden_by`. A hidden note leaves
+   the board at once and stays in Admin › Feedback, marked. Hiding and
+   un-hiding are audited (`feedback.hidden`, `feedback.unhidden`).
+5. **Claude용으로 내보내기.** In Admin › Feedback: a date range (from / to,
+   KST days) and 숨긴 의견 포함 (off by default). Downloads
+   `ctrlai-feedback-<from>_<to>.md`: a header with the range and count,
+   then one block per note with date, full page path and body. **No
+   names, no ids.** Markdown in bodies is escaped so a note cannot break
+   the file's structure. `GET /api/admin/feedback/export?from=&to=&include_hidden=`,
+   `require_admin`, audited (`feedback.exported`, with the range and count
+   only).
+6. **Tests:** members see no author fields; hidden notes are absent for
+   members and present for admins; notes sent before the change are not
+   shown; the export has no names or ids, honours the range and the
+   hidden switch, and escapes Markdown; only admins can hide or export;
+   the access table and `EXPECTED_GUARDS` gain the new routes.
+
+**Risks:** de-anonymisation in a small club (point 2's copy, point 1's
+section instead of path); abusive or personal notes visible until an
+admin hides them (the hourly limit stays; hiding is immediate).
+
+## token-guard — full spec
+
+Branch `feat-token-guard`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> token-guard: a per-reply cost cap (admin setting, default about 100원) that stops the reply and charges only what was used, with a Korean notice; a warning when a conversation's history is long, suggesting a new conversation, with the estimated saving; an optional daily cap per member. Stopping a reply already exists — keep its rule (stopped replies are saved and charged for tokens used).
+
+**Depends on:** `single-wallet`, `prompt-caching`, `cost-calibration`
+(all merged).
+
+1. **Per-reply cap, an admin setting** (Admin › System, audited like the
+   exchange rate; default **100원**). Enforced **before** the call rather
+   than by cutting the stream: from the calibrated input estimate and the
+   model's prices, the backend works out how many output tokens the rest
+   of the cap buys and sends that as `max_tokens` (never above
+   `CHAT_MAX_OUTPUT_TOKENS`). The API then stops at the cap itself and
+   reports real usage, so the charge is exact, with no estimate of an
+   aborted stream. Thinking tokens count toward `max_tokens` and are
+   billed as output, so the cap covers them too.
+2. **The notice.** A reply that ends with `stop_reason: "max_tokens"`
+   because of the cap is saved and charged for what was used (the
+   existing stop rule) and shows: "답장이 1회 비용 한도(100원)에 닿아
+   여기서 멈췄어요. 이어서 받으려면 '계속해 줘'라고 보내 주세요." A
+   member's own 중지 keeps today's behaviour.
+3. **If the input alone is over the cap** (a very long history on an
+   expensive model): refuse before calling, charge nothing, and show the
+   suggestion from point 4.
+4. **Long-history warning.** When the calibrated input estimate passes a
+   threshold (admin setting, default 8,000 tokens, half of
+   `CHAT_CONTEXT_TOKENS`), a note above the composer: "대화가 길어져
+   답장마다 약 N원이 더 들어요. 새 대화로 시작하면 약 M원 아낄 수
+   있어요." N and M come from the same price functions as the pre-check,
+   at the cache-read price where the history is cached
+   (`prompt-caching`), so the saving is not overstated. A 새 대화 button
+   sits beside it.
+5. **Optional daily cap per member** (admin setting, 0 = off). Counted
+   from today's `UsageEvent` rows (KST day) and checked with the wallet
+   pre-check; refused with a Korean message before anything is spent.
+   Applies to every paid feature, not only Chat.
+6. **Tests:** `max_tokens` derived from the cap and the input estimate;
+   a capped reply is saved, charged its real usage and carries the
+   notice; input over the cap is refused with no charge and no provider
+   call; the warning and its figures; the daily cap counts across
+   features and resets at KST midnight; the settings are audited.
+
+## live-cost-display — full spec
+
+Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> live-cost-display (after cost-calibration): while a reply streams, show the running cost in won next to it; after it ends, a small receipt (input, output, cache read, won) and the wallet card in the sidebar updates at once. The ledger stays the single source of truth; the live figure is an estimate settled by the real usage.
+
+**Depends on:** `cost-calibration` (merged); `token-guard` (the same
+running estimate drives its cap); best after `chat-plus-rendering`,
+which reworks the same reply bubble.
+
+1. **While streaming:** beside the reply, "약 N원", updating as text
+   arrives: the calibrated input estimate plus the output so far
+   (`estimate_tokens` of the streamed text), priced for the model.
+   Always labelled as an estimate (약). Updated at most a few times a
+   second.
+2. **When it ends:** the `done` event carries the real usage the ledger
+   recorded (input, output, cache write and cache read tokens, and
+   `charged_krw`), and the bubble shows a small receipt: 입력 / 출력 /
+   캐시 읽기 / 합계 N원. The figure shown is the **ledger's**, never the
+   estimate; if they differ, the receipt simply replaces the estimate.
+3. **The sidebar wallet card updates at once** (a `MyQuarterProvider`
+   refresh, or the remaining balance carried in the `done` event), and
+   the Usage page shows the same row.
+4. **A stopped or capped reply** gets the same receipt; a failed call
+   shows "청구되지 않았어요".
+5. **Tests:** the running figure never shows without 약; the receipt's
+   numbers equal the usage event's; the wallet card changes without a
+   reload; a failed call shows no charge.
+
+## chat-thinking-view — full spec
+
+Branch `feat-chat-thinking-view`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> chat-thinking-view: a per-conversation toggle "생각 과정 보기". Off by default because it costs more; the estimate is shown before turning it on. When on, show Claude's summarized thinking as simple numbered steps a beginner can follow, collapsed under the reply. Check the current Anthropic docs for how thinking works on each catalogue model and price it in the ledger.
+
+**Depends on:** `chat-model-choice` and `cost-calibration` (merged);
+`live-cost-display` (the receipt).
+
+**How thinking works on the catalogue models** (checked 2026-10-13
+against the Claude API reference bundled with Claude Code; check again at
+build time):
+
+| Model | Today in Chat (`CHAT_THINKING=off`) | 생각 과정 보기 on | Extra cost of turning it on |
+| --- | --- | --- | --- |
+| Sonnet 5.5 ($2 / $10 per MTok) | `thinking: {type: "between_tools"}`, i.e. no thinking (`disabled` is a 400 on this model) | `thinking: {type: "adaptive", display: "summarized"}` at the conversation's effort (`low`) | **Yes**: thinking tokens, billed as output |
+| Opus 5.5 ($4 / $20) | Thinking cannot be turned off; it already runs adaptive at `low` effort, with `display` defaulting to `"omitted"` (empty text) | The same request plus `display: "summarized"` | **No**: `display` changes visibility only, and the thinking is already billed |
+| Haiku 4.5 ($1 / $5) | No thinking unless asked | `thinking: {type: "enabled", budget_tokens: N}`, at least 1,024 and below `max_tokens`; adaptive is not available on this model | **Yes**, up to the budget (1,024 tokens ≈ 7원 at 1,400원/$) |
+
+- **Billing:** thinking tokens are output tokens and arrive in
+  `usage.output_tokens`; a summary is billed as the full thinking, not by
+  its length. So the ledger is already right by construction. The usage
+  event adds `thinking_shown: bool` so Admin and cost-calibration can
+  tell the two kinds of reply apart, and calibration keeps a separate
+  "typical reply" figure for replies with thinking shown.
+- **The estimate before turning it on** comes from that calibration once
+  there is data, and from a configured starting figure per model until
+  then (Opus: +0원).
+- **Thinking blocks are not sent back.** Sonnet 5.5 and Opus 5.5 bind
+  thinking blocks to the model and the conversation ("preserved
+  thinking"), and accounts created on or after 2026-08-31 get a 400 when
+  history containing them is edited, which Chat's history trimming does.
+  Store the summary text for display only and keep sending history as
+  text, as today; a model switch mid-conversation (`chat-model-choice`)
+  then needs nothing special. Confirm this against the reference's model
+  migration guide before building.
+
+1. **A toggle per conversation**, `conversations.show_thinking` (default
+   false), beside the model picker: 생각 과정 보기, showing "답장 1회 약
+   +N원" (or "추가 비용 없음" on Opus) before it is switched on. Changing it
+   is a write, so inactive members cannot.
+2. **Display:** collapsed under the reply as "생각 과정 (N단계)";
+   expanded, the summary split into short numbered steps (by paragraph),
+   as plain text. If the summary is empty (a reply that did not think),
+   nothing is shown.
+3. **Language:** the summary may come back in English even when the
+   reply is in Korean. The build checks what each model actually returns;
+   if it stays English, the collapsed header says "영어로 표시될 수
+   있어요".
+4. **Tests:** the request body per model (between_tools vs adaptive and
+   summarized on Sonnet; display only on Opus; a budget on Haiku); no
+   thinking block is ever sent back in history; `thinking_shown` on the
+   usage event; the estimate shown before enabling; inactive members
+   refused.
+
+## builder-python — full spec
+
+Branch `feat-builder-python`. M2. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> builder-python (extends chat-builder-starter and builder-static-runtime): members can also make small Python apps from Builder, with a working example, and publish them. Python must run in the visitor's browser only (Pyodide or PyScript, loaded from a pinned version), never on our server — CLAUDE.md section 20's rule that member code never runs on the backend stays. Same file, size and sandbox rules as the static apps. Note the cost and load time of Pyodide in the spec.
+
+**Depends on:** `chat-builder-starter` (merged) and **Half 2 of
+`builder-static-runtime`** (the separate apps origin, *After the beta*).
+Today's preview is an `<iframe srcdoc>` whose CSP blocks all network, so
+Pyodide could not be fetched into it; the served apps origin is where it
+can load.
+
+1. **What a Python app is:** the same static project, `index.html` plus
+   `.py` files, where the page loads Pyodide and runs the Python in the
+   browser (WebAssembly). `.py` joins the allowed file types; the file
+   count and the per-file and per-project size limits are the static
+   app's. Nothing is ever executed by the backend, and a test asserts no
+   route imports or runs member files.
+2. **Pyodide, pinned and self-hosted.** One exact Pyodide version, chosen
+   at build time from the current release, served from the apps origin
+   itself (`/_runtime/pyodide/<version>/`) rather than a public CDN, so
+   the apps' CSP can stay `script-src 'self'` and no third party sees
+   visitors. The CSP adds `'wasm-unsafe-eval'`, which WebAssembly needs.
+   Upgrading the version is a deliberate change, never automatic.
+3. **Starter example:** "파이썬으로 만들어 줘" in Chat or Builder makes a
+   small working example, such as a calculator or a word counter (HTML
+   inputs, Python logic, output on the page). Same generation pipeline,
+   pre-check and charge as the static starter.
+4. **Publishing:** exactly as a static app on CtrlAIApps, with a "Python
+   앱 — 처음 열 때 몇 초 걸려요" note on the listing.
+5. **Packages:** only Pyodide's bundled standard library at first.
+   `micropip` installs from the internet are blocked by the CSP
+   (`connect-src 'self'`); adding chosen packages (numpy, pandas) later
+   means self-hosting those wheels too.
+
+**Cost and load time** (the owner asked for these; estimates, to be
+measured):
+
+- **Our cost:** no server CPU, because Python runs on the visitor's
+  device. Claude generation costs the same as for a static app (tokens,
+  pre-checked). Disk: one self-hosted Pyodide core is roughly 10–15 MB
+  (the WebAssembly binary and the packed standard library), shared by
+  every app; numpy or pandas add tens of MB each. Bandwidth: the first
+  visit to any Python app downloads those ~10 MB (less compressed); the
+  browser caches them, and every app on the same origin reuses the
+  cache.
+- **The visitor's load time:** a first open takes roughly 3–10 seconds on
+  a laptop with broadband, longer on a phone on mobile data; later opens
+  take a second or two (cached runtime, Python start-up). The page shows
+  "파이썬을 준비하고 있어요…" while it loads. Measure on the beta VM and a
+  phone before quoting figures to members.
+- **Pyodide or PyScript:** PyScript is a friendlier layer on top of
+  Pyodide (Python in HTML tags), at the price of one more pinned
+  dependency. Recommended: plain Pyodide with a small loader the starter
+  writes; decide at build time.
+
+**Tests:** `.py` accepted within the limits and server-side files still
+refused; the apps origin serves the pinned runtime with the CSP above
+(`script-src 'self'`, `'wasm-unsafe-eval'`, `connect-src 'self'`) and no
+`Set-Cookie`; no backend route executes member code; the starter produces
+an `index.html` that loads the pinned runtime.
+
+**Risks:** load time on phones; memory on low-end phones; a member app
+that loops forever freezes only the visitor's tab (the sandbox, and a
+멈추기 control in the preview); the pinned Pyodide version ageing (review
+it yearly).
 
 → **account-withdrawal — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#account-withdrawal--full-spec-merged-2026-10-07).
 
