@@ -269,24 +269,30 @@ Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **deepseek-research** · M3 (research for more-chat-providers) · branch
+1. **admin-and-nav-cleanup** · M1 · branch `feat-admin-and-nav-cleanup`
+   Added by the owner on 2026-10-14, to be built before the rest of Next.
+   Report Issue and Dev Tools go; the Claude Models table stops
+   overlapping; the section becomes **AI Models**, grouped by provider,
+   with DeepSeek listed as 연결 준비 중. Spec below.
+
+2. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-2. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-4. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day. Report Issue
    (`/issues`) becomes a board: members write notes there and read every
    public note with no names; Admin can hide a note, export notes as
@@ -296,14 +302,14 @@ before the post-beta work, which is specced under **After the beta**.
    on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
    below, with the owner's revision.
 
-5. **token-guard** · M1 · branch `feat-token-guard`
+6. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-6. **live-cost-display** · M1 · branch `feat-live-cost-display`
+7. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -311,14 +317,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-7. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+8. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-8. **builder-python** · M2 · branch `feat-builder-python`
+9. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -590,6 +596,40 @@ Rules all three follow:
 → **chat-plus-rendering — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-rendering--full-spec-merged-2026-10-14).
 
 → **member-password-login — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#member-password-login--full-spec-merged-2026-10-14).
+
+### admin-and-nav-cleanup — full spec
+
+Branch `feat-admin-and-nav-cleanup`. M1. Added by the owner on
+2026-10-14, to be built at once with the run's loop and pre-approval.
+The owner's words, verbatim:
+
+> 1. Remove Report Issue from the menu and remove the /issues page
+>    (redirect /issues to Chat). The 의견 보내기 button in the sidebar
+>    footer stays as the one way to send feedback. Update
+>    anonymous-feedback-board's spec to match: no menu item and no
+>    /issues; its member board is a page reached from a "다른 의견 보기"
+>    link inside the 의견 보내기 dialog. Update CLAUDE.md sections 1 and
+>    15, docs/product.md and sections.ts.
+> 2. Remove Dev Tools from Admin (menu, page, tab). Keep the backend
+>    simulate-usage route only if tests still need it; otherwise remove it
+>    too. Keep python -m app.db.reset_dev.
+> 3. Fix the Claude Models table: in the 공개 범위 column the badge, the
+>    select and the "기본으로" button overlap. One control per cell,
+>    nothing overlapping, at 1280px and at 390px (table scrolls inside its
+>    own box), both themes.
+> 4. Rename the Admin section "Claude Models" to "AI Models" (route can
+>    stay or redirect). Group the catalogue by provider with a heading per
+>    provider: Anthropic (Claude) first. "+ 모델 추가" asks for the
+>    provider first. A provider with no adapter yet is listed as "연결 준비
+>    중", and its models cannot be made visible to members or default
+>    (enforced in the backend, with a test).
+> 5. DeepSeek: merge the docs-deepseek research branch (docs only, owner
+>    approves). Add DeepSeek as a provider entry marked "연결 준비 중" with
+>    the model the research recommends, prices from the research,
+>    visibility disabled. Do not write a real DeepSeek adapter and do not
+>    call any DeepSeek API; the adapter stays in more-chat-providers.
+> 6. Update the section list in CLAUDE.md section 15 and every test that
+>    counts Admin sections.
 
 ### chat-plus-files — full spec
 
