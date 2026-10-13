@@ -472,3 +472,81 @@ It is run from outside the server — by hand or from cron locally, by Cloud
 Scheduler in Phase 9 — and is safe to run again. A withdrawal still
 waiting for its refund is skipped and listed: an account is not finalised
 while money is owed. The audit log is left as written; it is append-only.
+
+## Direction — the product areas ahead
+
+Moved here from `CLAUDE.md` sections 3–8 and 12 (docs-cleanup,
+2026-10-14). Direction, not status: the backlog decides when each part is
+built. The flows every area serves:
+
+`Chat/Idea → Builder → Claude-assisted project → GitHub → Publish → CtrlAIApps`
+`Chat/Idea → Video Generator → Claude assists prompt → Higgsfield generates → library → YouTube → CtrlAITube`
+
+### Chat as the router
+
+Chat is both a general Claude chat and a natural-language way into the
+features — members must never need to know feature names. "가계부 앱
+만들어 줘" offers Project Builder; "도쿄 밤거리 15초 쇼츠" offers Video
+Generator; "크레딧 얼마 남았어?" shows the wallet; "지난 분기에 만든 앱"
+routes to Profile. Simple explicit routing (the action markers Phase 2
+built) stays enough — no complex agent router.
+
+### Project Builder
+
+Long-term: `prompt → project files → preview → edit → GitHub → publish`,
+with a browser editor (file tree, tabs, preview, build output, Claude
+panel — Monaco later). Claude works through a controlled backend coding
+workflow, never a raw provider key in the browser. **Arbitrary member
+code never runs on the main backend**; live execution needs the later
+isolated runtime (builder-static-runtime and after). Per-member GitHub
+arrives as a **GitHub App** with fine-grained repository permissions —
+members are never asked for personal access tokens, and GitHub is
+optional for using CTRL+AI.
+
+### CtrlAIApps (route `/ctrlaistore`)
+
+The community surface for published apps (Phase 5). Publishing creates a
+listing separate from the private project. Browse/search, app detail
+(name, screenshots, description, developer with membership status,
+launch button, GitHub link only if the developer made it public), simple
+reactions (Like / Useful / Interesting), threaded comments. Published
+apps stay visible when their developer is no longer participating —
+attribution is never erased, a former member shows as 탈퇴 회원.
+**Every listing query filters the project's `deleted_at`** — deleting is
+soft, and work a member removed must not survive on the one screen they
+cannot control.
+
+### Video Generator
+
+Claude (scripts/prompt help) and Higgsfield (generation) stay separate
+responsibilities behind their providers. Model-driven settings come from
+the `VideoModel` catalogue (admin allowlist, enforced in the backend).
+Later: model selector growth, templates, image-to-video, other providers
+behind the same `VideoGenerationProvider` seam.
+
+### YouTube (Phase 7)
+
+Per-member Google OAuth by **incremental authorization** — sign-in asks
+only `openid email profile`; the upload scope is asked for later, from
+Profile › YouTube 연결. Upload with title/description/privacy, store the
+returned video id, embed it. Until Google's audit passes, API uploads are
+restricted to private — public publishing is a deployment/compliance
+step, not a code step. Client secret and refresh tokens never reach the
+browser.
+
+### CtrlAITube (Phase 8)
+
+The community feed embeds YouTube videos (CTRL+AI stores the video id,
+never the file). **Entries can be created from a pasted YouTube URL**, so
+Phase 8 does not depend on Phase 7. CTRL+AI reactions and comments live
+in CTRL+AI PostgreSQL, deliberately separate from YouTube comments (an
+optionally shown, clearly labelled YouTube-comments section is fine —
+never mixed). The same `deleted_at` listing rule as CtrlAIApps.
+
+### Admin, eventually
+
+Beyond what exists (members, quarters, applications, wallets, budget by
+provider, catalogues, feedback, deleted items, audit log): content
+moderation — hide an app or video, moderate comments, disable a member's
+publishing. Admin can choose what simplified units members see; the club
+buys credit per provider, so Budget stays the purchase evidence.
