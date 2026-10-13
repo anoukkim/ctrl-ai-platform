@@ -288,9 +288,17 @@ export default function ChatWorkspace() {
   /**
    * 기능 둘러보기 카드: 예시 문장을 입력창에 채우고 커서를 끝에 둡니다.
    * 보내지는 않습니다 — 회원이 모델과 예상 비용을 보고 직접 보냅니다.
+   * 이미 직접 쓴 글이 있으면 지우지 않고 그 아래에 덧붙입니다. 다른 예시를
+   * 고른 것뿐이면 바꿔 넣습니다.
    */
   const fillExample = useCallback((example: ChatExample) => {
-    setDraft(example.prompt);
+    setDraft((current) => {
+      const typed = current.trim();
+      if (!typed || CHAT_EXAMPLES.some((other) => other.prompt.trim() === typed)) {
+        return example.prompt;
+      }
+      return `${current.trimEnd()}\n\n${example.prompt}`;
+    });
     requestAnimationFrame(() => {
       const node = textareaRef.current;
       if (!node) return;
@@ -581,7 +589,8 @@ export default function ChatWorkspace() {
 
                 <h2 className={styles.examplesTitle}>기능 둘러보기</h2>
                 <p className={styles.examplesHint}>
-                  카드를 누르면 예시 문장이 입력창에 들어갑니다. 고친 뒤 보내 보세요.
+                  카드를 누르면 예시 문장이 입력창에 들어갑니다. 그대로 보내거나 고쳐서 보내
+                  보세요.
                 </p>
                 <div className={styles.shortcuts}>
                   {CHAT_EXAMPLES.map((example) => {
@@ -620,7 +629,15 @@ export default function ChatWorkspace() {
                     {(message.content || message.streaming) && (
                       <div className={styles.bubble}>
                         {message.role === "assistant" && message.content ? (
-                          <ChatMarkdown text={message.content} streaming={message.streaming} />
+                          <ChatMarkdown
+                            text={message.content}
+                            streaming={message.streaming}
+                            tail={
+                              message.streaming ? (
+                                <span className={styles.caret} aria-label="답장을 쓰는 중" />
+                              ) : undefined
+                            }
+                          />
                         ) : (
                           message.content
                         )}
@@ -632,9 +649,6 @@ export default function ChatWorkspace() {
                             <span aria-hidden="true" />
                             <span className="sr-only">답장을 쓰는 중</span>
                           </span>
-                        )}
-                        {message.streaming && message.content && (
-                          <span className={styles.caret} aria-label="답장을 쓰는 중" />
                         )}
                       </div>
                     )}

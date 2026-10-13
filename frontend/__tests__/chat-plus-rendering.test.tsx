@@ -132,6 +132,36 @@ describe("ChatMarkdown", () => {
     expect(container.textContent).not.toContain("|");
   });
 
+  test("a Korean range with one ~ is not struck out; ~~two~~ is", () => {
+    const { container } = render(<ChatMarkdown text={"하루 30~40분, 주 3~4회. ~~취소~~"} />);
+    expect(container.querySelectorAll("del").length).toBe(1);
+    expect(container.querySelector("del")?.textContent).toBe("취소");
+    expect(container.textContent).toContain("30~40분, 주 3~4회");
+  });
+
+  test("a single line break stays a line break, as in replies saved before Markdown", () => {
+    const { container } = render(<ChatMarkdown text={"첫 줄\n둘째 줄\n\n```\na\nb\n```"} />);
+    expect(container.querySelectorAll("p br").length).toBe(1);
+    expect(container.querySelector("pre code")?.textContent).toBe("a\nb\n");
+  });
+
+  test("a half-arrived fence line is held back instead of flashing backticks", () => {
+    expect(prepareStreaming("코드예요.\n``")).toBe("코드예요.");
+    expect(prepareStreaming("```html\n<p>a</p>\n``")).toBe("```html\n<p>a</p>\n```");
+    // 정보 줄에 백틱이 있으면 여는 줄이 아닙니다.
+    expect(prepareStreaming("```code``` 이렇게")).toBe("```code``` 이렇게");
+    // 언어 이름이 붙은 줄은 닫는 줄이 아닙니다.
+    expect(prepareStreaming("```\na\n```js\nb")).toBe("```\na\n```js\nb\n```");
+  });
+
+  test("the typing caret sits right after the last word", () => {
+    const { container } = render(
+      <ChatMarkdown text={"쓰는 중"} streaming tail={<span data-testid="caret" />} />,
+    );
+    expect(screen.getByTestId("caret").previousElementSibling?.tagName).toBe("P");
+    expect(container.querySelector("p")?.textContent).toBe("쓰는 중");
+  });
+
   test("a closed fence is left alone and pipes inside code stay", () => {
     const text = "```\n| a |\n```";
     expect(prepareStreaming(text)).toBe(text);
@@ -209,6 +239,14 @@ describe("기능 둘러보기", () => {
     }
     expect(chatApi.createConversation).not.toHaveBeenCalled();
     expect(chatApi.sendMessage).not.toHaveBeenCalled();
+  });
+
+  test("a card does not wipe what the member already typed", async () => {
+    await renderChat();
+    const box = screen.getByLabelText("CTRL+AI에게 보낼 메시지") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "내가 쓴 글" } });
+    fireEvent.click(screen.getByRole("button", { name: /표 만들기/ }));
+    expect(box.value).toBe(`내가 쓴 글\n\n${CHAT_EXAMPLES[0].prompt}`);
   });
 
   test("a member not taking part this quarter cannot fill the composer", async () => {

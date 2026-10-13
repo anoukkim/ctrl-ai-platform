@@ -946,6 +946,7 @@ def test_the_system_prompt_says_markdown_is_rendered() -> None:
     assert "renders Markdown" in CHAT_SYSTEM_PROMPT
     assert "table" in CHAT_SYSTEM_PROMPT and "fenced block" in CHAT_SYSTEM_PROMPT
     assert "Korean" in CHAT_SYSTEM_PROMPT
+    assert "cannot draw charts" in CHAT_SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize(
@@ -954,6 +955,7 @@ def test_the_system_prompt_says_markdown_is_rendered() -> None:
         ("서울 여행 2박 3일 일정을 표로 정리해 줘", "| 날 |"),
         ("동아리 소개 한 장짜리 웹페이지를 만들어 줘", "```html"),
         ("회원 수로 차트를 그려 줘", "```svg"),
+        ("회원 수가 12명, 18명이야. 차트로 보여 줘", "```svg"),
         ("아래 글을 세 줄로 요약해 줘:", "세 줄로 요약"),
     ],
 )
@@ -973,3 +975,43 @@ def test_the_mock_shows_what_the_screen_renders(ask: str, expected: str) -> None
         return text
 
     assert expected in asyncio.run(collect())
+
+
+
+@pytest.mark.parametrize(
+    ("ask", "action", "expected"),
+    [
+        ("투표를 받는 앱 만들어 줘", "builder", "Project Builder"),
+        ("목표를 기록하는 앱 만들어 줘", "builder", "Project Builder"),
+        ("차트 있는 가계부 앱 만들어 줘", "builder", "Project Builder"),
+        ("쇼핑몰 홈페이지 만들고 싶어", "builder", "Project Builder"),
+        ("가격 비교 앱 만들어 줘", "builder", "Project Builder"),
+        ("내가 만든 프로젝트 정리해 줘", None, "Project Builder에 모여"),
+        ("사용량 요약해 줘", None, "Usage"),
+    ],
+)
+def test_the_canned_examples_do_not_shadow_routing(
+    ask: str, action: str | None, expected: str
+) -> None:
+    import asyncio
+
+    from app.services.claude_provider import (
+        ChatRequest,
+        MockClaudeProvider,
+        TextDelta,
+        _CHAT_RULES,
+    )
+
+    async def collect() -> str:
+        text = ""
+        request = ChatRequest(
+            system="s", messages=[{"role": "user", "content": ask}], max_tokens=4096
+        )
+        async for event in MockClaudeProvider().stream_chat(request):
+            if isinstance(event, TextDelta):
+                text += event.text
+        return text
+
+    assert expected in asyncio.run(collect())
+    matched = next((rule for rule in _CHAT_RULES if rule[0].search(ask)), None)
+    assert matched is not None and matched[2] == action

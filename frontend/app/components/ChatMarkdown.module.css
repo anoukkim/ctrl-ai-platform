@@ -14,6 +14,12 @@
   margin-bottom: 0;
 }
 
+/* 답장을 쓰는 중: 마지막 문단을 줄 안에 두어 깜빡이가 글자 바로 뒤에
+   붙게 합니다. 표나 코드가 마지막이면 그 아래에 붙습니다. */
+.withTail > p:nth-last-child(2) {
+  display: inline;
+}
+
 .markdown p,
 .markdown ul,
 .markdown ol,
