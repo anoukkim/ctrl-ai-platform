@@ -115,7 +115,13 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     return () => {
-      if (opener && typeof opener.focus === "function") opener.focus();
+      // On a phone the opener sits in the menu, which closed when the guide
+      // opened; then the top bar's menu button is the nearest place.
+      const target =
+        opener && opener.offsetParent !== null
+          ? opener
+          : document.querySelector<HTMLElement>("[aria-controls='primary-navigation']");
+      target?.focus();
     };
   }, []);
   const last = step === GUIDE_STEPS.length - 1;

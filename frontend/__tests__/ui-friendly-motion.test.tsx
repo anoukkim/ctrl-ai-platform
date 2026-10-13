@@ -57,6 +57,7 @@ beforeEach(() => {
 
 afterEach(() => {
   setReducedMotion(false);
+  MotionGlobalConfig.skipAnimations = false;
 });
 
 describe("움직임 줄이기", () => {
@@ -77,6 +78,8 @@ describe("움직임 줄이기", () => {
   });
 
   test("motion의 움직임도 모두 건너뛴다 (흐려짐 포함)", async () => {
+    // skipAnimations is the switch motion-dom checks for every animation,
+    // opacity included; jsdom cannot time a fade, so the switch is checked.
     setReducedMotion(true);
     render(
       <MotionRoot>
@@ -84,8 +87,7 @@ describe("움직임 줄이기", () => {
       </MotionRoot>,
     );
     await waitFor(() => expect(MotionGlobalConfig.skipAnimations).toBe(true));
-    setReducedMotion(false);
-    MotionGlobalConfig.skipAnimations = false;
+
   });
 
   test("움직임을 켜 두면 새 값까지 세어 간다", async () => {
