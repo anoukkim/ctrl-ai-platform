@@ -282,9 +282,9 @@ items are specced under **After the beta** below and are not in this
 list. `chat-model-choice`, added at the top the same day, has merged
 and left it.
 
-**Items 1–4 were put at the top by the developer** (1, 3 and 4 on
-2026-10-08; 2, prompt-caching, on 2026-10-13). Everything below them moved
-down four places.
+**Items 1–6 were put at the top by the developer** (1, 5 and 6 on
+2026-10-08; 2, 3 and 4 on 2026-10-13). Everything below them moved down
+six places.
 
 1. **single-wallet** · M1 · branch `feat-single-wallet`
    Members no longer split their quarter support. One 동아리 지원 wallet
@@ -302,59 +302,73 @@ down four places.
    more than it must. Takes over `chat-plus-files` point 5. Built on
    single-wallet's ledger, so it merges after it. Spec below.
 
-3. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+3. **cost-calibration** · M1 · branch `feat-cost-calibration` (from
+   `feat-prompt-caching`)
+   Added by the developer on 2026-10-13: the cost estimates learn from the
+   real token counts the API reports — "답장 1회 약 N원", the pre-check's
+   input estimate, and an Admin view comparing estimate and reality.
+   Spec below.
+
+4. **chat-builder-starter** · M1 (a first slice of M2's
+   builder-static-runtime) · branch `feat-chat-builder-starter` (from
+   `feat-cost-calibration`)
+   Added by the developer on 2026-10-13: when a member asks Chat for an
+   app, Project Builder makes a small working example app (static HTML /
+   CSS / JS) and shows it in a sandboxed preview. Spec below.
+
+5. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
    Friendlier, less developer-like screens with short, tasteful motion
    (the `motion` library), plain-Korean copy, empty states and a
    first-visit guide. **Starts after single-wallet is merged.** Spec saved
    verbatim below.
 
-4. **deepseek-research** · M3 (research for more-chat-providers) · branch
+6. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-5. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+7. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-6. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+8. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-7. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+9. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-8. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+10. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-9. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+11. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-   **Open check before item 10 — Phase 2's point 10 (real key).** One
+   **Open check before item 12 — Phase 2's point 10 (real key).** One
    short real message with the owner's key; see **Now**. Not a branch,
    but `prep-beta-launch` does not start until it has been run.
 
-10. **prep-beta-launch** · M1 · no branch named yet
+12. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 9**, nor before Phase 2's point 10.
+   **Do not start before item 11**, nor before Phase 2's point 10.
    Running the suite against a live database is a different order of
    mistake once the database holds members' work rather than one
    developer's test rows. **Storage on the VM** now also holds chat
@@ -679,6 +693,62 @@ cache writes and reads at their own prices). What this item does:
 5. **Admin can see it working:** Admin › Budget shows cache reads and
    writes per provider and the share of input served from cache; Admin ›
    System shows the cache settings.
+
+## cost-calibration — full spec
+
+Branch `feat-cost-calibration`, from `feat-prompt-caching`. M1. Added
+2026-10-13. The developer's request, saved exactly as written (the second
+half is `chat-builder-starter`), and the answer to the one question asked:
+
+> add calibrastion and connect the chatting prompt with the builder ex. when i want to make an app it makes a initial example app. also tell me what features are not avilabe in chat currenly (ex. creating graphs uploading/downoading files etc) and list
+
+> Q: "Calibration"은 어떤 뜻인가요? — A: **비용 보정** (실제 API가 알려 준 토큰 수로 우리 쪽 어림값 — 1글자=1토큰, "답장 1회 약 N원", 보내기 전 최악의 경우 금액 — 을 자동으로 맞춥니다)
+
+1. Every Chat usage event records the **input estimate** made before the
+   call (a new column), next to the tokens the API actually reported.
+2. Per model, from the most recent real replies: the ratio of real prompt
+   tokens to the estimate, the typical output length, and the median cost
+   of a reply (caching included).
+3. **"답장 1회 약 N원"** uses that median once a model has enough replies
+   (10), and says so ("최근 N회 기준"); before that, the formula as today.
+4. **The pre-check** prices the input at the calibrated ratio plus a
+   safety margin instead of one token per character — never above the old
+   figure, and the output side stays the full worst case, so a member is
+   still never let through who cannot pay.
+5. **Admin › Claude Models › 비용 보정**: per model, replies counted,
+   estimate vs real input, average output, average and median cost, cache
+   hit rate — the numbers to compare with the Anthropic Console.
+6. History trimming is **not** calibrated: changing its limit with the
+   ratio would move the cut and break the prompt cache.
+
+## chat-builder-starter — full spec
+
+Branch `feat-chat-builder-starter`, from `feat-cost-calibration`. Added
+2026-10-13 (request above), answer to the question asked:
+
+> Q: Chat에서 '앱 만들어 줘'라고 하면 예시 앱을 어디까지 만들어 줄까요? — A: **생성 + 미리보기** ('Project Builder에서 시작'을 누르면 Claude가 index.html/style.css/app.js로 된 작은 예시 앱을 만들고, 작업 공간에서 바로 보고 고칠 수 있게 합니다. 미리보기는 네트워크와 쿠키가 막힌 샌드박스 iframe입니다. 만들기 전에 예상 비용을 보여 주고, 지원금에서 차감합니다.)
+
+A first slice of `builder-static-runtime` Half 1 (M2), pulled forward.
+Static files only; nothing runs on the backend (CLAUDE.md section 20).
+
+1. **From Chat:** the builder action button opens the new-project form
+   with the idea filled in, as today, plus **예시 앱까지 만들기** (on by
+   default) showing the estimate before anything is spent.
+2. **Generation:** `POST /api/builder/projects/{id}/starter` — Claude (the
+   catalogue default model, through the provider interface, mock by
+   default) returns the files as structured JSON; the backend checks every
+   path and size (`index.html` required; html/css/js/json/svg/md/txt
+   only; at most 10 files, 100 KB each, 300 KB together; no `..`, no
+   hidden files) and stores them as `BuilderProjectFile` rows in the same
+   transaction as the charge. Wallet pre-check against the worst case
+   first; a failed call is free.
+3. **Workspace:** the file tree and the code view show the project's real
+   files (read-only for now); the preview runs `index.html` with its CSS
+   and JS inlined in an `<iframe srcdoc>` with `sandbox="allow-scripts"`
+   only and a CSP that blocks all network, behind a label saying it is a
+   safe preview. A project with no files can ask for a starter there too.
+4. **Not in this item:** editing files by chatting with Claude (the
+   workspace's Claude panel), saving edits, server code, publishing.
 
 ## ui-friendly-motion — full spec
 
