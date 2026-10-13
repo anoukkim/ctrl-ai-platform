@@ -33,12 +33,9 @@ from app.models import (
 )
 from app.services import audit
 from app.services import quarter_budget as quarter_budget_service
-from app.services import usage as usage_service
 from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
 from app.services.wallet import get_or_create_balance
-from app.models.usage import spending_group
-from app.schemas.usage import SimulateUsageRequest, UsageEventRead
 from app.schemas.quarter import (
     AllocationAdjust,
     AllocationRead,
@@ -635,76 +632,3 @@ def read_audit_log(
         )
         for row in audit.recent(db)
     ]
-
-
-@router.post(
-    "/simulate-usage",
-    response_model=UsageEventRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Development only: record a charge through the real budget service",
-)
-def simulate_usage(
-    payload: SimulateUsageRequest,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-    settings: Settings = Depends(get_settings),
-) -> UsageEventRead:
-    """Spend a member's budget without calling a provider.
-
-    This exists so the Usage screen and the audit log can be exercised
-    before any provider is connected (Phases 2 and 6). It deliberately
-    goes through the same `charge()` the real providers will use — a
-    shortcut that wrote its own ledger row would prove nothing about the
-    code that matters.
-
-    **Returns 404 outside development**, not 403: in a deployed
-    environment this endpoint should not appear to exist at all. 404 is
-    also what FastAPI returns for an unknown path, so the response is
-    indistinguishable from the route being absent.
-    """
-    if not settings.is_development:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-
-    target = db.get(User, payload.user_id) if payload.user_id else admin
-    if target is None:
-        raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
-
-    try:
-        result = usage_service.charge(
-            db,
-            user=target,
-            amount_krw=payload.amount_krw,
-            provider=payload.provider,
-            feature=payload.feature.value if payload.feature else None,
-            model_id=payload.model_id,
-        )
-    except usage_service.NoQuarterError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-    except usage_service.InsufficientBudgetError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    # Logged like any other admin action: this moves someone's money.
-    audit.record(
-        db,
-        actor=admin,
-        action=AuditAction.USAGE_SIMULATED,
-        target_type="user",
-        target_id=target.id,
-        target_label=target.username,
-        summary=(
-            f"{target.display_name}의 지원금에서 {payload.amount_krw:,}원을 "
-            f"시뮬레이션으로 사용했습니다({payload.provider})."
-        ),
-        detail={
-            "provider": payload.provider,
-            "feature": payload.feature.value if payload.feature else None,
-            "funding_source": result.funding_source.value,
-        },
-    )
-    db.commit()
-
-    return UsageEventRead(
-        **UsageEventRead.model_validate(result.event).model_dump(exclude={"label", "group"}),
-        group=spending_group(result.event.feature),
-        label="시뮬레이션",
-    )

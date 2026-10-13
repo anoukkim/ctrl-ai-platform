@@ -2,7 +2,7 @@
 
 Two figures decide what every Chat reply and prompt-helper call costs a
 member: the per-model token price and the won-per-dollar rate. The rate
-is edited here; the prices live with the models in Admin › Claude Models
+is edited here; the prices live with the models in Admin › AI Models
 (`admin_chat_models.py`). Both changes are written to the audit log,
 because they move what every later call is charged.
 

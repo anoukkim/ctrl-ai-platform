@@ -49,6 +49,8 @@ class AuditAction:
     ALLOCATION_ADJUSTED = "allocation.adjusted"
     TOPUP_CONFIRMED = "topup.confirmed"
     TOPUP_REJECTED = "topup.rejected"
+    # The usage simulator (removed 2026-10-14, admin-and-nav-cleanup); kept
+    # so its old audit rows still read.
     USAGE_SIMULATED = "usage.simulated"
     # A project or video an admin removed, or put back. A member deleting
     # their own work is not an admin change and is not logged here; an
@@ -122,8 +124,8 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.PASSWORD_SET: "비밀번호 로그인 추가",
     AuditAction.PASSWORD_CHANGED: "비밀번호 변경",
     AuditAction.PASSWORD_REMOVED: "비밀번호 로그인 삭제",
-    AuditAction.CHAT_MODEL_CREATED: "Claude 모델 추가",
-    AuditAction.CHAT_MODEL_UPDATED: "Claude 모델 변경",
+    AuditAction.CHAT_MODEL_CREATED: "AI 모델 추가",
+    AuditAction.CHAT_MODEL_UPDATED: "AI 모델 변경",
 }
 
 

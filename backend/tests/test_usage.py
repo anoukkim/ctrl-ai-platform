@@ -307,50 +307,6 @@ def test_usage_me_requires_signing_in(anon_client: TestClient) -> None:
     assert anon_client.get("/api/usage/me").status_code == 401
 
 
-# ------------------------------------------------------------ simulate
-
-
-def test_simulate_usage_charges_through_the_real_service(
-    client: TestClient, dev_user, funded, db_session: Session
-) -> None:
-    response = client.post(
-        "/api/admin/simulate-usage",
-        json={"amount_krw": 5_000, "provider": "claude", "feature": "chat"},
-    )
-
-    assert response.status_code == 201
-    allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.consumed_krw == 5_000
-    assert db_session.query(UsageEvent).count() == 1
-
-
-def test_simulate_usage_is_absent_outside_development(
-    client: TestClient, dev_user, funded, monkeypatch
-) -> None:
-    """404, not 403 — in a deployed environment the route should look absent."""
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    monkeypatch.setattr(settings, "app_env", "production")
-
-    response = client.post(
-        "/api/admin/simulate-usage",
-        json={"amount_krw": 5_000, "provider": "claude"},
-    )
-
-    assert response.status_code == 404
-
-
-def test_simulate_usage_rejects_a_member(other_client: TestClient, funded) -> None:
-    assert (
-        other_client.post(
-            "/api/admin/simulate-usage",
-            json={"amount_krw": 1_000, "provider": "claude"},
-        ).status_code
-        == 403
-    )
-
-
 # --------------------------------------------------------------- audit
 
 

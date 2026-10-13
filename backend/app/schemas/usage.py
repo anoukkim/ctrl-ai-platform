@@ -67,13 +67,3 @@ class MyUsage(BaseModel):
     breakdown: list[SpendingLine] = Field(default_factory=list)
     personal: PersonalUsage | None = None
     events: list[UsageEventRead] = Field(default_factory=list)
-
-
-class SimulateUsageRequest(BaseModel):
-    """Development-only: pretend a provider charged someone."""
-
-    user_id: int | None = None
-    amount_krw: int = Field(ge=0, le=1_000_000)
-    provider: str = Field(default="claude", max_length=50)
-    feature: UsageFeature | None = None
-    model_id: str | None = Field(default=None, max_length=120)

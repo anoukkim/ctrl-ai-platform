@@ -418,6 +418,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
+    ("GET", "/api/admin/chat-models/providers"): "require_admin",
     ("GET", "/api/admin/chat-models/calibration"): "require_admin",
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/invites"): "require_admin",
@@ -428,7 +429,6 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/claude-pricing/exchange-rate"): "require_admin",
     ("GET", "/api/admin/providers"): "require_admin",
     ("POST", "/api/admin/providers/{provider}/check"): "require_admin",
-    ("POST", "/api/admin/simulate-usage"): "require_admin",
     # Deleted work. Admin-only and deliberately *not* participation-gated:
     # moderating is not creating, so an admin who did not join this
     # quarter can still restore a member's project.
