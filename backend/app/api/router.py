@@ -11,6 +11,7 @@ from app.api.routes import (
     admin,
     admin_chat_models,
     admin_claude,
+    admin_invites,
     admin_overview,
     admin_quarters,
     admin_withdrawals,
@@ -38,6 +39,7 @@ api_router.include_router(usage.router)
 api_router.include_router(admin.router)
 api_router.include_router(admin_claude.router)
 api_router.include_router(admin_chat_models.router)
+api_router.include_router(admin_invites.router)
 api_router.include_router(admin_quarters.router)
 api_router.include_router(admin_overview.router)
 api_router.include_router(admin_work.router)

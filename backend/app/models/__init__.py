@@ -13,6 +13,7 @@ from app.models.provider import (
     ProviderErrorKind,
     ProviderStatus,
 )
+from app.models.invite import InviteCode, InviteStatus
 from app.models.pricing import ChatModel, ChatModelVisibility, ExchangeRate
 from app.models.quarter import (
     ApplicationStatus,
@@ -51,6 +52,8 @@ __all__ = [
     "ChatModel",
     "ChatModelVisibility",
     "Conversation",
+    "InviteCode",
+    "InviteStatus",
     "ExchangeRate",
     "AccountWithdrawal",
     "GRACE_PERIOD_DAYS",

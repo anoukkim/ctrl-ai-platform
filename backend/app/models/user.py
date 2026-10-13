@@ -2,7 +2,7 @@
 
 import enum
 
-from sqlalchemy import Enum, String
+from sqlalchemy import Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -79,6 +79,20 @@ class User(TimestampMixin, Base):
         status_enum(AccountStatus, "account_status"),
         default=AccountStatus.ACTIVE,
         nullable=False,
+    )
+    #: The invite code this account signed up with (invite-only-signup).
+    #: NULL for accounts created before codes existed, and for seeded ones.
+    invite_code_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "invite_codes.id",
+            ondelete="SET NULL",
+            # invite_codes.created_by points back at users: a cycle, so this
+            # side is added after both tables exist.
+            use_alter=True,
+            name="fk_users_invite_code_id",
+        ),
+        nullable=True,
+        index=True,
     )
 
     @property
