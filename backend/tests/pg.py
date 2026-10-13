@@ -145,26 +145,24 @@ class UnsafeTestDatabase(Exception):
 
 
 def _server_identity(engine: Engine) -> tuple:
+    """Which database on which server — as the server itself says.
+
+    Not the address: the same server answers on `::1` and on 127.0.0.1, and
+    through a socket with none. Its start time and port tell servers apart.
+    """
     with engine.connect() as conn:
         return tuple(
             conn.execute(
                 text(
-                    "SELECT current_database(), inet_server_addr()::text, "
-                    "inet_server_port(), pg_postmaster_start_time()::text"
+                    "SELECT current_database(), inet_server_port(), "
+                    "pg_postmaster_start_time()::text"
                 )
             ).one()
         )
 
 
-def prove_separate(test_url: str, app_url: str, engine: Engine) -> None:
-    """Raise unless `engine` is certainly the test database and not the app's.
-
-    The URL comparison (`refusal`) runs first, at session start. This runs
-    again right before anything is dropped, and checks what the server
-    itself reports, because a URL can reach a database it does not name:
-    no database name (libpq then uses the user name), `?dbname=` in the
-    query, `PGDATABASE`, or another spelling of the host.
-    """
+def check_url(test_url: str, app_url: str) -> None:
+    """The checks that need no connection — run before anything is created."""
     message = refusal(test_url, app_url)
     if message:
         raise UnsafeTestDatabase(message)
@@ -183,6 +181,19 @@ def prove_separate(test_url: str, app_url: str, engine: Engine) -> None:
             f"TEST_DATABASE_URL may not set {', '.join(sorted(redirecting))} in its query: "
             f"{shown(test_url)}"
         )
+
+
+def prove_separate(test_url: str, app_url: str, engine: Engine) -> None:
+    """Raise unless `engine` is certainly the test database and not the app's.
+
+    The URL comparison (`refusal`) runs first, at session start. This runs
+    again right before anything is dropped, and checks what the server
+    itself reports, because a URL can reach a database it does not name:
+    no database name (libpq then uses the user name), `?dbname=` in the
+    query, `PGDATABASE`, or another spelling of the host.
+    """
+    check_url(test_url, app_url)
+    name = make_url(test_url).database or ""
     test_identity = _server_identity(engine)
     if test_identity[0] != name:
         raise UnsafeTestDatabase(

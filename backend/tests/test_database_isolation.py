@@ -206,6 +206,8 @@ def test_urls_that_could_reach_another_database_are_refused(url: str, reason: st
             raise AssertionError("connected before refusing")
 
     with pytest.raises(pg.UnsafeTestDatabase, match=reason):
+        pg.check_url(url, "postgresql+psycopg://x:x@127.0.0.1:1/none")
+    with pytest.raises(pg.UnsafeTestDatabase, match=reason):
         pg.prove_separate(url, "postgresql+psycopg://x:x@127.0.0.1:1/none", NeverConnects())
 
 
@@ -217,3 +219,17 @@ def test_the_real_test_database_is_proved_separate(pg_engine) -> None:
         make_url(pg.configured_url()).set(database="postgres").render_as_string(hide_password=False),
         pg_engine,
     )
+
+
+def test_the_server_comparison_catches_what_the_urls_hide(pg_engine) -> None:
+    """A "developer" URL that names another database but reaches the test
+    one through `?dbname=`: the URLs differ, the server says they match."""
+    disguised = (
+        make_url(pg.configured_url())
+        .set(database="something_else")
+        .update_query_dict({"dbname": make_url(pg.configured_url()).database})
+        .render_as_string(hide_password=False)
+    )
+    assert pg.refusal(pg.configured_url(), disguised) is None
+    with pytest.raises(pg.UnsafeTestDatabase, match="same database on the same server"):
+        pg.prove_separate(pg.configured_url(), disguised, pg_engine)
