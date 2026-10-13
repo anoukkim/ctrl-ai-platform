@@ -44,6 +44,8 @@ async function fillSignup(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("이름"), "새 회원");
   await user.type(screen.getByLabelText("이메일"), "new@ctrl.ai");
   await user.type(screen.getByLabelText("비밀번호"), "a-good-password");
+  // privacy-and-terms: 동의해야 가입 단추가 켜집니다.
+  await user.click(screen.getByRole("checkbox"));
 }
 
 describe("가입 화면", () => {
