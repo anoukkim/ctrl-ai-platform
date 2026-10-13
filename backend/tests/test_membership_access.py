@@ -427,6 +427,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/invites/{invite_id}/reactivate"): "require_admin",
     ("PATCH", "/api/admin/chat-models/{chat_model_id}"): "require_admin",
     ("POST", "/api/admin/claude-pricing/exchange-rate"): "require_admin",
+    # token-guard: the chat limits, edited like the rate.
+    ("POST", "/api/admin/claude-pricing/chat-limits"): "require_admin",
     ("GET", "/api/admin/providers"): "require_admin",
     ("POST", "/api/admin/providers/{provider}/check"): "require_admin",
     # Deleted work. Admin-only and deliberately *not* participation-gated:
