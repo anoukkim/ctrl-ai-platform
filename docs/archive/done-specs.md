@@ -1335,3 +1335,51 @@ section would.
 > 8. Existing accounts are unaffected by the migration.
 >
 > Tests: signup without a code or with an invalid, expired, exhausted or deactivated code is refused with the same message; a valid code creates the account and increments its uses; the last use cannot be taken twice concurrently; the pre-filled signup link works; admin actions are audited; code management is admin-only.
+
+---
+
+## test-database-isolation — full spec (merged 2026-10-13)
+
+Branch `fix-test-database-isolation`. **Must land before
+`prep-beta-launch`.** Raised 2026-10-07.
+
+> **The problem.** `tests/test_usage.py` proves the budget row lock, and
+> SQLite ignores `SELECT ... FOR UPDATE`, so that one test needs real
+> PostgreSQL. It gets it by calling `get_settings().database_url` — the
+> developer's own database — and then runs
+> `Base.metadata.create_all(bind=engine)` against it.
+>
+> Two consequences, both seen for real on 2026-10-07:
+>
+> 1. Running the suite on a branch **creates that branch's new tables in
+>    the development database**, without recording anything in
+>    `alembic_version`. The result is a database holding part of a
+>    branch's schema and none of its migrations, which is exactly the
+>    state in which `alembic upgrade head` later fails with
+>    `relation "builder_project_files" already exists`.
+> 2. The test writes rows (members, quarters, allocations) into the
+>    database the developer is looking at while they work.
+>
+> **What to build.**
+>
+> - A dedicated test database, from its own setting — `TEST_DATABASE_URL`,
+>   defaulting to something obviously separate such as
+>   `postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai_test`.
+> - **Refuse to run if it resolves to the same database as
+>   `DATABASE_URL`.** Compare the parsed database name and host, not the
+>   raw string: the same database can be written two ways. A test that
+>   silently falls back to the developer's database is the bug being
+>   fixed, so the failure must be loud and must name both URLs.
+> - Skip politely, as today, when no test database is reachable — the
+>   suite must still run with Docker down.
+> - Create the schema from **migrations** (`alembic upgrade head`) rather
+>   than `create_all`, so what the tests run against is what production
+>   runs against. `create_all` is what let the schemas drift apart in the
+>   first place.
+> - Drop or truncate what the test created afterwards.
+>
+> Tests: the suite leaves `DATABASE_URL`'s database untouched (compare
+> the table list and `alembic_version` before and after a full run); the
+> guard refuses when both URLs name the same database, including when
+> they are spelled differently; the row-lock test still proves
+> overspending is impossible.

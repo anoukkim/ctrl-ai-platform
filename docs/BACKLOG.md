@@ -18,9 +18,12 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Nothing is in progress.** `invite-only-signup` merged 2026-10-13 and is
-deployed to `ctrlai-server` with `prep-beta-launch`, on mock providers;
-caddy waits for the A record. Next is `test-database-isolation`.
+**Unattended run of 2026-10-13 in progress** — the owner's instruction
+to build every item in Next that needs no domain, real key or cloud
+change, merging each after the full loop. Progress and the board:
+[`progress/RUN-2026-10-13.md`](progress/RUN-2026-10-13.md).
+`invite-only-signup` (merged 2026-10-13) is deployed to `ctrlai-server`
+with `prep-beta-launch`, on mock providers; caddy waits for the A record.
 
 **Working order set by the developer (2026-10-08)** — done except
 `ui-friendly-motion` (now item 3 of Next) and `deepseek-research`
@@ -266,21 +269,7 @@ Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
-   ⚠ Was due before `prep-beta-launch`, which merged first on 2026-10-13;
-   the beta does not open to members until this lands. Spec below.
-   The test suite writes to the database named by `DATABASE_URL` — the
-   one the developer runs the product on. Found on 2026-10-07, after it
-   put a branch's table into the development database and left
-   `alembic upgrade head` unable to run.
-
-   **Open check before the beta opens to members — Phase 2's point 10
-   (real key).** One short real message with the owner's key; see
-   **Now**. Not a branch. `prep-beta-launch` merged on 2026-10-13; the
-   site does not open to members until this, `invite-only-signup` and
-   `test-database-isolation` are done.
-
-2. **google-login** · M1 · branch `feat-google-login`
+1. **google-login** · M1 · branch `feat-google-login`
    Added by the owner on 2026-10-13: **Google becomes the main way to
    sign in** (CLAUDE.md section 11). Google로 계속하기 with openid, email
    and profile only; a setup screen for username and display name; an
@@ -290,34 +279,34 @@ before the post-beta work, which is specced under **After the beta**.
    incremental authorization. **Depends on:** `invite-only-signup`,
    `test-database-isolation`. Spec below.
 
-3. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+2. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
    Friendlier, less developer-like screens with short, tasteful motion
    (the `motion` library), plain-Korean copy, empty states and a
    first-visit guide. Spec saved verbatim below.
 
-4. **deepseek-research** · M3 (research for more-chat-providers) · branch
+3. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-5. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+4. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-6. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+5. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-7. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+6. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-8. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+7. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day. Report Issue
    (`/issues`) becomes a board: members write notes there and read every
    public note with no names; Admin can hide a note, export notes as
@@ -327,14 +316,14 @@ before the post-beta work, which is specced under **After the beta**.
    on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
    below, with the owner's revision.
 
-9. **token-guard** · M1 · branch `feat-token-guard`
+8. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-10. **live-cost-display** · M1 · branch `feat-live-cost-display`
+9. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -342,14 +331,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-11. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+10. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-12. **builder-python** · M2 · branch `feat-builder-python`
+11. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -1101,53 +1090,7 @@ development.
 
 → **project-video-management — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#project-video-management--full-spec-merged-2026-10-07).
 
-## test-database-isolation — full spec
-
-Branch `fix-test-database-isolation`. **Must land before
-`prep-beta-launch`.** Raised 2026-10-07.
-
-> **The problem.** `tests/test_usage.py` proves the budget row lock, and
-> SQLite ignores `SELECT ... FOR UPDATE`, so that one test needs real
-> PostgreSQL. It gets it by calling `get_settings().database_url` — the
-> developer's own database — and then runs
-> `Base.metadata.create_all(bind=engine)` against it.
->
-> Two consequences, both seen for real on 2026-10-07:
->
-> 1. Running the suite on a branch **creates that branch's new tables in
->    the development database**, without recording anything in
->    `alembic_version`. The result is a database holding part of a
->    branch's schema and none of its migrations, which is exactly the
->    state in which `alembic upgrade head` later fails with
->    `relation "builder_project_files" already exists`.
-> 2. The test writes rows (members, quarters, allocations) into the
->    database the developer is looking at while they work.
->
-> **What to build.**
->
-> - A dedicated test database, from its own setting — `TEST_DATABASE_URL`,
->   defaulting to something obviously separate such as
->   `postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai_test`.
-> - **Refuse to run if it resolves to the same database as
->   `DATABASE_URL`.** Compare the parsed database name and host, not the
->   raw string: the same database can be written two ways. A test that
->   silently falls back to the developer's database is the bug being
->   fixed, so the failure must be loud and must name both URLs.
-> - Skip politely, as today, when no test database is reachable — the
->   suite must still run with Docker down.
-> - Create the schema from **migrations** (`alembic upgrade head`) rather
->   than `create_all`, so what the tests run against is what production
->   runs against. `create_all` is what let the schemas drift apart in the
->   first place.
-> - Drop or truncate what the test created afterwards.
->
-> Tests: the suite leaves `DATABASE_URL`'s database untouched (compare
-> the table list and `alembic_version` before and after a full run); the
-> guard refuses when both URLs name the same database, including when
-> they are spelled differently; the row-lock test still proves
-> overspending is impossible.
-
----
+→ **test-database-isolation — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#test-database-isolation--full-spec-merged-2026-10-13).
 
 ## anonymous-feedback-board — full spec
 

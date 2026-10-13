@@ -193,23 +193,16 @@ def test_claim_refuses_once_the_code_is_used_up(db_session: Session) -> None:
     assert invites.claim(db_session, invite.id) is False
 
 
-def test_the_last_use_cannot_be_taken_twice_at_once() -> None:
+def test_the_last_use_cannot_be_taken_twice_at_once(pg_engine) -> None:
     """Eight threads race for a single-use code on real PostgreSQL.
 
-    Exactly one may win. Skips without PostgreSQL, like the budget lock
-    test it is modelled on (`test_usage.py`).
+    Exactly one may win. Runs on the PostgreSQL test database and skips
+    without one, like the budget lock test it is modelled on.
     """
     from sqlalchemy.orm import sessionmaker
 
-    from app.db.base import Base
-    from tests.test_usage import _postgres_engine
-
-    engine = _postgres_engine()
-    if engine is None:
-        pytest.skip("PostgreSQL is not reachable; the race cannot be shown on SQLite")
-
-    Base.metadata.create_all(bind=engine)
-    Session_ = sessionmaker(bind=engine, expire_on_commit=False)
+    # The PostgreSQL test database (tests/pg.py); skips without one.
+    Session_ = sessionmaker(bind=pg_engine, expire_on_commit=False)
     code = f"RACE-{uuid.uuid4().hex[:8].upper()}"
     with Session_() as setup:
         invite = InviteCode(code=code, max_uses=1, is_active=True)
