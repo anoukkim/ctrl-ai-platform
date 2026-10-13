@@ -1120,3 +1120,176 @@ Points 2 and 5 and the Launch data rules are unchanged.
   Cloud SQL by dump and restore plus a new `DATABASE_URL`, or run the same
   images on Cloud Run. Resizing the VM (e2-standard-2 and up) is a stop,
   a machine-type change and a start.
+
+---
+
+## single-wallet — full spec (merged 2026-10-13)
+
+Branch `feat-single-wallet`. M1. Added 2026-10-08 at position 1. Saved
+exactly as written by the developer.
+
+**It settles the member side of the cost model.** `budget-by-provider`
+and `usage-analytics` (*After the prototype*) assumed two budgets per
+member, named by provider; this item replaces both buckets with one
+wallet, and its last bullet rewrites those two specs to match. The club
+still buys credit per provider — that part of the cost-model discussion
+is unchanged, and is now forecast from usage by provider.
+
+> ITEM 1 — single-wallet (branch feat-single-wallet)
+> Decision: members no longer split their quarter support by percentage. Each participating member gets one 동아리 지원 wallet per quarter, 80,000원 by default (admin-editable per quarter), and Chat, video and every other paid feature spend from that one balance.
+> - Data: replace build_budget_krw / video_budget_krw with one budget in QuarterAllocation, with an Alembic migration that sums existing allocations and usage correctly, and a downgrade. FundingSource: one community value instead of community_build / community_video (migrate existing rows). Usage events keep provider, feature, model and native units, so we still know what was spent on Anthropic vs Higgsfield.
+> - Application: no split, no presets. "이번 분기 참여" applies for the quarter's fixed amount.
+> - Member UI: a wallet card ("이번 분기 지원금 80,000원 중 52,300원 남음") in the sidebar and on Usage, with a breakdown of what was spent on 채팅 / 영상 / 기타 as information only. Estimated costs next to buttons compare against the one balance.
+> - Admin: per-quarter amount, each member's balance, and quarter totals by provider so the club leader can decide how much credit to buy from each provider. Audited as before.
+> - Personal top-ups stay a separate balance (still off in the beta); say in the UI which balance is spent first and keep the current rule unless it conflicts.
+> - Update budget-by-provider and usage-analytics specs (After the prototype) and docs/product.md so nothing still describes the two-bucket split. Note in Funding model that the club still buys per provider, forecast from usage by provider.
+> Tests: migration preserves totals; Chat and video both draw from one balance; pre-check refuses when the single balance is short; application has no split; admin per-quarter amount; per-provider totals match usage.
+
+### Decisions taken while implementing — 2026-10-08
+
+Built on `feat-single-wallet`, not merged.
+
+- **Data.** `quarter_allocations` has `budget_krw` and `consumed_krw`
+  (renamed from `community_total_budget_krw`; the six per-bucket columns
+  are gone). `quarter_applications` has only `requested_budget_krw`.
+  `usage_events.category` is **dropped** — what a charge was for is
+  `provider` + `feature`; the downgrade rebuilds it (video features and
+  Higgsfield → video, everything else → build). `FundingSource` is
+  `community | personal`.
+- **Migration `e8a4c2f6b1d7`** sums each wallet (`budget = build + video`,
+  `consumed = build consumed + video consumed`) and keeps the original
+  split in `pricing_snapshot.split_before_single_wallet`, so the downgrade
+  restores it exactly; a wallet whose total changed after the upgrade gets
+  Video = what Video spent and the rest Build, so neither starts overdrawn.
+  Withdrawal reversals become one `amount`. A bucket an admin had lowered
+  below its spend is absorbed by the other — the wallet's remaining figure
+  is the true total. Checked on SQLite (tests) and round-tripped on a
+  throwaway PostgreSQL 16 container (upgrade → downgrade → upgrade, plus
+  `alembic check`), never on the developer's database.
+- **The amount.** `Quarter.subsidy_limit_krw` (unchanged column name) is the
+  quarter's per-member amount, labelled **1인 지원금** in Admin; the
+  default `QUARTERLY_SUBSIDY_LIMIT_KRW` is now **80,000**. Existing quarters
+  keep the amount they were created with. Changing a quarter's amount does
+  not move wallets already approved (audited as before); one member's
+  wallet is adjusted in member detail.
+- **Application.** `POST /api/quarters/{id}/apply` takes no body; anything
+  sent is ignored. Admin approval stays as it is (auto-approval is
+  `budget-by-provider`'s).
+- **Breakdown.** 채팅 = `chat`; 영상 = `video_generate`, `video_edit`,
+  `video_extend` **and `video_prompt`** (the member was making a video,
+  although it is Claude spend); 기타 = everything else. Counts wallet
+  money only, so the three lines add up to "used"; personal money has its
+  own card.
+- **Personal money — current rule kept:** the wallet first; personal money
+  only with 개인 사용 on and enough for the whole charge; never split.
+  Usage and Profile now say so in one sentence (`SPENDING_ORDER_NOTE`).
+- **Admin › Budget is on** (`GET /api/admin/quarters/{id}/budget`): every
+  wallet, and per provider the KRW charged (wallet / personal), provider
+  cost per currency, native units, share, and the wallet total × that share
+  as a reference figure. Personal-money spend is included because it uses
+  the same purchased credit.
+- **Estimates vs the wallet.** `WalletCheck` under Chat's model picker and
+  next to 생성 / 수정 / 이어서: "남은 지원금 N원", or "지원금이 부족합니다"
+  when the estimate exceeds it (or "개인 잔액에서 결제" when overage covers
+  it). Chat now refreshes the sidebar wallet after every reply.
+- **Dev simulator** records a provider and feature instead of a category.
+
+## prompt-caching — full spec (merged 2026-10-13)
+
+Branch `feat-prompt-caching`, from `feat-single-wallet`. M1. Added
+2026-10-13 by the developer, mid-run, in two messages saved exactly as
+written:
+
+> add API key sk-ant-usr-…(redacted here) and add prompt cashing
+
+> very strong enhanced prompt cashing and dont overuse api
+
+(The key went into the git-ignored `.env` only; it is not repeated in
+this file. `CLAUDE_PROVIDER` stays `mock`, so nothing calls Anthropic until
+the developer switches it — see Phase 2's open check, point 10.)
+
+**Takes over `chat-plus-files` point 5** (automatic caching and pricing
+cache writes and reads at their own prices). What this item does:
+
+1. **Two cache breakpoints on every Chat request** — an explicit one on the
+   system prompt (the part every conversation shares) and Anthropic's
+   automatic top-level `cache_control` for the growing conversation, so
+   each turn re-reads the previous turns at the cache-read price instead of
+   paying full input price again. TTL is a setting (`CHAT_CACHE_TTL`,
+   default `5m`; `1h` doubles the write price and only pays off when a
+   member pauses 5–60 minutes between messages).
+2. **A stable prefix.** History is trimmed at fixed cut points counted from
+   the start of the conversation, not by sliding one message at a time —
+   a sliding window changes the first message every turn and rewrites the
+   whole cache on every reply once a conversation is long.
+3. **The ledger prices what was really billed:** uncached input at the
+   input price, cache writes at 1.25× (5m) or 2× (1h) the input price,
+   cache reads at the model's cache-read price (a new catalogue column,
+   edited in Admin › Claude Models; Opus 5.5 0.05×, the others 0.1×).
+   Two new `UsageEvent` columns record the write and read tokens. The
+   pre-check's worst case prices the whole input at the write price, so it
+   stays a true worst case.
+4. **Not overusing the API:** no cache pre-warming calls, no token-counting
+   calls, one retry at most (as before), the per-minute limit unchanged,
+   the prompt helper left uncached (its short, one-off prompts would only
+   pay the write premium). The mock simulates caching, so all of this is
+   built and tested with no key.
+5. **Admin can see it working:** Admin › Budget shows cache reads and
+   writes per provider and the share of input served from cache; Admin ›
+   System shows the cache settings.
+
+## cost-calibration — full spec (merged 2026-10-13)
+
+Branch `feat-cost-calibration`, from `feat-prompt-caching`. M1. Added
+2026-10-13. The developer's request, saved exactly as written (the second
+half is `chat-builder-starter`), and the answer to the one question asked:
+
+> add calibrastion and connect the chatting prompt with the builder ex. when i want to make an app it makes a initial example app. also tell me what features are not avilabe in chat currenly (ex. creating graphs uploading/downoading files etc) and list
+
+> Q: "Calibration"은 어떤 뜻인가요? — A: **비용 보정** (실제 API가 알려 준 토큰 수로 우리 쪽 어림값 — 1글자=1토큰, "답장 1회 약 N원", 보내기 전 최악의 경우 금액 — 을 자동으로 맞춥니다)
+
+1. Every Chat usage event records the **input estimate** made before the
+   call (a new column), next to the tokens the API actually reported.
+2. Per model, from the most recent real replies: the ratio of real prompt
+   tokens to the estimate, the typical output length, and the median cost
+   of a reply (caching included).
+3. **"답장 1회 약 N원"** uses that median once a model has enough replies
+   (10), and says so ("최근 N회 기준"); before that, the formula as today.
+4. **The pre-check** prices the input at the calibrated ratio plus a
+   safety margin instead of one token per character — never above the old
+   figure, and the output side stays the full worst case, so a member is
+   still never let through who cannot pay.
+5. **Admin › Claude Models › 비용 보정**: per model, replies counted,
+   estimate vs real input, average output, average and median cost, cache
+   hit rate — the numbers to compare with the Anthropic Console.
+6. History trimming is **not** calibrated: changing its limit with the
+   ratio would move the cut and break the prompt cache.
+
+## chat-builder-starter — full spec (merged 2026-10-13)
+
+Branch `feat-chat-builder-starter`, from `feat-cost-calibration`. Added
+2026-10-13 (request above), answer to the question asked:
+
+> Q: Chat에서 '앱 만들어 줘'라고 하면 예시 앱을 어디까지 만들어 줄까요? — A: **생성 + 미리보기** ('Project Builder에서 시작'을 누르면 Claude가 index.html/style.css/app.js로 된 작은 예시 앱을 만들고, 작업 공간에서 바로 보고 고칠 수 있게 합니다. 미리보기는 네트워크와 쿠키가 막힌 샌드박스 iframe입니다. 만들기 전에 예상 비용을 보여 주고, 지원금에서 차감합니다.)
+
+A first slice of `builder-static-runtime` Half 1 (M2), pulled forward.
+Static files only; nothing runs on the backend (CLAUDE.md section 20).
+
+1. **From Chat:** the builder action button opens the new-project form
+   with the idea filled in, as today, plus **예시 앱까지 만들기** (on by
+   default) showing the estimate before anything is spent.
+2. **Generation:** `POST /api/builder/projects/{id}/starter` — Claude (the
+   catalogue default model, through the provider interface, mock by
+   default) returns the files as structured JSON; the backend checks every
+   path and size (`index.html` required; html/css/js/json/svg/md/txt
+   only; at most 10 files, 100 KB each, 300 KB together; no `..`, no
+   hidden files) and stores them as `BuilderProjectFile` rows in the same
+   transaction as the charge. Wallet pre-check against the worst case
+   first; a failed call is free.
+3. **Workspace:** the file tree and the code view show the project's real
+   files (read-only for now); the preview runs `index.html` with its CSS
+   and JS inlined in an `<iframe srcdoc>` with `sandbox="allow-scripts"`
+   only and a CSP that blocks all network, behind a label saying it is a
+   safe preview. A project with no files can ask for a starter there too.
+4. **Not in this item:** editing files by chatting with Claude (the
+   workspace's Claude panel), saving edits, server code, publishing.

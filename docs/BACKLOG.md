@@ -18,23 +18,13 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Nothing is in progress.** `prep-beta-launch` merged 2026-10-13; next is
-`invite-only-signup`. Branch the next item from an up-to-date
-`main`.
+**In progress: `invite-only-signup`** (branch `feat-invite-only-signup`),
+the top of Next. `prep-beta-launch` merged 2026-10-13 and is deployed to
+`ctrlai-server` on mock providers; caddy waits for the A record.
 
-**Working order set by the developer (2026-10-08)** — three items ahead
-of everything else, one branch each, stopping after each for the
-developer to check and merge:
-
-1. `single-wallet` — branch `feat-single-wallet`
-2. `ui-friendly-motion` — branch `feat-ui-friendly-motion`, **after
-   single-wallet is merged**
-3. `deepseek-research` — branch `docs-deepseek`, research only; can run
-   any time
-
-Mock providers only, never a real API call; the developer's database
-untouched (pytest with `DATABASE_URL` at an unreachable port until
-`test-database-isolation` lands); no cloud resources; no merging.
+**Working order set by the developer (2026-10-08)** — done except
+`ui-friendly-motion` (now item 4 of Next) and `deepseek-research`
+(waiting for the developer's check): single-wallet merged 2026-10-13.
 
 **Money wording in older notes.** Since `single-wallet` (2026-10-08)
 every paid feature spends from one 동아리 지원 wallet per member per
@@ -42,19 +32,8 @@ quarter. Notes below that say a feature "charges Build" or "the Video
 budget" record what was true when they were written; read them as "the
 wallet", with the provider on the usage event.
 
-**Earlier working order (2026-10-07)** — now after the three above,
-one branch each,
-stopping after each for the developer to check and merge:
-
-1. `invite-only-signup`
-2. `chat-plus-rendering`
-3. `test-database-isolation`
-4. ~~`prep-beta-launch`~~ — **merged 2026-10-13**; spec and Hosting
-   decisions in [`archive/done-specs.md`](archive/done-specs.md)
-
-`chat-plus-files` and `chat-plus-artifacts` keep their specs and are not
-in this run. Mock providers only, no real API call, the developer's
-database untouched, no cloud resource created.
+**Earlier working order (2026-10-07)** — superseded by the owner's order
+of 2026-10-13 at the top of **Next**.
 
 Decisions from **chat-model-choice** (merged 2026-10-07) that later items
 inherit:
@@ -275,90 +254,27 @@ assumption they came first. Four notes were rewritten to match:
 
 ## Next (in order)
 
-Order set by the developer on 2026-10-07 (`docs-chat-plus`): the beta's
-one real feature is Chat, and members have never used Claude, so Chat
-should show what Claude can do before the site goes public. Three
-`chat-plus-*` items come in ahead of the launch work; the post-beta
-items are specced under **After the beta** below and are not in this
-list. `chat-model-choice`, added at the top the same day, has merged
-and left it.
+**Order set by the owner on 2026-10-13:** `invite-only-signup` first,
+`test-database-isolation` second, `google-login` third, then everything
+else in the order it already had. single-wallet, prompt-caching,
+cost-calibration and chat-builder-starter merged on 2026-10-13 (through
+`feat-chat-builder-starter`) and moved to Done. Items 9–13 were added by
+the owner on 2026-10-13 as specs.
 
-**Items 1–6 were put at the top by the developer** (1, 5 and 6 on
-2026-10-08; 2, 3 and 4 on 2026-10-13). Everything below them moved down
-six places.
+Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
+first — the beta's one real feature — so the `chat-plus-*` items come
+before the post-beta work, which is specced under **After the beta**.
 
-**Items 12–16 were added by the owner on 2026-10-13**, after
-`test-database-isolation`, in the order anonymous-feedback-board,
-token-guard, live-cost-display, chat-thinking-view, builder-python.
-Specs only; nothing above them moved.
-
-1. **single-wallet** · M1 · branch `feat-single-wallet`
-   Members no longer split their quarter support. One 동아리 지원 wallet
-   per member per quarter (80,000원 by default, admin-editable per
-   quarter) pays for Chat, video and every other paid feature. Replaces
-   the Build/Video buckets with a migration that keeps the totals.
-   Spec saved verbatim below.
-   **Built on `feat-single-wallet`, waiting for the developer's check** —
-   see *Decisions taken while implementing* under its spec.
-
-2. **prompt-caching** · M1 · branch `feat-prompt-caching` (from
-   `feat-single-wallet`)
-   Added by the developer on 2026-10-13, mid-run: Anthropic prompt caching
-   in Chat, priced correctly in the ledger, and nothing that calls the API
-   more than it must. Takes over `chat-plus-files` point 5. Built on
-   single-wallet's ledger, so it merges after it. Spec below.
-
-3. **cost-calibration** · M1 · branch `feat-cost-calibration` (from
-   `feat-prompt-caching`)
-   Added by the developer on 2026-10-13: the cost estimates learn from the
-   real token counts the API reports — "답장 1회 약 N원", the pre-check's
-   input estimate, and an Admin view comparing estimate and reality.
-   Spec below.
-
-4. **chat-builder-starter** · M1 (a first slice of M2's
-   builder-static-runtime) · branch `feat-chat-builder-starter` (from
-   `feat-cost-calibration`)
-   Added by the developer on 2026-10-13: when a member asks Chat for an
-   app, Project Builder makes a small working example app (static HTML /
-   CSS / JS) and shows it in a sandboxed preview. Spec below.
-
-5. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
-   Friendlier, less developer-like screens with short, tasteful motion
-   (the `motion` library), plain-Korean copy, empty states and a
-   first-visit guide. **Starts after single-wallet is merged.** Spec saved
-   verbatim below.
-
-6. **deepseek-research** · M3 (research for more-chat-providers) · branch
-   `docs-deepseek`
-   Research only, no code: can DeepSeek join the chat model catalogue —
-   its own API, and hosts that serve DeepSeek models outside China. Writes
-   `docs/research/` and a note under `more-chat-providers`. Can run any
-   time. Spec saved verbatim below.
-
-7. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-8. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
-   Replies render Markdown — tables, code blocks with a copy button — and
-   the four Chat welcome cards become **기능 둘러보기**, example prompts
-   (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
-
-9. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
-   Images, PDF, CSV and text attached to a message through the storage
-   interface, with limits, an estimated cost before sending and Korean
-   errors. Spec below.
-
-10. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
-   HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
-   `allow-scripts` only, no same-origin, no network), with 코드 보기,
-   다운로드 and Builder로 보내기. Spec below.
-
-11. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
-   ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
+2. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+   ⚠ Was due before `prep-beta-launch`, which merged first on 2026-10-13;
+   the beta does not open to members until this lands. Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
@@ -367,9 +283,47 @@ Specs only; nothing above them moved.
    **Open check before the beta opens to members — Phase 2's point 10
    (real key).** One short real message with the owner's key; see
    **Now**. Not a branch. `prep-beta-launch` merged on 2026-10-13; the
-   site does not open to members until this, item 7 and item 11 are done.
+   site does not open to members until this, `invite-only-signup` and
+   `test-database-isolation` are done.
 
-12. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+3. **google-login** · M1 · branch `feat-google-login`
+   Added by the owner on 2026-10-13: **Google becomes the main way to
+   sign in** (CLAUDE.md section 11). Google로 계속하기 with openid, email
+   and profile only; a setup screen for username and display name; an
+   invite code for new accounts in beta; linked by Google's `sub`, never
+   by email; the verified ADMIN_EMAIL becomes admin; password sign-in
+   kept only as the admin's emergency login. YouTube stays Phase 7, by
+   incremental authorization. **Depends on:** `invite-only-signup`,
+   `test-database-isolation`. Spec below.
+
+4. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+   Friendlier, less developer-like screens with short, tasteful motion
+   (the `motion` library), plain-Korean copy, empty states and a
+   first-visit guide. Spec saved verbatim below.
+
+5. **deepseek-research** · M3 (research for more-chat-providers) · branch
+   `docs-deepseek`
+   Research only, no code: can DeepSeek join the chat model catalogue —
+   its own API, and hosts that serve DeepSeek models outside China. Writes
+   `docs/research/` and a note under `more-chat-providers`. Can run any
+   time. Spec saved verbatim below.
+
+6. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+   Replies render Markdown — tables, code blocks with a copy button — and
+   the four Chat welcome cards become **기능 둘러보기**, example prompts
+   (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
+
+7. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+   Images, PDF, CSV and text attached to a message through the storage
+   interface, with limits, an estimated cost before sending and Korean
+   errors. Spec below.
+
+8. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+   HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
+   `allow-scripts` only, no same-origin, no network), with 코드 보기,
+   다운로드 and Builder로 보내기. Spec below.
+
+9. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13. Every member can read the
    improvement notes sent with 의견 보내기, with no name shown; Admin can
    hide a note and export notes as Markdown for Claude Code
@@ -377,14 +331,14 @@ Specs only; nothing above them moved.
    `feedback` table, merged) and `invite-only-signup` (the board is
    members-only, so the community has to be closed first). Spec below.
 
-13. **token-guard** · M1 · branch `feat-token-guard`
+10. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-14. **live-cost-display** · M1 · branch `feat-live-cost-display`
+11. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -392,14 +346,14 @@ Specs only; nothing above them moved.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-15. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+12. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-16. **builder-python** · M2 · branch `feat-builder-python`
+13. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -409,10 +363,9 @@ Specs only; nothing above them moved.
 
 ### Merge order
 
-1. `feat-single-wallet` — built, waiting for the developer's check.
-2. `docs-deepseek` — research only, waiting; touches different sections
-   of this file, so it merges cleanly in either order.
-3. `feat-ui-friendly-motion` — starts after `feat-single-wallet` merges.
+1. `docs-deepseek` — research only, one commit (`cf92ccf`), waiting for
+   the developer's check; touches different sections of this file, so it
+   merges cleanly in any order.
 
 ---
 
@@ -611,176 +564,13 @@ Two notes for whoever builds it, from the work that raised it:
 
 → **chat-model-choice — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-model-choice--full-spec-merged-2026-10-07).
 
-## single-wallet — full spec
+→ **single-wallet — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#single-wallet--full-spec-merged-2026-10-13).
 
-Branch `feat-single-wallet`. M1. Added 2026-10-08 at position 1. Saved
-exactly as written by the developer.
+→ **prompt-caching — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#prompt-caching--full-spec-merged-2026-10-13).
 
-**It settles the member side of the cost model.** `budget-by-provider`
-and `usage-analytics` (*After the prototype*) assumed two budgets per
-member, named by provider; this item replaces both buckets with one
-wallet, and its last bullet rewrites those two specs to match. The club
-still buys credit per provider — that part of the cost-model discussion
-is unchanged, and is now forecast from usage by provider.
+→ **cost-calibration — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#cost-calibration--full-spec-merged-2026-10-13).
 
-> ITEM 1 — single-wallet (branch feat-single-wallet)
-> Decision: members no longer split their quarter support by percentage. Each participating member gets one 동아리 지원 wallet per quarter, 80,000원 by default (admin-editable per quarter), and Chat, video and every other paid feature spend from that one balance.
-> - Data: replace build_budget_krw / video_budget_krw with one budget in QuarterAllocation, with an Alembic migration that sums existing allocations and usage correctly, and a downgrade. FundingSource: one community value instead of community_build / community_video (migrate existing rows). Usage events keep provider, feature, model and native units, so we still know what was spent on Anthropic vs Higgsfield.
-> - Application: no split, no presets. "이번 분기 참여" applies for the quarter's fixed amount.
-> - Member UI: a wallet card ("이번 분기 지원금 80,000원 중 52,300원 남음") in the sidebar and on Usage, with a breakdown of what was spent on 채팅 / 영상 / 기타 as information only. Estimated costs next to buttons compare against the one balance.
-> - Admin: per-quarter amount, each member's balance, and quarter totals by provider so the club leader can decide how much credit to buy from each provider. Audited as before.
-> - Personal top-ups stay a separate balance (still off in the beta); say in the UI which balance is spent first and keep the current rule unless it conflicts.
-> - Update budget-by-provider and usage-analytics specs (After the prototype) and docs/product.md so nothing still describes the two-bucket split. Note in Funding model that the club still buys per provider, forecast from usage by provider.
-> Tests: migration preserves totals; Chat and video both draw from one balance; pre-check refuses when the single balance is short; application has no split; admin per-quarter amount; per-provider totals match usage.
-
-### Decisions taken while implementing — 2026-10-08
-
-Built on `feat-single-wallet`, not merged.
-
-- **Data.** `quarter_allocations` has `budget_krw` and `consumed_krw`
-  (renamed from `community_total_budget_krw`; the six per-bucket columns
-  are gone). `quarter_applications` has only `requested_budget_krw`.
-  `usage_events.category` is **dropped** — what a charge was for is
-  `provider` + `feature`; the downgrade rebuilds it (video features and
-  Higgsfield → video, everything else → build). `FundingSource` is
-  `community | personal`.
-- **Migration `e8a4c2f6b1d7`** sums each wallet (`budget = build + video`,
-  `consumed = build consumed + video consumed`) and keeps the original
-  split in `pricing_snapshot.split_before_single_wallet`, so the downgrade
-  restores it exactly; a wallet whose total changed after the upgrade gets
-  Video = what Video spent and the rest Build, so neither starts overdrawn.
-  Withdrawal reversals become one `amount`. A bucket an admin had lowered
-  below its spend is absorbed by the other — the wallet's remaining figure
-  is the true total. Checked on SQLite (tests) and round-tripped on a
-  throwaway PostgreSQL 16 container (upgrade → downgrade → upgrade, plus
-  `alembic check`), never on the developer's database.
-- **The amount.** `Quarter.subsidy_limit_krw` (unchanged column name) is the
-  quarter's per-member amount, labelled **1인 지원금** in Admin; the
-  default `QUARTERLY_SUBSIDY_LIMIT_KRW` is now **80,000**. Existing quarters
-  keep the amount they were created with. Changing a quarter's amount does
-  not move wallets already approved (audited as before); one member's
-  wallet is adjusted in member detail.
-- **Application.** `POST /api/quarters/{id}/apply` takes no body; anything
-  sent is ignored. Admin approval stays as it is (auto-approval is
-  `budget-by-provider`'s).
-- **Breakdown.** 채팅 = `chat`; 영상 = `video_generate`, `video_edit`,
-  `video_extend` **and `video_prompt`** (the member was making a video,
-  although it is Claude spend); 기타 = everything else. Counts wallet
-  money only, so the three lines add up to "used"; personal money has its
-  own card.
-- **Personal money — current rule kept:** the wallet first; personal money
-  only with 개인 사용 on and enough for the whole charge; never split.
-  Usage and Profile now say so in one sentence (`SPENDING_ORDER_NOTE`).
-- **Admin › Budget is on** (`GET /api/admin/quarters/{id}/budget`): every
-  wallet, and per provider the KRW charged (wallet / personal), provider
-  cost per currency, native units, share, and the wallet total × that share
-  as a reference figure. Personal-money spend is included because it uses
-  the same purchased credit.
-- **Estimates vs the wallet.** `WalletCheck` under Chat's model picker and
-  next to 생성 / 수정 / 이어서: "남은 지원금 N원", or "지원금이 부족합니다"
-  when the estimate exceeds it (or "개인 잔액에서 결제" when overage covers
-  it). Chat now refreshes the sidebar wallet after every reply.
-- **Dev simulator** records a provider and feature instead of a category.
-
-## prompt-caching — full spec
-
-Branch `feat-prompt-caching`, from `feat-single-wallet`. M1. Added
-2026-10-13 by the developer, mid-run, in two messages saved exactly as
-written:
-
-> add API key sk-ant-usr-…(redacted here) and add prompt cashing
-
-> very strong enhanced prompt cashing and dont overuse api
-
-(The key went into the git-ignored `.env` only; it is not repeated in
-this file. `CLAUDE_PROVIDER` stays `mock`, so nothing calls Anthropic until
-the developer switches it — see Phase 2's open check, point 10.)
-
-**Takes over `chat-plus-files` point 5** (automatic caching and pricing
-cache writes and reads at their own prices). What this item does:
-
-1. **Two cache breakpoints on every Chat request** — an explicit one on the
-   system prompt (the part every conversation shares) and Anthropic's
-   automatic top-level `cache_control` for the growing conversation, so
-   each turn re-reads the previous turns at the cache-read price instead of
-   paying full input price again. TTL is a setting (`CHAT_CACHE_TTL`,
-   default `5m`; `1h` doubles the write price and only pays off when a
-   member pauses 5–60 minutes between messages).
-2. **A stable prefix.** History is trimmed at fixed cut points counted from
-   the start of the conversation, not by sliding one message at a time —
-   a sliding window changes the first message every turn and rewrites the
-   whole cache on every reply once a conversation is long.
-3. **The ledger prices what was really billed:** uncached input at the
-   input price, cache writes at 1.25× (5m) or 2× (1h) the input price,
-   cache reads at the model's cache-read price (a new catalogue column,
-   edited in Admin › Claude Models; Opus 5.5 0.05×, the others 0.1×).
-   Two new `UsageEvent` columns record the write and read tokens. The
-   pre-check's worst case prices the whole input at the write price, so it
-   stays a true worst case.
-4. **Not overusing the API:** no cache pre-warming calls, no token-counting
-   calls, one retry at most (as before), the per-minute limit unchanged,
-   the prompt helper left uncached (its short, one-off prompts would only
-   pay the write premium). The mock simulates caching, so all of this is
-   built and tested with no key.
-5. **Admin can see it working:** Admin › Budget shows cache reads and
-   writes per provider and the share of input served from cache; Admin ›
-   System shows the cache settings.
-
-## cost-calibration — full spec
-
-Branch `feat-cost-calibration`, from `feat-prompt-caching`. M1. Added
-2026-10-13. The developer's request, saved exactly as written (the second
-half is `chat-builder-starter`), and the answer to the one question asked:
-
-> add calibrastion and connect the chatting prompt with the builder ex. when i want to make an app it makes a initial example app. also tell me what features are not avilabe in chat currenly (ex. creating graphs uploading/downoading files etc) and list
-
-> Q: "Calibration"은 어떤 뜻인가요? — A: **비용 보정** (실제 API가 알려 준 토큰 수로 우리 쪽 어림값 — 1글자=1토큰, "답장 1회 약 N원", 보내기 전 최악의 경우 금액 — 을 자동으로 맞춥니다)
-
-1. Every Chat usage event records the **input estimate** made before the
-   call (a new column), next to the tokens the API actually reported.
-2. Per model, from the most recent real replies: the ratio of real prompt
-   tokens to the estimate, the typical output length, and the median cost
-   of a reply (caching included).
-3. **"답장 1회 약 N원"** uses that median once a model has enough replies
-   (10), and says so ("최근 N회 기준"); before that, the formula as today.
-4. **The pre-check** prices the input at the calibrated ratio plus a
-   safety margin instead of one token per character — never above the old
-   figure, and the output side stays the full worst case, so a member is
-   still never let through who cannot pay.
-5. **Admin › Claude Models › 비용 보정**: per model, replies counted,
-   estimate vs real input, average output, average and median cost, cache
-   hit rate — the numbers to compare with the Anthropic Console.
-6. History trimming is **not** calibrated: changing its limit with the
-   ratio would move the cut and break the prompt cache.
-
-## chat-builder-starter — full spec
-
-Branch `feat-chat-builder-starter`, from `feat-cost-calibration`. Added
-2026-10-13 (request above), answer to the question asked:
-
-> Q: Chat에서 '앱 만들어 줘'라고 하면 예시 앱을 어디까지 만들어 줄까요? — A: **생성 + 미리보기** ('Project Builder에서 시작'을 누르면 Claude가 index.html/style.css/app.js로 된 작은 예시 앱을 만들고, 작업 공간에서 바로 보고 고칠 수 있게 합니다. 미리보기는 네트워크와 쿠키가 막힌 샌드박스 iframe입니다. 만들기 전에 예상 비용을 보여 주고, 지원금에서 차감합니다.)
-
-A first slice of `builder-static-runtime` Half 1 (M2), pulled forward.
-Static files only; nothing runs on the backend (CLAUDE.md section 20).
-
-1. **From Chat:** the builder action button opens the new-project form
-   with the idea filled in, as today, plus **예시 앱까지 만들기** (on by
-   default) showing the estimate before anything is spent.
-2. **Generation:** `POST /api/builder/projects/{id}/starter` — Claude (the
-   catalogue default model, through the provider interface, mock by
-   default) returns the files as structured JSON; the backend checks every
-   path and size (`index.html` required; html/css/js/json/svg/md/txt
-   only; at most 10 files, 100 KB each, 300 KB together; no `..`, no
-   hidden files) and stores them as `BuilderProjectFile` rows in the same
-   transaction as the charge. Wallet pre-check against the worst case
-   first; a failed call is free.
-3. **Workspace:** the file tree and the code view show the project's real
-   files (read-only for now); the preview runs `index.html` with its CSS
-   and JS inlined in an `<iframe srcdoc>` with `sandbox="allow-scripts"`
-   only and a CSP that blocks all network, behind a label saying it is a
-   safe preview. A project with no files can ask for a starter there too.
-4. **Not in this item:** editing files by chatting with Claude (the
-   workspace's Claude panel), saving edits, server code, publishing.
+→ **chat-builder-starter — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-builder-starter--full-spec-merged-2026-10-13).
 
 ## ui-friendly-motion — full spec
 
@@ -850,6 +640,62 @@ section would.
 > Tests: signup without a code or with an invalid, expired, exhausted or deactivated code is refused with the same message; a valid code creates the account and increments its uses; the last use cannot be taken twice concurrently; the pre-filled signup link works; admin actions are audited; code management is admin-only.
 
 ---
+
+## google-login — full spec
+
+Branch `feat-google-login`. M1. Added by the owner on 2026-10-13, with
+the decision **Google becomes the main way to sign in** (recorded in
+`CLAUDE.md` section 11). Saved exactly as written:
+
+> Add a backlog item google-login, spec only. Owner decision 2026-10-13: Google becomes the main way to sign in; update CLAUDE.md section 11 to say so.
+> - "Google로 계속하기" on sign-in and sign-up. Scopes openid, email, profile only; no YouTube scope at sign-in.
+> - First Google sign-in: a setup screen to choose username and display name. In APP_ENV=beta a new account still needs a valid invite code.
+> - The account whose verified Google email equals ADMIN_EMAIL (ctrlai.platform@gmail.com) becomes admin; only email_verified=true may match.
+> - Link by Google's stable id (sub), not the email. Never sign into an existing account just because the email matches; a member links Google from Profile while signed in.
+> - Username/password stays only as the admin's emergency login; members do not see it.
+> - YouTube stays Phase 7: Profile › "YouTube 연결" asks for the upload scope on the same Google account by incremental authorization. Refresh tokens encrypted at rest, never sent to the browser. Until Google verifies the app, YouTube is limited to test users and uploads stay private.
+> - The backend does the whole OAuth exchange with state and PKCE; the client secret lives only in the server .env. A mock provider for development and tests.
+> - docs/deployment.md lists the Google Cloud console steps I do myself (OAuth consent screen, client ID, redirect URIs, test users) and the .env lines.
+
+**Depends on:** `invite-only-signup` (the invite code a new Google
+account must present) and `test-database-isolation` (both come first in
+Next). Provider rule (`CLAUDE.md` section 20): behind
+`GOOGLE_LOGIN_PROVIDER=mock|google`, mock by default.
+
+Notes for the build, not changes to the request:
+
+- **Where it sits in the data model:** a `ConnectedAccount` row
+  (`provider="google"`, `provider_account_id=sub`, unique), the table
+  `CLAUDE.md` section 14 already describes. The sign-in identity and the
+  later YouTube connection are the same row with more scopes, not two
+  rows.
+- **The callback lands on the backend** (`/api/auth/google/callback`
+  through the same-origin `/api/*` rewrite), which sets the same HttpOnly
+  session cookie as password sign-in; no token ever reaches the browser.
+  `state` and the PKCE verifier live in a short-lived, HttpOnly cookie or
+  a server row, never in `localStorage`.
+- **The setup screen** keeps the existing username rules and the invite
+  code check from `invite-only-signup`; until it is completed there is
+  no account, only a pending, short-lived sign-up row keyed by `sub`.
+- **ADMIN_EMAIL matching** happens only when the account is first
+  created (and is audited); an existing member's later email change at
+  Google never promotes or demotes anyone.
+- **Hiding password sign-in:** the sign-in screen shows only Google; the
+  password form moves to an unlisted route for the admin's emergency use,
+  still rate-limited, and member accounts created by Google have no
+  usable password (`UNUSABLE_PASSWORD_HASH`). Existing password members
+  link Google from Profile before the password form disappears for them.
+- **Google verification:** openid/email/profile are non-sensitive scopes,
+  so sign-in works for everyone without Google's app review once the
+  consent screen is in production; the YouTube upload scope is the one
+  that needs verification (Phase 7).
+- **Tests (mock provider):** state and PKCE checked and single-use; a new
+  `sub` goes to the setup screen and needs an invite code in beta; an
+  existing account is never entered by email alone; linking from Profile
+  attaches the `sub` to the signed-in account and refuses a `sub` already
+  linked elsewhere; only a verified ADMIN_EMAIL becomes admin; no route
+  returns a token; the access table and `EXPECTED_GUARDS` gain the new
+  routes.
 
 ## Chat+ — what the three M1 items share
 

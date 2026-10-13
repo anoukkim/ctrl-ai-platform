@@ -616,30 +616,58 @@ If privacy/legal requirements later require account deletion, design a separate 
 
 # 11. Authentication and Profile
 
-Users should be able to create a CTRL+AI account.
+**Google is the main way to sign in** (decided by the owner, 2026-10-13;
+built by the backlog item `google-login`). Members sign in and sign up
+with **Google로 계속하기**; the first Google sign-in leads to a setup
+screen where they choose a username and display name, and — in the beta —
+enter an invite code.
 
-Initial fields:
+- **Sign-in scopes are `openid`, `email` and `profile` only.** No YouTube
+  scope at sign-in; YouTube is asked for later (below).
+- **Accounts are linked by Google's stable id (`sub`), never by email.**
+  An existing account is never entered just because an email matches; a
+  member links Google from Profile while signed in.
+- **The admin:** the account whose Google email is verified
+  (`email_verified=true`) and equals `ADMIN_EMAIL` becomes admin when it
+  is created.
+- **Username and password stay only as the admin's emergency login.**
+  Members do not see the password form.
+- **The backend does the whole OAuth exchange** with `state` and PKCE; the
+  client secret lives only in the server's `.env`; the browser receives
+  the same HttpOnly session cookie as before and never a Google token.
+  Like every provider, Google sign-in has a mock for development and
+  tests (section 20).
+
+Fields:
 - username
 - email
-- password
 - display name
 - avatar optional
+- Google `sub` (in the connected account), or a password hash for the
+  admin's emergency login
 
 Security:
 - NEVER store plaintext passwords
 - store secure password hashes
-- enforce unique username/email
-- server-side sessions or secure token-based auth
+- enforce unique username/email, and a unique Google `sub`
+- server-side sessions
+- OAuth refresh tokens are encrypted at rest and never sent to the browser
 
-Connected accounts are separate from CTRL+AI login:
+Connected accounts:
 
 ```text
 CTRL+AI account
-├── GitHub connection
-└── YouTube/Google connection
+├── Google (sign-in: openid, email, profile)
+│     └── YouTube — the upload scope added later, on the same Google
+│         account, by incremental authorization (Profile › YouTube 연결)
+└── GitHub connection
 ```
 
-A user should not be required to use GitHub or Google as their primary login just to use CTRL+AI.
+**YouTube stays Phase 7.** Profile › "YouTube 연결" asks for the upload
+scope only then. Until Google verifies the app, YouTube is limited to
+test users and uploads stay private.
+
+A member is not required to use GitHub to use CTRL+AI.
 
 ## Profile
 
