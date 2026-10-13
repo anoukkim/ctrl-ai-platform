@@ -113,6 +113,8 @@ class ChatLimitsRead(BaseModel):
     long_history_tokens: int
     daily_cap_krw: int
     provider_concurrency: int
+    web_fetch_max_uses: int
+    web_fetch_max_content_tokens: int
     set_at: datetime | None = None
     set_by_username: str = ""
 
@@ -125,6 +127,9 @@ class ChatLimitsWrite(BaseModel):
     daily_cap_krw: int = Field(ge=0, le=10_000_000)
     #: Never 0: that would stop every provider call outright.
     provider_concurrency: int = Field(ge=1, le=50)
+    #: 웹 페이지 읽기 — never 0: the member's toggle is how it turns off.
+    web_fetch_max_uses: int = Field(ge=1, le=5)
+    web_fetch_max_content_tokens: int = Field(ge=1_000, le=100_000)
 
 
 class ClaudeSettingsRead(BaseModel):

@@ -159,7 +159,7 @@ def test_input_alone_over_the_cap_is_refused_free(
 def test_the_default_cap_leaves_ordinary_replies_alone(
     client: TestClient, budgeted, db_session: Session, counting  # noqa: F811
 ) -> None:
-    """With no row at all, the 100원 default is in force but a short mock
+    """With no row at all, the 200원 default is in force but a short mock
     reply finishes normally."""
     conversation = new_conversation(client)
     response = send(client, conversation, "안녕하세요")
@@ -282,11 +282,15 @@ def test_the_limits_are_an_audited_admin_setting(
     client: TestClient, db_session: Session, config  # noqa: F811
 ) -> None:
     before = client.get("/api/admin/claude-pricing").json()["chat_limits"]
+    # The defaults, with no row at all (the cap is 200원 since the owner's
+    # morning decision of 2026-10-14 — 100원 could not fit 페이지 읽기).
     assert before == {
-        "reply_cap_krw": 100,
+        "reply_cap_krw": 200,
         "long_history_tokens": 8_000,
         "daily_cap_krw": 0,
         "provider_concurrency": 3,
+        "web_fetch_max_uses": 1,
+        "web_fetch_max_content_tokens": 10_000,
         "set_at": None,
         "set_by_username": "",
     }
@@ -294,19 +298,22 @@ def test_the_limits_are_an_audited_admin_setting(
     response = client.post(
         "/api/admin/claude-pricing/chat-limits",
         json={
-            "reply_cap_krw": 200,
+            "reply_cap_krw": 300,
             "long_history_tokens": 10_000,
             "daily_cap_krw": 3_000,
             "provider_concurrency": 3,
+            "web_fetch_max_uses": 2,
+            "web_fetch_max_content_tokens": 8_000,
         },
     )
     assert response.status_code == 200, response.text
     after = response.json()["chat_limits"]
     assert (after["reply_cap_krw"], after["long_history_tokens"], after["daily_cap_krw"]) == (
-        200,
+        300,
         10_000,
         3_000,
     )
+    assert (after["web_fetch_max_uses"], after["web_fetch_max_content_tokens"]) == (2, 8_000)
     assert after["set_by_username"] == "dev"
 
     row = db_session.query(AuditLog).filter_by(action="chat_limits.set").one()
@@ -321,6 +328,8 @@ def test_the_limits_are_an_audited_admin_setting(
             "long_history_tokens": 10_000,
             "daily_cap_krw": 0,
             "provider_concurrency": 3,
+            "web_fetch_max_uses": 1,
+            "web_fetch_max_content_tokens": 10_000,
         },
     )
     assert db_session.query(ChatLimits).count() == 2

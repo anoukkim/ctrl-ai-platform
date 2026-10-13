@@ -127,6 +127,16 @@ class ChatLimits(Base):
     provider_concurrency: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="3"
     )
+    #: 웹 페이지 읽기 (tool-cap-defaults, owner 2026-10-14 morning):
+    #: fetches per reply and tokens per fetched page. Inside the
+    #: per-reply cap's reserve, so smaller values fit a smaller cap.
+    #: Never 0 — the member's toggle is how the tool turns off.
+    web_fetch_max_uses: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="1"
+    )
+    web_fetch_max_content_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="10000"
+    )
     set_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

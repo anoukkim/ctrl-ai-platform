@@ -136,6 +136,9 @@ export interface ChatInfo {
   is_mock: boolean;
   rate_limit_per_minute: number;
   max_message_length: number;
+  /** 웹 페이지 읽기의 현재 한도 — 토글 안내문이 그대로 보여 줍니다. */
+  web_fetch_max_uses: number;
+  web_fetch_max_content_tokens: number;
   models: ChatModelOption[];
   /** 새 대화가 쓰는 모델. 모델 목록이 비었을 때만 null. */
   default_model_id: number | null;

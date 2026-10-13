@@ -44,13 +44,24 @@ class Limits:
     daily_cap_krw: int
     #: Outgoing provider calls at once, per server process (PART F).
     provider_concurrency: int
+    #: 웹 페이지 읽기 (chat-plus-tools): fetches per reply, and tokens per
+    #: fetched page. Both sit inside the per-reply cap's reserve, so
+    #: smaller values let the tool fit a smaller cap.
+    web_fetch_max_uses: int
+    web_fetch_max_content_tokens: int
 
 
-#: In force while the table is empty. The owner asked for "about 100원"
-#: per reply and a warning at half the context limit; the daily cap is
-#: opt-in.
+#: In force while the table is empty. The owner set the per-reply cap to
+#: **200원** on 2026-10-14 (morning) — 100원 could not fit 페이지 읽기 —
+#: with fetch bounded to 1회 × 10,000토큰; the warning sits at half the
+#: context limit; the daily cap is opt-in.
 DEFAULTS = Limits(
-    reply_cap_krw=100, long_history_tokens=8_000, daily_cap_krw=0, provider_concurrency=3
+    reply_cap_krw=200,
+    long_history_tokens=8_000,
+    daily_cap_krw=0,
+    provider_concurrency=3,
+    web_fetch_max_uses=1,
+    web_fetch_max_content_tokens=10_000,
 )
 
 
@@ -64,6 +75,8 @@ def current(db: Session) -> Limits:
         long_history_tokens=row.long_history_tokens,
         daily_cap_krw=row.daily_cap_krw,
         provider_concurrency=row.provider_concurrency,
+        web_fetch_max_uses=row.web_fetch_max_uses,
+        web_fetch_max_content_tokens=row.web_fetch_max_content_tokens,
     )
 
 

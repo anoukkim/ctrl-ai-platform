@@ -18,8 +18,6 @@ from app.models import ChatLimits, UsageEvent
 from app.services import chat_tools
 from app.services.chat_models import default_model
 from app.services.claude_provider import (
-    WEB_FETCH_MAX_CONTENT_TOKENS,
-    WEB_FETCH_MAX_USES,
     WEB_SEARCH_MAX_USES,
     AnthropicClaudeProvider,
     server_tool_params,
@@ -58,8 +56,8 @@ def turn_on(client: TestClient, conversation: int, **flags) -> dict:
 
 
 def test_haiku_gets_the_older_search_tool_and_sonnet_the_new_one() -> None:
-    haiku = server_tool_params(("web_search",), "claude-haiku-4-5")
-    sonnet = server_tool_params(("web_search",), "claude-sonnet-5-5")
+    haiku = server_tool_params(("web_search",), "claude-haiku-4-5", 1, 10_000)
+    sonnet = server_tool_params(("web_search",), "claude-sonnet-5-5", 1, 10_000)
 
     assert haiku[0]["type"] == "web_search_20250305"
     assert sonnet[0]["type"] == "web_search_20260209"
@@ -68,14 +66,16 @@ def test_haiku_gets_the_older_search_tool_and_sonnet_the_new_one() -> None:
         assert block["user_location"]["country"] == "KR"
 
 
-def test_fetch_and_code_blocks_carry_the_specs_caps() -> None:
-    blocks = server_tool_params(("web_fetch", "code_execution"), "claude-sonnet-5-5")
+def test_fetch_blocks_carry_the_admins_limits() -> None:
+    """The fetch bounds are 채팅 한도 settings (tool-cap-defaults), not
+    constants: whatever the admin set rides on the request."""
+    blocks = server_tool_params(("web_fetch", "code_execution"), "claude-sonnet-5-5", 2, 8_000)
 
     assert blocks[0] == {
         "type": "web_fetch_20260209",
         "name": "web_fetch",
-        "max_uses": WEB_FETCH_MAX_USES,
-        "max_content_tokens": WEB_FETCH_MAX_CONTENT_TOKENS,
+        "max_uses": 2,
+        "max_content_tokens": 8_000,
     }
     assert blocks[1] == {"type": "code_execution_20260521", "name": "code_execution"}
 
@@ -248,15 +248,50 @@ def test_a_tool_whose_worst_case_reaches_the_cap_is_refused_free(
     assert db_session.scalar(select(UsageEvent)) is None
 
 
-def test_fetch_is_refused_at_the_default_cap(
+def test_search_and_fetch_are_usable_at_the_default_cap_on_member_models(
+    db_session: Session, config
+) -> None:
+    """The owner's morning rule (2026-10-14): at the 200원 default cap and
+    the fetch bounds 1회 × 10,000토큰, 웹 검색 and 페이지 읽기 must leave
+    output budget on **every member-visible model** — iterated from the
+    catalogue, so a price change that breaks this fails the suite."""
+    from app.models import ChatModel, ChatModelVisibility
+    from app.services import chat_limits
+    from app.services.chat_models import ChosenModel
+
+    defaults = chat_limits.DEFAULTS
+    assert defaults.reply_cap_krw == 200
+    rows = db_session.scalars(
+        select(ChatModel).where(ChatModel.visibility == ChatModelVisibility.MEMBERS)
+    ).all()
+    assert rows, "the seeded catalogue must offer members at least one model"
+    for row in rows:
+        price = price_for(db_session, ChosenModel.of(row), cache_ttl=config.cache_ttl)
+        for tool in ("web_search", "web_fetch"):
+            reserve = chat_tools.cap_extra_krw(
+                price,
+                (tool,),
+                row.web_search_usd_per_call,
+                fetch_max_uses=defaults.web_fetch_max_uses,
+                fetch_max_content_tokens=defaults.web_fetch_max_content_tokens,
+            )
+            budget = chat_limits.output_budget(
+                price, defaults.reply_cap_krw - reserve, 1_000
+            )
+            assert budget > 0, f"{row.model_id}: {tool} does not fit the default cap"
+
+
+def test_fetch_is_refused_when_the_cap_cannot_cover_it(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
-    """The honest consequence of the owner's rule: 2 × 20,000 result
-    tokens cannot fit a 100원 cap, so 페이지 읽기 refuses until the admin
-    raises the 1회 비용 한도 (≈250원 on Sonnet)."""
+    """The honest consequence of the owner's rule: a cap below the fetch
+    worst case (1 × 10,000 tokens) refuses 페이지 읽기 before anything is
+    spent, naming the tool."""
     open_tools(db_session)
     conversation = new_conversation(client)
     turn_on(client, conversation, use_web_fetch=True)
+    db_session.add(ChatLimits(reply_cap_krw=30, long_history_tokens=8000, daily_cap_krw=0))
+    db_session.commit()
 
     refused = client.post(
         f"/api/chat/conversations/{conversation}/messages",
