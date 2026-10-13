@@ -1033,7 +1033,8 @@ Non-negotiable:
     and never baked into a Docker image; the Anthropic key has a monthly
     spend limit set in the Anthropic Console; and every key is rotated
     when the secrets move to Secret Manager after the beta. See
-    `docs/BACKLOG.md` › prep-beta-launch › **Hosting decisions**.
+    `docs/archive/done-specs.md` › prep-beta-launch › **Hosting decisions
+    — 2026-10-13**.
 - maintain audit logs for admin credit/membership changes
 
 ---
@@ -1467,7 +1468,7 @@ costs money and the only one that needs a domain or an API key.
 > (`asia-northeast3-c`), static IP `34.47.78.228` — with Docker Compose
 > and PostgreSQL on the VM. It is billed on the Google Cloud free trial
 > (₩407,626, 2026-10-13 to about 2027-01-11); the billing account must be
-> upgraded to paid before the trial ends. See `docs/BACKLOG.md` ›
+> upgraded to paid before the trial ends. See `docs/archive/done-specs.md` ›
 > prep-beta-launch › **Hosting decisions — 2026-10-13**, and
 > `docs/deployment.md` for the step-by-step guide. The managed PostgreSQL
 > and Secret Manager lines below describe the target after the beta.

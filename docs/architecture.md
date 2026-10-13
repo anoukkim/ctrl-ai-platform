@@ -230,7 +230,7 @@ Internet ─ 80/443 ─▶ caddy (HTTPS, Let's Encrypt; www → apex)
 There is no `api` subdomain: the browser only talks to `ctrlai.my`.
 Images are built by GitHub Actions and pulled from ghcr.io. Secrets sit
 in a `chmod 600` `.env` on the VM — the beta-only exception in
-`CLAUDE.md` section 17. The full decision is in `docs/BACKLOG.md` ›
+`CLAUDE.md` section 17. The full decision is in `docs/archive/done-specs.md` ›
 prep-beta-launch › **Hosting decisions — 2026-10-13**; running it is
 `docs/deployment.md`. The layout below is the target after the beta.
 

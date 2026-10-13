@@ -18,7 +18,8 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Nothing is in progress.** Branch the next item from an up-to-date
+**Nothing is in progress.** `prep-beta-launch` merged 2026-10-13; next is
+`invite-only-signup`. Branch the next item from an up-to-date
 `main`.
 
 **Working order set by the developer (2026-10-08)** — three items ahead
@@ -48,9 +49,8 @@ stopping after each for the developer to check and merge:
 1. `invite-only-signup`
 2. `chat-plus-rendering`
 3. `test-database-isolation`
-4. `prep-beta-launch` — the cloud was chosen on 2026-10-13 (see
-   *Hosting decisions — 2026-10-13* in its spec); built on
-   `feat-prep-beta-launch`
+4. ~~`prep-beta-launch`~~ — **merged 2026-10-13**; spec and Hosting
+   decisions in [`archive/done-specs.md`](archive/done-specs.md)
 
 `chat-plus-files` and `chat-plus-artifacts` keep their specs and are not
 in this run. Mock providers only, no real API call, the developer's
@@ -359,25 +359,10 @@ six places.
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-   **Open check before item 12 — Phase 2's point 10 (real key).** One
-   short real message with the owner's key; see **Now**. Not a branch,
-   but `prep-beta-launch` does not start until it has been run.
-
-12. **prep-beta-launch** · M1 · branch `feat-prep-beta-launch`
-   The invite-only beta on a real domain. Spec saved verbatim below,
-   keeping its **Launch data rules** section. ⚠ **Costs money** — the
-   domain is bought (`ctrlai.my`) and the owner created the VM
-   (`ctrlai-server`, e2-medium in Seoul) on the Google Cloud free trial
-   on 2026-10-13. See **Hosting decisions — 2026-10-13** in its spec; ask
-   before creating anything else. The developer started the code part
-   and the guide on 2026-10-13, ahead of items 7 and 11 — **the open
-   checks below still stand before the site opens to members.**
-   **Do not open to members before item 11**, nor before Phase 2's point 10.
-   Running the suite against a live database is a different order of
-   mistake once the database holds members' work rather than one
-   developer's test rows. **Storage on the VM** now also holds chat
-   attachments (`chat-plus-files`): its 30 GB disk budget is in that
-   spec.
+   **Open check before the beta opens to members — Phase 2's point 10
+   (real key).** One short real message with the owner's key; see
+   **Now**. Not a branch. `prep-beta-launch` merged on 2026-10-13; the
+   site does not open to members until this, item 7 and item 11 are done.
 
 ### Merge order
 
@@ -1074,161 +1059,7 @@ preview runs in the member's own browser, in a frame with no origin.
 
 ---
 
-## prep-beta-launch — full spec
-
-No branch named yet. Rewritten on 2026-10-01: the item used to be only the
-launch data rules, and now carries the full beta specification. Saved
-exactly as written by the developer.
-
-**Last in the queue: position 4 in Next as of 2026-10-07.** The
-order is still deliberate: the beta is an invite-only launch whose one real
-feature is Claude chat, so Phase 2 (position 1) and `invite-only-signup`
-(position 2) both have to exist first, and `test-database-isolation`
-(position 3) has to land before the suite can be pointed anywhere near a
-live database. Everything else ships behind a test-mode label. Launching last still means every build-out item in
-**Next** is done before anything is exposed on a public domain.
-
-**The invite codes are no longer this item's work.**
-`invite-only-signup` at position 2 owns them, and requires a code in every
-environment rather than only in the beta — so by the time this item runs,
-signup is already closed. Two parts of the spec below are therefore
-already satisfied when it starts:
-
-- **point 2's first bullet** ("Signup requires an invite code; Admin can
-  create and revoke invite codes, written to the audit log") — verify it
-  holds under `APP_ENV=beta` rather than build it; and
-- **point 5's "invite-only signup" test**, which `invite-only-signup`
-  writes.
-
-The rest of point 2 — the beta banner, the test-mode labels, disabled
-top-ups, dev tools unavailable, the feedback form — is untouched and is
-still this item's work. The spec below is kept verbatim; this note records
-what moved, not an edit to the developer's words.
-
-**This is the item that costs money** — originally a domain, a frontend
-host, a backend host and a managed PostgreSQL. **Superseded for the beta
-by Hosting decisions below (2026-10-07):** the domain is bought, and
-everything runs on one Google Cloud VM on the free trial. CLAUDE.md
-section 21 rule 5 and section 20's Phase 9 both still apply: ask before
-creating any paid cloud resource. Point 4 below says the same thing.
-
-> Goal: an invite-only beta on my own domain, with real Claude chat and everything else clearly labelled as test mode.
->
-> 1. Production readiness: backend Dockerfile (binds 0.0.0.0 and $PORT, runs alembic upgrade head as a documented step), all production settings from environment variables (backend URL for the Next.js /api rewrite, CORS origins, secure cookies, cookie domain, APP_ENV, DATABASE_URL), documented in .env.example with ctrlai.example as the placeholder domain.
-> 2. APP_ENV=beta:
->    - Signup requires an invite code; Admin can create and revoke invite codes, written to the audit log.
->    - A visible Korean beta banner on every page.
->    - Features still on mock providers stay usable but are clearly labelled "테스트 모드 – 실제 AI 결과가 아닙니다".
->    - Personal top-ups and any real-money features are disabled.
->    - Development-only tools (simulator, sample data, dev seed) are unavailable.
->    - A feedback button on every page: a short form saved to the database and listed in Admin, next to the existing Report Issue page.
-> 3. Domain layout: the frontend on the main domain (and www redirecting to it), the backend on an api subdomain; the browser only talks to the main domain through the /api rewrite.
-> 4. docs/deployment.md for a beginner: step-by-step setup of the frontend host, the backend host and a managed PostgreSQL; the environment variables for each; the exact DNS records to add at my registrar; how HTTPS is issued; running migrations; taking a database backup before each update; how redeploys work after each merged item; and keeping Anthropic auto-reload OFF. Mark every step that costs money, and never create cloud resources without asking me.
-> 5. Tests: invite-only signup, beta banner and test-mode labels, disabled top-ups, dev tools unavailable outside development, feedback saved, production refuses default admin passwords.
-
-**`APP_ENV=beta` is a third environment**, alongside `development` and
-production. `Settings.is_development` currently decides what is hidden
-(the dev tools, the usage simulator's 404), and a beta instance is not
-development — so point 2's list needs that distinction drawn explicitly
-rather than inherited.
-
-**Point 4 creates `docs/deployment.md`**, which does not exist today. Its
-"keep Anthropic auto-reload OFF" line is the same operator note
-`budget-by-provider` point 6 asks for; that item is deferred and this one
-is in **Next**, so the file will already exist whenever it is picked up.
-
-### Launch data rules
-
-Added 2026-10-01. Saved exactly as written by the developer.
-
-> - The production database starts empty: run migrations, then create only the admin account from ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD in the environment. No test members, sample projects, videos, usage or audit entries.
-> - The development seed (dev, testmember, test accounts, sample data) must refuse to run unless APP_ENV=development, with a test proving it.
-> - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
-> - Never copy the local database to production; the deployment guide says so explicitly.
-> - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
-
-### Cloud-neutral code part — superseded 2026-10-13
-
-On 2026-10-07 the developer asked for the code part to be built
-cloud-neutral while the cloud, region and VM size were decided. They were
-decided on 2026-10-13 (below), so that note no longer applies: the code
-part and the guide are written for the chosen VM.
-
-### Hosting decisions — 2026-10-13
-
-Decided by the owner; updates the 2026-10-07 decisions, which put an
-e2-micro in a free-tier US region. **Where these conflict with points 1,
-3 and 4 above, or with Phase 9 in `CLAUDE.md`, these win for the beta.**
-Points 2 and 5 and the Launch data rules are unchanged.
-
-**The VM (already created by the owner):**
-
-| | |
-| - | - |
-| Name | `ctrlai-server` |
-| Region / zone | `asia-northeast3` (Seoul) / `asia-northeast3-c` |
-| Machine | **e2-medium** — 2 vCPU, 4 GB RAM. Paid, about US$32 a month; not a free-tier machine |
-| OS | Debian 13 (trixie), x86_64 |
-| Disk | standard persistent disk, being resized from 10 GB to 30 GB |
-| Static external IP | `34.47.78.228` |
-| Firewall | HTTP (80) and HTTPS (443) allowed; nothing else besides the default SSH rule |
-| Done on the VM | `apt upgrade`; git; Docker Engine and the Compose plugin from Docker's apt repository; the owner's user `ctrlai_platform` in the `docker` group; a 2 GB swap file in `/etc/fstab` |
-
-- **Billing: the Google Cloud free trial — ₩407,626 of credit, started
-  2026-10-13, ending around 2027-01-11.** The billing account must be
-  upgraded to paid before then or the VM stops. `docs/deployment.md` gives
-  the date to act (2027-01-04, a week early) and what happens otherwise.
-  Set a budget alert on day one.
-- **Domain: `ctrlai.my`, already bought.** DNS at the registrar: `@` A →
-  `34.47.78.228`; `www` CNAME → `ctrlai.my` (Caddy redirects www to the
-  apex). Records and checks: `docs/dns-for-domain-owner.md`.
-- **No `api` subdomain.** Point 3 asked for one, and it is not useful: the
-  browser only ever talks to the main domain through the `/api` rewrite,
-  so an `api` record would add a public address, a certificate and a
-  cookie question for nothing. FastAPI is not exposed at all, and its
-  `/docs` is off outside development anyway.
-- **Data location notice on sign-up:** "회원님의 정보는 Google Cloud 서울
-  리전(asia-northeast3)에 저장됩니다." — editable as `DATA_LOCATION_NOTICE`
-  in `.env`.
-- **Sizes in `.env.example` are for the e2-medium and about 40 members:**
-  `WEB_CONCURRENCY=2`, `DB_POOL_SIZE=5` + `DB_MAX_OVERFLOW=5` (20
-  connections at most), PostgreSQL `shared_buffers=256MB`,
-  `max_connections=50`, Caddy `MAX_UPLOAD_MB=20`.
-
-**Unchanged from 2026-10-07:**
-
-- **One Docker Compose with four services:** `caddy` (80/443, automatic
-  Let's Encrypt HTTPS), `web` (Next.js standalone output), `api`
-  (FastAPI) and `db` (`postgres:16-alpine`, **no published port**, a named
-  volume). File: `docker-compose.prod.yml`.
-- **No Cloud SQL, Cloud Run or Secret Manager for the beta.**
-- **Production secrets live in a `.env` on the VM — a beta-only exception
-  to `CLAUDE.md` section 17, decided by the owner.** It holds as long as
-  every condition holds:
-  - the file is readable only by the deploy user (`chmod 600`);
-  - it is never committed and never baked into a Docker image — the
-    compose file passes it at run time;
-  - the Anthropic key has a **monthly spend limit** set in the Anthropic
-    Console;
-  - **every key is rotated** when the secrets move to Secret Manager
-    after the beta.
-- **Images are built off the VM.** GitHub Actions builds both images and
-  pushes them to ghcr.io (`.github/workflows/images.yml`); the VM only
-  pulls. Next.js rewrites are compiled at build time, so `BACKEND_ORIGIN`
-  (`http://api:8000`) is a **build argument**, not a runtime variable.
-- **Point 1 changes in two details only:** the domain is `ctrlai.my`, and
-  `BACKEND_ORIGIN` is a build argument. CORS origins, secure cookies,
-  cookie domain, `APP_ENV` and `DATABASE_URL` are runtime environment
-  variables as written.
-- **The first background job runs from host cron:** once a day,
-  `python -m app.jobs.anonymise_withdrawn` in the `api` container
-  (`deploy/daily-jobs.sh`).
-- **Backups:** `pg_dump` from the `db` container before every update
-  (`deploy/backup.sh`), kept off the VM.
-- **Growing later is configuration, not a rewrite:** move PostgreSQL to
-  Cloud SQL by dump and restore plus a new `DATABASE_URL`, or run the same
-  images on Cloud Run. Resizing the VM (e2-standard-2 and up) is a stop,
-  a machine-type change and a start.
+→ **prep-beta-launch — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#prep-beta-launch--full-spec-merged-2026-10-13), with its Launch data rules and **Hosting decisions — 2026-10-13**.
 
 ---
 
