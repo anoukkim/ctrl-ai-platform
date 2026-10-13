@@ -25,9 +25,10 @@ change, merging each after the full loop. Progress and the board:
 `invite-only-signup` (merged 2026-10-13) is deployed to `ctrlai-server`
 with `prep-beta-launch`, on mock providers; caddy waits for the A record.
 
-**Working order set by the developer (2026-10-08)** — done except
-`ui-friendly-motion` (now item 3 of Next) and `deepseek-research`
-(waiting for the developer's check): single-wallet merged 2026-10-13.
+**Working order set by the developer (2026-10-08)** — complete:
+single-wallet and `ui-friendly-motion` merged 2026-10-13,
+`deepseek-research` merged 2026-10-14 (owner approved, with
+admin-and-nav-cleanup).
 
 **Money wording in older notes.** Since `single-wallet` (2026-10-08)
 every paid feature spends from one 동아리 지원 wallet per member per
@@ -275,41 +276,37 @@ before the post-beta work, which is specced under **After the beta**.
    overlapping; the section becomes **AI Models**, grouped by provider,
    with DeepSeek listed as 연결 준비 중. Spec below.
 
-2. **deepseek-research** · M3 (research for more-chat-providers) · branch
-   `docs-deepseek`
-   Research only, no code: can DeepSeek join the chat model catalogue —
-   its own API, and hosts that serve DeepSeek models outside China. Writes
-   `docs/research/` and a note under `more-chat-providers`. Can run any
-   time. Spec saved verbatim below.
-
-3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+2. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
-   Added by the owner on 2026-10-13, revised the same day. Report Issue
-   (`/issues`) becomes a board: members write notes there and read every
-   public note with no names; Admin can hide a note, export notes as
-   Markdown ("Claude용으로 내보내기"), and send chosen public notes to
-   GitHub as issues that Claude groups and drafts ("GitHub로 보내기",
-   `FEEDBACK_ISSUES_PROVIDER=mock|github`, never automatic). **Depends
-   on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
-   below, with the owner's revision.
+4. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+   Added by the owner on 2026-10-13, revised the same day and again on
+   2026-10-14 (admin-and-nav-cleanup): **no menu item and no `/issues`**
+   — the member board is a page of its own, reached from a "다른 의견
+   보기" link inside the 의견 보내기 dialog. Members write notes there
+   and read every public note with no names; Admin can hide a note,
+   export notes as Markdown ("Claude용으로 내보내기"), and send chosen
+   public notes to GitHub as issues that Claude groups and drafts
+   ("GitHub로 보내기", `FEEDBACK_ISSUES_PROVIDER=mock|github`, never
+   automatic). **Depends on:** `prep-beta-launch` and
+   `invite-only-signup` (both merged). Spec below, with the owner's
+   revisions.
 
-6. **token-guard** · M1 · branch `feat-token-guard`
+5. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-7. **live-cost-display** · M1 · branch `feat-live-cost-display`
+6. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -317,26 +314,20 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-8. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+7. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-9. **builder-python** · M2 · branch `feat-builder-python`
+8. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
    (merged) and **`builder-static-runtime`** (M2, *After the beta*):
    Pyodide cannot load inside today's network-blocked `srcdoc` preview,
    so this cannot start before that item's Half 2. Spec below.
-
-### Merge order
-
-1. `docs-deepseek` — research only, one commit (`cf92ccf`), waiting for
-   the developer's check; touches different sections of this file, so it
-   merges cleanly in any order.
 
 ---
 
@@ -545,18 +536,7 @@ Two notes for whoever builds it, from the work that raised it:
 
 → **ui-friendly-motion — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#ui-friendly-motion--full-spec-merged-2026-10-13).
 
-## deepseek-research — full spec
-
-Branch `docs-deepseek`. Research only — nothing is built. Added
-2026-10-08 at position 3; can run any time. Its findings go to
-`docs/research/` and into **more-chat-providers** (*After the beta*).
-Saved exactly as written by the developer.
-
-> ITEM 3 — research only (branch docs-deepseek), can run any time
-> Can we add DeepSeek to the chat model catalogue? Using current docs, report: DeepSeek's own API (pricing, OpenAI-compatible API, streaming, file/image input, where data is stored and the privacy terms, billing and receipts for Concur), and alternatives that host DeepSeek models elsewhere (via OpenRouter with a provider/region choice, or US-hosted providers), with price differences. Recommend whether and how, noting that our company may restrict sending data to servers in China. Write it into docs/research/ and add a "more-chat-providers" note in BACKLOG. Don't build.
-
-Findings (2026-10-08): [`research/deepseek-research.md`](research/deepseek-research.md);
-summary under **more-chat-providers**.
+→ **deepseek-research — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#deepseek-research--full-spec-merged-2026-10-14).
 
 ---
 
@@ -1065,6 +1045,13 @@ What this changes in the points above:
 - **Point 1's page and menu name are replaced:** the board is the Report
   Issue page (`/issues`), no new menu item. The 의견 보내기 button
   elsewhere (sidebar, beta banner) stays and writes to the same board.
+- **Points 2–6 stand** (no names, the earlier staff-only notes kept off
+  the board, the "운영진만 보기" choice, hiding, the Markdown export, the
+  tests), plus the GitHub sending above and its tests: only public notes
+  can be selected, a note is sent once, the issue body carries no names,
+  emails, user ids or project ids, nothing is sent without the admin's
+  confirmation, the token is never returned or logged, and the mock
+  records what it would have sent.
 
 ### Owner decision — 2026-10-14 (admin-and-nav-cleanup; wins over both above)
 
@@ -1073,13 +1060,6 @@ menu item, no `/issues`.** The **의견 보내기** button in the sidebar
 footer stays the one way to send a note; the member board is a page of
 its own, reached from a **"다른 의견 보기"** link inside the 의견 보내기
 dialog (not from the menu). Everything else above stands.
-- **Points 2–6 stand** (no names, the earlier staff-only notes kept off
-  the board, the "운영진만 보기" choice, hiding, the Markdown export, the
-  tests), plus the GitHub sending above and its tests: only public notes
-  can be selected, a note is sent once, the issue body carries no names,
-  emails, user ids or project ids, nothing is sent without the admin's
-  confirmation, the token is never returned or logged, and the mock
-  records what it would have sent.
 
 ## token-guard — full spec
 
@@ -1503,6 +1483,16 @@ servers" or "no DeepSeek". If it is the first, add one row through
 model, a **direct US host** (Together, or Fireworks' US region) is
 another option. One more purchase line for the 팀장 either way. Korean
 quality is unmeasured; low priority.
+
+**Catalogue row already seeded (admin-and-nav-cleanup, 2026-10-14).**
+`deepseek/deepseek-v4.1-flash` exists, closed (연결 준비 중), under
+provider id `deepseek` — but `provider` elsewhere means "whose API serves
+it", and the recommendation above is OpenRouter or a direct US host,
+never DeepSeek's own API. When the adapter lands, either keep the key
+`deepseek` and define it as "DeepSeek models through the US host chosen
+by configuration", or migrate the row's provider to the real host
+(`openrouter` / `together`) — decide then, so `UsageEvent.provider` and
+Admin › Budget name the pot the club actually buys from.
 
 **Charged:** each provider's own budget (or the aggregator's single one),
 by the token at the catalogue price.
