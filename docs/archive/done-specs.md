@@ -1793,3 +1793,9 @@ words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
 [`../progress/audit-caching.md`](../progress/audit-caching.md) and
 [`../progress/audit-caching-and-distribution.md`](../progress/audit-caching-and-distribution.md);
 the member/admin-facing result is [`../api-distribution.md`](../api-distribution.md).
+
+**Owner decision — 2026-10-14 (morning):** the Sonnet 5.5 cache-read
+over-charge ($0.20 instead of the documented $0.10) is **not
+compensated** — every charge made at the wrong price was mock or
+development data; no member's real money moved. The ledger keeps the
+recorded figures as history.
