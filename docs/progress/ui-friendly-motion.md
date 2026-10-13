@@ -47,6 +47,37 @@ Branch `feat-ui-friendly-motion`. Spec: `docs/BACKLOG.md` › ui-friendly-motion
 - Consider **Report Issue → Feedback** once anonymous-feedback-board makes
   that page a board of notes rather than a bug form. Owner's decision.
 
-## Status
+## Status (self-review against the diff)
 
-(filled in at step 6)
+1. ✅ `motion` 14.2 in `frontend/package.json`; nothing else added.
+2. ✅ `library.module.css .card:hover`, `admin.module.css a.card:hover` (apps/tube cards already lifted).
+3. ✅ `globals.css .btn:active`.
+4. ✅ `app/template.tsx` + `PageTransition` (opacity only — a transform would
+   pin fixed dialogs to the page); dialogs and toasts animate with motion.
+5. ✅ `AppShell.module.css`: grid column transition 0.2 s and label fade.
+6. ✅ `Skeleton` on every former "불러오는 중…" (27 files); the words stay for screen readers.
+7. ✅ `ToastProvider` / `useToast`: rename, delete (both libraries and workspaces), downloads (menus and video versions).
+8. ✅ `ChatWorkspace` typing dots before the first word; the caret after.
+9. ✅ `AnimatedNumber` in the sidebar wallet; the meter bar eases too.
+10. ✅ `success-pop` checkmark on `ResultMessage` (ok) and the feedback thanks.
+11. ✅ `MotionRoot` (`reducedMotion="user"`) + the global CSS rule.
+12. ✅ 120–400 ms (the wallet count 400 ms); nothing sets `pointer-events: none` on content.
+13. ✅ 작성 중 for Draft; Usage's provider column reads "Claude · 대화와 글" / "Higgsfield · 영상".
+14. ✅ proposals above; no menu changed.
+15. ✅ `EmptyState`: Chat conversations, Usage, Profile's two lists; the two
+    libraries already had an explanation and one action.
+16. ✅ `FirstVisitGuide` (4 steps, `ctrlai.guide-done`, reopened by the sidebar's ?).
+17. ✅ tokens only; Pretendard; dark default; focus and labels kept.
+18. ✅ `docs/progress/screens/ui-friendly-motion/` — Chat, Builder, Video,
+    Usage, Admin at 1280, 1920 and 390 px, the guide (light), three empty states.
+19–22. ✅ `__tests__/ui-friendly-motion.test.tsx` (reduced-motion CSS rule and
+    the wallet number; guide once + reopen + four steps; empty states;
+    skeleton; toast; 작성 중); existing suites updated for 작성 중.
+
+Found by the browser check and fixed here:
+- **A new member's first Usage visit answered 500**: the sidebar and Usage
+  created the personal wallet at the same moment and the second insert hit
+  the unique user id. `wallet.get_or_create_balance` now inserts inside a
+  savepoint and reads the winner's row (`test_two_first_requests_for_a_new_wallet_do_not_fail`).
+- The sidebar name wrapped onto three lines with the extra footer button;
+  it is now one line with an ellipsis.

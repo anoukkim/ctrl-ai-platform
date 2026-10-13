@@ -297,7 +297,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {user.display_name.slice(0, 1)}
             </span>
             <span className={styles.navUserNames}>
-              {user.display_name}
+              <span className={styles.navUserName}>{user.display_name}</span>
               <span className={styles.navUserHandle}>@{user.username}</span>
             </span>
           </span>

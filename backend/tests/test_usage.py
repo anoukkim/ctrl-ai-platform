@@ -565,3 +565,34 @@ def test_concurrent_charges_cannot_overspend(pg_engine) -> None:
             cleanup.query(Quarter).filter_by(id=quarter_id).delete()
             cleanup.query(User).filter_by(id=member_id).delete()
             cleanup.commit()
+
+
+def test_two_first_requests_for_a_new_wallet_do_not_fail(db_session: Session, other_user) -> None:
+    """The sidebar and Usage ask for a new member's wallet at the same time.
+
+    Simulated: the first lookup misses although the row already exists (it
+    was inserted by the other request a moment earlier), so the insert hits
+    the unique user_id. The helper must return the existing wallet, not 500.
+    """
+    from app.models import PersonalBalance
+    from app.services import wallet
+
+    db_session.add(PersonalBalance(user_id=other_user.id, balance_krw=0, consumed_krw=0))
+    db_session.commit()
+
+    real_scalar = db_session.scalar
+    calls = {"n": 0}
+
+    def first_lookup_misses(statement, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None
+        return real_scalar(statement, *args, **kwargs)
+
+    db_session.scalar = first_lookup_misses  # type: ignore[method-assign]
+    try:
+        balance = wallet.get_or_create_balance(db_session, other_user.id)
+    finally:
+        db_session.scalar = real_scalar  # type: ignore[method-assign]
+    assert balance.user_id == other_user.id
+    assert db_session.query(PersonalBalance).filter_by(user_id=other_user.id).count() == 1

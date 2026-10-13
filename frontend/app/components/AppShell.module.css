@@ -596,7 +596,16 @@
   display: grid;
   line-height: 1.3;
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* One line each, ellipsis rather than a name broken across three lines
+     now that the footer holds four small buttons (ui-friendly-motion). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navUserName {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .navUserHandle {
