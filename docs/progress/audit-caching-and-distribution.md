@@ -38,6 +38,24 @@ Branch `audit-caching-and-distribution` from `feat-chat-plus-tools`.
 10. `ANTHROPIC_MONTHLY_BUDGET_USD` (env, default off) → Admin › Budget
     progress bar with the 80% warning. Test.
 
-## Status
+## Status — loop results (2026-10-14)
 
-(filled at the end)
+- Every checklist point built. Backend full suite green in this worktree
+  with the PostgreSQL tests running (`ctrlai_f_test` on the throwaway
+  server); frontend 349 vitest / tsc 0 / eslint 0. `npm run build` not
+  run here (worktree) — run on main at merge time.
+- **Browser check skipped** on the coordinator's priority call (time):
+  the two new admin views are covered by vitest (캐시 절약 table, the
+  budget bar renders only with the setting) and the endpoints by pytest.
+  Worth one click after merging.
+- Base state at finish: branched from `feat-chat-plus-tools` `d03680c`;
+  merged `main` (docs only). The tools branch's expected round-2
+  amendments had not landed; if its migration d9e2f7a4c3b8 is amended
+  in place later, recreate any database that ran the old file.
+- Two pre-existing tests updated for new behaviour: the dashboard alert
+  now carries the reason ("Claude — 키가 잘못되었거나 만료") and the
+  chat-limits admin API requires `provider_concurrency`.
+- Open design note: the cap vs tool-result-tokens question the main
+  session logged for the owner is untouched by this branch — my cap
+  additions only reserve the deterministic search fees, same as the
+  tools branch decided.
