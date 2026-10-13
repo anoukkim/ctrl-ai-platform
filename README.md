@@ -59,6 +59,14 @@ Open **http://localhost:3000** and sign in with the development account
 the seed created — 아이디 `dev`, 비밀번호 `devpassword` (development only;
 the seed refuses to run anywhere else).
 
+**Reset the local test data** — wipes the local database and seeds it
+again (development and a localhost database only; it refuses otherwise):
+
+```powershell
+# in backend\
+.\.venv\Scripts\python.exe -m app.db.reset_dev
+```
+
 **Tests:**
 
 ```powershell
@@ -83,7 +91,8 @@ npm.cmd test; npx tsc --noEmit; npm.cmd run lint; npm.cmd run build
 | [`docs/BACKLOG.md`](docs/BACKLOG.md) | **The order of work**: Now, Next, open specs, UI requests |
 | [`docs/product.md`](docs/product.md) | Screens and routes, the two workspaces, language and design, money, participation, search, leaving CTRL+AI |
 | [`docs/development.md`](docs/development.md) | Full setup, sign-in, how the pieces fit, environment files, providers, testing, troubleshooting, operator notes, repository layout |
-| [`docs/deployment.md`](docs/deployment.md) | Deployment notes; the beta's hosting decisions |
+| [`docs/deployment.md`](docs/deployment.md) | 배포 안내서 (Korean): setting up `ctrlai-server`, HTTPS, real Claude, backups, updates, cron, billing dates |
+| [`docs/dns-for-domain-owner.md`](docs/dns-for-domain-owner.md) | The DNS records for `ctrlai.my` and how to check them (Korean) |
 | [`docs/architecture.md`](docs/architecture.md) | Target infrastructure, storage and security principles |
 | [`docs/research/chat-plus-research.md`](docs/research/chat-plus-research.md) | Prices and terms behind the Chat+ specs: Claude vision, PDF, Files API, server tools; image generation; Gemini, Grok, OpenRouter |
 | [`docs/archive/done.md`](docs/archive/done.md) | Every merged item, newest first |

@@ -1,8 +1,34 @@
-# prep-beta-launch — progress (stopped 2026-10-13)
+# prep-beta-launch — progress
 
-Branch `feat-prep-beta-launch`, three commits on top of `main` (62abf6c).
-Nothing is pushed or merged. Work stopped at the developer's request; this
-file says where to pick it up. Delete it when the item merges.
+Branch `feat-prep-beta-launch`. Nothing is pushed or merged. Work stopped
+on 2026-10-13 and **resumed the same day; every item under "Left" below is
+now done** and the branch is waiting for the developer's check. Delete
+this file when the item merges.
+
+**Resumed 2026-10-13 — done since the stop:**
+
+- The production compose ran locally (`-p ctrlai-prodtest`, 8080/8443):
+  all four services healthy (~280 MB memory in total); migrations and
+  `bootstrap` (twice — the second left the admin alone); `init_db`
+  refused (`APP_ENV is 'beta'`); `/` 200; `/api/site` `is_beta: true`
+  with the Korean notice intact through `env_file`; `/docs` and
+  `/api/openapi.json` 404; HTTP → 308 to HTTPS; `www` → 301 to the apex;
+  HSTS, nosniff, Referrer-Policy and X-Frame-Options present; the session
+  cookie `Secure; HttpOnly; SameSite=lax`; top-up 403 in Korean;
+  simulator 404; feedback saved and listed; a mock chat reply streamed
+  through Caddy and Next.js (first byte 75 ms, last 438 ms — not
+  buffered) and charged 7원; `pg_dump` → restore with `ON_ERROR_STOP`
+  worked; `anonymise_withdrawn --dry-run` ran. Torn down with
+  `down -v` (that project's volumes only).
+- `docs/dns-for-domain-owner.md` written (Korean).
+- README documents `reset_dev`; `docs/development.md` documents
+  `reset_dev`, `bootstrap` and the local production run.
+- `docs/deployment.md` checked against Google Cloud's free-trial page
+  (stop at the end, 30-day grace, the **Activate** button, credits usable
+  within the 90 days) and Anthropic's billing help (auto-reload and spend
+  limits on the Billing page); cost figures marked as estimates.
+- `docs/ROADMAP.md` M1 line.
+- Full verification — results in the final report.
 
 ## Done
 
