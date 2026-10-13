@@ -6,7 +6,7 @@ predate the terms, and whether they must consent again is the owner's
 decision, not a migration's.
 
 Revision ID: b9e6a3d1f4c7
-Revises: a8d4f1c7e9b3
+Revises: c9f2e6a8d4b1
 Create Date: 2026-10-14
 
 """
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b9e6a3d1f4c7"
-down_revision: str | None = "a8d4f1c7e9b3"
+down_revision: str | None = "c9f2e6a8d4b1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
