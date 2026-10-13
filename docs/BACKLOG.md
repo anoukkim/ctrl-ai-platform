@@ -8,7 +8,7 @@ requests mentioned mid-phase go to **UI requests** and are not built in the
 current branch unless the developer says *"do it now"*. When an item is
 merged, add its row to [`archive/done.md`](archive/done.md) and move its
 full spec to [`archive/done-specs.md`](archive/done-specs.md). See section
-22 of [`CLAUDE.md`](../CLAUDE.md).
+12 of [`CLAUDE.md`](../CLAUDE.md).
 
 Milestones and their status are in [`ROADMAP.md`](ROADMAP.md); the phases
 ([`archive/phases.md`](archive/phases.md)) are feature names. **This file is the
@@ -18,22 +18,16 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Overnight batch of 2026-10-14 in progress** — the owner's instruction
-(recorded in the run log): finish `admin-and-nav-cleanup` (merged
-2026-10-14), then **fix-beta-blockers** and **personal-topup-off** (batch
-items, specs go straight to the archive when they merge), then
-`token-guard` → `live-cost-display` → `chat-plus-tools` (moved into Next,
-mock tools only), a `docs-cleanup` branch that **waits for the owner**,
-an `audit-caching-and-distribution` branch (PART F), and — only when
-PART A and B are merged and main is green — a deploy of `main` to
-`ctrlai-server` (pre-approved for this batch only). Board and details:
-[`progress/RUN-2026-10-13.md`](progress/RUN-2026-10-13.md) › "Run of
-2026-10-14".
-
-**Unattended run of 2026-10-13** — build every item in Next that needs no
-domain, real key or cloud change, merging each after the full loop.
-`invite-only-signup` (merged 2026-10-13) is deployed to `ctrlai-server`
-with `prep-beta-launch`, on mock providers; caddy waits for the A record.
+**Morning batch of 2026-10-14 in progress** — the owner's five decisions
+(merge pre-approved under the same loop; the run log is the board):
+(1) per-reply cap 200원, web fetch 1×10,000 tokens, both admin-editable;
+(2) Sonnet cache-read over-charge not compensated (mock/dev data only);
+(3) `docs-cleanup` approved — this branch; (4) continue Next in order,
+starting privacy-and-terms (**운영진 검토 필요** before members are
+invited); (5) deploy per PART E after (3) and again after
+privacy-and-terms. The overnight batch of 2026-10-14 is **complete** —
+nine merges, eight deployed (`c4be799`), PART F "deploy next";
+[`progress/RUN-2026-10-13.md`](progress/RUN-2026-10-13.md).
 
 **Money wording in older notes.** Since `single-wallet` (2026-10-08)
 every paid feature spends from one 동아리 지원 wallet per member per

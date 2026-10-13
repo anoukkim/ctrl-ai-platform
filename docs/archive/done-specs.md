@@ -1966,8 +1966,8 @@ PART F of the owner's 2026-10-14 addendum (merge pre-approved when clean;
 as 'deploy next'" — it finished after, so it deploys next). The owner's
 words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
 2026-10-14) and the built details in
-[`../progress/audit-caching.md`](../progress/audit-caching.md) and
-[`../progress/audit-caching-and-distribution.md`](../progress/audit-caching-and-distribution.md);
+[`progress-2026-10-13/audit-caching.md`](progress-2026-10-13/audit-caching.md) and
+[`progress-2026-10-13/audit-caching-and-distribution.md`](progress-2026-10-13/audit-caching-and-distribution.md);
 the member/admin-facing result is [`../api-distribution.md`](../api-distribution.md).
 
 **Owner decision — 2026-10-14 (morning):** the Sonnet 5.5 cache-read

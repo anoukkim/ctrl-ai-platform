@@ -93,6 +93,15 @@ curl -s http://localhost:8000/openapi.json \
   with `{"visibility":"members"}` → 400 "연결 준비 중…" (a provider with
   no adapter can be priced, never opened); a model the member may not use
   is refused at send time with a Korean 400.
+- **Per-reply cap** (token-guard) — lower it in Admin › System › 채팅
+  한도 (e.g. 7원), send a long question: the reply stops, is charged
+  within the cap and carries `capped_krw`; restore the default after.
+- **Tool toggles** (chat-plus-tools, mock) — a conversation PATCH enabling
+  a tool the model does not allow → Korean 400; with both switches on,
+  "…검색해 줘" streams a `tool` event, sources, and a receipt line 검색
+  N회 M원 — no real fee, it is the mock.
+- **캐시 절약** — `GET /api/admin/chat-models/cache-stats` (admin) shows
+  per-model, per-KST-day hits after two quick messages in one conversation.
 - **Video allowlist** — a hidden/disabled model id on
   `PATCH /api/video/projects/{id}` → 400.
 - **Soft delete** — a member's `DELETE /api/builder/projects/{id}` makes
