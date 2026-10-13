@@ -933,3 +933,43 @@ def test_usage_names_a_chat_charge_by_its_conversation(
     client.delete(f"/api/chat/conversations/{conversation}")
     labels = [event["label"] for event in client.get("/api/usage/me").json()["events"]]
     assert labels == ["Chat"]
+
+
+
+# ----------------------------------------------------------- chat-plus-rendering
+
+
+def test_the_system_prompt_says_markdown_is_rendered() -> None:
+    from app.services.claude_provider import CHAT_SYSTEM_PROMPT
+
+    assert "does not render Markdown" not in CHAT_SYSTEM_PROMPT
+    assert "renders Markdown" in CHAT_SYSTEM_PROMPT
+    assert "table" in CHAT_SYSTEM_PROMPT and "fenced block" in CHAT_SYSTEM_PROMPT
+    assert "Korean" in CHAT_SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    ("ask", "expected"),
+    [
+        ("서울 여행 2박 3일 일정을 표로 정리해 줘", "| 날 |"),
+        ("동아리 소개 한 장짜리 웹페이지를 만들어 줘", "```html"),
+        ("회원 수로 차트를 그려 줘", "```svg"),
+        ("아래 글을 세 줄로 요약해 줘:", "세 줄로 요약"),
+    ],
+)
+def test_the_mock_shows_what_the_screen_renders(ask: str, expected: str) -> None:
+    import asyncio
+
+    from app.services.claude_provider import ChatRequest, MockClaudeProvider, TextDelta
+
+    async def collect() -> str:
+        text = ""
+        request = ChatRequest(
+            system="s", messages=[{"role": "user", "content": ask}], max_tokens=4096
+        )
+        async for event in MockClaudeProvider().stream_chat(request):
+            if isinstance(event, TextDelta):
+                text += event.text
+        return text
+
+    assert expected in asyncio.run(collect())
