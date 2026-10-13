@@ -173,6 +173,25 @@ developer.
 
 ## ui-tube-watch — full spec (merged 2026-10-02)
 
+### Two things worth carrying forward
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Two things from ui-tube-watch worth carrying forward:
+
+- **The breakpoint is a container query, not a media query.** Measuring
+  the *screen* is wrong on this page: at 1280px the sidebar and padding
+  leave only ~990px of content, so a `@media (min-width: 64rem)` rule is
+  true on a screen where the two columns do not actually fit the way the
+  spec describes. `.frame` carries `container-type: inline-size` and the
+  rule is `@container (min-width: 54rem)`. Any later screen that splits
+  into columns inside the main content area has the same problem.
+- **`lib/aspect.ts` now holds the ratio constants.** Video Generator's
+  `VideoSettings.tsx` re-exports them so its imports did not change. The
+  watch page needed the same ratio→CSS map, and a second copy is the kind
+  that drifts.
+
+
 Branch `ui-tube-watch`, merged. Added 2026-10-01. Saved exactly as written
 by the developer.
 
@@ -254,6 +273,17 @@ would have caught:
 ---
 
 ## ui-apps-detail — full spec
+
+### The shared comment section
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+**The comment section is now shared code.** `ui-apps-detail` lifted
+reactions, tabs and the whole comment column out of CtrlAITube's
+`WatchPanel.tsx` into `app/components/CommentSection.tsx`. Any later
+screen that needs comments uses that, and a change to it changes both
+community screens — which is the point.
+
 
 Branch `ui-apps-detail`. Added 2026-10-02 at the top of **Next**. Saved
 exactly as written by the developer.
@@ -444,6 +474,21 @@ queries against its own viewport. Worth remembering: **measure
 
 ## project-video-management — full spec (merged 2026-10-07)
 
+### Shared components later changes go through
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+**Three components are now shared between Project Builder and Video
+Generator**, which is where a later change should go rather than into
+one product: `app/components/WorkspaceTitle.tsx` (the workspace title,
+its ▾ menu, inline rename), `app/components/LibraryCard.tsx` (the list
+card and its ⋯ menu), and `app/components/ConfirmDialog.tsx`, which moved
+out of `app/admin/components/` and is now the only confirmation window in
+the product — a member deleting a project and an admin closing an account
+ask the same question and should not ask it in two different sets of
+words.
+
+
 Branch `feat-project-video-management`, merged. Saved exactly as written
 by the developer, and kept for reference.
 
@@ -533,6 +578,47 @@ reserve is only where it goes next, and that is a line
 ---
 
 ## video-higgsfield-only — full spec (merged 2026-10-07)
+
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **video-higgsfield-only** (merged 2026-10-07) that later
+items inherit:
+
+- **Seed prices are placeholders** — Kling 3.0 Pro 720p 700원/s, 1080p
+  1,000원/s; Seedance 2.0 480p 300원/s, 720p 500원/s; Wan 3.0 720p 400원/s.
+  `prices_are_examples` marks them, Admin shows 예시, and saving a model
+  clears it.
+- **Edit and extend use the same per-second rate** — edit: source length
+  × price at the source resolution; extend: added length × that price.
+- **The prompt helper is a minimal mock Claude provider** with a flat
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` (default 10원) from Build, feature tag
+  `video_prompt`. Phase 2 extends `app/services/claude_provider.py` and
+  replaces the flat amount with token pricing.
+
+- **A chosen final version makes a Draft or Generating project Ready**,
+  and clearing it returns Ready to Draft; Published and Archived are left
+  alone. `VideoProject.apply_final_version_rule` runs on every update.
+
+Two things Phase 2 inherits from it:
+
+- **`UsageEvent.feature` and `video_version_id` already exist.** Phase 2
+  adds its token, USD and rate columns next to them.
+- **`usage.ensure_affordable()` and `charge(commit=False)`** exist so a
+  provider is never called for a member who cannot pay, and a row created
+  by the call lands in the same transaction as the charge.
+
+Two decisions from **account-withdrawal** (merged 2026-10-07) that later
+items inherit:
+
+- **The scheduled job is a CLI, not an in-process scheduler** —
+  `python -m app.jobs.anonymise_withdrawn` (with `--dry-run`), run by hand
+  or cron now and by Cloud Scheduler in Phase 9. No new dependency.
+  `app/jobs/` is where later jobs go; each must be idempotent.
+- **Anonymisation leaves the audit log untouched.** It stays strictly
+  append-only; the anonymisation row itself carries no personal data.
+
 
 Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
 
@@ -685,6 +771,51 @@ description of the access rule. Saved exactly as written by the developer.
 
 ## Phase 2 — Chat — full spec (merged 2026-10-07)
 
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **Phase 2 — Chat** (merged 2026-10-07) that later items
+inherit — owner-approved defaults, with two changes by the owner:
+
+- **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
+  over Opus because the club starts on a small budget. Opus 5.5 and Haiku
+  4.5 are in the price table, so switching is a `.env` change only.
+  *Superseded by `chat-model-choice`: the model is chosen per conversation
+  from a catalogue (Sonnet 5.5 the default); `ANTHROPIC_MODEL` is only the
+  fallback for an empty catalogue.*
+- **Thinking: off where the model allows it, otherwise low effort**, as a
+  setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
+  turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off
+  and runs adaptive at low effort; Haiku 4.5 gets neither field.
+- Max output 4,096 tokens; history up to 16,000 estimated tokens, oldest
+  dropped first; 10 messages per member per minute, counted from saved
+  messages; USD→KRW 1,400 to start.
+- **Prices and the rate are admin-editable** (Admin › System, audited).
+  Seeded: Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Haiku 4.5 $1/$5 per million
+  input/output tokens. The rate keeps its history as rows.
+- **KRW is rounded up**, minimum 1원 for any call that used a token.
+- **Budget check before the call uses the worst case**; if a concurrent
+  charge wins the race anyway, the charge takes what is left and still
+  records the full dollar cost (`charge(cap_to_available=True)`).
+- **A stopped reply is saved and charged for the tokens used**; only an
+  error is free. A refusal is saved and charged.
+- **Inactive members can read** their conversations; sending, creating,
+  renaming and deleting need participation.
+- **Deleting a conversation is a real delete**; its usage events stay with
+  `conversation_id` set to NULL.
+- **The video prompt helper is priced by the token too**;
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` is gone.
+- **Settings are `CHAT_*`, not `CLAUDE_*`** — Claude Code sets
+  `CLAUDE_EFFORT` in its terminals and a backend started from one would
+  pick it up.
+
+**Anthropic credit (owner, 2026-10-07).** The club starts with a small
+prepaid Anthropic credit — the free sign-up credit if there is one,
+otherwise about $5–10 — with **auto-reload OFF** and a **monthly spend
+limit** set in the Anthropic Console. Recorded in `docs/deployment.md`.
+
+
 Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
 pointed at `CLAUDE.md` section 20. Saved exactly as written by the
 developer.
@@ -737,6 +868,26 @@ with the developer present — CLAUDE.md section 21 rule 5. Points 1–9 and
 every test above run on the mock provider with no key.
 
 ## ui-polish — final UI pass (merged 2026-10-07)
+
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
+
+- **Two themes, dark by default.** Every colour, size and spacing is a
+  token in `globals.css`; the light block redefines only the colours. A
+  screen that writes a raw value will not follow the theme.
+- **Pretendard Variable 1.3.9** comes from the npm package `pretendard`
+  (dynamic subset, imported in `app/layout.tsx`).
+- **`PageHeader`** (`app/components/PageHeader.tsx`) is the one list-page
+  header: eyebrow, title, subtitle, action, divider. New list screens use it.
+- **Project status as members see it:** only "작성 중" (was "Draft" until ui-friendly-motion) and "게시됨", with
+  "생성 중…" while building or generating (`projectBadge()` in
+  `lib/projects.ts`). There is no archived status (migration `7c1d5e93a4b2`).
+- **The sidebar collapses** to an icon rail, remembered per browser
+  (`ctrlai.sidebar-collapsed`).
+
 
 Raised 2026-10-07 and built on `ui-polish`, which also holds the earlier
 design-handoff pass (light/dark themes, variant B shape, the restyle of
@@ -802,6 +953,31 @@ the "최종본 선택됨" meta line. The libraries' filters are exactly
 (`?status=all|draft|published`).
 
 ## chat-model-choice — full spec (merged 2026-10-07)
+
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **chat-model-choice** (merged 2026-10-07) that later items
+inherit:
+
+- **Chat models are a catalogue, `chat_models`** (provider + model,
+  Korean label and description, prices, `members` / `admin` / `disabled`,
+  one default that must stay open to members), edited in Admin › Claude
+  Models and audited (`chat_model.created`, `chat_model.updated`). It
+  replaced `claude_model_prices` (migration `b2f7e4c81d36`). Another
+  provider is a new adapter plus rows — `services/chat_models.py`
+  (`require_adapter`) is the seam.
+- **The model is per conversation** (`conversations.chat_model_id`, NULL =
+  the default). Each reply and usage event records the model that wrote
+  it — **the chosen model's id under the mock too**, no longer `"mock"`.
+- **The video prompt helper uses the default model.**
+- **`ANTHROPIC_MODEL` is only the fallback for an empty catalogue**, priced
+  at the list prices in `chat_models.DEFAULT_CATALOGUE`; it is no longer
+  required at startup.
+- **"답장 1회 약 N원"** is 3,000 input + 800 output tokens
+  (`pricing.TYPICAL_*`); Haiku 10원, Sonnet 20원, Opus 40원 at 1,400원/$.
+
 
 Branch `feat-chat-model-choice`. Added 2026-10-07. Saved exactly as
 written by the developer.
@@ -1626,7 +1802,7 @@ when clean). The owner's words, verbatim:
 > 4. httpx2 is imported at runtime but only in requirements-dev.txt. Move it to requirements.txt; add a test that imports the anthropic adapter with runtime requirements only.
 > 5. Dev-only scripts (init_db seed, reset_dev) must refuse to run in the production image; confirm and test.
 
-Checklist and decisions: [`../progress/fix-beta-blockers.md`](../progress/fix-beta-blockers.md).
+Checklist and decisions: [`progress-2026-10-13/fix-beta-blockers.md`](progress-2026-10-13/fix-beta-blockers.md).
 
 ## personal-topup-off — full spec (merged 2026-10-14)
 
@@ -1642,7 +1818,7 @@ when clean). The owner's words, verbatim:
 
 Checklist and decisions (including why the 환불 대기 copy stays for money
 that already existed):
-[`../progress/personal-topup-off.md`](../progress/personal-topup-off.md).
+[`progress-2026-10-13/personal-topup-off.md`](progress-2026-10-13/personal-topup-off.md).
 
 ## token-guard — full spec (merged 2026-10-14)
 
@@ -1790,8 +1966,8 @@ PART F of the owner's 2026-10-14 addendum (merge pre-approved when clean;
 as 'deploy next'" — it finished after, so it deploys next). The owner's
 words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
 2026-10-14) and the built details in
-[`../progress/audit-caching.md`](../progress/audit-caching.md) and
-[`../progress/audit-caching-and-distribution.md`](../progress/audit-caching-and-distribution.md);
+[`progress-2026-10-13/audit-caching.md`](progress-2026-10-13/audit-caching.md) and
+[`progress-2026-10-13/audit-caching-and-distribution.md`](progress-2026-10-13/audit-caching-and-distribution.md);
 the member/admin-facing result is [`../api-distribution.md`](../api-distribution.md).
 
 **Owner decision — 2026-10-14 (morning):** the Sonnet 5.5 cache-read
@@ -1799,3 +1975,70 @@ over-charge ($0.20 instead of the documented $0.10) is **not
 compensated** — every charge made at the wrong price was mock or
 development data; no member's real money moved. The ledger keeps the
 recorded figures as history.
+
+## Queue history — how Next was reordered (2026-10-01 → 2026-10-13)
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+**Earlier working order (2026-10-07)** — superseded by the owner's order
+of 2026-10-13 at the top of **Next**.
+
+The **Next** order was rewritten again on 2026-10-01, and this is the
+final order. **Phase 2 — Chat** moves from last place to 2 and
+**prep-beta-launch** to 3: the goal is an invite-only beta on a real
+domain whose one working AI feature is Claude chat, with everything else
+labelled as test mode. Both specs were replaced wholesale, and
+`video-higgsfield-only`'s Length slider section was replaced by
+model-driven settings.
+
+Two consequences of Phase 2 moving first are recorded in its spec: it now
+owns the `UsageEvent` migration that `budget-by-provider` and
+`usage-analytics` were each going to add, and it charges the `build`
+category because the Claude/Higgsfield rename comes later.
+
+**invite-only-signup** was then inserted at position 2 on 2026-10-01,
+between Phase 2 and `prep-beta-launch`. It takes the invite codes out of
+`prep-beta-launch`'s beta list and makes the code required in every
+environment: the repository is public, so the site address will be, and an
+invite code is what keeps the community members-only.
+
+**Then, later the same day, the queue was reordered again.** The three
+launch items moved to the end and the six build-out items came first.
+`ui-tube-watch` and `ui-apps-detail` were built under that order and
+merged on 2026-10-02.
+
+**The queue was reordered once more on 2026-10-02, and that is the order
+now in force.** `budget-by-provider` and `usage-analytics` left **Next**
+entirely for a new section, **After the prototype (needs discussion)** —
+the cost model behind them is still being decided, and an item whose
+shape is unsettled should not sit at the head of a queue blocking four
+items that are ready. Everything below them moved up, so **Next** now
+started at `project-video-management` and ended, as before, with the
+three launch items.
+
+**The numbered list under "Next" is the authority on order** — the
+numbers written into the spec sections are a snapshot and go stale at
+every reorder.
+
+Deferring those two undid the dependencies that had been written on the
+assumption they came first. Four notes were rewritten to match:
+
+- **Phase 2 — Chat charges the existing Build (Claude) budget** through
+  the current budget service, rather than the renamed per-provider
+  structures. It still records every field the two deferred items will
+  need, so neither of them has to backfill.
+- **`account-withdrawal` releases the member's remaining allocation**
+  for the quarter instead of returning it to a club reserve. There is no
+  reserve until `budget-by-provider` builds one; the release is written
+  to the audit log, and connecting it to the reserve is that item's work.
+- **`video-higgsfield-only` charges the existing Video budget**, again
+  through the current budget service, and records the per-event fields.
+- **`budget-by-provider` no longer owns the `UsageEvent` migration.**
+  Phase 2 adds the columns it needs when it writes them; the deferred
+  item extends that shape rather than introducing it.
+
+**Working order set by the developer (2026-10-08)** — complete:
+single-wallet and `ui-friendly-motion` merged 2026-10-13,
+`deepseek-research` merged 2026-10-14 (owner approved, with
+admin-and-nav-cleanup).
+
