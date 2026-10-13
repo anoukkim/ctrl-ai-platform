@@ -357,6 +357,22 @@ export interface ModelCalibration {
   cache_hit_rate: number | null;
 }
 
+/** 캐시 절약 (PART F): 모델·일(KST)별 캐시 활동. */
+export interface ModelCacheDay {
+  model_id: string;
+  label: string;
+  day: string;
+  replies: number;
+  cache_hit_replies: number;
+  read_tokens: number;
+  /** 오늘 카탈로그 요금 기준의 어림 — 화면에도 그렇게 적습니다. */
+  saved_krw: number;
+}
+
+export function getChatCacheStats(): Promise<ModelCacheDay[]> {
+  return request<ModelCacheDay[]>("/admin/chat-models/cache-stats");
+}
+
 export function getChatCalibration(): Promise<ModelCalibration[]> {
   return request<ModelCalibration[]>("/admin/chat-models/calibration");
 }
