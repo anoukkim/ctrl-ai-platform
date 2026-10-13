@@ -227,7 +227,7 @@ export default function BudgetAdmin() {
               Anthropic Console의 월 한도가 하고, 이 막대는 그 전에
               알아차리기 위한 것입니다. */}
           <h2 className="section-title" id="budget-month">
-            이번 달 Anthropic 지출 ({budget.anthropic_month})
+            이번 달 Anthropic 지출 ({budget.anthropic_month} · KST 기준 — Console의 월 한도와는 시간대가 다를 수 있습니다)
             <span className={styles.sectionNote}>Console 월 한도에 닿기 전에 보는 막대</span>
           </h2>
           <div

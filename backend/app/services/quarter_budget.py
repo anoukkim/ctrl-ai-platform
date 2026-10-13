@@ -184,8 +184,10 @@ def provider_spend(
 def anthropic_month_usd(db: Session) -> tuple[str, float]:
     """This KST month's Anthropic spend in dollars, from `provider_cost`.
 
-    The month the club's purchase and the Console's own monthly limit run
-    on (audit-caching-and-distribution). provider_cost is what Anthropic
+    The month is the **KST calendar month** — the Console's own monthly
+    limit runs on its own clock (believed UTC), so near a month boundary
+    the two can disagree by hours; the screen says (KST)
+    (audit-caching-and-distribution). provider_cost is what Anthropic
     billed; charged_krw (what moved wallets) deliberately stays out.
     """
     from datetime import datetime, timedelta, timezone

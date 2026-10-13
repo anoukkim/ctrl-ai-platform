@@ -74,7 +74,7 @@
   근거.
 - **모델별·일별**: Admin › AI Models › 비용 보정(답장당 실제 비용)과
   캐시 절약(일별 적중률·아낀 돈).
-- **이번 달 Anthropic 지출**: `.env`에 `ANTHROPIC_MONTHLY_BUDGET_USD`를
+- **이번 달 Anthropic 지출** (KST 달력 기준 — Anthropic Console의 월 한도는 자체 시간대(UTC로 추정)로 돌아 월초·월말에 몇 시간 어긋날 수 있습니다): `.env`에 `ANTHROPIC_MONTHLY_BUDGET_USD`를
   적으면 Admin › Budget 위에 진행 막대가 생기고 80%부터 경고합니다.
   실제 차단은 Anthropic Console의 월 한도가 하므로, 이 숫자는 Console
   한도보다 조금 작게 적어 먼저 알아차리는 용도입니다.

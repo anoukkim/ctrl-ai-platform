@@ -164,6 +164,10 @@ def cache_stats(db: Session, days: int = 14) -> list[CacheDay]:
     events = db.scalars(
         select(UsageEvent).where(
             UsageEvent.provider == "claude",
+            # Chat replies only: the builder starter and the prompt helper
+            # never use prompt caching, and counting them would deflate
+            # the hit rate on days with Builder/Video activity.
+            UsageEvent.feature == UsageFeature.CHAT.value,
             UsageEvent.model_id.is_not(None),
             UsageEvent.created_at >= cutoff,
         )

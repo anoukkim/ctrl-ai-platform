@@ -6,9 +6,11 @@ members were charged cache reads at twice the list price
 (audit-caching-and-distribution, 2026-10-14; source:
 https://platform.claude.com/docs/en/docs/build-with-claude/prompt-caching).
 
-Only a row still holding the old seeded value is touched, so a price an
-admin set on purpose stays exactly as they set it. Past usage events are
-history and stay as recorded.
+Only a row still holding the old seeded value is touched. A 0.20 row is
+assumed to be the seed: an admin who deliberately typed 0.20 (or, on
+downgrade, 0.10) is indistinguishable from it and is flipped too — any
+other admin-set price stays exactly as they set it. Past usage events
+are history and stay as recorded.
 
 Revision ID: f7c3a9e1d5b2
 Revises: d9e2f7a4c3b8
