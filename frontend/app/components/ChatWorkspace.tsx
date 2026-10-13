@@ -63,10 +63,11 @@ import {
   type ChatMessageStatus,
   type ChatModelOption,
   type Conversation,
+  type LongHistory,
 } from "@/lib/chat";
 import { describeError } from "@/lib/http";
 import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
-import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
 import ChatMarkdown from "./ChatMarkdown";
@@ -111,6 +112,8 @@ interface ViewMessage {
   actionTitle: string;
   /** 답장을 쓴 모델의 ID. 내 메시지와 오고 있는 답장은 null. */
   modelId: string | null;
+  /** 1회 비용 한도에 닿아 멈춘 답장이면 그 한도(원). */
+  cappedKrw?: number | null;
   /** 답장이 아직 오고 있습니다. */
   streaming?: boolean;
   /** 이 메시지 다음에 보여 줄 오류. 답장이 실패했을 때 붙습니다. */
@@ -126,6 +129,7 @@ function toView(message: ChatMessage): ViewMessage {
     action: message.action,
     actionTitle: message.action_title,
     modelId: message.model_id,
+    cappedKrw: message.capped_krw ?? null,
   };
 }
 
@@ -135,6 +139,17 @@ const STATUS_NOTE: Partial<Record<ChatMessageStatus, string>> = {
   truncated: "답장이 길어 여기서 끊겼습니다. \"계속\"이라고 보내면 이어서 씁니다.",
   refused: "이 질문에는 답할 수 없어요. 다른 방식으로 물어봐 주세요.",
 };
+
+/** 한도에 닿아 멈춘 답장은 왜 멈췄는지와 잇는 방법을 말합니다(token-guard). */
+export function statusNote(message: ViewMessage): string | undefined {
+  if (message.status === "truncated" && message.cappedKrw) {
+    return (
+      `답장이 1회 비용 한도(${formatKrw(message.cappedKrw)})에 닿아 여기서 멈췄어요. ` +
+      "이어서 받으려면 '계속해 줘'라고 보내 주세요."
+    );
+  }
+  return STATUS_NOTE[message.status];
+}
 
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
@@ -154,6 +169,8 @@ export default function ChatWorkspace() {
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
+  /** 대화가 길어졌을 때 입력창 위에 보이는 안내(token-guard). */
+  const [longHistory, setLongHistory] = useState<LongHistory | null>(null);
   /** 스트림 전에 거절된 이유 — 입력창 바로 위에 보여 줍니다. */
   const [sendError, setSendError] = useState<string | null>(null);
   /** 좁은 화면에서 대화 목록을 펼쳤는지. */
@@ -245,6 +262,7 @@ export default function ChatWorkspace() {
       const detail = await getConversation(id);
       setMessages(detail.messages.map(toView));
       setChosenModelId(detail.chat_model_id);
+      setLongHistory(detail.long_history ?? null);
     } catch (error) {
       setMessages([]);
       setSendError(describeError(error));
@@ -260,6 +278,7 @@ export default function ChatWorkspace() {
     setMessages([]);
     setChosenModelId(null);
     setSendError(null);
+    setLongHistory(null);
     textareaRef.current?.focus();
   }, []);
 
@@ -379,6 +398,7 @@ export default function ChatWorkspace() {
       if (outcome.kind === "done") {
         const saved = outcome.message;
         patchReply(() => (saved ? toView(saved) : null));
+        setLongHistory(outcome.longHistory ?? null);
       } else if (outcome.kind === "stopped") {
         patchReply((row) => (row.content ? { ...row, streaming: false, status: "stopped" } : null));
       } else {
@@ -656,8 +676,8 @@ export default function ChatWorkspace() {
                       modelLabel(info, message.modelId) && (
                         <p className={styles.modelNote}>{modelLabel(info, message.modelId)}</p>
                       )}
-                    {!message.streaming && STATUS_NOTE[message.status] && (
-                      <p className={styles.statusNote}>{STATUS_NOTE[message.status]}</p>
+                    {!message.streaming && statusNote(message) && (
+                      <p className={styles.statusNote}>{statusNote(message)}</p>
                     )}
                     {message.action && !message.streaming && (
                       <Link
@@ -689,6 +709,20 @@ export default function ChatWorkspace() {
             {sendError !== null && (
               <p className={styles.errorNote} role="alert">
                 {sendError}
+              </p>
+            )}
+            {longHistory !== null && (
+              <p className={styles.longHistoryNote} data-testid="long-history">
+                대화가 길어져 답장마다 약 {formatKrw(longHistory.extra_krw)}이 더 들어요. 새
+                대화로 시작하면 그만큼 아낄 수 있어요.{" "}
+                <button
+                  className={styles.longHistoryNew}
+                  type="button"
+                  onClick={startNew}
+                  disabled={streaming}
+                >
+                  새 대화 시작
+                </button>
               </p>
             )}
             {info && info.models.length > 0 && (
