@@ -62,3 +62,21 @@ tried to change the container's own grid, which CSS ignores. `.chat` now
 spans both columns under the query.
 
 Docs: `docs/product.md` › Chat.
+
+## Review
+
+- Round 1 — 12 findings: single `~` struck out (high), single line breaks
+  lost, whole history re-rendered per streamed piece, canned mock replies
+  shadowing builder/usage routing, charts not explained, caret on its own
+  line, copy timer after unmount, a card wiping typed text, copy wording.
+  Fixed; two left by choice (disabled cards for a non-participating
+  member — the spec's rule; footnote anchors — fixed later in round 2).
+- Round 2 — 7: Markdown links froze the stream in the action-marker
+  filter (older code, now common); a closing fence added inside a list
+  made an empty code box; heading-underline and language-label flashes;
+  mock examples still caught some app requests; cards stacking; English
+  footnote label. Fixed; the caret after a final table/list left as is.
+- Round 3 — 4: an overlong marker title could stream onto the screen;
+  footnote ids dropped by the link component; Korean footnote labels;
+  duplicate `footnote-label` ids. Fixed.
+- Round 4 — clean apart from 2 low, fixed.

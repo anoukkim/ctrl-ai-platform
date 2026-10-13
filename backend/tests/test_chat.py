@@ -1028,6 +1028,8 @@ def test_a_pasted_article_gets_the_summary_whatever_its_last_paragraph_says() ->
     article = "아래 글을 세 줄로 요약해 줘:\n첫 문단입니다.\n\n둘째 문단에서는 앱을 만들었습니다."
     assert example_reply(article) is not None
     assert "세 줄로 요약" in example_reply(article)
+    # 앞서 답을 못 받은 메시지가 붙어 와도 요약 카드로 알아봅니다.
+    assert example_reply("안녕\n\n" + article) is not None
     # "시내"의 "내 "는 "내 프로젝트"가 아닙니다.
     assert "| 날 |" in (example_reply("서울 시내 맛집을 표로 정리해 줘") or "")
 

@@ -33,7 +33,7 @@ import styles from "./ChatMarkdown.module.css";
 
 /** 링크로 남겨 두는 주소의 시작. 대소문자는 가리지 않습니다. 같은 답장 안의
  *  각주로 가는 `#…`도 남깁니다(새 탭으로 열지 않습니다). */
-const SAFE_URL = /^(https?:\/\/|mailto:|#[\w.%-]+$)/i;
+const SAFE_URL = /^(https?:\/\/|mailto:|#\S+$)/i;
 
 /** 허용하지 않는 주소는 빈 문자열이 되고, 아래 `a`가 글자로 바꿉니다. */
 export function safeUrl(url: string): string {

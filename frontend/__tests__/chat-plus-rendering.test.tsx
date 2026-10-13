@@ -78,6 +78,7 @@ describe("ChatMarkdown", () => {
     expect(safeUrl("#user-content-fn-1")).toBe("#user-content-fn-1");
     expect(safeUrl("#a b")).toBe("");
     expect(safeUrl("#r1-fn-%EA%B0%81")).toBe("#r1-fn-%EA%B0%81");
+    expect(safeUrl("#r1-fn-note:1")).toBe("#r1-fn-note:1");
     expect(safeUrl("#x\njavascript:alert(1)")).toBe("");
   });
 

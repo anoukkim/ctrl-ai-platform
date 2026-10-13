@@ -357,7 +357,7 @@ _EXAMPLE_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?<![가-힣])표로\s?(정리|만들|보여)"), _MOCK_TABLE),
 ]
 _APP_WORDS = re.compile(r"앱|어플|사이트|도구|프로그램|게임|대시보드|쇼핑몰|(?<![가-힣])내 |내가")
-_SUMMARY_ASK = re.compile(r"^\s*아래 글을 세 줄로 요약해 줘:")
+_SUMMARY_ASK = re.compile(r"^\s*아래 글을 세 줄로 요약해 줘:", re.MULTILINE)
 
 
 def example_reply(message: str) -> str | None:

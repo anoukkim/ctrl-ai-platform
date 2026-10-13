@@ -1458,3 +1458,61 @@ written by the developer.
 > - Empty states with a short explanation and one clear action on every list; a short first-visit guide (3–4 steps, dismissible, remembered per browser) that shows Chat, Builder, Video and the wallet.
 > - Keep design tokens in globals.css, Pretendard, dark default, and the existing accessibility rules. Check at 1280px, 1920px and a phone width; send me screenshots (or a short screen recording) of Chat, Builder, Video, Usage and Admin.
 > Tests: reduced-motion disables animations; the guide shows once and can be reopened; empty states render; existing tests still pass.
+
+---
+
+### chat-plus-rendering — full spec (merged 2026-10-14)
+
+Branch `feat-chat-plus-rendering`. M1. Effort: **S** (1–2 days). No
+migration.
+
+1. **Replies render Markdown.** Headings, lists, bold, links, tables
+   (GitHub-flavoured) and fenced code blocks. One renderer —
+   `react-markdown` with `remark-gfm`, new dependencies — and **no raw
+   HTML**: an HTML tag in a reply shows as text. Links open in a new tab
+   with `rel="noopener noreferrer"`, and only `http(s)` and `mailto`
+   survive. Wide tables scroll inside their own box; the page never
+   scrolls sideways.
+2. **Code blocks** show the language and a **복사** button ("복사됨" for
+   two seconds). Monospace from the existing `--mono` token. No syntax
+   highlighting in this item (it is another dependency and a colour set
+   for both themes; a later UI batch can add it).
+3. **The system prompt changes** from "Write plain text. The screen does
+   not render Markdown" to: Markdown is rendered; use a table when the
+   member asks to compare or organise, a fenced block for code, and keep
+   headings to a minimum. Still Korean, still beginner-level.
+4. **기능 둘러보기 replaces the four welcome cards.** Same grid and
+   tokens, new content: four example prompts that **fill the composer**
+   (the member presses 보내기 — they see the model and its estimated cost
+   first; a click on a card sends nothing):
+   - **표 만들기** — "서울 여행 2박 3일 일정을 표로 정리해 줘"
+   - **파일 요약** — until `chat-plus-files` lands: "아래 글을 세 줄로
+     요약해 줘:" plus a line break for pasting; after it, the card opens
+     the attach dialog.
+   - **차트 그리기** — until `chat-plus-artifacts` lands: a table plus a
+     one-line reading of it; after it, an SVG bar chart preview.
+   - **웹페이지 만들기** — "동아리 소개 한 장짜리 웹페이지를 만들어 줘";
+     a code block now, a live preview after `chat-plus-artifacts`.
+
+   The card list lives in one file (`lib/chat-examples.ts`), not in
+   `mock-data.ts`: it is product content, not mock data. The old cards'
+   destinations (Builder, Video, CtrlAIApps, CtrlAITube) stay reachable
+   from the sidebar and from the reply action buttons.
+5. **Streaming stays smooth.** Markdown is re-rendered as pieces arrive;
+   an unfinished table or code fence must not flash raw pipes or
+   backticks (render an open fence as a code block until it closes).
+
+**Charged:** unchanged — the wallet, by the token. Tables and code are longer
+than prose, so the average reply grows; the picker's "답장 1회 약 N원"
+(3,000 in / 800 out) stays a fair guide. `CHAT_MAX_OUTPUT_TOKENS` stays
+4,096 here.
+
+**Tests:** a table, a code block and a list render as elements, not
+text; `<script>` and `<img onerror>` in a reply render as text; a
+`javascript:` link is dropped; 복사 writes the block's exact text to the
+clipboard (mocked); a half-streamed fence renders as code; each example
+card fills the composer and sends nothing; the system prompt no longer
+says "does not render Markdown" (backend unit test).
+
+**Risks:** XSS through Markdown — no raw HTML and a link allow-list,
+both tested. Bundle size (two packages) on the Chat page only.
