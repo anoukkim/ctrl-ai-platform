@@ -288,16 +288,15 @@ export default function ChatWorkspace() {
   /**
    * 기능 둘러보기 카드: 예시 문장을 입력창에 채우고 커서를 끝에 둡니다.
    * 보내지는 않습니다 — 회원이 모델과 예상 비용을 보고 직접 보냅니다.
-   * 이미 직접 쓴 글이 있으면 지우지 않고 그 아래에 덧붙입니다. 다른 예시를
-   * 고른 것뿐이면 바꿔 넣습니다.
+   * 이미 직접 쓴 글이 있으면 지우지 않고 그 아래에 덧붙입니다. 끝에 붙은
+   * 것이 다른 예시뿐이면 그 예시만 바꿔 넣습니다.
    */
   const fillExample = useCallback((example: ChatExample) => {
     setDraft((current) => {
-      const typed = current.trim();
-      if (!typed || CHAT_EXAMPLES.some((other) => other.prompt.trim() === typed)) {
-        return example.prompt;
-      }
-      return `${current.trimEnd()}\n\n${example.prompt}`;
+      let typed = current.trimEnd();
+      const previous = CHAT_EXAMPLES.find((other) => typed.endsWith(other.prompt.trimEnd()));
+      if (previous) typed = typed.slice(0, typed.length - previous.prompt.trimEnd().length).trimEnd();
+      return typed ? `${typed}\n\n${example.prompt}` : example.prompt;
     });
     requestAnimationFrame(() => {
       const node = textareaRef.current;

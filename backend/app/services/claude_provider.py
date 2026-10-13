@@ -282,9 +282,10 @@ MOCK_REFUSAL = "[mock-refusal]"
 #: chat-plus-rendering: canned replies that show what the screen renders —
 #: a table, a code block with an HTML page, an SVG chart, a summary. They
 #: match the 기능 둘러보기 phrasing literally ("표로 정리", "세 줄로 요약",
-#: "차트로 보여", "웹페이지를 만들어"), after the "내 …" rules and before the
-#: video and builder rules — loose words such as 표를 or 비교 would catch
-#: 투표를 받는 앱 and send it the Seoul itinerary instead of the builder.
+#: "차트로 보여", "웹페이지를 만들어") against the whole message — a pasted
+#: article has paragraphs — and never when the member is asking for an app
+#: (`_APP_WORDS`): loose words such as 표를 or 비교 would catch 투표를 받는
+#: 앱 and send it the Seoul itinerary instead of the builder.
 _MOCK_TABLE = (
     "서울 2박 3일 일정을 표로 정리했어요.\n\n"
     "| 날 | 오전 | 오후 | 저녁 |\n"
@@ -349,6 +350,25 @@ _MOCK_SUMMARY = (
     "(테스트 모드라 실제 글을 읽지는 않았어요.)"
 )
 
+_EXAMPLE_RULES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"(차트|그래프)\s?(로|를)\s?(보여|그려)"), _MOCK_CHART),
+    (re.compile(r"웹\s?페이지를\s?만들어"), _MOCK_PAGE),
+    (re.compile(r"줄로\s?요약|요약해\s?줘:"), _MOCK_SUMMARY),
+    (re.compile(r"(?<![가-힣])표로\s?(정리|만들|보여)"), _MOCK_TABLE),
+]
+_APP_WORDS = re.compile(r"앱|어플|사이트|도구|프로그램|게임|대시보드|쇼핑몰|내 |내가")
+
+
+def example_reply(message: str) -> str | None:
+    """The canned 기능 둘러보기 reply for this message, if it is one."""
+    if _APP_WORDS.search(message):
+        return None
+    for pattern, reply in _EXAMPLE_RULES:
+        if pattern.search(message):
+            return reply
+    return None
+
+
 _CHAT_RULES: list[tuple[re.Pattern[str], str, str | None]] = [
     (
         re.compile(r"내 영상|만든 영상|영상 목록"),
@@ -360,10 +380,6 @@ _CHAT_RULES: list[tuple[re.Pattern[str], str, str | None]] = [
         "지금까지 만든 프로젝트는 Project Builder에 모여 있어요. 왼쪽 메뉴에서 열어 보세요.",
         None,
     ),
-    (re.compile(r"(차트|그래프)\s?(로|를)\s?(보여|그려)"), _MOCK_CHART, None),
-    (re.compile(r"웹\s?페이지를\s?만들어"), _MOCK_PAGE, None),
-    (re.compile(r"줄로\s?요약|요약해\s?줘:"), _MOCK_SUMMARY, None),
-    (re.compile(r"(?<![가-힣])표로\s?(정리|만들|보여)"), _MOCK_TABLE, None),
     (
         re.compile(r"영상|비디오|쇼츠|숏폼|클립|유튜브|youtube|촬영|장면", re.IGNORECASE),
         "영상으로 만들면 좋겠네요! Video Generator에서 장면을 설명하면 짧은 영상으로 "
@@ -516,10 +532,10 @@ class MockClaudeProvider:
         self.delay = max(0, delay_ms) / 1000
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]:
-        last = request.messages[-1]["content"] if request.messages else ""
+        whole = request.messages[-1]["content"] if request.messages else ""
         # An unanswered earlier message may have been joined to this one
         # (see `chat.build_context`); the mock answers only the newest part.
-        last = last.rsplit("\n\n", 1)[-1]
+        last = whole.rsplit("\n\n", 1)[-1]
 
         failure = MOCK_ERROR.search(last)
         if failure:
@@ -542,10 +558,14 @@ class MockClaudeProvider:
             return
 
         reply, action = _CHAT_FALLBACK, None
-        for pattern, text, rule_action in _CHAT_RULES:
-            if pattern.search(last):
-                reply, action = text, rule_action
-                break
+        example = example_reply(whole)
+        if example is not None:
+            reply = example
+        else:
+            for pattern, text, rule_action in _CHAT_RULES:
+                if pattern.search(last):
+                    reply, action = text, rule_action
+                    break
         if action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
 

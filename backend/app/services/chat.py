@@ -77,14 +77,34 @@ class ChatRefusal(Exception):
 ACTION_MARKER = re.compile(r"\[\[action:(builder|video)(?:\|([^\]\n]*))?\]\]")
 
 
+#: The start every marker shares, and the most a marker's title may run to
+#: before the held text is let go as ordinary text.
+_MARKER_START = "[[action:"
+_MARKER_REST = re.compile(
+    r"(b(u(i(l(d(er?)?)?)?)?)?|v(i(d(eo?)?)?)?)?|(builder|video)(\|[^\]\n]*)?\]?"
+)
+_MARKER_LONGEST = 160
+
+
+def _could_become_marker(text: str) -> bool:
+    """Whether `text` (starting with "[") may still turn into a marker."""
+    if len(text) <= len(_MARKER_START):
+        return _MARKER_START.startswith(text)
+    if not text.startswith(_MARKER_START) or len(text) > _MARKER_LONGEST:
+        return False
+    return _MARKER_REST.fullmatch(text[len(_MARKER_START) :]) is not None
+
+
 class MarkerFilter:
     """Keeps the action marker out of what the member sees, while streaming.
 
     The marker arrives in pieces like everything else, so the screen would
-    otherwise show "[[act" for a moment. Text is passed through until a
-    `[` that could begin a marker; from there it is held back until the
-    stream ends, when `finish()` strips the marker (if it was one) and
-    returns whatever was held.
+    otherwise show "[[act" for a moment. Text from a `[` is held back only
+    while it can still become `[[action:…]]`; the moment it cannot — a
+    Markdown link `[문서](…)`, `[[1, 2]]` in code, a line break, or more
+    than a title's length — it is let go. A complete marker is dropped.
+    (chat-plus-rendering: replies are Markdown now, so `[` is common, and
+    holding everything after the first one froze the reply until the end.)
     """
 
     def __init__(self) -> None:
@@ -93,19 +113,29 @@ class MarkerFilter:
 
     def feed(self, text: str) -> str:
         self.raw += text
-        if self._held:
-            self._held += text
-            return ""
-        start = text.find("[[")
-        if start == -1 and text.endswith("["):
-            start = len(text) - 1
-        if start == -1:
-            return text
-        self._held = text[start:]
-        return text[:start]
+        buffer = self._held + text
+        self._held = ""
+        shown: list[str] = []
+        while buffer:
+            start = buffer.find("[")
+            if start == -1:
+                shown.append(buffer)
+                break
+            shown.append(buffer[:start])
+            buffer = buffer[start:]
+            match = ACTION_MARKER.match(buffer)
+            if match:
+                buffer = buffer[match.end() :]
+                continue
+            if _could_become_marker(buffer):
+                self._held = buffer
+                break
+            shown.append("[")
+            buffer = buffer[1:]
+        return "".join(shown)
 
     def finish(self) -> str:
-        """Whatever was held back, with the marker (if it was one) removed."""
+        """Whatever was still held back at the end — never a whole marker."""
         rest = ACTION_MARKER.sub("", self._held)
         self._held = ""
         return rest

@@ -11,9 +11,10 @@
  * - 그림(`![...](...)`)은 불러오지 않고 설명 글자만 보여 줍니다. 답장이
  *   가리키는 바깥 서버에 회원의 접속 정보가 새지 않게 하려는 것입니다.
  *
- * 답장이 오는 중(`streaming`)에는 반쯤 온 코드 블록을 닫아서 코드로
- * 보여 주고, 머리줄만 온 표는 구분줄이 올 때까지 잠시 감춥니다 — 그래야
- * 백틱(```)이나 세로줄(|)이 화면에 번쩍이지 않습니다.
+ * 답장이 오는 중(`streaming`)에는 덜 온 마지막 줄(울타리, 제목 밑줄)과
+ * 머리줄만 온 표를 잠시 감춥니다 — 그래야 백틱(```)이나 세로줄(|)이
+ * 화면에 번쩍이지 않습니다. 닫히지 않은 코드 블록은 Markdown 규칙대로
+ * 끝까지 코드로 그려집니다.
  *
  * 줄바꿈 하나도 줄바꿈으로 보여 줍니다. 이 항목 전의 답장은 "줄바꿈과 -
  * 목록만 쓰는 평문"이었으므로, 그렇게 저장된 답장도 예전처럼 읽힙니다.
@@ -24,14 +25,15 @@
  */
 
 import { Check, Copy } from "lucide-react";
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import styles from "./ChatMarkdown.module.css";
 
-/** 링크로 남겨 두는 주소의 시작. 대소문자는 가리지 않습니다. */
-const SAFE_URL = /^(https?:\/\/|mailto:)/i;
+/** 링크로 남겨 두는 주소의 시작. 대소문자는 가리지 않습니다. 같은 답장 안의
+ *  각주로 가는 `#…`도 남깁니다(새 탭으로 열지 않습니다). */
+const SAFE_URL = /^(https?:\/\/|mailto:|#[\w-]+$)/i;
 
 /** 허용하지 않는 주소는 빈 문자열이 되고, 아래 `a`가 글자로 바꿉니다. */
 export function safeUrl(url: string): string {
@@ -41,8 +43,9 @@ export function safeUrl(url: string): string {
 /** 백틱 울타리. 여는 줄의 정보(언어 이름)에는 백틱이 들어갈 수 없습니다. */
 const BACKTICK_FENCE = /^ {0,3}(`{3,})([^`]*)$/;
 const TILDE_FENCE = /^ {0,3}(~{3,})(.*)$/;
-/** 아직 다 오지 않은 울타리 줄 — 백틱 한두 개, 또는 정보 없는 울타리만. */
-const PARTIAL_FENCE = /^ {0,3}(`{1,2}|`{3,}|~{3,})$/;
+/** 아직 다 오지 않았을 수 있는 마지막 줄 — 백틱 한두 개, 또는 바로 위
+ *  줄을 제목으로 바꾸는 `-`·`=`만 있는 줄("준비물:\n-"이 잠깐 제목이 됨). */
+const PARTIAL_LINE = /^ {0,3}(`{1,2}|-+|=+)\s*$/;
 /** 표의 구분줄 — `| --- | :---: |` 처럼 생긴 줄. */
 const DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
@@ -54,17 +57,21 @@ function fence(line: string): { marker: string; info: string } | null {
 /**
  * 오는 중인 답장을 그리기 좋게 다듬습니다.
  *
- * 1. 마지막 줄이 반쯤 온 울타리(백틱 한두 개 등)면 다음 조각이 올 때까지
- *    빼 둡니다.
- * 2. 열린 코드 블록이 있으면 끝에 닫는 줄을 붙입니다. 닫는 줄은 같은
- *    글자로, 여는 줄 이상 길이로, 뒤에 아무것도 없어야 합니다.
+ * 1. 마지막 줄이 아직 줄바꿈 전이고, 울타리 줄(언어 이름이 반쯤 왔을 수
+ *    있음)이거나 백틱 한두 개, 제목 밑줄처럼 보이면 다음 조각이 올
+ *    때까지 빼 둡니다.
+ * 2. 열린 코드 블록이 있으면 그대로 둡니다. 닫히지 않은 블록은 끝까지
+ *    코드로 그려지고, 목록 안의 블록도 그렇습니다. (닫는 줄을 붙이면
+ *    목록 안에서는 닫히지 않고 빈 블록이 하나 더 생깁니다.) 닫는 줄은
+ *    같은 글자로, 여는 줄 이상 길이로, 뒤에 아무것도 없어야 합니다.
  * 3. 끝에 `|`로 시작하는 줄이 있는데 아직 구분줄이 다 오지 않았으면 그
  *    줄들을 잠시 빼 둡니다. 다음 조각이 오면 표로 나타납니다.
  */
 export function prepareStreaming(full: string): string {
   let text = full;
   let lines = text.split("\n");
-  if (!text.endsWith("\n") && PARTIAL_FENCE.test(lines[lines.length - 1])) {
+  const last = lines[lines.length - 1];
+  if (!text.endsWith("\n") && (fence(last) !== null || PARTIAL_LINE.test(last))) {
     lines = lines.slice(0, -1);
     text = lines.join("\n");
   }
@@ -81,7 +88,7 @@ export function prepareStreaming(full: string): string {
     )
       open = null;
   }
-  if (open !== null) return `${text}\n${open}`;
+  if (open !== null) return text;
 
   const endsWithNewline = text.endsWith("\n");
   const body = endsWithNewline ? lines.slice(0, -1) : lines;
@@ -208,6 +215,7 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
 const COMPONENTS: Components = {
   a({ href, children }) {
     if (!href) return <span>{children}</span>;
+    if (href.startsWith("#")) return <a href={href}>{children}</a>;
     return (
       <a href={href} target="_blank" rel="noopener noreferrer">
         {children}
@@ -240,10 +248,17 @@ interface ChatMarkdownProps {
 }
 
 function ChatMarkdown({ text, streaming = false, tail }: ChatMarkdownProps) {
+  // 각주 id가 한 대화의 답장끼리 겹치지 않도록 답장마다 다른 머리말을 씁니다.
+  const prefix = `${useId().replace(/[^a-zA-Z0-9]/g, "")}-`;
   return (
     <div className={`${styles.markdown} ${tail ? styles.withTail : ""}`}>
       <ReactMarkdown
         remarkPlugins={REMARK_PLUGINS}
+        remarkRehypeOptions={{
+          clobberPrefix: prefix,
+          footnoteLabel: "각주",
+          footnoteBackLabel: "본문으로 돌아가기",
+        }}
         urlTransform={safeUrl}
         components={COMPONENTS}
       >

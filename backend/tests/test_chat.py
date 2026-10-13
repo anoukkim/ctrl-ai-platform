@@ -986,6 +986,9 @@ def test_the_mock_shows_what_the_screen_renders(ask: str, expected: str) -> None
         ("차트 있는 가계부 앱 만들어 줘", "builder", "Project Builder"),
         ("쇼핑몰 홈페이지 만들고 싶어", "builder", "Project Builder"),
         ("가격 비교 앱 만들어 줘", "builder", "Project Builder"),
+        ("그래프를 그려 주는 앱 만들어 줘", "builder", "Project Builder"),
+        ("매출을 차트로 보여 주는 대시보드 앱 만들어 줘", "builder", "Project Builder"),
+        ("쇼핑몰 웹페이지를 만들어 줘", "builder", "Project Builder"),
         ("내가 만든 프로젝트 정리해 줘", None, "Project Builder에 모여"),
         ("사용량 요약해 줘", None, "Usage"),
     ],
@@ -996,10 +999,11 @@ def test_the_canned_examples_do_not_shadow_routing(
     import asyncio
 
     from app.services.claude_provider import (
+        _CHAT_RULES,
         ChatRequest,
         MockClaudeProvider,
         TextDelta,
-        _CHAT_RULES,
+        example_reply,
     )
 
     async def collect() -> str:
@@ -1013,5 +1017,39 @@ def test_the_canned_examples_do_not_shadow_routing(
         return text
 
     assert expected in asyncio.run(collect())
+    assert example_reply(ask) is None
     matched = next((rule for rule in _CHAT_RULES if rule[0].search(ask)), None)
     assert matched is not None and matched[2] == action
+
+
+def test_a_pasted_article_gets_the_summary_whatever_its_last_paragraph_says() -> None:
+    from app.services.claude_provider import example_reply
+
+    article = "아래 글을 세 줄로 요약해 줘:\n첫 문단입니다.\n\n둘째 문단에서는 무언가를 만들었습니다."
+    assert example_reply(article) is not None
+    assert "세 줄로 요약" in example_reply(article)
+
+
+@pytest.mark.parametrize(
+    "pieces",
+    [
+        ["자세한 내용은 [", "공식 문서](https://a.kr)를 보세요. ", "다음 단계는 "],
+        ["코드: if [[ -f x ]]", "; then 끝", " 그리고 계속"],
+        ["목록 [[1, 2], ", "[3, 4]] 이에요", " 끝"],
+        ["[[action", "\n줄이 바뀌었어요", " 끝"],
+    ],
+)
+def test_text_that_cannot_become_a_marker_is_shown_at_once(pieces: list[str]) -> None:
+    marker = chat_service.MarkerFilter()
+    shown = "".join(marker.feed(piece) for piece in pieces)
+    # Everything is on screen before the stream ends; nothing is held.
+    assert shown == "".join(pieces)
+    assert marker.finish() == ""
+
+
+def test_a_marker_split_anywhere_is_still_hidden() -> None:
+    reply = "좋아요!\n[[action:builder|가계부]]"
+    for cut in range(1, len(reply)):
+        marker = chat_service.MarkerFilter()
+        shown = marker.feed(reply[:cut]) + marker.feed(reply[cut:]) + marker.finish()
+        assert shown == "좋아요!\n", cut

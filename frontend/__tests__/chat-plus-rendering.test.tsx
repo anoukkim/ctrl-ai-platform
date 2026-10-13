@@ -75,6 +75,8 @@ describe("ChatMarkdown", () => {
     expect(safeUrl("data:text/html,<b>x</b>")).toBe("");
     expect(safeUrl("vbscript:x")).toBe("");
     expect(safeUrl("/admin")).toBe("");
+    expect(safeUrl("#user-content-fn-1")).toBe("#user-content-fn-1");
+    expect(safeUrl("#a b")).toBe("");
   });
 
   test("an image is not loaded; its description shows instead", () => {
@@ -147,11 +149,31 @@ describe("ChatMarkdown", () => {
 
   test("a half-arrived fence line is held back instead of flashing backticks", () => {
     expect(prepareStreaming("코드예요.\n``")).toBe("코드예요.");
-    expect(prepareStreaming("```html\n<p>a</p>\n``")).toBe("```html\n<p>a</p>\n```");
+    expect(prepareStreaming("```html\n<p>a</p>\n``")).toBe("```html\n<p>a</p>");
+    // 언어 이름이 반쯤 온 여는 줄은 줄바꿈이 올 때까지 기다립니다.
+    expect(prepareStreaming("코드예요.\n```ba")).toBe("코드예요.");
     // 정보 줄에 백틱이 있으면 여는 줄이 아닙니다.
     expect(prepareStreaming("```code``` 이렇게")).toBe("```code``` 이렇게");
-    // 언어 이름이 붙은 줄은 닫는 줄이 아닙니다.
-    expect(prepareStreaming("```\na\n```js\nb")).toBe("```\na\n```js\nb\n```");
+    // 언어 이름이 붙은 줄은 닫는 줄이 아니고, 열린 블록에 닫는 줄을 붙이지 않습니다.
+    expect(prepareStreaming("```\na\n```js\nb")).toBe("```\na\n```js\nb");
+    // 목록 바로 앞의 "-"는 위 줄을 제목으로 바꾸므로 잠시 감춥니다.
+    expect(prepareStreaming("준비물은 이래요:\n-")).toBe("준비물은 이래요:");
+  });
+
+  test("a code block streaming inside a list item is one block, not two", () => {
+    const { container } = render(
+      <ChatMarkdown text={"1. 프로그램을 받으세요:\n   ```bash\n   npm install"} streaming />,
+    );
+    expect(container.querySelectorAll("pre").length).toBe(1);
+    expect(container.querySelector("li pre code")?.textContent).toContain("npm install");
+  });
+
+  test("a footnote keeps a working link and a Korean heading", () => {
+    const { container } = render(<ChatMarkdown text={"설명이에요[^1].\n\n[^1]: 출처예요."} />);
+    const ref = container.querySelector("sup a");
+    expect(ref?.getAttribute("href")).toMatch(/^#[\w-]+fn-1$/);
+    expect(ref?.getAttribute("target")).toBeNull();
+    expect(container.textContent).toContain("각주");
   });
 
   test("the typing caret sits right after the last word", () => {
@@ -163,9 +185,11 @@ describe("ChatMarkdown", () => {
   });
 
   test("a closed fence is left alone and pipes inside code stay", () => {
-    const text = "```\n| a |\n```";
+    const text = "```\n| a |\n```\n";
     expect(prepareStreaming(text)).toBe(text);
-    expect(prepareStreaming("a\n```\nb\n```\n\n```py\nc")).toBe("a\n```\nb\n```\n\n```py\nc\n```");
+    // 줄바꿈 전의 닫는 줄은 잠시 빠지지만, 남은 블록은 여전히 코드입니다.
+    expect(prepareStreaming("```\n| a |\n```")).toBe("```\n| a |");
+    expect(prepareStreaming("a\n```\nb\n```\n\n```py\nc")).toBe("a\n```\nb\n```\n\n```py\nc");
   });
 });
 
@@ -247,6 +271,9 @@ describe("기능 둘러보기", () => {
     fireEvent.change(box, { target: { value: "내가 쓴 글" } });
     fireEvent.click(screen.getByRole("button", { name: /표 만들기/ }));
     expect(box.value).toBe(`내가 쓴 글\n\n${CHAT_EXAMPLES[0].prompt}`);
+    // 다른 카드를 누르면 덧붙인 예시만 바뀝니다.
+    fireEvent.click(screen.getByRole("button", { name: /웹페이지 만들기/ }));
+    expect(box.value).toBe(`내가 쓴 글\n\n${CHAT_EXAMPLES[3].prompt}`);
   });
 
   test("a member not taking part this quarter cannot fill the composer", async () => {
