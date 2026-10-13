@@ -64,7 +64,7 @@ the same commit that adds it.
 | `GET /api/health` | none | Must answer while the database is down |
 | `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
-| `POST /api/auth/register` | none | Creating the account |
+| `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
 | `GET /api/auth/me` | `get_current_user` | |
@@ -122,6 +122,10 @@ the same commit that adds it.
 | `GET /api/admin/video-models` | `require_admin` | |
 | `PATCH /api/admin/video-models/{id}` | `require_admin` | |
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
+| `GET /api/admin/invites` | `require_admin` | Invite codes, with who signed up with each |
+| `POST /api/admin/invites` | `require_admin` | Generated or custom code; audited |
+| `POST /api/admin/invites/{invite_id}/deactivate` | `require_admin` | Stops new sign-ups only; audited |
+| `POST /api/admin/invites/{invite_id}/reactivate` | `require_admin` | Audited |
 | `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, read-only |
 | `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows |
 | `GET /api/admin/members/{user_id}` | `require_admin` | Read-only; one member's history, budgets and audit trail |

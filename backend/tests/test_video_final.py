@@ -157,5 +157,10 @@ def test_the_library_says_whether_the_final_has_a_file(
     old = VideoVersion(project_id=probe["id"], provider="higgsfield", model_id="kling-3.0-pro")
     db_session.add(old)
     db_session.commit()
-    set_final(client, probe["id"], old.id)
+    # The tests share one session with the app (expire_on_commit=False), so
+    # a project loaded by an earlier request may still hold its old list of
+    # versions — whether it does depends on garbage collection. Expire it,
+    # as a fresh request's session would be.
+    db_session.expire_all()
+    assert set_final(client, probe["id"], old.id).status_code == 200
     assert listed()["final_version_has_asset"] is False

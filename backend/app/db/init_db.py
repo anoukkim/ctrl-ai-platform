@@ -18,6 +18,7 @@ from app.core.security import UNUSABLE_PASSWORD_HASH, hash_password
 from app.services.quarters import current_quarter, set_membership
 from app.db.session import SessionLocal, engine
 from app.models import (
+    InviteCode,
     AccountStatus,
     MembershipStatus,
     PersonalBalance,
@@ -288,6 +289,19 @@ def seed_video_models(db: Session) -> int:
     return created
 
 
+#: A development-only invite code, so signing up can be tried locally
+#: (invite-only-signup). The seed never runs outside development.
+DEV_INVITE_CODE = "DEV-WELCOME"
+
+
+def seed_dev_invite(db: Session) -> str:
+    """Add `DEV-WELCOME` (100 signups) if it is not there. Idempotent."""
+    if db.scalar(select(InviteCode.id).where(InviteCode.code == DEV_INVITE_CODE)) is None:
+        db.add(InviteCode(code=DEV_INVITE_CODE, label="개발용", max_uses=100, is_active=True))
+        db.commit()
+    return DEV_INVITE_CODE
+
+
 def main() -> None:
     settings = get_settings()
     if not settings.is_development:
@@ -320,6 +334,7 @@ def main() -> None:
         if admin is not None:
             seed_wallet(db, admin)
         models = seed_video_models(db)
+        invite = seed_dev_invite(db)
 
     print(f"Development user: {user.username} / {user.email} (role={user.role.value})")
     if admin is None:
@@ -328,6 +343,7 @@ def main() -> None:
         print(f"Administrator:    {admin.username} / {admin.email}")
     print(f"Quarters:         {quarters} created")
     print(f"Video models:     {models} created")
+    print(f"Invite code:      {invite} (development only - sign up at /signup)")
     print(f"Quarter support:  {settings.quarterly_subsidy_limit_krw:,} KRW wallet per member per quarter")
 
 

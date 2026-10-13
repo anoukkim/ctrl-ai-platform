@@ -70,6 +70,10 @@ class AuditAction:
     # for the same reason: they decide what every later chat reply costs.
     CLAUDE_PRICE_UPDATED = "claude_price.updated"
     EXCHANGE_RATE_SET = "exchange_rate.set"
+    # Invite codes (invite-only-signup): who may create accounts.
+    INVITE_CREATED = "invite.created"
+    INVITE_DEACTIVATED = "invite.deactivated"
+    INVITE_REACTIVATED = "invite.reactivated"
     # The chat model catalogue (chat-model-choice). Prices, who may pick a
     # model, and which one is the default all move what members spend.
     # `CLAUDE_PRICE_UPDATED` above stays for the rows written before it.
@@ -99,6 +103,9 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.VIDEO_MODEL_UPDATED: "영상 모델 설정 변경",
     AuditAction.CLAUDE_PRICE_UPDATED: "Claude 요금 변경",
     AuditAction.EXCHANGE_RATE_SET: "환율 변경",
+    AuditAction.INVITE_CREATED: "초대 코드 생성",
+    AuditAction.INVITE_DEACTIVATED: "초대 코드 사용 중지",
+    AuditAction.INVITE_REACTIVATED: "초대 코드 다시 사용",
     AuditAction.CHAT_MODEL_CREATED: "Claude 모델 추가",
     AuditAction.CHAT_MODEL_UPDATED: "Claude 모델 변경",
 }

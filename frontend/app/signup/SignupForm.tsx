@@ -3,6 +3,10 @@
 /**
  * 회원가입 폼.
  *
+ * 초대 코드가 있어야 가입할 수 있습니다. CTRL+AI는 동아리 회원만 쓰는
+ * 곳이라, 주소가 알려져도 코드 없이는 계정이 만들어지지 않습니다. 코드는
+ * 관리자에게서 받고, 링크로 오면 미리 채워져 있습니다.
+ *
  * 규칙은 입력하기 전에 미리 알려 줍니다. 보내고 나서 거절당하는 것보다
  * 낫기 때문입니다. 같은 규칙을 백엔드도 다시 확인합니다 — 브라우저 검사는
  * 친절일 뿐 보안이 아닙니다.
@@ -22,7 +26,8 @@ import styles from "@/app/login/auth.module.css";
 
 import DataLocationNotice from "./DataLocationNotice";
 
-export default function SignupForm() {
+export default function SignupForm({ initialCode = "" }: { initialCode?: string }) {
+  const [inviteCode, setInviteCode] = useState(initialCode);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -36,12 +41,17 @@ export default function SignupForm() {
   const emailId = useId();
   const nameId = useId();
   const passwordId = useId();
+  const codeId = useId();
 
   const trimmedUsername = username.trim();
   const usernameValid = trimmedUsername.length >= 3 && USERNAME_PATTERN.test(trimmedUsername);
   const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
   const canSubmit =
-    usernameValid && passwordValid && email.trim().length > 0 && displayName.trim().length > 0;
+    inviteCode.trim().length > 0 &&
+    usernameValid &&
+    passwordValid &&
+    email.trim().length > 0 &&
+    displayName.trim().length > 0;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -55,6 +65,7 @@ export default function SignupForm() {
         email: email.trim(),
         password,
         display_name: displayName.trim(),
+        invite_code: inviteCode.trim(),
       });
       await refresh();
       router.replace("/");
@@ -75,7 +86,8 @@ export default function SignupForm() {
         <div>
           <h1 className={styles.title}>회원가입</h1>
           <p className={styles.subtitle}>
-            CTRL+AI에서 앱과 영상을 만들어 보세요. 몇 가지만 입력하면 됩니다.
+            CTRL+AI는 동아리 회원을 위한 곳입니다. 동아리에서 받은 초대 코드로 가입해
+            주세요.
           </p>
         </div>
 
@@ -87,6 +99,28 @@ export default function SignupForm() {
 
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.field}>
+            <label className={styles.label} htmlFor={codeId}>
+              초대 코드
+            </label>
+            <input
+              className="field numeric"
+              id={codeId}
+              name="invite_code"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value)}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              placeholder="CTRL-XXXX-XXXX"
+              autoFocus={!initialCode}
+              required
+            />
+            <span className={styles.hint}>
+              관리자에게 받은 코드입니다. 대소문자는 구분하지 않습니다.
+            </span>
+          </div>
+
+          <div className={styles.field}>
             <label className={styles.label} htmlFor={usernameId}>
               아이디
             </label>
@@ -97,7 +131,7 @@ export default function SignupForm() {
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               autoComplete="username"
-              autoFocus
+              autoFocus={Boolean(initialCode)}
               required
             />
             {/* 입력을 시작하면 규칙을 지켰는지에 따라 색이 바뀝니다. */}

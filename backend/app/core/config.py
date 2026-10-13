@@ -211,6 +211,17 @@ class Settings(BaseSettings):
     # Protects the budget from a stuck key or a runaway script.
     chat_rate_limit_per_minute: int = 10
 
+    # ---------- Sign-up (invite-only-signup) ----------
+    # Per client address, counted in the database (`services/rate_limit.py`).
+    # Generous enough for a club signing up together from one office
+    # network, which shares one public address; tight on failed codes,
+    # because guessing codes is what the limit is for.
+    signup_attempts_per_hour: int = 30
+    invite_failures_per_15_minutes: int = 10
+    # Peers whose X-Forwarded-For is believed: the Next.js server (and, in
+    # production, the reverse proxy). Comma-separated addresses or networks.
+    trusted_proxies: str = "127.0.0.1,::1"
+
     # ---------- Seed administrator ----------
     # Read by `python -m app.db.init_db` only. Blank means "no admin to
     # seed", which is why there is no default password anywhere in the code.

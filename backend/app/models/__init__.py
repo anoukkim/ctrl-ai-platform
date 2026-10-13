@@ -14,6 +14,7 @@ from app.models.provider import (
     ProviderErrorKind,
     ProviderStatus,
 )
+from app.models.invite import InviteCode, InviteStatus
 from app.models.pricing import ChatModel, ChatModelVisibility, ExchangeRate
 from app.models.quarter import (
     ApplicationStatus,
@@ -25,6 +26,7 @@ from app.models.quarter import (
 from app.models.usage import FundingSource, UsageEvent, UsageFeature
 from app.models.membership import MembershipStatus, QuarterMembership
 from app.models.session import UserSession
+from app.models.signup_attempt import SignupAttempt
 from app.models.user import AccountStatus, User, UserRole
 from app.models.video import (
     VIDEO_VERSION_KIND_LABEL,
@@ -51,6 +53,8 @@ __all__ = [
     "ChatModel",
     "ChatModelVisibility",
     "Conversation",
+    "InviteCode",
+    "InviteStatus",
     "ExchangeRate",
     "AccountWithdrawal",
     "GRACE_PERIOD_DAYS",
@@ -82,6 +86,7 @@ __all__ = [
     "AccountStatus",
     "AuditAction",
     "AuditLog",
+    "SignupAttempt",
     "User",
     "UserRole",
     "UserSession",
