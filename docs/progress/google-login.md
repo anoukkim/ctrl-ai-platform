@@ -131,3 +131,12 @@ Left as decisions for the owner:
   their (public) username — proof of intent, not identity; the 30-day
   grace period makes it reversible. A fresh Google sign-in would be the
   stronger check later.
+
+## Review round 3 — clean; two low residuals
+
+- Fixed: IPv6 clients are counted by their /64 network, so rotating
+  addresses inside one block no longer steps around the per-address limits.
+- Accepted, documented: about ten addresses together can still reach the
+  per-username backstop (100 failures in 15 minutes) for a known username,
+  including the admin's. It clears after 15 minutes; Google sign-in is
+  unaffected.

@@ -400,3 +400,14 @@ def test_deactivating_and_reactivating_are_audited(
     assert actions == ["invite.deactivated", "invite.reactivated"]
     assert client.post("/api/admin/invites/9999/deactivate").status_code == 404
 
+
+
+def test_ipv6_clients_are_counted_by_their_64_network() -> None:
+    settings = Settings(trusted_proxies="127.0.0.1")
+    one = rate_limit.client_address(_request("2001:db8:1:2::1"), settings)
+    other = rate_limit.client_address(_request("2001:db8:1:2:ffff::9"), settings)
+    elsewhere = rate_limit.client_address(_request("2001:db8:1:3::1"), settings)
+    assert one == other == "2001:db8:1:2::/64"
+    assert elsewhere != one
+    assert rate_limit.client_address(_request("::ffff:203.0.113.7"), settings) == "203.0.113.7"
+    assert rate_limit.client_address(_request("203.0.113.7"), settings) == "203.0.113.7"

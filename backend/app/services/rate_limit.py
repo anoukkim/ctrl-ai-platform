@@ -127,7 +127,29 @@ def _in(address: str, networks: list) -> bool:
     return any(ip in network for network in networks)
 
 
+def _bucket(address: str) -> str:
+    """The key an address is counted under.
+
+    IPv6 clients are counted by their /64 network: one household or one
+    attacker usually holds a whole /64, and counting single addresses would
+    let them step around every per-address limit.
+    """
+    try:
+        ip = ip_address(address)
+    except ValueError:
+        return address
+    if ip.version == 6 and ip.ipv4_mapped is None:
+        return str(ip_network(f"{ip}/64", strict=False))
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        return str(ip.ipv4_mapped)
+    return address
+
+
 def client_address(request: Request, settings: Settings) -> str:
+    return _bucket(_client_address(request, settings))
+
+
+def _client_address(request: Request, settings: Settings) -> str:
     peer = request.client.host if request.client else ""
     networks = []
     for part in settings.trusted_proxies.split(","):

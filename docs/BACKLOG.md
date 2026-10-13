@@ -269,44 +269,34 @@ Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **google-login** · M1 · branch `feat-google-login`
-   Added by the owner on 2026-10-13: **Google becomes the main way to
-   sign in** (CLAUDE.md section 11). Google로 계속하기 with openid, email
-   and profile only; a setup screen for username and display name; an
-   invite code for new accounts in beta; linked by Google's `sub`, never
-   by email; the verified ADMIN_EMAIL becomes admin; password sign-in
-   kept only as the admin's emergency login. YouTube stays Phase 7, by
-   incremental authorization. **Depends on:** `invite-only-signup`,
-   `test-database-isolation`. Spec below.
-
-2. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+1. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
    Friendlier, less developer-like screens with short, tasteful motion
    (the `motion` library), plain-Korean copy, empty states and a
    first-visit guide. Spec saved verbatim below.
 
-3. **deepseek-research** · M3 (research for more-chat-providers) · branch
+2. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-4. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+3. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-5. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+4. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-6. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+5. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-7. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day. Report Issue
    (`/issues`) becomes a board: members write notes there and read every
    public note with no names; Admin can hide a note, export notes as
@@ -316,14 +306,14 @@ before the post-beta work, which is specced under **After the beta**.
    on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
    below, with the owner's revision.
 
-8. **token-guard** · M1 · branch `feat-token-guard`
+7. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-9. **live-cost-display** · M1 · branch `feat-live-cost-display`
+8. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -331,14 +321,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-10. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+9. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-11. **builder-python** · M2 · branch `feat-builder-python`
+10. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -588,61 +578,7 @@ Saved exactly as written by the developer.
 
 ---
 
-## google-login — full spec
-
-Branch `feat-google-login`. M1. Added by the owner on 2026-10-13, with
-the decision **Google becomes the main way to sign in** (recorded in
-`CLAUDE.md` section 11). Saved exactly as written:
-
-> Add a backlog item google-login, spec only. Owner decision 2026-10-13: Google becomes the main way to sign in; update CLAUDE.md section 11 to say so.
-> - "Google로 계속하기" on sign-in and sign-up. Scopes openid, email, profile only; no YouTube scope at sign-in.
-> - First Google sign-in: a setup screen to choose username and display name. In APP_ENV=beta a new account still needs a valid invite code.
-> - The account whose verified Google email equals ADMIN_EMAIL (ctrlai.platform@gmail.com) becomes admin; only email_verified=true may match.
-> - Link by Google's stable id (sub), not the email. Never sign into an existing account just because the email matches; a member links Google from Profile while signed in.
-> - Username/password stays only as the admin's emergency login; members do not see it.
-> - YouTube stays Phase 7: Profile › "YouTube 연결" asks for the upload scope on the same Google account by incremental authorization. Refresh tokens encrypted at rest, never sent to the browser. Until Google verifies the app, YouTube is limited to test users and uploads stay private.
-> - The backend does the whole OAuth exchange with state and PKCE; the client secret lives only in the server .env. A mock provider for development and tests.
-> - docs/deployment.md lists the Google Cloud console steps I do myself (OAuth consent screen, client ID, redirect URIs, test users) and the .env lines.
-
-**Depends on:** `invite-only-signup` (the invite code a new Google
-account must present) and `test-database-isolation` (both come first in
-Next). Provider rule (`CLAUDE.md` section 20): behind
-`GOOGLE_LOGIN_PROVIDER=mock|google`, mock by default.
-
-Notes for the build, not changes to the request:
-
-- **Where it sits in the data model:** a `ConnectedAccount` row
-  (`provider="google"`, `provider_account_id=sub`, unique), the table
-  `CLAUDE.md` section 14 already describes. The sign-in identity and the
-  later YouTube connection are the same row with more scopes, not two
-  rows.
-- **The callback lands on the backend** (`/api/auth/google/callback`
-  through the same-origin `/api/*` rewrite), which sets the same HttpOnly
-  session cookie as password sign-in; no token ever reaches the browser.
-  `state` and the PKCE verifier live in a short-lived, HttpOnly cookie or
-  a server row, never in `localStorage`.
-- **The setup screen** keeps the existing username rules and the invite
-  code check from `invite-only-signup`; until it is completed there is
-  no account, only a pending, short-lived sign-up row keyed by `sub`.
-- **ADMIN_EMAIL matching** happens only when the account is first
-  created (and is audited); an existing member's later email change at
-  Google never promotes or demotes anyone.
-- **Hiding password sign-in:** the sign-in screen shows only Google; the
-  password form moves to an unlisted route for the admin's emergency use,
-  still rate-limited, and member accounts created by Google have no
-  usable password (`UNUSABLE_PASSWORD_HASH`). Existing password members
-  link Google from Profile before the password form disappears for them.
-- **Google verification:** openid/email/profile are non-sensitive scopes,
-  so sign-in works for everyone without Google's app review once the
-  consent screen is in production; the YouTube upload scope is the one
-  that needs verification (Phase 7).
-- **Tests (mock provider):** state and PKCE checked and single-use; a new
-  `sub` goes to the setup screen and needs an invite code in beta; an
-  existing account is never entered by email alone; linking from Profile
-  attaches the `sub` to the signed-in account and refuses a `sub` already
-  linked elsewhere; only a verified ADMIN_EMAIL becomes admin; no route
-  returns a token; the access table and `EXPECTED_GUARDS` gain the new
-  routes.
+→ **google-login — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#google-login--full-spec-merged-2026-10-13).
 
 ## Chat+ — what the three M1 items share
 
