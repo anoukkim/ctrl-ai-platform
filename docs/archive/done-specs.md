@@ -1626,7 +1626,7 @@ when clean). The owner's words, verbatim:
 > 4. httpx2 is imported at runtime but only in requirements-dev.txt. Move it to requirements.txt; add a test that imports the anthropic adapter with runtime requirements only.
 > 5. Dev-only scripts (init_db seed, reset_dev) must refuse to run in the production image; confirm and test.
 
-Checklist and decisions: [`../progress/fix-beta-blockers.md`](../progress/fix-beta-blockers.md).
+Checklist and decisions: [`progress-2026-10-13/fix-beta-blockers.md`](progress-2026-10-13/fix-beta-blockers.md).
 
 ## personal-topup-off — full spec (merged 2026-10-14)
 
@@ -1642,4 +1642,4 @@ when clean). The owner's words, verbatim:
 
 Checklist and decisions (including why the 환불 대기 copy stays for money
 that already existed):
-[`../progress/personal-topup-off.md`](../progress/personal-topup-off.md).
+[`progress-2026-10-13/personal-topup-off.md`](progress-2026-10-13/personal-topup-off.md).
