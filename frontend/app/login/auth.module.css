@@ -135,3 +135,21 @@
   font-size: 12.5px;
   line-height: 1.55;
 }
+
+/* Google 단추와 아이디·비밀번호 칸 사이의 "또는" 줄 (member-password-login). */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.25rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}

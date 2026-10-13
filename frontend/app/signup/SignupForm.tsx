@@ -7,6 +7,10 @@
  * 곳이라, 주소가 알려져도 코드 없이는 계정이 만들어지지 않습니다. 코드는
  * 관리자에게서 받고, 링크로 오면 미리 채워져 있습니다.
  *
+ * Google로 가입하거나(코드는 돌아온 뒤 설정 화면에서 적습니다), 아래
+ * 칸에 아이디·이메일·비밀번호를 적어 가입합니다 — 둘 다 언제나 보입니다
+ * (member-password-login, 2026-10-14).
+ *
  * 규칙은 입력하기 전에 미리 알려 줍니다. 보내고 나서 거절당하는 것보다
  * 낫기 때문입니다. 같은 규칙을 백엔드도 다시 확인합니다 — 브라우저 검사는
  * 친절일 뿐 보안이 아닙니다.
@@ -121,17 +125,22 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
 
         {!loaded ? (
           <Skeleton />
-        ) : site.google_login ? (
-          // google-login: 회원은 Google로 가입합니다. 아이디와 초대 코드는
-          // Google에서 돌아온 뒤의 설정 화면에서 정합니다.
+        ) : (
+        <>
+        {site.google_login && (
+          // Google로 가입하면 아이디와 초대 코드는 Google에서 돌아온 뒤의
+          // 설정 화면에서 정합니다.
           <div className={styles.form}>
             <GoogleButton href={GOOGLE_START_URL} />
             <p className={styles.hint}>
               처음이면 Google에서 돌아온 뒤 아이디와 이름을 정하고 초대 코드를 적어요.
               {initialCode ? " 받은 초대 코드는 그 화면에 미리 채워 둘게요." : ""}
             </p>
+            <p className={styles.divider}>
+              <span>또는 아이디와 비밀번호로 가입</span>
+            </p>
           </div>
-        ) : (
+        )}
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor={codeId}>
@@ -147,7 +156,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
               autoCapitalize="characters"
               spellCheck={false}
               placeholder="CTRL-XXXX-XXXX"
-              autoFocus={!initialCode}
+              autoFocus={!initialCode && !site.google_login}
               required
             />
             <span className={styles.hint}>
@@ -238,6 +247,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
             {busy ? "가입 중…" : "가입하고 시작하기"}
           </button>
         </form>
+        </>
         )}
 
         <DataLocationNotice />
