@@ -27,7 +27,7 @@ chat, everything else labelled test mode.
 ✅ chat-model-choice · ✅ single-wallet · ✅ prompt-caching ·
 ✅ cost-calibration · ✅ chat-builder-starter · ✅ invite-only-signup ·
 ✅ test-database-isolation · ✅ google-login · ✅ ui-friendly-motion ·
-✅ chat-plus-rendering · ⬜ member-password-login · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
+✅ chat-plus-rendering · ✅ member-password-login · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
 ⬜ anonymous-feedback-board · ⬜ token-guard · ⬜ live-cost-display ·
 ⬜ chat-thinking-view · ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
 `ctrlai-server`, e2-medium in Seoul, on mock providers).

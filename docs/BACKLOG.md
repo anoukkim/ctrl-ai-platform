@@ -276,24 +276,17 @@ before the post-beta work, which is specced under **After the beta**.
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-2. **member-password-login** · M1 · branch `feat-member-password-login`
-   Added by the owner on 2026-10-14; changes CLAUDE.md section 11. Every
-   member may sign in with Google **or** with username and password —
-   both, for everyone; password login is no longer admin-only. **Waits
-   for the owner's check before merging** (not covered by the run's
-   pre-approval). Spec below.
-
-3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+2. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+4. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day. Report Issue
    (`/issues`) becomes a board: members write notes there and read every
    public note with no names; Admin can hide a note, export notes as
@@ -303,14 +296,14 @@ before the post-beta work, which is specced under **After the beta**.
    on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
    below, with the owner's revision.
 
-6. **token-guard** · M1 · branch `feat-token-guard`
+5. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-7. **live-cost-display** · M1 · branch `feat-live-cost-display`
+6. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -318,14 +311,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-8. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+7. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-9. **builder-python** · M2 · branch `feat-builder-python`
+8. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -593,44 +586,7 @@ Rules all three follow:
 
 → **chat-plus-rendering — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-rendering--full-spec-merged-2026-10-14).
 
-### member-password-login — full spec
-
-Branch `feat-member-password-login`. M1. Added by the owner on
-2026-10-14. **Changes CLAUDE.md section 11:** members can sign in with
-Google OR with username and password — both, for everyone. Password
-login is no longer admin-only. The owner's words, verbatim:
-
-> - Login page: "Google로 계속하기" and, below it, the username/password
->   form, both visible. Keep /login/password working (redirect to /login
->   is fine).
-> - Sign-up: choose Google, or username + email + password. An invite
->   code is required either way, as today.
-> - Profile › 로그인 방법: a Google member can set a password (then can
->   also sign in by username); a password member can link Google.
->   Unlinking or removing one is allowed only while another sign-in method
->   remains, so nobody locks themselves out.
-> - Keep every existing rule: Argon2id, the database-backed attempt
->   limits, link Google by sub never by email, ADMIN_EMAIL promotion only
->   at creation with email_verified, withdrawal works for both kinds of
->   account.
-> - Update CLAUDE.md section 11, the google-login notes in done-specs,
->   docs/product.md and the dev seed.
-
-**For this item only — wait for the owner's check before merging.**
-After steps 1–6 of the run's loop pass: start a preview of the branch
-(separate ports, the practice database, mock providers, a fresh dev
-seed with an admin with a password only, a member with Google only, a
-member with a password only, a member with both, and an unused invite
-code); check every flow with Playwright in both themes and at 390 px;
-give the owner a Korean click-through checklist (URL, accounts and how
-each signs in, the invite code, each flow, what must be refused — wrong
-password, sign-up without a code, removing the last sign-in method, a
-Google account whose email matches someone else's account — and what is
-mock); push the branch, mark it "waiting for owner check" in the run
-log, and merge only on the owner's OK, with `--no-ff`, resolving
-conflicts with what merged meanwhile, then re-run step 4 on main and
-stop the preview. A reported problem is fixed on the same branch, steps
-4–6 re-run, the preview refreshed and only the changed checks given.
+→ **member-password-login — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#member-password-login--full-spec-merged-2026-10-14).
 
 ### chat-plus-files — full spec
 

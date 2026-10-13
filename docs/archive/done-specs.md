@@ -1522,3 +1522,44 @@ says "does not render Markdown" (backend unit test).
 
 **Risks:** XSS through Markdown — no raw HTML and a link allow-list,
 both tested. Bundle size (two packages) on the Chat page only.
+
+---
+
+### member-password-login — full spec (merged 2026-10-14)
+
+Branch `feat-member-password-login`. M1. Added by the owner on
+2026-10-14. **Changes CLAUDE.md section 11:** members can sign in with
+Google OR with username and password — both, for everyone. Password
+login is no longer admin-only. The owner's words, verbatim:
+
+> - Login page: "Google로 계속하기" and, below it, the username/password
+>   form, both visible. Keep /login/password working (redirect to /login
+>   is fine).
+> - Sign-up: choose Google, or username + email + password. An invite
+>   code is required either way, as today.
+> - Profile › 로그인 방법: a Google member can set a password (then can
+>   also sign in by username); a password member can link Google.
+>   Unlinking or removing one is allowed only while another sign-in method
+>   remains, so nobody locks themselves out.
+> - Keep every existing rule: Argon2id, the database-backed attempt
+>   limits, link Google by sub never by email, ADMIN_EMAIL promotion only
+>   at creation with email_verified, withdrawal works for both kinds of
+>   account.
+> - Update CLAUDE.md section 11, the google-login notes in done-specs,
+>   docs/product.md and the dev seed.
+
+**For this item only — wait for the owner's check before merging.**
+After steps 1–6 of the run's loop pass: start a preview of the branch
+(separate ports, the practice database, mock providers, a fresh dev
+seed with an admin with a password only, a member with Google only, a
+member with a password only, a member with both, and an unused invite
+code); check every flow with Playwright in both themes and at 390 px;
+give the owner a Korean click-through checklist (URL, accounts and how
+each signs in, the invite code, each flow, what must be refused — wrong
+password, sign-up without a code, removing the last sign-in method, a
+Google account whose email matches someone else's account — and what is
+mock); push the branch, mark it "waiting for owner check" in the run
+log, and merge only on the owner's OK, with `--no-ff`, resolving
+conflicts with what merged meanwhile, then re-run step 4 on main and
+stop the preview. A reported problem is fixed on the same branch, steps
+4–6 re-run, the preview refreshed and only the changed checks given.
