@@ -283,14 +283,24 @@ def test_each_reply_records_model_tokens_dollars_rate_and_won(
     assert event.model_id == "claude-sonnet-5-5"
     assert event.funding_source.value == "community"
     assert event.conversation_id == conversation
-    assert event.input_tokens > 0 and event.output_tokens > 0
-    assert event.provider_units == event.input_tokens + event.output_tokens
+    prompt = event.input_tokens + event.cache_write_tokens + event.cache_read_tokens
+    assert prompt > 0 and event.output_tokens > 0
+    # A first message writes the cache (the system prompt and the message);
+    # nothing is there to read yet.
+    assert event.cache_write_tokens > 0 and event.cache_read_tokens == 0
+    assert event.provider_units == prompt + event.output_tokens
     assert event.provider_unit == "tokens"
     assert event.provider_currency == "USD"
     assert event.exchange_rate_krw == 1400
 
-    # The mock is priced as Sonnet 5.5: $2 in, $10 out per million.
-    usd = (Decimal(event.input_tokens) * 2 + Decimal(event.output_tokens) * 10) / 1_000_000
+    # The mock is priced as Sonnet 5.5: $2 in, $10 out per million, cache
+    # writes 1.25x input, cache reads $0.20.
+    usd = (
+        Decimal(event.input_tokens) * 2
+        + Decimal(event.cache_write_tokens) * Decimal("2.5")
+        + Decimal(event.cache_read_tokens) * Decimal("0.2")
+        + Decimal(event.output_tokens) * 10
+    ) / 1_000_000
     assert event.provider_cost == usd.quantize(Decimal("0.000001"))
     assert event.charged_krw == math.ceil(usd * 1400) == done["charged_krw"]
     assert allocation(db_session).consumed_krw == event.charged_krw
@@ -309,7 +319,12 @@ def test_anthropic_model_no_longer_decides_while_the_catalogue_has_rows(
 
     event = db_session.query(UsageEvent).one()
     assert event.model_id == "claude-sonnet-5-5"
-    usd = (Decimal(event.input_tokens) * 2 + Decimal(event.output_tokens) * 10) / 1_000_000
+    usd = (
+        Decimal(event.input_tokens) * 2
+        + Decimal(event.cache_write_tokens or 0) * Decimal("2.5")
+        + Decimal(event.cache_read_tokens or 0) * Decimal("0.2")
+        + Decimal(event.output_tokens) * 10
+    ) / 1_000_000
     assert event.charged_krw == math.ceil(usd * 1400)
 
 
@@ -506,7 +521,22 @@ def test_a_reply_stopped_before_anything_arrived_is_charged_the_estimate(
 
     assert result.message is None, "an empty reply is not saved"
     event = db_session.query(UsageEvent).one()
+    # With caching on, the estimate is priced as the dearer cache write.
+    assert event.cache_write_tokens == turn.estimated_input_tokens
+    assert event.input_tokens == 0
+
+
+def test_without_caching_a_stopped_reply_is_charged_the_estimate_as_input(
+    db_session: Session, dev_user, budgeted
+) -> None:
+    settings = Settings(app_env="development", chat_prompt_cache=False)
+    turn = _prepared(db_session, settings, dev_user)
+
+    chat_service.finish_turn(db_session, settings, turn, chat_service.TurnState(stopped=True))
+
+    event = db_session.query(UsageEvent).one()
     assert event.input_tokens == turn.estimated_input_tokens
+    assert event.cache_write_tokens is None and event.cache_read_tokens is None
 
 
 def test_a_charge_that_loses_a_race_takes_what_is_left_and_records_the_full_cost(
@@ -626,7 +656,18 @@ def test_thinking_is_off_on_sonnet_low_effort_on_opus_and_absent_on_haiku() -> N
     assert thinking_params("claude-sonnet-5-5", "off", "max")["output_config"] == {"effort": "low"}
 
 
-def _sse_body(text: str, input_tokens: int = 120, output_tokens: int = 15) -> bytes:
+def _sse_body(
+    text: str,
+    input_tokens: int = 120,
+    output_tokens: int = 15,
+    cache_write: int | None = None,
+    cache_read: int | None = None,
+) -> bytes:
+    usage = {"input_tokens": input_tokens, "output_tokens": 1}
+    if cache_write is not None:
+        usage["cache_creation_input_tokens"] = cache_write
+    if cache_read is not None:
+        usage["cache_read_input_tokens"] = cache_read
     events = [
         ("message_start", {
             "type": "message_start",
@@ -634,7 +675,7 @@ def _sse_body(text: str, input_tokens: int = 120, output_tokens: int = 15) -> by
                 "id": "msg_test", "type": "message", "role": "assistant",
                 "model": "claude-sonnet-5-5", "content": [], "stop_reason": None,
                 "stop_sequence": None,
-                "usage": {"input_tokens": input_tokens, "output_tokens": 1},
+                "usage": usage,
             },
         }),
         ("content_block_start", {
@@ -665,6 +706,8 @@ class FakeAnthropic:
         self.status = status
         self.error_message = error_message
         self.text = text
+        #: (cache write, cache read) to report, like a real cached turn.
+        self.cache: tuple[int, int] | None = None
         self.requests: list[httpx.Request] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -677,8 +720,11 @@ class FakeAnthropic:
                     "error": {"type": "error", "message": self.error_message or "nope"},
                 },
             )
+        write, read = self.cache if self.cache else (None, None)
         return httpx.Response(
-            200, headers={"content-type": "text/event-stream"}, content=_sse_body(self.text)
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=_sse_body(self.text, cache_write=write, cache_read=read),
         )
 
 
@@ -715,11 +761,43 @@ def test_the_real_adapter_streams_and_charges_the_reported_tokens(
     assert body["max_tokens"] == 4096
     assert body["stream"] is True
     assert body["messages"] == [{"role": "user", "content": "안녕하세요"}]
-    assert "Korean" in body["system"]
+    # Two cache breakpoints: the shared system prompt, and the conversation
+    # (Anthropic's automatic top-level marker), both 5 minutes.
+    [system] = body["system"]
+    assert "Korean" in system["text"]
+    assert system["cache_control"] == {"type": "ephemeral"}
+    assert body["cache_control"] == {"type": "ephemeral"}
 
     event = db_session.query(UsageEvent).one()
     assert (event.model_id, event.input_tokens, event.output_tokens) == ("claude-sonnet-5-5", 120, 15)
     assert event.charged_krw == math.ceil(Decimal(120 * 2 + 15 * 10) / 1_000_000 * 1400)
+
+
+def test_the_real_adapter_charges_cache_writes_and_reads_at_their_own_prices(
+    client: TestClient, db_session: Session, budgeted, real_claude
+) -> None:
+    """Uncached input $2, cache write $2.50 (1.25x), cache read $0.20,
+    output $10 per million — not every prompt token at the input price."""
+    real_claude.cache = (2_000, 30_000)
+    conversation = new_conversation(client)
+    send(client, conversation, "안녕하세요")
+
+    event = db_session.query(UsageEvent).one()
+    assert (event.input_tokens, event.cache_write_tokens, event.cache_read_tokens) == (
+        120, 2_000, 30_000
+    )
+    assert event.provider_units == 120 + 2_000 + 30_000 + 15
+    usd = (
+        Decimal(120 * 2) + Decimal(2_000) * Decimal("2.5") + Decimal(30_000) * Decimal("0.2")
+        + Decimal(15 * 10)
+    ) / 1_000_000
+    assert event.provider_cost == usd.quantize(Decimal("0.000001"))
+    assert event.charged_krw == math.ceil(usd * 1400)
+    # Charged as if uncached it would have been about four times as much.
+    full = Decimal((120 + 2_000 + 30_000) * 2 + 15 * 10) / 1_000_000
+    assert event.charged_krw * 4 < math.ceil(full * 1400)
+    message = db_session.query(ChatMessage).filter_by(role=ChatRole.ASSISTANT).one()
+    assert message.input_tokens == 120 + 2_000 + 30_000
 
 
 @pytest.mark.parametrize(

@@ -48,9 +48,18 @@ def set_visibility(db: Session, model_id: str, visibility: ChatModelVisibility) 
     return row
 
 
-def usd(event: UsageEvent, input_price: int, output_price: int) -> Decimal:
+def usd(
+    event: UsageEvent, input_price: int, output_price: int, read_price: str | None = None
+) -> Decimal:
+    """What the event cost: uncached input, cache writes at 1.25x input
+    (5-minute TTL), cache reads at the model's read price (a tenth of input
+    unless given), and output."""
+    read = Decimal(read_price) if read_price is not None else Decimal(input_price) / 10
     return (
-        Decimal(event.input_tokens) * input_price + Decimal(event.output_tokens) * output_price
+        Decimal(event.input_tokens) * input_price
+        + Decimal(event.cache_write_tokens or 0) * Decimal(input_price) * Decimal("1.25")
+        + Decimal(event.cache_read_tokens or 0) * read
+        + Decimal(event.output_tokens) * output_price
     ) / 1_000_000
 
 
@@ -171,7 +180,7 @@ def test_an_admin_may_use_an_admin_only_model(
 
     event = db_session.query(UsageEvent).one()
     assert event.model_id == "claude-opus-5-5"
-    assert event.charged_krw == math.ceil(usd(event, 4, 20) * 1400)
+    assert event.charged_krw == math.ceil(usd(event, 4, 20, "0.20") * 1400)
 
 
 # ------------------------------------------------------------- price and record

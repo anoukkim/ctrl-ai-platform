@@ -50,6 +50,12 @@ function nativeUnits(line: ProviderSpend): string {
       `입력 ${line.input_tokens.toLocaleString("ko-KR")} · 출력 ${line.output_tokens.toLocaleString("ko-KR")} 토큰`,
     );
   }
+  if (line.cache_read_tokens || line.cache_write_tokens) {
+    parts.push(
+      `캐시 읽기 ${line.cache_read_tokens.toLocaleString("ko-KR")} · 쓰기 ${line.cache_write_tokens.toLocaleString("ko-KR")} 토큰` +
+        (line.cache_hit_rate !== null ? ` (입력의 ${Math.round(line.cache_hit_rate * 100)}% 캐시)` : ""),
+    );
+  }
   for (const [unit, amount] of Object.entries(line.units)) {
     if (unit === "tokens" && parts.length > 0) continue;
     parts.push(`${amount.toLocaleString("ko-KR")} ${UNIT_LABEL[unit] ?? unit}`);

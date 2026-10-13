@@ -48,6 +48,7 @@ _AUDITED = (
     "description",
     "input_usd_per_mtok",
     "output_usd_per_mtok",
+    "cache_read_usd_per_mtok",
     "visibility",
     "sort_order",
     "is_default",
@@ -120,6 +121,7 @@ def create_chat_model(
         description=payload.description.strip(),
         input_usd_per_mtok=payload.input_usd_per_mtok,
         output_usd_per_mtok=payload.output_usd_per_mtok,
+        cache_read_usd_per_mtok=payload.cache_read_usd_per_mtok,
         visibility=payload.visibility,
         is_default=False,
         sort_order=payload.sort_order,
@@ -190,6 +192,8 @@ def update_chat_model(
                 f"요금 입력 ${row.input_usd_per_mtok} · 출력 ${row.output_usd_per_mtok} "
                 "(100만 토큰당)"
             )
+        if "cache_read_usd_per_mtok" in changed:
+            parts.append(f"캐시 읽기 ${row.cache_read_usd_per_mtok} (100만 토큰당)")
         if "visibility" in changed:
             parts.append(VISIBILITY_LABEL[row.visibility])
         if "is_default" in changed:

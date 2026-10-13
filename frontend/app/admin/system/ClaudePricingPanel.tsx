@@ -146,9 +146,17 @@ export default function ClaudePricingPanel() {
               <dt>회원당 보내기</dt>
               <dd className="numeric">1분에 {settings.rate_limit_per_minute}개</dd>
             </div>
+            <div>
+              <dt>프롬프트 캐시</dt>
+              <dd>
+                {settings.cache_ttl
+                  ? `켜짐 · ${settings.cache_ttl === "1h" ? "1시간" : "5분"} 동안 보관 — 이어지는 답장은 앞 대화를 입력 요금의 약 1/10로 다시 읽습니다`
+                  : "꺼짐 — 매 답장마다 대화 전체를 입력 요금으로 다시 보냅니다"}
+              </dd>
+            </div>
           </dl>
           <p className={styles.pricingNote}>
-            생각과 한도는 .env의 CHAT_* 값으로 정하고 서버를 다시 시작하면 바뀝니다. 모델과
+            생각, 한도, 프롬프트 캐시는 .env의 CHAT_* 값으로 정하고 서버를 다시 시작하면 바뀝니다. 모델과
             모델별 요금, 회원이 고를 수 있는 모델은{" "}
             <Link href="/admin/claude-models">{sectionLabel("claude-models")}</Link>에서
             정합니다.

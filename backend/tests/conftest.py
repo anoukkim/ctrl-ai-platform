@@ -13,6 +13,21 @@ from collections.abc import Generator
 # locally. Tests have no one watching. Set before the settings are built.
 os.environ.setdefault("CHAT_MOCK_DELAY_MS", "0")
 
+# The tests never see a real credential. Settings also read the developer's
+# `.env`, and once a real key is there, a test that switches a provider to
+# its real implementation without handing in a fake transport would call
+# the paid API. An environment variable outranks `.env`, so blanking them
+# here is enough — and a test that needs a key sets its own fake one.
+for _secret in (
+    "ANTHROPIC_API_KEY",
+    "HF_CREDENTIALS",
+    "GITHUB_CLIENT_SECRET",
+    "GOOGLE_CLIENT_SECRET",
+):
+    os.environ[_secret] = ""
+for _provider in ("CLAUDE_PROVIDER", "VIDEO_PROVIDER", "GITHUB_PROVIDER", "YOUTUBE_PROVIDER"):
+    os.environ[_provider] = "mock"
+
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
@@ -28,6 +43,20 @@ from app.main import app  # noqa: E402
 # here would rebind the name `app` to the package and shadow the
 # FastAPI instance imported above.
 from app import models  # noqa: F401, E402
+
+
+@pytest.fixture(autouse=True)
+def empty_mock_prompt_cache() -> Generator[None, None, None]:
+    """Each test starts with the mock's prompt cache empty.
+
+    It is one cache per process, as Anthropic's is per organisation, so
+    without this a test would read what an earlier test wrote.
+    """
+    from app.services.claude_provider import MOCK_PROMPT_CACHE
+
+    MOCK_PROMPT_CACHE.clear()
+    yield
+    MOCK_PROMPT_CACHE.clear()
 
 
 @pytest.fixture

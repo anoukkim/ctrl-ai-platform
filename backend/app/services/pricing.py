@@ -1,8 +1,15 @@
 """Turning Claude tokens into won.
 
-    dollars = input_tokens  × input price  / 1,000,000
-            + output_tokens × output price / 1,000,000
+    dollars = input_tokens       × input price        / 1,000,000
+            + cache_write_tokens × input price × 1.25 / 1,000,000   (5m TTL; 2× for 1h)
+            + cache_read_tokens  × cache-read price   / 1,000,000
+            + output_tokens      × output price       / 1,000,000
     won     = ceil(dollars × won-per-dollar)
+
+With prompt caching (prompt-caching) Anthropic bills three kinds of input
+differently, and so does the ledger: `input_tokens` is only the part that
+was neither written to nor read from the cache. The cache-read price is a
+catalogue column (a tenth of input by default; Opus 5.5 a twentieth).
 
 Rounded **up** to whole won, with a minimum of 1원 for any call that used
 a token: the club pays Anthropic in fractions of a cent, and a member's
@@ -41,6 +48,11 @@ TYPICAL_OUTPUT_TOKENS = 800
 
 MILLION = Decimal(1_000_000)
 
+#: What a cache write costs relative to the input price, by TTL.
+CACHE_WRITE_MULTIPLIER = {"5m": Decimal("1.25"), "1h": Decimal("2")}
+#: The default cache-read price relative to input, when a model has none.
+DEFAULT_CACHE_READ_RATIO = Decimal("0.1")
+
 
 class PricingError(Exception):
     """No price for the model, or no exchange rate. Korean message.
@@ -57,20 +69,61 @@ class Price:
     input_usd_per_mtok: Decimal
     output_usd_per_mtok: Decimal
     usd_krw: Decimal
+    #: None means a tenth of the input price.
+    cache_read_usd_per_mtok: Decimal | None = None
+    #: "5m" or "1h" — which write price applies. None: caching is off.
+    cache_ttl: str | None = None
 
-    def usd(self, input_tokens: int, output_tokens: int) -> Decimal:
+    @property
+    def cache_write_usd_per_mtok(self) -> Decimal:
+        return self.input_usd_per_mtok * CACHE_WRITE_MULTIPLIER.get(
+            self.cache_ttl or "5m", CACHE_WRITE_MULTIPLIER["5m"]
+        )
+
+    @property
+    def cache_read_price(self) -> Decimal:
+        if self.cache_read_usd_per_mtok is not None:
+            return self.cache_read_usd_per_mtok
+        return self.input_usd_per_mtok * DEFAULT_CACHE_READ_RATIO
+
+    def usd(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        cache_write_tokens: int = 0,
+        cache_read_tokens: int = 0,
+    ) -> Decimal:
         return (
             Decimal(input_tokens) * self.input_usd_per_mtok
+            + Decimal(cache_write_tokens) * self.cache_write_usd_per_mtok
+            + Decimal(cache_read_tokens) * self.cache_read_price
             + Decimal(output_tokens) * self.output_usd_per_mtok
         ) / MILLION
 
-    def krw(self, input_tokens: int, output_tokens: int) -> int:
-        if input_tokens <= 0 and output_tokens <= 0:
+    def krw(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        cache_write_tokens: int = 0,
+        cache_read_tokens: int = 0,
+    ) -> int:
+        if max(input_tokens, output_tokens, cache_write_tokens, cache_read_tokens) <= 0:
             return 0
-        won = (self.usd(input_tokens, output_tokens) * self.usd_krw).to_integral_value(
-            rounding=ROUND_CEILING
-        )
+        dollars = self.usd(input_tokens, output_tokens, cache_write_tokens, cache_read_tokens)
+        won = (dollars * self.usd_krw).to_integral_value(rounding=ROUND_CEILING)
         return max(1, int(won))
+
+    def worst_case_krw(self, input_tokens: int, output_tokens: int) -> int:
+        """The most a call of this size can cost — for the check *before* it.
+
+        With caching on, the dearest way to be billed for input is as a
+        cache write (1.25× or 2× input), so the whole input is priced that
+        way. A check that assumed cache reads could pass a member who then
+        cannot pay.
+        """
+        if self.cache_ttl is None:
+            return self.krw(input_tokens, output_tokens)
+        return self.krw(0, output_tokens, cache_write_tokens=input_tokens)
 
 
 def seed_defaults(db: Session) -> None:
@@ -105,7 +158,7 @@ def rate_history(db: Session, limit: int = 10) -> list[ExchangeRate]:
     )
 
 
-def price_for(db: Session, model: ChosenModel) -> Price:
+def price_for(db: Session, model: ChosenModel, cache_ttl: str | None = None) -> Price:
     """The price and rate in force for one model, or `PricingError`."""
     if model.input_usd_per_mtok <= 0 or model.output_usd_per_mtok <= 0:
         # Only the empty-catalogue fallback can get here: a catalogue row's
@@ -122,6 +175,8 @@ def price_for(db: Session, model: ChosenModel) -> Price:
         input_usd_per_mtok=model.input_usd_per_mtok,
         output_usd_per_mtok=model.output_usd_per_mtok,
         usd_krw=Decimal(rate.krw_per_unit),
+        cache_read_usd_per_mtok=model.cache_read_usd_per_mtok,
+        cache_ttl=cache_ttl,
     )
 
 

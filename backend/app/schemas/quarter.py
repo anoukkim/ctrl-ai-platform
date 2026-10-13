@@ -456,6 +456,11 @@ class ProviderSpendRead(BaseModel):
     units: dict[str, int] = Field(default_factory=dict)
     input_tokens: int = 0
     output_tokens: int = 0
+    #: 프롬프트 캐시(prompt-caching). input_tokens는 캐시를 거치지 않은 입력만입니다.
+    cache_write_tokens: int = 0
+    cache_read_tokens: int = 0
+    #: 입력 가운데 캐시에서 읽은 몫(0–1). 입력이 없으면 None.
+    cache_hit_rate: float | None = None
     #: 이 분기 전체 사용액 가운데 이 제공자의 몫(0–1). 사용이 없으면 None.
     share: float | None = None
     #: 지갑 총액을 이 몫으로 나눈 참고값 — 다음 구매를 가늠하는 숫자일 뿐

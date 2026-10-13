@@ -197,11 +197,21 @@ Chat is the opening screen and a real conversation with Claude, behind
   removes; there is no agent routing.
 - **Money.** Before Claude is called, the member's wallet is checked against the
   worst case (the history sent plus the longest reply). Afterwards the tokens
-  actually used are charged: input × input price + output × output price in
-  dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
+  actually used are charged: uncached input × input price + cache writes ×
+  1.25 × input price + cache reads × the cache-read price + output × output
+  price in dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
   records the model, both token counts, the dollar cost and the rate. Prices
   are edited with the models in Admin › Claude Models, the rate in Admin ›
   System; both are audited.
+- **Prompt caching** (prompt-caching). Every request marks the system
+  prompt and the conversation so far as cacheable, so each reply re-reads
+  the earlier turns at about a tenth of the input price (Opus 5.5 a
+  twentieth). Long conversations are trimmed in steps — half the history
+  limit at a time — so the cached start of the conversation stays the same
+  for many turns. The check before a call still prices the whole input as a
+  cache write, the dearest case. Admin › Budget shows how much of Claude's
+  input came from the cache; `CHAT_PROMPT_CACHE` / `CHAT_CACHE_TTL` switch
+  it.
 - **Choosing a model** (chat-model-choice). Next to the composer, per
   conversation: each model shows its Korean label, a one-line description
   and "답장 1회 약 N원" (3,000 input + 800 output tokens). A new conversation

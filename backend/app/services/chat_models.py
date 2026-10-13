@@ -54,6 +54,8 @@ class CatalogueSeed:
     is_default: bool
     sort_order: int
     provider: str = ANTHROPIC
+    #: Cache-read price; None means a tenth of the input price.
+    cache_read_usd_per_mtok: Decimal | None = None
 
 
 #: Anthropic's list prices on 2026-10-07, in dollars per million tokens.
@@ -70,6 +72,7 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
         visibility=ChatModelVisibility.MEMBERS,
         is_default=False,
         sort_order=10,
+        cache_read_usd_per_mtok=Decimal("0.10"),
     ),
     CatalogueSeed(
         model_id="claude-sonnet-5-5",
@@ -80,6 +83,7 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
         visibility=ChatModelVisibility.MEMBERS,
         is_default=True,
         sort_order=20,
+        cache_read_usd_per_mtok=Decimal("0.20"),
     ),
     CatalogueSeed(
         model_id="claude-opus-5-5",
@@ -90,12 +94,17 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
         visibility=ChatModelVisibility.ADMIN,
         is_default=False,
         sort_order=30,
+        # Opus 5.5 reads its cache at a twentieth of input, not a tenth.
+        cache_read_usd_per_mtok=Decimal("0.20"),
     ),
 ]
 
 LIST_PRICES: dict[str, tuple[Decimal, Decimal]] = {
     seed.model_id: (seed.input_usd_per_mtok, seed.output_usd_per_mtok)
     for seed in DEFAULT_CATALOGUE
+}
+CACHE_READ_LIST_PRICES: dict[str, Decimal | None] = {
+    seed.model_id: seed.cache_read_usd_per_mtok for seed in DEFAULT_CATALOGUE
 }
 
 
@@ -121,6 +130,8 @@ class ChosenModel:
     input_usd_per_mtok: Decimal
     output_usd_per_mtok: Decimal
     row_id: int | None = None
+    #: None means a tenth of the input price.
+    cache_read_usd_per_mtok: Decimal | None = None
 
     @classmethod
     def of(cls, row: ChatModel) -> ChosenModel:
@@ -131,6 +142,11 @@ class ChosenModel:
             input_usd_per_mtok=Decimal(row.input_usd_per_mtok),
             output_usd_per_mtok=Decimal(row.output_usd_per_mtok),
             row_id=row.id,
+            cache_read_usd_per_mtok=(
+                Decimal(row.cache_read_usd_per_mtok)
+                if row.cache_read_usd_per_mtok is not None
+                else None
+            ),
         )
 
 
@@ -151,6 +167,7 @@ def seed_defaults(db: Session) -> None:
                 description=seed.description,
                 input_usd_per_mtok=seed.input_usd_per_mtok,
                 output_usd_per_mtok=seed.output_usd_per_mtok,
+                cache_read_usd_per_mtok=seed.cache_read_usd_per_mtok,
                 visibility=seed.visibility,
                 is_default=seed.is_default,
                 sort_order=seed.sort_order,
@@ -199,6 +216,7 @@ def fallback(settings: Settings) -> ChosenModel:
         label=model_id,
         input_usd_per_mtok=input_price,
         output_usd_per_mtok=output_price,
+        cache_read_usd_per_mtok=CACHE_READ_LIST_PRICES.get(model_id),
     )
 
 

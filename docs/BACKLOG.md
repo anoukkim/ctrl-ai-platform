@@ -282,8 +282,9 @@ items are specced under **After the beta** below and are not in this
 list. `chat-model-choice`, added at the top the same day, has merged
 and left it.
 
-**Items 1–3 were put at the top by the developer on 2026-10-08.**
-Everything below them moved down three places.
+**Items 1–4 were put at the top by the developer** (1, 3 and 4 on
+2026-10-08; 2, prompt-caching, on 2026-10-13). Everything below them moved
+down four places.
 
 1. **single-wallet** · M1 · branch `feat-single-wallet`
    Members no longer split their quarter support. One 동아리 지원 wallet
@@ -294,59 +295,66 @@ Everything below them moved down three places.
    **Built on `feat-single-wallet`, waiting for the developer's check** —
    see *Decisions taken while implementing* under its spec.
 
-2. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+2. **prompt-caching** · M1 · branch `feat-prompt-caching` (from
+   `feat-single-wallet`)
+   Added by the developer on 2026-10-13, mid-run: Anthropic prompt caching
+   in Chat, priced correctly in the ledger, and nothing that calls the API
+   more than it must. Takes over `chat-plus-files` point 5. Built on
+   single-wallet's ledger, so it merges after it. Spec below.
+
+3. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
    Friendlier, less developer-like screens with short, tasteful motion
    (the `motion` library), plain-Korean copy, empty states and a
    first-visit guide. **Starts after single-wallet is merged.** Spec saved
    verbatim below.
 
-3. **deepseek-research** · M3 (research for more-chat-providers) · branch
+4. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-4. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
+5. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
    An invite code is required to sign up, in every environment — the site
    address is public, the community is not. Adds the `InviteCode` table
    and an invite-code section to Admin › Members. Spec saved verbatim
    below. **`prep-beta-launch` no longer defines its own invite codes**;
    it reuses this.
 
-5. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+6. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-6. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+7. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-7. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+8. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-8. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+9. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ **Must be done before `prep-beta-launch`, not after.** Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
    one the developer runs the product on. Found on 2026-10-07, after it
    put a branch's table into the development database and left
    `alembic upgrade head` unable to run.
 
-   **Open check before item 9 — Phase 2's point 10 (real key).** One
+   **Open check before item 10 — Phase 2's point 10 (real key).** One
    short real message with the owner's key; see **Now**. Not a branch,
    but `prep-beta-launch` does not start until it has been run.
 
-9. **prep-beta-launch** · M1 · no branch named yet
+10. **prep-beta-launch** · M1 · no branch named yet
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
    domain is already bought (`ctrlai.my`); the rest is one Google Cloud
    VM on the 90-day free trial, started only at the deploy step. See
    **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 8**, nor before Phase 2's point 10.
+   **Do not start before item 9**, nor before Phase 2's point 10.
    Running the suite against a live database is a different order of
    mistake once the database holds members' work rather than one
    developer's test rows. **Storage on the VM** now also holds chat
@@ -628,6 +636,50 @@ Built on `feat-single-wallet`, not merged.
   it). Chat now refreshes the sidebar wallet after every reply.
 - **Dev simulator** records a provider and feature instead of a category.
 
+## prompt-caching — full spec
+
+Branch `feat-prompt-caching`, from `feat-single-wallet`. M1. Added
+2026-10-13 by the developer, mid-run, in two messages saved exactly as
+written:
+
+> add API key sk-ant-usr-…(redacted here) and add prompt cashing
+
+> very strong enhanced prompt cashing and dont overuse api
+
+(The key went into the git-ignored `.env` only; it is not repeated in
+this file. `CLAUDE_PROVIDER` stays `mock`, so nothing calls Anthropic until
+the developer switches it — see Phase 2's open check, point 10.)
+
+**Takes over `chat-plus-files` point 5** (automatic caching and pricing
+cache writes and reads at their own prices). What this item does:
+
+1. **Two cache breakpoints on every Chat request** — an explicit one on the
+   system prompt (the part every conversation shares) and Anthropic's
+   automatic top-level `cache_control` for the growing conversation, so
+   each turn re-reads the previous turns at the cache-read price instead of
+   paying full input price again. TTL is a setting (`CHAT_CACHE_TTL`,
+   default `5m`; `1h` doubles the write price and only pays off when a
+   member pauses 5–60 minutes between messages).
+2. **A stable prefix.** History is trimmed at fixed cut points counted from
+   the start of the conversation, not by sliding one message at a time —
+   a sliding window changes the first message every turn and rewrites the
+   whole cache on every reply once a conversation is long.
+3. **The ledger prices what was really billed:** uncached input at the
+   input price, cache writes at 1.25× (5m) or 2× (1h) the input price,
+   cache reads at the model's cache-read price (a new catalogue column,
+   edited in Admin › Claude Models; Opus 5.5 0.05×, the others 0.1×).
+   Two new `UsageEvent` columns record the write and read tokens. The
+   pre-check's worst case prices the whole input at the write price, so it
+   stays a true worst case.
+4. **Not overusing the API:** no cache pre-warming calls, no token-counting
+   calls, one retry at most (as before), the per-minute limit unchanged,
+   the prompt helper left uncached (its short, one-off prompts would only
+   pay the write premium). The mock simulates caching, so all of this is
+   built and tested with no key.
+5. **Admin can see it working:** Admin › Budget shows cache reads and
+   writes per provider and the share of input served from cache; Admin ›
+   System shows the cache settings.
+
 ## ui-friendly-motion — full spec
 
 Branch `feat-ui-friendly-motion`. M1. Added 2026-10-08 at position 2.
@@ -827,7 +879,9 @@ migration (`chat_attachments`, plus the cache columns in point 5).
      the token-counting endpoint; a 10-page PDF ≈ 46,000 tokens ≈ 64원 /
      129원 / 258원 on Haiku / Sonnet / Opus;
    - CSV and text: characters (the existing 1 token per character).
-5. **Prompt caching** turns on with this item, because a file resent on
+5. **Prompt caching** — *done by `prompt-caching` (2026-10-13)*; this
+   item only has to keep attachments inside the cached prefix. Original
+   text: turns on with this item, because a file resent on
    every turn is where the money goes (a 35k-token PDF over five turns:
    ≈ 490원 → 162원 on Sonnet). Automatic caching (`cache_control` at the
    top level). The ledger must then price **cache writes at 1.25×** and

@@ -246,6 +246,9 @@ describe("Admin › Budget", () => {
         units: { seconds: 25 },
         input_tokens: 0,
         output_tokens: 0,
+        cache_write_tokens: 0,
+        cache_read_tokens: 0,
+        cache_hit_rate: null,
         share: 0.55,
         share_of_wallets_krw: 44_000,
       },
@@ -258,8 +261,11 @@ describe("Admin › Budget", () => {
         personal_krw: 0,
         provider_cost: { USD: "9.07" },
         units: { tokens: 300_000 },
-        input_tokens: 250_000,
+        input_tokens: 25_000,
         output_tokens: 50_000,
+        cache_write_tokens: 50_000,
+        cache_read_tokens: 175_000,
+        cache_hit_rate: 0.7,
         share: 0.45,
         share_of_wallets_krw: 36_000,
       },
@@ -278,5 +284,7 @@ describe("Admin › Budget", () => {
     expect(screen.getByText("55%")).toBeTruthy();
     expect(screen.getByText("김유리")).toBeTruthy();
     expect(screen.getByText("1인 지원금 80,000원")).toBeTruthy();
+    // prompt-caching: how much of Claude's input came from the cache.
+    expect(screen.getByText(/캐시 읽기 175,000 · 쓰기 50,000 토큰 \(입력의 70% 캐시\)/)).toBeTruthy();
   });
 });

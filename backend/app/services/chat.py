@@ -6,7 +6,8 @@ A message goes through two steps, and the split is the important part:
    rate limit, prices the call at the conversation's model (see
    `services/chat_models.py`), trims the history to the context limit,
    and checks the member's wallet against the **worst case** (the trimmed
-   input plus the maximum reply). Anything refused here costs nothing,
+   input, priced as a cache write when caching is on, plus the maximum
+   reply). Anything refused here costs nothing,
    because nothing has been sent. Only then is the member's message saved.
 2. **`finish_turn`** — after the stream ends, however it ends. Charges
    the tokens actually used and saves the reply, in one transaction.
@@ -170,6 +171,13 @@ def build_context(
       and the API needs the two sides to alternate.
     * The oldest messages go first when the limit is reached, and the
       result always starts with the member.
+    * **Trimming moves in steps, not one message at a time.** Where the
+      history starts depends only on the conversation's total length,
+      rounded to a whole step (`_stable_start`). A window that slid by one message every
+      turn would change the first message every turn — and with it the
+      whole cached prefix, so a long conversation would pay a cache write
+      for everything on every reply. With steps, the start stays put for
+      many turns and only moves when the history outgrows the limit.
     """
     turns: list[tuple[str, str]] = []
     for message in history:
@@ -199,20 +207,51 @@ def build_context(
     if estimate_tokens(merged[-1]["content"]) + _MESSAGE_OVERHEAD > budget:
         merged[-1] = {"role": ChatRole.USER.value, "content": new_text}
 
-    kept: list[dict[str, str]] = []
-    total = 0
-    for message in reversed(merged):
-        cost = estimate_tokens(message["content"]) + _MESSAGE_OVERHEAD
-        if kept and total + cost > budget:
-            break
-        kept.append(message)
-        total += cost
-    kept.reverse()
-    while kept and kept[0]["role"] != ChatRole.USER.value:
-        total -= estimate_tokens(kept[0]["content"]) + _MESSAGE_OVERHEAD
-        kept.pop(0)
+    costs = [estimate_tokens(message["content"]) + _MESSAGE_OVERHEAD for message in merged]
+    start = _stable_start(merged, costs, budget)
+    if start is None:
+        # The newest exchange alone is longer than one step: keep the
+        # newest messages that fit.
+        start, total = len(merged) - 1, costs[-1]
+        while start > 0 and total + costs[start - 1] <= budget:
+            start -= 1
+            total += costs[start]
+    while start < len(merged) - 1 and merged[start]["role"] != ChatRole.USER.value:
+        start += 1
 
-    return kept, total + estimate_tokens(CHAT_SYSTEM_PROMPT)
+    return merged[start:], sum(costs[start:]) + estimate_tokens(CHAT_SYSTEM_PROMPT)
+
+
+#: When a conversation outgrows the limit, it is cut back to this share of
+#: the limit at once — and then grows for that long before the start
+#: moves again. 2 → half the limit; the cached prefix holds for roughly
+#: half a limit's worth of conversation between moves.
+_TRIM_STEPS = 2
+
+
+def _stable_start(
+    merged: list[dict[str, str]], costs: list[int], budget: int
+) -> int | None:
+    """Where the history sent should start, or None if no step fits.
+
+    The cut is a position in tokens counted from the conversation's first
+    message, rounded *up* to a multiple of one step (`budget / _TRIM_STEPS`)
+    and then to the next member message. It depends only on how long the
+    whole conversation is, so it stays exactly where it is — and the cached
+    prefix stays byte-identical — until the conversation has grown by a
+    whole step. A sliding window would move it on every reply.
+    """
+    total = sum(costs)
+    if total <= budget:
+        return 0
+    step = max(1, budget // _TRIM_STEPS)
+    cut = -(-(total - budget) // step) * step  # ceiling to a whole step
+    running = 0
+    for index, message in enumerate(merged):
+        if running >= cut and message["role"] == ChatRole.USER.value:
+            return index
+        running += costs[index]
+    return None
 
 
 # ------------------------------------------------------------- rate limit
@@ -269,6 +308,8 @@ class TurnState:
     raw_text: str = ""
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_write_tokens: int = 0
+    cache_read_tokens: int = 0
     stop_reason: str | None = None
     stopped: bool = False
     error: ClaudeError | None = None
@@ -295,12 +336,12 @@ def prepare_turn(
         raise ChatRefusal("메시지를 입력해 주세요.", status_code=400)
 
     check_rate_limit(db, user, settings)
-    price = pricing.price_for(db, model)
+    price = pricing.price_for(db, model, cache_ttl=settings.cache_ttl)
 
     history = messages_of(db, conversation)
     messages, estimated_input = build_context(history, text, settings)
 
-    worst_case = price.krw(estimated_input, settings.chat_max_output_tokens)
+    worst_case = price.worst_case_krw(estimated_input, settings.chat_max_output_tokens)
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case)
 
     now = datetime.now(timezone.utc)
@@ -328,6 +369,7 @@ def prepare_turn(
             messages=messages,
             max_tokens=settings.chat_max_output_tokens,
             model=model.model_id,
+            cache_ttl=settings.cache_ttl,
         ),
         price=price,
         model_id=model.model_id,
@@ -380,16 +422,24 @@ def finish_turn(
     # A stopped stream has not reported its output count yet; the text
     # received stands in for it, generously. Its input count arrived with
     # the first event — or, if it was stopped even before that, the
-    # estimate stands in.
-    input_tokens = state.input_tokens or (turn.estimated_input_tokens if state.stopped else 0)
+    # estimate stands in, priced as the dearer cache write when caching
+    # is on.
+    input_tokens = state.input_tokens
+    written = state.cache_write_tokens
+    read = state.cache_read_tokens
+    if state.stopped and not (input_tokens or written or read):
+        if turn.request.cache_ttl is not None:
+            written = turn.estimated_input_tokens
+        else:
+            input_tokens = turn.estimated_input_tokens
     output_tokens = state.output_tokens
     if state.stopped:
         output_tokens = max(output_tokens, estimate_tokens(state.raw_text))
 
     charged = 0
     event_id: int | None = None
-    if input_tokens or output_tokens:
-        amount = turn.price.krw(input_tokens, output_tokens)
+    if input_tokens or output_tokens or written or read:
+        amount = turn.price.krw(input_tokens, output_tokens, written, read)
         try:
             result = usage_service.charge(
                 db,
@@ -398,14 +448,16 @@ def finish_turn(
                 provider="claude",
                 feature=UsageFeature.CHAT.value,
                 model_id=turn.model_id,
-                provider_units=input_tokens + output_tokens,
+                provider_units=input_tokens + output_tokens + written + read,
                 provider_unit="tokens",
-                provider_cost=turn.price.usd(input_tokens, output_tokens).quantize(
+                provider_cost=turn.price.usd(input_tokens, output_tokens, written, read).quantize(
                     Decimal("0.000001")
                 ),
                 provider_currency="USD",
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                cache_write_tokens=written if turn.request.cache_ttl is not None else None,
+                cache_read_tokens=read if turn.request.cache_ttl is not None else None,
                 exchange_rate_krw=turn.price.usd_krw,
                 conversation_id=conversation.id if conversation else None,
                 commit=False,
@@ -429,7 +481,8 @@ def finish_turn(
             action=action if status is not ChatMessageStatus.REFUSED else None,
             action_title=action_title,
             model_id=turn.model_id,
-            input_tokens=input_tokens,
+            # The whole prompt, cached or not — what the reply was written from.
+            input_tokens=input_tokens + written + read,
             output_tokens=output_tokens,
             usage_event_id=event_id,
             created_at=datetime.now(timezone.utc),

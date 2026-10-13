@@ -445,6 +445,11 @@ export interface ProviderSpend {
   units: Record<string, number>;
   input_tokens: number;
   output_tokens: number;
+  /** 프롬프트 캐시. input_tokens는 캐시를 거치지 않은 입력만입니다. */
+  cache_write_tokens: number;
+  cache_read_tokens: number;
+  /** 입력 가운데 캐시에서 읽은 몫(0–1). */
+  cache_hit_rate: number | null;
   share: number | null;
   share_of_wallets_krw: number | null;
 }

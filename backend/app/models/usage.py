@@ -112,6 +112,12 @@ class UsageEvent(TimestampMixin, Base):
     #: that is not priced by the token.
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Prompt caching (prompt-caching). `input_tokens` is then only the
+    #: uncached input; these are the tokens written to and read from the
+    #: cache, each priced at its own rate. Null on rows from before caching
+    #: and on anything that is not a Claude call.
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: The won per unit of `provider_currency` this charge was converted
     #: at, copied from the rate in force. A later rate change does not move
     #: a charge that already happened.

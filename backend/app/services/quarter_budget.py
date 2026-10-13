@@ -93,6 +93,8 @@ def provider_spend(
             func.coalesce(func.sum(UsageEvent.charged_krw), 0),
             func.coalesce(func.sum(UsageEvent.input_tokens), 0),
             func.coalesce(func.sum(UsageEvent.output_tokens), 0),
+            func.coalesce(func.sum(UsageEvent.cache_write_tokens), 0),
+            func.coalesce(func.sum(UsageEvent.cache_read_tokens), 0),
         )
         .where(in_quarter)
         .group_by(UsageEvent.provider, UsageEvent.funding_source)
@@ -105,17 +107,23 @@ def provider_spend(
             "personal_krw": 0,
             "input_tokens": 0,
             "output_tokens": 0,
+            "cache_write_tokens": 0,
+            "cache_read_tokens": 0,
             "provider_cost": defaultdict(Decimal),
             "units": defaultdict(int),
         }
     )
-    for provider, source, events, charged, input_tokens, output_tokens in by_source:
+    for (
+        provider, source, events, charged, input_tokens, output_tokens, written, read
+    ) in by_source:
         line = lines[_key(provider)]
         line["events"] += events
         pot = "personal_krw" if source is FundingSource.PERSONAL else "community_krw"
         line[pot] += int(charged)
         line["input_tokens"] += int(input_tokens)
         line["output_tokens"] += int(output_tokens)
+        line["cache_write_tokens"] += int(written)
+        line["cache_read_tokens"] += int(read)
 
     for provider, currency, cost in db.execute(
         select(
@@ -145,6 +153,7 @@ def provider_spend(
     for provider, line in lines.items():
         charged = line["community_krw"] + line["personal_krw"]
         share = charged / grand_total if grand_total else None
+        prompt = line["input_tokens"] + line["cache_write_tokens"] + line["cache_read_tokens"]
         result.append(
             ProviderSpendRead(
                 provider=provider,
@@ -160,6 +169,9 @@ def provider_spend(
                 units=dict(line["units"]),
                 input_tokens=line["input_tokens"],
                 output_tokens=line["output_tokens"],
+                cache_write_tokens=line["cache_write_tokens"],
+                cache_read_tokens=line["cache_read_tokens"],
+                cache_hit_rate=line["cache_read_tokens"] / prompt if prompt else None,
                 share=share,
                 share_of_wallets_krw=(
                     round(total_budget_krw * share) if share is not None else None

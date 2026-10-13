@@ -20,12 +20,25 @@ Two implementations:
 Every failure leaves this module as a `ClaudeError` carrying a Korean
 sentence for the member and a short, credential-free detail for the
 Admin status board. Callers never see the SDK's own exceptions.
+
+## Prompt caching
+
+A Chat request carries two cache breakpoints (prompt-caching): an explicit
+one on the system prompt, which every conversation shares, and Anthropic's
+automatic top-level `cache_control`, which marks the newest message so the
+next turn re-reads the whole conversation so far from the cache. Usage
+then arrives in three parts — uncached input, cache writes, cache reads —
+and each is passed on separately, because each has its own price. The
+mock keeps a small cache of its own (`MockPromptCache`) and bills the same
+three parts, so the ledger is exercised exactly as it will be for real.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -86,6 +99,8 @@ class ChatRequest:
     #: The provider's model id, from the chat model catalogue. Empty means
     #: the provider's own `model_id` (the `ANTHROPIC_MODEL` fallback).
     model: str = ""
+    #: "5m" / "1h" to mark the prompt cacheable; None sends no marker.
+    cache_ttl: str | None = None
 
 
 @dataclass(frozen=True)
@@ -95,10 +110,16 @@ class TextDelta:
 
 @dataclass(frozen=True)
 class UsageUpdate:
-    """Token counts so far. Each update replaces the previous one."""
+    """Token counts so far. Each update replaces the previous one.
+
+    `input_tokens` is the input that was neither written to nor read from
+    the prompt cache; the other two are, and are priced on their own.
+    """
 
     input_tokens: int
     output_tokens: int
+    cache_write_tokens: int = 0
+    cache_read_tokens: int = 0
 
 
 @dataclass(frozen=True)
@@ -118,6 +139,8 @@ class PromptRewrite:
     model: str
     input_tokens: int
     output_tokens: int
+    cache_write_tokens: int = 0
+    cache_read_tokens: int = 0
 
 
 class ClaudeProvider(Protocol):
@@ -264,6 +287,80 @@ def short_title(text: str, limit: int = 20) -> str:
     return stripped.splitlines()[0][:limit].strip() if stripped else ""
 
 
+#: Anthropic caches nothing below this many prompt tokens, silently. By
+#: model; the newest models cache from 512, Haiku 4.5 only from 4,096.
+CACHE_MINIMUM_TOKENS: dict[str, int] = {"claude-haiku-4-5": 4096}
+DEFAULT_CACHE_MINIMUM_TOKENS = 512
+_TTL_SECONDS = {"5m": 300, "1h": 3600}
+
+
+def cache_minimum(model: str) -> int:
+    for prefix, minimum in CACHE_MINIMUM_TOKENS.items():
+        if model.startswith(prefix):
+            return minimum
+    return DEFAULT_CACHE_MINIMUM_TOKENS
+
+
+class MockPromptCache:
+    """What Anthropic's prompt cache would hold, for the mock to bill by.
+
+    The prompt is a list of blocks — the system prompt, then each message.
+    A request has breakpoints after the system prompt and after its last
+    message, as the real request does. It reads the longest prefix an
+    earlier request wrote and has not let expire, writes up to its last
+    breakpoint that is long enough to cache, and pays full price for the
+    rest. A read refreshes the entry, as Anthropic's does. Entries are
+    per model — caches are model-scoped.
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, float] = {}
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+    @staticmethod
+    def _key(model: str, blocks: list[str]) -> str:
+        digest = hashlib.sha256(model.encode())
+        for block in blocks:
+            digest.update(b"\x00")
+            digest.update(block.encode())
+        return digest.hexdigest()
+
+    def bill(
+        self, model: str, ttl: str | None, blocks: list[str], now: float | None = None
+    ) -> tuple[int, int, int]:
+        """(uncached input, cache write, cache read) for one request."""
+        sizes = [estimate_tokens(block) for block in blocks]
+        total = sum(sizes)
+        if ttl is None or not blocks:
+            return total, 0, 0
+        now = time.monotonic() if now is None else now
+        lifetime = _TTL_SECONDS.get(ttl, _TTL_SECONDS["5m"])
+
+        cumulative = [sum(sizes[: k + 1]) for k in range(len(sizes))]
+        read = 0
+        for k in range(len(blocks), 0, -1):
+            key = self._key(model, blocks[:k])
+            expires = self._entries.get(key)
+            if expires is not None and expires > now:
+                read = cumulative[k - 1]
+                self._entries[key] = now + lifetime
+                break
+
+        written_to = read
+        minimum = cache_minimum(model)
+        for k in sorted({1, len(blocks)}):
+            if cumulative[k - 1] > read and cumulative[k - 1] >= minimum:
+                self._entries[self._key(model, blocks[:k])] = now + lifetime
+                written_to = max(written_to, cumulative[k - 1])
+        return total - written_to, written_to - read, read
+
+
+#: One cache for the process, like Anthropic's for the organisation.
+MOCK_PROMPT_CACHE = MockPromptCache()
+
+
 class MockClaudeProvider:
     model_id = "mock"
 
@@ -275,16 +372,22 @@ class MockClaudeProvider:
         # An unanswered earlier message may have been joined to this one
         # (see `chat.build_context`); the mock answers only the newest part.
         last = last.rsplit("\n\n", 1)[-1]
-        input_tokens = estimate_tokens(request.system) + sum(
-            estimate_tokens(message["content"]) for message in request.messages
-        )
 
         failure = MOCK_ERROR.search(last)
         if failure:
             kind = failure.group(1)
             raise ClaudeError(kind if kind in MEMBER_MESSAGE else ProviderErrorKind.UNKNOWN, "mock")
 
-        yield UsageUpdate(input_tokens=input_tokens, output_tokens=0)
+        uncached, written, read = MOCK_PROMPT_CACHE.bill(
+            request.model or self.model_id,
+            request.cache_ttl,
+            [request.system, *(message["content"] for message in request.messages)],
+        )
+
+        def usage(output_tokens: int) -> UsageUpdate:
+            return UsageUpdate(uncached, output_tokens, written, read)
+
+        yield usage(0)
 
         if MOCK_REFUSAL in last:
             yield StreamEnd("refusal")
@@ -307,7 +410,7 @@ class MockClaudeProvider:
                 await asyncio.sleep(self.delay)
             sent += len(piece)
             yield TextDelta(piece)
-            yield UsageUpdate(input_tokens=input_tokens, output_tokens=sent)
+            yield usage(sent)
         yield StreamEnd("end_turn")
 
     def rewrite_video_prompt(self, prompt: str, request: str, model: str = "") -> PromptRewrite:
@@ -428,16 +531,37 @@ class AnthropicClaudeProvider:
         }
 
     def request_params(
-        self, system: str, messages: list[dict[str, str]], max_tokens: int, model: str = ""
+        self,
+        system: str,
+        messages: list[dict[str, str]],
+        max_tokens: int,
+        model: str = "",
+        cache_ttl: str | None = None,
     ) -> dict[str, Any]:
+        """The request body. With `cache_ttl`, two cache breakpoints.
+
+        The system prompt is the same for every conversation, so it gets
+        an explicit marker of its own; the top-level `cache_control` lets
+        Anthropic mark the newest message, so the next turn re-reads the
+        conversation so far. Both use the same TTL — a longer TTL may not
+        follow a shorter one. Nothing per-request (a time, an id) is put in
+        the prompt: one changed byte early on and every later cache misses.
+        """
         model = model or self.model_id
-        return {
+        params: dict[str, Any] = {
             "model": model,
             "max_tokens": max_tokens,
             "system": system,
             "messages": messages,
             **thinking_params(model, self._settings.chat_thinking, self._settings.chat_effort),
         }
+        if cache_ttl is not None:
+            marker: dict[str, str] = {"type": "ephemeral"}
+            if cache_ttl == "1h":
+                marker["ttl"] = "1h"
+            params["system"] = [{"type": "text", "text": system, "cache_control": marker}]
+            params["cache_control"] = dict(marker)
+        return params
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]:
         import anthropic
@@ -449,31 +573,44 @@ class AnthropicClaudeProvider:
 
         input_tokens = 0
         output_tokens = 0
+        written = 0
+        read = 0
         stop_reason = "end_turn"
         try:
             async with client.messages.stream(
                 **self.request_params(
-                    request.system, request.messages, request.max_tokens, request.model
+                    request.system,
+                    request.messages,
+                    request.max_tokens,
+                    request.model,
+                    request.cache_ttl,
                 )
             ) as stream:
                 async for event in stream:
                     if event.type == "message_start":
                         usage = event.message.usage
-                        input_tokens = (
-                            (usage.input_tokens or 0)
-                            + (getattr(usage, "cache_creation_input_tokens", None) or 0)
-                            + (getattr(usage, "cache_read_input_tokens", None) or 0)
-                        )
+                        input_tokens = usage.input_tokens or 0
+                        written = getattr(usage, "cache_creation_input_tokens", None) or 0
+                        read = getattr(usage, "cache_read_input_tokens", None) or 0
                         output_tokens = usage.output_tokens or 0
-                        yield UsageUpdate(input_tokens, output_tokens)
+                        yield UsageUpdate(input_tokens, output_tokens, written, read)
                     elif event.type == "content_block_delta" and event.delta.type == "text_delta":
                         yield TextDelta(event.delta.text)
                     elif event.type == "message_delta":
-                        if event.usage is not None and event.usage.output_tokens is not None:
-                            output_tokens = event.usage.output_tokens
+                        usage = event.usage
+                        if usage is not None:
+                            if usage.output_tokens is not None:
+                                output_tokens = usage.output_tokens
+                            # The final counts, when the delta carries them.
+                            if getattr(usage, "input_tokens", None) is not None:
+                                input_tokens = usage.input_tokens
+                            if getattr(usage, "cache_creation_input_tokens", None) is not None:
+                                written = usage.cache_creation_input_tokens
+                            if getattr(usage, "cache_read_input_tokens", None) is not None:
+                                read = usage.cache_read_input_tokens
                         if event.delta.stop_reason:
                             stop_reason = event.delta.stop_reason
-                        yield UsageUpdate(input_tokens, output_tokens)
+                        yield UsageUpdate(input_tokens, output_tokens, written, read)
         except anthropic.APIError as error:
             raise classify(error) from None
         yield StreamEnd(stop_reason)
@@ -509,6 +646,8 @@ class AnthropicClaudeProvider:
             model=message.model or model or self.model_id,
             input_tokens=message.usage.input_tokens or 0,
             output_tokens=message.usage.output_tokens or 0,
+            cache_write_tokens=getattr(message.usage, "cache_creation_input_tokens", None) or 0,
+            cache_read_tokens=getattr(message.usage, "cache_read_input_tokens", None) or 0,
         )
 
 

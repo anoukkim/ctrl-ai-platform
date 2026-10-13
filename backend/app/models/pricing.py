@@ -67,6 +67,13 @@ class ChatModel(TimestampMixin, Base):
     description: Mapped[str] = mapped_column(String(200), default="", nullable=False)
     input_usd_per_mtok: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
     output_usd_per_mtok: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+    #: What reading this model's prompt cache costs, per million tokens.
+    #: Null means a tenth of the input price — Anthropic's rule for most
+    #: models; Opus 5.5 reads at a twentieth. Cache *writes* need no column:
+    #: they are always 1.25x (5-minute) or 2x (1-hour) the input price.
+    cache_read_usd_per_mtok: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 4), nullable=True
+    )
     visibility: Mapped[ChatModelVisibility] = mapped_column(
         status_enum(ChatModelVisibility, "chatmodelvisibility"),
         default=ChatModelVisibility.DISABLED,

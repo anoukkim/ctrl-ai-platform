@@ -117,13 +117,24 @@ class Settings(BaseSettings):
     # The most a single reply may produce, thinking included.
     chat_max_output_tokens: int = 4096
     # The most conversation history sent with one message, in (estimated)
-    # input tokens. The oldest messages are dropped first.
+    # input tokens. The oldest messages are dropped first — at fixed cut
+    # points, so the cached prefix stays the same for many turns.
     chat_context_tokens: int = 16_000
     # Seconds to wait for Claude before giving up on a reply.
     chat_timeout_seconds: float = 60.0
     # The mock provider's pause between streamed chunks, so the typing
     # effect is visible locally. Tests set it to 0.
     chat_mock_delay_ms: int = 25
+
+    # Prompt caching (prompt-caching, 2026-10-13). Each Chat request marks
+    # the system prompt and the conversation so far as cacheable; the next
+    # turn re-reads them at the cache-read price (about a tenth of the
+    # input price) instead of paying for them again. Off sends no marker.
+    chat_prompt_cache: bool = True
+    # "5m" (writes cost 1.25x the input price) or "1h" (2x). A cache read
+    # refreshes the timer, so 5m stays warm while a member keeps chatting;
+    # 1h only pays off for pauses of 5-60 minutes.
+    chat_cache_ttl: str = "5m"
 
     # Messages one member may send per minute, across all conversations.
     # Protects the budget from a stuck key or a runaway script.
@@ -135,6 +146,13 @@ class Settings(BaseSettings):
     admin_username: str = ""
     admin_email: str = ""
     admin_password: str = ""
+
+    @property
+    def cache_ttl(self) -> str | None:
+        """The TTL to send ("5m" / "1h"), or None when caching is off."""
+        if not self.chat_prompt_cache:
+            return None
+        return "1h" if self.chat_cache_ttl.strip().lower() == "1h" else "5m"
 
     @property
     def is_development(self) -> bool:

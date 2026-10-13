@@ -178,7 +178,18 @@ put a marker in a message:
 | `[mock-refusal]` | Claude declining |
 
 A failed call is never charged. The real adapter's tests talk to a fake
-transport inside the test process — no test contacts Anthropic.
+transport inside the test process — no test contacts Anthropic. **The test
+suite blanks every provider credential and forces every provider to
+`mock`** (`tests/conftest.py`), because Settings also read `.env`: once a
+real key is there, a test that switches Claude to `anthropic` without a
+fake transport would otherwise call the paid API — which happened twice on
+2026-10-13 before this guard existed (two short prompt-helper calls).
+
+The mock also simulates **prompt caching** (`MockPromptCache`): the first
+reply in a conversation writes the cache, later replies read it, entries
+expire after the TTL and are per model, and prompts under a model's minimum
+(512 tokens; Haiku 4.5: 4,096) are not cached — so the ledger's three input
+prices are exercised without a key.
 
 The chat settings are `CHAT_*`, not `CLAUDE_*`, on purpose: **Claude Code
 sets `CLAUDE_EFFORT` in its own terminals**, and a backend started from one

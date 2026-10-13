@@ -272,6 +272,10 @@ export default function ClaudeModelCatalog() {
                       <td className="numeric">
                         입력 ${Number(model.input_usd_per_mtok)} · 출력 $
                         {Number(model.output_usd_per_mtok)}
+                        <span className="small dim">
+                          {" "}
+                          · 캐시 읽기 ${cacheReadPrice(model)}
+                        </span>
                       </td>
                       <td className="numeric">
                         {model.estimated_reply_krw === null
@@ -335,12 +339,24 @@ interface EditorProps {
   onCancel: () => void;
 }
 
+/**
+ * 캐시 읽기 요금. 모델에 따로 적힌 값이 없으면 입력 요금의 1/10 — 백엔드
+ * pricing.py와 같은 규칙입니다. 캐시 쓰기 요금은 칸이 없습니다: 언제나 입력
+ * 요금의 1.25배(5분) 또는 2배(1시간)입니다.
+ */
+function cacheReadPrice(model: AdminChatModel): number {
+  return model.cache_read_usd_per_mtok !== null
+    ? Number(model.cache_read_usd_per_mtok)
+    : Number(model.input_usd_per_mtok) / 10;
+}
+
 /** 이름·설명·요금·순서를 고치는 칸. 저장하면 다음 답장부터 적용됩니다. */
 function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
   const [label, setLabel] = useState(model.label);
   const [description, setDescription] = useState(model.description);
   const [input, setInput] = useState(String(Number(model.input_usd_per_mtok)));
   const [output, setOutput] = useState(String(Number(model.output_usd_per_mtok)));
+  const [cacheRead, setCacheRead] = useState(String(cacheReadPrice(model)));
   const [order, setOrder] = useState(String(model.sort_order));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -354,6 +370,7 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
         description,
         input_usd_per_mtok: input,
         output_usd_per_mtok: output,
+        cache_read_usd_per_mtok: cacheRead,
         sort_order: Number(order),
       });
       await onSaved();
@@ -396,6 +413,15 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
             inputMode="decimal"
             value={output}
             onChange={(e) => setOutput(e.target.value)}
+          />
+        </label>
+        <label className={styles.modelEditorField}>
+          <span>캐시 읽기 요금 ($/100만 토큰)</span>
+          <input
+            className={`field numeric ${styles.priceInput}`}
+            inputMode="decimal"
+            value={cacheRead}
+            onChange={(e) => setCacheRead(e.target.value)}
           />
         </label>
         <label className={styles.modelEditorField}>

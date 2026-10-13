@@ -315,6 +315,8 @@ def send_message(
                 elif isinstance(event, UsageUpdate):
                     state.input_tokens = event.input_tokens
                     state.output_tokens = event.output_tokens
+                    state.cache_write_tokens = event.cache_write_tokens
+                    state.cache_read_tokens = event.cache_read_tokens
                 elif isinstance(event, StreamEnd):
                     state.stop_reason = event.stop_reason
                 # 중지 closes the connection. Checked between pieces, so

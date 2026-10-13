@@ -283,6 +283,8 @@ export interface AdminChatModel {
   description: string;
   input_usd_per_mtok: string;
   output_usd_per_mtok: string;
+  /** 프롬프트 캐시 읽기 요금. null이면 입력 요금의 1/10입니다. */
+  cache_read_usd_per_mtok: string | null;
   visibility: ChatModelVisibility;
   is_default: boolean;
   sort_order: number;
@@ -296,6 +298,7 @@ export interface ChatModelChanges {
   description?: string;
   input_usd_per_mtok?: string;
   output_usd_per_mtok?: string;
+  cache_read_usd_per_mtok?: string;
   visibility?: ChatModelVisibility;
   sort_order?: number;
   is_default?: true;
@@ -351,6 +354,10 @@ export interface ClaudeSettings {
   max_output_tokens: number;
   context_tokens: number;
   rate_limit_per_minute: number;
+  /** CHAT_PROMPT_CACHE. */
+  prompt_cache: boolean;
+  /** "5m" / "1h", 캐시를 끄면 null. */
+  cache_ttl: string | null;
   exchange_rate: ExchangeRate | null;
   rate_history: ExchangeRate[];
 }

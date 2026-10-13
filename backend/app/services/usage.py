@@ -132,6 +132,8 @@ def charge(
     video_version_id: int | None = None,
     input_tokens: int | None = None,
     output_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
     exchange_rate_krw: Decimal | None = None,
     conversation_id: int | None = None,
     commit: bool = True,
@@ -236,6 +238,8 @@ def charge(
         video_version_id=video_version_id,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        cache_write_tokens=cache_write_tokens,
+        cache_read_tokens=cache_read_tokens,
         exchange_rate_krw=exchange_rate_krw,
         conversation_id=conversation_id,
     )
