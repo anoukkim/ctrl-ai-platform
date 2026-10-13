@@ -766,7 +766,7 @@ export default function ChatWorkspace() {
         },
       });
     },
-    [activeId, streaming, toolFlags, selectedModel],
+    [activeId, streaming, toolFlags, selectedModel, info],
   );
 
   const hint = !mayCreate

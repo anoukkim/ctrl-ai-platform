@@ -317,8 +317,10 @@ def test_the_limits_are_an_audited_admin_setting(
     assert after["set_by_username"] == "dev"
 
     row = db_session.query(AuditLog).filter_by(action="chat_limits.set").one()
-    assert "답장 1회 한도 200원" in row.summary
-    assert row.detail["before"]["reply_cap_krw"] == 100
+    assert "답장 1회 한도 300원" in row.summary
+    assert "페이지 읽기 2회×8,000토큰" in row.summary
+    assert row.detail["before"]["reply_cap_krw"] == 200
+    assert row.detail["before"]["web_fetch_max_uses"] == 1
 
     # History is rows: a second change keeps the first.
     client.post(

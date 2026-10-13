@@ -40,3 +40,24 @@ model.
 ## Status
 
 (filled at the end of the loop)
+
+## Status — loop results
+
+- Branch from main `263a6ec`; merged main again after docs-cleanup landed
+  (`fc01737`) — clean, docs edits applied on the new layout.
+- Backend: full suite green with the PostgreSQL tests running
+  (`ctrlai_tcd_test`); single Alembic head `c9f2e6a8d4b1`. Frontend: 350
+  vitest, tsc 0, eslint 0 (one new exhaustive-deps warning introduced and
+  fixed). `npm run build` not run here (worktree Turbopack) — run on main
+  at merge.
+- Browser check (preview 8250/3250, fresh DB on the amended chain, dev
+  admin with an approved wallet): Admin › System › 채팅 한도 shows 200원
+  and the two fetch fields (both themes); a 페이지 읽기 reply ran at the
+  default cap end to end (tool event, source, receipt); a 30원 cap
+  refused with "켜 둔 도구(페이지 읽기)의 최대 비용까지 치면 1회 비용
+  한도(30원)에 닿아요…"; limits restored; preview servers stopped and the
+  scratch credential files deleted.
+- Decisions: no data migration for the 200원 default (the table is never
+  seeded — any existing row is an admin's and stays theirs); the fetch
+  bounds ride on each ChatRequest so the adapter, the mock and the cap
+  arithmetic can never disagree with the setting.
