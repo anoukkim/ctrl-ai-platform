@@ -81,11 +81,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: FileText,
   },
   {
+    // personal-topup-off(2026-10-14): 개인 충전을 받지 않는 동안 숨깁니다.
+    // 백엔드 경로는 남아서 거절하고, personal-topup-ui가 이 줄을 지우면
+    // 다시 보입니다.
     key: "topups",
     href: "/admin/topups",
     label: "Top-ups",
     description: "회원이 올린 개인 충전 신청의 입금을 확인합니다.",
     Icon: Wallet,
+    hidden: true,
   },
   {
     // single-wallet이 켰습니다. 회원마다 지갑은 하나지만 동아리는 제공자별로

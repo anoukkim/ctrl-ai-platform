@@ -116,6 +116,8 @@ def spending(db_session: Session, quarter: Quarter, dev_user, other_user):
     usage_service.charge(
         db_session, user=other_user, amount_krw=100_000, provider="claude", feature="chat",
         provider_cost=Decimal("71.428572"),
+        # personal-topup-off: opted-in spending needs the switch on.
+        settings=Settings(app_env="development", personal_topup_enabled=True),
     )
     return quarter
 

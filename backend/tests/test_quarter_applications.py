@@ -171,10 +171,25 @@ def test_waiting_for_review_is_shown_as_such(
 # ---------------------------------------------------------------------
 # Personal money
 # ---------------------------------------------------------------------
+# Off by default since personal-topup-off (2026-10-14); these tests cover
+# the kept machinery, so they run with the switch on. The default-off
+# behaviour is proven in test_personal_topup_off.py.
+
+
+@pytest.fixture
+def topups_on():
+    from app.core.config import Settings, get_settings
+    from app.main import app
+
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        app_env="development", personal_topup_enabled=True
+    )
+    yield
+    app.dependency_overrides.pop(get_settings, None)
 
 
 def test_personal_spending_is_off_until_the_member_turns_it_on(
-    client: TestClient, dev_user: User
+    client: TestClient, dev_user: User, topups_on
 ) -> None:
     assert client.get("/api/quarters/me/wallet").json()["overage_enabled"] is False
 
@@ -184,7 +199,7 @@ def test_personal_spending_is_off_until_the_member_turns_it_on(
 
 
 def test_a_top_up_request_alone_does_not_add_money(
-    client: TestClient, dev_user: User
+    client: TestClient, dev_user: User, topups_on
 ) -> None:
     client.post("/api/quarters/me/top-ups", json={"amount_krw": 30_000})
 
@@ -192,7 +207,7 @@ def test_a_top_up_request_alone_does_not_add_money(
 
 
 def test_an_admin_confirmation_adds_the_money(
-    client: TestClient, db_session: Session, dev_user: User
+    client: TestClient, db_session: Session, dev_user: User, topups_on
 ) -> None:
     top_up = client.post("/api/quarters/me/top-ups", json={"amount_krw": 30_000}).json()
 
@@ -206,7 +221,7 @@ def test_an_admin_confirmation_adds_the_money(
     assert wallet["remaining_krw"] == 30_000
 
 
-def test_a_rejected_top_up_adds_nothing(client: TestClient, dev_user: User) -> None:
+def test_a_rejected_top_up_adds_nothing(client: TestClient, dev_user: User, topups_on) -> None:
     top_up = client.post("/api/quarters/me/top-ups", json={"amount_krw": 30_000}).json()
 
     client.post(f"/api/admin/top-ups/{top_up['id']}/confirm", json={"confirm": False})
@@ -215,7 +230,7 @@ def test_a_rejected_top_up_adds_nothing(client: TestClient, dev_user: User) -> N
 
 
 def test_personal_money_is_not_part_of_the_community_subsidy(
-    client: TestClient, db_session: Session, dev_user: User, open_quarter: Quarter
+    client: TestClient, db_session: Session, dev_user: User, open_quarter: Quarter, topups_on
 ) -> None:
     """Topping up must never raise the community allocation."""
     application = client.post(

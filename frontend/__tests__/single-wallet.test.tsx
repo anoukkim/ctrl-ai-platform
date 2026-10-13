@@ -110,7 +110,9 @@ describe("참여 신청", () => {
     expect(applyForQuarter).toHaveBeenCalledWith(QUARTER.id);
   });
 
-  test("승인되면 지갑 하나와 쓰는 순서를 보여 준다", async () => {
+  test("승인되면 지갑 하나를 보여 주고, 개인 충전이 꺼져 있으면 쓰는-순서 문장은 없다", async () => {
+    // personal-topup-off (2026-10-14): 기본값에서는 개인 사용 스위치를
+    // 소개하지 않습니다 — 백엔드가 403으로 막는 스위치입니다.
     getMyQuarter.mockResolvedValue(
       myQuarter({
         participation: "활동 회원",
@@ -127,7 +129,8 @@ describe("참여 신청", () => {
     render(<QuarterParticipation />);
 
     expect(await screen.findByText("이번 분기 지원금 80,000원 중 52,300원 남음")).toBeTruthy();
-    expect(screen.getByText(/동아리 지원금을 먼저 씁니다/)).toBeTruthy();
+    expect(screen.getByText(/모든 기능이 이 지원금 하나에서 차감됩니다/)).toBeTruthy();
+    expect(screen.queryByText(/동아리 지원금을 먼저 씁니다/)).toBeNull();
   });
 });
 
@@ -171,8 +174,11 @@ describe("Usage", () => {
     // Build/Video 두 카드는 더 이상 없다.
     expect(screen.queryByText("Build")).toBeNull();
     expect(screen.queryByText("Video")).toBeNull();
-    // 쓰는 순서를 말한다.
-    expect(screen.getByText(/동아리 지원금을 먼저 씁니다/)).toBeTruthy();
+    // 개인 충전이 꺼져 있는 동안(personal-topup-off, 기본값) 쓰는-순서
+    // 문장은 개인 잔액 구역과 함께 보이지 않습니다 — 켜진 화면은
+    // beta-launch.test.tsx가 봅니다.
+    expect(screen.queryByText(/동아리 지원금을 먼저 씁니다/)).toBeNull();
+    expect(screen.queryByText("개인 잔액")).toBeNull();
   });
 
   test("승인된 지갑이 없으면 그렇게 말한다", async () => {

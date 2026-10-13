@@ -200,7 +200,7 @@ nano .env
 
 | 줄 | 바꿀 값 | 왜 |
 | --- | --- | --- |
-| `APP_ENV=` | `beta` | 베타 배너, 개인 충전 끄기, 개발 도구 끄기. `development`로 두면 서버가 켜지지 않습니다 |
+| `APP_ENV=` | `beta` | 베타 배너, 개발 도구 끄기. `development`로 두면 서버가 켜지지 않습니다. (개인 충전은 어느 환경에서나 기본으로 꺼져 있습니다 — `PERSONAL_TOPUP_ENABLED`, personal-topup-off) |
 | `POSTGRES_PASSWORD=` | 위에서 만든 48자리 값 | 데이터베이스 비밀번호. 영문·숫자만(주소 안에 들어갑니다). `ctrlai`면 서버가 켜지지 않습니다 |
 | `SITE_DOMAIN=` | `ctrlai.my` | Caddy가 인증서를 받을 주소 |
 | `CORS_ALLOW_ORIGINS=` | `https://ctrlai.my` | 브라우저가 부를 수 있는 출처 |

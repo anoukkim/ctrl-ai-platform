@@ -55,6 +55,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.models import (
     FundingSource,
     PersonalBalance,
@@ -86,7 +87,26 @@ class ChargeResult:
     personal_remaining_krw: int
 
 
-def ensure_affordable(db: Session, *, user: User, amount_krw: int) -> None:
+def _personal_allowed(settings: Settings | None) -> bool:
+    """Whether personal money may be spent at all.
+
+    personal-topup-off (owner, 2026-10-14): with `PERSONAL_TOPUP_ENABLED`
+    off — the default — a member's earlier overage opt-in is ignored and
+    no personal money moves, even where a balance exists. The rows are
+    kept for personal-topup-ui.
+    """
+    return (settings or get_settings()).top_ups_enabled
+
+
+#: The refusal when only the wallet may pay. The longer sentence telling
+#: the member to switch on 개인 사용 is shown only while that switch does
+#: anything.
+WALLET_SHORT = "이번 분기 지원금이 부족합니다."
+
+
+def ensure_affordable(
+    db: Session, *, user: User, amount_krw: int, settings: Settings | None = None
+) -> None:
     """Raise exactly what `charge()` would, without locking or changing anything.
 
     For use before a provider call. It reads without `FOR UPDATE`, so a
@@ -105,6 +125,8 @@ def ensure_affordable(db: Session, *, user: User, amount_krw: int) -> None:
     if allocation is not None and amount_krw <= allocation.remaining_krw:
         return
 
+    if not _personal_allowed(settings):
+        raise InsufficientBudgetError(WALLET_SHORT)
     balance = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == user.id))
     if balance is not None and balance.overage_enabled:
         if amount_krw <= max(0, balance.balance_krw - balance.consumed_krw):
@@ -139,6 +161,7 @@ def charge(
     conversation_id: int | None = None,
     commit: bool = True,
     cap_to_available: bool = False,
+    settings: Settings | None = None,
 ) -> ChargeResult:
     """Deduct `amount_krw` and record the matching usage event.
 
@@ -189,13 +212,17 @@ def charge(
 
     personal_remaining = max(0, balance.balance_krw - balance.consumed_krw)
 
+    # The member's opt-in counts only while personal money may move at
+    # all (personal-topup-off, 2026-10-14).
+    overage = balance.overage_enabled and _personal_allowed(settings)
+
     # Community first, then personal only if the member opted in.
     if allocation is not None and amount_krw <= community_remaining:
         funding_source = FundingSource.COMMUNITY
         allocation.consumed_krw += amount_krw
         community_remaining -= amount_krw
 
-    elif balance.overage_enabled and amount_krw <= personal_remaining:
+    elif overage and amount_krw <= personal_remaining:
         funding_source = FundingSource.PERSONAL
         balance.consumed_krw += amount_krw
         personal_remaining -= amount_krw
@@ -203,7 +230,7 @@ def charge(
     elif cap_to_available:
         # Never split across pots (see the module note): take what is left
         # of the one that would have paid.
-        if balance.overage_enabled and personal_remaining > community_remaining:
+        if overage and personal_remaining > community_remaining:
             funding_source = FundingSource.PERSONAL
             amount_krw = personal_remaining
             balance.consumed_krw += amount_krw
@@ -216,6 +243,8 @@ def charge(
             community_remaining = 0
 
     else:
+        if not _personal_allowed(settings):
+            raise InsufficientBudgetError(WALLET_SHORT)
         if not balance.overage_enabled:
             raise InsufficientBudgetError(
                 "이번 분기 지원금이 부족합니다. 개인 잔액을 쓰려면 Usage에서 개인 사용을 켜 주세요."

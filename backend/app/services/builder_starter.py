@@ -155,6 +155,7 @@ def create_starter(
         db,
         user=user,
         amount_krw=price.krw(_input_estimate(project.name, idea), settings.builder_max_output_tokens),
+        settings=settings,
     )
 
     try:
@@ -187,6 +188,7 @@ def create_starter(
         builder_project_id=project.id,
         commit=False,
         cap_to_available=True,
+        settings=settings,
     )
     rows = [BuilderProjectFile(project_id=project.id, path=path, content=content) for path, content in files]
     db.add_all(rows)

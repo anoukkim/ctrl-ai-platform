@@ -378,7 +378,7 @@ def prepare_turn(
     # side stays the full maximum, so this is still a worst case.
     calibrated_input = calibration.for_model(db, model.model_id).calibrated_input(estimated_input)
     worst_case = price.worst_case_krw(calibrated_input, settings.chat_max_output_tokens)
-    usage_service.ensure_affordable(db, user=user, amount_krw=worst_case)
+    usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
 
     now = datetime.now(timezone.utc)
     message = ChatMessage(
@@ -499,6 +499,7 @@ def finish_turn(
                 conversation_id=conversation.id if conversation else None,
                 commit=False,
                 cap_to_available=True,
+                settings=settings,
             )
             charged = result.event.charged_krw
             event_id = result.event.id

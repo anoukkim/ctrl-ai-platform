@@ -59,7 +59,12 @@ export default function AdminDashboard() {
       waiting: (count: number) => `${count}건의 입금 확인이 필요합니다.`,
     },
   ];
-  const needsAction = todo.filter((item) => item.count > 0);
+  // 숨긴 구역(Top-ups, personal-topup-off)의 일은 띄우지 않습니다 —
+  // 메뉴에 없는 곳으로 보내는 카드가 됩니다. 남아 있던 신청은
+  // /admin/topups 주소로 직접 들어가 정리할 수 있습니다.
+  const needsAction = todo.filter(
+    (item) => item.count > 0 && sections.some((section) => section.key === item.key),
+  );
 
   return (
     <div className={styles.sections}>

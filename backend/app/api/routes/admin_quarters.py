@@ -309,7 +309,7 @@ def confirm_top_up(
     """
     if payload.confirm and not settings.top_ups_enabled:
         raise HTTPException(
-            status_code=403, detail="베타 기간에는 개인 충전을 확인할 수 없습니다."
+            status_code=403, detail="지금은 개인 충전을 확인할 수 없습니다."
         )
     top_up = db.get(PersonalTopUp, top_up_id)
     if top_up is None:

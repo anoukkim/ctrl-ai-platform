@@ -21,10 +21,16 @@ from app.models import (
     QuarterStatus,
     UsageEvent,
 )
+from app.core.config import Settings
 from app.services import usage as usage_service
 from app.services.quarters import set_membership
 from app.services.wallet import get_or_create_balance
 from tests.conftest import DEV_PASSWORD
+
+#: Personal money is off by default (personal-topup-off, 2026-10-14). The
+#: opted-in rules below are about the kept machinery, so they run with the
+#: switch on; test_personal_topup_off.py proves the default.
+TOPUPS_ON = Settings(app_env="development", personal_topup_enabled=True)
 
 
 @pytest.fixture
@@ -179,6 +185,7 @@ def test_personal_money_is_not_touched_unless_the_member_opted_in(
     with pytest.raises(usage_service.InsufficientBudgetError) as caught:
         usage_service.charge(
             db_session, user=dev_user, amount_krw=120_000, provider="higgsfield",
+            settings=TOPUPS_ON,
         )
 
     assert "개인 사용을 켜" in str(caught.value)
@@ -196,6 +203,7 @@ def test_personal_money_is_used_once_opted_in(
 
     result = usage_service.charge(
         db_session, user=dev_user, amount_krw=120_000, provider="higgsfield",
+        settings=TOPUPS_ON,
     )
 
     assert result.funding_source is FundingSource.PERSONAL
@@ -216,7 +224,8 @@ def test_the_wallet_is_spent_before_personal_money(
     db_session.commit()
 
     result = usage_service.charge(
-        db_session, user=dev_user, amount_krw=40_000, provider="claude", feature="chat"
+        db_session, user=dev_user, amount_krw=40_000, provider="claude", feature="chat",
+        settings=TOPUPS_ON,
     )
 
     assert result.funding_source is FundingSource.COMMUNITY
@@ -278,7 +287,8 @@ def test_usage_me_breaks_the_wallet_down_by_chat_video_and_other(
     balance.balance_krw, balance.overage_enabled = 500_000, True
     db_session.commit()
     usage_service.charge(
-        db_session, user=dev_user, amount_krw=200_000, provider="claude", feature="chat"
+        db_session, user=dev_user, amount_krw=200_000, provider="claude", feature="chat",
+        settings=TOPUPS_ON,
     )
 
     body = client.get("/api/usage/me").json()
@@ -300,7 +310,8 @@ def test_usage_me_is_empty_but_valid_without_an_allocation(
     assert body["wallet"] is None
     assert body["breakdown"] == []
     assert body["events"] == []
-    assert body["personal"]["remaining_krw"] == 0
+    # personal-topup-off: members are not shown a personal balance at all.
+    assert body["personal"] is None
 
 
 def test_usage_me_requires_signing_in(anon_client: TestClient) -> None:

@@ -14,6 +14,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { useSite } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
 import {
   APPLICATION_STATUS_LABEL,
@@ -36,6 +37,7 @@ type State =
   | { phase: "error"; message: string };
 
 export default function QuarterParticipation() {
+  const site = useSite();
   const [state, setState] = useState<State>({ phase: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -182,7 +184,11 @@ export default function QuarterParticipation() {
             <span className={styles.approvedSub}>{walletSentence(allocation)}</span>
           </div>
           <p className={styles.seasonNote}>
-            채팅, 영상 등 모든 기능이 이 지원금 하나에서 차감됩니다. {SPENDING_ORDER_NOTE}
+            {/* 개인 충전이 꺼져 있는 동안(personal-topup-off)은 쓰는-순서
+                문장을 빼고 지갑 이야기만 합니다 — 백엔드가 403으로 막는
+                스위치를 소개하면 안 됩니다. */}
+            채팅, 영상 등 모든 기능이 이 지원금 하나에서 차감됩니다.
+            {site.top_ups_enabled ? ` ${SPENDING_ORDER_NOTE}` : ""}
           </p>
         </div>
       )}

@@ -51,7 +51,16 @@ describe("Admin 구역 목록", () => {
     expect(ADMIN_SECTIONS.map((s) => s.key)).not.toContain("dev");
   });
 
-  test("보이는 구역은 열두 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("Top-ups는 개인 충전을 받지 않는 동안 보이지 않지만 정의는 남아 있다", () => {
+    // personal-topup-off (2026-10-14). personal-topup-ui가 hidden 한 줄만
+    // 지우면 다시 보입니다.
+    const topups = ADMIN_SECTIONS.find((section) => section.key === "topups");
+
+    expect(topups?.href).toBe("/admin/topups");
+    expect(topups?.hidden).toBe(true);
+  });
+
+  test("보이는 구역은 열한 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -59,7 +68,6 @@ describe("Admin 구역 목록", () => {
       "members",
       "applications",
       "quarters",
-      "topups",
       "budget",
       "video-models",
       "ai-models",
