@@ -124,6 +124,18 @@ viewport with a compact top bar, side tools, a persistent Claude panel, and a
 preview — closer to a desktop application than a web page. They share their
 frame in `frontend/app/components/workspace.module.css`.
 
+**Project Builder — 예시 앱** (chat-builder-starter). From Chat's
+**Project Builder에서 예시 앱 만들기** button (or 예시 앱 만들기 in an empty
+project) Claude writes a small static app — `index.html`, `style.css`,
+`app.js` — as structured JSON; the backend checks every path and size
+(HTML/CSS/JS/JSON/SVG/MD/TXT only, ≤ 10 files, 100 KB each, 300 KB in all,
+no `..` or hidden files), charges the wallet (feature `build`, estimate and
+worst case shown first) and stores the files in the same transaction. A
+failed or cut-off generation is free. The preview runs `index.html` with
+its CSS and JS inlined in an `<iframe srcdoc sandbox="allow-scripts">`
+behind a CSP that blocks all network — never on the backend. Files are
+read-only for now; changing them by talking to Claude is the next step.
+
 **Project Builder** — selecting a file changes the editor contents. Nothing
 generates or runs code: that is Phase 3, and member code will never execute on
 the CTRL+AI backend.
@@ -190,7 +202,7 @@ Chat is the opening screen and a real conversation with Claude, behind
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
 - **Action buttons.** When a message is about building an app or making a
-  video, the reply ends with **Project Builder에서 시작** or **Video Generator
+  video, the reply ends with **Project Builder에서 예시 앱 만들기** or **Video Generator
   열기**. The button opens that library with the new-project form already
   filled: the member's message becomes the description (Builder) or the
   prompt (Video). Claude chooses the button with a hidden marker the server

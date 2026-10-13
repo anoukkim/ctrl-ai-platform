@@ -334,6 +334,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/builder/projects"): "require_active_member",
     ("PATCH", "/api/builder/projects/{project_id}"): "require_active_member",
     ("DELETE", "/api/builder/projects/{project_id}"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/files"): "get_current_user",
+    ("GET", "/api/builder/starter-estimate"): "get_current_user",
+    ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # Video — same shape; generating spends budget.
     ("GET", "/api/video/models"): "get_current_user",
     ("GET", "/api/video/projects"): "get_current_user",

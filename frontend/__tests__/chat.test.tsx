@@ -217,7 +217,7 @@ describe("ChatWorkspace", () => {
     typeAndSend("가계부 앱을 만들고 싶어요");
 
     expect(await screen.findByText("좋은 아이디어예요!")).toBeTruthy();
-    const link = screen.getByRole("link", { name: /Project Builder에서 시작/ });
+    const link = screen.getByRole("link", { name: /Project Builder에서 예시 앱 만들기/ });
     expect(link.getAttribute("href")).toContain("/builder?idea=");
     expect(link.getAttribute("href")).toContain("name=%EA%B0%80%EA%B3%84%EB%B6%80");
     expect(chatApi.createConversation).toHaveBeenCalledTimes(1);

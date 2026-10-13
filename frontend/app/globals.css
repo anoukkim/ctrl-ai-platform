@@ -56,6 +56,9 @@
    * 회사 색은 여기부터입니다. 바탕이 중립이라 적게 써도 충분히 보입니다. */
   --accent: #9ac2fe;
   --accent-soft: rgba(154, 194, 254, 0.12);
+  /* The page a member's app is drawn on in the Builder preview — the
+     browser default, the same in both themes. */
+  --preview-canvas: #fff;
   /* 고른 상태의 칩·탭 테두리. --accent 를 그대로 쓰면 가리키기만 한
    * 상태와 구분이 되지 않아, 같은 색을 옅게 깐 값을 따로 둡니다. */
   --accent-border: rgba(154, 194, 254, 0.4);

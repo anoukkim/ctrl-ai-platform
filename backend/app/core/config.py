@@ -136,6 +136,12 @@ class Settings(BaseSettings):
     # 1h only pays off for pauses of 5-60 minutes.
     chat_cache_ttl: str = "5m"
 
+    # Project Builder's starter app (chat-builder-starter): the most one
+    # generation may write, and how long to wait for it. 8,000 tokens is a
+    # small app of a few hundred lines; the pre-check reserves all of it.
+    builder_max_output_tokens: int = 8000
+    builder_timeout_seconds: float = 120.0
+
     # Messages one member may send per minute, across all conversations.
     # Protects the budget from a stuck key or a runaway script.
     chat_rate_limit_per_minute: int = 10

@@ -237,6 +237,6 @@ export function actionHref(action: ChatAction, idea: string, title: string): str
 }
 
 export const ACTION_LABEL: Record<ChatAction, string> = {
-  builder: "Project Builder에서 시작",
+  builder: "Project Builder에서 예시 앱 만들기",
   video: "Video Generator 열기",
 };
