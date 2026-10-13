@@ -171,7 +171,9 @@ def _locked(db: Session, user: User) -> User:
     return row
 
 
-def drop_password(db: Session, user: User, settings: Settings, keep_token: str = "") -> User:
+def drop_password(
+    db: Session, user: User, settings: Settings, keep_token: str = "", seen: str | None = None
+) -> User:
     """Remove the password, if Google is still linked and switched on —
     under the row lock. Signs out other browsers. Commits.
 
@@ -181,6 +183,11 @@ def drop_password(db: Session, user: User, settings: Settings, keep_token: str =
     if get_google_login(settings) is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_OFF)
     member = _locked(db, user)
+    if seen is not None and member.password_hash != seen:
+        # The password was changed while this request was checked against
+        # the old one (`seen`): not the password this request proved.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=CHANGED_MEANWHILE)
     if not _has_password(member):
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="비밀번호가 설정되어 있지 않습니다.")
@@ -202,10 +209,14 @@ def drop_password(db: Session, user: User, settings: Settings, keep_token: str =
     return member
 
 
-def drop_google(db: Session, user: User, keep_token: str = "") -> User:
+def drop_google(db: Session, user: User, keep_token: str = "", seen: str | None = None) -> User:
     """Unlink Google, if a password remains — under the row lock. Signs out
-    other browsers. Commits."""
+    other browsers. Commits. `seen` is the hash the current password was
+    checked against; a different one under the lock is refused."""
     member = _locked(db, user)
+    if seen is not None and member.password_hash != seen:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=CHANGED_MEANWHILE)
     account = _google_account(db, member.id)
     if not _has_password(member):
         db.rollback()
@@ -297,9 +308,10 @@ def remove_password(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="비밀번호가 설정되어 있지 않습니다.")
     if get_google_login(settings) is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_OFF)
+    seen = user.password_hash
     check_current_password(db, request, user, payload.current_password, settings)
 
-    member = drop_password(db, user, settings, _session_token(request, settings))
+    member = drop_password(db, user, settings, _session_token(request, settings), seen)
     db.refresh(member)
     return _methods(db, member, settings)
 
@@ -318,8 +330,9 @@ def unlink_google(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="연결된 Google 계정이 없습니다.")
     if not _has_password(user):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=LAST_METHOD)
+    seen = user.password_hash
     check_current_password(db, request, user, payload.current_password, settings)
 
-    member = drop_google(db, user, _session_token(request, settings))
+    member = drop_google(db, user, _session_token(request, settings), seen)
     db.refresh(member)
     return _methods(db, member, settings)
