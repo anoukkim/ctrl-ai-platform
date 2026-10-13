@@ -384,6 +384,12 @@ class PreparedTurn:
     #: `max_tokens` (token-guard): the cap in force, in won. A reply that
     #: then ends with stop_reason "max_tokens" stopped at the cap.
     reply_cap_krw: int | None = None
+    #: The running-cost estimate's two halves (live-cost-display): the
+    #: input side in won, priced the way the pre-check prices it, and the
+    #: output price per 1,000 tokens in won. The screen adds
+    #: `tokens(streamed text) × rate` and labels the sum 약.
+    estimate_base_krw: int = 0
+    won_per_1k_output: float = 0.0
 
 
 @dataclass
@@ -458,6 +464,12 @@ def prepare_turn(
     worst_case = price.worst_case_krw(calibrated_input, max_tokens)
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
 
+    # The running-cost estimate (live-cost-display): the input side once,
+    # priced like the pre-check (cache write when caching is on), plus a
+    # per-1,000-output-token rate the screen multiplies as text arrives.
+    estimate_base_krw = price.worst_case_krw(calibrated_input, 0)
+    won_per_1k_output = float(price.output_usd_per_mtok * price.usd_krw) / 1000
+
     now = datetime.now(timezone.utc)
     message = ChatMessage(
         conversation_id=conversation.id,
@@ -490,7 +502,24 @@ def prepare_turn(
         estimated_input_tokens=estimated_input,
         is_mock=is_mock,
         reply_cap_krw=reply_cap_krw,
+        estimate_base_krw=estimate_base_krw,
+        won_per_1k_output=won_per_1k_output,
     )
+
+
+@dataclass(frozen=True)
+class ReplyUsage:
+    """What the ledger recorded for one reply — the receipt's numbers.
+
+    The cache fields are None when caching is off, exactly as on the
+    usage event, so the receipt never shows a 캐시 읽기 line the ledger
+    does not have.
+    """
+
+    input_tokens: int
+    output_tokens: int
+    cache_write_tokens: int | None
+    cache_read_tokens: int | None
 
 
 @dataclass
@@ -501,6 +530,13 @@ class TurnResult:
     #: The composer's long-history warning after this reply, so the screen
     #: updates without refetching the whole conversation (token-guard).
     long_history: LongHistory | None = None
+    #: The receipt's token split (live-cost-display). None when nothing
+    #: was used — then there is nothing to show.
+    usage: ReplyUsage | None = None
+    #: 동아리 지원 remaining after this charge, from the same locked
+    #: transaction — the sidebar updates from it without another request.
+    #: None when nothing was charged.
+    wallet_remaining_krw: int | None = None
 
 
 def _status_for(state: TurnState) -> ChatMessageStatus:
@@ -556,6 +592,7 @@ def finish_turn(
 
     charged = 0
     event_id: int | None = None
+    wallet_remaining: int | None = None
     if input_tokens or output_tokens or written or read:
         amount = turn.price.krw(input_tokens, output_tokens, written, read)
         try:
@@ -585,6 +622,7 @@ def finish_turn(
             )
             charged = result.event.charged_krw
             event_id = result.event.id
+            wallet_remaining = result.community_remaining_krw
         except usage_service.NoQuarterError:
             # The quarter closed while the reply was streaming. There is no
             # quarter to charge against; the reply is still the member's.
@@ -629,4 +667,20 @@ def finish_turn(
             )
         except (chat_models_service.ModelChoiceError, pricing.PricingError):
             long_history = None
-    return TurnResult(message=message, charged_krw=charged, long_history=long_history)
+
+    usage: ReplyUsage | None = None
+    if input_tokens or output_tokens or written or read:
+        cached = turn.request.cache_ttl is not None
+        usage = ReplyUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_write_tokens=written if cached else None,
+            cache_read_tokens=read if cached else None,
+        )
+    return TurnResult(
+        message=message,
+        charged_krw=charged,
+        long_history=long_history,
+        usage=usage,
+        wallet_remaining_krw=wallet_remaining,
+    )

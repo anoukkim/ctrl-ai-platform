@@ -36,7 +36,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -55,6 +55,7 @@ from app.schemas.chat import (
     ConversationRead,
     ConversationUpdate,
     LongHistoryRead,
+    ReplyReceipt,
 )
 from app.services import chat as chat_service
 from app.services import chat_models, pricing
@@ -81,6 +82,28 @@ def _owned(db: Session, user: User, conversation_id: int) -> Conversation:
 
 def _model_error(error: chat_models.ModelChoiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=str(error))
+
+
+def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
+    """Each reply's ledger figures, by usage-event id (live-cost-display).
+
+    One query for the whole conversation. A reply whose event is gone —
+    or that never had one (a refusal) — simply has no receipt.
+    """
+    event_ids = [m.usage_event_id for m in messages if m.usage_event_id is not None]
+    if not event_ids:
+        return {}
+    rows = db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids)))
+    return {
+        row.id: ReplyReceipt(
+            input_tokens=row.input_tokens or 0,
+            output_tokens=row.output_tokens or 0,
+            cache_write_tokens=row.cache_write_tokens,
+            cache_read_tokens=row.cache_read_tokens,
+            charged_krw=row.charged_krw,
+        )
+        for row in rows
+    }
 
 
 @router.get(
@@ -168,9 +191,15 @@ def read_conversation(
         long_history = chat_service.long_history_info(db, settings, messages, model)
     except (chat_models.ModelChoiceError, pricing.PricingError):
         long_history = None
+    receipts = _receipts_for(db, messages)
     return ConversationDetail(
         **ConversationRead.model_validate(conversation).model_dump(),
-        messages=[ChatMessageRead.model_validate(message) for message in messages],
+        messages=[
+            ChatMessageRead.model_validate(message).model_copy(
+                update={"receipt": receipts.get(message.usage_event_id)}
+            )
+            for message in messages
+        ],
         long_history=(
             LongHistoryRead(
                 history_tokens=long_history.history_tokens,
@@ -365,7 +394,19 @@ def send_message(
         _RUNNING.add(task)
         task.add_done_callback(_RUNNING.discard)
         try:
-            yield _sse("start", {"user_message": _message_json(turn.user_message)})
+            yield _sse(
+                "start",
+                {
+                    "user_message": _message_json(turn.user_message),
+                    # The running-cost estimate's two halves
+                    # (live-cost-display); the screen adds 글자 수 × rate
+                    # and labels the sum 약.
+                    "estimate": {
+                        "base_krw": turn.estimate_base_krw,
+                        "won_per_1k_output": turn.won_per_1k_output,
+                    },
+                },
+            )
             while True:
                 kind, payload = await queue.get()
                 if kind == "delta":
@@ -380,6 +421,20 @@ def send_message(
                         {
                             "message": _message_json(result.message) if result.message else None,
                             "charged_krw": result.charged_krw,
+                            # The receipt's split and the wallet after the
+                            # charge (live-cost-display) — the ledger's
+                            # figures, never the estimate's.
+                            "usage": (
+                                {
+                                    "input_tokens": result.usage.input_tokens,
+                                    "output_tokens": result.usage.output_tokens,
+                                    "cache_write_tokens": result.usage.cache_write_tokens,
+                                    "cache_read_tokens": result.usage.cache_read_tokens,
+                                }
+                                if result.usage
+                                else None
+                            ),
+                            "wallet_remaining_krw": result.wallet_remaining_krw,
                             # token-guard: the composer's warning, fresh
                             # after this reply, without refetching.
                             "long_history": (

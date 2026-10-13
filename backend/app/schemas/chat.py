@@ -36,6 +36,21 @@ class ConversationRead(BaseModel):
     chat_model_id: int | None = None
 
 
+class ReplyReceipt(BaseModel):
+    """One reply's ledger figures (live-cost-display).
+
+    Straight from the reply's usage event: the cache fields are None when
+    caching was off, and `charged_krw` is what actually left the wallet —
+    the receipt replaces the running estimate, never restates it.
+    """
+
+    input_tokens: int
+    output_tokens: int
+    cache_write_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    charged_krw: int
+
+
 class ChatMessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,6 +65,10 @@ class ChatMessageRead(BaseModel):
     #: Set when the reply stopped at the per-reply cost cap (token-guard):
     #: the cap in force, in won. Null for every other ending.
     capped_krw: int | None = None
+    #: The reply's receipt, filled from its usage event when the
+    #: conversation is read (live-cost-display). Not a column: while a
+    #: reply streams, the receipt arrives on the `done` event instead.
+    receipt: ReplyReceipt | None = None
     created_at: datetime
 
 
