@@ -191,6 +191,18 @@ def test_dev_seed_refuses_outside_development(monkeypatch) -> None:
         assert "Refusing to run" in str(stopped.value)
 
 
+def test_dev_seed_refuses_on_a_deployed_server_even_in_development(monkeypatch) -> None:
+    """DEPLOYED=true (the production compose) outranks a mis-set APP_ENV."""
+    from app.db import init_db
+
+    monkeypatch.setattr(
+        init_db, "get_settings", lambda: Settings(app_env="development", deployed=True)
+    )
+    with pytest.raises(SystemExit) as stopped:
+        init_db.main()
+    assert "deployed" in str(stopped.value)
+
+
 def test_reset_script_refuses_anything_but_a_local_development_database() -> None:
     from app.db import reset_dev
 
@@ -211,6 +223,8 @@ def test_reset_script_refuses_anything_but_a_local_development_database() -> Non
         is not None
     )
     assert refusal(app_env="development", database_url="sqlite://") is not None
+    # DEPLOYED=true (the production compose) outranks a mis-set APP_ENV.
+    assert refusal(app_env="development", deployed=True) is not None
     assert (
         refusal(
             app_env="development",

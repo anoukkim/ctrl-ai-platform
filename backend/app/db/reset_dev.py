@@ -29,6 +29,11 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 def refusal() -> str | None:
     """Why this must not run here, or None."""
     settings = get_settings()
+    if settings.deployed:
+        # DEPLOYED=true comes from the production compose. Even with
+        # APP_ENV mis-set to development there, nothing may drop a
+        # deployed database (fix-beta-blockers 5).
+        return "this is a deployed server (DEPLOYED=true)."
     if not settings.is_development:
         return f"APP_ENV is {settings.app_env!r}, not development."
     url = make_url(settings.database_url)
