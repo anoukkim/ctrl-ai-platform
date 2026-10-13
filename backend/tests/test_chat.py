@@ -1025,9 +1025,20 @@ def test_the_canned_examples_do_not_shadow_routing(
 def test_a_pasted_article_gets_the_summary_whatever_its_last_paragraph_says() -> None:
     from app.services.claude_provider import example_reply
 
-    article = "아래 글을 세 줄로 요약해 줘:\n첫 문단입니다.\n\n둘째 문단에서는 무언가를 만들었습니다."
+    article = "아래 글을 세 줄로 요약해 줘:\n첫 문단입니다.\n\n둘째 문단에서는 앱을 만들었습니다."
     assert example_reply(article) is not None
     assert "세 줄로 요약" in example_reply(article)
+    # "시내"의 "내 "는 "내 프로젝트"가 아닙니다.
+    assert "| 날 |" in (example_reply("서울 시내 맛집을 표로 정리해 줘") or "")
+
+
+def test_an_overlong_marker_is_text_everywhere() -> None:
+    raw = "좋아요!\n[[action:builder|" + "가" * 200 + "]]"
+    marker = chat_service.MarkerFilter()
+    shown = "".join(marker.feed(raw[i : i + 7]) for i in range(0, len(raw), 7)) + marker.finish()
+    assert shown == raw
+    assert chat_service.action_of(raw) == (None, "")
+    assert chat_service.visible_text(raw) == raw.strip()
 
 
 @pytest.mark.parametrize(

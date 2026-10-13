@@ -356,11 +356,18 @@ _EXAMPLE_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"줄로\s?요약|요약해\s?줘:"), _MOCK_SUMMARY),
     (re.compile(r"(?<![가-힣])표로\s?(정리|만들|보여)"), _MOCK_TABLE),
 ]
-_APP_WORDS = re.compile(r"앱|어플|사이트|도구|프로그램|게임|대시보드|쇼핑몰|내 |내가")
+_APP_WORDS = re.compile(r"앱|어플|사이트|도구|프로그램|게임|대시보드|쇼핑몰|(?<![가-힣])내 |내가")
+_SUMMARY_ASK = re.compile(r"^\s*아래 글을 세 줄로 요약해 줘:")
 
 
 def example_reply(message: str) -> str | None:
-    """The canned 기능 둘러보기 reply for this message, if it is one."""
+    """The canned 기능 둘러보기 reply for this message, if it is one.
+
+    The 파일 요약 card is recognised first: the article pasted under it may
+    mention apps or programs and is still to be summarised.
+    """
+    if _SUMMARY_ASK.search(message):
+        return _MOCK_SUMMARY
     if _APP_WORDS.search(message):
         return None
     for pattern, reply in _EXAMPLE_RULES:

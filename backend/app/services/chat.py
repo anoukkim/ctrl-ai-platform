@@ -73,8 +73,10 @@ class ChatRefusal(Exception):
 
 # ------------------------------------------------------------- the marker
 
-#: How a reply asks for an action button. See `CHAT_SYSTEM_PROMPT`.
-ACTION_MARKER = re.compile(r"\[\[action:(builder|video)(?:\|([^\]\n]*))?\]\]")
+#: How a reply asks for an action button. See `CHAT_SYSTEM_PROMPT`. The
+#: title is capped so the streaming filter (`_MARKER_LONGEST`) and the saved
+#: reply always agree on what is a marker.
+ACTION_MARKER = re.compile(r"\[\[action:(builder|video)(?:\|([^\]\n]{0,140}))?\]\]")
 
 
 #: The start every marker shares, and the most a marker's title may run to

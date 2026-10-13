@@ -33,7 +33,7 @@ import styles from "./ChatMarkdown.module.css";
 
 /** 링크로 남겨 두는 주소의 시작. 대소문자는 가리지 않습니다. 같은 답장 안의
  *  각주로 가는 `#…`도 남깁니다(새 탭으로 열지 않습니다). */
-const SAFE_URL = /^(https?:\/\/|mailto:|#[\w-]+$)/i;
+const SAFE_URL = /^(https?:\/\/|mailto:|#[\w.%-]+$)/i;
 
 /** 허용하지 않는 주소는 빈 문자열이 되고, 아래 `a`가 글자로 바꿉니다. */
 export function safeUrl(url: string): string {
@@ -141,6 +141,32 @@ function plainText() {
   return (tree: Node) => walk(tree);
 }
 
+type HastElement = {
+  type: string;
+  properties?: Record<string, unknown>;
+  children?: HastElement[];
+};
+
+/**
+ * rehype 플러그인: 각주 제목의 id(`footnote-label`)는 `clobberPrefix`가
+ * 바꾸지 않아 답장마다 같습니다. 그 id와 그것을 가리키는
+ * `aria-describedby`에 답장의 머리말을 붙입니다.
+ */
+function prefixFootnoteLabel(prefix: string) {
+  const label = "footnote-label";
+  const walk = (node: HastElement) => {
+    const props = node.properties;
+    if (props) {
+      if (props.id === label) props.id = `${prefix}${label}`;
+      const described = props.ariaDescribedBy;
+      if (Array.isArray(described))
+        props.ariaDescribedBy = described.map((id) => (id === label ? `${prefix}${label}` : id));
+    }
+    node.children?.forEach(walk);
+  };
+  return (tree: HastElement) => walk(tree);
+}
+
 type HastNode = {
   type: string;
   value?: string;
@@ -213,9 +239,16 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
 }
 
 const COMPONENTS: Components = {
-  a({ href, children }) {
+  a({ node, href, children, ...rest }) {
+    void node; // hast 마디는 DOM 속성이 아니므로 넘기지 않습니다.
     if (!href) return <span>{children}</span>;
-    if (href.startsWith("#")) return <a href={href}>{children}</a>;
+    // 각주 링크: 같은 탭에서, 각주가 쓰는 id와 읽어 주는 이름을 그대로 둡니다.
+    if (href.startsWith("#"))
+      return (
+        <a href={href} {...rest}>
+          {children}
+        </a>
+      );
     return (
       <a href={href} target="_blank" rel="noopener noreferrer">
         {children}
@@ -259,6 +292,7 @@ function ChatMarkdown({ text, streaming = false, tail }: ChatMarkdownProps) {
           footnoteLabel: "각주",
           footnoteBackLabel: "본문으로 돌아가기",
         }}
+        rehypePlugins={[[prefixFootnoteLabel, prefix]]}
         urlTransform={safeUrl}
         components={COMPONENTS}
       >

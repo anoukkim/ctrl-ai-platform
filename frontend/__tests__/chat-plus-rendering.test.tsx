@@ -77,6 +77,8 @@ describe("ChatMarkdown", () => {
     expect(safeUrl("/admin")).toBe("");
     expect(safeUrl("#user-content-fn-1")).toBe("#user-content-fn-1");
     expect(safeUrl("#a b")).toBe("");
+    expect(safeUrl("#r1-fn-%EA%B0%81")).toBe("#r1-fn-%EA%B0%81");
+    expect(safeUrl("#x\njavascript:alert(1)")).toBe("");
   });
 
   test("an image is not loaded; its description shows instead", () => {
@@ -174,6 +176,28 @@ describe("ChatMarkdown", () => {
     expect(ref?.getAttribute("href")).toMatch(/^#[\w-]+fn-1$/);
     expect(ref?.getAttribute("target")).toBeNull();
     expect(container.textContent).toContain("각주");
+
+    // 본문의 번호와 각주의 ↩가 서로를 가리킵니다.
+    const back = container.querySelector('a[aria-label="본문으로 돌아가기"]');
+    expect(back?.getAttribute("href")).toBe(`#${ref?.getAttribute("id")}`);
+    expect(container.querySelector(ref?.getAttribute("href") ?? "#none")).not.toBeNull();
+  });
+
+  test("two replies with footnotes do not share ids", () => {
+    const text = "설명이에요[^1].\n\n[^1]: 출처예요.";
+    const { container } = render(
+      <>
+        <ChatMarkdown text={text} />
+        <ChatMarkdown text={text} />
+      </>,
+    );
+    const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const ref of container.querySelectorAll("sup a")) {
+      const describedBy = ref.getAttribute("aria-describedby");
+      expect(describedBy && container.querySelector(`#${describedBy}`)).toBeTruthy();
+    }
   });
 
   test("the typing caret sits right after the last word", () => {
