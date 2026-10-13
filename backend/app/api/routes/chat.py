@@ -96,21 +96,23 @@ def chat_info(
         is_mock=settings.provider_is_mock("claude"),
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
         max_message_length=MAX_MESSAGE_LENGTH,
-        models=[
-            ChatModelOption(
-                id=row.id,
-                model_id=row.model_id,
-                label=row.label,
-                description=row.description,
-                admin_only=row.visibility is ChatModelVisibility.ADMIN,
-                is_default=default is not None and row.id == default.id,
-                estimated_reply_krw=pricing.typical_reply_krw(
-                    chat_models.ChosenModel.of(row), rate
-                ),
-            )
-            for row in chat_models.models_for(db, user)
-        ],
+        models=[_option(db, row, default, rate) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
+    )
+
+
+def _option(db: Session, row, default, rate) -> ChatModelOption:
+    estimate = pricing.reply_estimate(db, chat_models.ChosenModel.of(row), rate)
+    return ChatModelOption(
+        id=row.id,
+        model_id=row.model_id,
+        label=row.label,
+        description=row.description,
+        admin_only=row.visibility is ChatModelVisibility.ADMIN,
+        is_default=default is not None and row.id == default.id,
+        estimated_reply_krw=estimate.krw,
+        estimate_basis=estimate.basis,
+        estimate_samples=estimate.samples,
     )
 
 

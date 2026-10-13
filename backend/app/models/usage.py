@@ -118,6 +118,10 @@ class UsageEvent(TimestampMixin, Base):
     #: and on anything that is not a Claude call.
     cache_write_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cache_read_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The input estimate the pre-check used, before the call (Chat only).
+    #: Kept next to the real counts so `services/calibration.py` can learn
+    #: how far off the estimate runs (cost-calibration).
+    estimated_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: The won per unit of `provider_currency` this charge was converted
     #: at, copied from the rate in force. A later rate change does not move
     #: a charge that already happened.

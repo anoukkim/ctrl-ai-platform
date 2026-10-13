@@ -192,6 +192,29 @@ def typical_reply_krw(model: ChosenModel, rate: ExchangeRate | None) -> int | No
     ).krw(TYPICAL_INPUT_TOKENS, TYPICAL_OUTPUT_TOKENS)
 
 
+@dataclass(frozen=True)
+class ReplyEstimate:
+    """The picker's "답장 1회 약 N원", and what it is based on."""
+
+    krw: int | None
+    #: "recent" — the median of this model's recent real replies;
+    #: "formula" — 3,000 input + 800 output tokens at list price.
+    basis: str
+    samples: int = 0
+
+
+def reply_estimate(db: Session, model: ChosenModel, rate: ExchangeRate | None) -> ReplyEstimate:
+    """Calibrated once the model has enough real replies (cost-calibration)."""
+    from app.services import calibration
+
+    measured = calibration.for_model(db, model.model_id)
+    if measured.calibrated and measured.median_reply_krw is not None:
+        return ReplyEstimate(
+            krw=max(1, measured.median_reply_krw), basis="recent", samples=measured.samples
+        )
+    return ReplyEstimate(krw=typical_reply_krw(model, rate), basis="formula")
+
+
 def estimate_tokens(text: str) -> int:
     """A deliberately generous token estimate: one per character.
 

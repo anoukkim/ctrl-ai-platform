@@ -68,8 +68,13 @@ class ChatModelOption(BaseModel):
     #: Only admins see admin-only models; the picker marks them.
     admin_only: bool
     is_default: bool
-    #: "답장 1회 약 N원" — see `pricing.TYPICAL_INPUT_TOKENS`. None without a rate.
+    #: "답장 1회 약 N원". None without a rate.
     estimated_reply_krw: int | None
+    #: "recent" — the median of this model's recent real replies
+    #: (cost-calibration); "formula" — `pricing.TYPICAL_INPUT_TOKENS` and
+    #: `TYPICAL_OUTPUT_TOKENS` at list price, until there are enough.
+    estimate_basis: str = "formula"
+    estimate_samples: int = 0
 
 
 class ChatInfo(BaseModel):

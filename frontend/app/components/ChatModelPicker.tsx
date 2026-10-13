@@ -32,9 +32,10 @@ interface Props {
 }
 
 export function costLabel(model: ChatModelOption): string {
-  return model.estimated_reply_krw === null
-    ? "요금 정보 없음"
-    : `답장 1회 약 ${formatKrw(model.estimated_reply_krw)}`;
+  if (model.estimated_reply_krw === null) return "요금 정보 없음";
+  const label = `답장 1회 약 ${formatKrw(model.estimated_reply_krw)}`;
+  // 비용 보정: 최근 실제 답장의 중앙값이면 그렇다고 말합니다.
+  return model.estimate_basis === "recent" ? `${label} (최근 실제 기준)` : label;
 }
 
 export default function ChatModelPicker({ models, current, onChange, disabled }: Props) {

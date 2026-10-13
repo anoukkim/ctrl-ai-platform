@@ -29,6 +29,8 @@ class ChatModelAdminRead(BaseModel):
     updated_at: datetime
     #: The same "답장 1회 약 N원" members see in the picker.
     estimated_reply_krw: int | None = None
+    estimate_basis: str = "formula"
+    estimate_samples: int = 0
 
 
 class ChatModelCreate(BaseModel):
@@ -96,3 +98,24 @@ class ClaudeSettingsRead(BaseModel):
     cache_ttl: str | None = "5m"
     exchange_rate: ExchangeRateRead | None
     rate_history: list[ExchangeRateRead]
+
+
+class ModelCalibrationRead(BaseModel):
+    """Admin › Claude Models › 비용 보정: estimate vs reality, per model."""
+
+    model_id: str
+    label: str
+    samples: int
+    #: True once there are enough replies for the figures to be used.
+    calibrated: bool
+    input_ratio: float | None
+    #: What the pre-check now multiplies the character count by (≤ 1).
+    input_factor: float
+    avg_prompt_tokens: float | None
+    avg_estimated_tokens: float | None
+    avg_output_tokens: float | None
+    avg_reply_krw: float | None
+    median_reply_krw: int | None
+    #: The formula's figure, to compare with the median.
+    formula_reply_krw: int | None
+    cache_hit_rate: float | None

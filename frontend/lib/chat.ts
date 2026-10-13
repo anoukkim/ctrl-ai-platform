@@ -56,6 +56,9 @@ export interface ChatModelOption {
   is_default: boolean;
   /** 답장 1회 어림값(원). 환율이 없으면 null. */
   estimated_reply_krw: number | null;
+  /** "recent" — 최근 실제 답장의 중앙값(비용 보정), "formula" — 공식 어림값. */
+  estimate_basis?: "recent" | "formula";
+  estimate_samples?: number;
 }
 
 export interface ChatInfo {

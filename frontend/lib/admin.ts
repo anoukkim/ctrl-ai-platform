@@ -291,6 +291,8 @@ export interface AdminChatModel {
   updated_at: string;
   /** 회원이 고르는 창에 보이는 "답장 1회 약 N원"과 같은 값. */
   estimated_reply_krw: number | null;
+  estimate_basis?: "recent" | "formula";
+  estimate_samples?: number;
 }
 
 export interface ChatModelChanges {
@@ -310,6 +312,27 @@ export interface NewChatModel {
   description: string;
   input_usd_per_mtok: string;
   output_usd_per_mtok: string;
+}
+
+/** Admin › Claude Models › 비용 보정 — 모델별 어림값과 실제 답장. */
+export interface ModelCalibration {
+  model_id: string;
+  label: string;
+  samples: number;
+  calibrated: boolean;
+  input_ratio: number | null;
+  input_factor: number;
+  avg_prompt_tokens: number | null;
+  avg_estimated_tokens: number | null;
+  avg_output_tokens: number | null;
+  avg_reply_krw: number | null;
+  median_reply_krw: number | null;
+  formula_reply_krw: number | null;
+  cache_hit_rate: number | null;
+}
+
+export function getChatCalibration(): Promise<ModelCalibration[]> {
+  return request<ModelCalibration[]>("/admin/chat-models/calibration");
 }
 
 export function listChatModels(): Promise<AdminChatModel[]> {

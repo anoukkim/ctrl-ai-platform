@@ -212,6 +212,13 @@ Chat is the opening screen and a real conversation with Claude, behind
   cache write, the dearest case. Admin › Budget shows how much of Claude's
   input came from the cache; `CHAT_PROMPT_CACHE` / `CHAT_CACHE_TTL` switch
   it.
+- **Cost calibration** (cost-calibration). Each Chat usage event keeps
+  the input estimate made before the call. Once a model has 10 real
+  replies, "답장 1회 약 N원" becomes the median of its recent replies
+  (labelled 최근 실제 기준) and the pre-check prices input at the observed
+  ratio × 1.2 — never above one token per character, output still the full
+  maximum. Admin › Claude Models › 비용 보정 shows estimate vs reality per
+  model.
 - **Choosing a model** (chat-model-choice). Next to the composer, per
   conversation: each model shows its Korean label, a one-line description
   and "답장 1회 약 N원" (3,000 input + 800 output tokens). A new conversation

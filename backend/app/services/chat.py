@@ -45,7 +45,7 @@ from app.models import (
     UsageFeature,
     User,
 )
-from app.services import pricing, providers
+from app.services import calibration, pricing, providers
 from app.services import usage as usage_service
 from app.services.chat_models import ChosenModel
 from app.services.claude_provider import (
@@ -341,7 +341,11 @@ def prepare_turn(
     history = messages_of(db, conversation)
     messages, estimated_input = build_context(history, text, settings)
 
-    worst_case = price.worst_case_krw(estimated_input, settings.chat_max_output_tokens)
+    # The input estimate, calibrated against this model's recent real
+    # replies (never above the one-token-per-character figure); the output
+    # side stays the full maximum, so this is still a worst case.
+    calibrated_input = calibration.for_model(db, model.model_id).calibrated_input(estimated_input)
+    worst_case = price.worst_case_krw(calibrated_input, settings.chat_max_output_tokens)
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case)
 
     now = datetime.now(timezone.utc)
@@ -458,6 +462,7 @@ def finish_turn(
                 output_tokens=output_tokens,
                 cache_write_tokens=written if turn.request.cache_ttl is not None else None,
                 cache_read_tokens=read if turn.request.cache_ttl is not None else None,
+                estimated_input_tokens=turn.estimated_input_tokens,
                 exchange_rate_krw=turn.price.usd_krw,
                 conversation_id=conversation.id if conversation else None,
                 commit=False,

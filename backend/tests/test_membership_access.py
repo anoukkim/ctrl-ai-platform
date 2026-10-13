@@ -389,6 +389,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
+    ("GET", "/api/admin/chat-models/calibration"): "require_admin",
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("PATCH", "/api/admin/chat-models/{chat_model_id}"): "require_admin",
     ("POST", "/api/admin/claude-pricing/exchange-rate"): "require_admin",

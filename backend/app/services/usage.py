@@ -134,6 +134,7 @@ def charge(
     output_tokens: int | None = None,
     cache_write_tokens: int | None = None,
     cache_read_tokens: int | None = None,
+    estimated_input_tokens: int | None = None,
     exchange_rate_krw: Decimal | None = None,
     conversation_id: int | None = None,
     commit: bool = True,
@@ -240,6 +241,7 @@ def charge(
         output_tokens=output_tokens,
         cache_write_tokens=cache_write_tokens,
         cache_read_tokens=cache_read_tokens,
+        estimated_input_tokens=estimated_input_tokens,
         exchange_rate_krw=exchange_rate_krw,
         conversation_id=conversation_id,
     )
