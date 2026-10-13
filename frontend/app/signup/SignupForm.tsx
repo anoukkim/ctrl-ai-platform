@@ -36,6 +36,7 @@ import {
 
 import styles from "@/app/login/auth.module.css";
 
+import ConsentCheckbox from "./ConsentCheckbox";
 import DataLocationNotice from "./DataLocationNotice";
 import Skeleton from "@/app/components/Skeleton";
 
@@ -58,6 +59,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -68,6 +70,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
   const nameId = useId();
   const passwordId = useId();
   const codeId = useId();
+  const termsId = useId();
 
   const trimmedUsername = username.trim();
   const usernameValid = trimmedUsername.length >= 3 && USERNAME_PATTERN.test(trimmedUsername);
@@ -77,7 +80,8 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
     usernameValid &&
     passwordValid &&
     email.trim().length > 0 &&
-    displayName.trim().length > 0;
+    displayName.trim().length > 0 &&
+    termsAccepted;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -92,6 +96,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
         password,
         display_name: displayName.trim(),
         invite_code: inviteCode.trim(),
+        terms_accepted: termsAccepted,
       });
       await refresh();
       router.replace("/");
@@ -242,6 +247,8 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
               {MIN_PASSWORD_LENGTH}자 이상 입력해 주세요.
             </span>
           </div>
+
+          <ConsentCheckbox id={termsId} checked={termsAccepted} onChange={setTermsAccepted} />
 
           <button className="btn btn-primary" type="submit" disabled={busy || !canSubmit}>
             {busy ? "가입 중…" : "가입하고 시작하기"}

@@ -326,6 +326,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <LogOut size={16} aria-hidden="true" />
           </button>
         </div>
+
+        {/* 개인정보 처리방침·이용약관 (privacy-and-terms). 접힌 레일에는
+            자리가 없어 펼친 사이드바에서만 보입니다. */}
+        {!collapsed && (
+          <div className={styles.navLegal}>
+            <Link className={styles.navLegalLink} href="/privacy">
+              개인정보
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link className={styles.navLegalLink} href="/terms">
+              약관
+            </Link>
+          </div>
+        )}
       </nav>
 
       <main

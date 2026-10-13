@@ -656,3 +656,23 @@
     opacity: 1;
   }
 }
+
+/* 사이드바 맨 아래의 작은 법적 문서 링크 (privacy-and-terms). */
+.navLegal {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.15rem 0.9rem 0.6rem;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.navLegalLink {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.navLegalLink:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
