@@ -77,8 +77,13 @@
   color: var(--text-muted);
 }
 
+/* `minmax(0, 1fr)`, not the default `auto` track: an auto track sizes to
+   its widest child's min-content, so a table (even inside its scrolling
+   .table-wrap) or a row of stat cards widened the whole page — Quarters
+   scrolled sideways at 1280px and Budget at 390px (fix-ui-polish-admin). */
 .sections {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.3rem;
 }
 

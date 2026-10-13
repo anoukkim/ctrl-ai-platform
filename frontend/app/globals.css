@@ -230,7 +230,7 @@
   --fs-count: 13px;
   --fs-button: 14px;
   --fs-brand: 17px;
-  --fs-brand-sub: 12px;
+  --fs-brand-sub: 11.5px;
 
   --fw-title: 750;
   --fw-strong: 650;
@@ -240,9 +240,9 @@
   --lh-body: 1.6;
 
   /* ---------- 자리와 간격 ---------- */
-  /* 228px (fix-ui-polish-admin): every item, the tagline and the Admin
-     sub-items still fit on one line — checked in the browser. */
-  --sidebar-width: 228px;
+  /* 230px (fix-ui-polish-admin): every item, the tagline (11.5px) and the
+     Admin sub-items still fit on one line — measured in the browser. */
+  --sidebar-width: 230px;
   --sidebar-collapsed-width: 68px;
   --sidebar-pad-top: 20px;
   --sidebar-pad-x: 12px;
