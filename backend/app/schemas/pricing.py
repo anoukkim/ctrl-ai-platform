@@ -148,6 +148,20 @@ class ClaudeSettingsRead(BaseModel):
     chat_limits: ChatLimitsRead
 
 
+class ModelCacheDayRead(BaseModel):
+    """Admin › AI Models › 비용 보정 › 캐시 절약: one model, one KST day."""
+
+    model_id: str
+    label: str
+    day: str
+    replies: int
+    cache_hit_replies: int
+    read_tokens: int
+    #: At today's catalogue prices and each event's own rate — an
+    #: approximation, said so on the screen.
+    saved_krw: int
+
+
 class ModelCalibrationRead(BaseModel):
     """Admin › AI Models › 비용 보정: estimate vs reality, per model."""
 

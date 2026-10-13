@@ -37,6 +37,7 @@ from app.schemas.pricing import (
     ChatModelCreate,
     ChatProviderRead,
     ChatModelUpdate,
+    ModelCacheDayRead,
     ModelCalibrationRead,
 )
 from app.services import audit, calibration, chat_models, pricing
@@ -119,6 +120,31 @@ def list_chat_models(
     _: User = Depends(require_admin),
 ) -> list[ChatModelAdminRead]:
     return [_read(row, db) for row in chat_models.all_models(db)]
+
+
+@router.get(
+    "/cache-stats",
+    response_model=list[ModelCacheDayRead],
+    summary="Cache activity per model and KST day (audit-caching)",
+)
+def read_cache_stats(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[ModelCacheDayRead]:
+    """Read-only, from the ledger. Saved figures use today's prices."""
+    labels = {row.model_id: row.label for row in chat_models.all_models(db)}
+    return [
+        ModelCacheDayRead(
+            model_id=row.model_id,
+            label=labels.get(row.model_id, row.model_id),
+            day=row.day,
+            replies=row.replies,
+            cache_hit_replies=row.cache_hit_replies,
+            read_tokens=row.read_tokens,
+            saved_krw=row.saved_krw,
+        )
+        for row in calibration.cache_stats(db)
+    ]
 
 
 @router.get(
