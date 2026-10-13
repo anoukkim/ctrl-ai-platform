@@ -384,6 +384,12 @@ def seed_sign_in_accounts(db: Session) -> list[User]:
 
 def main() -> None:
     settings = get_settings()
+    if settings.deployed:
+        # The production compose sets DEPLOYED=true. Even with APP_ENV
+        # mis-set to development there, the dev seed (an admin with a
+        # known password) must never reach a deployed database
+        # (fix-beta-blockers 5). Use `python -m app.db.bootstrap` there.
+        raise SystemExit("Refusing to run: this is a deployed server (DEPLOYED=true).")
     if not settings.is_development:
         # Seeding an admin account into a real environment must never be
         # automatic.

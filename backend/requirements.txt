@@ -17,3 +17,8 @@ argon2-cffi>=23.1,<26.0
 # The official Anthropic SDK (Phase 2 Chat). 1.x is built on httpx2. Only
 # imported when CLAUDE_PROVIDER=anthropic; the mock never touches it.
 anthropic>=1.11,<2.0
+# Imported at runtime by the provider key check (services/providers.py),
+# so it is a runtime dependency, not only the TestClient's
+# (fix-beta-blockers 4). The SDK above also depends on it, but a direct
+# import deserves a direct pin.
+httpx2>=2.0,<3.0
