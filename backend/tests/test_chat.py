@@ -933,3 +933,136 @@ def test_usage_names_a_chat_charge_by_its_conversation(
     client.delete(f"/api/chat/conversations/{conversation}")
     labels = [event["label"] for event in client.get("/api/usage/me").json()["events"]]
     assert labels == ["Chat"]
+
+
+
+# ----------------------------------------------------------- chat-plus-rendering
+
+
+def test_the_system_prompt_says_markdown_is_rendered() -> None:
+    from app.services.claude_provider import CHAT_SYSTEM_PROMPT
+
+    assert "does not render Markdown" not in CHAT_SYSTEM_PROMPT
+    assert "renders Markdown" in CHAT_SYSTEM_PROMPT
+    assert "table" in CHAT_SYSTEM_PROMPT and "fenced block" in CHAT_SYSTEM_PROMPT
+    assert "Korean" in CHAT_SYSTEM_PROMPT
+    assert "cannot draw charts" in CHAT_SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    ("ask", "expected"),
+    [
+        ("서울 여행 2박 3일 일정을 표로 정리해 줘", "| 날 |"),
+        ("동아리 소개 한 장짜리 웹페이지를 만들어 줘", "```html"),
+        ("회원 수로 차트를 그려 줘", "```svg"),
+        ("회원 수가 12명, 18명이야. 차트로 보여 줘", "```svg"),
+        ("아래 글을 세 줄로 요약해 줘:", "세 줄로 요약"),
+    ],
+)
+def test_the_mock_shows_what_the_screen_renders(ask: str, expected: str) -> None:
+    import asyncio
+
+    from app.services.claude_provider import ChatRequest, MockClaudeProvider, TextDelta
+
+    async def collect() -> str:
+        text = ""
+        request = ChatRequest(
+            system="s", messages=[{"role": "user", "content": ask}], max_tokens=4096
+        )
+        async for event in MockClaudeProvider().stream_chat(request):
+            if isinstance(event, TextDelta):
+                text += event.text
+        return text
+
+    assert expected in asyncio.run(collect())
+
+
+
+@pytest.mark.parametrize(
+    ("ask", "action", "expected"),
+    [
+        ("투표를 받는 앱 만들어 줘", "builder", "Project Builder"),
+        ("목표를 기록하는 앱 만들어 줘", "builder", "Project Builder"),
+        ("차트 있는 가계부 앱 만들어 줘", "builder", "Project Builder"),
+        ("쇼핑몰 홈페이지 만들고 싶어", "builder", "Project Builder"),
+        ("가격 비교 앱 만들어 줘", "builder", "Project Builder"),
+        ("그래프를 그려 주는 앱 만들어 줘", "builder", "Project Builder"),
+        ("매출을 차트로 보여 주는 대시보드 앱 만들어 줘", "builder", "Project Builder"),
+        ("쇼핑몰 웹페이지를 만들어 줘", "builder", "Project Builder"),
+        ("내가 만든 프로젝트 정리해 줘", None, "Project Builder에 모여"),
+        ("사용량 요약해 줘", None, "Usage"),
+    ],
+)
+def test_the_canned_examples_do_not_shadow_routing(
+    ask: str, action: str | None, expected: str
+) -> None:
+    import asyncio
+
+    from app.services.claude_provider import (
+        _CHAT_RULES,
+        ChatRequest,
+        MockClaudeProvider,
+        TextDelta,
+        example_reply,
+    )
+
+    async def collect() -> str:
+        text = ""
+        request = ChatRequest(
+            system="s", messages=[{"role": "user", "content": ask}], max_tokens=4096
+        )
+        async for event in MockClaudeProvider().stream_chat(request):
+            if isinstance(event, TextDelta):
+                text += event.text
+        return text
+
+    assert expected in asyncio.run(collect())
+    assert example_reply(ask) is None
+    matched = next((rule for rule in _CHAT_RULES if rule[0].search(ask)), None)
+    assert matched is not None and matched[2] == action
+
+
+def test_a_pasted_article_gets_the_summary_whatever_its_last_paragraph_says() -> None:
+    from app.services.claude_provider import example_reply
+
+    article = "아래 글을 세 줄로 요약해 줘:\n첫 문단입니다.\n\n둘째 문단에서는 앱을 만들었습니다."
+    assert example_reply(article) is not None
+    assert "세 줄로 요약" in example_reply(article)
+    # 앞서 답을 못 받은 메시지가 붙어 와도 요약 카드로 알아봅니다.
+    assert example_reply("안녕\n\n" + article) is not None
+    # "시내"의 "내 "는 "내 프로젝트"가 아닙니다.
+    assert "| 날 |" in (example_reply("서울 시내 맛집을 표로 정리해 줘") or "")
+
+
+def test_an_overlong_marker_is_text_everywhere() -> None:
+    raw = "좋아요!\n[[action:builder|" + "가" * 200 + "]]"
+    marker = chat_service.MarkerFilter()
+    shown = "".join(marker.feed(raw[i : i + 7]) for i in range(0, len(raw), 7)) + marker.finish()
+    assert shown == raw
+    assert chat_service.action_of(raw) == (None, "")
+    assert chat_service.visible_text(raw) == raw.strip()
+
+
+@pytest.mark.parametrize(
+    "pieces",
+    [
+        ["자세한 내용은 [", "공식 문서](https://a.kr)를 보세요. ", "다음 단계는 "],
+        ["코드: if [[ -f x ]]", "; then 끝", " 그리고 계속"],
+        ["목록 [[1, 2], ", "[3, 4]] 이에요", " 끝"],
+        ["[[action", "\n줄이 바뀌었어요", " 끝"],
+    ],
+)
+def test_text_that_cannot_become_a_marker_is_shown_at_once(pieces: list[str]) -> None:
+    marker = chat_service.MarkerFilter()
+    shown = "".join(marker.feed(piece) for piece in pieces)
+    # Everything is on screen before the stream ends; nothing is held.
+    assert shown == "".join(pieces)
+    assert marker.finish() == ""
+
+
+def test_a_marker_split_anywhere_is_still_hidden() -> None:
+    reply = "좋아요!\n[[action:builder|가계부]]"
+    for cut in range(1, len(reply)):
+        marker = chat_service.MarkerFilter()
+        shown = marker.feed(reply[:cut]) + marker.feed(reply[cut:]) + marker.finish()
+        assert shown == "좋아요!\n", cut

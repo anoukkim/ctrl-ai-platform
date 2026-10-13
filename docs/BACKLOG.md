@@ -276,29 +276,24 @@ before the post-beta work, which is specced under **After the beta**.
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-2. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
-   Replies render Markdown — tables, code blocks with a copy button — and
-   the four Chat welcome cards become **기능 둘러보기**, example prompts
-   (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
-
-3. **member-password-login** · M1 · branch `feat-member-password-login`
+2. **member-password-login** · M1 · branch `feat-member-password-login`
    Added by the owner on 2026-10-14; changes CLAUDE.md section 11. Every
    member may sign in with Google **or** with username and password —
    both, for everyone; password login is no longer admin-only. **Waits
    for the owner's check before merging** (not covered by the run's
    pre-approval). Spec below.
 
-4. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-5. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day. Report Issue
    (`/issues`) becomes a board: members write notes there and read every
    public note with no names; Admin can hide a note, export notes as
@@ -308,14 +303,14 @@ before the post-beta work, which is specced under **After the beta**.
    on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
    below, with the owner's revision.
 
-7. **token-guard** · M1 · branch `feat-token-guard`
+6. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-8. **live-cost-display** · M1 · branch `feat-live-cost-display`
+7. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -323,14 +318,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-9. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+8. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-10. **builder-python** · M2 · branch `feat-builder-python`
+9. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -596,61 +591,7 @@ Rules all three follow:
   built and tested with no key. The mock reports image and PDF token
   counts from the same formulas the estimate uses.
 
-### chat-plus-rendering — full spec
-
-Branch `feat-chat-plus-rendering`. M1. Effort: **S** (1–2 days). No
-migration.
-
-1. **Replies render Markdown.** Headings, lists, bold, links, tables
-   (GitHub-flavoured) and fenced code blocks. One renderer —
-   `react-markdown` with `remark-gfm`, new dependencies — and **no raw
-   HTML**: an HTML tag in a reply shows as text. Links open in a new tab
-   with `rel="noopener noreferrer"`, and only `http(s)` and `mailto`
-   survive. Wide tables scroll inside their own box; the page never
-   scrolls sideways.
-2. **Code blocks** show the language and a **복사** button ("복사됨" for
-   two seconds). Monospace from the existing `--mono` token. No syntax
-   highlighting in this item (it is another dependency and a colour set
-   for both themes; a later UI batch can add it).
-3. **The system prompt changes** from "Write plain text. The screen does
-   not render Markdown" to: Markdown is rendered; use a table when the
-   member asks to compare or organise, a fenced block for code, and keep
-   headings to a minimum. Still Korean, still beginner-level.
-4. **기능 둘러보기 replaces the four welcome cards.** Same grid and
-   tokens, new content: four example prompts that **fill the composer**
-   (the member presses 보내기 — they see the model and its estimated cost
-   first; a click on a card sends nothing):
-   - **표 만들기** — "서울 여행 2박 3일 일정을 표로 정리해 줘"
-   - **파일 요약** — until `chat-plus-files` lands: "아래 글을 세 줄로
-     요약해 줘:" plus a line break for pasting; after it, the card opens
-     the attach dialog.
-   - **차트 그리기** — until `chat-plus-artifacts` lands: a table plus a
-     one-line reading of it; after it, an SVG bar chart preview.
-   - **웹페이지 만들기** — "동아리 소개 한 장짜리 웹페이지를 만들어 줘";
-     a code block now, a live preview after `chat-plus-artifacts`.
-
-   The card list lives in one file (`lib/chat-examples.ts`), not in
-   `mock-data.ts`: it is product content, not mock data. The old cards'
-   destinations (Builder, Video, CtrlAIApps, CtrlAITube) stay reachable
-   from the sidebar and from the reply action buttons.
-5. **Streaming stays smooth.** Markdown is re-rendered as pieces arrive;
-   an unfinished table or code fence must not flash raw pipes or
-   backticks (render an open fence as a code block until it closes).
-
-**Charged:** unchanged — the wallet, by the token. Tables and code are longer
-than prose, so the average reply grows; the picker's "답장 1회 약 N원"
-(3,000 in / 800 out) stays a fair guide. `CHAT_MAX_OUTPUT_TOKENS` stays
-4,096 here.
-
-**Tests:** a table, a code block and a list render as elements, not
-text; `<script>` and `<img onerror>` in a reply render as text; a
-`javascript:` link is dropped; 복사 writes the block's exact text to the
-clipboard (mocked); a half-streamed fence renders as code; each example
-card fills the composer and sends nothing; the system prompt no longer
-says "does not render Markdown" (backend unit test).
-
-**Risks:** XSS through Markdown — no raw HTML and a link allow-list,
-both tested. Bundle size (two packages) on the Chat page only.
+→ **chat-plus-rendering — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-rendering--full-spec-merged-2026-10-14).
 
 ### member-password-login — full spec
 

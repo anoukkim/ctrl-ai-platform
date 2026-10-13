@@ -188,7 +188,7 @@ How to answer:
 - Explain simply, as to a beginner. Short paragraphs, everyday words; when \
 a technical term is unavoidable, say in one phrase what it means.
 - Be warm and practical. Prefer one clear next step over a long list.
-- Write plain text. The screen does not render Markdown, so use no headings, tables, bold or code fences; line breaks and simple "-" lists are fine.
+- The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block. The screen cannot draw charts yet: when asked for a chart, give a table and one sentence on what it shows.
 
 What CTRL+AI offers, to mention when it genuinely helps the member:
 - Project Builder: start an app or website project by describing it in Korean. The button below your reply makes a small, working example app from the member's idea that they can try at once and change later — say so when you offer it.
@@ -279,6 +279,103 @@ MOCK_ERROR = re.compile(r"\[mock-error:(\w+)\]")
 MOCK_REFUSAL = "[mock-refusal]"
 
 #: (pattern, reply, action) — checked in order. An action adds the button.
+#: chat-plus-rendering: canned replies that show what the screen renders —
+#: a table, a code block with an HTML page, an SVG chart, a summary. They
+#: match the 기능 둘러보기 phrasing literally ("표로 정리", "세 줄로 요약",
+#: "차트로 보여", "웹페이지를 만들어") against the whole message — a pasted
+#: article has paragraphs — and never when the member is asking for an app
+#: (`_APP_WORDS`): loose words such as 표를 or 비교 would catch 투표를 받는
+#: 앱 and send it the Seoul itinerary instead of the builder.
+_MOCK_TABLE = (
+    "서울 2박 3일 일정을 표로 정리했어요.\n\n"
+    "| 날 | 오전 | 오후 | 저녁 |\n"
+    "| --- | --- | --- | --- |\n"
+    "| 1일 | 경복궁 | 북촌 한옥마을 | 광장시장 |\n"
+    "| 2일 | 남산서울타워 | 명동 | 한강 공원 |\n"
+    "| 3일 | 성수동 카페 | 서울숲 | 공항으로 |\n\n"
+    "- 이동은 **지하철**이 가장 빨라요.\n"
+    "- 궁궐은 월요일이나 화요일에 쉬는 곳이 있으니 미리 확인하세요."
+)
+_MOCK_PAGE = (
+    "동아리 소개 페이지 한 장을 만들었어요. 아래 코드를 복사해 메모장에 붙여 넣고 "
+    "`index.html`로 저장한 뒤 브라우저로 열어 보세요.\n\n"
+    "```html\n"
+    "<!doctype html>\n"
+    "<html lang=\"ko\">\n"
+    "<head>\n"
+    "  <meta charset=\"utf-8\">\n"
+    "  <title>CTRL+AI 동아리</title>\n"
+    "  <style>\n"
+    "    body { font-family: sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }\n"
+    "    h1 { color: #4f46e5; }\n"
+    "  </style>\n"
+    "</head>\n"
+    "<body>\n"
+    "  <h1>CTRL+AI</h1>\n"
+    "  <p>코드를 몰라도 AI와 함께 앱과 영상을 만드는 동아리예요.</p>\n"
+    "  <ul>\n"
+    "    <li>매주 목요일 저녁 모임</li>\n"
+    "    <li>처음 오는 분 환영</li>\n"
+    "  </ul>\n"
+    "</body>\n"
+    "</html>\n"
+    "```\n\n"
+    "색이나 문구를 바꾸고 싶으면 말씀해 주세요."
+)
+_MOCK_CHART = (
+    "동아리 회원 수를 분기마다 정리하면 이래요.\n\n"
+    "| 분기 | 회원 수 |\n"
+    "| --- | ---: |\n"
+    "| 2026 Q1 | 12 |\n"
+    "| 2026 Q2 | 18 |\n"
+    "| 2026 Q3 | 25 |\n"
+    "| 2026 Q4 | 31 |\n\n"
+    "**한 줄 해석:** 분기마다 6~7명씩 꾸준히 늘고 있어요.\n\n"
+    "아래는 막대그래프를 그리는 SVG 코드예요. 그림으로 바로 보여 주는 기능은 곧 "
+    "생겨요.\n\n"
+    "```svg\n"
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 140\" width=\"240\" height=\"140\">\n"
+    "  <rect x=\"20\" y=\"92\" width=\"36\" height=\"36\" fill=\"#6366f1\"/>\n"
+    "  <rect x=\"75\" y=\"74\" width=\"36\" height=\"54\" fill=\"#6366f1\"/>\n"
+    "  <rect x=\"130\" y=\"53\" width=\"36\" height=\"75\" fill=\"#6366f1\"/>\n"
+    "  <rect x=\"185\" y=\"35\" width=\"36\" height=\"93\" fill=\"#6366f1\"/>\n"
+    "</svg>\n"
+    "```"
+)
+_MOCK_SUMMARY = (
+    "세 줄로 요약했어요.\n\n"
+    "1. 글의 핵심 주장을 첫 줄에 담았어요.\n"
+    "2. 그 이유와 근거를 두 번째 줄에 정리했어요.\n"
+    "3. 마지막 줄은 글이 권하는 다음 행동이에요.\n\n"
+    "(테스트 모드라 실제 글을 읽지는 않았어요.)"
+)
+
+_EXAMPLE_RULES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"(차트|그래프)\s?(로|를)\s?(보여|그려)"), _MOCK_CHART),
+    (re.compile(r"웹\s?페이지를\s?만들어"), _MOCK_PAGE),
+    (re.compile(r"줄로\s?요약|요약해\s?줘:"), _MOCK_SUMMARY),
+    (re.compile(r"(?<![가-힣])표로\s?(정리|만들|보여)"), _MOCK_TABLE),
+]
+_APP_WORDS = re.compile(r"앱|어플|사이트|도구|프로그램|게임|대시보드|쇼핑몰|(?<![가-힣])내 |내가")
+_SUMMARY_ASK = re.compile(r"^\s*아래 글을 세 줄로 요약해 줘:", re.MULTILINE)
+
+
+def example_reply(message: str) -> str | None:
+    """The canned 기능 둘러보기 reply for this message, if it is one.
+
+    The 파일 요약 card is recognised first: the article pasted under it may
+    mention apps or programs and is still to be summarised.
+    """
+    if _SUMMARY_ASK.search(message):
+        return _MOCK_SUMMARY
+    if _APP_WORDS.search(message):
+        return None
+    for pattern, reply in _EXAMPLE_RULES:
+        if pattern.search(message):
+            return reply
+    return None
+
+
 _CHAT_RULES: list[tuple[re.Pattern[str], str, str | None]] = [
     (
         re.compile(r"내 영상|만든 영상|영상 목록"),
@@ -442,10 +539,10 @@ class MockClaudeProvider:
         self.delay = max(0, delay_ms) / 1000
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]:
-        last = request.messages[-1]["content"] if request.messages else ""
+        whole = request.messages[-1]["content"] if request.messages else ""
         # An unanswered earlier message may have been joined to this one
         # (see `chat.build_context`); the mock answers only the newest part.
-        last = last.rsplit("\n\n", 1)[-1]
+        last = whole.rsplit("\n\n", 1)[-1]
 
         failure = MOCK_ERROR.search(last)
         if failure:
@@ -468,10 +565,14 @@ class MockClaudeProvider:
             return
 
         reply, action = _CHAT_FALLBACK, None
-        for pattern, text, rule_action in _CHAT_RULES:
-            if pattern.search(last):
-                reply, action = text, rule_action
-                break
+        example = example_reply(whole)
+        if example is not None:
+            reply = example
+        else:
+            for pattern, text, rule_action in _CHAT_RULES:
+                if pattern.search(last):
+                    reply, action = text, rule_action
+                    break
         if action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
 

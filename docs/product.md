@@ -42,7 +42,7 @@ principles.
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
 | Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
-| Chat (default page)   | **Built** — conversations, streamed replies with 중지, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
+| Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
@@ -201,6 +201,20 @@ Chat is the opening screen and a real conversation with Claude, behind
   so it does not go to Deleted Items — but the money it spent stays in Usage.
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
+- **Replies render Markdown** (chat-plus-rendering): headings, lists, bold,
+  links, tables and code blocks, through `react-markdown` + `remark-gfm`
+  (`ChatMarkdown`). No raw HTML — a tag in a reply shows as text; links
+  keep only `http(s)` and `mailto` and open in a new tab; images are not
+  loaded (their description shows). Wide tables scroll inside their own
+  box. Code blocks show the language and a **복사** button. While a reply
+  streams, an open code fence is drawn as code and a table waits for its
+  divider row, so no raw backticks or pipes flash. The member's own
+  messages stay plain text.
+- **기능 둘러보기.** The welcome screen shows four example prompts — 표
+  만들기, 파일 요약, 차트 그리기, 웹페이지 만들기 — listed in
+  `lib/chat-examples.ts`. A card only fills the composer; the member sees
+  the model and its estimate, then sends. The other screens are reached
+  from the sidebar and the reply action buttons.
 - **Action buttons.** When a message is about building an app or making a
   video, the reply ends with **Project Builder에서 예시 앱 만들기** or **Video Generator
   열기**. The button opens that library with the new-project form already
