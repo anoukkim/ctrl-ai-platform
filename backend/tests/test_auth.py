@@ -64,7 +64,7 @@ def test_register_rejects_a_duplicate_username(anon_client: TestClient) -> None:
 
     response = anon_client.post(
         "/api/auth/register",
-        json={"terms_accepted": True, **GOOD_SIGNUP, "email": "different@ctrl.ai"},
+        json={**GOOD_SIGNUP, "email": "different@ctrl.ai"},
     )
 
     assert response.status_code == 409
@@ -76,7 +76,7 @@ def test_register_rejects_a_duplicate_email(anon_client: TestClient) -> None:
 
     response = anon_client.post(
         "/api/auth/register",
-        json={"terms_accepted": True, **GOOD_SIGNUP, "username": "differentname"},
+        json={**GOOD_SIGNUP, "username": "differentname"},
     )
 
     assert response.status_code == 409
@@ -84,13 +84,13 @@ def test_register_rejects_a_duplicate_email(anon_client: TestClient) -> None:
 
 
 def test_register_rejects_a_short_password(anon_client: TestClient) -> None:
-    response = anon_client.post("/api/auth/register", json={"terms_accepted": True, **GOOD_SIGNUP, "password": "short"})
+    response = anon_client.post("/api/auth/register", json={**GOOD_SIGNUP, "password": "short"})
 
     assert response.status_code == 422
 
 
 def test_register_rejects_a_username_with_punctuation(anon_client: TestClient) -> None:
-    response = anon_client.post("/api/auth/register", json={"terms_accepted": True, **GOOD_SIGNUP, "username": "bad name!"})
+    response = anon_client.post("/api/auth/register", json={**GOOD_SIGNUP, "username": "bad name!"})
 
     assert response.status_code == 422
 

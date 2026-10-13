@@ -47,16 +47,56 @@ are invited** — the run log marks it 운영진 검토 필요 at merge.
   POST is refused 400 with the exact Korean sentence; the password path
   and the **mock Google path** both complete end to end with consent and
   land signed-in on Chat; the sidebar footer shows 개인정보 · 약관.
-- Merged `main` at the end (docs-cleanup included) — clean, no migration
-  re-parenting needed (`b9e6a3d1f4c7` is the single head on
-  `a8d4f1c7e9b3`); full loop re-run after the merge.
+- First end-of-run merge of `main` (docs-cleanup) was clean.
+
+## Review round 1 → round 2 (owner ruled on the fixes)
+
+1. **Migration re-parented** — main merged `feat-tool-cap-defaults`
+   (`c9f2e6a8d4b1`, same parent `a8d4f1c7e9b3`), so the earlier "no
+   re-parenting needed" was overtaken. `b9e6a3d1f4c7` now revises
+   `c9f2e6a8d4b1`; `alembic heads` shows exactly one; proven on a fresh
+   PostgreSQL DB (`ctrlai_ptmig_test`): upgrade head → downgrade
+   `c9f2e6a8d4b1` → upgrade head.
+2. **Privacy §6** promises only what the app does today: view info
+   (Profile), sign-in methods (Profile › 로그인 방법), delete
+   conversations, delete projects/videos, download work (ZIP, video),
+   회원 탈퇴. Name change / 정정 / 열람 요청 → 운영진에게 요청. (There
+   is no member name-change route — checked.)
+3. **Privacy §3 backups — the real retention is "최근 7개", not N
+   days.** `deploy/backup.sh` (called by `update.sh` before every
+   update) writes a full gzipped `pg_dump` on the Seoul VM; nothing
+   expires backups by date — `docs/deployment.md` §8 tells the operator
+   to keep the most recent 7 by hand and to download a copy to their own
+   PC. Final wording: "서비스를 업데이트하기 전마다 서버(서울 리전)에서
+   데이터베이스 전체를 백업하고, 서버에는 가장 최근 백업 7개만
+   남깁니다(날짜가 지나면 저절로 지워지는 방식이 아니라, 운영진이 오래된
+   것부터 지웁니다). 장애에 대비해 운영진이 백업 사본을 안전한 곳에
+   내려받아 둘 수 있습니다. 서버 밖 자동 백업을 시작하면 이 내용을
+   고칩니다."
+4. CtrlAIApps/CtrlAITube publishing is future tense in privacy §5 and
+   terms §5 (the screens are still mock); the withdrawal 내리기 choice
+   stays present tense (implemented). Privacy §1 adds 의견 보내기 notes
+   (text, page, author; 운영진만), says Google 이메일·이름 are for
+   로그인과 계정 만들기 (name prefills the display name; the verified flag
+   identifies the admin), and that attempt/IP rows are deleted after a
+   day (`rate_limit.RETENTION`). The "커뮤니티에 올린 글과 댓글" claim
+   was dropped (comments are not stored yet). `docs/product.md` routes
+   gain `/privacy` and `/terms`. Tests: the Google refusal now asserts
+   invite uses unchanged and the timestamp's recency; new assertions for
+   the sidebar 개인정보·약관 links (and their absence on the collapsed
+   rail), the LegalPage footer links, and the no-name-change / 7-backups
+   wording; `expire_all()` before re-reading uses so a stale session
+   cannot hide a change; trailing whitespace in
+   `tests/test_sign_in_methods.py` and redundant consent keys in
+   `tests/test_auth.py` cleaned.
 
 ## Self-review notes (for the owner's text review — 운영진 검토 필요)
 
-- Every claim in both documents was checked against the code: the beta's
-  mocks send nothing out, 30-day anonymisation matches the job, charge
-  limits exist as described, backups stay in the same environment,
-  account data is never sent to AI providers (request content only).
+- Every claim in both documents was re-checked against the code after
+  round 2: the beta's mocks send nothing out, 30-day anonymisation
+  matches the job, charge limits exist as described, backups are as in
+  point 3 above, account data is never sent to AI providers (request
+  content only), attempt rows live a day, community screens are future.
 - 약관 §3 says a member who forgot their password should contact the
   운영진 — honest as a contact instruction, but **no member
   password-reset tool exists yet** (`set_admin_password` is admin-only).

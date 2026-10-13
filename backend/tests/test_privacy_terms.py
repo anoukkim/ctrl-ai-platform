@@ -39,8 +39,21 @@ REFUSAL = "개인정보 처리방침과 이용약관에 동의해야 가입할 �
 
 
 def invite_uses(db: Session) -> int:
-    row = db.scalar(select(InviteCode))
-    return row.uses if row else 0
+    """Total uses across codes — each test makes exactly one code."""
+    return sum(row.uses for row in db.scalars(select(InviteCode)))
+
+
+def recent(accepted: datetime | None) -> bool:
+    """Stored, and within the last minute.
+
+    The column is timezone-aware; SQLite hands the value back naive, so
+    the suite treats it as UTC, like every other timestamp here.
+    """
+    if accepted is None:
+        return False
+    if accepted.tzinfo is None:
+        accepted = accepted.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - accepted < timedelta(minutes=1)
 
 
 def test_register_refuses_without_consent_and_spends_nothing(
@@ -59,6 +72,7 @@ def test_register_refuses_without_consent_and_spends_nothing(
     assert db_session.scalar(select(User).where(User.username == "consenting")) is None
     # The code was not consumed and the attempt was not counted as a code
     # failure — the member just has to tick the box.
+    db_session.expire_all()
     assert invite_uses(db_session) == before
 
 
@@ -69,13 +83,7 @@ def test_register_stores_when_consent_was_given(
 
     assert made.status_code == 201, made.text
     user = db_session.query(User).filter_by(username="consenting").one()
-    assert user.terms_accepted_at is not None
-    # The column is timezone-aware; SQLite hands the value back naive, so
-    # the suite treats it as UTC, like every other timestamp here.
-    accepted = user.terms_accepted_at
-    if accepted.tzinfo is None:
-        accepted = accepted.replace(tzinfo=timezone.utc)
-    assert datetime.now(timezone.utc) - accepted < timedelta(minutes=1)
+    assert recent(user.terms_accepted_at)
 
 
 def test_google_signup_refuses_without_consent(
@@ -83,6 +91,7 @@ def test_google_signup_refuses_without_consent(
 ) -> None:
     make_code(db_session)
     google_says(anon_client, start(anon_client), sub="g-consent", email="gc@example.com")
+    before = invite_uses(db_session)
 
     refused = anon_client.post(
         "/api/auth/google/complete",
@@ -92,6 +101,9 @@ def test_google_signup_refuses_without_consent(
     assert refused.status_code == 400
     assert refused.json()["detail"] == REFUSAL
     assert db_session.scalar(select(User).where(User.username == "gconsent")) is None
+    # Like the password path: refusing for consent claims no invite use.
+    db_session.expire_all()
+    assert invite_uses(db_session) == before
 
     made = anon_client.post(
         "/api/auth/google/complete",
@@ -104,4 +116,6 @@ def test_google_signup_refuses_without_consent(
     )
     assert made.status_code == 201, made.text
     user = db_session.query(User).filter_by(username="gconsent").one()
-    assert user.terms_accepted_at is not None
+    assert recent(user.terms_accepted_at)
+    db_session.expire_all()
+    assert invite_uses(db_session) == before + 1

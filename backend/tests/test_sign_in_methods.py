@@ -230,7 +230,8 @@ def test_a_password_member_signs_up_and_signs_in_without_google(
 ) -> None:
     made = anon_client.post(
         "/api/auth/register",
-        json={"terms_accepted": True, 
+        json={
+            "terms_accepted": True,
             "username": "pwmember",
             "email": "pw@example.com",
             "password": NEW_PASSWORD,
@@ -453,7 +454,8 @@ def test_withdrawal_password_guesses_count_towards_the_limit(
 def test_an_email_in_other_case_is_taken(anon_client: TestClient, invite_code, dev_user) -> None:
     made = anon_client.post(
         "/api/auth/register",
-        json={"terms_accepted": True, 
+        json={
+            "terms_accepted": True,
             "username": "copycat",
             "email": dev_user.email.upper(),
             "password": NEW_PASSWORD,

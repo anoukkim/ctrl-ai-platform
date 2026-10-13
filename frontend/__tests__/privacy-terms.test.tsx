@@ -78,6 +78,22 @@ describe("법적 문서 페이지", () => {
     expect(screen.getByText(/틀릴 수 있습니다/)).toBeTruthy();
   });
 
+  test("문서 아래에 두 문서와 로그인으로 가는 링크가 있다", () => {
+    render(<PrivacyPage />);
+    const footer = screen.getByRole("contentinfo");
+    const hrefs = [...footer.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["/privacy", "/terms", "/login"]);
+  });
+
+  test("처리방침은 지금 되는 것만 약속한다", () => {
+    render(<PrivacyPage />);
+    // 회원이 직접 이름을 바꾸는 기능은 없습니다 — 운영진에게 요청합니다.
+    expect(screen.queryByText(/이름 변경 — Profile/)).toBeNull();
+    expect(screen.getByText(/이름 변경, 삭제 요청 등/)).toBeTruthy();
+    // 백업은 사실 그대로: 업데이트 전마다, 최근 7개.
+    expect(screen.getByText(/가장 최근 백업 7개만/)).toBeTruthy();
+  });
+
   test("로그인 없이 볼 수 있는 경로다", () => {
     expect(PUBLIC_PATHS).toContain("/privacy");
     expect(PUBLIC_PATHS).toContain("/terms");
