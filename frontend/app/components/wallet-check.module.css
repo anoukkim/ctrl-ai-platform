@@ -1,0 +1,18 @@
+/* 예상 비용 옆의 지갑 한 줄. 색은 상태 토큰만 씁니다. */
+.check {
+  font-size: var(--fs-chip);
+  color: var(--text-dim);
+}
+
+.ok {
+  color: var(--text-dim);
+}
+
+.personal {
+  color: var(--warn-text);
+}
+
+.short {
+  color: var(--error-text);
+  font-weight: var(--fw-strong);
+}

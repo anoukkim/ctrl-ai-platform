@@ -138,7 +138,7 @@ export default function QuarterAdmin() {
     },
     {
       key: "limit",
-      header: "1인 한도",
+      header: "1인 지원금",
       numeric: true,
       render: (quarter) => formatKrw(quarter.subsidy_limit_krw),
     },
@@ -225,7 +225,7 @@ export default function QuarterAdmin() {
                       effect:
                         quarter.status === "application_open"
                           ? "회원이 더 이상 이 분기에 신청할 수 없습니다. 이미 올라온 신청은 그대로 남아 심사할 수 있습니다."
-                          : "회원이 Profile에서 이 분기에 신청할 수 있게 됩니다. Build/Video 비율은 회원이 정합니다.",
+                          : "회원이 Profile에서 이 분기에 신청할 수 있게 됩니다. 신청 한 번이 1인 지원금 하나를 받습니다.",
                       confirmLabel:
                         quarter.status === "application_open" ? "신청 마감" : "신청 열기",
                       onConfirm: () =>

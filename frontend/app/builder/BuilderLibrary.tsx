@@ -8,22 +8,33 @@
  *
  * 목록은 백엔드에서 가져옵니다. 백엔드가 꺼져 있어도 화면이 깨지지 않고
  * 무엇을 하면 되는지 한국어로 안내합니다.
+ *
+ * Chat에서 "앱 만들어 줘"로 왔다면 새 프로젝트 칸이 아이디어로 채워져
+ * 열리고, "예시 앱까지 만들기"가 켜져 있습니다(chat-builder-starter): 만들기를
+ * 누르면 프로젝트를 만든 뒤 Claude가 작은 예시 앱을 만들고, 작업 공간이
+ * 열리면서 바로 미리보기로 보여 줍니다. 비용은 누르기 전에 보입니다.
  */
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import {
   LIBRARY_FILTERS,
   builderProjectDownloadUrl,
   createBuilderProject,
+  createStarterApp,
   deleteBuilderProject,
+  getStarterEstimate,
   describeError,
   formatRelative,
   listBuilderProjects,
   updateBuilderProject,
   type LibraryFilter,
   type BuilderProject,
+  type StarterEstimate,
 } from "@/lib/projects";
+import WalletCheck from "@/app/components/WalletCheck";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
@@ -33,7 +44,7 @@ import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import { useChatIdea } from "@/app/components/useChatIdea";
-import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
 
@@ -55,6 +66,14 @@ export default function BuilderLibrary() {
   const [newName, setNewName] = useState(() => chatIdea.name);
   const [idea, setIdea] = useState(() => chatIdea.idea);
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  // Chat에서 아이디어를 들고 왔으면 예시 앱까지 만드는 것이 기본입니다.
+  const [withStarter, setWithStarter] = useState(() => chatIdea.idea !== "");
+  const [estimate, setEstimate] = useState<StarterEstimate | null>(null);
+  const [step, setStep] = useState<"project" | "starter" | null>(null);
+  const [starterFailed, setStarterFailed] = useState<{ id: number; message: string } | null>(
+    null,
+  );
   const [query, setQuery] = useState("");
   // 전체 / Draft / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
   // 브라우저 안에서 합니다.
@@ -81,6 +100,22 @@ export default function BuilderLibrary() {
     };
   }, [reloadKey, statusFilter]);
 
+  // 예시 앱의 비용 어림 — 칸이 열려 있을 때만 받습니다.
+  useEffect(() => {
+    if (!creating || estimate !== null) return;
+    let cancelled = false;
+    getStarterEstimate()
+      .then((figures) => {
+        if (!cancelled) setEstimate(figures);
+      })
+      .catch(() => {
+        /* 어림값이 없어도 프로젝트는 만들 수 있습니다 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [creating, estimate]);
+
   const reload = useCallback(() => {
     setState({ phase: "loading" });
     setReloadKey((key) => key + 1);
@@ -91,18 +126,36 @@ export default function BuilderLibrary() {
     if (!name) return;
 
     setBusy(true);
+    setStarterFailed(null);
+    setStep("project");
+    let project: BuilderProject;
     try {
-      await createBuilderProject({ name, description: idea });
-      setNewName("");
-      setIdea("");
-      setCreating(false);
-      reload();
+      project = await createBuilderProject({ name, description: idea });
     } catch (error) {
       setState({ phase: "error", message: describeError(error) });
-    } finally {
       setBusy(false);
+      setStep(null);
+      return;
     }
-  }, [idea, newName, reload]);
+
+    if (withStarter && idea.trim()) {
+      setStep("starter");
+      try {
+        await createStarterApp(project.id, idea);
+      } catch (error) {
+        // 프로젝트는 만들어졌습니다. 이유를 보여 주고, 작업 공간에서 다시
+        // 시도할 수 있게 그 프로젝트로 가는 길을 함께 둡니다.
+        setStarterFailed({ id: project.id, message: describeError(error) });
+        setBusy(false);
+        setStep(null);
+        reload();
+        return;
+      }
+    }
+    setBusy(false);
+    setStep(null);
+    router.push(`/builder/${project.id}`);
+  }, [idea, newName, reload, router, withStarter]);
 
   // 이름 바꾸기는 목록을 다시 받지 않고 그 줄만 고칩니다 — 다시
   // 불러오면 검색·필터가 깜빡이고, 바꾼 줄이 어디로 갔는지 알기
@@ -211,7 +264,11 @@ export default function BuilderLibrary() {
               onClick={() => void create()}
               disabled={!newName.trim() || busy}
             >
-              {busy ? "만드는 중…" : "만들기"}
+              {step === "starter"
+                ? "예시 앱을 만드는 중… (보통 30초~1분)"
+                : busy
+                  ? "만드는 중…"
+                  : "만들기"}
             </button>
             <button
               className="btn btn-outline"
@@ -231,6 +288,33 @@ export default function BuilderLibrary() {
                 Chat에서 가져온 아이디어 — 프로젝트 설명으로 저장됩니다
               </span>
               {idea}
+            </p>
+          )}
+          <label className={styles.createStarter}>
+            <input
+              type="checkbox"
+              checked={withStarter}
+              onChange={(event) => setWithStarter(event.target.checked)}
+              disabled={busy}
+            />
+            <span>
+              예시 앱까지 만들기
+              <span className={styles.createStarterHint}>
+                {idea.trim()
+                  ? estimate
+                    ? ` — Claude가 바로 실행해 볼 수 있는 작은 앱을 만들어요. 약 ${formatKrw(estimate.estimated_krw)} (최대 ${formatKrw(estimate.worst_case_krw)})`
+                    : " — Claude가 바로 실행해 볼 수 있는 작은 앱을 만들어요."
+                  : " — 만들고 싶은 것을 Chat에서 가져오거나, 프로젝트를 연 뒤 적어 주세요."}
+              </span>
+            </span>
+          </label>
+          {withStarter && idea.trim() && estimate && (
+            <WalletCheck costKrw={estimate.worst_case_krw} />
+          )}
+          {starterFailed && (
+            <p className={styles.createError} role="alert">
+              프로젝트는 만들었지만 예시 앱은 만들지 못했습니다. {starterFailed.message}{" "}
+              <Link href={`/builder/${starterFailed.id}`}>프로젝트 열어서 다시 시도 ›</Link>
             </p>
           )}
         </div>

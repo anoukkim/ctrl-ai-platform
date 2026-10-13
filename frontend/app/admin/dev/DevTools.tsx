@@ -30,7 +30,8 @@ export default function DevTools() {
   const { dashboard, refresh } = useAdminQuarter();
 
   const [amount, setAmount] = useState("5000");
-  const [category, setCategory] = useState<"build" | "video">("build");
+  // 어느 제공자에게 쓴 것으로 기록할지. 지갑은 하나라 돈은 같은 곳에서 나갑니다.
+  const [kind, setKind] = useState<"chat" | "video">("chat");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -54,9 +55,9 @@ export default function DevTools() {
     setResult(null);
     try {
       const event = await simulateUsage({
-        category,
         amount_krw: Number(amount.replaceAll(",", "")) || 0,
-        provider: category === "build" ? "claude" : "higgsfield",
+        provider: kind === "chat" ? "claude" : "higgsfield",
+        feature: kind === "chat" ? "chat" : "video_generate",
       });
       setResult({
         kind: "ok",
@@ -82,7 +83,7 @@ export default function DevTools() {
 
         <div className="card">
           <p className="small muted" style={{ marginBottom: "0.7rem" }}>
-            제공자를 부르지 않고 내 예산에서 금액을 차감합니다. 실제 차감 코드를 그대로
+            제공자를 부르지 않고 내 지원금에서 금액을 차감합니다. 실제 차감 코드를 그대로
             지나가므로 Usage 화면과 Audit Log가 함께 바뀝니다.
           </p>
           <div className={styles.simulateRow}>
@@ -90,8 +91,8 @@ export default function DevTools() {
             <div className="segmented" role="radiogroup" aria-label="구분">
               {(
                 [
-                  ["build", "Build (Claude)"],
-                  ["video", "Video (Higgsfield)"],
+                  ["chat", "채팅 (Claude)"],
+                  ["video", "영상 (Higgsfield)"],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -99,8 +100,8 @@ export default function DevTools() {
                   key={value}
                   type="button"
                   role="radio"
-                  aria-checked={category === value}
-                  onClick={() => setCategory(value)}
+                  aria-checked={kind === value}
+                  onClick={() => setKind(value)}
                 >
                   {label}
                 </button>

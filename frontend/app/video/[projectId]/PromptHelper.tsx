@@ -8,8 +8,8 @@
  *
  * 하는 일은 하나, 프롬프트 글을 고쳐 주는 것뿐입니다. 영상을 만들지
  * 않으며 Higgsfield를 부르지도 않습니다 — 백엔드의 `prompt-help`는 Claude
- * 제공자만 부릅니다. 쓸 때마다 Build(Claude) 지원금에서 차감되고, 이
- * 칸이 한 줄로 그렇게 말합니다. 고친 프롬프트는 회원이 "적용"을 눌러야
+ * 제공자만 부릅니다. 쓸 때마다 이번 분기 지원금에서 차감되고(영상과 같은
+ * 지갑), 이 칸이 한 줄로 그렇게 말합니다. 고친 프롬프트는 회원이 "적용"을 눌러야
  * 왼쪽에 들어갑니다.
  */
 
@@ -110,8 +110,8 @@ export default function PromptHelper({ projectId, prompt, mayCreate, onApply, on
         </div>
         <div className={ws.paneBody}>
           <p className={styles.helperCharge}>
-            Claude는 프롬프트 글만 고쳐 주고 영상은 만들지 않습니다. 쓸 때마다 Build(Claude)
-            지원금에서 차감됩니다.
+            Claude는 프롬프트 글만 고쳐 주고 영상은 만들지 않습니다. 쓸 때마다 이번 분기
+            지원금에서 조금씩 차감됩니다.
           </p>
           <div className={ws.chatThread}>
             {messages.length === 0 && (

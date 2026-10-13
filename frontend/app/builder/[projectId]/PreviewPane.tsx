@@ -3,8 +3,8 @@
 /**
  * Builder 미리보기 영역.
  *
- * 여기는 앞으로 실제로 만든 앱이 돌아갈 자리입니다. 지금은 아무것도
- * 실행하지 않지만, 실행기를 끼워 넣을 자리를 미리 정해 두었습니다.
+ * 만든 앱이 돌아가는 자리입니다. 정적 앱(HTML·CSS·JS)은 샌드박스 iframe
+ * 안에서 실행하고(StaticRuntime), 파일이 없으면 안내를 보여 줍니다.
  *
  * ── 실행기 교체 지점 ────────────────────────────────────────────────
  * `PreviewRuntime`이 경계입니다. 이 인터페이스만 지키면 미리보기 구현을
@@ -27,6 +27,8 @@
  */
 
 import { useState } from "react";
+
+import { PREVIEW_SANDBOX, buildSrcdoc } from "@/lib/static-preview";
 
 import styles from "./workspace.module.css";
 
@@ -75,21 +77,66 @@ const MockRuntime: PreviewRuntime = {
   ),
 };
 
-/** 실행기를 붙이면 이 한 줄만 바꿉니다. */
-const ACTIVE_RUNTIME: PreviewRuntime = MockRuntime;
+/**
+ * 정적 앱 실행기 (chat-builder-starter): index.html과 그 CSS·JS를 한 문서로
+ * 묶어 샌드박스 iframe에서 돌립니다. 울타리는 `lib/static-preview.ts`에.
+ * 네트워크도, CTRL+AI의 쿠키도, 다른 창을 여는 것도 막혀 있습니다.
+ */
+const StaticRuntime: PreviewRuntime = {
+  id: "static",
+  label: "안전한 미리보기",
+  available: true,
+  Component: function StaticPreview({ files, entry }) {
+    const srcdoc = buildSrcdoc(files, entry);
+    if (srcdoc === null) {
+      const Placeholder = MockRuntime.Component;
+      return <Placeholder files={files} entry={entry} />;
+    }
+    return (
+      <div className={styles.staticPreview}>
+        <p className={styles.staticPreviewLabel}>
+          Claude가 만든 앱을 이 칸 안에서만 실행합니다. 인터넷 연결과 CTRL+AI 계정에는 닿지
+          않아요. 여기에 비밀번호나 개인 정보를 입력하지 마세요.
+        </p>
+        <iframe
+          className={styles.staticPreviewFrame}
+          sandbox={PREVIEW_SANDBOX}
+          srcDoc={srcdoc}
+          title="앱 미리보기"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    );
+  },
+};
+
+/** 파일이 있으면 정적 실행기, 없으면 안내. */
+function runtimeFor(files: PreviewFiles, entry: string): PreviewRuntime {
+  return files[entry] !== undefined ? StaticRuntime : MockRuntime;
+}
 
 export default function PreviewPane({ files, entry }: PreviewRuntimeProps) {
   const [fullscreen, setFullscreen] = useState(false);
-  const Runtime = ACTIVE_RUNTIME.Component;
+  // 새로 고침: key를 바꾸면 iframe이 처음부터 다시 실행됩니다.
+  const [run, setRun] = useState(0);
+  const runtime = runtimeFor(files, entry);
+  const Runtime = runtime.Component;
 
   return (
     <div className={`${styles.preview} ${fullscreen ? styles.previewFullscreen : ""}`}>
       <div className={styles.previewBar}>
         <span className={styles.previewBarTitle}>
           미리보기
-          <span className="badge badge-mock">{ACTIVE_RUNTIME.label}</span>
+          <span className={`badge ${runtime.available ? "badge-ok" : "badge-mock"}`}>
+            {runtime.label}
+          </span>
         </span>
         <span style={{ flex: "1 1 auto" }} />
+        {runtime.available && (
+          <button className="btn btn-sm" type="button" onClick={() => setRun((n) => n + 1)}>
+            새로 고침
+          </button>
+        )}
         <button
           className="btn btn-sm"
           type="button"
@@ -101,7 +148,7 @@ export default function PreviewPane({ files, entry }: PreviewRuntimeProps) {
       </div>
 
       <div className={styles.previewBody}>
-        <Runtime files={files} entry={entry} />
+        <Runtime key={run} files={files} entry={entry} />
       </div>
     </div>
   );

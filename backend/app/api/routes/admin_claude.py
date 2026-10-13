@@ -49,6 +49,8 @@ def _settings_read(db: Session, settings: Settings) -> ClaudeSettingsRead:
         max_output_tokens=settings.chat_max_output_tokens,
         context_tokens=settings.chat_context_tokens,
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
+        prompt_cache=settings.chat_prompt_cache,
+        cache_ttl=settings.cache_ttl,
         exchange_rate=_rate_read(db, current) if current else None,
         rate_history=[_rate_read(db, row) for row in pricing.rate_history(db)],
     )

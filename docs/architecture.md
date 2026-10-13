@@ -74,12 +74,15 @@ the same commit that adds it.
 | `POST /api/chat/conversations` | **`require_active_member`** | Creating |
 | `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
 | `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
-| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends Build budget |
+| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/builder/projects/{id}` | **`require_active_member`** | Editing |
 | `DELETE /api/builder/projects/{id}` | **`require_active_member`** | Changing your work |
+| `GET /api/builder/projects/{id}/files` | `get_current_user` | Reading your own work |
+| `GET /api/builder/starter-estimate` | `get_current_user` | A price, nothing spent |
+| `POST /api/builder/projects/{id}/starter` | **`require_active_member`** | Claude writes a starter app — spends the wallet |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |
@@ -87,9 +90,9 @@ the same commit that adds it.
 | `POST /api/video/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/video/projects/{id}` | **`require_active_member`** | Editing |
 | `POST /api/video/projects/{id}/versions` | **`require_active_member`** | Generating — spends budget |
-| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends Video budget |
-| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends Video budget |
-| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends Build budget |
+| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends the wallet |
+| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends the wallet |
+| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends the wallet |
 | `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work |
 | `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
@@ -109,7 +112,8 @@ the same commit that adds it.
 | `POST /api/admin/applications/{id}/review` | `require_admin` | Approving writes the allocation |
 | `GET /api/admin/quarters/{id}/members` | `require_admin` | |
 | `PUT /api/admin/quarters/{id}/members/{user_id}` | `require_admin` | |
-| `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | |
+| `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | Sets a member's one wallet |
+| `GET /api/admin/quarters/{id}/budget` | `require_admin` | Admin › Budget: wallets and spend by provider, read-only |
 | `PUT /api/admin/members/{user_id}/role` | `require_admin` | |
 | `GET /api/admin/top-ups` | `require_admin` | |
 | `POST /api/admin/top-ups/{id}/confirm` | `require_admin` | |
@@ -122,7 +126,10 @@ the same commit that adds it.
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/quarters-with-stats` | `require_admin` | Read-only; every quarter with its figures |
 | `GET /api/admin/claude-pricing` | `require_admin` | Claude prices, exchange rate, chat limits |
-| `PUT /api/admin/claude-pricing/models/{model_id}` | `require_admin` | Audited |
+| `GET /api/admin/chat-models` | `require_admin` | The Claude model catalogue |
+| `POST /api/admin/chat-models` | `require_admin` | Audited |
+| `PATCH /api/admin/chat-models/{id}` | `require_admin` | Audited (prices incl. cache-read price) |
+| `GET /api/admin/chat-models/calibration` | `require_admin` | Cost calibration: estimates vs real replies, read-only |
 | `POST /api/admin/claude-pricing/exchange-rate` | `require_admin` | A new rate row; history kept; audited |
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |

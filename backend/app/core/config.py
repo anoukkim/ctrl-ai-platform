@@ -48,11 +48,12 @@ class Settings(BaseSettings):
     # simple (a list-typed field would require JSON syntax there).
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
-    # Default community subsidy per member per quarter, in KRW. Each
-    # quarter stores its own limit, copied from this when it is created,
+    # Default 동아리 지원 per participating member per quarter, in KRW —
+    # the one wallet every paid feature spends from (single-wallet). Each
+    # quarter stores its own amount, copied from this when it is created,
     # so an admin can change it for a future quarter without touching
     # code and without altering quarters that already ran.
-    quarterly_subsidy_limit_krw: int = 100_000
+    quarterly_subsidy_limit_krw: int = 80_000
 
     # ---------- Session cookie ----------
     # Every flag comes from the environment so production can tighten them
@@ -116,13 +117,30 @@ class Settings(BaseSettings):
     # The most a single reply may produce, thinking included.
     chat_max_output_tokens: int = 4096
     # The most conversation history sent with one message, in (estimated)
-    # input tokens. The oldest messages are dropped first.
+    # input tokens. The oldest messages are dropped first — at fixed cut
+    # points, so the cached prefix stays the same for many turns.
     chat_context_tokens: int = 16_000
     # Seconds to wait for Claude before giving up on a reply.
     chat_timeout_seconds: float = 60.0
     # The mock provider's pause between streamed chunks, so the typing
     # effect is visible locally. Tests set it to 0.
     chat_mock_delay_ms: int = 25
+
+    # Prompt caching (prompt-caching, 2026-10-13). Each Chat request marks
+    # the system prompt and the conversation so far as cacheable; the next
+    # turn re-reads them at the cache-read price (about a tenth of the
+    # input price) instead of paying for them again. Off sends no marker.
+    chat_prompt_cache: bool = True
+    # "5m" (writes cost 1.25x the input price) or "1h" (2x). A cache read
+    # refreshes the timer, so 5m stays warm while a member keeps chatting;
+    # 1h only pays off for pauses of 5-60 minutes.
+    chat_cache_ttl: str = "5m"
+
+    # Project Builder's starter app (chat-builder-starter): the most one
+    # generation may write, and how long to wait for it. 8,000 tokens is a
+    # small app of a few hundred lines; the pre-check reserves all of it.
+    builder_max_output_tokens: int = 8000
+    builder_timeout_seconds: float = 120.0
 
     # Messages one member may send per minute, across all conversations.
     # Protects the budget from a stuck key or a runaway script.
@@ -134,6 +152,13 @@ class Settings(BaseSettings):
     admin_username: str = ""
     admin_email: str = ""
     admin_password: str = ""
+
+    @property
+    def cache_ttl(self) -> str | None:
+        """The TTL to send ("5m" / "1h"), or None when caching is off."""
+        if not self.chat_prompt_cache:
+            return None
+        return "1h" if self.chat_cache_ttl.strip().lower() == "1h" else "5m"
 
     @property
     def is_development(self) -> bool:

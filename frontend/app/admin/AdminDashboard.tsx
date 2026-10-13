@@ -153,7 +153,7 @@ export default function AdminDashboard() {
                   : "기간 미정"}
               </span>
               <span className="small muted">
-                1인 한도 {formatKrw(selected.subsidy_limit_krw)}
+                1인 지원금 {formatKrw(selected.subsidy_limit_krw)}
               </span>
             </div>
 
@@ -296,7 +296,11 @@ function SectionCard({
           : "충전 요청 없음",
       pending: figures.pending_top_ups,
     },
-    budget: { text: "다음 작업에서 추가합니다" },
+    budget: {
+      text: figures.quarter
+        ? `${figures.quarter.display_name} · 1인 ${formatKrw(figures.quarter.subsidy_limit_krw)}`
+        : "분기 없음",
+    },
     "video-models": {
       text: `회원에게 공개 ${figures.video_models_member_visible} / 전체 ${figures.video_models_total}`,
     },

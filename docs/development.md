@@ -160,7 +160,7 @@ secret.
 
 ### Claude in Chat
 
-The mock streams canned Korean replies and charges the Build budget as if
+The mock streams canned Korean replies and charges the member's wallet as if
 it were the conversation's chosen model (chat-model-choice: Sonnet 5.5 by
 default, Haiku 4.5 if the member picks it), so the ledger and the budget
 behave as they will for real. The model comes from the catalogue in
@@ -178,7 +178,18 @@ put a marker in a message:
 | `[mock-refusal]` | Claude declining |
 
 A failed call is never charged. The real adapter's tests talk to a fake
-transport inside the test process — no test contacts Anthropic.
+transport inside the test process — no test contacts Anthropic. **The test
+suite blanks every provider credential and forces every provider to
+`mock`** (`tests/conftest.py`), because Settings also read `.env`: once a
+real key is there, a test that switches Claude to `anthropic` without a
+fake transport would otherwise call the paid API — which happened twice on
+2026-10-13 before this guard existed (two short prompt-helper calls).
+
+The mock also simulates **prompt caching** (`MockPromptCache`): the first
+reply in a conversation writes the cache, later replies read it, entries
+expire after the TTL and are per model, and prompts under a model's minimum
+(512 tokens; Haiku 4.5: 4,096) are not cached — so the ledger's three input
+prices are exercised without a key.
 
 The chat settings are `CHAT_*`, not `CLAUDE_*`, on purpose: **Claude Code
 sets `CLAUDE_EFFORT` in its own terminals**, and a backend started from one
@@ -284,7 +295,7 @@ ctrl-ai-platform/
 │  │  ├─ db/                  # base.py, session.py, init_db.py
 │  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
-│  │  ├─ services/            # budget split, wallet, admin stats, providers
+│  │  ├─ services/            # usage (the one wallet), quarter budget, admin stats, providers
 │  │  └─ main.py              # FastAPI app, CORS
 │  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite

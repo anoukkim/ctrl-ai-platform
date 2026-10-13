@@ -582,3 +582,28 @@
 .createIdeaVideo .createIdeaLabel {
   color: var(--video-text);
 }
+
+/* 새 프로젝트 칸의 "예시 앱까지 만들기" (chat-builder-starter). */
+.createStarter {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+.createStarter input {
+  margin-top: 0.2rem;
+}
+
+.createStarterHint {
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+}
+
+.createError {
+  margin-top: 0.5rem;
+  color: var(--error-text);
+  font-size: var(--fs-chip);
+}

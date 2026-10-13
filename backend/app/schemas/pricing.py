@@ -21,12 +21,16 @@ class ChatModelAdminRead(BaseModel):
     description: str
     input_usd_per_mtok: Decimal
     output_usd_per_mtok: Decimal
+    #: Null means a tenth of the input price.
+    cache_read_usd_per_mtok: Decimal | None = None
     visibility: ChatModelVisibility
     is_default: bool
     sort_order: int
     updated_at: datetime
     #: The same "답장 1회 약 N원" members see in the picker.
     estimated_reply_krw: int | None = None
+    estimate_basis: str = "formula"
+    estimate_samples: int = 0
 
 
 class ChatModelCreate(BaseModel):
@@ -38,6 +42,10 @@ class ChatModelCreate(BaseModel):
     # than describe any real price.
     input_usd_per_mtok: Decimal = Field(gt=0, le=1000, decimal_places=4)
     output_usd_per_mtok: Decimal = Field(gt=0, le=1000, decimal_places=4)
+    #: Omit for a tenth of the input price.
+    cache_read_usd_per_mtok: Decimal | None = Field(
+        default=None, ge=0, le=1000, decimal_places=4
+    )
     #: New models start closed: an admin opens one on purpose.
     visibility: ChatModelVisibility = ChatModelVisibility.DISABLED
     sort_order: int = Field(default=100, ge=0, le=10000)
@@ -51,6 +59,9 @@ class ChatModelUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=200)
     input_usd_per_mtok: Decimal | None = Field(default=None, gt=0, le=1000, decimal_places=4)
     output_usd_per_mtok: Decimal | None = Field(default=None, gt=0, le=1000, decimal_places=4)
+    cache_read_usd_per_mtok: Decimal | None = Field(
+        default=None, ge=0, le=1000, decimal_places=4
+    )
     visibility: ChatModelVisibility | None = None
     sort_order: int | None = Field(default=None, ge=0, le=10000)
     is_default: bool | None = None
@@ -82,5 +93,29 @@ class ClaudeSettingsRead(BaseModel):
     max_output_tokens: int
     context_tokens: int
     rate_limit_per_minute: int
+    #: CHAT_PROMPT_CACHE / CHAT_CACHE_TTL. `cache_ttl` is None when off.
+    prompt_cache: bool = True
+    cache_ttl: str | None = "5m"
     exchange_rate: ExchangeRateRead | None
     rate_history: list[ExchangeRateRead]
+
+
+class ModelCalibrationRead(BaseModel):
+    """Admin › Claude Models › 비용 보정: estimate vs reality, per model."""
+
+    model_id: str
+    label: str
+    samples: int
+    #: True once there are enough replies for the figures to be used.
+    calibrated: bool
+    input_ratio: float | None
+    #: What the pre-check now multiplies the character count by (≤ 1).
+    input_factor: float
+    avg_prompt_tokens: float | None
+    avg_estimated_tokens: float | None
+    avg_output_tokens: float | None
+    avg_reply_krw: float | None
+    median_reply_krw: int | None
+    #: The formula's figure, to compare with the median.
+    formula_reply_krw: int | None
+    cache_hit_rate: float | None

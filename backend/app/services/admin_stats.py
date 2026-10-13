@@ -129,7 +129,7 @@ def application_stats(db: Session, quarter_id: int | None) -> ApplicationStats:
 
     requested = _scalar(
         db,
-        select(func.coalesce(func.sum(QuarterApplication.requested_total_budget_krw), 0)).where(
+        select(func.coalesce(func.sum(QuarterApplication.requested_budget_krw), 0)).where(
             QuarterApplication.quarter_id == quarter_id
         ),
     )

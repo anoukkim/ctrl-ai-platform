@@ -74,21 +74,13 @@ def test_dashboard_counts_match_the_database(
             QuarterApplication(
                 user_id=other_user.id,
                 quarter_id=quarter.id,
-                build_percentage=70,
-                video_percentage=30,
-                requested_total_budget_krw=100_000,
-                requested_build_budget_krw=70_000,
-                requested_video_budget_krw=30_000,
+                requested_budget_krw=100_000,
                 status=ApplicationStatus.SUBMITTED,
             ),
             QuarterApplication(
                 user_id=dev_user.id,
                 quarter_id=quarter.id,
-                build_percentage=100,
-                video_percentage=0,
-                requested_total_budget_krw=100_000,
-                requested_build_budget_krw=100_000,
-                requested_video_budget_krw=0,
+                requested_budget_krw=100_000,
                 status=ApplicationStatus.APPROVED,
             ),
             PersonalTopUp(
@@ -210,7 +202,7 @@ def test_dev_flag_follows_the_environment(client: TestClient, monkeypatch) -> No
         assert client.get("/api/admin/dashboard").json()["is_development"] is False
         # And the simulator it guards really is gone.
         simulated = client.post(
-            "/api/admin/simulate-usage", json={"category": "build", "amount_krw": 1000}
+            "/api/admin/simulate-usage", json={"amount_krw": 1000}
         )
         assert simulated.status_code == 404
     finally:
@@ -277,11 +269,7 @@ def test_member_detail_carries_the_approved_allocation(
     application = QuarterApplication(
         user_id=other_user.id,
         quarter_id=quarter.id,
-        build_percentage=70,
-        video_percentage=30,
-        requested_total_budget_krw=100_000,
-        requested_build_budget_krw=70_000,
-        requested_video_budget_krw=30_000,
+        requested_budget_krw=100_000,
         status=ApplicationStatus.SUBMITTED,
     )
     db_session.add(application)
@@ -295,9 +283,8 @@ def test_member_detail_carries_the_approved_allocation(
 
     row = client.get(f"/api/admin/members/{other_user.id}").json()["quarters"][0]
     assert row["application"]["status"] == "approved"
-    assert row["allocation"]["build_budget_krw"] == 70_000
-    assert row["allocation"]["video_budget_krw"] == 30_000
-    assert row["allocation"]["build_remaining_krw"] == 70_000
+    assert row["allocation"]["budget_krw"] == 100_000
+    assert row["allocation"]["remaining_krw"] == 100_000
     # Approving also writes the membership row.
     assert row["membership_status"] == "active"
 
@@ -314,11 +301,7 @@ def test_member_detail_collects_that_members_audit_trail(
     application = QuarterApplication(
         user_id=other_user.id,
         quarter_id=quarter.id,
-        build_percentage=50,
-        video_percentage=50,
-        requested_total_budget_krw=100_000,
-        requested_build_budget_krw=50_000,
-        requested_video_budget_krw=50_000,
+        requested_budget_krw=100_000,
         status=ApplicationStatus.SUBMITTED,
     )
     db_session.add(application)
@@ -334,7 +317,7 @@ def test_member_detail_collects_that_members_audit_trail(
     assert (
         client.put(
             f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}",
-            json={"build_budget_krw": 60_000, "video_budget_krw": 40_000},
+            json={"budget_krw": 60_000},
         ).status_code
         == 200
     )

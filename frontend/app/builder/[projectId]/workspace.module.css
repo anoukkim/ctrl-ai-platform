@@ -262,6 +262,30 @@
   background: var(--bg);
 }
 
+/* 정적 앱 미리보기 — 안내 한 줄과 iframe. 바탕은 브라우저 기본처럼 흰색
+   (--preview-canvas)이어서, 배경을 정하지 않은 앱도 만든 그대로 보입니다. */
+.staticPreview {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 18rem;
+}
+
+.staticPreviewLabel {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-chip);
+  color: var(--text-dim);
+}
+
+.staticPreviewFrame {
+  width: 100%;
+  height: 100%;
+  min-height: 16rem;
+  border: 0;
+  background: var(--preview-canvas);
+}
+
 .previewPlaceholder {
   display: grid;
   align-content: center;
@@ -339,4 +363,49 @@
   .codeScroll {
     max-height: 20rem;
   }
+}
+
+/* ---------- 예시 앱 만들기 (빈 프로젝트) ---------- */
+
+.starter {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.starterTitle {
+  font-size: var(--fs-section);
+  font-weight: var(--fw-strong);
+}
+
+.starterText {
+  color: var(--text-muted);
+  font-size: var(--fs-body);
+  line-height: 1.55;
+}
+
+.starterIdea {
+  width: 100%;
+  resize: vertical;
+}
+
+.starterActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.starterCost {
+  font-family: var(--mono);
+  font-size: var(--fs-chip);
+  color: var(--text-muted);
+}
+
+.starterError {
+  color: var(--error-text);
+  font-size: var(--fs-chip);
 }

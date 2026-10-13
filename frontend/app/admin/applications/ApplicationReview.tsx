@@ -202,24 +202,10 @@ export default function ApplicationReview() {
       ),
     },
     {
-      key: "build",
-      header: "Build",
+      key: "amount",
+      header: "신청 금액",
       numeric: true,
-      render: (application) =>
-        `${application.build_percentage}% · ${formatKrw(application.requested_build_budget_krw)}`,
-    },
-    {
-      key: "video",
-      header: "Video",
-      numeric: true,
-      render: (application) =>
-        `${application.video_percentage}% · ${formatKrw(application.requested_video_budget_krw)}`,
-    },
-    {
-      key: "total",
-      header: "합계",
-      numeric: true,
-      render: (application) => formatKrw(application.requested_total_budget_krw),
+      render: (application) => formatKrw(application.requested_budget_krw),
     },
     {
       key: "status",
@@ -268,7 +254,7 @@ export default function ApplicationReview() {
             )
           )}
         </span>
-        <span className="small muted">1인 한도 {formatKrw(selected.subsidy_limit_krw)}</span>
+        <span className="small muted">1인 지원금 {formatKrw(selected.subsidy_limit_krw)}</span>
         <Link className={styles.quarterLineLink} href={withQuarter("/admin/quarters", selected.id)}>
           Quarters에서 바꾸기 ›
         </Link>
@@ -364,11 +350,9 @@ export default function ApplicationReview() {
                   onClick={() =>
                     setConfirm({
                       title: `참여 신청 승인 — ${application.display_name}`,
-                      effect: `신청한 그대로 Build ${formatKrw(
-                        application.requested_build_budget_krw,
-                      )}, Video ${formatKrw(
-                        application.requested_video_budget_krw,
-                      )}의 지원금이 만들어지고, ${application.display_name}이(가) ${
+                      effect: `신청한 그대로 동아리 지원 ${formatKrw(
+                        application.requested_budget_krw,
+                      )}의 지갑이 만들어지고, ${application.display_name}이(가) ${
                         selected.display_name
                       }에 참여하게 됩니다.`,
                       confirmLabel: "승인",

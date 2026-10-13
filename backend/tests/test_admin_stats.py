@@ -27,7 +27,6 @@ from sqlalchemy.orm import Session
 from app.models import (
     AccountStatus,
     ApplicationStatus,
-    BudgetCategory,
     FundingSource,
     MembershipStatus,
     Quarter,
@@ -79,11 +78,7 @@ def make_application(db: Session, user_id: int, quarter_id: int, status: Applica
     row = QuarterApplication(
         user_id=user_id,
         quarter_id=quarter_id,
-        build_percentage=60,
-        video_percentage=40,
-        requested_total_budget_krw=100_000,
-        requested_build_budget_krw=60_000,
-        requested_video_budget_krw=40_000,
+        requested_budget_krw=100_000,
         status=status,
     )
     db.add(row)
@@ -95,8 +90,7 @@ def make_usage(db: Session, user_id: int, quarter_id: int, amount: int = 1_000):
     row = UsageEvent(
         user_id=user_id,
         quarter_id=quarter_id,
-        category=BudgetCategory.BUILD,
-        funding_source=FundingSource.COMMUNITY_BUILD,
+        funding_source=FundingSource.COMMUNITY,
         provider="claude",
         charged_krw=amount,
     )

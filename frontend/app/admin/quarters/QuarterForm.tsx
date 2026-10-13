@@ -29,8 +29,8 @@ export interface QuarterInput {
   subsidy_limit_krw: number | null;
 }
 
-/** 분기 하나의 기본 지원 한도. 백엔드 설정값과 같은 숫자입니다. */
-const DEFAULT_LIMIT = 100_000;
+/** 분기의 기본 1인 지원금. 백엔드 설정값(QUARTERLY_SUBSIDY_LIMIT_KRW)과 같은 숫자입니다. */
+const DEFAULT_LIMIT = 80_000;
 
 /** "2026-Q1" 또는 "2026Q1" 꼴인지. 코드로 분기를 찾는 곳이 여럿입니다. */
 const CODE_PATTERN = /^\d{4}-?Q[1-4]$/i;
@@ -87,7 +87,7 @@ export default function QuarterForm({
     }
 
     if (!limit.trim() || Number.isNaN(limitKrw) || limitKrw < 0) {
-      found.limit = "1인 한도를 0 이상의 숫자로 적어 주세요.";
+      found.limit = "1인 지원금을 0 이상의 숫자로 적어 주세요.";
     }
 
     return found;
@@ -115,7 +115,7 @@ export default function QuarterForm({
       (input.application_opens_at
         ? `신청은 ${input.application_opens_at} – ${input.application_closes_at}, `
         : "신청 기간은 아직 정하지 않았고, ") +
-      `1인 한도는 ${formatKrw(limitKrw)}입니다. ` +
+      `참여 회원 한 명의 지원금은 ${formatKrw(limitKrw)}입니다. ` +
       "분기는 준비 상태로 만들어지며, 신청은 따로 열어야 합니다.";
 
     onSubmit(input, summary);
@@ -200,8 +200,8 @@ export default function QuarterForm({
 
         <Field
           htmlFor="quarter-limit"
-          label="1인 한도 (원)"
-          hint="한 회원이 이 분기에 받을 수 있는 동아리 지원금의 최대입니다."
+          label="1인 지원금 (원)"
+          hint="참여 신청 한 번이 받는 금액입니다. 채팅·영상 등 모든 기능이 이 지갑 하나에서 씁니다. 나중에 바꿔도 이미 승인된 지갑은 그대로입니다."
           error={errorFor("limit")}
         >
           <input

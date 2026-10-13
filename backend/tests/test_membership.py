@@ -221,7 +221,6 @@ def test_approving_an_application_makes_the_member_active(
     )
     application = client.post(
         f"/api/quarters/{quarter_row.id}/apply",
-        json={"build_percentage": 50, "video_percentage": 50},
     )
     assert application.status_code == 201
 

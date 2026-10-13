@@ -67,7 +67,8 @@ import BrandMark from "./BrandMark";
 import ChatModelPicker from "./ChatModelPicker";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
-import { useMayCreate } from "./MyQuarterProvider";
+import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
+import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 
 /** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
@@ -129,6 +130,8 @@ const STATUS_NOTE: Partial<Record<ChatMessageStatus, string>> = {
 
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
+  // 답장이 끝날 때마다 사이드바의 지갑을 새로 읽습니다 — 같은 지갑입니다.
+  const { refresh: refreshQuarter } = useMyQuarter();
 
   const [info, setInfo] = useState<ChatInfo | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -366,8 +369,9 @@ export default function ChatWorkspace() {
       abortRef.current = null;
       setStreaming(false);
       void refreshList();
+      void refreshQuarter();
     }
-  }, [activeId, chosenModelId, draft, mayCreate, refreshList, streaming]);
+  }, [activeId, chosenModelId, draft, mayCreate, refreshList, refreshQuarter, streaming]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -631,6 +635,9 @@ export default function ChatWorkspace() {
                   onChange={(model) => void chooseModel(model)}
                   disabled={!mayCreate || streaming}
                 />
+                {mayCreate && (
+                  <WalletCheck costKrw={selectedModel?.estimated_reply_krw ?? null} />
+                )}
               </div>
             )}
             <label className="sr-only" htmlFor={inputId}>

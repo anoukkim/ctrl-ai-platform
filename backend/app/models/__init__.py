@@ -16,7 +16,6 @@ from app.models.provider import (
 from app.models.pricing import ChatModel, ChatModelVisibility, ExchangeRate
 from app.models.quarter import (
     ApplicationStatus,
-    BudgetCategory,
     Quarter,
     QuarterAllocation,
     QuarterApplication,
@@ -57,7 +56,6 @@ __all__ = [
     "PublishedWorkChoice",
     "RefundStatus",
     "ApplicationStatus",
-    "BudgetCategory",
     "BuilderProject",
     "BuilderProjectFile",
     "BuilderProjectStatus",

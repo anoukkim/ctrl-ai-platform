@@ -28,8 +28,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import AuditAction, ChatModel, ChatModelVisibility, User
-from app.schemas.pricing import ChatModelAdminRead, ChatModelCreate, ChatModelUpdate
-from app.services import audit, chat_models, pricing
+from app.schemas.pricing import (
+    ChatModelAdminRead,
+    ChatModelCreate,
+    ChatModelUpdate,
+    ModelCalibrationRead,
+)
+from app.services import audit, calibration, chat_models, pricing
 
 router = APIRouter(prefix="/admin/chat-models", tags=["admin"])
 
@@ -48,6 +53,7 @@ _AUDITED = (
     "description",
     "input_usd_per_mtok",
     "output_usd_per_mtok",
+    "cache_read_usd_per_mtok",
     "visibility",
     "sort_order",
     "is_default",
@@ -56,9 +62,10 @@ _AUDITED = (
 
 def _read(row: ChatModel, db: Session) -> ChatModelAdminRead:
     result = ChatModelAdminRead.model_validate(row)
-    result.estimated_reply_krw = pricing.typical_reply_krw(
-        chat_models.ChosenModel.of(row), pricing.current_rate(db)
-    )
+    estimate = pricing.reply_estimate(db, chat_models.ChosenModel.of(row), pricing.current_rate(db))
+    result.estimated_reply_krw = estimate.krw
+    result.estimate_basis = estimate.basis
+    result.estimate_samples = estimate.samples
     return result
 
 
@@ -85,6 +92,40 @@ def list_chat_models(
     _: User = Depends(require_admin),
 ) -> list[ChatModelAdminRead]:
     return [_read(row, db) for row in chat_models.all_models(db)]
+
+
+@router.get(
+    "/calibration",
+    response_model=list[ModelCalibrationRead],
+    summary="Estimates against real replies, per model (cost-calibration)",
+)
+def read_calibration(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[ModelCalibrationRead]:
+    """Read-only. Built from the ledger; nothing calls a provider."""
+    rate = pricing.current_rate(db)
+    rows = []
+    for row in chat_models.all_models(db):
+        measured = calibration.for_model(db, row.model_id)
+        rows.append(
+            ModelCalibrationRead(
+                model_id=row.model_id,
+                label=row.label,
+                samples=measured.samples,
+                calibrated=measured.calibrated,
+                input_ratio=measured.input_ratio,
+                input_factor=measured.input_factor,
+                avg_prompt_tokens=measured.avg_prompt_tokens,
+                avg_estimated_tokens=measured.avg_estimated_tokens,
+                avg_output_tokens=measured.avg_output_tokens,
+                avg_reply_krw=measured.avg_reply_krw,
+                median_reply_krw=measured.median_reply_krw,
+                formula_reply_krw=pricing.typical_reply_krw(chat_models.ChosenModel.of(row), rate),
+                cache_hit_rate=measured.cache_hit_rate,
+            )
+        )
+    return rows
 
 
 @router.post(
@@ -120,6 +161,7 @@ def create_chat_model(
         description=payload.description.strip(),
         input_usd_per_mtok=payload.input_usd_per_mtok,
         output_usd_per_mtok=payload.output_usd_per_mtok,
+        cache_read_usd_per_mtok=payload.cache_read_usd_per_mtok,
         visibility=payload.visibility,
         is_default=False,
         sort_order=payload.sort_order,
@@ -190,6 +232,8 @@ def update_chat_model(
                 f"요금 입력 ${row.input_usd_per_mtok} · 출력 ${row.output_usd_per_mtok} "
                 "(100만 토큰당)"
             )
+        if "cache_read_usd_per_mtok" in changed:
+            parts.append(f"캐시 읽기 ${row.cache_read_usd_per_mtok} (100만 토큰당)")
         if "visibility" in changed:
             parts.append(VISIBILITY_LABEL[row.visibility])
         if "is_default" in changed:

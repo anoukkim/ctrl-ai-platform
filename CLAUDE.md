@@ -48,6 +48,7 @@ answered them, and they are no longer up for debate:
 | Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
 | Roles | **`admin` and `member` only.** |
+| Quarter support | **One 동아리 지원 wallet per member per quarter** (decided by the owner 2026-10-08, `single-wallet`) — 80,000원 by default, set per quarter. Chat, video and every other paid feature spend from it; there is no Build/Video split. The club still buys credit per provider, forecast from usage by provider. See sections 9 and 10. |
 | Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
 
 Remaining names in this document are working names and may still change.
@@ -459,19 +460,15 @@ Members should easily see what they have left.
 Example:
 
 ```text
-2026 Q1
+2026 Q4
 
 동아리 지원
+이번 분기 지원금 80,000원 중 52,300원 남음
 
-Build
-지원: 70,000원
-사용: 24,500원
-남음: 45,500원
-
-Video
-지원: 30,000원
-사용: 12,000원
-남음: 18,000원
+어디에 썼나요 (참고용)
+채팅  12,200원
+영상  15,000원
+기타     500원
 
 개인 잔액
 
@@ -480,13 +477,21 @@ Video
 남은 개인 잔액: 25,000원
 ```
 
-**KRW is the financial source of truth.** Budgets are stored in won, never
+**One wallet** (`single-wallet`, 2026-10-08). A member has one 동아리 지원
+balance per quarter and every paid feature spends from it. The 채팅 / 영상 /
+기타 lines are information only, never limits. What each charge was for —
+provider, feature, model, native units — is on the usage event, which is how
+the club still sees its spend per provider.
+
+**KRW is the financial source of truth.** Wallets are stored in won, never
 in tokens or generations: provider prices change, and an approved
-allocation must not move when they do. A provider-specific quota may be
+wallet must not move when they do. A provider-specific quota may be
 *displayed* using the pricing captured at approval time.
 
 Club support and personal money are shown separately and never added
-together. Personal funds are not part of the quarterly subsidy.
+together. Personal funds are not part of the quarterly subsidy. The wallet
+is spent first; personal money only when the member has opted in and has
+enough for the whole charge — one charge is never split between the two.
 
 The member-facing label is **동아리 지원** — the club's support — and
 personal money is **개인 충전**. Earlier drafts said 공동체 지원; the
@@ -534,25 +539,18 @@ A user does not receive quarterly credits by existing. The flow is:
 ```text
 Admin opens applications for a Quarter
   -> user sees applications are open in Profile
-  -> user applies, splitting their budget between Build and Video
+  -> user presses 이번 분기 참여 (nothing to choose)
   -> admin reviews and approves
-  -> the approved allocation becomes usable
+  -> the user's 동아리 지원 wallet for the quarter exists
 ```
 
-The Build and Video percentages must add up to exactly 100%.
+## Quarter support amount
 
-## Quarterly subsidy limit
-
-Each approved member may receive at most **100,000 KRW per quarter** of
-club-funded budget, combined across Build and Video.
-
-```text
-Build 100% / Video   0%  =  100,000 /       0
-Build  70% / Video  30%  =   70,000 /  30,000
-Build  50% / Video  50%  =   50,000 /  50,000
-Build  20% / Video  80%  =   20,000 /  80,000
-Build   0% / Video 100%  =        0 / 100,000
-```
+Each approved member receives **one wallet of 80,000 KRW per quarter** by
+default (`single-wallet`, 2026-10-08), spent by Chat, video and every other
+paid feature. There is no Build/Video split and no percentage. (Until
+2026-10-08 members split up to 100,000 KRW between Build and Video; the
+migration `e8a4c2f6b1d7` summed those into one wallet.)
 
 This figure is NOT a constant scattered through the code. The default
 lives in configuration; each Quarter copies it at creation and keeps its
@@ -678,15 +676,15 @@ Admin features should eventually include:
 - create quarter
 - start/end dates
 - application open/close dates
-- subsidy limit for the quarter
+- 1인 지원금 — the wallet amount for the quarter (`subsidy_limit_krw`)
 - open and close applications
 - status
 
 ## Quarter applications
 - view applicants
-- review the requested Build/Video split
+- review who applied (each for the quarter's one amount)
 - approve or reject
-- approving creates the allocation
+- approving creates the member's wallet
 
 ## Credit Allocation
 Admin should be able to open a member and assign resources.
@@ -698,16 +696,20 @@ Example:
 
 Quarter: 2026 Q1
 
-Requested:
-Build  70%  =  70,000원
-Video  30%  =  30,000원
+신청 금액: 80,000원 (동아리 지원)
 
 [ 승인 ]  [ 거절 ]
 ```
 
-Admin normally approves the requested split as submitted. The approved
-allocation copies the requested figures, so a later change to the
-quarter's subsidy limit cannot move an allocation that already exists.
+Admin normally approves as submitted. The wallet copies the requested
+amount, so a later change to the quarter's amount cannot move a wallet that
+already exists; an admin adjusts one member's wallet from member detail.
+
+## Budget
+Every member's wallet in a quarter and the quarter's spend **by provider**
+(wallet and personal money, provider cost, native units, share). The club
+buys credit per provider and cannot move it afterwards, so this is what the
+club leader reads before the next purchase.
 
 This is preferable to putting raw provider API keys in member accounts.
 
@@ -769,11 +771,7 @@ This is direction, not a requirement to implement everything immediately.
 - id
 - user_id
 - quarter_id
-- build_percentage
-- video_percentage
-- requested_total_budget_krw
-- requested_build_budget_krw
-- requested_video_budget_krw
+- requested_budget_krw (the quarter's amount when applying)
 - status: draft | submitted | approved | rejected | cancelled
 - submitted_at
 - reviewed_at
@@ -786,13 +784,8 @@ One live application per user per quarter.
 - id
 - user_id
 - quarter_id
-- community_total_budget_krw
-- build_budget_krw
-- video_budget_krw
-- build_percentage
-- video_percentage
-- build_consumed_krw
-- video_consumed_krw
+- budget_krw (the one 동아리 지원 wallet)
+- consumed_krw
 - pricing_snapshot (provider prices captured at approval)
 - approved_at
 - approved_by
@@ -818,9 +811,9 @@ One live application per user per quarter.
 - id
 - user_id
 - quarter_id
-- category: build | video
-- funding_source: community_build | community_video | personal
+- funding_source: community | personal
 - provider
+- feature: chat | build | video_prompt | video_generate | video_edit | video_extend
 - model_id
 - provider_units / provider_unit
 - provider_cost / provider_currency
@@ -938,7 +931,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its eleven sections are named in English too:
+and its twelve sections are named in English too:
 
 ```text
 Admin
@@ -947,6 +940,7 @@ Admin
   Applications
   Quarters
   Top-ups
+  Budget
   Video Models
   Claude Models
   Deleted Items
@@ -960,8 +954,8 @@ soft — the row keeps its `deleted_at` and every member route answers 404 —
 and a soft delete with no way back would only mislead the member while
 growing the database.
 
-Budget and Content exist in the code with their routes but are hidden
-until their features land. Those names live in **one file**,
+Content exists in the code with its route but is hidden until its feature
+lands (Budget was turned on by `single-wallet`). Those names live in **one file**,
 `frontend/app/admin/sections.ts`, which the sidebar, the tabs, the
 breadcrumbs, the dashboard cards and each section's own page heading all
 read — so a section is named once.
@@ -1249,7 +1243,8 @@ hang off it are Phase 1b.
 
 - ✅ `Quarter`
 - ✅ `QuarterApplication` — one live application per member per quarter,
-  and the Build/Video split must total exactly 100%
+  and the Build/Video split must total exactly 100% *(the split is gone
+  since `single-wallet`, 2026-10-08: one wallet, nothing to choose)*
 - ✅ active / inactive / former behaviour, **enforced in the backend**
 
 Participation is a real model, `QuarterMembership`, with one row per

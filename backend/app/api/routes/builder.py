@@ -24,7 +24,16 @@ from app.schemas.builder import (
     BuilderProjectRead,
     BuilderProjectUpdate,
 )
-from app.services import project_zip
+from app.core.config import Settings, get_settings
+from app.schemas.builder import (
+    BuilderFileRead,
+    StarterEstimateRead,
+    StarterRead,
+    StarterRequest,
+)
+from app.services import builder_starter, chat_models, pricing, project_zip
+from app.services import usage as usage_service
+from app.services.claude_provider import ClaudeError, get_claude_provider
 from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/builder", tags=["builder"])
@@ -235,3 +244,92 @@ def delete_project(
     project = _owned_project(project_id, db, user)
     project.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+
+# ------------------------------------------------------------ 예시 앱
+
+
+@router.get(
+    "/projects/{project_id}/files",
+    response_model=list[BuilderFileRead],
+    summary="A project's files",
+)
+def list_files(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[BuilderProjectFile]:
+    """Open to a member not participating this quarter: their work is
+    theirs to read, as the ZIP download is."""
+    project = _owned_project(project_id, db, user)
+    return list(
+        db.scalars(
+            select(BuilderProjectFile)
+            .where(BuilderProjectFile.project_id == project.id)
+            .order_by(BuilderProjectFile.path)
+        )
+    )
+
+
+@router.get(
+    "/starter-estimate",
+    response_model=StarterEstimateRead,
+    summary="What a starter app costs, before making one",
+)
+def starter_estimate(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    config: Settings = Depends(get_settings),
+) -> StarterEstimateRead:
+    try:
+        figures = builder_starter.estimate(db, config)
+    except (pricing.PricingError, chat_models.ModelChoiceError) as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
+    return StarterEstimateRead(
+        estimated_krw=figures.estimated_krw,
+        worst_case_krw=figures.worst_case_krw,
+        model_label=figures.model_label,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/starter",
+    response_model=StarterRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Have Claude make a small starter app in an empty project",
+)
+def create_starter(
+    project_id: int,
+    payload: StarterRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> StarterRead:
+    """Static files only, checked before they are stored; charged to the
+    member's wallet like any Claude call. See `services/builder_starter.py`."""
+    project = _owned_project(project_id, db, user)
+    try:
+        result = builder_starter.create_starter(
+            db,
+            config,
+            get_claude_provider(config),
+            user=user,
+            project=project,
+            idea=payload.idea,
+            is_mock=config.provider_is_mock("claude"),
+        )
+    except builder_starter.StarterError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except usage_service.InsufficientBudgetError as error:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(error)) from error
+    except usage_service.NoQuarterError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    except chat_models.ModelChoiceError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except (ClaudeError, pricing.PricingError) as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    return StarterRead(
+        files=[BuilderFileRead.model_validate(row) for row in result.files],
+        summary=result.summary,
+        charged_krw=result.charged_krw,
+    )

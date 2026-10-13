@@ -117,6 +117,47 @@ export function createBuilderProject(input: {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* 예시 앱 (chat-builder-starter)                                        */
+/* ------------------------------------------------------------------ */
+
+/** 프로젝트 파일 하나. 지금은 읽기만 합니다. */
+export interface BuilderFile {
+  path: string;
+  content: string;
+  updated_at: string;
+}
+
+export function listBuilderFiles(id: number | string): Promise<BuilderFile[]> {
+  return request<BuilderFile[]>(`/builder/projects/${id}/files`);
+}
+
+export interface StarterEstimate {
+  estimated_krw: number;
+  /** 지원금에 이만큼은 남아 있어야 합니다 — 가장 길게 만들었을 때의 값. */
+  worst_case_krw: number;
+  model_label: string;
+}
+
+export function getStarterEstimate(): Promise<StarterEstimate> {
+  return request<StarterEstimate>("/builder/starter-estimate");
+}
+
+export interface StarterResult {
+  files: BuilderFile[];
+  /** Claude가 쓴 두 문장: 무엇을 만들었는지, 다음에 무엇을 부탁하면 좋은지. */
+  summary: string;
+  charged_krw: number;
+}
+
+/** 빈 프로젝트에 Claude가 작은 예시 앱을 만듭니다. 지원금에서 차감됩니다. */
+export function createStarterApp(id: number | string, idea = ""): Promise<StarterResult> {
+  return request<StarterResult>(`/builder/projects/${id}/starter`, {
+    method: "POST",
+    body: JSON.stringify({ idea }),
+  });
+}
+
 export function updateBuilderProject(
   id: number | string,
   changes: Partial<Pick<BuilderProject, "name" | "description" | "status">>,
@@ -344,7 +385,7 @@ export function deleteVideoProject(id: number | string): Promise<void> {
   return request<void>(`/video/projects/${id}`, { method: "DELETE" });
 }
 
-/** 영상을 만듭니다(Higgsfield, 지금은 mock). Video 지원금에서 차감됩니다.
+/** 영상을 만듭니다(Higgsfield, 지금은 mock). 이번 분기 지원금에서 차감됩니다.
  *
  *  프롬프트와 모델은 백엔드가 프로젝트에서 읽습니다. 길이·비율·화질·소리는
  *  프로젝트가 아니라 작업 공간의 조작부에 있으므로 여기서 보냅니다.
@@ -393,7 +434,7 @@ export interface PromptHelp {
   reply: string;
   /** Claude가 고친 프롬프트. 고치지 않고 답만 했으면 null입니다. */
   revised_prompt: string | null;
-  /** Build(Claude) 지원금에서 빠진 금액. */
+  /** 지원금에서 빠진 금액(Claude 사용으로 기록됩니다). */
   charged_krw: number;
 }
 

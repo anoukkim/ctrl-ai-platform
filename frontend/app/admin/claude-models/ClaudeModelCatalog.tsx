@@ -272,6 +272,10 @@ export default function ClaudeModelCatalog() {
                       <td className="numeric">
                         입력 ${Number(model.input_usd_per_mtok)} · 출력 $
                         {Number(model.output_usd_per_mtok)}
+                        <span className="small dim">
+                          {" "}
+                          · 캐시 읽기 ${cacheReadPrice(model)}
+                        </span>
                       </td>
                       <td className="numeric">
                         {model.estimated_reply_krw === null
@@ -311,8 +315,9 @@ export default function ClaudeModelCatalog() {
 
           <p className="small dim" style={{ marginTop: "0.6rem" }}>
             회원에게는 &quot;회원에게 공개&quot; 모델만 보이고, 관리자에게는 &quot;관리자만&quot;
-            모델도 보입니다. &quot;답장 1회 약&quot;은 입력 3,000 · 출력 800 토큰으로 어림한
-            값으로, 회원이 모델을 고르는 창에 보이는 것과 같습니다. 모델은 지우지 않습니다 —
+            모델도 보입니다. &quot;답장 1회 약&quot;은 회원이 모델을 고르는 창에 보이는 것과 같은
+            값으로, 처음에는 입력 3,000 · 출력 800 토큰으로 어림하고 실제 답장이 10회 이상
+            쌓이면 그 중앙값을 씁니다(아래 비용 보정). 모델은 지우지 않습니다 —
             지난 답장과 사용 기록이 가리키고 있으니, 쓰지 않을 모델은 &quot;사용 안 함&quot;으로
             둡니다.
           </p>
@@ -335,12 +340,24 @@ interface EditorProps {
   onCancel: () => void;
 }
 
+/**
+ * 캐시 읽기 요금. 모델에 따로 적힌 값이 없으면 입력 요금의 1/10 — 백엔드
+ * pricing.py와 같은 규칙입니다. 캐시 쓰기 요금은 칸이 없습니다: 언제나 입력
+ * 요금의 1.25배(5분) 또는 2배(1시간)입니다.
+ */
+function cacheReadPrice(model: AdminChatModel): number {
+  return model.cache_read_usd_per_mtok !== null
+    ? Number(model.cache_read_usd_per_mtok)
+    : Number(model.input_usd_per_mtok) / 10;
+}
+
 /** 이름·설명·요금·순서를 고치는 칸. 저장하면 다음 답장부터 적용됩니다. */
 function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
   const [label, setLabel] = useState(model.label);
   const [description, setDescription] = useState(model.description);
   const [input, setInput] = useState(String(Number(model.input_usd_per_mtok)));
   const [output, setOutput] = useState(String(Number(model.output_usd_per_mtok)));
+  const [cacheRead, setCacheRead] = useState(String(cacheReadPrice(model)));
   const [order, setOrder] = useState(String(model.sort_order));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -354,6 +371,7 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
         description,
         input_usd_per_mtok: input,
         output_usd_per_mtok: output,
+        cache_read_usd_per_mtok: cacheRead,
         sort_order: Number(order),
       });
       await onSaved();
@@ -396,6 +414,15 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
             inputMode="decimal"
             value={output}
             onChange={(e) => setOutput(e.target.value)}
+          />
+        </label>
+        <label className={styles.modelEditorField}>
+          <span>캐시 읽기 요금 ($/100만 토큰)</span>
+          <input
+            className={`field numeric ${styles.priceInput}`}
+            inputMode="decimal"
+            value={cacheRead}
+            onChange={(e) => setCacheRead(e.target.value)}
           />
         </label>
         <label className={styles.modelEditorField}>

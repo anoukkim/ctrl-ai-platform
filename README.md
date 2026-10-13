@@ -11,8 +11,9 @@ hold API keys — and records usage per member and quarter.
 
 **M1 베타 오픈: 3/9** — an invite-only beta on `ctrlai.my` with real Claude
 chat, everything else labelled test mode. Done: video-higgsfield-only,
-Phase 2 Chat, chat-model-choice. Next: invite-only-signup, then the
-three Chat+ items. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
+Phase 2 Chat, chat-model-choice. Next: single-wallet (one 동아리 지원
+wallet per member per quarter), ui-friendly-motion and the DeepSeek
+research, then invite-only-signup and the Chat+ items. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
 milestone and [`docs/BACKLOG.md`](docs/BACKLOG.md) for the order.
 
 Every external provider runs as a **mock by default**, so the whole

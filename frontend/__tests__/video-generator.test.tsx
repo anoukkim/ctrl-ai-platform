@@ -124,7 +124,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
 
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => true,
-  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
+  useMyQuarter: () => ({ state: { phase: "loading" }, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -341,13 +341,13 @@ describe("상태 배지", () => {
 });
 
 describe("프롬프트 도움받기", () => {
-  test("접혀서 시작하고, 열면 Build 지원금에서 차감된다고 한 줄로 말한다", async () => {
+  test("접혀서 시작하고, 열면 이번 분기 지원금에서 차감된다고 한 줄로 말한다", async () => {
     await open(project(KLING));
 
     expect(screen.queryByLabelText("Claude에게 프롬프트 수정 요청하기")).toBeNull();
     act(() => screen.getByRole("button", { name: "프롬프트 도움받기 (선택)" }).click());
 
-    expect(screen.getByText(/Build\(Claude\)\s*지원금에서 차감됩니다/)).toBeDefined();
+    expect(screen.getByText(/이번 분기\s*지원금에서 조금씩 차감됩니다/)).toBeDefined();
   });
 
   test("글만 고치고 영상은 만들지 않는다", async () => {

@@ -20,7 +20,6 @@ from sqlalchemy.orm import Session
 from app.models import (
     AuditAction,
     AuditLog,
-    BudgetCategory,
     BuilderProject,
     FundingSource,
     MembershipStatus,
@@ -110,8 +109,7 @@ def test_usage_history_survives_and_stays_attached(
     db_session.add(
         UsageEvent(
             user_id=dev_user.id,
-            category=BudgetCategory.BUILD,
-            funding_source=FundingSource.COMMUNITY_BUILD,
+            funding_source=FundingSource.COMMUNITY,
             provider="anthropic",
             charged_krw=1_200,
             builder_project_id=my_project.id,

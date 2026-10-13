@@ -1,8 +1,9 @@
 """Member-facing quarter, application and wallet routes.
 
-Credits are not automatic: a member applies for a quarter, chooses how to
-split the budget between Build and Video, and an admin approves. Only then
-does an allocation exist.
+Credits are not automatic: a member presses "이번 분기 참여", which applies
+for the quarter's one amount, and an admin approves. Only then does the
+member's 동아리 지원 wallet for the quarter exist. There is no split to
+choose (`single-wallet`).
 """
 
 from datetime import date, datetime, timezone
@@ -25,7 +26,6 @@ from app.models import (
     User,
 )
 from app.schemas.quarter import (
-    ApplicationCreate,
     ApplicationRead,
     MyQuarterStatus,
     PersonalBalanceRead,
@@ -35,7 +35,6 @@ from app.schemas.quarter import (
     TopUpRead,
 )
 from app.services.quarters import current_quarter, membership_for
-from app.services.budget import InvalidSplitError, split_budget
 from app.services.wallet import get_or_create_balance
 
 
@@ -133,7 +132,6 @@ def read_my_quarter(
 )
 def apply_for_quarter(
     quarter_id: int,
-    payload: ApplicationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> QuarterApplication:
@@ -153,21 +151,9 @@ def apply_for_quarter(
     if existing is not None and existing.status in LIVE_APPLICATION_STATES:
         raise HTTPException(status_code=409, detail="이미 신청한 분기입니다.")
 
-    # The split rule lives in one place; the amounts are derived from the
-    # quarter's limit rather than trusted from the client.
-    try:
-        budget = split_budget(
-            payload.build_percentage, payload.video_percentage, quarter.subsidy_limit_krw
-        )
-    except InvalidSplitError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
+    # No body: the amount is the quarter's, never a figure the client sent.
     application = existing or QuarterApplication(user_id=user.id, quarter_id=quarter.id)
-    application.build_percentage = budget.build_percentage
-    application.video_percentage = budget.video_percentage
-    application.requested_total_budget_krw = budget.total_budget_krw
-    application.requested_build_budget_krw = budget.build_budget_krw
-    application.requested_video_budget_krw = budget.video_budget_krw
+    application.requested_budget_krw = quarter.subsidy_limit_krw
     application.status = ApplicationStatus.SUBMITTED
     application.submitted_at = datetime.now(timezone.utc)
     application.reviewed_at = None

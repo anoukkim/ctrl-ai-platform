@@ -24,11 +24,18 @@ SQLite ignores `FOR UPDATE`, which is fine for the unit tests — they are
 single-threaded. The concurrency test runs against PostgreSQL and skips
 when it is not reachable.
 
-## Community money and personal money
+## One wallet, then personal money
 
-A charge is paid from **one** pot, never split across two. If the
-community budget cannot cover it, the charge falls to personal money only
-when the member has explicitly enabled overage *and* has enough. Splitting
+Every paid feature — Chat, video, the prompt helper, whatever comes next
+— spends from the member's one 동아리 지원 wallet for the quarter
+(`single-wallet`). What a charge was for is recorded on the event
+(`provider`, `feature`, `model_id`, native units), not by choosing a
+bucket.
+
+A charge is paid from **one** pot, never split across two. The wallet is
+spent first; if it cannot cover the charge, the charge falls to personal
+money only when the member has explicitly enabled overage *and* has
+enough. Splitting
 a single action across both pots would make the Usage screen much harder
 to explain, and CLAUDE.md is explicit that the two are never added
 together.
@@ -45,23 +52,23 @@ courtesy, the lock is the guarantee.
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    BudgetCategory,
     FundingSource,
     PersonalBalance,
     QuarterAllocation,
     UsageEvent,
     User,
 )
+from app.models.usage import spending_group
 from app.services.quarters import current_quarter
 from app.services.wallet import get_or_create_balance
 
 
 class InsufficientBudgetError(Exception):
-    """Raised when neither the community budget nor personal money covers a charge.
+    """Raised when neither the wallet nor personal money covers a charge.
 
     Carries a Korean message, because it is shown to the member.
     """
@@ -79,17 +86,7 @@ class ChargeResult:
     personal_remaining_krw: int
 
 
-def _community_source(category: BudgetCategory) -> FundingSource:
-    return (
-        FundingSource.COMMUNITY_BUILD
-        if category is BudgetCategory.BUILD
-        else FundingSource.COMMUNITY_VIDEO
-    )
-
-
-def ensure_affordable(
-    db: Session, *, user: User, category: BudgetCategory, amount_krw: int
-) -> None:
+def ensure_affordable(db: Session, *, user: User, amount_krw: int) -> None:
     """Raise exactly what `charge()` would, without locking or changing anything.
 
     For use before a provider call. It reads without `FOR UPDATE`, so a
@@ -105,14 +102,8 @@ def ensure_affordable(
             QuarterAllocation.quarter_id == quarter.id,
         )
     )
-    if allocation is not None:
-        remaining = (
-            allocation.build_remaining_krw
-            if category is BudgetCategory.BUILD
-            else allocation.video_remaining_krw
-        )
-        if amount_krw <= remaining:
-            return
+    if allocation is not None and amount_krw <= allocation.remaining_krw:
+        return
 
     balance = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == user.id))
     if balance is not None and balance.overage_enabled:
@@ -128,7 +119,6 @@ def charge(
     db: Session,
     *,
     user: User,
-    category: BudgetCategory,
     amount_krw: int,
     provider: str,
     feature: str | None = None,
@@ -142,6 +132,9 @@ def charge(
     video_version_id: int | None = None,
     input_tokens: int | None = None,
     output_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
+    estimated_input_tokens: int | None = None,
     exchange_rate_krw: Decimal | None = None,
     conversation_id: int | None = None,
     commit: bool = True,
@@ -192,23 +185,14 @@ def charge(
     )
     assert balance is not None  # just created above
 
-    community_remaining = 0
-    if allocation is not None:
-        community_remaining = (
-            allocation.build_remaining_krw
-            if category is BudgetCategory.BUILD
-            else allocation.video_remaining_krw
-        )
+    community_remaining = allocation.remaining_krw if allocation is not None else 0
 
     personal_remaining = max(0, balance.balance_krw - balance.consumed_krw)
 
     # Community first, then personal only if the member opted in.
     if allocation is not None and amount_krw <= community_remaining:
-        funding_source = _community_source(category)
-        if category is BudgetCategory.BUILD:
-            allocation.build_consumed_krw += amount_krw
-        else:
-            allocation.video_consumed_krw += amount_krw
+        funding_source = FundingSource.COMMUNITY
+        allocation.consumed_krw += amount_krw
         community_remaining -= amount_krw
 
     elif balance.overage_enabled and amount_krw <= personal_remaining:
@@ -225,13 +209,10 @@ def charge(
             balance.consumed_krw += amount_krw
             personal_remaining = 0
         else:
-            funding_source = _community_source(category)
+            funding_source = FundingSource.COMMUNITY
             amount_krw = community_remaining
             if allocation is not None:
-                if category is BudgetCategory.BUILD:
-                    allocation.build_consumed_krw += amount_krw
-                else:
-                    allocation.video_consumed_krw += amount_krw
+                allocation.consumed_krw += amount_krw
             community_remaining = 0
 
     else:
@@ -244,7 +225,6 @@ def charge(
     event = UsageEvent(
         user_id=user.id,
         quarter_id=quarter.id,
-        category=category,
         funding_source=funding_source,
         provider=provider,
         feature=feature,
@@ -259,6 +239,9 @@ def charge(
         video_version_id=video_version_id,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        cache_write_tokens=cache_write_tokens,
+        cache_read_tokens=cache_read_tokens,
+        estimated_input_tokens=estimated_input_tokens,
         exchange_rate_krw=exchange_rate_krw,
         conversation_id=conversation_id,
     )
@@ -295,3 +278,25 @@ def personal_balance(db: Session, user_id: int) -> PersonalBalance:
     balance = get_or_create_balance(db, user_id)
     db.commit()
     return balance
+
+
+def spending_breakdown(db: Session, user_id: int, quarter_id: int) -> dict[str, int]:
+    """What the member's wallet went on this quarter: chat, video, other.
+
+    Information only — it does not limit anything. Counts wallet money
+    (`FundingSource.COMMUNITY`) so the three figures add up to what the
+    wallet card says was used; personal money has its own card.
+    """
+    totals = {"chat": 0, "video": 0, "other": 0}
+    rows = db.execute(
+        select(UsageEvent.feature, func.coalesce(func.sum(UsageEvent.charged_krw), 0))
+        .where(
+            UsageEvent.user_id == user_id,
+            UsageEvent.quarter_id == quarter_id,
+            UsageEvent.funding_source == FundingSource.COMMUNITY,
+        )
+        .group_by(UsageEvent.feature)
+    ).all()
+    for feature, amount in rows:
+        totals[spending_group(feature)] += int(amount)
+    return totals
