@@ -104,7 +104,7 @@ backup sentence on `/privacy`, future-tense community wording on both.
   round 2: the beta's mocks send nothing out, 30-day anonymisation
   matches the job, charge limits exist as described, backups are as in
   point 3 above, account data is never sent to AI providers (request
-  content only), attempt rows live a day, community screens are future.
+  content only), attempt rows older than a day are deleted when the next attempt is recorded (no scheduled pruning), community screens are future.
 - 약관 §3 says a member who forgot their password should contact the
   운영진 — honest as a contact instruction, but **no member
   password-reset tool exists yet** (`set_admin_password` is admin-only).
@@ -112,3 +112,17 @@ backup sentence on `/privacy`, future-tense community wording on both.
 - Existing members (the dev seed, the server admin) keep
   `terms_accepted_at = NULL`; whether they must re-consent on next
   sign-in is deliberately left for the owner.
+
+
+## Review round 2 — 2026-10-14
+
+Approve after three wording fixes, applied by the main session:
+- §6: 대화 삭제 and 프로젝트·영상 삭제 need an active quarter membership
+  (`require_active_member`); the page now says so and points others to
+  운영진.
+- §1 보안 기록: rows older than a day are pruned only when the next
+  attempt is recorded — no scheduled job — so the page no longer says
+  "하루가 지나면 지웁니다" and notes they can stay longer and are in the
+  pre-update backups.
+- §1 Google: a verified email is required to sign up at all, not only to
+  recognise the admin.
