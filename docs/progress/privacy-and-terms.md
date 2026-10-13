@@ -35,6 +35,32 @@ are invited** — the run log marks it 운영진 검토 필요 at merge.
    render with their key sections; the checkbox gates submit; footer
    links exist.
 
-## Status
+## Status — loop results
 
-(filled at the end of the loop)
+- Backend full suite green (PG tests ran on `ctrlai_pt_test` with the
+  real container password); frontend **354** vitest (35 files, 4 new),
+  tsc 0, eslint 0 — both re-run after the end-of-run merge of main.
+- Browser check (preview 8260/3260, practice DB `ctrlai_preview_pt`):
+  `/privacy` and `/terms` render logged-out in both themes with no
+  sideways scroll; the signup button stays locked until the checkbox,
+  whose links open `/privacy`·`/terms` in a new tab; a consent-false
+  POST is refused 400 with the exact Korean sentence; the password path
+  and the **mock Google path** both complete end to end with consent and
+  land signed-in on Chat; the sidebar footer shows 개인정보 · 약관.
+- Merged `main` at the end (docs-cleanup included) — clean, no migration
+  re-parenting needed (`b9e6a3d1f4c7` is the single head on
+  `a8d4f1c7e9b3`); full loop re-run after the merge.
+
+## Self-review notes (for the owner's text review — 운영진 검토 필요)
+
+- Every claim in both documents was checked against the code: the beta's
+  mocks send nothing out, 30-day anonymisation matches the job, charge
+  limits exist as described, backups stay in the same environment,
+  account data is never sent to AI providers (request content only).
+- 약관 §3 says a member who forgot their password should contact the
+  운영진 — honest as a contact instruction, but **no member
+  password-reset tool exists yet** (`set_admin_password` is admin-only).
+  Worth a small backlog item if password-only members are expected.
+- Existing members (the dev seed, the server admin) keep
+  `terms_accepted_at = NULL`; whether they must re-consent on next
+  sign-in is deliberately left for the owner.
