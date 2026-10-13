@@ -25,7 +25,7 @@ ui-naming, fix-video-workspace-hang, ui-tube-watch, ui-apps-detail.
 chat, everything else labelled test mode.
 ✅ video-higgsfield-only [6, mock] · ✅ Phase 2 Chat [2] (real-key check still open) ·
 ✅ chat-model-choice · ✅ single-wallet · ✅ prompt-caching ·
-✅ cost-calibration · ✅ chat-builder-starter · ⬜ invite-only-signup ·
+✅ cost-calibration · ✅ chat-builder-starter · ✅ invite-only-signup ·
 ⬜ test-database-isolation · ⬜ google-login · ⬜ ui-friendly-motion ·
 ⬜ chat-plus-rendering · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
 ⬜ anonymous-feedback-board · ⬜ token-guard · ⬜ live-cost-display ·

@@ -18,12 +18,12 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**In progress: `invite-only-signup`** (branch `feat-invite-only-signup`),
-the top of Next. `prep-beta-launch` merged 2026-10-13 and is deployed to
-`ctrlai-server` on mock providers; caddy waits for the A record.
+**Nothing is in progress.** `invite-only-signup` merged 2026-10-13 and is
+deployed to `ctrlai-server` with `prep-beta-launch`, on mock providers;
+caddy waits for the A record. Next is `test-database-isolation`.
 
 **Working order set by the developer (2026-10-08)** — done except
-`ui-friendly-motion` (now item 4 of Next) and `deepseek-research`
+`ui-friendly-motion` (now item 3 of Next) and `deepseek-research`
 (waiting for the developer's check): single-wallet merged 2026-10-13.
 
 **Money wording in older notes.** Since `single-wallet` (2026-10-08)
@@ -258,21 +258,15 @@ assumption they came first. Four notes were rewritten to match:
 `test-database-isolation` second, `google-login` third, then everything
 else in the order it already had. single-wallet, prompt-caching,
 cost-calibration and chat-builder-starter merged on 2026-10-13 (through
-`feat-chat-builder-starter`) and moved to Done. Items 9–13 were added by
-the owner on 2026-10-13 as specs.
+`feat-chat-builder-starter`) and moved to Done. Items 8–12 were added by
+the owner on 2026-10-13 as specs. `invite-only-signup`, first in that
+order, merged the same day.
 
 Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **invite-only-signup** · M1 · branch `feat-invite-only-signup`
-   An invite code is required to sign up, in every environment — the site
-   address is public, the community is not. Adds the `InviteCode` table
-   and an invite-code section to Admin › Members. Spec saved verbatim
-   below. **`prep-beta-launch` no longer defines its own invite codes**;
-   it reuses this.
-
-2. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
+1. **test-database-isolation** · M1 · branch `fix-test-database-isolation`
    ⚠ Was due before `prep-beta-launch`, which merged first on 2026-10-13;
    the beta does not open to members until this lands. Spec below.
    The test suite writes to the database named by `DATABASE_URL` — the
@@ -286,7 +280,7 @@ before the post-beta work, which is specced under **After the beta**.
    site does not open to members until this, `invite-only-signup` and
    `test-database-isolation` are done.
 
-3. **google-login** · M1 · branch `feat-google-login`
+2. **google-login** · M1 · branch `feat-google-login`
    Added by the owner on 2026-10-13: **Google becomes the main way to
    sign in** (CLAUDE.md section 11). Google로 계속하기 with openid, email
    and profile only; a setup screen for username and display name; an
@@ -296,34 +290,34 @@ before the post-beta work, which is specced under **After the beta**.
    incremental authorization. **Depends on:** `invite-only-signup`,
    `test-database-isolation`. Spec below.
 
-4. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
+3. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
    Friendlier, less developer-like screens with short, tasteful motion
    (the `motion` library), plain-Korean copy, empty states and a
    first-visit guide. Spec saved verbatim below.
 
-5. **deepseek-research** · M3 (research for more-chat-providers) · branch
+4. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-6. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+5. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-7. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+6. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-8. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+7. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-9. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+8. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13. Every member can read the
    improvement notes sent with 의견 보내기, with no name shown; Admin can
    hide a note and export notes as Markdown for Claude Code
@@ -331,14 +325,14 @@ before the post-beta work, which is specced under **After the beta**.
    `feedback` table, merged) and `invite-only-signup` (the board is
    members-only, so the community has to be closed first). Spec below.
 
-10. **token-guard** · M1 · branch `feat-token-guard`
+9. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-11. **live-cost-display** · M1 · branch `feat-live-cost-display`
+10. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -346,14 +340,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-12. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+11. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-13. **builder-python** · M2 · branch `feat-builder-python`
+12. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -599,45 +593,7 @@ Saved exactly as written by the developer.
 
 ---
 
-## invite-only-signup — full spec
-
-Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 5
-since the 2026-10-02 reorder — still directly after Phase 2 and ahead of
-`prep-beta-launch`. Saved exactly as written by the developer.
-
-**It takes the invite codes out of `prep-beta-launch`.** That item's point 2
-carried "Signup requires an invite code; Admin can create and revoke invite
-codes, written to the audit log" as one line of its `APP_ENV=beta` list.
-This item owns that instead, and widens it: the code is required in **every**
-environment, not only the beta. `prep-beta-launch` keeps the rest of its
-beta list and inherits a working invite system rather than building one.
-
-**The audit log already exists.** Point 3's create, deactivate and
-reactivate entries go into the append-only `AuditLog` from Phase 1c, which
-already has its read-only admin view — so they are new entry kinds, not new
-machinery.
-
-**Point 3 is a panel on the existing Members page, not a new Admin
-section.** `frontend/app/admin/sections.ts` and
-`__tests__/admin-sections.test.ts` should not need an entry; a new nav
-section would.
-
-> Context: the site address will be public (the repository is public), but CTRL+AI is for club members only. Signing up requires an invite code in every environment, not only the beta. There is no admin approval queue.
-> 1. Signup form gets a required "초대 코드" field. Without a valid code the account is not created, with a clear Korean message ("초대 코드가 필요합니다" / "사용할 수 없는 초대 코드입니다"). The message does not reveal whether a code exists but is expired or full, to avoid guessing.
-> 2. InviteCode table with an Alembic migration: code, label (e.g. "2026 Q4 공지용"), max uses (1 for single-use, or a number), uses so far, expiry date (optional), active flag, created by, created at. Each signup records which code it used.
-> 3. Admin › Members gets an "초대 코드" section:
->    - Create a code: auto-generated readable code or a custom one, label, max uses, expiry. Korean confirmation.
->    - List of codes with label, uses / max, expiry, status (사용 가능 / 만료 / 소진 / 중지), and who signed up with each code.
->    - Deactivate (사용 중지) and reactivate, with confirmation.
->    - Copy button for the code and for a signup link with the code pre-filled (/signup?code=...).
->    - Every create, deactivate and reactivate action is written to the audit log.
-> 4. Codes are case-insensitive and trimmed. Uses are counted safely so two people cannot both take the last use of a code.
-> 5. Accounts created with a code can use the site immediately; joining a quarter still requires the normal quarter application.
-> 6. If a code leaks, deactivating it stops new signups but does not affect accounts already created; the admin can still mark those accounts inactive or former as usual.
-> 7. Safety: signup is rate-limited per IP, failed code attempts are rate-limited too, duplicate usernames and emails are rejected.
-> 8. Existing accounts are unaffected by the migration.
->
-> Tests: signup without a code or with an invalid, expired, exhausted or deactivated code is refused with the same message; a valid code creates the account and increments its uses; the last use cannot be taken twice concurrently; the pre-filled signup link works; admin actions are audited; code management is admin-only.
+→ **invite-only-signup — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#invite-only-signup--full-spec-merged-2026-10-13).
 
 ---
 

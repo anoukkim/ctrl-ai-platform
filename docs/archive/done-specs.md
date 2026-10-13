@@ -1293,3 +1293,45 @@ Static files only; nothing runs on the backend (CLAUDE.md section 20).
    safe preview. A project with no files can ask for a starter there too.
 4. **Not in this item:** editing files by chatting with Claude (the
    workspace's Claude panel), saving edits, server code, publishing.
+
+---
+
+## invite-only-signup — full spec (merged 2026-10-13)
+
+Branch `feat-invite-only-signup`. Added 2026-10-01, and at position 5
+since the 2026-10-02 reorder — still directly after Phase 2 and ahead of
+`prep-beta-launch`. Saved exactly as written by the developer.
+
+**It takes the invite codes out of `prep-beta-launch`.** That item's point 2
+carried "Signup requires an invite code; Admin can create and revoke invite
+codes, written to the audit log" as one line of its `APP_ENV=beta` list.
+This item owns that instead, and widens it: the code is required in **every**
+environment, not only the beta. `prep-beta-launch` keeps the rest of its
+beta list and inherits a working invite system rather than building one.
+
+**The audit log already exists.** Point 3's create, deactivate and
+reactivate entries go into the append-only `AuditLog` from Phase 1c, which
+already has its read-only admin view — so they are new entry kinds, not new
+machinery.
+
+**Point 3 is a panel on the existing Members page, not a new Admin
+section.** `frontend/app/admin/sections.ts` and
+`__tests__/admin-sections.test.ts` should not need an entry; a new nav
+section would.
+
+> Context: the site address will be public (the repository is public), but CTRL+AI is for club members only. Signing up requires an invite code in every environment, not only the beta. There is no admin approval queue.
+> 1. Signup form gets a required "초대 코드" field. Without a valid code the account is not created, with a clear Korean message ("초대 코드가 필요합니다" / "사용할 수 없는 초대 코드입니다"). The message does not reveal whether a code exists but is expired or full, to avoid guessing.
+> 2. InviteCode table with an Alembic migration: code, label (e.g. "2026 Q4 공지용"), max uses (1 for single-use, or a number), uses so far, expiry date (optional), active flag, created by, created at. Each signup records which code it used.
+> 3. Admin › Members gets an "초대 코드" section:
+>    - Create a code: auto-generated readable code or a custom one, label, max uses, expiry. Korean confirmation.
+>    - List of codes with label, uses / max, expiry, status (사용 가능 / 만료 / 소진 / 중지), and who signed up with each code.
+>    - Deactivate (사용 중지) and reactivate, with confirmation.
+>    - Copy button for the code and for a signup link with the code pre-filled (/signup?code=...).
+>    - Every create, deactivate and reactivate action is written to the audit log.
+> 4. Codes are case-insensitive and trimmed. Uses are counted safely so two people cannot both take the last use of a code.
+> 5. Accounts created with a code can use the site immediately; joining a quarter still requires the normal quarter application.
+> 6. If a code leaks, deactivating it stops new signups but does not affect accounts already created; the admin can still mark those accounts inactive or former as usual.
+> 7. Safety: signup is rate-limited per IP, failed code attempts are rate-limited too, duplicate usernames and emails are rejected.
+> 8. Existing accounts are unaffected by the migration.
+>
+> Tests: signup without a code or with an invalid, expired, exhausted or deactivated code is refused with the same message; a valid code creates the account and increments its uses; the last use cannot be taken twice concurrently; the pre-filled signup link works; admin actions are audited; code management is admin-only.
