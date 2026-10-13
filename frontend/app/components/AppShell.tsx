@@ -467,7 +467,9 @@ function AdminNavBlock({
     applications: pendingApplications,
     topups: pendingTopUps,
   };
-  const totalPending = pendingApplications + pendingTopUps;
+  // 보이는 구역의 수만 더합니다 — 숨긴 구역(Top-ups, personal-topup-off)의
+  // 수가 들어가면 눌러 갈 곳 없는 배지가 됩니다.
+  const totalPending = sections.reduce((sum, section) => sum + (pending[section.key] ?? 0), 0);
   const insideAdmin = pathname.startsWith("/admin");
 
   // 접힌 사이드바에는 하위 구역을 펼칠 자리가 없습니다. Admin은 대시보드로

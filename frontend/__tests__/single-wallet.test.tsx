@@ -171,8 +171,11 @@ describe("Usage", () => {
     // Build/Video 두 카드는 더 이상 없다.
     expect(screen.queryByText("Build")).toBeNull();
     expect(screen.queryByText("Video")).toBeNull();
-    // 쓰는 순서를 말한다.
-    expect(screen.getByText(/동아리 지원금을 먼저 씁니다/)).toBeTruthy();
+    // 개인 충전이 꺼져 있는 동안(personal-topup-off, 기본값) 쓰는-순서
+    // 문장은 개인 잔액 구역과 함께 보이지 않습니다 — 켜진 화면은
+    // beta-launch.test.tsx가 봅니다.
+    expect(screen.queryByText(/동아리 지원금을 먼저 씁니다/)).toBeNull();
+    expect(screen.queryByText("개인 잔액")).toBeNull();
   });
 
   test("승인된 지갑이 없으면 그렇게 말한다", async () => {

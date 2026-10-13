@@ -124,43 +124,44 @@ export default function UsageView() {
         <WalletCard wallet={usage.wallet} breakdown={usage.breakdown} />
       )}
 
-      {/* 개인 잔액 — 지원금과 섞이지 않도록 따로 둡니다. */}
-      <h2 className="section-title">
-        개인 잔액
-        <span className={styles.sectionNote}>동아리 지원과 별도입니다</span>
-      </h2>
+      {/* 개인 잔액 — 지원금과 섞이지 않도록 따로 둡니다. 개인 충전이
+          꺼져 있는 동안(personal-topup-off, 기본값)은 통째로 보이지
+          않습니다: 회원이 보는 돈은 동아리 지원 하나뿐입니다. */}
+      {site.top_ups_enabled && (
+        <>
+          <h2 className="section-title">
+            개인 잔액
+            <span className={styles.sectionNote}>동아리 지원과 별도입니다</span>
+          </h2>
 
-      {personal && (
-        <section className={`card ${styles.personal}`}>
-          <div className={styles.personalGrid}>
-            <div className={styles.personalItem}>
-              <span className={styles.personalLabel}>충전 잔액</span>
-              <span className={styles.personalValue}>{formatKrw(personal.balance_krw)}</span>
-            </div>
-            <div className={styles.personalItem}>
-              <span className={styles.personalLabel}>개인 사용</span>
-              <span className={styles.personalValue}>{formatKrw(personal.consumed_krw)}</span>
-            </div>
-            <div className={styles.personalItem}>
-              <span className={styles.personalLabel}>남은 개인 잔액</span>
-              <span className={`${styles.personalValue} ${styles.personalValueAccent}`}>
-                {formatKrw(personal.remaining_krw)}
-              </span>
-            </div>
-          </div>
+          {personal && (
+            <section className={`card ${styles.personal}`}>
+              <div className={styles.personalGrid}>
+                <div className={styles.personalItem}>
+                  <span className={styles.personalLabel}>충전 잔액</span>
+                  <span className={styles.personalValue}>{formatKrw(personal.balance_krw)}</span>
+                </div>
+                <div className={styles.personalItem}>
+                  <span className={styles.personalLabel}>개인 사용</span>
+                  <span className={styles.personalValue}>{formatKrw(personal.consumed_krw)}</span>
+                </div>
+                <div className={styles.personalItem}>
+                  <span className={styles.personalLabel}>남은 개인 잔액</span>
+                  <span className={`${styles.personalValue} ${styles.personalValueAccent}`}>
+                    {formatKrw(personal.remaining_krw)}
+                  </span>
+                </div>
+              </div>
 
-          <p className={styles.personalNote}>
-            {SPENDING_ORDER_NOTE}{" "}
-            {personal.overage_enabled
-              ? "지금은 개인 사용이 켜져 있습니다."
-              : "지금은 개인 사용이 꺼져 있어, 지원금을 다 쓰면 사용이 멈춥니다."}
-          </p>
-          {!site.top_ups_enabled && (
-            <p className={styles.personalNote} data-testid="top-ups-off">
-              베타 기간에는 개인 충전을 받지 않습니다. 동아리 지원금으로 이용해 주세요.
-            </p>
+              <p className={styles.personalNote}>
+                {SPENDING_ORDER_NOTE}{" "}
+                {personal.overage_enabled
+                  ? "지금은 개인 사용이 켜져 있습니다."
+                  : "지금은 개인 사용이 꺼져 있어, 지원금을 다 쓰면 사용이 멈춥니다."}
+              </p>
+            </section>
           )}
-        </section>
+        </>
       )}
 
       {/* 최근 사용 내역 */}
