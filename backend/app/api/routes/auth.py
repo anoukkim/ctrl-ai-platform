@@ -170,8 +170,8 @@ def login(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> CurrentUser:
-    # Limited per address and per username: password sign-in is the admin's
-    # emergency door now that members use Google (google-login).
+    # Limited per address and per username. Every member may sign in by
+    # password as well as with Google (member-password-login, 2026-10-14).
     address = rate_limit.client_address(request, settings)
     if rate_limit.login_blocked(db, address, payload.username, settings):
         raise HTTPException(
