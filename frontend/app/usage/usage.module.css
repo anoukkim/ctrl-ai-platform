@@ -62,13 +62,6 @@
 
 /* ---------- 동아리 지원 카드 ---------- */
 
-.allocations {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  margin-bottom: 26px;
-}
-
 .card {
   display: grid;
   /* 큰 숫자 / 막대 / 작은 한 줄 — 그 이상은 두지 않습니다. */
@@ -96,14 +89,51 @@
   border-radius: var(--radius-sm);
 }
 
-.cardIconBuild {
-  background: var(--build-soft);
-  color: var(--build-text);
+.cardIconWallet {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
-.cardIconVideo {
-  background: var(--video-soft);
-  color: var(--video-text);
+/* 지갑은 한 장뿐이라 줄 전체를 씁니다. */
+.walletCard {
+  margin-bottom: 26px;
+}
+
+/* "어디에 썼나요" — 정보용 세 줄. */
+.breakdown {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.breakdownTitle {
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+}
+
+.breakdownHint {
+  margin-left: 0.4rem;
+  font-size: var(--fs-chip);
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.breakdownList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.breakdownItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: var(--fs-count);
+  color: var(--text-muted);
 }
 
 .cardTitle {
@@ -111,7 +141,7 @@
   font-weight: var(--fw-card-name);
 }
 
-/* 실제로 일을 하는 서비스. Build면 Claude, Video면 Higgsfield. */
+/* 카드 머리의 보조 설명. */
 .provider {
   margin-left: auto;
   font-size: var(--fs-chip);
@@ -154,13 +184,6 @@
   font-weight: var(--fw-strong);
   font-variant-numeric: tabular-nums;
   color: var(--text);
-}
-
-.cardNote {
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  font-size: var(--fs-chip);
-  color: var(--text-dim);
 }
 
 /* ---------- 개인 잔액 ---------- */
@@ -238,7 +261,7 @@
   color: var(--text-dim);
 }
 
-/* 좁은 화면에서는 큰 숫자를 조금 줄여 두 카드가 그대로 쌓이게 합니다. */
+/* 좁은 화면에서는 큰 숫자를 조금 줄입니다. */
 @media (max-width: 30rem) {
   .remainingValue {
     font-size: var(--page-amount-sm);

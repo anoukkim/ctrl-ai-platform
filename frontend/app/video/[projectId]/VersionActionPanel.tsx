@@ -20,6 +20,8 @@ import { ASPECT_LABEL, type Aspect } from "@/lib/aspect";
 import type { VideoModel, VideoVersion } from "@/lib/projects";
 import { costLabel, estimateCostKrw } from "@/lib/video-settings";
 
+import WalletCheck from "@/app/components/WalletCheck";
+
 import { Segmented } from "./VideoSettings";
 import styles from "./workspace.module.css";
 
@@ -117,6 +119,7 @@ export default function VersionActionPanel({
             {costLabel(cost)}
           </span>
         </span>
+        {!locked && <WalletCheck costKrw={cost} />}
         <button className="btn" type="button" onClick={onCancel} disabled={busy}>
           취소
         </button>

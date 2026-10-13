@@ -1,0 +1,49 @@
+/* 베타 배너. 높이는 globals.css의 --banner-h — 화면 높이를 계산하는
+   규칙들이 같은 값을 뺍니다. */
+
+.banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  height: var(--banner-h);
+  padding: 0 0.9rem;
+  overflow: hidden;
+  background: var(--warn-soft);
+  border-bottom: 1px solid var(--warn-border);
+  color: var(--warn-text);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.tag {
+  flex: none;
+  padding: 0 0.45rem;
+  border: 1px solid var(--warn-border);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feedback {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

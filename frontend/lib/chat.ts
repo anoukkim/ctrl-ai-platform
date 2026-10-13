@@ -56,6 +56,9 @@ export interface ChatModelOption {
   is_default: boolean;
   /** 답장 1회 어림값(원). 환율이 없으면 null. */
   estimated_reply_krw: number | null;
+  /** "recent" — 최근 실제 답장의 중앙값(비용 보정), "formula" — 공식 어림값. */
+  estimate_basis?: "recent" | "formula";
+  estimate_samples?: number;
 }
 
 export interface ChatInfo {
@@ -234,6 +237,6 @@ export function actionHref(action: ChatAction, idea: string, title: string): str
 }
 
 export const ACTION_LABEL: Record<ChatAction, string> = {
-  builder: "Project Builder에서 시작",
+  builder: "Project Builder에서 예시 앱 만들기",
   video: "Video Generator 열기",
 };

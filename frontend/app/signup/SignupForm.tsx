@@ -24,6 +24,8 @@ import { MIN_PASSWORD_LENGTH, USERNAME_PATTERN, register } from "@/lib/auth";
 
 import styles from "@/app/login/auth.module.css";
 
+import DataLocationNotice from "./DataLocationNotice";
+
 export default function SignupForm({ initialCode = "" }: { initialCode?: string }) {
   const [inviteCode, setInviteCode] = useState(initialCode);
   const [username, setUsername] = useState("");
@@ -201,6 +203,8 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
             {busy ? "가입 중…" : "가입하고 시작하기"}
           </button>
         </form>
+
+        <DataLocationNotice />
 
         <p className={styles.footer}>
           <span>이미 계정이 있으신가요?</span>

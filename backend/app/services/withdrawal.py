@@ -191,7 +191,7 @@ def preview(db: Session, member: User) -> WithdrawalPreview:
                 QuarterAllocation.quarter_id.in_(quarter_ids),
             )
         ):
-            remaining = _remaining(allocation)
+            remaining = allocation.remaining_krw
             if remaining:
                 released += remaining
                 quarter_names.append(quarter.display_name)
@@ -221,12 +221,6 @@ def preview(db: Session, member: User) -> WithdrawalPreview:
         or 0,
         refund_hold=personal > 0 or pending > 0,
         quarters=quarter_names,
-    )
-
-
-def _remaining(allocation: QuarterAllocation) -> int:
-    return max(0, allocation.build_budget_krw - allocation.build_consumed_krw) + max(
-        0, allocation.video_budget_krw - allocation.video_consumed_krw
     )
 
 
@@ -293,7 +287,7 @@ def withdraw(
     # 2. 동아리 지원 is released. Locked like `usage.charge` locks it, so a
     #    charge in flight cannot spend money that is being released.
     released_total = 0
-    released_rows: list[tuple[QuarterAllocation, int, int]] = []
+    released_rows: list[tuple[QuarterAllocation, int]] = []
     if quarter_ids:
         for allocation in db.scalars(
             select(QuarterAllocation)
@@ -303,20 +297,13 @@ def withdraw(
             )
             .with_for_update()
         ):
-            build = max(0, allocation.build_budget_krw - allocation.build_consumed_krw)
-            video = max(0, allocation.video_budget_krw - allocation.video_consumed_krw)
-            if not (build or video):
+            amount = allocation.remaining_krw
+            if not amount:
                 continue
-            allocation.build_budget_krw -= build
-            allocation.video_budget_krw -= video
-            allocation.community_total_budget_krw = (
-                allocation.build_budget_krw + allocation.video_budget_krw
-            )
-            # The percentages are left alone on purpose: they record the
-            # split that was approved, which the release does not change.
-            reversal["allocations"].append({"id": allocation.id, "build": build, "video": video})
-            released_rows.append((allocation, build, video))
-            released_total += build + video
+            allocation.budget_krw -= amount
+            reversal["allocations"].append({"id": allocation.id, "amount": amount})
+            released_rows.append((allocation, amount))
+            released_total += amount
 
     # 3. Personal money is held.
     balance = db.scalar(
@@ -380,7 +367,7 @@ def withdraw(
             "unpublished": len(reversal["unpublished"]),
         },
     )
-    for allocation, build, video in released_rows:
+    for allocation, amount in released_rows:
         audit.record(
             db,
             actor=actor,
@@ -389,14 +376,12 @@ def withdraw(
             target_id=allocation.id,
             target_label=member.username,
             summary=(
-                f"탈퇴로 {member.display_name}의 남은 동아리 지원 "
-                f"{build + video:,}원(Build {build:,}원 / Video {video:,}원)을 해제했습니다."
+                f"탈퇴로 {member.display_name}의 남은 동아리 지원 {amount:,}원을 해제했습니다."
             ),
             detail={
                 "withdrawal_id": row.id,
                 "quarter_id": allocation.quarter_id,
-                "build_released_krw": build,
-                "video_released_krw": video,
+                "released_krw": amount,
             },
         )
 
@@ -455,12 +440,8 @@ def restore(
             continue
         # Added back rather than overwritten, so an adjustment an admin made
         # during the grace period is kept.
-        allocation.build_budget_krw += item["build"]
-        allocation.video_budget_krw += item["video"]
-        allocation.community_total_budget_krw = (
-            allocation.build_budget_krw + allocation.video_budget_krw
-        )
-        restored_krw += item["build"] + item["video"]
+        allocation.budget_krw += item["amount"]
+        restored_krw += item["amount"]
 
     for item in reversal.get("unpublished", []):
         model, ready, published = (

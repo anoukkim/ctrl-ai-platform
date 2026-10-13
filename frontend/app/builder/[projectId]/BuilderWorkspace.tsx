@@ -7,8 +7,10 @@
  * 오른쪽에 Claude. 프로젝트 목록은 더 이상 왼쪽을 차지하지 않고,
  * 위쪽 막대의 전환 메뉴로 옮겼습니다.
  *
- * 프로젝트 정보는 백엔드에서 가져옵니다. 파일과 Claude 대화는 아직
- * 예시입니다. 코드 생성은 Phase 4, GitHub 연동은 Phase 5입니다.
+ * 프로젝트 정보와 파일은 백엔드에서 가져옵니다. 빈 프로젝트에서는 Claude가
+ * 작은 예시 앱(HTML·CSS·JS)을 만들어 줄 수 있고(chat-builder-starter), 만든
+ * 앱은 미리보기의 샌드박스 iframe 안에서만 돌아갑니다. 파일은 아직 읽기만
+ * 하고, Claude와 대화하며 고치기와 GitHub 연동은 다음 단계입니다.
  */
 
 import { ArrowLeft, Lock } from "lucide-react";
@@ -24,16 +26,23 @@ import ws from "@/app/components/workspace.module.css";
 import {
   BUILDER_STATUS_LABEL,
   builderProjectDownloadUrl,
+  createStarterApp,
   deleteBuilderProject,
   describeError,
   getBuilderProject,
+  getStarterEstimate,
+  listBuilderFiles,
   listBuilderProjects,
   updateBuilderProject,
+  type BuilderFile,
   type BuilderProject,
+  type StarterEstimate,
 } from "@/lib/projects";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
-import { MOCK_BUILDER_CHAT, MOCK_FILE_CONTENTS, MOCK_FILE_TREE } from "@/lib/mock-data";
-import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+import WalletCheck from "@/app/components/WalletCheck";
+import TestModeNotice from "@/app/components/TestModeNotice";
+import { useMyQuarter } from "@/app/components/MyQuarterProvider";
+import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import PreviewPane from "./PreviewPane";
 import styles from "./workspace.module.css";
@@ -45,7 +54,23 @@ type State =
   | { phase: "ready"; project: BuilderProject }
   | { phase: "error"; message: string };
 
-const ENTRY_FILE = "page.tsx";
+const ENTRY_FILE = "index.html";
+
+/** 파일 목록을 왼쪽 나무로: 맨 위 파일, 그다음 폴더별 파일. */
+function fileTree(files: BuilderFile[]): { name: string; path: string; depth: number; folder: boolean }[] {
+  const rows: { name: string; path: string; depth: number; folder: boolean }[] = [];
+  const top = files.filter((file) => !file.path.includes("/"));
+  const nested = files.filter((file) => file.path.includes("/"));
+  for (const file of top) rows.push({ name: file.path, path: file.path, depth: 0, folder: false });
+  const folders = Array.from(new Set(nested.map((file) => file.path.split("/")[0]))).sort();
+  for (const folder of folders) {
+    rows.push({ name: folder, path: folder, depth: 0, folder: true });
+    for (const file of nested.filter((item) => item.path.startsWith(`${folder}/`))) {
+      rows.push({ name: file.path.slice(folder.length + 1), path: file.path, depth: 1, folder: false });
+    }
+  }
+  return rows;
+}
 
 /**
  * 코드에 색을 입힙니다 — 화면용 장식일 뿐, 코드를 바꾸지 않습니다.
@@ -92,7 +117,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [siblings, setSiblings] = useState<BuilderProject[]>([]);
   const [activeFile, setActiveFile] = useState(ENTRY_FILE);
-  const [mode, setMode] = useState<Mode>("code");
+  // 만든 앱을 먼저 보여 줍니다 — 초보 회원에게는 코드보다 결과가 먼저입니다.
+  const [mode, setMode] = useState<Mode>("preview");
+  const [files, setFiles] = useState<BuilderFile[] | null>(null);
+  const [filesError, setFilesError] = useState<string | null>(null);
+  const [estimate, setEstimate] = useState<StarterEstimate | null>(null);
+  const [starterIdea, setStarterIdea] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [starterError, setStarterError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
+  const { refresh: refreshWallet } = useMyQuarter();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -119,6 +153,42 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         );
       });
   }, [projectId]);
+
+  // 이 프로젝트의 파일. 비어 있으면 예시 앱을 만들 수 있으니 비용 어림도
+  // 함께 받아 둡니다.
+  useEffect(() => {
+    listBuilderFiles(projectId)
+      .then((list) => {
+        setFiles(list);
+        if (list.length > 0 && !list.some((file) => file.path === ENTRY_FILE)) {
+          setActiveFile(list[0].path);
+        }
+        if (list.length === 0) {
+          getStarterEstimate().then(setEstimate).catch(() => setEstimate(null));
+        }
+      })
+      .catch((error: unknown) => setFilesError(describeError(error)));
+  }, [projectId]);
+
+  const makeStarter = useCallback(
+    async (idea: string) => {
+      setStarting(true);
+      setStarterError(null);
+      try {
+        const result = await createStarterApp(projectId, idea);
+        setFiles(result.files);
+        setActiveFile(ENTRY_FILE);
+        setSummary(result.summary);
+        setMode("preview");
+        void refreshWallet();
+      } catch (error) {
+        setStarterError(describeError(error));
+      } finally {
+        setStarting(false);
+      }
+    },
+    [projectId, refreshWallet],
+  );
 
   // 전환 메뉴에 쓸 목록. 실패해도 작업 공간은 그대로 쓸 수 있어야 하므로
   // 조용히 넘어갑니다.
@@ -202,8 +272,13 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   }
 
   const { project } = state;
-  const code = MOCK_FILE_CONTENTS[activeFile] ?? "// 내용이 없습니다.";
+  const fileMap: Record<string, string> = Object.fromEntries(
+    (files ?? []).map((file) => [file.path, file.content]),
+  );
+  const code = fileMap[activeFile] ?? "";
   const lineCount = code.split("\n").length;
+  const empty = files !== null && files.length === 0;
+  const idea = starterIdea ?? project.description;
   const showCode = mode === "code" || mode === "split";
   const showPreview = mode === "preview" || mode === "split";
 
@@ -244,6 +319,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
+        <TestModeNotice area="builder" />
         <span className="badge badge-muted">
           {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
         </span>
@@ -271,23 +347,29 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         <aside className={`${ws.pane} ${styles.left}`}>
           <div className={ws.paneHead}>
             <span className={ws.paneHeadTitle}>파일</span>
-            <span className="badge badge-mock">준비 중</span>
+            {files !== null && <span className="badge badge-muted">{files.length}개</span>}
           </div>
           <div className={ws.paneBody}>
+            {filesError !== null && <p className={styles.hint}>파일을 불러오지 못했습니다. {filesError}.</p>}
+            {empty && <p className={styles.hint}>아직 파일이 없어요. 가운데에서 예시 앱을 만들 수 있어요.</p>}
             <ul className={styles.fileList}>
-              {MOCK_FILE_TREE.map((node) => {
-                const isFolder = node.kind === "folder";
-                const isActive = !isFolder && node.name === activeFile;
+              {fileTree(files ?? []).map((node) => {
+                const isFolder = node.folder;
+                const isActive = !isFolder && node.path === activeFile;
 
                 return (
-                  <li key={`${node.depth}-${node.name}`}>
+                  <li key={`${node.depth}-${node.path}`}>
                     <button
                       className={`${styles.fileRow} ${isActive ? styles.fileRowActive : ""} ${
                         isFolder ? styles.folderRow : ""
                       }`}
                       style={{ paddingLeft: `${0.4 + node.depth * 0.75}rem` }}
                       type="button"
-                      onClick={() => !isFolder && setActiveFile(node.name)}
+                      onClick={() => {
+                        if (isFolder) return;
+                        setActiveFile(node.path);
+                        if (mode === "preview") setMode("split");
+                      }}
                       disabled={isFolder}
                     >
                       <span className={styles.fileGlyph} aria-hidden="true">
@@ -328,7 +410,53 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           </div>
 
           <div className={styles.centerBody}>
-            {showCode && (
+            {empty && (
+              <div className={styles.starter}>
+                <p className={styles.starterTitle}>예시 앱부터 만들어 볼까요?</p>
+                <p className={styles.starterText}>
+                  만들고 싶은 것을 적으면 Claude가 바로 실행해 볼 수 있는 작은 앱(HTML · CSS ·
+                  JavaScript)을 만들어 줍니다. 만든 뒤에는 파일을 보고, 미리보기에서 눌러 볼 수
+                  있어요.
+                </p>
+                <label className="sr-only" htmlFor="starter-idea">
+                  만들고 싶은 앱
+                </label>
+                <textarea
+                  className={`field ${styles.starterIdea}`}
+                  id="starter-idea"
+                  value={idea}
+                  maxLength={2000}
+                  rows={3}
+                  placeholder="예: 한 달 지출을 적고 항목별로 합계를 보여 주는 가계부"
+                  onChange={(event) => setStarterIdea(event.target.value)}
+                  disabled={!mayCreate || starting}
+                />
+                <div className={styles.starterActions}>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => void makeStarter(idea)}
+                    disabled={!mayCreate || starting || !idea.trim()}
+                    title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+                  >
+                    {starting ? "예시 앱을 만드는 중… (보통 30초~1분)" : "예시 앱 만들기"}
+                  </button>
+                  {estimate && (
+                    <span className={styles.starterCost}>
+                      약 {formatKrw(estimate.estimated_krw)} · 최대 {formatKrw(estimate.worst_case_krw)}
+                    </span>
+                  )}
+                </div>
+                {mayCreate && estimate && <WalletCheck costKrw={estimate.worst_case_krw} />}
+                {starterError && (
+                  <p className={styles.starterError} role="alert">
+                    {starterError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!empty && showCode && (
               <div className={styles.codeSide}>
                 <div className={styles.tabs}>
                   <span className={`${styles.tab} ${styles.tabActive}`}>{activeFile}</span>
@@ -344,9 +472,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               </div>
             )}
 
-            {showPreview && (
+            {!empty && showPreview && (
               <div className={styles.previewSide}>
-                <PreviewPane files={MOCK_FILE_CONTENTS} entry={ENTRY_FILE} />
+                <PreviewPane files={fileMap} entry={ENTRY_FILE} />
               </div>
             )}
           </div>
@@ -357,35 +485,34 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           <div className={styles.rightInner}>
             <div className={ws.paneHead}>
               <span className={ws.paneHeadTitle}>Claude</span>
-              <span className="badge badge-mock">준비 중</span>
+              <span className="badge badge-mock">고치기는 준비 중</span>
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
-                {MOCK_BUILDER_CHAT.map((message, index) => (
-                  <div
-                    className={`${ws.chatMessage} ${
-                      message.role === "user" ? ws.chatUser : ws.chatAssistant
-                    }`}
-                    key={index}
-                  >
-                    <span className={ws.chatRole}>
-                      {message.role === "user" ? "나" : "Claude"}
-                    </span>
-                    {message.body}
+                {summary ? (
+                  <div className={`${ws.chatMessage} ${ws.chatAssistant}`}>
+                    <span className={ws.chatRole}>Claude</span>
+                    {summary}
                   </div>
-                ))}
+                ) : (
+                  <p className={styles.hint}>
+                    {empty
+                      ? "가운데에서 예시 앱을 만들면 Claude가 무엇을 만들었는지 여기에서 알려 줘요."
+                      : "Claude에게 말로 고쳐 달라고 하는 기능은 다음 단계에서 열립니다. 지금은 파일을 보고, 미리보기에서 눌러 보고, ZIP으로 받을 수 있어요."}
+                  </p>
+                )}
               </div>
             </div>
             <div className={ws.chatComposer}>
               <input
                 className="field"
                 type="text"
-                placeholder={mayCreate ? "무엇을 바꿀까요?" : "이번 분기에는 사용할 수 없습니다"}
+                placeholder={mayCreate ? "무엇을 바꿀까요? (다음 단계)" : "이번 분기에는 사용할 수 없습니다"}
                 disabled
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                 aria-label={
                   mayCreate
-                    ? "Claude에게 요청하기 (Phase 3에서 제공됩니다)"
+                    ? "Claude에게 고쳐 달라고 하기 (다음 단계에서 제공됩니다)"
                     : "이번 분기에는 사용할 수 없습니다"
                 }
               />

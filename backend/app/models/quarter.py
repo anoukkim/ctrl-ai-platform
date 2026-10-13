@@ -7,10 +7,14 @@ quarter is normally three months. (This replaces the earlier four-month
 Credits are not automatic. The flow is:
 
     admin opens applications for a quarter
-      -> member applies, choosing how to split their budget between
-         Build and Video
+      -> member presses "이번 분기 참여" — one amount, the quarter's
       -> admin approves
-      -> the approved allocation becomes usable
+      -> the member's 동아리 지원 wallet for the quarter exists
+
+There is one wallet per member per quarter (`single-wallet`, 2026-10-08).
+Chat, video and every other paid feature spend from it; what each charge
+was for — provider, feature, model — is on the usage event, not in a
+separate bucket.
 
 Money is the source of truth. Budgets are stored in KRW, never in tokens
 or generations, because provider pricing changes and an old allocation
@@ -44,12 +48,6 @@ class ApplicationStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-#: Budget categories a member splits their allowance between.
-class BudgetCategory(str, enum.Enum):
-    BUILD = "build"
-    VIDEO = "video"
-
-
 class Quarter(TimestampMixin, Base):
     """One calendar quarter.
 
@@ -78,9 +76,11 @@ class Quarter(TimestampMixin, Base):
         nullable=False,
     )
 
-    #: Maximum community-funded budget one member may receive this
-    #: quarter, in KRW. Configurable per quarter rather than a constant
-    #: scattered through the code; the default comes from settings.
+    #: The 동아리 지원 each participating member receives this quarter, in
+    #: KRW — the one amount "이번 분기 참여" applies for. Configurable per
+    #: quarter rather than a constant scattered through the code; the
+    #: default comes from settings (80,000원). Changing it later does not
+    #: move a wallet that was already approved.
     subsidy_limit_krw: Mapped[int] = mapped_column(Integer, nullable=False)
 
     applications: Mapped[list["QuarterApplication"]] = relationship(back_populates="quarter")
@@ -96,9 +96,9 @@ class Quarter(TimestampMixin, Base):
 class QuarterApplication(TimestampMixin, Base):
     """A member's request to take part in one quarter.
 
-    The member chooses a percentage split; the KRW amounts are computed
-    from the quarter's subsidy limit and stored, so the application still
-    reads correctly if the limit changes afterwards.
+    There is nothing to choose: the member applies for the quarter's
+    amount, which is copied here so the application still reads correctly
+    if an admin changes the quarter's amount afterwards.
 
     One live application per member per quarter: a cancelled or rejected
     one may be replaced, which is what the partial unique behaviour in the
@@ -118,13 +118,8 @@ class QuarterApplication(TimestampMixin, Base):
         ForeignKey("quarters.id", ondelete="CASCADE"), index=True, nullable=False
     )
 
-    #: Must add up to exactly 100.
-    build_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
-    video_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    requested_total_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    requested_build_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    requested_video_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: The quarter's amount when the member applied.
+    requested_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
 
     status: Mapped[ApplicationStatus] = mapped_column(
         status_enum(ApplicationStatus, "applicationstatus"),
@@ -146,10 +141,11 @@ class QuarterApplication(TimestampMixin, Base):
 
 
 class QuarterAllocation(TimestampMixin, Base):
-    """What an approved member may actually spend in one quarter.
+    """One member's 동아리 지원 wallet for one quarter.
 
-    Two buckets, both in KRW. Community money only — personal top-ups are
-    a separate balance and must never be mixed into these figures.
+    One balance in KRW that every paid feature spends from. Community money
+    only — personal top-ups are a separate balance and must never be mixed
+    into these figures.
     """
 
     __tablename__ = "quarter_allocations"
@@ -168,14 +164,12 @@ class QuarterAllocation(TimestampMixin, Base):
         ForeignKey("quarter_applications.id", ondelete="SET NULL"), nullable=True
     )
 
-    community_total_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    build_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    video_budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
-    build_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
-    video_percentage: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    build_consumed_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    video_consumed_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    #: What the wallet holds this quarter. Copied from the application at
+    #: approval; an admin may adjust it, and a withdrawal releases what is
+    #: left of it.
+    budget_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: What has been spent from it. Only `usage.charge()` raises it.
+    consumed_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     #: Provider prices at the moment of approval. Kept so a member's quota
     #: in tokens or generations can be shown consistently even after a
@@ -188,12 +182,8 @@ class QuarterAllocation(TimestampMixin, Base):
     )
 
     @property
-    def build_remaining_krw(self) -> int:
-        return max(0, self.build_budget_krw - self.build_consumed_krw)
-
-    @property
-    def video_remaining_krw(self) -> int:
-        return max(0, self.video_budget_krw - self.video_consumed_krw)
+    def remaining_krw(self) -> int:
+        return max(0, self.budget_krw - self.consumed_krw)
 
     def __repr__(self) -> str:
         return f"<QuarterAllocation user={self.user_id} quarter={self.quarter_id}>"

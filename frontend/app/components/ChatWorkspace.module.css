@@ -401,7 +401,7 @@
   line-height: 1.5;
 }
 
-/* 액션 단추 — "Project Builder에서 시작 →" */
+/* 액션 단추 — "Project Builder에서 예시 앱 만들기 →" */
 .suggestion {
   display: inline-flex;
   align-items: center;
@@ -540,6 +540,7 @@
 /* 입력창 바로 위 — 모델 고르기. */
 .composerTools {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.45rem;

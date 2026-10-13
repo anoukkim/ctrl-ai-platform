@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import { MOCK_VIDEOS } from "@/lib/mock-data";
 
 import PageHeader from "@/app/components/PageHeader";
+import TestModeNotice from "@/app/components/TestModeNotice";
 
 import VideoGrid from "./VideoGrid";
 
@@ -25,7 +26,12 @@ export default function CtrlAITubePage() {
       <PageHeader
         eyebrow="Explore"
         title="CtrlAITube"
-        titleAddon={<span className="badge badge-mock">준비 중</span>}
+        titleAddon={
+          <>
+            <span className="badge badge-mock">준비 중</span>
+            <TestModeNotice area="community" />
+          </>
+        }
         subtitle={
           <>
             회원들이 만들어 자기 YouTube 채널에 올린 영상입니다. 여기에서 나누는 이야기는

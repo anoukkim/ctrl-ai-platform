@@ -5,11 +5,13 @@
  * 공개되어 다른 회원도 같은 문제를 겪고 있는지 바로 알 수 있기 때문입니다.
  *
  * 공개된다는 점은 장점이자 주의할 점이라 화면에서 분명히 말해 둡니다.
- * GitHub 계정이 없는 회원을 위한 신고 양식은 아래에 자리만 잡아 두었습니다.
+ * GitHub 계정이 없는 회원은 아래의 "의견 보내기"로 보냅니다 — 저장되고
+ * Admin › Feedback에서 운영진만 읽습니다(prep-beta-launch).
  */
 
 import type { Metadata } from "next";
 
+import FeedbackButton from "@/app/components/FeedbackButton";
 import PageHeader from "@/app/components/PageHeader";
 
 import styles from "./issues.module.css";
@@ -71,20 +73,17 @@ export default function IssuesPage() {
         </ul>
       </section>
 
-      {/*
-        GitHub 계정이 없는 회원을 위한 자리입니다. 화면 안에서 바로 보내는
-        양식을 여기에 넣을 예정이라, 미리 자리와 설명만 두었습니다.
-        만들 때 필요한 것: 글을 저장할 테이블, 관리자용 목록 화면,
-        그리고 스팸을 막을 방법.
-      */}
-      <section className={`card ${styles.placeholder}`}>
-        <h2 className="section-title">
-          화면에서 바로 보내기 <span className="badge badge-mock">준비 중</span>
-        </h2>
+      {/* GitHub 계정이 없거나, 공개하고 싶지 않은 이야기는 여기로. 같은 단추가
+          사이드바 아래에도 있어 어느 화면에서든 보낼 수 있습니다. */}
+      <section className="card">
+        <h2 className="section-title">GitHub 없이 바로 보내기</h2>
         <p className="small muted">
-          GitHub 계정 없이도 여기에서 바로 보낼 수 있는 양식을 준비하고 있습니다. 그때까지는
-          위의 GitHub 링크를 이용해 주세요.
+          계정이 없거나 공개하고 싶지 않은 이야기라면 여기에 적어 주세요. 운영진만 읽습니다.
+          사이드바 아래의 말풍선 단추로도 어느 화면에서든 보낼 수 있습니다.
         </p>
+        <div className={styles.action}>
+          <FeedbackButton />
+        </div>
       </section>
     </div>
   );

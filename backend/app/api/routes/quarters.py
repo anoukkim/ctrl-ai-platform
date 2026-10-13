@@ -1,8 +1,9 @@
 """Member-facing quarter, application and wallet routes.
 
-Credits are not automatic: a member applies for a quarter, chooses how to
-split the budget between Build and Video, and an admin approves. Only then
-does an allocation exist.
+Credits are not automatic: a member presses "이번 분기 참여", which applies
+for the quarter's one amount, and an admin approves. Only then does the
+member's 동아리 지원 wallet for the quarter exist. There is no split to
+choose (`single-wallet`).
 """
 
 from datetime import date, datetime, timezone
@@ -12,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
     ApplicationStatus,
@@ -25,7 +27,6 @@ from app.models import (
     User,
 )
 from app.schemas.quarter import (
-    ApplicationCreate,
     ApplicationRead,
     MyQuarterStatus,
     PersonalBalanceRead,
@@ -35,11 +36,13 @@ from app.schemas.quarter import (
     TopUpRead,
 )
 from app.services.quarters import current_quarter, membership_for
-from app.services.budget import InvalidSplitError, split_budget
 from app.services.wallet import get_or_create_balance
 
 
 router = APIRouter(prefix="/quarters", tags=["quarters"])
+
+#: Why personal money cannot be added or switched on (the beta).
+TOP_UPS_OFF = "베타 기간에는 개인 충전을 쓸 수 없습니다. 동아리 지원금으로 이용해 주세요."
 
 #: Application states that block a second application for the same quarter.
 LIVE_APPLICATION_STATES = {ApplicationStatus.SUBMITTED, ApplicationStatus.APPROVED}
@@ -133,7 +136,6 @@ def read_my_quarter(
 )
 def apply_for_quarter(
     quarter_id: int,
-    payload: ApplicationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> QuarterApplication:
@@ -153,21 +155,9 @@ def apply_for_quarter(
     if existing is not None and existing.status in LIVE_APPLICATION_STATES:
         raise HTTPException(status_code=409, detail="이미 신청한 분기입니다.")
 
-    # The split rule lives in one place; the amounts are derived from the
-    # quarter's limit rather than trusted from the client.
-    try:
-        budget = split_budget(
-            payload.build_percentage, payload.video_percentage, quarter.subsidy_limit_krw
-        )
-    except InvalidSplitError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
+    # No body: the amount is the quarter's, never a figure the client sent.
     application = existing or QuarterApplication(user_id=user.id, quarter_id=quarter.id)
-    application.build_percentage = budget.build_percentage
-    application.video_percentage = budget.video_percentage
-    application.requested_total_budget_krw = budget.total_budget_krw
-    application.requested_build_budget_krw = budget.build_budget_krw
-    application.requested_video_budget_krw = budget.video_budget_krw
+    application.requested_budget_krw = quarter.subsidy_limit_krw
     application.status = ApplicationStatus.SUBMITTED
     application.submitted_at = datetime.now(timezone.utc)
     application.reviewed_at = None
@@ -228,8 +218,11 @@ def update_wallet(
     payload: PersonalBalanceUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> PersonalBalance:
     """Personal money is never spent unless the member opts in here."""
+    if payload.overage_enabled and not settings.top_ups_enabled:
+        raise HTTPException(status_code=403, detail=TOP_UPS_OFF)
     balance = _wallet(db, user)
     balance.overage_enabled = payload.overage_enabled
     db.commit()
@@ -247,12 +240,16 @@ def request_top_up(
     payload: TopUpCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> PersonalTopUp:
     """Records the request only.
 
     No payment provider is called. An admin confirms the deposit, and only
-    then does the balance move.
+    then does the balance move. Refused in the beta, where no real money
+    moves (prep-beta-launch, point 2).
     """
+    if not settings.top_ups_enabled:
+        raise HTTPException(status_code=403, detail=TOP_UPS_OFF)
     top_up = PersonalTopUp(
         user_id=user.id,
         amount_krw=payload.amount_krw,

@@ -344,7 +344,7 @@ def main() -> None:
     print(f"Quarters:         {quarters} created")
     print(f"Video models:     {models} created")
     print(f"Invite code:      {invite} (development only - sign up at /signup)")
-    print(f"Subsidy limit:    {settings.quarterly_subsidy_limit_krw:,} KRW per member per quarter")
+    print(f"Quarter support:  {settings.quarterly_subsidy_limit_krw:,} KRW wallet per member per quarter")
 
 
 if __name__ == "__main__":

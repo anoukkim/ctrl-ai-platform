@@ -1,0 +1,17 @@
+# Build the production images on this machine instead of pulling them.
+#
+# Only for proving the production stack starts, on a laptop:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --build
+#
+# The server never uses this file — it pulls what GitHub Actions built.
+
+services:
+  web:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_ORIGIN: http://api:8000
+  api:
+    build:
+      context: ./backend

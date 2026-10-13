@@ -42,14 +42,14 @@ principles.
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
 | Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
-| Chat (default page)   | **Built** — conversations, streamed replies with 중지, action buttons into Builder/Video; mock Claude by default, charged to Build by the token |
+| Chat (default page)   | **Built** — conversations, streamed replies with 중지, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
-| Usage                 | **Live** — real budgets, real ledger, redesigned around one figure per card       |
+| Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/영상/기타 breakdown, personal balance, ledger |
 | Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
-| Admin                 | **Live** — section hub, member/application/quarter figures, KRW budgets, audit log |
+| Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
@@ -77,15 +77,16 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore/[slug]` | App detail      | Hero, 앱 실행, tabs; same comments as CtrlAITube |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
-| `/usage`              | Usage           | Club support and personal balance, in KRW    |
+| `/usage`              | Usage           | The one 동아리 지원 wallet and personal balance, in KRW |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
 | `/issues`             | Report Issue    | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
 | `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
-| `/admin/members/[id]` | Member detail   | Participation history, budgets, audit trail  |
+| `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
 | `/admin/applications` | Applications    | Approve or reject, with stat cards and tabs  |
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
+| `/admin/budget`       | Budget          | Every wallet in a quarter, and spend by provider (what to buy) |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
 | `/admin/claude-models` | Claude Models  | Chat models, their prices, who may pick them, the default |
 | `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
@@ -93,10 +94,11 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/system`       | System          | Server health and external service status    |
 | `/admin/dev`          | Dev Tools       | Usage simulator; development only            |
 
-`/admin/budget` and `/admin/content` exist in the code but are hidden from
-the navigation until budget-by-provider and Phases 5/8 fill them — a menu
-item that always leads to an empty screen is in the way. Turning one on is
-deleting its `hidden: true` in `frontend/app/admin/sections.ts`.
+`/admin/content` exists in the code but is hidden from the navigation until
+Phases 5/8 fill it — a menu item that always leads to an empty screen is in
+the way. Turning it on is deleting its `hidden: true` in
+`frontend/app/admin/sections.ts`. (`/admin/budget` was turned on by
+`single-wallet`.)
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAIApps**; the path was kept so existing links do not break.
@@ -121,6 +123,18 @@ Project Builder and Video Generator are sibling workspaces. Both use the full
 viewport with a compact top bar, side tools, a persistent Claude panel, and a
 preview — closer to a desktop application than a web page. They share their
 frame in `frontend/app/components/workspace.module.css`.
+
+**Project Builder — 예시 앱** (chat-builder-starter). From Chat's
+**Project Builder에서 예시 앱 만들기** button (or 예시 앱 만들기 in an empty
+project) Claude writes a small static app — `index.html`, `style.css`,
+`app.js` — as structured JSON; the backend checks every path and size
+(HTML/CSS/JS/JSON/SVG/MD/TXT only, ≤ 10 files, 100 KB each, 300 KB in all,
+no `..` or hidden files), charges the wallet (feature `build`, estimate and
+worst case shown first) and stores the files in the same transaction. A
+failed or cut-off generation is free. The preview runs `index.html` with
+its CSS and JS inlined in an `<iframe srcdoc sandbox="allow-scripts">`
+behind a CSP that blocks all network — never on the backend. Files are
+read-only for now; changing them by talking to Claude is the next step.
 
 **Project Builder** — selecting a file changes the editor contents. Nothing
 generates or runs code: that is Phase 3, and member code will never execute on
@@ -161,9 +175,9 @@ Every generation, edit (이 영상 수정하기) and extension (이어서 만들
 through the video provider behind `VIDEO_PROVIDER` — **mock by default**, which
 returns a placeholder clip; the `higgsfield` setting refuses rather than calling
 anything, because the real adapter is not written yet. Each one is charged to
-the member's **Video** budget at `seconds × the model's price per second for the
-chosen resolution`, and the same figure is shown as the estimate next to the
-button.
+the member's one wallet at `seconds × the model's price per second for the
+chosen resolution`, recorded as Higgsfield spend, and the same figure is shown
+as the estimate next to the button, compared with what is left.
 
 What a member can choose — lengths, ratios, resolutions, sound, whether edit and
 extend exist — is the selected model's **catalogue entry**, edited in
@@ -172,8 +186,9 @@ there until an admin saves the model. Each version records how it was made
 (생성 / 수정 / 이어서), its source version and its exact settings.
 
 The Claude panel, **프롬프트 도움받기 (선택)**, starts collapsed. It only
-rewrites prompt text, never generates video, and is charged to the **Build**
-budget by the token, exactly like a Chat reply (below).
+rewrites prompt text, never generates video, and is charged to the member's
+wallet by the token, exactly like a Chat reply (below), recorded as Claude
+spend.
 
 ## Chat
 
@@ -187,18 +202,35 @@ Chat is the opening screen and a real conversation with Claude, behind
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
 - **Action buttons.** When a message is about building an app or making a
-  video, the reply ends with **Project Builder에서 시작** or **Video Generator
+  video, the reply ends with **Project Builder에서 예시 앱 만들기** or **Video Generator
   열기**. The button opens that library with the new-project form already
   filled: the member's message becomes the description (Builder) or the
   prompt (Video). Claude chooses the button with a hidden marker the server
   removes; there is no agent routing.
-- **Money.** Before Claude is called, the Build budget is checked against the
+- **Money.** Before Claude is called, the member's wallet is checked against the
   worst case (the history sent plus the longest reply). Afterwards the tokens
-  actually used are charged: input × input price + output × output price in
-  dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
+  actually used are charged: uncached input × input price + cache writes ×
+  1.25 × input price + cache reads × the cache-read price + output × output
+  price in dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
   records the model, both token counts, the dollar cost and the rate. Prices
   are edited with the models in Admin › Claude Models, the rate in Admin ›
   System; both are audited.
+- **Prompt caching** (prompt-caching). Every request marks the system
+  prompt and the conversation so far as cacheable, so each reply re-reads
+  the earlier turns at about a tenth of the input price (Opus 5.5 a
+  twentieth). Long conversations are trimmed in steps — half the history
+  limit at a time — so the cached start of the conversation stays the same
+  for many turns. The check before a call still prices the whole input as a
+  cache write, the dearest case. Admin › Budget shows how much of Claude's
+  input came from the cache; `CHAT_PROMPT_CACHE` / `CHAT_CACHE_TTL` switch
+  it.
+- **Cost calibration** (cost-calibration). Each Chat usage event keeps
+  the input estimate made before the call. Once a model has 10 real
+  replies, "답장 1회 약 N원" becomes the median of its recent replies
+  (labelled 최근 실제 기준) and the pre-check prices input at the observed
+  ratio × 1.2 — never above one token per character, output still the full
+  maximum. Admin › Claude Models › 비용 보정 shows estimate vs reality per
+  model.
 - **Choosing a model** (chat-model-choice). Next to the composer, per
   conversation: each model shows its Korean label, a one-line description
   and "답장 1회 약 N원" (3,000 input + 800 output tokens). A new conversation
@@ -265,47 +297,57 @@ nothing in the product uses it.)
 ```text
 Admin opens applications for a quarter
   -> member sees applications are open in Profile
-  -> member applies, splitting their budget between Build and Video
+  -> member presses 이번 분기 참여 — one amount, the quarter's
   -> admin approves
-  -> the approved allocation becomes usable
+  -> the member's 동아리 지원 wallet for the quarter exists
 ```
 
-The Build and Video percentages must add up to exactly 100%. Each approved
-member may receive at most **100,000 KRW per quarter** of club-funded
-budget, combined across both:
+### One wallet per member per quarter
 
-| Split | Build | Video |
-| ----- | ----- | ----- |
-| 100 / 0 | 100,000원 | 0원 |
-| 70 / 30 | 70,000원 | 30,000원 |
-| 50 / 50 | 50,000원 | 50,000원 |
-| 20 / 80 | 20,000원 | 80,000원 |
-| 0 / 100 | 0원 | 100,000원 |
+Decided by the owner on 2026-10-08 (`single-wallet`). Each participating
+member has **one** 동아리 지원 wallet per quarter — **80,000원 by default** —
+and Chat, video generation, edit and extension, the prompt helper and every
+later paid feature spend from that one balance. There is no Build/Video
+split, no percentage and no preset; the application has nothing to choose.
 
-That figure is not a constant scattered through the code. The default lives
+The amount is not a constant scattered through the code. The default lives
 in `quarterly_subsidy_limit_krw` (backend settings); each quarter copies it
-at creation and keeps its own, so an admin can change it for a future
-quarter without altering one that already ran. The percentage-to-KRW rule
-lives in `backend/app/services/budget.py`, so the API, the UI and the tests
-cannot drift.
+at creation into `subsidy_limit_krw` and keeps its own, edited in Admin ›
+Quarters as **1인 지원금** and audited. Approving an application copies the
+quarter's amount into the wallet, so changing a quarter's amount later never
+moves a wallet that already exists; an admin adjusts one member's wallet in
+Members › member detail (audited).
+
+What the money went on is information, not a limit: Usage shows the wallet
+("이번 분기 지원금 80,000원 중 52,300원 남음") and a 채팅 / 영상 / 기타
+breakdown. Every usage event still records the **provider, feature, model
+and native units** (tokens, seconds), so Admin › Budget can total each
+quarter's spend **by provider** — the figure the club leader reads before
+buying the next round of credit from Anthropic and from Higgsfield. The club
+still buys per provider; members just do not have to guess the split.
+
+Estimated costs next to paid buttons (Chat's "답장 1회 약 N원", video's
+예상 비용) are compared with the one balance, and say so when it is short.
 
 ### KRW is the financial source of truth
 
-Budgets are stored in won, never in tokens or generations. Provider prices
-change, and an approved allocation must not move when they do. A
+Wallets are stored in won, never in tokens or generations. Provider prices
+change, and an approved wallet must not move when they do. A
 `pricing_snapshot` is captured at approval so a provider-specific quota can
 still be displayed consistently afterwards.
 
 `UsageEvent` keeps two separate figures: `provider_cost` (what the provider
 charged, in their own units and currency) and `charged_krw` (what moved a
-budget). Conflating them would misreport both.
+wallet). Conflating them would misreport both.
 
 ### Community money and personal money are separate
 
-A member who exhausts their community budget stops there by default.
-Personal money is spent only if they have explicitly enabled it *and* have a
-balance. Topping up never raises the community subsidy above the quarter's
-limit, and the two are never added together in the interface.
+**The wallet is spent first.** A member who exhausts it stops there by
+default; personal money is spent only if they have explicitly enabled it
+*and* have enough for the whole charge — one charge is never split between
+the two. Usage and Profile say this in one sentence. Topping up never raises
+the 동아리 지원 wallet, and the two are never added together in the
+interface. (Personal top-ups stay off in the beta — `prep-beta-launch`.)
 
 Phase 1c uses a manual top-up workflow: the member requests an amount, an
 admin confirms the deposit, and only then does the balance move. No payment

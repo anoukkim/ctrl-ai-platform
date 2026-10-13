@@ -1,8 +1,8 @@
 """The member's own usage.
 
 One endpoint, because the Usage screen is one screen: it needs the
-quarter, both community budgets, the personal wallet and the recent
-ledger rows together. Fetching them separately is how the screen ends up
+quarter, the 동아리 지원 wallet and what it went on, the personal balance
+and the recent ledger rows together. Fetching them separately is how the screen ends up
 showing figures from four different moments.
 """
 
@@ -15,35 +15,31 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import (
-    BudgetCategory,
     BuilderProject,
     Conversation,
     QuarterAllocation,
     User,
     VideoProject,
 )
+from app.models.usage import spending_group
 from app.schemas.usage import (
-    CategoryUsage,
     MyUsage,
     PersonalUsage,
+    SpendingLine,
     UsageEventRead,
+    WalletUsage,
 )
 from app.services.quarters import current_quarter, membership_for
-from app.services.usage import personal_balance, recent_events
+from app.services.usage import personal_balance, recent_events, spending_breakdown
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
-#: Who performs the work for each category. Shown on the card so the
-#: member knows which service their money is paying for.
-CATEGORY_PROVIDER = {
-    BudgetCategory.BUILD: "Claude",
-    BudgetCategory.VIDEO: "Higgsfield",
-}
+#: The wallet card's breakdown, in the order it is shown.
+SPENDING_LABEL = {"chat": "채팅", "video": "영상", "other": "기타"}
 
 
 #: What a video charge was for, when the event says. The prompt helper is
-#: named because it is paid from Build, and a Build charge labelled only
-#: "영상" would look like a mistake.
+#: named so a Claude charge in the video workspace reads as what it was.
 _VIDEO_FEATURE_LABEL = {
     "video_generate": "영상 생성",
     "video_edit": "영상 수정",
@@ -69,7 +65,9 @@ def _label_for(db: Session, event) -> str:
         project = db.get(VideoProject, event.video_project_id)
         if project is not None:
             return f"{_VIDEO_FEATURE_LABEL.get(event.feature or '', '영상')} — {project.name}"
-    return "Project Builder" if event.category is BudgetCategory.BUILD else "영상"
+    if event.feature == "build":
+        return "Project Builder"
+    return "영상" if spending_group(event.feature) == "video" else "기타"
 
 
 @router.get("/me", response_model=MyUsage, summary="My usage this quarter")
@@ -80,8 +78,8 @@ def read_my_usage(
     quarter = current_quarter(db)
     balance = personal_balance(db, user.id)
 
-    categories: list[CategoryUsage] = []
-    total_budget = 0
+    wallet: WalletUsage | None = None
+    breakdown: list[SpendingLine] = []
     days_remaining = None
     membership_status = None
 
@@ -97,27 +95,21 @@ def read_my_usage(
             )
         )
         if allocation is not None:
-            total_budget = allocation.community_total_budget_krw
-            categories = [
-                CategoryUsage(
-                    category=BudgetCategory.BUILD,
-                    provider=CATEGORY_PROVIDER[BudgetCategory.BUILD],
-                    budget_krw=allocation.build_budget_krw,
-                    consumed_krw=allocation.build_consumed_krw,
-                    remaining_krw=allocation.build_remaining_krw,
-                ),
-                CategoryUsage(
-                    category=BudgetCategory.VIDEO,
-                    provider=CATEGORY_PROVIDER[BudgetCategory.VIDEO],
-                    budget_krw=allocation.video_budget_krw,
-                    consumed_krw=allocation.video_consumed_krw,
-                    remaining_krw=allocation.video_remaining_krw,
-                ),
+            wallet = WalletUsage(
+                budget_krw=allocation.budget_krw,
+                consumed_krw=allocation.consumed_krw,
+                remaining_krw=allocation.remaining_krw,
+            )
+            spent = spending_breakdown(db, user.id, quarter.id)
+            breakdown = [
+                SpendingLine(group=group, label=label, consumed_krw=spent[group])
+                for group, label in SPENDING_LABEL.items()
             ]
 
     events = [
         UsageEventRead(
-            **UsageEventRead.model_validate(event).model_dump(exclude={"label"}),
+            **UsageEventRead.model_validate(event).model_dump(exclude={"label", "group"}),
+            group=spending_group(event.feature),
             label=_label_for(db, event),
         )
         for event in recent_events(db, user.id)
@@ -128,8 +120,8 @@ def read_my_usage(
         quarter_name=quarter.display_name if quarter else None,
         days_remaining=days_remaining,
         membership_status=membership_status,
-        categories=categories,
-        total_budget_krw=total_budget,
+        wallet=wallet,
+        breakdown=breakdown,
         personal=PersonalUsage(
             balance_krw=balance.balance_krw,
             consumed_krw=balance.consumed_krw,

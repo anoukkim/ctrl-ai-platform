@@ -283,12 +283,16 @@ export interface AdminChatModel {
   description: string;
   input_usd_per_mtok: string;
   output_usd_per_mtok: string;
+  /** 프롬프트 캐시 읽기 요금. null이면 입력 요금의 1/10입니다. */
+  cache_read_usd_per_mtok: string | null;
   visibility: ChatModelVisibility;
   is_default: boolean;
   sort_order: number;
   updated_at: string;
   /** 회원이 고르는 창에 보이는 "답장 1회 약 N원"과 같은 값. */
   estimated_reply_krw: number | null;
+  estimate_basis?: "recent" | "formula";
+  estimate_samples?: number;
 }
 
 export interface ChatModelChanges {
@@ -296,6 +300,7 @@ export interface ChatModelChanges {
   description?: string;
   input_usd_per_mtok?: string;
   output_usd_per_mtok?: string;
+  cache_read_usd_per_mtok?: string;
   visibility?: ChatModelVisibility;
   sort_order?: number;
   is_default?: true;
@@ -307,6 +312,27 @@ export interface NewChatModel {
   description: string;
   input_usd_per_mtok: string;
   output_usd_per_mtok: string;
+}
+
+/** Admin › Claude Models › 비용 보정 — 모델별 어림값과 실제 답장. */
+export interface ModelCalibration {
+  model_id: string;
+  label: string;
+  samples: number;
+  calibrated: boolean;
+  input_ratio: number | null;
+  input_factor: number;
+  avg_prompt_tokens: number | null;
+  avg_estimated_tokens: number | null;
+  avg_output_tokens: number | null;
+  avg_reply_krw: number | null;
+  median_reply_krw: number | null;
+  formula_reply_krw: number | null;
+  cache_hit_rate: number | null;
+}
+
+export function getChatCalibration(): Promise<ModelCalibration[]> {
+  return request<ModelCalibration[]>("/admin/chat-models/calibration");
 }
 
 export function listChatModels(): Promise<AdminChatModel[]> {
@@ -351,6 +377,10 @@ export interface ClaudeSettings {
   max_output_tokens: number;
   context_tokens: number;
   rate_limit_per_minute: number;
+  /** CHAT_PROMPT_CACHE. */
+  prompt_cache: boolean;
+  /** "5m" / "1h", 캐시를 끄면 null. */
+  cache_ttl: string | null;
   exchange_rate: ExchangeRate | null;
   rate_history: ExchangeRate[];
 }

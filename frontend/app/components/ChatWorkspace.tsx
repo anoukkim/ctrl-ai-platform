@@ -65,9 +65,11 @@ import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
 import ChatModelPicker from "./ChatModelPicker";
+import TestModeNotice from "./TestModeNotice";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
-import { useMayCreate } from "./MyQuarterProvider";
+import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
+import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 
 /** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
@@ -129,6 +131,8 @@ const STATUS_NOTE: Partial<Record<ChatMessageStatus, string>> = {
 
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
+  // 답장이 끝날 때마다 사이드바의 지갑을 새로 읽습니다 — 같은 지갑입니다.
+  const { refresh: refreshQuarter } = useMyQuarter();
 
   const [info, setInfo] = useState<ChatInfo | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -366,8 +370,9 @@ export default function ChatWorkspace() {
       abortRef.current = null;
       setStreaming(false);
       void refreshList();
+      void refreshQuarter();
     }
-  }, [activeId, chosenModelId, draft, mayCreate, refreshList, streaming]);
+  }, [activeId, chosenModelId, draft, mayCreate, refreshList, refreshQuarter, streaming]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -618,6 +623,9 @@ export default function ChatWorkspace() {
         <div className={styles.composerArea}>
           <div className={styles.composerInner}>
             <NotParticipatingBanner />
+            {/* 배포된 사이트에서 Claude가 아직 목업이면 — 답이 진짜 AI의
+                것이 아니라고 입력창 바로 위에서 말합니다. */}
+            <TestModeNotice area="chat" />
             {sendError !== null && (
               <p className={styles.errorNote} role="alert">
                 {sendError}
@@ -631,6 +639,9 @@ export default function ChatWorkspace() {
                   onChange={(model) => void chooseModel(model)}
                   disabled={!mayCreate || streaming}
                 />
+                {mayCreate && (
+                  <WalletCheck costKrw={selectedModel?.estimated_reply_krw ?? null} />
+                )}
               </div>
             )}
             <label className="sr-only" htmlFor={inputId}>

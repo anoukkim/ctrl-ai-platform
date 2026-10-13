@@ -62,6 +62,8 @@ the same commit that adds it.
 | Endpoint | Guard | Why |
 | -------- | ----- | --- |
 | `GET /api/health` | none | Must answer while the database is down |
+| `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
+| `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
 | `POST /api/auth/register` | none | Creating the account |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
@@ -74,12 +76,15 @@ the same commit that adds it.
 | `POST /api/chat/conversations` | **`require_active_member`** | Creating |
 | `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
 | `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
-| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends Build budget |
+| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/builder/projects/{id}` | **`require_active_member`** | Editing |
 | `DELETE /api/builder/projects/{id}` | **`require_active_member`** | Changing your work |
+| `GET /api/builder/projects/{id}/files` | `get_current_user` | Reading your own work |
+| `GET /api/builder/starter-estimate` | `get_current_user` | A price, nothing spent |
+| `POST /api/builder/projects/{id}/starter` | **`require_active_member`** | Claude writes a starter app — spends the wallet |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |
@@ -87,9 +92,9 @@ the same commit that adds it.
 | `POST /api/video/projects` | **`require_active_member`** | Creating |
 | `PATCH /api/video/projects/{id}` | **`require_active_member`** | Editing |
 | `POST /api/video/projects/{id}/versions` | **`require_active_member`** | Generating — spends budget |
-| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends Video budget |
-| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends Video budget |
-| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends Build budget |
+| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends the wallet |
+| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends the wallet |
+| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends the wallet |
 | `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work |
 | `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
@@ -98,7 +103,7 @@ the same commit that adds it.
 | `POST /api/quarters/applications/{id}/cancel` | `get_current_user` | Same |
 | `GET /api/quarters/me/wallet` | `get_current_user` | Own money |
 | `PATCH /api/quarters/me/wallet` | `get_current_user` | Own money, no community budget touched |
-| `POST /api/quarters/me/top-ups` | `get_current_user` | Own money |
+| `POST /api/quarters/me/top-ups` | `get_current_user` | Own money; refused in `APP_ENV=beta` |
 | `GET /api/quarters/me/top-ups` | `get_current_user` | Own money |
 | `GET /api/usage/me` | `get_current_user` | Reading your own ledger |
 | `GET /api/users` | `require_admin` | |
@@ -109,20 +114,25 @@ the same commit that adds it.
 | `POST /api/admin/applications/{id}/review` | `require_admin` | Approving writes the allocation |
 | `GET /api/admin/quarters/{id}/members` | `require_admin` | |
 | `PUT /api/admin/quarters/{id}/members/{user_id}` | `require_admin` | |
-| `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | |
+| `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | Sets a member's one wallet |
+| `GET /api/admin/quarters/{id}/budget` | `require_admin` | Admin › Budget: wallets and spend by provider, read-only |
 | `PUT /api/admin/members/{user_id}/role` | `require_admin` | |
 | `GET /api/admin/top-ups` | `require_admin` | |
 | `POST /api/admin/top-ups/{id}/confirm` | `require_admin` | |
 | `GET /api/admin/video-models` | `require_admin` | |
 | `PATCH /api/admin/video-models/{id}` | `require_admin` | |
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
+| `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, read-only |
 | `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows |
 | `GET /api/admin/members/{user_id}` | `require_admin` | Read-only; one member's history, budgets and audit trail |
 | `GET /api/admin/stats/applications` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/quarters-with-stats` | `require_admin` | Read-only; every quarter with its figures |
 | `GET /api/admin/claude-pricing` | `require_admin` | Claude prices, exchange rate, chat limits |
-| `PUT /api/admin/claude-pricing/models/{model_id}` | `require_admin` | Audited |
+| `GET /api/admin/chat-models` | `require_admin` | The Claude model catalogue |
+| `POST /api/admin/chat-models` | `require_admin` | Audited |
+| `PATCH /api/admin/chat-models/{id}` | `require_admin` | Audited (prices incl. cache-read price) |
+| `GET /api/admin/chat-models/calibration` | `require_admin` | Cost calibration: estimates vs real replies, read-only |
 | `POST /api/admin/claude-pricing/exchange-rate` | `require_admin` | A new rate row; history kept; audited |
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |
@@ -201,15 +211,28 @@ usage per member and quarter.
 Hosting is expected to be Google Cloud, but nothing here is created until
 Phase 9, and every item below bills someone.
 
-### Beta hosting (decided 2026-10-07)
+### Beta hosting (decided 2026-10-13)
 
 The invite-only beta does **not** use the full layout below. It runs on
-`ctrlai.my` from one Compute Engine e2-micro VM (Always Free region) with
-Docker Compose: Caddy for HTTPS, the Next.js app, FastAPI, and PostgreSQL
-on the same VM with no published port. Billing starts on the Google Cloud
-free trial at the deploy step. The full decision, and how to grow out of
-it, is in `docs/BACKLOG.md` › prep-beta-launch › **Hosting decisions**.
-The layout below is the target after the beta.
+`ctrlai.my` from one Compute Engine VM, `ctrlai-server`: an **e2-medium**
+(2 vCPU, 4 GB RAM, paid) in **Seoul** (`asia-northeast3-c`), Debian 13,
+a 30 GB standard disk and the static IP `34.47.78.228`, on the Google
+Cloud free trial until about 2027-01-11. Docker Compose
+(`docker-compose.prod.yml`) runs four services:
+
+```text
+Internet ─ 80/443 ─▶ caddy (HTTPS, Let's Encrypt; www → apex)
+                       └─▶ web  (Next.js standalone, /api/* rewrite)
+                             └─▶ api (FastAPI, reads the server's .env)
+                                   └─▶ db (PostgreSQL 16, no published port)
+```
+
+There is no `api` subdomain: the browser only talks to `ctrlai.my`.
+Images are built by GitHub Actions and pulled from ghcr.io. Secrets sit
+in a `chmod 600` `.env` on the VM — the beta-only exception in
+`CLAUDE.md` section 17. The full decision is in `docs/archive/done-specs.md` ›
+prep-beta-launch › **Hosting decisions — 2026-10-13**; running it is
+`docs/deployment.md`. The layout below is the target after the beta.
 
 ```text
 Google Cloud

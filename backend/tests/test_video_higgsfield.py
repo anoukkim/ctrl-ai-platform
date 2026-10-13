@@ -195,8 +195,7 @@ def test_generation_charges_duration_times_the_resolution_s_price(
     assert response.status_code == 201, response.text
     version = response.json()
     assert version["resolution"] == "1080p"
-    assert allocation(db_session).video_consumed_krw == 10_000
-    assert allocation(db_session).build_consumed_krw == 0
+    assert allocation(db_session).consumed_krw == 10_000
 
     event = db_session.query(UsageEvent).one()
     assert event.provider == "higgsfield"
@@ -204,7 +203,7 @@ def test_generation_charges_duration_times_the_resolution_s_price(
     assert event.model_id == "kling-3.0-pro"
     assert (event.provider_units, event.provider_unit) == (10, "seconds")
     assert event.charged_krw == 10_000
-    assert event.funding_source.value == "community_video"
+    assert event.funding_source.value == "community"
     assert event.video_version_id == version["id"]
     assert event.video_project_id == project.id
 
@@ -235,7 +234,7 @@ def test_settings_outside_the_catalogue_are_refused_and_not_charged(
 def test_without_enough_budget_nothing_is_called_or_charged(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
-    budgeted.video_budget_krw = 3_000  # a 5s 720p Kling version costs 3,500원
+    budgeted.budget_krw = 3_000  # a 5s 720p Kling version costs 3,500원
     db_session.commit()
     calls = len(MockVideoProvider.calls)
 
@@ -245,7 +244,7 @@ def test_without_enough_budget_nothing_is_called_or_charged(
     assert "지원금" in response.json()["detail"]
     assert len(MockVideoProvider.calls) == calls
     assert db_session.query(VideoVersion).count() == 0
-    assert allocation(db_session).video_consumed_krw == 0
+    assert allocation(db_session).consumed_krw == 0
 
 
 def test_a_participant_with_no_allocation_is_refused(
@@ -269,7 +268,7 @@ def test_the_real_higgsfield_is_never_called_and_never_charged(
     assert response.status_code == 503
     assert "Higgsfield" in response.json()["detail"]
     assert db_session.query(VideoVersion).count() == 0
-    assert allocation(db_session).video_consumed_krw == 0
+    assert allocation(db_session).consumed_krw == 0
 
 
 # ---------------------------------------------------------- edit / extend
@@ -300,7 +299,7 @@ def test_editing_makes_a_linked_version_with_the_source_s_framing(
         assert edited[field] == source[field]
 
     # 10s at 720p twice: the generation, then the edit.
-    assert allocation(db_session).video_consumed_krw == 7_000 + 7_000
+    assert allocation(db_session).consumed_krw == 7_000 + 7_000
     event = db_session.query(UsageEvent).order_by(UsageEvent.id.desc()).first()
     assert event.feature == "video_edit"
     assert event.video_version_id == edited["id"]
@@ -321,7 +320,7 @@ def test_extending_adds_the_chosen_length_and_charges_only_that(
     assert extended["duration_seconds"] == 15
     assert extended["aspect_ratio"] == "9:16"
 
-    assert allocation(db_session).video_consumed_krw == 7_000 + 5 * 700
+    assert allocation(db_session).consumed_krw == 7_000 + 5 * 700
     event = db_session.query(UsageEvent).order_by(UsageEvent.id.desc()).first()
     assert event.feature == "video_extend"
     assert event.provider_units == 5
@@ -458,7 +457,6 @@ def test_the_prompt_helper_rewrites_text_and_charges_build(
 
     event = db_session.query(UsageEvent).one()
     assert (event.provider, event.feature, event.model_id) == ("claude", "video_prompt", "claude-sonnet-5-5")
-    assert event.category.value == "build"
     assert event.provider_unit == "tokens"
     assert event.provider_units == event.input_tokens + event.output_tokens > 0
 
@@ -470,21 +468,21 @@ def test_the_prompt_helper_rewrites_text_and_charges_build(
     assert event.exchange_rate_krw == 1400
     assert body["charged_krw"] == event.charged_krw == expected
 
-    # Claude, not Higgsfield: no provider call, no version, no Video money.
+    # Claude, not Higgsfield: no video provider call and no version; the
+    # same wallet pays, recorded under Claude.
     assert len(MockVideoProvider.calls) == calls
     assert db_session.query(VideoVersion).count() == 0
-    assert allocation(db_session).video_consumed_krw == 0
-    assert allocation(db_session).build_consumed_krw == expected
+    assert allocation(db_session).consumed_krw == expected
 
     # The project's prompt is the member's to change, not the helper's.
     db_session.refresh(project)
     assert project.prompt == "비 오는 밤 서울 골목"
 
 
-def test_the_prompt_helper_is_refused_without_build_budget(
+def test_the_prompt_helper_is_refused_with_an_empty_wallet(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
-    budgeted.build_budget_krw = 0
+    budgeted.budget_krw = 0
     db_session.commit()
 
     response = client.post(
@@ -507,7 +505,7 @@ def test_the_prompt_helper_with_no_real_claude_is_not_charged(
     )
 
     assert response.status_code == 503
-    assert allocation(db_session).build_consumed_krw == 0
+    assert allocation(db_session).consumed_krw == 0
 
 
 def test_usage_names_what_each_video_charge_was_for(
@@ -521,3 +519,45 @@ def test_usage_names_what_each_video_charge_was_for(
     labels = [event["label"] for event in client.get("/api/usage/me").json()["events"]]
 
     assert labels == ["프롬프트 도움 — 밤의 서울", "영상 생성 — 밤의 서울"]
+
+
+# --------------------------------------------------------- one wallet
+
+
+def test_chat_and_video_draw_from_the_same_wallet(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    """single-wallet: a chat reply and a video version come out of one
+    balance, and each is still recorded under its own provider."""
+    assert generate(client, project).status_code == 201  # 5s 720p Kling: 3,500원
+
+    conversation = client.post("/api/chat/conversations", json={}).json()["id"]
+    reply = client.post(
+        f"/api/chat/conversations/{conversation}/messages", json={"content": "안녕하세요"}
+    )
+    assert reply.status_code == 200, reply.text
+
+    events = db_session.query(UsageEvent).order_by(UsageEvent.id).all()
+    assert [(e.provider, e.feature) for e in events] == [
+        ("higgsfield", "video_generate"),
+        ("claude", "chat"),
+    ]
+    assert {e.funding_source.value for e in events} == {"community"}
+    assert allocation(db_session).consumed_krw == sum(e.charged_krw for e in events)
+    assert allocation(db_session).consumed_krw == 3_500 + events[1].charged_krw
+
+
+def test_what_chat_spent_is_no_longer_there_for_video(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    # Chat has used all but 3,000원 of the wallet; a 3,500원 version no
+    # longer fits, although no "video budget" was ever touched.
+    budgeted.consumed_krw = budgeted.budget_krw - 3_000
+    db_session.commit()
+    calls = len(MockVideoProvider.calls)
+
+    response = generate(client, project)
+
+    assert response.status_code == 402
+    assert len(MockVideoProvider.calls) == calls
+    assert db_session.query(UsageEvent).count() == 0

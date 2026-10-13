@@ -51,6 +51,15 @@
   color: var(--text-dim);
 }
 
+/* Admin › Feedback: 회원이 쓴 글. 줄바꿈을 살리고, 긴 글은 칸 안에서 접습니다. */
+.feedbackBody {
+  display: block;
+  max-width: 36rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
 .allocationPanel {
   display: grid;
   gap: 0.6rem;

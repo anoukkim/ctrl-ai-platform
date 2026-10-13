@@ -225,17 +225,14 @@
 
 /* ---------- 분기 참여 신청 ---------- */
 
-/* 승인된 지원금, 신청 미리보기 — Build와 Video 금액 칸 두 개. */
-.approvedGrid,
-.splitGrid {
+/* 승인된 지원금 — 지갑 하나. */
+.approvedGrid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   width: 100%;
 }
 
-.approvedCell,
-.splitCell {
+.approvedCell {
   display: grid;
   gap: 0.2rem;
   padding: 14px 16px;
@@ -243,21 +240,12 @@
   border-radius: var(--radius-sm);
 }
 
-/* 첫 칸은 Build, 둘째 칸은 Video — 이름을 영역 색으로. */
-.approvedCell:first-child .seasonLabel,
-.splitCell:first-child .seasonLabel {
-  color: var(--build-text);
+.approvedCell .seasonLabel {
+  color: var(--accent);
   font-weight: var(--fw-strong);
 }
 
-.approvedCell:nth-child(2) .seasonLabel,
-.splitCell:nth-child(2) .seasonLabel {
-  color: var(--video-text);
-  font-weight: var(--fw-strong);
-}
-
-.approvedValue,
-.splitAmount {
+.approvedValue {
   font-family: var(--mono);
   font-size: var(--page-stat);
   font-weight: var(--fw-card-name);
@@ -269,16 +257,8 @@
   font-size: var(--fs-chip);
 }
 
-.splitPercent {
-  font-family: var(--mono);
-  font-size: var(--fs-count);
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
 .pending,
-.applyRow,
-.applyForm {
+.applyRow {
   display: grid;
   gap: 0.6rem;
   justify-items: start;
@@ -289,68 +269,6 @@
 .pendingTitle {
   font-size: var(--fs-section);
   font-weight: var(--fw-strong);
-}
-
-.limitValue {
-  font-family: var(--mono);
-  font-size: var(--page-title-sm);
-  font-weight: var(--fw-card-name);
-}
-
-.sliderLabel {
-  font-size: var(--fs-meta);
-  font-weight: var(--fw-strong);
-  color: var(--text-muted);
-}
-
-/* 한쪽을 움직이면 다른 쪽이 따라오므로 합이 100%가 아닐 수 없습니다. */
-.slider {
-  width: 100%;
-  max-width: 32rem;
-  accent-color: var(--accent);
-}
-
-.presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.preset {
-  flex: none;
-  padding: 0.3rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--text-muted);
-  font: inherit;
-  font-family: var(--mono);
-  font-size: var(--fs-chip);
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color 0.12s ease,
-    border-color 0.12s ease,
-    color 0.12s ease;
-}
-
-.preset:hover {
-  background: var(--panel-2);
-  color: var(--text);
-}
-
-.presetActive,
-.presetActive:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent);
-  font-weight: var(--fw-strong);
-}
-
-.applyActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
 }
 
 /* ---------- 회원 탈퇴 ---------- */

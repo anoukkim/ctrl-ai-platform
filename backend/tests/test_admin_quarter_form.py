@@ -147,11 +147,7 @@ def pending(db_session: Session, other_user):
     application = QuarterApplication(
         user_id=other_user.id,
         quarter_id=quarter.id,
-        build_percentage=70,
-        video_percentage=30,
-        requested_total_budget_krw=100_000,
-        requested_build_budget_krw=70_000,
-        requested_video_budget_krw=30_000,
+        requested_budget_krw=100_000,
         status=ApplicationStatus.SUBMITTED,
     )
     db_session.add(application)
@@ -171,7 +167,7 @@ def test_approving_from_the_row_creates_the_budget_and_the_membership(
         select(QuarterAllocation).where(QuarterAllocation.user_id == other_user.id)
     )
     assert allocation is not None
-    assert allocation.build_budget_krw == 70_000
+    assert allocation.budget_krw == 100_000
 
     # Approving is also what makes them a participant — otherwise they
     # would hold a budget they are not allowed to spend.
@@ -283,11 +279,7 @@ def test_the_applicant_handle_is_the_real_username(
     application = QuarterApplication(
         user_id=member.id,
         quarter_id=pending.quarter_id,
-        build_percentage=50,
-        video_percentage=50,
-        requested_total_budget_krw=100_000,
-        requested_build_budget_krw=50_000,
-        requested_video_budget_krw=50_000,
+        requested_budget_krw=100_000,
         status=ApplicationStatus.SUBMITTED,
     )
     db_session.add(application)

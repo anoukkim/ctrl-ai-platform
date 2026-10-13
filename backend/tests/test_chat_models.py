@@ -48,9 +48,18 @@ def set_visibility(db: Session, model_id: str, visibility: ChatModelVisibility) 
     return row
 
 
-def usd(event: UsageEvent, input_price: int, output_price: int) -> Decimal:
+def usd(
+    event: UsageEvent, input_price: int, output_price: int, read_price: str | None = None
+) -> Decimal:
+    """What the event cost: uncached input, cache writes at 1.25x input
+    (5-minute TTL), cache reads at the model's read price (a tenth of input
+    unless given), and output."""
+    read = Decimal(read_price) if read_price is not None else Decimal(input_price) / 10
     return (
-        Decimal(event.input_tokens) * input_price + Decimal(event.output_tokens) * output_price
+        Decimal(event.input_tokens) * input_price
+        + Decimal(event.cache_write_tokens or 0) * Decimal(input_price) * Decimal("1.25")
+        + Decimal(event.cache_read_tokens or 0) * read
+        + Decimal(event.output_tokens) * output_price
     ) / 1_000_000
 
 
@@ -171,7 +180,7 @@ def test_an_admin_may_use_an_admin_only_model(
 
     event = db_session.query(UsageEvent).one()
     assert event.model_id == "claude-opus-5-5"
-    assert event.charged_krw == math.ceil(usd(event, 4, 20) * 1400)
+    assert event.charged_krw == math.ceil(usd(event, 4, 20, "0.20") * 1400)
 
 
 # ------------------------------------------------------------- price and record
@@ -185,7 +194,7 @@ def test_the_budget_check_and_the_charge_use_the_chosen_models_price(
 
     # Sonnet's worst case (4,096 tokens out at $10) is 58원 or more;
     # Haiku's ($5) fits in 40원. Only the chosen model's price lets this through.
-    budgeted.build_budget_krw = 40
+    budgeted.budget_krw = 40
     db_session.commit()
     done = events_of(send(client, conversation["id"], "안녕하세요").text)[-1][1]
 
@@ -203,7 +212,7 @@ def test_the_same_budget_refuses_the_default_model(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
     conversation = client.post("/api/chat/conversations", json={}).json()
-    budgeted.build_budget_krw = 40
+    budgeted.budget_krw = 40
     db_session.commit()
     assert send(client, conversation["id"], "안녕하세요").status_code == 402
 

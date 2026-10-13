@@ -69,11 +69,7 @@ def work(client: TestClient, dev_user, quarter, db_session, video_models) -> dic
         QuarterAllocation(
             user_id=dev_user.id,
             quarter_id=quarter.id,
-            community_total_budget_krw=100_000,
-            build_budget_krw=30_000,
-            video_budget_krw=70_000,
-            build_percentage=30,
-            video_percentage=70,
+            budget_krw=100_000,
         )
     )
     db_session.commit()
@@ -252,7 +248,6 @@ def test_an_inactive_member_may_still_apply_for_the_quarter(
 
     response = client.post(
         f"/api/quarters/{quarter.id}/apply",
-        json={"build_percentage": 70, "video_percentage": 30},
     )
 
     assert response.status_code in (200, 201), response.text
@@ -316,6 +311,13 @@ def test_a_member_cannot_reach_admin_pages(other_client: TestClient) -> None:
 EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/"): None,
     ("GET", "/api/health"): None,
+    # The deployment as the frontend sees it (beta banner, test-mode labels,
+    # the data-location notice on sign-up) — needed before signing in.
+    ("GET", "/api/site"): None,
+    # Feedback (prep-beta-launch). Sending spends nothing and is open to a
+    # member who is not participating; the list is Admin's.
+    ("POST", "/api/feedback"): "get_current_user",
+    ("GET", "/api/admin/feedback"): "require_admin",
     ("POST", "/api/auth/register"): None,
     ("POST", "/api/auth/login"): None,
     ("POST", "/api/auth/logout"): None,
@@ -339,6 +341,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/builder/projects"): "require_active_member",
     ("PATCH", "/api/builder/projects/{project_id}"): "require_active_member",
     ("DELETE", "/api/builder/projects/{project_id}"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/files"): "get_current_user",
+    ("GET", "/api/builder/starter-estimate"): "get_current_user",
+    ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # Video — same shape; generating spends budget.
     ("GET", "/api/video/models"): "get_current_user",
     ("GET", "/api/video/projects"): "get_current_user",
@@ -376,6 +381,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/quarters/{quarter_id}/members"): "require_admin",
     ("PUT", "/api/admin/quarters/{quarter_id}/members/{user_id}"): "require_admin",
     ("PUT", "/api/admin/quarters/{quarter_id}/allocations/{user_id}"): "require_admin",
+    ("GET", "/api/admin/quarters/{quarter_id}/budget"): "require_admin",
     ("PUT", "/api/admin/members/{user_id}/role"): "require_admin",
     ("GET", "/api/admin/top-ups"): "require_admin",
     ("POST", "/api/admin/top-ups/{top_up_id}/confirm"): "require_admin",
@@ -393,6 +399,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
+    ("GET", "/api/admin/chat-models/calibration"): "require_admin",
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/invites"): "require_admin",
     ("POST", "/api/admin/invites"): "require_admin",
@@ -504,6 +511,9 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # Leaving. Spends nothing, and must work for a member who is not
         # participating this quarter. The password is checked again.
         ("POST", "/api/account/withdrawal"),
+        # Feedback. Spends nothing; a member who cannot create is exactly
+        # who should be able to say so.
+        ("POST", "/api/feedback"),
     }
 
     offenders = [

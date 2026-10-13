@@ -4,12 +4,11 @@
  * Profile — 분기 참여 신청.
  *
  * 크레딧은 자동으로 주어지지 않습니다. 관리자가 신청을 열면 회원이
- * Build/Video 비율을 정해 신청하고, 관리자가 승인해야 쓸 수 있는 예산이
- * 생깁니다.
+ * "이번 분기 참여"를 누르고, 관리자가 승인해야 쓸 수 있는 지원금이 생깁니다.
  *
- * 비율의 합은 반드시 100%입니다. 한쪽을 움직이면 다른 쪽이 따라오므로
- * 회원이 잘못된 값을 만들 수 없습니다. 최종 금액은 백엔드가 다시 계산하며,
- * 여기 계산은 미리 보여 주기 위한 것입니다.
+ * 나눌 것도 고를 것도 없습니다(single-wallet). 금액은 분기가 정하고, 그
+ * 지갑 하나에서 채팅, 영상 등 모든 기능이 씁니다. 금액은 백엔드가 정하며
+ * 화면은 보여 주기만 합니다.
  */
 
 import Link from "next/link";
@@ -23,7 +22,8 @@ import {
   formatDate,
   formatKrw,
   getMyQuarter,
-  splitBudget,
+  SPENDING_ORDER_NOTE,
+  walletSentence,
   type MyQuarterStatus,
 } from "@/lib/quarters";
 
@@ -34,14 +34,9 @@ type State =
   | { phase: "ready"; data: MyQuarterStatus }
   | { phase: "error"; message: string };
 
-/** 자주 쓰는 비율. 한 번 눌러 고를 수 있게 둡니다. */
-const PRESETS = [100, 70, 50, 30, 0];
-
 export default function QuarterParticipation() {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
-  const [formOpen, setFormOpen] = useState(false);
-  const [buildPercentage, setBuildPercentage] = useState(70);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -66,11 +61,7 @@ export default function QuarterParticipation() {
     async (quarterId: number) => {
       setBusy(true);
       try {
-        await applyForQuarter(quarterId, {
-          build_percentage: buildPercentage,
-          video_percentage: 100 - buildPercentage,
-        });
-        setFormOpen(false);
+        await applyForQuarter(quarterId);
         reload();
       } catch (error) {
         setState({ phase: "error", message: describeError(error) });
@@ -78,7 +69,7 @@ export default function QuarterParticipation() {
         setBusy(false);
       }
     },
-    [buildPercentage, reload],
+    [reload],
   );
 
   const cancel = useCallback(
@@ -133,8 +124,7 @@ export default function QuarterParticipation() {
     );
   }
 
-  const limit = quarter.subsidy_limit_krw;
-  const preview = splitBudget(buildPercentage, limit);
+  const amount = quarter.subsidy_limit_krw;
   const canApply = quarter.status === "application_open" && !allocation;
 
   return (
@@ -182,23 +172,17 @@ export default function QuarterParticipation() {
         </div>
       </div>
 
-      {/* 승인된 경우 — 받은 지원금 */}
+      {/* 승인된 경우 — 이번 분기 지갑 */}
       {allocation && (
         <div className={styles.approvedGrid}>
           <div className={styles.approvedCell}>
-            <span className={styles.seasonLabel}>Build</span>
-            <span className={styles.approvedValue}>
-              {formatKrw(allocation.build_budget_krw)}
-            </span>
-            <span className={styles.approvedSub}>{allocation.build_percentage}% 지원</span>
+            <span className={styles.seasonLabel}>동아리 지원</span>
+            <span className={styles.approvedValue}>{formatKrw(allocation.budget_krw)}</span>
+            <span className={styles.approvedSub}>{walletSentence(allocation)}</span>
           </div>
-          <div className={styles.approvedCell}>
-            <span className={styles.seasonLabel}>Video</span>
-            <span className={styles.approvedValue}>
-              {formatKrw(allocation.video_budget_krw)}
-            </span>
-            <span className={styles.approvedSub}>{allocation.video_percentage}% 지원</span>
-          </div>
+          <p className={styles.seasonNote}>
+            채팅, 영상 등 모든 기능이 이 지원금 하나에서 차감됩니다. {SPENDING_ORDER_NOTE}
+          </p>
         </div>
       )}
 
@@ -209,12 +193,9 @@ export default function QuarterParticipation() {
             {APPLICATION_STATUS_LABEL[application.status]}
           </p>
           <p className={styles.seasonNote}>
-            Build {application.build_percentage}% ·{" "}
-            {formatKrw(application.requested_build_budget_krw)} / Video{" "}
-            {application.video_percentage}% ·{" "}
-            {formatKrw(application.requested_video_budget_krw)}
+            신청 금액 {formatKrw(application.requested_budget_krw)}
           </p>
-          <p className={styles.seasonNote}>관리자 승인 후 사용량이 활성화됩니다.</p>
+          <p className={styles.seasonNote}>관리자 승인 후 사용할 수 있습니다.</p>
           <button
             className="btn btn-sm"
             type="button"
@@ -236,89 +217,21 @@ export default function QuarterParticipation() {
         </div>
       )}
 
-      {/* 신청 가능 */}
-      {canApply && !formOpen && !application && (
+      {/* 신청 가능 — 한 번 누르면 끝입니다. */}
+      {canApply && !application && (
         <div className={styles.applyRow}>
           <p className={styles.seasonNote}>
-            이번 분기 지원 한도는 <strong>{formatKrw(limit)}</strong>입니다. Build와 Video에
-            어떻게 나눠 쓸지 정해서 신청해 주세요.
+            참여하면 이번 분기 지원금 <strong>{formatKrw(amount)}</strong>을 받아 채팅, 영상 등
+            모든 기능에 씁니다. 관리자가 승인하면 바로 쓸 수 있습니다.
           </p>
           <button
             className="btn btn-primary btn-sm"
             type="button"
-            onClick={() => setFormOpen(true)}
+            onClick={() => void submit(quarter.id)}
+            disabled={busy}
           >
-            {quarter.display_name} 참여 신청
+            {busy ? "신청 중…" : "이번 분기 참여"}
           </button>
-        </div>
-      )}
-
-      {/* 신청 양식 */}
-      {canApply && formOpen && (
-        <div className={styles.applyForm}>
-          <p className={styles.seasonLabel}>분기 지원 한도</p>
-          <p className={styles.limitValue}>{formatKrw(limit)}</p>
-
-          <label className={styles.sliderLabel} htmlFor="build-share">
-            Build / Video 비율
-          </label>
-          <input
-            className={styles.slider}
-            id="build-share"
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={buildPercentage}
-            onChange={(event) => setBuildPercentage(Number(event.target.value))}
-          />
-
-          <div className={styles.presets}>
-            {PRESETS.map((value) => (
-              <button
-                className={`${styles.preset} ${
-                  value === buildPercentage ? styles.presetActive : ""
-                }`}
-                key={value}
-                type="button"
-                onClick={() => setBuildPercentage(value)}
-              >
-                {value} / {100 - value}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.splitGrid}>
-            <div className={styles.splitCell}>
-              <span className={styles.seasonLabel}>Build</span>
-              <span className={styles.splitPercent}>{buildPercentage}%</span>
-              <span className={styles.splitAmount}>{formatKrw(preview.buildKrw)}</span>
-            </div>
-            <div className={styles.splitCell}>
-              <span className={styles.seasonLabel}>Video</span>
-              <span className={styles.splitPercent}>{100 - buildPercentage}%</span>
-              <span className={styles.splitAmount}>{formatKrw(preview.videoKrw)}</span>
-            </div>
-          </div>
-
-          <p className={styles.seasonNote}>
-            합계 {formatKrw(preview.buildKrw + preview.videoKrw)} — 두 비율의 합은 항상
-            100%입니다.
-          </p>
-
-          <div className={styles.applyActions}>
-            <button
-              className="btn btn-primary btn-sm"
-              type="button"
-              onClick={() => void submit(quarter.id)}
-              disabled={busy}
-            >
-              {busy ? "신청 중…" : "신청하기"}
-            </button>
-            <button className="btn btn-sm" type="button" onClick={() => setFormOpen(false)}>
-              취소
-            </button>
-          </div>
         </div>
       )}
 

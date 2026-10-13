@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import { MOCK_APPS } from "@/lib/mock-data";
 
 import PageHeader from "@/app/components/PageHeader";
+import TestModeNotice from "@/app/components/TestModeNotice";
 
 import AppGrid from "./AppGrid";
 
@@ -22,7 +23,12 @@ export default function CtrlAIStorePage() {
       <PageHeader
         eyebrow="Explore"
         title="CtrlAIApps"
-        titleAddon={<span className="badge badge-mock">준비 중</span>}
+        titleAddon={
+          <>
+            <span className="badge badge-mock">준비 중</span>
+            <TestModeNotice area="community" />
+          </>
+        }
         subtitle={
           <>
             회원들이 Project Builder로 만들어 게시한 앱입니다. 만든 사람이 이번 분기에

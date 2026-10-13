@@ -12,10 +12,45 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 # backend/app/core/config.py -> parents[2] == backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
+
+#: What `.env.example` ships in ADMIN_PASSWORD. Refused outside development
+#: together with the passwords anyone would try first.
+ADMIN_PASSWORD_PLACEHOLDER = "change-me-before-deploying"
+
+#: Known defaults: the development seed's password, the obvious guesses,
+#: and the placeholder above. Compared case-insensitively.
+DEFAULT_ADMIN_PASSWORDS = frozenset(
+    {
+        "devpassword",
+        "admin",
+        "password",
+        "memberpassword",
+        "changeme",
+        "change-me",
+        ADMIN_PASSWORD_PLACEHOLDER,
+    }
+)
+
+#: Database passwords a deployed server refuses: the development default
+#: from .env.example and docker-compose.yml, and the obvious ones.
+DEFAULT_DATABASE_PASSWORDS = frozenset({"", "ctrlai", "postgres", "password"})
+
+#: The shortest administrator password a deployed server accepts.
+MIN_ADMIN_PASSWORD_LENGTH = 12
+
+
+def admin_password_problem(password: str) -> str | None:
+    """Why this password must not guard a deployed admin account, or None."""
+    if password.strip().lower() in DEFAULT_ADMIN_PASSWORDS:
+        return "is a known default"
+    if len(password) < MIN_ADMIN_PASSWORD_LENGTH:
+        return f"is shorter than {MIN_ADMIN_PASSWORD_LENGTH} characters"
+    return None
 
 
 class Settings(BaseSettings):
@@ -36,23 +71,41 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # development / beta / production. Beta and production are both
+    # "deployed": no dev tools, no dev seed, no API docs. Beta adds the
+    # banner and turns off personal top-ups (prep-beta-launch).
     app_env: str = "development"
     backend_port: int = 8000
     frontend_port: int = 3000
+
+    # Set to true by docker-compose.prod.yml, never by hand. A server
+    # started from the production compose file with APP_ENV=development
+    # (a `.env` copied from .env.example and not edited) would switch the
+    # dev tools on in public; this makes that a refusal to start instead.
+    deployed: bool = False
 
     # SQLAlchemy connection URL. The `+psycopg` part selects the psycopg 3
     # driver. Defaults to the local Docker Compose database.
     database_url: str = "postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai"
 
+    # Connections each API worker keeps open, and how many more it may open
+    # under load. Chosen for the beta's e2-medium (2 vCPU, 4 GB) and about
+    # 40 members: 2 workers x (5 + 5) = 20 at most, well under PostgreSQL's
+    # max_connections=50 in docker-compose.prod.yml, leaving room for
+    # migrations, the cron job and a psql session.
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+
     # Stored as a plain comma-separated string to keep the `.env` file
     # simple (a list-typed field would require JSON syntax there).
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
-    # Default community subsidy per member per quarter, in KRW. Each
-    # quarter stores its own limit, copied from this when it is created,
+    # Default 동아리 지원 per participating member per quarter, in KRW —
+    # the one wallet every paid feature spends from (single-wallet). Each
+    # quarter stores its own amount, copied from this when it is created,
     # so an admin can change it for a future quarter without touching
     # code and without altering quarters that already ran.
-    quarterly_subsidy_limit_krw: int = 100_000
+    quarterly_subsidy_limit_krw: int = 80_000
 
     # ---------- Session cookie ----------
     # Every flag comes from the environment so production can tighten them
@@ -65,6 +118,19 @@ class Settings(BaseSettings):
     # on cross-site form posts.
     session_cookie_samesite: str = "lax"
     session_max_age_seconds: int = 60 * 60 * 24 * 14  # two weeks
+    # Blank means a host-only cookie: sent to ctrlai.my and nowhere else,
+    # not even to a subdomain. That is what the beta wants — the browser
+    # only ever talks to the main domain. Set it only if a subdomain must
+    # share the sign-in.
+    session_cookie_domain: str = ""
+
+    # ---------- Site ----------
+    # Shown on the sign-up screen: where members' data is kept. Editable
+    # here, so moving the database to another region is a `.env` change
+    # and not a code change.
+    data_location_notice: str = (
+        "회원님의 정보는 Google Cloud 서울 리전(asia-northeast3)에 저장됩니다."
+    )
 
     # ---------- Storage ----------
     # Where generated files live. `local` keeps them in a folder on this
@@ -116,13 +182,30 @@ class Settings(BaseSettings):
     # The most a single reply may produce, thinking included.
     chat_max_output_tokens: int = 4096
     # The most conversation history sent with one message, in (estimated)
-    # input tokens. The oldest messages are dropped first.
+    # input tokens. The oldest messages are dropped first — at fixed cut
+    # points, so the cached prefix stays the same for many turns.
     chat_context_tokens: int = 16_000
     # Seconds to wait for Claude before giving up on a reply.
     chat_timeout_seconds: float = 60.0
     # The mock provider's pause between streamed chunks, so the typing
     # effect is visible locally. Tests set it to 0.
     chat_mock_delay_ms: int = 25
+
+    # Prompt caching (prompt-caching, 2026-10-13). Each Chat request marks
+    # the system prompt and the conversation so far as cacheable; the next
+    # turn re-reads them at the cache-read price (about a tenth of the
+    # input price) instead of paying for them again. Off sends no marker.
+    chat_prompt_cache: bool = True
+    # "5m" (writes cost 1.25x the input price) or "1h" (2x). A cache read
+    # refreshes the timer, so 5m stays warm while a member keeps chatting;
+    # 1h only pays off for pauses of 5-60 minutes.
+    chat_cache_ttl: str = "5m"
+
+    # Project Builder's starter app (chat-builder-starter): the most one
+    # generation may write, and how long to wait for it. 8,000 tokens is a
+    # small app of a few hundred lines; the pre-check reserves all of it.
+    builder_max_output_tokens: int = 8000
+    builder_timeout_seconds: float = 120.0
 
     # Messages one member may send per minute, across all conversations.
     # Protects the budget from a stuck key or a runaway script.
@@ -147,8 +230,64 @@ class Settings(BaseSettings):
     admin_password: str = ""
 
     @property
+    def cache_ttl(self) -> str | None:
+        """The TTL to send ("5m" / "1h"), or None when caching is off."""
+        if not self.chat_prompt_cache:
+            return None
+        return "1h" if self.chat_cache_ttl.strip().lower() == "1h" else "5m"
+
+    @property
     def is_development(self) -> bool:
         return self.app_env.lower() in {"development", "dev", "local"}
+
+    @property
+    def is_beta(self) -> bool:
+        """The invite-only beta: a deployed site with a banner on every page."""
+        return self.app_env.strip().lower() == "beta"
+
+    @property
+    def top_ups_enabled(self) -> bool:
+        """Whether members may ask to add personal money.
+
+        Off in the beta: no real money moves while the site is a test.
+        """
+        return not self.is_beta
+
+    @property
+    def cookie_domain(self) -> str | None:
+        """The session cookie's Domain attribute, or None for host-only."""
+        return self.session_cookie_domain.strip() or None
+
+    def startup_problems(self) -> list[str]:
+        """Reasons this configuration must not serve requests.
+
+        Checked by `app.main` at import, so a misconfigured server refuses
+        to start instead of running in public with a default password or
+        the dev tools switched on.
+        """
+        problems = [
+            "A real provider is selected but this setting is missing: " + name
+            for name in self.missing_provider_settings()
+        ]
+        if self.is_development:
+            if self.deployed:
+                problems.append(
+                    "APP_ENV is development on a deployed server. Set APP_ENV=beta "
+                    "(or production) in .env."
+                )
+            return problems
+
+        url = make_url(self.database_url)
+        if url.get_backend_name() == "postgresql" and (url.password or "") in DEFAULT_DATABASE_PASSWORDS:
+            problems.append(
+                "POSTGRES_PASSWORD is the development default. Set a long random one in .env."
+            )
+
+        if self.admin_password:
+            problem = admin_password_problem(self.admin_password)
+            if problem:
+                problems.append(f"ADMIN_PASSWORD {problem}. Choose a real password in .env.")
+        return problems
 
     def provider_mode(self, provider: str) -> str:
         """`mock` or the name of the real implementation, for one provider."""

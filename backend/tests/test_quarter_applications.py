@@ -23,7 +23,7 @@ from app.models import (
 
 @pytest.fixture
 def open_quarter(db_session: Session) -> Quarter:
-    """A quarter accepting applications, with the default 100,000 KRW limit."""
+    """A quarter accepting applications, 100,000원 per member."""
     quarter = Quarter(
         code="2026-Q4",
         display_name="2026 Q4",
@@ -50,77 +50,56 @@ def test_a_member_starts_with_no_allocation(
     assert body["allocation"] is None
 
 
-@pytest.mark.parametrize(
-    ("build", "video", "expected_build", "expected_video"),
-    [
-        (100, 0, 100_000, 0),
-        (70, 30, 70_000, 30_000),
-        (50, 50, 50_000, 50_000),
-        (20, 80, 20_000, 80_000),
-        (0, 100, 0, 100_000),
-    ],
-)
-def test_applying_stores_the_requested_amounts(
-    client: TestClient,
-    dev_user: User,
-    open_quarter: Quarter,
-    build: int,
-    video: int,
-    expected_build: int,
-    expected_video: int,
+def test_applying_is_for_the_quarter_s_one_amount(
+    client: TestClient, dev_user: User, open_quarter: Quarter
 ) -> None:
-    response = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": build, "video_percentage": video},
-    )
+    """이번 분기 참여: no split, no presets — the quarter's amount, nothing else."""
+    response = client.post(f"/api/quarters/{open_quarter.id}/apply")
 
     assert response.status_code == 201
     body = response.json()
-    assert body["requested_build_budget_krw"] == expected_build
-    assert body["requested_video_budget_krw"] == expected_video
-    assert body["requested_total_budget_krw"] == 100_000
+    assert body["requested_budget_krw"] == 100_000
     assert body["status"] == ApplicationStatus.SUBMITTED.value
+    # Nothing in the application describes a split any more.
+    assert not [key for key in body if "build" in key or "video" in key or "percentage" in key]
 
 
-@pytest.mark.parametrize(("build", "video"), [(70, 20), (60, 60), (0, 0)])
-def test_a_split_that_is_not_100_percent_is_refused(
-    client: TestClient, dev_user: User, open_quarter: Quarter, build: int, video: int
+def test_the_amount_follows_the_quarter_an_admin_set(
+    client: TestClient, db_session: Session, dev_user: User, open_quarter: Quarter
 ) -> None:
-    response = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": build, "video_percentage": video},
-    )
+    open_quarter.subsidy_limit_krw = 80_000
+    db_session.commit()
 
-    assert response.status_code == 400
+    body = client.post(f"/api/quarters/{open_quarter.id}/apply").json()
+
+    assert body["requested_budget_krw"] == 80_000
 
 
-def test_the_client_cannot_ask_for_more_than_the_limit(
+def test_the_client_cannot_ask_for_more_or_send_a_split(
     client: TestClient, dev_user: User, open_quarter: Quarter
 ) -> None:
-    """Amounts are derived on the backend, never taken from the request."""
+    """Amounts are the quarter's, never taken from the request."""
     response = client.post(
         f"/api/quarters/{open_quarter.id}/apply",
         json={
-            "build_percentage": 50,
-            "video_percentage": 50,
-            "requested_total_budget_krw": 10_000_000,
+            "build_percentage": 10,
+            "video_percentage": 90,
+            "requested_budget_krw": 10_000_000,
         },
     )
 
     assert response.status_code == 201
-    assert response.json()["requested_total_budget_krw"] == 100_000
+    assert response.json()["requested_budget_krw"] == 100_000
 
 
 def test_cannot_apply_twice_to_the_same_quarter(
     client: TestClient, dev_user: User, open_quarter: Quarter
 ) -> None:
     client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 50, "video_percentage": 50},
+        f"/api/quarters/{open_quarter.id}/apply"
     )
     second = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 70, "video_percentage": 30},
+        f"/api/quarters/{open_quarter.id}/apply"
     )
 
     assert second.status_code == 409
@@ -133,8 +112,7 @@ def test_cannot_apply_when_the_window_is_closed(
     db_session.commit()
 
     response = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 50, "video_percentage": 50},
+        f"/api/quarters/{open_quarter.id}/apply"
     )
 
     assert response.status_code == 400
@@ -144,8 +122,7 @@ def test_approval_creates_the_allocation(
     client: TestClient, db_session: Session, dev_user: User, open_quarter: Quarter
 ) -> None:
     application = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 70, "video_percentage": 30},
+        f"/api/quarters/{open_quarter.id}/apply"
     ).json()
 
     reviewed = client.post(
@@ -156,9 +133,9 @@ def test_approval_creates_the_allocation(
     assert reviewed["status"] == ApplicationStatus.APPROVED.value
 
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.build_budget_krw == 70_000
-    assert allocation.video_budget_krw == 30_000
-    assert allocation.build_remaining_krw == 70_000
+    assert allocation.budget_krw == 100_000
+    assert allocation.consumed_krw == 0
+    assert allocation.remaining_krw == 100_000
     assert allocation.approved_at is not None
 
     status_body = client.get("/api/quarters/me").json()
@@ -169,8 +146,7 @@ def test_rejection_creates_no_allocation(
     client: TestClient, db_session: Session, dev_user: User, open_quarter: Quarter
 ) -> None:
     application = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 50, "video_percentage": 50},
+        f"/api/quarters/{open_quarter.id}/apply"
     ).json()
 
     client.post(
@@ -186,8 +162,7 @@ def test_waiting_for_review_is_shown_as_such(
     client: TestClient, dev_user: User, open_quarter: Quarter
 ) -> None:
     client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 60, "video_percentage": 40},
+        f"/api/quarters/{open_quarter.id}/apply"
     )
 
     assert client.get("/api/quarters/me").json()["participation"] == "승인 대기"
@@ -244,8 +219,7 @@ def test_personal_money_is_not_part_of_the_community_subsidy(
 ) -> None:
     """Topping up must never raise the community allocation."""
     application = client.post(
-        f"/api/quarters/{open_quarter.id}/apply",
-        json={"build_percentage": 50, "video_percentage": 50},
+        f"/api/quarters/{open_quarter.id}/apply"
     ).json()
     client.post(f"/api/admin/applications/{application['id']}/review", json={"approve": True})
 
@@ -253,7 +227,7 @@ def test_personal_money_is_not_part_of_the_community_subsidy(
     client.post(f"/api/admin/top-ups/{top_up['id']}/confirm", json={"confirm": True})
 
     allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.community_total_budget_krw == 100_000
+    assert allocation.budget_krw == 100_000
 
     balance = db_session.query(PersonalBalance).one()
     assert balance.balance_krw == 50_000

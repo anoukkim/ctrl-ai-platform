@@ -8,8 +8,8 @@
  *   최종본 선택 → YouTube에 게시
  *
  * 영상은 전부 Higgsfield를 거칩니다(지금은 mock이 예시 영상을 만듭니다).
- * 생성·수정·이어서 만들기는 Video 지원금에서 차감되고, 버튼 옆에 예상
- * 비용이 원으로 나옵니다. 길이·비율·화질·소리는 고른 모델의 카탈로그를
+ * 생성·수정·이어서 만들기는 이번 분기 지원금(지갑 하나)에서 차감되고, 버튼
+ * 옆에 예상 비용과 남은 지원금이 원으로 나옵니다. 길이·비율·화질·소리는 고른 모델의 카탈로그를
  * 따릅니다(`lib/video-settings.ts`).
  *
  * 오른쪽의 Claude 칸(프롬프트 도움받기)은 선택 사항이고 접혀서 시작합니다.
@@ -23,6 +23,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "@/app/components/MyQuarterProvider";
+import WalletCheck from "@/app/components/WalletCheck";
+import TestModeNotice from "@/app/components/TestModeNotice";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
@@ -526,6 +528,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
+        <TestModeNotice area="video" />
 
         <span className={ws.topbarSpacer} />
       </div>
@@ -693,8 +696,9 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                       {costLabel(generateCost)}
                     </span>
                   </span>
+                  {mayCreate && <WalletCheck costKrw={generateCost} />}
                   <p className="small dim">
-                    {mayCreate ? "만들 때마다 Video 지원금에서 차감됩니다." : NOT_PARTICIPATING_HINT}
+                    {mayCreate ? "만들 때마다 이번 분기 지원금에서 차감됩니다." : NOT_PARTICIPATING_HINT}
                   </p>
                   {actionError && (
                     <p className={styles.actionError} role="alert">

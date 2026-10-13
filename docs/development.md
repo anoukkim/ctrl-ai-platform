@@ -66,6 +66,23 @@ applications, an empty personal wallet, and the video model catalogue. It
 is safe to run more than once — existing rows are left alone, so a re-run
 cannot undo an admin's changes.
 
+### Resetting the local test data
+
+To throw the local database away and start again from a fresh seed:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.db.reset_dev        # asks you to type "reset"
+.\.venv\Scripts\python.exe -m app.db.reset_dev --yes  # no question
+```
+
+It drops every table, runs the migrations from the start, empties the
+local storage folder (`backend/var/storage`) and runs `init_db` again. It
+**refuses** unless `APP_ENV` is development **and** `DATABASE_URL` points
+at this machine (`localhost` / `127.0.0.1`) — both checks, because either
+alone can be wrong. A deployed database is never reset; it is restored
+from a backup (`docs/deployment.md`, step 8).
+
 ## Signing in
 
 Phase 1a added accounts, so the first thing the app asks for is a login.
@@ -81,9 +98,9 @@ That password is a local development convenience. `python -m app.db.init_db`
 refuses to run unless `APP_ENV` is a development value, so it cannot create
 this account anywhere real.
 
-To seed your own administrator instead, set these in `.env` and re-run the
-seed. They are read only by the seed script, the password is hashed with
-Argon2 before it is stored, and `.env` is git-ignored:
+To seed your own administrator as well, set these in `.env` and re-run
+the seed. The password is hashed with Argon2 before it is stored, and
+`.env` is git-ignored:
 
 ```env
 ADMIN_USERNAME=
@@ -91,8 +108,18 @@ ADMIN_EMAIL=
 ADMIN_PASSWORD=
 ```
 
-Leaving them blank creates no administrator — there is deliberately no
-default password in the code.
+Leaving `ADMIN_USERNAME` blank creates no extra administrator — there is
+deliberately no default password in the code.
+
+**On the server it is different.** The production database starts empty
+(prep-beta-launch, Launch data rules): after the migrations,
+`python -m app.db.bootstrap` creates only the administrator from these
+three variables, plus the video model catalogue — no `dev` account, no
+quarters, no sample data. Outside development the server refuses to start
+while `ADMIN_PASSWORD` is a known default (`devpassword`, `admin`,
+`password`, the `.env.example` placeholder) or shorter than 12 characters,
+and refuses the development database password. The full guide is
+[`deployment.md`](deployment.md).
 
 Anyone else can register at `/signup`, which creates an ordinary member.
 
@@ -160,7 +187,7 @@ secret.
 
 ### Claude in Chat
 
-The mock streams canned Korean replies and charges the Build budget as if
+The mock streams canned Korean replies and charges the member's wallet as if
 it were the conversation's chosen model (chat-model-choice: Sonnet 5.5 by
 default, Haiku 4.5 if the member picks it), so the ledger and the budget
 behave as they will for real. The model comes from the catalogue in
@@ -178,7 +205,18 @@ put a marker in a message:
 | `[mock-refusal]` | Claude declining |
 
 A failed call is never charged. The real adapter's tests talk to a fake
-transport inside the test process — no test contacts Anthropic.
+transport inside the test process — no test contacts Anthropic. **The test
+suite blanks every provider credential and forces every provider to
+`mock`** (`tests/conftest.py`), because Settings also read `.env`: once a
+real key is there, a test that switches Claude to `anthropic` without a
+fake transport would otherwise call the paid API — which happened twice on
+2026-10-13 before this guard existed (two short prompt-helper calls).
+
+The mock also simulates **prompt caching** (`MockPromptCache`): the first
+reply in a conversation writes the cache, later replies read it, entries
+expire after the TTL and are per model, and prompts under a model's minimum
+(512 tokens; Haiku 4.5: 4,096) are not cached — so the ledger's three input
+prices are exercised without a key.
 
 The chat settings are `CHAT_*`, not `CLAUDE_*`, on purpose: **Claude Code
 sets `CLAUDE_EFFORT` in its own terminals**, and a backend started from one
@@ -215,6 +253,15 @@ running proves less, not more.
 docker compose down        # stop the database, keep the data
 docker compose down -v     # stop it and DELETE all local data
 ```
+
+## Running the production stack locally
+
+`docker-compose.prod.yml` is what the server runs (Caddy, Next.js,
+FastAPI, PostgreSQL). To prove a change still starts as a whole before it
+is deployed, build and run it on this machine — the recipe, with a
+separate env file and project name so it never touches the development
+database, is the appendix of [`deployment.md`](deployment.md). Last run
+on 2026-10-13: all four services healthy, about 280 MB of memory in total.
 
 ## How the Pieces Fit Together
 
@@ -281,10 +328,11 @@ ctrl-ai-platform/
 │  │  │  ├─ router.py         # collects all routes under /api
 │  │  │  └─ routes/           # health.py, users.py
 │  │  ├─ core/config.py       # environment-driven settings
-│  │  ├─ db/                  # base.py, session.py, init_db.py
+│  │  ├─ db/                  # base.py, session.py, init_db.py (dev seed),
+│  │  │                       # bootstrap.py (server: admin only), reset_dev.py
 │  │  ├─ models/              # user, quarter, builder, video, wallet, usage
 │  │  ├─ schemas/             # Pydantic request/response shapes
-│  │  ├─ services/            # budget split, wallet, admin stats, providers
+│  │  ├─ services/            # usage (the one wallet), quarter budget, admin stats, providers
 │  │  └─ main.py              # FastAPI app, CORS
 │  ├─ alembic/                # migrations (owns the schema)
 │  ├─ tests/                  # pytest suite

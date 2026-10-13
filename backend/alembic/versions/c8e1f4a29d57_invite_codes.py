@@ -11,7 +11,7 @@ nothing is backfilled — accounts from before invite codes simply have
 none.
 
 Revision ID: c8e1f4a29d57
-Revises: b2f7e4c81d36
+Revises: d4f7a1c9e2b5
 Create Date: 2026-10-07
 
 """
@@ -22,7 +22,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c8e1f4a29d57"
-down_revision: str | None = "b2f7e4c81d36"
+down_revision: str | None = "d4f7a1c9e2b5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

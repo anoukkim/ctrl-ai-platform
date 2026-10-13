@@ -816,3 +816,480 @@ only, edited in Admin › System.
 > 3. Backend: refuse models not enabled for this member (Korean 400); budget pre-check and charge use the chosen model's price; record the model on each message and usage event. The video prompt helper keeps the default model.
 >
 > Tests: disabled and admin-only refused for members; price matches the chosen model; choice persists per conversation; default for new conversations.
+
+## Superseded by single-wallet (2026-10-08)
+
+`single-wallet` replaced the two budgets per member (Build/Video, later to
+be renamed Claude/Higgsfield) with one 동아리 지원 wallet per member per
+quarter. The two specs below were written for the two-bucket model; they
+are kept here exactly as they stood, and their rewritten versions are in
+[`../BACKLOG.md`](../BACKLOG.md) under *After the prototype*.
+
+### budget-by-provider — original spec (two budgets per member)
+
+Branch `feat-budget-by-provider`. Saved exactly as written by the
+developer.
+
+**Deferred on 2026-10-02** to *After the prototype (needs discussion)*:
+the cost model is still being decided, so do not start this until the
+owner confirms. The spec below is unchanged. Two things it had been
+promised no longer hold, because the items that promised them now run
+first:
+
+- **It no longer owns the `UsageEvent` migration.** Phase 2 — Chat adds
+  the columns it writes, and `video-higgsfield-only` records its own
+  fields; point 2 here extends that shape rather than creating it.
+- **Point 4's reserve does not exist yet when `account-withdrawal`
+  runs.** That item releases a withdrawing member's remaining allocation
+  and audits it; routing the released amount into the reserve is a line
+  this item adds once the reserve is real.
+
+> Context: the club applies to the company each quarter for funding split by provider (Claude vs Higgsfield). The app must mirror that exactly.
+>
+> 1. Two budgets per member per quarter, named by provider: "Claude" and "Higgsfield". Rename the current Build budget to Claude everywhere (data, API, UI, docs) with an Alembic migration that keeps existing data. Chat, Project Builder and the Video prompt helper all charge Claude; video generation, editing and extension charge Higgsfield.
+> 2. Every UsageEvent records: provider, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), the native unit and amount (Claude input and output tokens; Higgsfield credits), the KRW amount, and the rate used for conversion. Conversion rates live in an admin-editable settings table with history, so past events keep the rate they were charged at.
+> 3. Club pool per quarter and provider: the admin enters the company-approved amount for Claude and for Higgsfield. Member allocations plus reserve can never exceed the pool (enforced in the backend).
+> 4. Reserve: by default 20% of each provider pool is held back as club reserve; the admin can change this percentage per quarter. Members can request extra budget from Usage with a short reason; admin approves or rejects in Admin, paid from the reserve, written to the audit log.
+> 5. Admin pool dashboard per provider: approved pool, allocated to members, actually used, reserve remaining, usage by feature tag.
+> 6. Quarter report: Admin can download a CSV (and an on-screen summary) per quarter with usage by provider and feature, native units and KRW, number of active members, and utilisation rate, for the next funding application.
+> 7. Member side: Usage shows the two provider budgets, with usage broken down by feature. A one-time notice at 80% used. Before any Higgsfield action, show the estimated cost in KRW next to the button.
+> 8. Members cannot move budget between providers.
+>
+> Tests: allocations plus reserve cannot exceed the pool, the default reserve is 20%, reserve requests deduct from the reserve, usage events store native units and the rate, rate changes do not alter past events, the CSV totals match the database, and every feature charges the correct provider.
+
+#### Application flow
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+**Point 4's approval path is superseded** by "Application and purchase
+model (decided)" below: approval is automatic, and these tools serve
+수동 승인 mode and exceptions. Everything else here still stands.
+
+> Goal: member applications feed the club's funding application to the company.
+>
+> 1. Application form: presets 균형 50/50, Claude 중심 70/30, 영상 중심 30/70, or a custom split, within the quarter's per-member limit. Show a rough plain-language meaning of each budget (e.g. approximate video seconds at the default model's price).
+> 2. 신청 합계 view in Admin: total requested per provider, number of applicants, list of members who have not applied yet with the deadline countdown, and a CSV export for the company application. Show the suggested company request = member totals + reserve (default 20%, on top of member totals, not taken out of them).
+> 3. After the company decides, the admin enters the approved pool per provider. If the pool covers all requests plus reserve, approvals give members exactly what they asked for. If it is smaller, show a proportional cut preview per member before applying, then hold the reserve at the configured percentage of the approved pool.
+> 4. Approving: single approve, approve with adjustment (changed split or amount, required reason, written to the audit log), bulk approve with one confirmation, reject with a reason the member sees on Profile.
+> 5. Active status and budget go together: a member becomes active for a quarter through an approved application, or through admin enrolment that also sets an allocation. If an admin sets a member active without any allocation, show a warning in Admin, and the member's sidebar says clearly that no budget is approved yet. (Currently testmember2 shows 활동 회원 with "승인된 지원금이 없습니다".)
+> 6. Tests: totals match applications; the suggested request includes the reserve on top; the proportional cut never exceeds the pool; adjustments and bulk approvals are audited; rejected members see the reason; active-without-allocation shows the warning.
+
+#### Application and purchase model (decided)
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+**This section wins where it conflicts with Application flow above.**
+Auto-approval is the normal path: a member presses "이번 분기 참여" and the
+allocation exists immediately, with no admin step in between. The approval
+tools in Application flow point 4 — single approve, approve with
+adjustment, bulk approve, reject with a reason — are all kept, but they
+serve **수동 승인** mode and the exceptions named in point 1 below
+(requests above the per-member limit, late applications, reserve
+requests), not the ordinary case.
+
+**Why this reshapes the item.** Both providers are prepaid. The money is
+spent *before* any member uses it, and credits cannot be moved between
+providers once bought — so the club must know the per-provider split in
+time to buy. That turns the application period into a purchasing
+deadline rather than a review queue, and it adds three things the
+original spec has nowhere to put: purchase records, club-level provider
+balance tracking, and carry-over between quarters.
+
+**Still to settle:** Application flow point 3 assumes allocations are
+created *after* the company decides, which is what makes its proportional
+cut preview possible. Under auto-approval the allocations already exist by
+then, so a pool smaller than the requests has to cut allocations that
+members can already see. The cut preview itself is unaffected; when it
+runs, and what a member is told when their approved budget drops, is not
+decided here. **See *Funding model — 2026-10-07* above:** with credit
+bought per headcount after applications close, this mostly no longer
+arises.
+
+**Point 6's operator note has a home again — the 2026-10-02 reorder
+reversed this twice.** `docs/deployment.md` does not exist today, but
+`prep-beta-launch` point 4 creates it, and that item is now in **Next**
+while this one is deferred — so by the time this runs the file exists and
+already carries the "keep Anthropic auto-reload OFF" line. Add the
+manual-top-up guidance there rather than creating a second file. (If the
+order moves again and this item lands first, write the same guidance into
+a new `docs/operations.md` and have whichever lands second point at the
+first, rather than duplicating it.)
+
+> Context: Claude API and Higgsfield are both prepaid. Credits must be bought per provider before use and cannot be moved between providers afterwards, so the club needs each quarter's split before buying.
+>
+> 1. One-click application with auto-approval:
+>    - During the application period, a member presses "이번 분기 참여". The split is pre-filled with a default (admin-set per quarter: 50/50, or last quarter's club-wide ratio) and the member may adjust it with the presets or a custom split, within the per-member limit.
+>    - Applications are approved automatically. The admin can switch a quarter to "수동 승인" mode if needed; in that mode the existing 신청 승인 flow applies.
+>    - Exceptions still reach the admin: requests above the limit, late applications, and reserve requests.
+> 2. Purchase planning (Admin › 예산), after the application period closes:
+>    - Suggested purchase per provider = member totals + reserve (default 20%, on top) − usable balance carried over from earlier purchases.
+>    - Shows the KRW total and, for Claude, the USD equivalent at the current rate setting.
+> 3. Purchase records: the admin records each actual purchase (provider, date, amount paid in KRW and original currency, credits received, expiry date). Claude credits expire one year after purchase; the app warns 30 days before any purchased credits expire.
+> 4. Provider balance tracking: per provider, purchased − used = remaining club balance, shown on the 예산 page and the dashboard. If a provider's remaining club balance falls below the reserve, show a warning card.
+> 5. Carry-over: unused, unexpired balance carries into the next quarter and reduces that quarter's suggested purchase.
+> 6. Docs: add a short operator note to docs/deployment.md (or a new docs/operations.md): keep auto-reload OFF in the Anthropic Console and any Higgsfield equivalent, and top up manually from the reserve, because the club budget is fixed.
+>
+> Tests: auto-approval creates allocations immediately; manual mode routes to 신청 승인; the suggested purchase includes the reserve and subtracts carry-over; balances equal purchases minus usage; expiry warnings appear 30 days before.
+
+### usage-analytics — original spec
+
+Branch `feat-usage-analytics`. Added 2026-10-01. Saved exactly as written
+by the developer.
+
+**Deferred on 2026-10-02 along with `budget-by-provider`**, to *After the
+prototype (needs discussion)*. The spec is unchanged.
+
+**Why it must stay directly after budget-by-provider.** Every chart here
+reads the `UsageEvent` fields that item adds — provider, feature tag,
+native units and KRW. Point 1 below also says where the exact model goes:
+into budget-by-provider if that item has not already recorded it,
+otherwise into this one with its own migration. Phase 2 — Chat records
+provider, feature tag, model, tokens, USD, rate and KRW when it lands, so
+by the time these two are taken up some of that shape already exists.
+
+> Depends on budget-by-provider (UsageEvent with provider, feature tag, native units and KRW).
+>
+> 1. Every UsageEvent also records the exact model used (e.g. the Claude model name, or the Higgsfield model ID from the 영상 모델 catalogue). Add this field in budget-by-provider if it is not already there, otherwise add it here with a migration.
+> 2. Admin › 사용량 분석 (/admin/analytics), admin-only, added to the Admin tabs, sidebar sub-menu and dashboard cards:
+>    - Time-series charts by day or week, within a quarter or a custom date range.
+>    - Breakdown by provider and by model, with a toggle for the measure: KRW, native units (Claude tokens split into input/output; Higgsfield credits and video seconds), or request count.
+>    - Filters: quarter, provider, model, feature tag (chat / build / video_prompt / video_generate / video_edit / video_extend), member.
+>    - Summary cards: total KRW per provider, the most-used model per provider, average cost per request, and share of the pool used.
+>    - Top members by usage, a data table matching the chart, and CSV download of exactly what is shown.
+> 3. Member side: the Usage page gets a "내 사용량" chart of their own usage over the current quarter by provider and feature. Members never see other members' data.
+> 4. Charts use one charting library consistent with the design tokens (dark theme, provider colours: Claude = build accent, Higgsfield = video accent), with Korean labels, tooltips with exact values, tabular numbers, and a Korean empty state.
+> 5. Development data: extend the dev-only usage simulator to choose a provider, model and feature, and add a dev-only "샘플 사용 기록 생성" action that creates 30 days of realistic usage across members and models. Both are unavailable outside APP_ENV=development.
+> 6. Performance: aggregate in the database (grouped queries), not in the browser.
+>
+> Tests: totals in the charts and the CSV match the database; filters change the results correctly; members cannot request other members' data; analytics routes are admin-only; sample-data tools return 404 outside development.
+
+---
+
+## prep-beta-launch — full spec (merged 2026-10-13)
+
+Branch `feat-prep-beta-launch`, merged 2026-10-13. Rewritten on 2026-10-01: the item used to be only the
+launch data rules, and now carries the full beta specification. Saved
+exactly as written by the developer.
+
+**Last in the queue: position 4 in Next as of 2026-10-07.** The
+order is still deliberate: the beta is an invite-only launch whose one real
+feature is Claude chat, so Phase 2 (position 1) and `invite-only-signup`
+(position 2) both have to exist first, and `test-database-isolation`
+(position 3) has to land before the suite can be pointed anywhere near a
+live database. Everything else ships behind a test-mode label. Launching last still means every build-out item in
+**Next** is done before anything is exposed on a public domain.
+
+**The invite codes are no longer this item's work.**
+`invite-only-signup` at position 2 owns them, and requires a code in every
+environment rather than only in the beta — so by the time this item runs,
+signup is already closed. Two parts of the spec below are therefore
+already satisfied when it starts:
+
+- **point 2's first bullet** ("Signup requires an invite code; Admin can
+  create and revoke invite codes, written to the audit log") — verify it
+  holds under `APP_ENV=beta` rather than build it; and
+- **point 5's "invite-only signup" test**, which `invite-only-signup`
+  writes.
+
+The rest of point 2 — the beta banner, the test-mode labels, disabled
+top-ups, dev tools unavailable, the feedback form — is untouched and is
+still this item's work. The spec below is kept verbatim; this note records
+what moved, not an edit to the developer's words.
+
+**This is the item that costs money** — originally a domain, a frontend
+host, a backend host and a managed PostgreSQL. **Superseded for the beta
+by Hosting decisions below (2026-10-07):** the domain is bought, and
+everything runs on one Google Cloud VM on the free trial. CLAUDE.md
+section 21 rule 5 and section 20's Phase 9 both still apply: ask before
+creating any paid cloud resource. Point 4 below says the same thing.
+
+> Goal: an invite-only beta on my own domain, with real Claude chat and everything else clearly labelled as test mode.
+>
+> 1. Production readiness: backend Dockerfile (binds 0.0.0.0 and $PORT, runs alembic upgrade head as a documented step), all production settings from environment variables (backend URL for the Next.js /api rewrite, CORS origins, secure cookies, cookie domain, APP_ENV, DATABASE_URL), documented in .env.example with ctrlai.example as the placeholder domain.
+> 2. APP_ENV=beta:
+>    - Signup requires an invite code; Admin can create and revoke invite codes, written to the audit log.
+>    - A visible Korean beta banner on every page.
+>    - Features still on mock providers stay usable but are clearly labelled "테스트 모드 – 실제 AI 결과가 아닙니다".
+>    - Personal top-ups and any real-money features are disabled.
+>    - Development-only tools (simulator, sample data, dev seed) are unavailable.
+>    - A feedback button on every page: a short form saved to the database and listed in Admin, next to the existing Report Issue page.
+> 3. Domain layout: the frontend on the main domain (and www redirecting to it), the backend on an api subdomain; the browser only talks to the main domain through the /api rewrite.
+> 4. docs/deployment.md for a beginner: step-by-step setup of the frontend host, the backend host and a managed PostgreSQL; the environment variables for each; the exact DNS records to add at my registrar; how HTTPS is issued; running migrations; taking a database backup before each update; how redeploys work after each merged item; and keeping Anthropic auto-reload OFF. Mark every step that costs money, and never create cloud resources without asking me.
+> 5. Tests: invite-only signup, beta banner and test-mode labels, disabled top-ups, dev tools unavailable outside development, feedback saved, production refuses default admin passwords.
+
+**`APP_ENV=beta` is a third environment**, alongside `development` and
+production. `Settings.is_development` currently decides what is hidden
+(the dev tools, the usage simulator's 404), and a beta instance is not
+development — so point 2's list needs that distinction drawn explicitly
+rather than inherited.
+
+**Point 4 creates `docs/deployment.md`**, which does not exist today. Its
+"keep Anthropic auto-reload OFF" line is the same operator note
+`budget-by-provider` point 6 asks for; that item is deferred and this one
+is in **Next**, so the file will already exist whenever it is picked up.
+
+### Launch data rules
+
+Added 2026-10-01. Saved exactly as written by the developer.
+
+> - The production database starts empty: run migrations, then create only the admin account from ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD in the environment. No test members, sample projects, videos, usage or audit entries.
+> - The development seed (dev, testmember, test accounts, sample data) must refuse to run unless APP_ENV=development, with a test proving it.
+> - The app refuses to start in production if the admin password is a known default (devpassword, admin, password, or the .env.example placeholder).
+> - Never copy the local database to production; the deployment guide says so explicitly.
+> - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
+
+### Cloud-neutral code part — superseded 2026-10-13
+
+On 2026-10-07 the developer asked for the code part to be built
+cloud-neutral while the cloud, region and VM size were decided. They were
+decided on 2026-10-13 (below), so that note no longer applies: the code
+part and the guide are written for the chosen VM.
+
+### Hosting decisions — 2026-10-13
+
+Decided by the owner; updates the 2026-10-07 decisions, which put an
+e2-micro in a free-tier US region. **Where these conflict with points 1,
+3 and 4 above, or with Phase 9 in `CLAUDE.md`, these win for the beta.**
+Points 2 and 5 and the Launch data rules are unchanged.
+
+**The VM (already created by the owner):**
+
+| | |
+| - | - |
+| Name | `ctrlai-server` |
+| Region / zone | `asia-northeast3` (Seoul) / `asia-northeast3-c` |
+| Machine | **e2-medium** — 2 vCPU, 4 GB RAM. Paid, about US$32 a month; not a free-tier machine |
+| OS | Debian 13 (trixie), x86_64 |
+| Disk | standard persistent disk, being resized from 10 GB to 30 GB |
+| Static external IP | `34.47.78.228` |
+| Firewall | HTTP (80) and HTTPS (443) allowed; nothing else besides the default SSH rule |
+| Done on the VM | `apt upgrade`; git; Docker Engine and the Compose plugin from Docker's apt repository; the owner's user `ctrlai_platform` in the `docker` group; a 2 GB swap file in `/etc/fstab` |
+
+- **Billing: the Google Cloud free trial — ₩407,626 of credit, started
+  2026-10-13, ending around 2027-01-11.** The billing account must be
+  upgraded to paid before then or the VM stops. `docs/deployment.md` gives
+  the date to act (2027-01-04, a week early) and what happens otherwise.
+  Set a budget alert on day one.
+- **Domain: `ctrlai.my`, already bought.** DNS at the registrar: `@` A →
+  `34.47.78.228`; `www` CNAME → `ctrlai.my` (Caddy redirects www to the
+  apex). Records and checks: `docs/dns-for-domain-owner.md`.
+- **No `api` subdomain.** Point 3 asked for one, and it is not useful: the
+  browser only ever talks to the main domain through the `/api` rewrite,
+  so an `api` record would add a public address, a certificate and a
+  cookie question for nothing. FastAPI is not exposed at all, and its
+  `/docs` is off outside development anyway.
+- **Data location notice on sign-up:** "회원님의 정보는 Google Cloud 서울
+  리전(asia-northeast3)에 저장됩니다." — editable as `DATA_LOCATION_NOTICE`
+  in `.env`.
+- **Sizes in `.env.example` are for the e2-medium and about 40 members:**
+  `WEB_CONCURRENCY=2`, `DB_POOL_SIZE=5` + `DB_MAX_OVERFLOW=5` (20
+  connections at most), PostgreSQL `shared_buffers=256MB`,
+  `max_connections=50`, Caddy `MAX_UPLOAD_MB=20`.
+
+**Unchanged from 2026-10-07:**
+
+- **One Docker Compose with four services:** `caddy` (80/443, automatic
+  Let's Encrypt HTTPS), `web` (Next.js standalone output), `api`
+  (FastAPI) and `db` (`postgres:16-alpine`, **no published port**, a named
+  volume). File: `docker-compose.prod.yml`.
+- **No Cloud SQL, Cloud Run or Secret Manager for the beta.**
+- **Production secrets live in a `.env` on the VM — a beta-only exception
+  to `CLAUDE.md` section 17, decided by the owner.** It holds as long as
+  every condition holds:
+  - the file is readable only by the deploy user (`chmod 600`);
+  - it is never committed and never baked into a Docker image — the
+    compose file passes it at run time;
+  - the Anthropic key has a **monthly spend limit** set in the Anthropic
+    Console;
+  - **every key is rotated** when the secrets move to Secret Manager
+    after the beta.
+- **Images are built off the VM.** GitHub Actions builds both images and
+  pushes them to ghcr.io (`.github/workflows/images.yml`); the VM only
+  pulls. Next.js rewrites are compiled at build time, so `BACKEND_ORIGIN`
+  (`http://api:8000`) is a **build argument**, not a runtime variable.
+- **Point 1 changes in two details only:** the domain is `ctrlai.my`, and
+  `BACKEND_ORIGIN` is a build argument. CORS origins, secure cookies,
+  cookie domain, `APP_ENV` and `DATABASE_URL` are runtime environment
+  variables as written.
+- **The first background job runs from host cron:** once a day,
+  `python -m app.jobs.anonymise_withdrawn` in the `api` container
+  (`deploy/daily-jobs.sh`).
+- **Backups:** `pg_dump` from the `db` container before every update
+  (`deploy/backup.sh`), kept off the VM.
+- **Growing later is configuration, not a rewrite:** move PostgreSQL to
+  Cloud SQL by dump and restore plus a new `DATABASE_URL`, or run the same
+  images on Cloud Run. Resizing the VM (e2-standard-2 and up) is a stop,
+  a machine-type change and a start.
+
+---
+
+## single-wallet — full spec (merged 2026-10-13)
+
+Branch `feat-single-wallet`. M1. Added 2026-10-08 at position 1. Saved
+exactly as written by the developer.
+
+**It settles the member side of the cost model.** `budget-by-provider`
+and `usage-analytics` (*After the prototype*) assumed two budgets per
+member, named by provider; this item replaces both buckets with one
+wallet, and its last bullet rewrites those two specs to match. The club
+still buys credit per provider — that part of the cost-model discussion
+is unchanged, and is now forecast from usage by provider.
+
+> ITEM 1 — single-wallet (branch feat-single-wallet)
+> Decision: members no longer split their quarter support by percentage. Each participating member gets one 동아리 지원 wallet per quarter, 80,000원 by default (admin-editable per quarter), and Chat, video and every other paid feature spend from that one balance.
+> - Data: replace build_budget_krw / video_budget_krw with one budget in QuarterAllocation, with an Alembic migration that sums existing allocations and usage correctly, and a downgrade. FundingSource: one community value instead of community_build / community_video (migrate existing rows). Usage events keep provider, feature, model and native units, so we still know what was spent on Anthropic vs Higgsfield.
+> - Application: no split, no presets. "이번 분기 참여" applies for the quarter's fixed amount.
+> - Member UI: a wallet card ("이번 분기 지원금 80,000원 중 52,300원 남음") in the sidebar and on Usage, with a breakdown of what was spent on 채팅 / 영상 / 기타 as information only. Estimated costs next to buttons compare against the one balance.
+> - Admin: per-quarter amount, each member's balance, and quarter totals by provider so the club leader can decide how much credit to buy from each provider. Audited as before.
+> - Personal top-ups stay a separate balance (still off in the beta); say in the UI which balance is spent first and keep the current rule unless it conflicts.
+> - Update budget-by-provider and usage-analytics specs (After the prototype) and docs/product.md so nothing still describes the two-bucket split. Note in Funding model that the club still buys per provider, forecast from usage by provider.
+> Tests: migration preserves totals; Chat and video both draw from one balance; pre-check refuses when the single balance is short; application has no split; admin per-quarter amount; per-provider totals match usage.
+
+### Decisions taken while implementing — 2026-10-08
+
+Built on `feat-single-wallet`, not merged.
+
+- **Data.** `quarter_allocations` has `budget_krw` and `consumed_krw`
+  (renamed from `community_total_budget_krw`; the six per-bucket columns
+  are gone). `quarter_applications` has only `requested_budget_krw`.
+  `usage_events.category` is **dropped** — what a charge was for is
+  `provider` + `feature`; the downgrade rebuilds it (video features and
+  Higgsfield → video, everything else → build). `FundingSource` is
+  `community | personal`.
+- **Migration `e8a4c2f6b1d7`** sums each wallet (`budget = build + video`,
+  `consumed = build consumed + video consumed`) and keeps the original
+  split in `pricing_snapshot.split_before_single_wallet`, so the downgrade
+  restores it exactly; a wallet whose total changed after the upgrade gets
+  Video = what Video spent and the rest Build, so neither starts overdrawn.
+  Withdrawal reversals become one `amount`. A bucket an admin had lowered
+  below its spend is absorbed by the other — the wallet's remaining figure
+  is the true total. Checked on SQLite (tests) and round-tripped on a
+  throwaway PostgreSQL 16 container (upgrade → downgrade → upgrade, plus
+  `alembic check`), never on the developer's database.
+- **The amount.** `Quarter.subsidy_limit_krw` (unchanged column name) is the
+  quarter's per-member amount, labelled **1인 지원금** in Admin; the
+  default `QUARTERLY_SUBSIDY_LIMIT_KRW` is now **80,000**. Existing quarters
+  keep the amount they were created with. Changing a quarter's amount does
+  not move wallets already approved (audited as before); one member's
+  wallet is adjusted in member detail.
+- **Application.** `POST /api/quarters/{id}/apply` takes no body; anything
+  sent is ignored. Admin approval stays as it is (auto-approval is
+  `budget-by-provider`'s).
+- **Breakdown.** 채팅 = `chat`; 영상 = `video_generate`, `video_edit`,
+  `video_extend` **and `video_prompt`** (the member was making a video,
+  although it is Claude spend); 기타 = everything else. Counts wallet
+  money only, so the three lines add up to "used"; personal money has its
+  own card.
+- **Personal money — current rule kept:** the wallet first; personal money
+  only with 개인 사용 on and enough for the whole charge; never split.
+  Usage and Profile now say so in one sentence (`SPENDING_ORDER_NOTE`).
+- **Admin › Budget is on** (`GET /api/admin/quarters/{id}/budget`): every
+  wallet, and per provider the KRW charged (wallet / personal), provider
+  cost per currency, native units, share, and the wallet total × that share
+  as a reference figure. Personal-money spend is included because it uses
+  the same purchased credit.
+- **Estimates vs the wallet.** `WalletCheck` under Chat's model picker and
+  next to 생성 / 수정 / 이어서: "남은 지원금 N원", or "지원금이 부족합니다"
+  when the estimate exceeds it (or "개인 잔액에서 결제" when overage covers
+  it). Chat now refreshes the sidebar wallet after every reply.
+- **Dev simulator** records a provider and feature instead of a category.
+
+## prompt-caching — full spec (merged 2026-10-13)
+
+Branch `feat-prompt-caching`, from `feat-single-wallet`. M1. Added
+2026-10-13 by the developer, mid-run, in two messages saved exactly as
+written:
+
+> add API key sk-ant-usr-…(redacted here) and add prompt cashing
+
+> very strong enhanced prompt cashing and dont overuse api
+
+(The key went into the git-ignored `.env` only; it is not repeated in
+this file. `CLAUDE_PROVIDER` stays `mock`, so nothing calls Anthropic until
+the developer switches it — see Phase 2's open check, point 10.)
+
+**Takes over `chat-plus-files` point 5** (automatic caching and pricing
+cache writes and reads at their own prices). What this item does:
+
+1. **Two cache breakpoints on every Chat request** — an explicit one on the
+   system prompt (the part every conversation shares) and Anthropic's
+   automatic top-level `cache_control` for the growing conversation, so
+   each turn re-reads the previous turns at the cache-read price instead of
+   paying full input price again. TTL is a setting (`CHAT_CACHE_TTL`,
+   default `5m`; `1h` doubles the write price and only pays off when a
+   member pauses 5–60 minutes between messages).
+2. **A stable prefix.** History is trimmed at fixed cut points counted from
+   the start of the conversation, not by sliding one message at a time —
+   a sliding window changes the first message every turn and rewrites the
+   whole cache on every reply once a conversation is long.
+3. **The ledger prices what was really billed:** uncached input at the
+   input price, cache writes at 1.25× (5m) or 2× (1h) the input price,
+   cache reads at the model's cache-read price (a new catalogue column,
+   edited in Admin › Claude Models; Opus 5.5 0.05×, the others 0.1×).
+   Two new `UsageEvent` columns record the write and read tokens. The
+   pre-check's worst case prices the whole input at the write price, so it
+   stays a true worst case.
+4. **Not overusing the API:** no cache pre-warming calls, no token-counting
+   calls, one retry at most (as before), the per-minute limit unchanged,
+   the prompt helper left uncached (its short, one-off prompts would only
+   pay the write premium). The mock simulates caching, so all of this is
+   built and tested with no key.
+5. **Admin can see it working:** Admin › Budget shows cache reads and
+   writes per provider and the share of input served from cache; Admin ›
+   System shows the cache settings.
+
+## cost-calibration — full spec (merged 2026-10-13)
+
+Branch `feat-cost-calibration`, from `feat-prompt-caching`. M1. Added
+2026-10-13. The developer's request, saved exactly as written (the second
+half is `chat-builder-starter`), and the answer to the one question asked:
+
+> add calibrastion and connect the chatting prompt with the builder ex. when i want to make an app it makes a initial example app. also tell me what features are not avilabe in chat currenly (ex. creating graphs uploading/downoading files etc) and list
+
+> Q: "Calibration"은 어떤 뜻인가요? — A: **비용 보정** (실제 API가 알려 준 토큰 수로 우리 쪽 어림값 — 1글자=1토큰, "답장 1회 약 N원", 보내기 전 최악의 경우 금액 — 을 자동으로 맞춥니다)
+
+1. Every Chat usage event records the **input estimate** made before the
+   call (a new column), next to the tokens the API actually reported.
+2. Per model, from the most recent real replies: the ratio of real prompt
+   tokens to the estimate, the typical output length, and the median cost
+   of a reply (caching included).
+3. **"답장 1회 약 N원"** uses that median once a model has enough replies
+   (10), and says so ("최근 N회 기준"); before that, the formula as today.
+4. **The pre-check** prices the input at the calibrated ratio plus a
+   safety margin instead of one token per character — never above the old
+   figure, and the output side stays the full worst case, so a member is
+   still never let through who cannot pay.
+5. **Admin › Claude Models › 비용 보정**: per model, replies counted,
+   estimate vs real input, average output, average and median cost, cache
+   hit rate — the numbers to compare with the Anthropic Console.
+6. History trimming is **not** calibrated: changing its limit with the
+   ratio would move the cut and break the prompt cache.
+
+## chat-builder-starter — full spec (merged 2026-10-13)
+
+Branch `feat-chat-builder-starter`, from `feat-cost-calibration`. Added
+2026-10-13 (request above), answer to the question asked:
+
+> Q: Chat에서 '앱 만들어 줘'라고 하면 예시 앱을 어디까지 만들어 줄까요? — A: **생성 + 미리보기** ('Project Builder에서 시작'을 누르면 Claude가 index.html/style.css/app.js로 된 작은 예시 앱을 만들고, 작업 공간에서 바로 보고 고칠 수 있게 합니다. 미리보기는 네트워크와 쿠키가 막힌 샌드박스 iframe입니다. 만들기 전에 예상 비용을 보여 주고, 지원금에서 차감합니다.)
+
+A first slice of `builder-static-runtime` Half 1 (M2), pulled forward.
+Static files only; nothing runs on the backend (CLAUDE.md section 20).
+
+1. **From Chat:** the builder action button opens the new-project form
+   with the idea filled in, as today, plus **예시 앱까지 만들기** (on by
+   default) showing the estimate before anything is spent.
+2. **Generation:** `POST /api/builder/projects/{id}/starter` — Claude (the
+   catalogue default model, through the provider interface, mock by
+   default) returns the files as structured JSON; the backend checks every
+   path and size (`index.html` required; html/css/js/json/svg/md/txt
+   only; at most 10 files, 100 KB each, 300 KB together; no `..`, no
+   hidden files) and stores them as `BuilderProjectFile` rows in the same
+   transaction as the charge. Wallet pre-check against the worst case
+   first; a failed call is free.
+3. **Workspace:** the file tree and the code view show the project's real
+   files (read-only for now); the preview runs `index.html` with its CSS
+   and JS inlined in an `<iframe srcdoc>` with `sandbox="allow-scripts"`
+   only and a CSP that blocks all network, behind a label saying it is a
+   safe preview. A project with no files can ask for a starter there too.
+4. **Not in this item:** editing files by chatting with Claude (the
+   workspace's Claude panel), saving edits, server code, publishing.

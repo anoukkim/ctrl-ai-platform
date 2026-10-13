@@ -12,10 +12,12 @@ They are not the same number and must not be conflated: the platform may
 round, batch, or absorb a difference. The KRW figure is the one that moves
 a balance.
 
-`feature` says which product action spent the money, independently of
-which budget paid: the Video workspace's Claude prompt helper charges the
-Build budget, but it is still `video_prompt`, not `build`. The tags are the
-ones `budget-by-provider` will report on, so nothing needs backfilling.
+Every charge comes out of the member's one 동아리 지원 wallet (or, if
+they opted in, their personal balance). What the money was *for* is
+recorded on the event instead — `provider` (Anthropic vs Higgsfield, which
+is what the club buys credit from), `feature` (chat, video_generate, …),
+`model_id` and the native units — so the club can still see what was
+spent where, and forecast each provider's purchase from it.
 """
 
 import enum
@@ -25,18 +27,14 @@ from sqlalchemy import ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, status_enum
-from app.models.quarter import BudgetCategory
 
 
 class FundingSource(str, enum.Enum):
-    """Which pot paid for this action.
-
-    Split by category as well as by community/personal, so a Build charge
-    can never quietly come out of the Video budget.
+    """Which pot paid for this action: the 동아리 지원 wallet or the member's
+    own money. Never both — a charge is paid from one pot.
     """
 
-    COMMUNITY_BUILD = "community_build"
-    COMMUNITY_VIDEO = "community_video"
+    COMMUNITY = "community"
     PERSONAL = "personal"
 
 
@@ -56,6 +54,24 @@ class UsageFeature(str, enum.Enum):
     VIDEO_EXTEND = "video_extend"
 
 
+#: How a member's spending is broken down on their wallet card: 채팅 /
+#: 영상 / 기타. Information only — all three come out of the same wallet.
+#: The video prompt helper is Claude, but the member was making a video,
+#: so it counts as 영상.
+SPENDING_GROUP: dict[str, str] = {
+    UsageFeature.CHAT.value: "chat",
+    UsageFeature.VIDEO_PROMPT.value: "video",
+    UsageFeature.VIDEO_GENERATE.value: "video",
+    UsageFeature.VIDEO_EDIT.value: "video",
+    UsageFeature.VIDEO_EXTEND.value: "video",
+}
+
+
+def spending_group(feature: str | None) -> str:
+    """`chat`, `video` or `other` for a `UsageEvent.feature` value."""
+    return SPENDING_GROUP.get(feature or "", "other")
+
+
 class UsageEvent(TimestampMixin, Base):
     """One charged action."""
 
@@ -70,9 +86,6 @@ class UsageEvent(TimestampMixin, Base):
         ForeignKey("quarters.id", ondelete="SET NULL"), index=True, nullable=True
     )
 
-    category: Mapped[BudgetCategory] = mapped_column(
-        status_enum(BudgetCategory, "budgetcategory"), nullable=False
-    )
     funding_source: Mapped[FundingSource] = mapped_column(
         status_enum(FundingSource, "fundingsource"), nullable=False
     )
@@ -99,6 +112,16 @@ class UsageEvent(TimestampMixin, Base):
     #: that is not priced by the token.
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Prompt caching (prompt-caching). `input_tokens` is then only the
+    #: uncached input; these are the tokens written to and read from the
+    #: cache, each priced at its own rate. Null on rows from before caching
+    #: and on anything that is not a Claude call.
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The input estimate the pre-check used, before the call (Chat only).
+    #: Kept next to the real counts so `services/calibration.py` can learn
+    #: how far off the estimate runs (cost-calibration).
+    estimated_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: The won per unit of `provider_currency` this charge was converted
     #: at, copied from the rate in force. A later rate change does not move
     #: a charge that already happened.
@@ -128,6 +151,6 @@ class UsageEvent(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return (
-            f"<UsageEvent user={self.user_id} {self.category.value}"
+            f"<UsageEvent user={self.user_id} {self.feature or self.provider}"
             f" {self.charged_krw}KRW from {self.funding_source.value}>"
         )

@@ -97,7 +97,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
 
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => true,
-  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
+  useMyQuarter: () => ({ state: { phase: "loading" }, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 

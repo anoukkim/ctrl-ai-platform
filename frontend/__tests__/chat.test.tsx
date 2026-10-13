@@ -136,7 +136,7 @@ vi.mock("@/lib/chat", async (importOriginal) => {
 let mayCreate = true;
 vi.mock("@/app/components/MyQuarterProvider", () => ({
   useMayCreate: () => mayCreate,
-  useMyQuarter: () => ({ quarter: null, loading: false, refresh: async () => {} }),
+  useMyQuarter: () => ({ state: { phase: "loading" }, refresh: async () => {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
 vi.mock("@/app/components/NotParticipatingBanner", () => ({ default: () => null }));
@@ -217,7 +217,7 @@ describe("ChatWorkspace", () => {
     typeAndSend("가계부 앱을 만들고 싶어요");
 
     expect(await screen.findByText("좋은 아이디어예요!")).toBeTruthy();
-    const link = screen.getByRole("link", { name: /Project Builder에서 시작/ });
+    const link = screen.getByRole("link", { name: /Project Builder에서 예시 앱 만들기/ });
     expect(link.getAttribute("href")).toContain("/builder?idea=");
     expect(link.getAttribute("href")).toContain("name=%EA%B0%80%EA%B3%84%EB%B6%80");
     expect(chatApi.createConversation).toHaveBeenCalledTimes(1);

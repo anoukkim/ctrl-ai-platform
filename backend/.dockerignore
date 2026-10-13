@@ -1,0 +1,10 @@
+# Only app/, alembic/, alembic.ini and requirements.txt go into the image.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+var/
+.env
+.env.*

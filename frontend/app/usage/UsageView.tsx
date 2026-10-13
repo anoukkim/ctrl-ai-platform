@@ -5,27 +5,34 @@
  *
  * 모든 숫자가 백엔드에서 옵니다. 목업은 더 이상 없습니다.
  *
- * 화면이 답해야 하는 질문은 하나입니다: "지금 얼마 남았나?" 그래서 카드마다
- * 큰 숫자는 남은 금액 하나뿐이고, 지원금과 사용액은 그 아래 한 줄로만
- * 보조합니다. 같은 숫자를 세 줄로 다시 늘어놓으면 눈이 어디를 봐야 할지
- * 알 수 없게 됩니다.
+ * 화면이 답해야 하는 질문은 하나입니다: "지금 얼마 남았나?" 지갑은 하나뿐이고
+ * (single-wallet) 채팅, 영상, 그 밖의 모든 유료 기능이 같은 잔액에서 씁니다.
+ * 그래서 큰 숫자는 남은 금액 하나이고, 채팅 / 영상 / 기타로 나눈 사용액은
+ * 정보로만 보여 줍니다 — 따로 정해진 한도가 아닙니다.
  *
  * 동아리 지원과 개인 잔액은 끝까지 분리합니다. 합치면 회원이 "지원을 더
  * 받았다"고 오해합니다.
  */
 
-import { Clapperboard, Code2 } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import { useSite } from "@/app/components/SiteProvider";
 
 import {
   FUNDING_LABEL,
   MEMBERSHIP_BADGE,
   MEMBERSHIP_LABEL,
   NOT_PARTICIPATING_HINT,
+  SPENDING_LABEL,
+  SPENDING_ORDER_NOTE,
   formatKrw,
   getMyUsage,
   providerName,
+  walletSentence,
   type MyUsage,
+  type SpendingLine,
+  type WalletUsage,
 } from "@/lib/quarters";
 import { describeError } from "@/lib/http";
 
@@ -43,6 +50,7 @@ function formatDay(iso: string): string {
 
 export default function UsageView() {
   const [state, setState] = useState<State>({ phase: "loading" });
+  const site = useSite();
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
@@ -101,85 +109,17 @@ export default function UsageView() {
 
       {status !== "active" && <p className="notice">{NOT_PARTICIPATING_HINT}</p>}
 
-      {/* 동아리 지원 */}
-      <h2 className="section-title">
-        동아리 지원
-        {usage.total_budget_krw > 0 && (
-          <span className={styles.sectionNote}>
-            이번 분기 지원 {formatKrw(usage.total_budget_krw)}
-          </span>
-        )}
-      </h2>
+      {/* 동아리 지원 — 지갑 하나 */}
+      <h2 className="section-title">동아리 지원</h2>
 
-      {usage.categories.length === 0 ? (
+      {usage.wallet === null ? (
         <div className="card" style={{ marginBottom: "1.6rem" }}>
           <p className="small muted">
             아직 승인된 지원금이 없습니다. Profile에서 이번 분기 참여를 신청할 수 있습니다.
           </p>
         </div>
       ) : (
-        <div className={styles.allocations}>
-          {usage.categories.map((item, index) => {
-            const percent =
-              item.budget_krw > 0
-                ? Math.min(100, Math.round((item.consumed_krw / item.budget_krw) * 100))
-                : 0;
-
-            return (
-              <section className={styles.card} key={item.category}>
-                <div className={styles.cardHead}>
-                  <span
-                    className={`${styles.cardIcon} ${
-                      item.category === "build" ? styles.cardIconBuild : styles.cardIconVideo
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {item.category === "build" ? <Code2 size={15} /> : <Clapperboard size={15} />}
-                  </span>
-                  <span className={styles.cardTitle}>
-                    {item.category === "build" ? "Build" : "Video"}
-                  </span>
-                  <span className={styles.provider}>{item.provider}</span>
-                </div>
-
-                {/* 이 화면에서 가장 큰 숫자. 찾는 답은 이것 하나입니다. */}
-                <p className={styles.remaining}>
-                  <span className={styles.remainingValue}>{formatKrw(item.remaining_krw)}</span>
-                  <span className={styles.remainingLabel}>남음</span>
-                </p>
-
-                {/* 막대가 비율을 보여 주므로 "% 사용" 배지는 두지 않습니다.
-                    대신 화면 낭독기를 위해 같은 내용을 이름으로 남깁니다. */}
-                <div
-                  className="meter"
-                  role="img"
-                  aria-label={`${item.category === "build" ? "Build" : "Video"} 지원금 중 ${percent}% 사용`}
-                >
-                  <div
-                    className={`meter-fill ${index === 1 ? "meter-fill-blue" : ""}`}
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-
-                {/* 큰 숫자를 뒷받침하는 한 줄. 같은 값을 목록으로 반복하지 않습니다. */}
-                <p className={styles.cardFoot}>
-                  <span>
-                    사용 <span className={styles.footNumber}>{formatKrw(item.consumed_krw)}</span>
-                  </span>
-                  <span>
-                    지원 <span className={styles.footNumber}>{formatKrw(item.budget_krw)}</span>
-                  </span>
-                </p>
-
-                <p className={styles.cardNote}>
-                  {item.category === "build"
-                    ? "Chat과 Project Builder에서 Claude를 쓸 때 차감됩니다."
-                    : "Higgsfield로 영상을 만들 때 차감됩니다."}
-                </p>
-              </section>
-            );
-          })}
-        </div>
+        <WalletCard wallet={usage.wallet} breakdown={usage.breakdown} />
       )}
 
       {/* 개인 잔액 — 지원금과 섞이지 않도록 따로 둡니다. */}
@@ -208,11 +148,16 @@ export default function UsageView() {
           </div>
 
           <p className={styles.personalNote}>
-            개인 충전금은 분기 지원 한도에 포함되지 않습니다.{" "}
+            {SPENDING_ORDER_NOTE}{" "}
             {personal.overage_enabled
-              ? "지원금을 다 쓰면 개인 잔액에서 차감됩니다."
-              : "개인 사용이 꺼져 있어, 지원금을 다 쓰면 사용이 멈춥니다."}
+              ? "지금은 개인 사용이 켜져 있습니다."
+              : "지금은 개인 사용이 꺼져 있어, 지원금을 다 쓰면 사용이 멈춥니다."}
           </p>
+          {!site.top_ups_enabled && (
+            <p className={styles.personalNote} data-testid="top-ups-off">
+              베타 기간에는 개인 충전을 받지 않습니다. 동아리 지원금으로 이용해 주세요.
+            </p>
+          )}
         </section>
       )}
 
@@ -244,9 +189,7 @@ export default function UsageView() {
                 <tr key={event.id}>
                   <td className={styles.when}>{formatDay(event.created_at)}</td>
                   <td>
-                    <span className="badge badge-muted">
-                      {event.category === "build" ? "Build" : "Video"}
-                    </span>
+                    <span className="badge badge-muted">{SPENDING_LABEL[event.group]}</span>
                   </td>
                   <td>{event.label}</td>
                   <td>{providerName(event.provider)}</td>
@@ -267,5 +210,60 @@ export default function UsageView() {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * 동아리 지원 지갑 한 장.
+ *
+ * 큰 숫자(남은 금액) / 막대 / 한 문장, 그리고 "어디에 썼나요". 아래쪽
+ * 세 줄은 정보일 뿐이라 막대 색을 나누지 않고, 한도처럼 보이지 않게
+ * 남은 금액이 아닌 쓴 금액만 적습니다.
+ */
+function WalletCard({ wallet, breakdown }: { wallet: WalletUsage; breakdown: SpendingLine[] }) {
+  const percent =
+    wallet.budget_krw > 0
+      ? Math.min(100, Math.round((wallet.consumed_krw / wallet.budget_krw) * 100))
+      : 0;
+
+  return (
+    <section className={`${styles.card} ${styles.walletCard}`} aria-labelledby="wallet-title">
+      <div className={styles.cardHead}>
+        <span className={`${styles.cardIcon} ${styles.cardIconWallet}`} aria-hidden="true">
+          <Wallet size={15} />
+        </span>
+        <span className={styles.cardTitle} id="wallet-title">
+          이번 분기 지원금
+        </span>
+        <span className={styles.provider}>채팅 · 영상 · 모든 기능 공통</span>
+      </div>
+
+      <p className={styles.remaining}>
+        <span className={styles.remainingValue}>{formatKrw(wallet.remaining_krw)}</span>
+        <span className={styles.remainingLabel}>남음</span>
+      </p>
+
+      <div className="meter" role="img" aria-label={`지원금 중 ${percent}% 사용`}>
+        <div className="meter-fill" style={{ width: `${percent}%` }} />
+      </div>
+
+      <p className={styles.cardFoot}>{walletSentence(wallet)}</p>
+
+      {breakdown.length > 0 && (
+        <div className={styles.breakdown}>
+          <p className={styles.breakdownTitle}>
+            어디에 썼나요 <span className={styles.breakdownHint}>참고용 · 모두 같은 지갑에서 나갑니다</span>
+          </p>
+          <ul className={styles.breakdownList}>
+            {breakdown.map((line) => (
+              <li className={styles.breakdownItem} key={line.group}>
+                <span>{line.label}</span>
+                <span className={styles.footNumber}>{formatKrw(line.consumed_krw)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

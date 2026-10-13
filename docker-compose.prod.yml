@@ -1,0 +1,125 @@
+# CTRL+AI — the beta server (ctrlai-server, Google Cloud, Seoul).
+#
+# Four services on one VM:
+#
+#   caddy  80/443, HTTPS from Let's Encrypt     — the only published ports
+#   web    Next.js (standalone)                 — pages + /api/* rewrite
+#   api    FastAPI                              — reads the server's .env
+#   db     PostgreSQL 16                        — NO published port
+#
+# The server only PULLS images; GitHub Actions builds them
+# (.github/workflows/images.yml). Step-by-step: docs/deployment.md.
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Values in ${...} come from the .env next to this file. The .env is
+# chmod 600, never committed, and never copied into an image — it is
+# handed to the api container when it starts (the beta-only exception in
+# CLAUDE.md section 17).
+
+name: ctrlai
+
+x-logging: &logging
+  # Container logs are rotated, so they cannot fill the 30 GB disk.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    mem_limit: 256m
+    logging: *logging
+
+  web:
+    image: ${IMAGE_PREFIX:-ghcr.io/anoukkim/ctrl-ai-platform}-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # No env_file: the frontend needs no secret. Its one setting,
+    # BACKEND_ORIGIN, was fixed when the image was built.
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 768m
+    logging: *logging
+
+  api:
+    image: ${IMAGE_PREFIX:-ghcr.io/anoukkim/ctrl-ai-platform}-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - ${API_ENV_FILE:-.env}
+    environment:
+      # These win over the .env, so a .env copied from .env.example cannot
+      # point the server at a laptop's database or send the cookie over
+      # plain HTTP.
+      DEPLOYED: "true"
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ctrlai}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-ctrlai}
+      SESSION_COOKIE_SECURE: "true"
+      STORAGE_DIR: /app/var/storage
+    volumes:
+      - api_storage:/app/var/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 1g
+    logging: *logging
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # No `ports:` — PostgreSQL is reachable only by the api container.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ctrlai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ctrlai}
+    # Sized for the e2-medium (4 GB) and about 40 members.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-256MB}
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-50}
+      - -c
+      - effective_cache_size=1GB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    mem_limit: 1g
+    logging: *logging
+
+volumes:
+  pgdata:
+  api_storage:
+  caddy_data:
+  caddy_config:

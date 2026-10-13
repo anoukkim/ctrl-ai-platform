@@ -55,3 +55,7 @@ desktop.ini
 # ---------- Logs ----------
 *.log
 npm-debug.log*
+
+# Database backups (deploy/backup.sh). Members' data, never committed.
+*.sql
+*.sql.gz

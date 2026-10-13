@@ -2,8 +2,9 @@
  * 분기(Quarter) 참여와 예산 API 클라이언트.
  *
  * CTRL+AI는 분기 단위로 운영됩니다. 크레딧은 자동으로 주어지지 않습니다.
- * 관리자가 신청을 열면 회원이 Build/Video 비율을 정해 신청하고, 관리자가
- * 승인해야 사용할 수 있는 예산이 생깁니다.
+ * 관리자가 신청을 열면 회원이 "이번 분기 참여"를 누르고, 관리자가 승인해야
+ * 그 분기의 동아리 지원 지갑이 생깁니다. 지갑은 하나뿐이고 채팅, 영상 등
+ * 모든 유료 기능이 같은 잔액에서 씁니다(single-wallet).
  *
  * 금액의 기준은 원(KRW)입니다. 토큰이나 생성 횟수로 환산하지 않습니다.
  * 제공자 가격이 바뀌어도 이미 승인된 예산이 흔들리면 안 되기 때문입니다.
@@ -53,7 +54,7 @@ export interface Quarter {
   application_opens_at: string | null;
   application_closes_at: string | null;
   status: QuarterStatus;
-  /** 이 분기에 회원 한 명이 받을 수 있는 동아리 지원 한도(원). */
+  /** 이 분기에 참여하는 회원 한 명이 받는 동아리 지원(원). 기본 80,000원. */
   subsidy_limit_krw: number;
 }
 
@@ -61,11 +62,8 @@ export interface QuarterApplication {
   id: number;
   user_id: number;
   quarter_id: number;
-  build_percentage: number;
-  video_percentage: number;
-  requested_total_budget_krw: number;
-  requested_build_budget_krw: number;
-  requested_video_budget_krw: number;
+  /** 신청할 때의 분기 지원금. */
+  requested_budget_krw: number;
   status: ApplicationStatus;
   submitted_at: string | null;
   reviewed_at: string | null;
@@ -80,18 +78,13 @@ export interface ApplicationWithMember extends QuarterApplication {
   reviewed_by_display_name: string;
 }
 
+/** 한 회원의 이번 분기 동아리 지원 지갑. */
 export interface QuarterAllocation {
   id: number;
   quarter_id: number;
-  community_total_budget_krw: number;
-  build_budget_krw: number;
-  video_budget_krw: number;
-  build_percentage: number;
-  video_percentage: number;
-  build_consumed_krw: number;
-  video_consumed_krw: number;
-  build_remaining_krw: number;
-  video_remaining_krw: number;
+  budget_krw: number;
+  consumed_krw: number;
+  remaining_krw: number;
   approved_at: string | null;
 }
 
@@ -190,14 +183,9 @@ export function getMyQuarter(): Promise<MyQuarterStatus> {
   return request<MyQuarterStatus>("/quarters/me");
 }
 
-export function applyForQuarter(
-  quarterId: number,
-  split: { build_percentage: number; video_percentage: number },
-): Promise<QuarterApplication> {
-  return request<QuarterApplication>(`/quarters/${quarterId}/apply`, {
-    method: "POST",
-    body: JSON.stringify(split),
-  });
+/** 이번 분기 참여 — 나눌 것이 없습니다. 금액은 분기가 정합니다. */
+export function applyForQuarter(quarterId: number): Promise<QuarterApplication> {
+  return request<QuarterApplication>(`/quarters/${quarterId}/apply`, { method: "POST" });
 }
 
 export function cancelApplication(applicationId: number): Promise<QuarterApplication> {
@@ -276,21 +264,6 @@ export function confirmTopUp(
 /* 계산과 표기                                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * Build/Video 비율을 금액으로 바꿉니다.
- *
- * 백엔드의 services/budget.py와 같은 규칙입니다. Build는 내림하고 Video가
- * 나머지를 가져가므로 두 금액의 합은 항상 한도와 정확히 같습니다.
- * 화면에서 미리 보여 주기 위한 계산이며, 실제 승인 금액은 백엔드가 정합니다.
- */
-export function splitBudget(
-  buildPercentage: number,
-  totalKrw: number,
-): { buildKrw: number; videoKrw: number } {
-  const build = Math.floor((totalKrw * buildPercentage) / 100);
-  return { buildKrw: build, videoKrw: totalKrw - build };
-}
-
 /** 100000 -> "100,000원" */
 export function formatKrw(value: number): string {
   return `${value.toLocaleString("ko-KR")}원`;
@@ -305,15 +278,29 @@ export function formatDate(iso: string | null): string {
 /* 사용량 (Phase 1c)                                                    */
 /* ------------------------------------------------------------------ */
 
-export type BudgetCategory = "build" | "video";
-export type FundingSource = "community_build" | "community_video" | "personal";
+export type FundingSource = "community" | "personal";
 
 /** 차감 출처 표기. 동아리 지원과 개인 잔액은 끝까지 구분해서 보여 줍니다. */
 export const FUNDING_LABEL: Record<FundingSource, string> = {
-  community_build: "동아리 지원",
-  community_video: "동아리 지원",
+  community: "동아리 지원",
   personal: "개인 잔액",
 };
+
+/** 지갑 사용 내역의 묶음 — 정보일 뿐, 따로 정해진 한도는 없습니다. */
+export type SpendingGroup = "chat" | "video" | "other";
+
+export const SPENDING_LABEL: Record<SpendingGroup, string> = {
+  chat: "채팅",
+  video: "영상",
+  other: "기타",
+};
+
+/**
+ * 어느 돈이 먼저 쓰이는지. Usage와 Profile이 같은 문장을 씁니다.
+ * 규칙은 백엔드의 usage.charge()가 정하고, 이 문장은 그 규칙을 옮긴 것입니다.
+ */
+export const SPENDING_ORDER_NOTE =
+  "동아리 지원금을 먼저 씁니다. 다 쓰면, 개인 사용을 켠 경우에만 개인 잔액에서 씁니다. 한 번의 사용이 두 곳에 나뉘어 결제되지는 않습니다.";
 
 /** 제공자 id를 사람이 읽는 이름으로. 카드와 표가 같은 이름을 쓰도록. */
 export const PROVIDER_LABEL: Record<string, string> = {
@@ -329,22 +316,26 @@ export function providerName(id: string): string {
 export interface UsageEvent {
   id: number;
   created_at: string;
-  category: BudgetCategory;
   funding_source: FundingSource;
   provider: string;
+  feature: string | null;
   model_id: string | null;
   charged_krw: number;
+  group: SpendingGroup;
   /** 어디에서 썼는지, 회원이 알아보는 이름으로. */
   label: string;
 }
 
-export interface CategoryUsage {
-  category: BudgetCategory;
-  /** 실제로 일을 하는 서비스 — Claude / Higgsfield. */
-  provider: string;
+export interface WalletUsage {
   budget_krw: number;
   consumed_krw: number;
   remaining_krw: number;
+}
+
+export interface SpendingLine {
+  group: SpendingGroup;
+  label: string;
+  consumed_krw: number;
 }
 
 export interface PersonalUsage {
@@ -359,8 +350,10 @@ export interface MyUsage {
   quarter_name: string | null;
   days_remaining: number | null;
   membership_status: MembershipStatus | null;
-  categories: CategoryUsage[];
-  total_budget_krw: number;
+  /** 이번 분기에 승인된 지갑이 없으면 null. */
+  wallet: WalletUsage | null;
+  /** 채팅 / 영상 / 기타 — 합하면 wallet.consumed_krw. */
+  breakdown: SpendingLine[];
   personal: PersonalUsage | null;
   events: UsageEvent[];
 }
@@ -401,29 +394,114 @@ export function setMemberRole(
 export function adjustAllocation(
   quarterId: number,
   userId: number,
-  buildKrw: number,
-  videoKrw: number,
+  budgetKrw: number,
   note = "",
 ): Promise<QuarterAllocation> {
   return request<QuarterAllocation>(`/admin/quarters/${quarterId}/allocations/${userId}`, {
     method: "PUT",
-    body: JSON.stringify({
-      build_budget_krw: buildKrw,
-      video_budget_krw: videoKrw,
-      note,
-    }),
+    body: JSON.stringify({ budget_krw: budgetKrw, note }),
   });
 }
 
 /** 개발 환경에서만 동작합니다. 배포 환경에서는 404를 돌려줍니다. */
 export function simulateUsage(input: {
   user_id?: number;
-  category: BudgetCategory;
   amount_krw: number;
   provider?: string;
+  feature?: string;
 }): Promise<UsageEvent> {
   return request<UsageEvent>("/admin/simulate-usage", {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* 관리자 — Budget: 지갑과 제공자별 사용액                               */
+/* ------------------------------------------------------------------ */
+
+export interface MemberWallet {
+  user_id: number;
+  username: string;
+  display_name: string;
+  account_status: MembershipStatus;
+  membership_status: MembershipStatus | null;
+  budget_krw: number;
+  consumed_krw: number;
+  remaining_krw: number;
+}
+
+export interface ProviderSpend {
+  provider: string;
+  label: string;
+  events: number;
+  charged_krw: number;
+  /** 동아리 지원 지갑에서 나간 몫. */
+  community_krw: number;
+  /** 개인 잔액에서 나간 몫. */
+  personal_krw: number;
+  /** 통화별 제공자 금액(문자열, 소수 둘째 자리). */
+  provider_cost: Record<string, string>;
+  units: Record<string, number>;
+  input_tokens: number;
+  output_tokens: number;
+  /** 프롬프트 캐시. input_tokens는 캐시를 거치지 않은 입력만입니다. */
+  cache_write_tokens: number;
+  cache_read_tokens: number;
+  /** 입력 가운데 캐시에서 읽은 몫(0–1). */
+  cache_hit_rate: number | null;
+  share: number | null;
+  share_of_wallets_krw: number | null;
+}
+
+export interface QuarterBudget {
+  quarter: Quarter;
+  member_budget_krw: number;
+  wallets: MemberWallet[];
+  total_budget_krw: number;
+  total_consumed_krw: number;
+  total_remaining_krw: number;
+  providers: ProviderSpend[];
+  total_charged_krw: number;
+}
+
+export function getQuarterBudget(quarterId: number): Promise<QuarterBudget> {
+  return request<QuarterBudget>(`/admin/quarters/${quarterId}/budget`);
+}
+
+/** "이번 분기 지원금 80,000원 중 52,300원 남음" — 사이드바와 Usage가 같은 문장을 씁니다. */
+export function walletSentence(wallet: { budget_krw: number; remaining_krw: number }): string {
+  return `이번 분기 지원금 ${formatKrw(wallet.budget_krw)} 중 ${formatKrw(wallet.remaining_krw)} 남음`;
+}
+
+/* ------------------------------------------------------------------ */
+/* 예상 비용과 지갑 비교                                                 */
+/* ------------------------------------------------------------------ */
+
+export type WalletTone = "ok" | "personal" | "short";
+
+export interface WalletComparison {
+  tone: WalletTone;
+  text: string;
+}
+
+/**
+ * 버튼 옆의 예상 비용을 **하나뿐인 지갑**과 비교합니다.
+ *
+ * 규칙은 백엔드 usage.charge()와 같습니다: 지갑이 먼저, 모자라면 개인
+ * 사용을 켠 경우에만 개인 잔액, 한 번의 사용을 두 곳에 나누지 않음.
+ * 화면 안내일 뿐이고 실제 판단은 백엔드가 요청마다 합니다.
+ */
+export function compareToWallet(
+  costKrw: number | null,
+  wallet: { remaining_krw: number } | null,
+  personal: { remaining_krw: number; overage_enabled: boolean } | null,
+): WalletComparison | null {
+  if (wallet === null) return null;
+  const left = `남은 지원금 ${formatKrw(wallet.remaining_krw)}`;
+  if (costKrw === null || costKrw <= wallet.remaining_krw) return { tone: "ok", text: left };
+  if (personal?.overage_enabled && costKrw <= personal.remaining_krw) {
+    return { tone: "personal", text: `${left} · 부족한 만큼 개인 잔액에서 결제됩니다` };
+  }
+  return { tone: "short", text: `지원금이 부족합니다 (${left})` };
 }

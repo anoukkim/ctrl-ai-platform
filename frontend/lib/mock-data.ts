@@ -139,95 +139,6 @@ export const MOCK_PROJECTS: Project[] = [
   },
 ];
 
-/** Project Builder의 파일 목록 예시. 파일 이름은 영어를 유지합니다. */
-export interface FileNode {
-  name: string;
-  kind: "folder" | "file";
-  depth: number;
-  active?: boolean;
-}
-
-export const MOCK_FILE_TREE: FileNode[] = [
-  { name: "app", kind: "folder", depth: 0 },
-  { name: "page.tsx", kind: "file", depth: 1, active: true },
-  { name: "layout.tsx", kind: "file", depth: 1 },
-  { name: "globals.css", kind: "file", depth: 1 },
-  { name: "components", kind: "folder", depth: 0 },
-  { name: "HabitForm.tsx", kind: "file", depth: 1 },
-  { name: "HabitList.tsx", kind: "file", depth: 1 },
-  { name: "package.json", kind: "file", depth: 0 },
-  { name: "README.md", kind: "file", depth: 0 },
-];
-
-export const MOCK_CODE_SAMPLE = `export default function Page() {
-  const [habits, setHabits] = useState<Habit[]>([]);
-
-  return (
-    <main className="page">
-      <h1>습관 한눈에</h1>
-      <HabitForm onAdd={(habit) => setHabits([...habits, habit])} />
-      <HabitList items={habits} />
-    </main>
-  );
-}`;
-
-/** 파일별 내용. 파일을 고르면 코드 영역이 바뀌도록 하기 위한 예시입니다. */
-export const MOCK_FILE_CONTENTS: Record<string, string> = {
-  "page.tsx": MOCK_CODE_SAMPLE,
-  "layout.tsx": `export default function Layout({ children }: LayoutProps) {
-  return (
-    <html lang="ko">
-      <body>{children}</body>
-    </html>
-  );
-}`,
-  "globals.css": `body {
-  background: #001433;
-  color: #f2f2f2;
-  font-family: "Pretendard", system-ui, sans-serif;
-}`,
-  "HabitForm.tsx": `export function HabitForm({ onAdd }: HabitFormProps) {
-  const [name, setName] = useState("");
-
-  return (
-    <form onSubmit={() => onAdd({ name, done: false })}>
-      <input value={name} onChange={(e) => setName(e.target.value)} />
-      <button type="submit">습관 추가</button>
-    </form>
-  );
-}`,
-  "HabitList.tsx": `export function HabitList({ items }: HabitListProps) {
-  return (
-    <ul>
-      {items.map((habit) => (
-        <li key={habit.name}>{habit.name}</li>
-      ))}
-    </ul>
-  );
-}`,
-  "package.json": `{
-  "name": "habit-at-a-glance",
-  "private": true,
-  "dependencies": {
-    "next": "16.3.6",
-    "react": "19.2.8"
-  }
-}`,
-  "README.md": `# 습관 한눈에
-
-매일 습관을 체크하고 한 주의 달성률을 확인하는 앱입니다.
-CTRL+AI의 Project Builder로 만들었습니다.`,
-};
-
-export const MOCK_BUILDER_CHAT: { role: "user" | "assistant"; body: string }[] = [
-  { role: "user", body: "매일 체크할 수 있는 간단한 습관 관리 앱을 만들고 싶어요." },
-  {
-    role: "assistant",
-    body: "좋아요. 습관을 추가하고 매일 체크하는 화면을 먼저 만들었어요. 색상이나 기능을 바꾸고 싶으면 편하게 말씀해 주세요.",
-  },
-  { role: "user", body: "이번 주 달성률을 보여주는 그래프를 추가해줘." },
-];
-
 export const MOCK_BUILD_OUTPUT = [
   "> next build",
   "  ✓ 빌드 완료",
@@ -1069,26 +980,6 @@ export const MOCK_VIDEOS: CommunityVideo[] = [
 
 export function findVideo(id: string): CommunityVideo | undefined {
   return MOCK_VIDEOS.find((video) => video.id === id);
-}
-
-/* ------------------------------------------------------------------ */
-/* Usage                                                               */
-/* ------------------------------------------------------------------ */
-
-/**
- * 사용 내역 한 줄.
- *
- * 금액(원)과 어느 주머니에서 나갔는지를 함께 적습니다. 제공자가 실제로
- * 청구한 금액과 CTRL+AI가 예산에서 차감한 금액은 다를 수 있어, 백엔드의
- * UsageEvent는 둘을 따로 보관합니다.
- */
-export interface UsageEvent {
-  date: string;
-  category: "Build" | "Video";
-  detail: string;
-  provider: string;
-  chargedKrw: number;
-  source: "동아리 지원" | "개인 잔액";
 }
 
 /* ------------------------------------------------------------------ */
