@@ -325,15 +325,7 @@ before the post-beta work, which is specced under **After the beta**.
    `invite-only-signup` (both merged). Spec below, with the owner's
    revisions.
 
-7. **live-cost-display** · M1 · branch `feat-live-cost-display`
-   Added by the owner on 2026-10-13. A running cost in won beside a
-   streaming reply, a small receipt when it ends, and the sidebar wallet
-   card updated at once; the ledger stays the source of truth. **Depends
-   on:** `cost-calibration` (merged), `token-guard` (shares its running
-   estimate), and best after `chat-plus-rendering` (same reply bubble).
-   Spec below.
-
-8. **chat-plus-tools** · M2 · branch `feat-chat-plus-tools`
+7. **chat-plus-tools** · M2 · branch `feat-chat-plus-tools`
    Moved from *After the beta* into Next by the owner on 2026-10-14
    (part of the overnight batch). Web search, web fetch and code
    execution in Chat as Anthropic server tools — **mock tools only for
@@ -344,14 +336,14 @@ before the post-beta work, which is specced under **After the beta**.
    includes tool fees; the receipt shows them) — built after them. Spec
    below, with the owner's 2026-10-14 rules.
 
-9. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+8. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-10. **builder-python** · M2 · branch `feat-builder-python`
+9. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -1109,35 +1101,7 @@ dialog (not from the menu). Everything else above stands.
 
 → **token-guard — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#token-guard--full-spec-merged-2026-10-14).
 
-## live-cost-display — full spec
-
-Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
-exactly as written:
-
-> live-cost-display (after cost-calibration): while a reply streams, show the running cost in won next to it; after it ends, a small receipt (input, output, cache read, won) and the wallet card in the sidebar updates at once. The ledger stays the single source of truth; the live figure is an estimate settled by the real usage.
-
-**Depends on:** `cost-calibration` (merged); `token-guard` (the same
-running estimate drives its cap); best after `chat-plus-rendering`,
-which reworks the same reply bubble.
-
-1. **While streaming:** beside the reply, "약 N원", updating as text
-   arrives: the calibrated input estimate plus the output so far
-   (`estimate_tokens` of the streamed text), priced for the model.
-   Always labelled as an estimate (약). Updated at most a few times a
-   second.
-2. **When it ends:** the `done` event carries the real usage the ledger
-   recorded (input, output, cache write and cache read tokens, and
-   `charged_krw`), and the bubble shows a small receipt: 입력 / 출력 /
-   캐시 읽기 / 합계 N원. The figure shown is the **ledger's**, never the
-   estimate; if they differ, the receipt simply replaces the estimate.
-3. **The sidebar wallet card updates at once** (a `MyQuarterProvider`
-   refresh, or the remaining balance carried in the `done` event), and
-   the Usage page shows the same row.
-4. **A stopped or capped reply** gets the same receipt; a failed call
-   shows "청구되지 않았어요".
-5. **Tests:** the running figure never shows without 약; the receipt's
-   numbers equal the usage event's; the wallet card changes without a
-   reload; a failed call shows no charge.
+→ **live-cost-display — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#live-cost-display--full-spec-merged-2026-10-14).
 
 ## chat-thinking-view — full spec
 
@@ -1271,7 +1235,7 @@ it yearly).
 
 ## chat-plus-tools — full spec
 
-Next (item 8) · M2 · branch `feat-chat-plus-tools`. Effort: **M**
+Next (item 7) · M2 · branch `feat-chat-plus-tools`. Effort: **M**
 (3–5 days). Added 2026-10-07; **moved into Next by the owner on
 2026-10-14** as part of the overnight batch, with these rules, which win
 over the points below where they differ:
