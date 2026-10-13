@@ -12,18 +12,19 @@ hold API keys — and records usage per member and quarter.
 **M1 — beta launch, in progress.** The goal is an invite-only beta on
 `ctrlai.my` with real Claude chat and everything else labelled test mode.
 
-- **Done:** video-higgsfield-only, Phase 2 Chat, chat-model-choice,
-  ui-polish, single-wallet, prompt-caching, cost-calibration,
-  chat-builder-starter and **prep-beta-launch** (merged 2026-10-13): the
-  beta's code, Docker images built by GitHub Actions, and the Korean
-  deployment guide.
+- **Done:** everything in
+  [`docs/archive/done.md`](docs/archive/done.md) — most recently (as of
+  2026-10-14) member-password-login, chat-plus-rendering,
+  admin-and-nav-cleanup (AI Models by provider), fix-beta-blockers and
+  personal-topup-off, on top of the beta stack (Chat with real budget
+  rules, invite-only sign-up, Google login behind a mock,
+  prep-beta-launch).
 - **Deployed (2026-10-13):** `ctrlai-server` runs `db`, `api` and `web`
   with every provider on mock. `caddy` (HTTPS) starts once the `ctrlai.my`
   A record is live at Gabia.
-- **Before members are invited:** invite-only-signup,
-  test-database-isolation, and one real Claude message with the owner's
-  key. Until invite codes exist, **do not share the address** — anyone who
-  has it can sign up.
+- **Before members are invited:** privacy-and-terms (the owner reviews
+  the text), the one real Claude message with the owner's key, and invite
+  codes created on the server — until then **do not share the address**.
 - **Next:** the top of **Next** in [`docs/BACKLOG.md`](docs/BACKLOG.md),
   which is the only place the order is written. Milestones are in
   [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -39,7 +40,7 @@ platform runs locally with no API keys.
 | Server | Google Cloud Compute Engine `ctrlai-server` — e2-medium (2 vCPU, 4 GB), Seoul `asia-northeast3-c`, Debian 13, 30 GB disk, static IP `34.47.78.228` |
 | Stack | `docker-compose.prod.yml`: `caddy` (80/443, automatic HTTPS), `web` (Next.js), `api` (FastAPI), `db` (PostgreSQL 16, no published port) |
 | Images | Built and pushed to ghcr.io by GitHub Actions on every push to `main`; the server only pulls |
-| Secrets | `.env` on the server only, `chmod 600`, never committed (beta-only exception, `CLAUDE.md` section 17) |
+| Secrets | `.env` on the server only, `chmod 600`, never committed (beta-only exception, `CLAUDE.md` section 8) |
 | DNS | Gabia: `@` A `34.47.78.228`, `www` CNAME `ctrlai.my.` |
 | Billing | Google Cloud free trial (₩407,626) — **upgrade the billing account by 2027-01-04**, or the server stops when the trial ends |
 
@@ -128,8 +129,9 @@ PostgreSQL is running. See
 
 | Document | What it holds |
 | -------- | ------------- |
-| [`CLAUDE.md`](CLAUDE.md) | The product definition, the rules every change follows, and the working method |
+| [`CLAUDE.md`](CLAUDE.md) | The settled decisions, the standing rules every change follows, and the working method |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Milestones M0–M4 and what is done in each |
+| [`docs/archive/phases.md`](docs/archive/phases.md) | The long phase plan (Phases 0–9) and the Phase 0–1c delivery history |
 | [`docs/BACKLOG.md`](docs/BACKLOG.md) | **The order of work**: Now, Next, open specs, UI requests |
 | [`docs/product.md`](docs/product.md) | Screens and routes, the two workspaces, language and design, money, participation, search, leaving CTRL+AI |
 | [`docs/development.md`](docs/development.md) | Full setup, sign-in, how the pieces fit, environment files, providers, testing, troubleshooting, operator notes, repository layout |
