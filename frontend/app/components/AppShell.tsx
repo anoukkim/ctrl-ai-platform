@@ -291,6 +291,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
+        {/* 계정 영역 — 두 줄입니다(fix-ui-polish-admin). 위는 이름과 관리자
+            배지, 아래는 개인정보·약관과 네 개의 아이콘 단추. 한 줄에 모두
+            두면 이름이 말줄임으로 사라졌습니다. */}
         <div className={styles.navFooter}>
           <span className={styles.navUser} title={collapsed ? user.display_name : undefined}>
             <span className={styles.navAvatar} aria-hidden="true">
@@ -304,47 +307,48 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span className={styles.navUserHandle}>@{user.username}</span>
             </span>
           </span>
-          <button
-            className={styles.footerButton}
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
-            title={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
-          >
-            {theme === "dark" ? (
-              <Sun size={16} aria-hidden="true" />
-            ) : (
-              <Moon size={16} aria-hidden="true" />
+          <div className={styles.navActions}>
+            {/* 개인정보 처리방침·이용약관 (privacy-and-terms). 접힌 레일에는
+                자리가 없어 펼친 사이드바에서만 보입니다. */}
+            {!collapsed && (
+              <span className={styles.navLegal}>
+                <Link className={styles.navLegalLink} href="/privacy">
+                  개인정보
+                </Link>
+                <span aria-hidden="true">·</span>
+                <Link className={styles.navLegalLink} href="/terms">
+                  약관
+                </Link>
+              </span>
             )}
-          </button>
-          {/* 의견 보내기 — 어느 화면에서든 한 번에. 저장되고 Admin › Feedback에서
-              읽습니다. */}
-          <FeedbackButton variant="icon" className={styles.footerButton} />
-          <GuideButton onOpen={() => setMenuOpen(false)} />
-          <button
-            className={styles.footerButton}
-            type="button"
-            onClick={() => void signOut()}
-            aria-label="로그아웃"
-            title="로그아웃"
-          >
-            <LogOut size={16} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* 개인정보 처리방침·이용약관 (privacy-and-terms). 접힌 레일에는
-            자리가 없어 펼친 사이드바에서만 보입니다. */}
-        {!collapsed && (
-          <div className={styles.navLegal}>
-            <Link className={styles.navLegalLink} href="/privacy">
-              개인정보
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link className={styles.navLegalLink} href="/terms">
-              약관
-            </Link>
+            <button
+              className={styles.footerButton}
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
+              title={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
+            >
+              {theme === "dark" ? (
+                <Sun size={16} aria-hidden="true" />
+              ) : (
+                <Moon size={16} aria-hidden="true" />
+              )}
+            </button>
+            {/* 의견 보내기 — 어느 화면에서든 한 번에. 저장되고 Admin › Feedback에서
+                읽습니다. */}
+            <FeedbackButton variant="icon" className={styles.footerButton} />
+            <GuideButton onOpen={() => setMenuOpen(false)} />
+            <button
+              className={styles.footerButton}
+              type="button"
+              onClick={() => void signOut()}
+              aria-label="로그아웃"
+              title="로그아웃"
+            >
+              <LogOut size={16} aria-hidden="true" />
+            </button>
           </div>
-        )}
+        </div>
       </nav>
 
       <main

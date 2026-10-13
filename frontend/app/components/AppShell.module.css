@@ -352,16 +352,22 @@
 
 /* ---------- 사이드바 바닥 ---------- */
 
+/* 계정 영역: 위는 이름, 아래는 개인정보·약관과 아이콘 단추. */
 .navFooter {
+  display: grid;
+  gap: 6px;
+  padding: 8px 2px 0;
+  border-top: 1px solid var(--border);
+}
+
+.navActions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 2px 0;
+  gap: 2px;
 }
 
 .navUser {
   display: flex;
-  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   gap: 0.55rem;
@@ -528,13 +534,12 @@
     margin: 0;
   }
 
-  .shellCollapsed .navFooter {
+  .shellCollapsed .navActions {
     flex-direction: column;
     gap: 6px;
   }
 
   .shellCollapsed .navUser {
-    flex: none;
     justify-content: center;
   }
 
@@ -666,12 +671,15 @@
 }
 
 /* 사이드바 맨 아래의 작은 법적 문서 링크 (privacy-and-terms). */
+/* 아이콘 단추 줄의 왼쪽 — 단추들은 오른쪽으로 밀립니다. */
 .navLegal {
   display: flex;
-  gap: 0.4rem;
-  padding: 0.15rem 0.9rem 0.6rem;
+  gap: 0.35rem;
+  margin-right: auto;
+  padding-left: 4px;
   font-size: 0.68rem;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .navLegalLink {
