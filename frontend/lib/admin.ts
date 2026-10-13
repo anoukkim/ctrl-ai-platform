@@ -400,6 +400,23 @@ export interface ClaudeSettings {
   cache_ttl: string | null;
   exchange_rate: ExchangeRate | null;
   rate_history: ExchangeRate[];
+  /** token-guard의 세 한도. 0은 그 한도를 끈 것입니다. */
+  chat_limits: ChatLimits;
+}
+
+/** 답장 1회 비용 한도, 긴 대화 경고 기준, 하루 한도 (token-guard). */
+export interface ChatLimits {
+  reply_cap_krw: number;
+  long_history_tokens: number;
+  daily_cap_krw: number;
+  set_at: string | null;
+  set_by_username: string;
+}
+
+export interface ChatLimitsWrite {
+  reply_cap_krw: number;
+  long_history_tokens: number;
+  daily_cap_krw: number;
 }
 
 export function getClaudeSettings(): Promise<ClaudeSettings> {
@@ -410,5 +427,12 @@ export function setExchangeRate(krwPerUsd: string): Promise<ClaudeSettings> {
   return request<ClaudeSettings>("/admin/claude-pricing/exchange-rate", {
     method: "POST",
     body: JSON.stringify({ krw_per_usd: krwPerUsd }),
+  });
+}
+
+export function setChatLimits(limits: ChatLimitsWrite): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>("/admin/claude-pricing/chat-limits", {
+    method: "POST",
+    body: JSON.stringify(limits),
   });
 }

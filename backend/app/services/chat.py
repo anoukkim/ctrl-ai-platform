@@ -45,8 +45,9 @@ from app.models import (
     UsageFeature,
     User,
 )
-from app.services import calibration, pricing, providers
+from app.services import calibration, chat_limits, pricing, providers
 from app.services import usage as usage_service
+from app.services import chat_models as chat_models_service
 from app.services.chat_models import ChosenModel
 from app.services.claude_provider import (
     CHAT_SYSTEM_PROMPT,
@@ -254,6 +255,54 @@ def build_context(
     return merged[start:], sum(costs[start:]) + estimate_tokens(CHAT_SYSTEM_PROMPT)
 
 
+# ----------------------------------------------- the long-history warning
+
+
+@dataclass(frozen=True)
+class LongHistory:
+    """What a long conversation adds to every reply (token-guard, point 4)."""
+
+    #: The input estimate a reply would carry beyond the system prompt.
+    history_tokens: int
+    #: What that history adds to one reply — and what a new conversation
+    #: saves — in won, at the cache-read price where caching is on.
+    extra_krw: int
+
+
+def long_history_info(
+    db: Session,
+    settings: Settings,
+    history: list[ChatMessage],
+    model: ChosenModel,
+) -> LongHistory | None:
+    """The composer's warning figures, or None while the history is short.
+
+    Uses the same trimmed context, calibration and prices as the pre-check
+    in `prepare_turn`, so the warning and the charge can never disagree
+    about what "long" costs.
+    """
+    limits = chat_limits.current(db)
+    if limits.long_history_tokens <= 0 or not history:
+        return None
+    try:
+        _, estimated_input = build_context(history, "", settings)
+    except ChatRefusal:  # pragma: no cover — "" never exceeds the budget
+        return None
+    measured = calibration.for_model(db, model.model_id)
+    calibrated = measured.calibrated_input(estimated_input)
+    if calibrated < limits.long_history_tokens:
+        return None
+    history_tokens = max(0, estimated_input - estimate_tokens(CHAT_SYSTEM_PROMPT))
+    try:
+        price = pricing.price_for(db, model, cache_ttl=settings.cache_ttl)
+    except pricing.PricingError:
+        return None
+    extra = chat_limits.history_cost_krw(price, measured.calibrated_input(history_tokens))
+    if extra <= 0:
+        return None
+    return LongHistory(history_tokens=history_tokens, extra_krw=extra)
+
+
 #: When a conversation outgrows the limit, it is cut back to this share of
 #: the limit at once — and then grows for that long before the start
 #: moves again. 2 → half the limit; the cached prefix holds for roughly
@@ -331,6 +380,10 @@ class PreparedTurn:
     estimated_input_tokens: int
     #: The mock answered rather than Claude — for the Admin status board.
     is_mock: bool = False
+    #: Set when the per-reply cap, not the global output limit, decided
+    #: `max_tokens` (token-guard): the cap in force, in won. A reply that
+    #: then ends with stop_reason "max_tokens" stopped at the cap.
+    reply_cap_krw: int | None = None
 
 
 @dataclass
@@ -377,7 +430,32 @@ def prepare_turn(
     # replies (never above the one-token-per-character figure); the output
     # side stays the full maximum, so this is still a worst case.
     calibrated_input = calibration.for_model(db, model.model_id).calibrated_input(estimated_input)
-    worst_case = price.worst_case_krw(calibrated_input, settings.chat_max_output_tokens)
+
+    # The per-reply cost cap (token-guard): worked out *before* the call
+    # as a smaller `max_tokens`, so the API itself stops at the cap and
+    # reports real usage — the charge is exact, with no estimate of an
+    # aborted stream. Thinking tokens count toward `max_tokens` and are
+    # billed as output, so the cap covers them too.
+    limits = chat_limits.current(db)
+    max_tokens = settings.chat_max_output_tokens
+    reply_cap_krw: int | None = None
+    if limits.reply_cap_krw > 0:
+        affordable_output = chat_limits.output_budget(
+            price, limits.reply_cap_krw, calibrated_input
+        )
+        if affordable_output < 1:
+            # The input alone reaches the cap: refuse free of charge, with
+            # the same advice as the long-history warning.
+            raise ChatRefusal(
+                f"대화가 길어져 입력만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
+                "닿아요. 새 대화로 시작해 주세요.",
+                status_code=400,
+            )
+        if affordable_output < max_tokens:
+            max_tokens = affordable_output
+            reply_cap_krw = limits.reply_cap_krw
+
+    worst_case = price.worst_case_krw(calibrated_input, max_tokens)
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
 
     now = datetime.now(timezone.utc)
@@ -403,7 +481,7 @@ def prepare_turn(
         request=ChatRequest(
             system=CHAT_SYSTEM_PROMPT,
             messages=messages,
-            max_tokens=settings.chat_max_output_tokens,
+            max_tokens=max_tokens,
             model=model.model_id,
             cache_ttl=settings.cache_ttl,
         ),
@@ -411,6 +489,7 @@ def prepare_turn(
         model_id=model.model_id,
         estimated_input_tokens=estimated_input,
         is_mock=is_mock,
+        reply_cap_krw=reply_cap_krw,
     )
 
 
@@ -419,6 +498,9 @@ class TurnResult:
     message: ChatMessage | None
     charged_krw: int
     error: ClaudeError | None = None
+    #: The composer's long-history warning after this reply, so the screen
+    #: updates without refetching the whole conversation (token-guard).
+    long_history: LongHistory | None = None
 
 
 def _status_for(state: TurnState) -> ChatMessageStatus:
@@ -522,6 +604,11 @@ def finish_turn(
             # The whole prompt, cached or not — what the reply was written from.
             input_tokens=input_tokens + written + read,
             output_tokens=output_tokens,
+            # Stopped by the per-reply cap, not the global limit — so the
+            # screen can say so, after a reload too (token-guard).
+            capped_krw=(
+                turn.reply_cap_krw if state.stop_reason == "max_tokens" else None
+            ),
             usage_event_id=event_id,
             created_at=datetime.now(timezone.utc),
         )
@@ -532,4 +619,14 @@ def finish_turn(
     db.commit()
     if message is not None:
         db.refresh(message)
-    return TurnResult(message=message, charged_krw=charged)
+
+    long_history = None
+    if conversation is not None:
+        try:
+            model = chat_models_service.for_conversation(db, settings, user, conversation)
+            long_history = long_history_info(
+                db, settings, messages_of(db, conversation), model
+            )
+        except (chat_models_service.ModelChoiceError, pricing.PricingError):
+            long_history = None
+    return TurnResult(message=message, charged_krw=charged, long_history=long_history)

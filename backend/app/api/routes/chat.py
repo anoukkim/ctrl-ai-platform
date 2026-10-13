@@ -54,6 +54,7 @@ from app.schemas.chat import (
     ConversationDetail,
     ConversationRead,
     ConversationUpdate,
+    LongHistoryRead,
 )
 from app.services import chat as chat_service
 from app.services import chat_models, pricing
@@ -154,14 +155,30 @@ def read_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> ConversationDetail:
     conversation = _owned(db, user, conversation_id)
+    messages = chat_service.messages_of(db, conversation)
+    # The composer's long-history warning (token-guard). A model or price
+    # problem never breaks reading a conversation — the warning just stays
+    # away, and sending will say what is wrong.
+    long_history = None
+    try:
+        model = chat_models.for_conversation(db, settings, user, conversation)
+        long_history = chat_service.long_history_info(db, settings, messages, model)
+    except (chat_models.ModelChoiceError, pricing.PricingError):
+        long_history = None
     return ConversationDetail(
         **ConversationRead.model_validate(conversation).model_dump(),
-        messages=[
-            ChatMessageRead.model_validate(message)
-            for message in chat_service.messages_of(db, conversation)
-        ],
+        messages=[ChatMessageRead.model_validate(message) for message in messages],
+        long_history=(
+            LongHistoryRead(
+                history_tokens=long_history.history_tokens,
+                extra_krw=long_history.extra_krw,
+            )
+            if long_history
+            else None
+        ),
     )
 
 
@@ -363,6 +380,16 @@ def send_message(
                         {
                             "message": _message_json(result.message) if result.message else None,
                             "charged_krw": result.charged_krw,
+                            # token-guard: the composer's warning, fresh
+                            # after this reply, without refetching.
+                            "long_history": (
+                                {
+                                    "history_tokens": result.long_history.history_tokens,
+                                    "extra_krw": result.long_history.extra_krw,
+                                }
+                                if result.long_history
+                                else None
+                            ),
                         },
                     )
                 return

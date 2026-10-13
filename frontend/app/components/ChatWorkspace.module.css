@@ -448,6 +448,35 @@
   line-height: 1.5;
 }
 
+/* 대화가 길어졌다는 안내(token-guard) — 오류가 아니라 절약 제안이므로
+   오류 색이 아니라 보통의 카드 색을 씁니다. */
+.longHistoryNote {
+  margin: 0.4rem 0 0.45rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+  color: var(--muted);
+  font-size: var(--fs-count);
+  line-height: 1.5;
+}
+
+.longHistoryNew {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.longHistoryNew:disabled {
+  color: var(--dim);
+  cursor: default;
+  text-decoration: none;
+}
+
 /* 액션 단추 — "Project Builder에서 예시 앱 만들기 →" */
 .suggestion {
   display: inline-flex;

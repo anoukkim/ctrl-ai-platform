@@ -88,6 +88,42 @@ class ChatModel(TimestampMixin, Base):
         return f"<ChatModel {self.provider}/{self.model_id} {self.visibility.value}>"
 
 
+class ChatLimits(Base):
+    """The three spending guards (token-guard): a new row per change.
+
+    Like `ExchangeRate`, the history is the table itself and the row in
+    force is the newest one. With no row at all the code's defaults apply
+    (`services/chat_limits.py`), so the table needs no seed.
+
+    * `reply_cap_krw` — one reply may cost at most this, enforced
+      **before** the call through `max_tokens`. 0 turns the cap off.
+    * `long_history_tokens` — the input estimate at which the composer
+      warns that a long conversation is getting expensive. 0 turns the
+      warning off.
+    * `daily_cap_krw` — the most one member may spend per KST day across
+      every paid feature. 0 turns it off (the default).
+    """
+
+    __tablename__ = "chat_limits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reply_cap_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    long_history_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    daily_cap_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    set_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ChatLimits reply={self.reply_cap_krw} "
+            f"history={self.long_history_tokens} daily={self.daily_cap_krw}>"
+        )
+
+
 class ExchangeRate(Base):
     __tablename__ = "exchange_rates"
 

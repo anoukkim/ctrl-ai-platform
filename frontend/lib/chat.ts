@@ -38,11 +38,22 @@ export interface ChatMessage {
   action_title: string;
   /** 답장을 쓴 모델의 ID (예: "claude-haiku-4-5"). 내 메시지는 null. */
   model_id: string | null;
+  /** 답장이 1회 비용 한도에 닿아 멈췄다면 그 한도(원). 아니면 null. */
+  capped_krw?: number | null;
   created_at: string;
+}
+
+/** 대화가 길어졌을 때의 안내(token-guard). 짧은 대화에는 null입니다. */
+export interface LongHistory {
+  /** 시스템 프롬프트를 뺀, 답장마다 함께 보내는 입력 토큰 어림값. */
+  history_tokens: number;
+  /** 그 입력이 답장 1회에 더하는 금액(원) — 새 대화로 아끼는 금액. */
+  extra_krw: number;
 }
 
 export interface ConversationDetail extends Conversation {
   messages: ChatMessage[];
+  long_history?: LongHistory | null;
 }
 
 /** 입력창 옆 모델 고르기의 한 줄. 회원이 고를 수 있는 것만 옵니다. */
@@ -133,7 +144,12 @@ export function deleteConversation(id: number): Promise<void> {
 
 /** 답장이 끝난 모양. 오류도 예외가 아니라 결과로 돌려줍니다. */
 export type StreamOutcome =
-  | { kind: "done"; message: ChatMessage | null; chargedKrw: number }
+  | {
+      kind: "done";
+      message: ChatMessage | null;
+      chargedKrw: number;
+      longHistory?: LongHistory | null;
+    }
   | { kind: "error"; detail: string }
   | { kind: "stopped" };
 
@@ -200,7 +216,12 @@ export async function sendMessage(
     if (name === "start") handlers.onStart?.(payload.user_message);
     else if (name === "delta") handlers.onDelta?.(payload.text);
     else if (name === "done")
-      outcome = { kind: "done", message: payload.message, chargedKrw: payload.charged_krw };
+      outcome = {
+        kind: "done",
+        message: payload.message,
+        chargedKrw: payload.charged_krw,
+        longHistory: payload.long_history ?? null,
+      };
     else if (name === "error") outcome = { kind: "error", detail: payload.detail };
   };
 

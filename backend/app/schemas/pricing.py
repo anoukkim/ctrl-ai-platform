@@ -88,6 +88,24 @@ class ExchangeRateWrite(BaseModel):
     krw_per_usd: Decimal = Field(ge=100, le=10000, decimal_places=2)
 
 
+class ChatLimitsRead(BaseModel):
+    """The three spending guards (token-guard). 0 = that guard is off."""
+
+    reply_cap_krw: int
+    long_history_tokens: int
+    daily_cap_krw: int
+    set_at: datetime | None = None
+    set_by_username: str = ""
+
+
+class ChatLimitsWrite(BaseModel):
+    """Bounds catch typos (a cap in dollars, a threshold in characters)."""
+
+    reply_cap_krw: int = Field(ge=0, le=100_000)
+    long_history_tokens: int = Field(ge=0, le=1_000_000)
+    daily_cap_krw: int = Field(ge=0, le=10_000_000)
+
+
 class ClaudeSettingsRead(BaseModel):
     """Everything about how Claude is used, for the admin — never the key."""
 
@@ -108,6 +126,8 @@ class ClaudeSettingsRead(BaseModel):
     cache_ttl: str | None = "5m"
     exchange_rate: ExchangeRateRead | None
     rate_history: list[ExchangeRateRead]
+    #: token-guard: the per-reply cap, the warning threshold, the daily cap.
+    chat_limits: ChatLimitsRead
 
 
 class ModelCalibrationRead(BaseModel):
