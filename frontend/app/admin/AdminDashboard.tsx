@@ -324,7 +324,6 @@ function SectionCard({
           : "서버와 외부 서비스 상태",
       pending: figures.failing_providers.length,
     },
-    dev: { text: "사용량 시뮬레이터" },
   };
 
   const info = status[section.key] ?? { text: "" };
@@ -341,7 +340,7 @@ function SectionCard({
         {section.developmentOnly && <span className="badge badge-accent">개발 환경</span>}
       </span>
       <span className={styles.cardDescription}>{section.description}</span>
-      <span className={styles.cardStatus}>{info.text}</span>
+      {info.text && <span className={styles.cardStatus}>{info.text}</span>}
     </>
   );
 
