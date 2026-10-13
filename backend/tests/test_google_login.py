@@ -128,14 +128,14 @@ def test_a_new_google_account_goes_to_setup_and_needs_an_invite_code(
     assert pending["needs_invite_code"] is True
 
     refused = anon_client.post(
-        "/api/auth/google/complete", json={"username": "newbie", "display_name": "새 회원"}
+        "/api/auth/google/complete", json={"terms_accepted": True, "username": "newbie", "display_name": "새 회원"}
     )
     assert refused.status_code == 400
     assert refused.json()["detail"] == "초대 코드가 필요합니다."
 
     made = anon_client.post(
         "/api/auth/google/complete",
-        json={"username": "newbie", "display_name": "새 회원", "invite_code": "club-2026"},
+        json={"terms_accepted": True, "username": "newbie", "display_name": "새 회원", "invite_code": "club-2026"},
     )
     assert made.status_code == 201, made.text
     me = anon_client.get("/api/auth/me").json()
@@ -161,12 +161,12 @@ def test_a_code_is_required_in_the_beta_too(
 
     assert anon_client.get("/api/auth/google/pending").json()["needs_invite_code"] is True
     refused = anon_client.post(
-        "/api/auth/google/complete", json={"username": "betauser", "display_name": "x"}
+        "/api/auth/google/complete", json={"terms_accepted": True, "username": "betauser", "display_name": "x"}
     )
     assert refused.status_code == 400
     made = anon_client.post(
         "/api/auth/google/complete",
-        json={"username": "betauser", "display_name": "x", "invite_code": "CLUB-2026"},
+        json={"terms_accepted": True, "username": "betauser", "display_name": "x", "invite_code": "CLUB-2026"},
     )
     assert made.status_code == 201
 
@@ -176,7 +176,7 @@ def test_the_same_sub_signs_in_next_time(anon_client: TestClient, db_session: Se
     google_says(anon_client, start(anon_client))
     anon_client.post(
         "/api/auth/google/complete",
-        json={"username": "newbie", "display_name": "새 회원", "invite_code": "CLUB-2026"},
+        json={"terms_accepted": True, "username": "newbie", "display_name": "새 회원", "invite_code": "CLUB-2026"},
     )
     anon_client.post("/api/auth/logout")
     anon_client.cookies.clear()
@@ -199,7 +199,7 @@ def test_an_existing_account_is_never_entered_by_email(
     assert anon_client.get("/api/auth/google/pending").json()["email_taken"] is True
     refused = anon_client.post(
         "/api/auth/google/complete",
-        json={"username": "copycat", "display_name": "x", "invite_code": "CLUB-2026"},
+        json={"terms_accepted": True, "username": "copycat", "display_name": "x", "invite_code": "CLUB-2026"},
     )
     assert refused.status_code == 409
     assert "Profile에서 Google을 연결" in refused.json()["detail"]
@@ -214,7 +214,7 @@ def test_only_a_verified_admin_email_becomes_admin(anon_client: TestClient, db_s
     assert pending["email_verified"] is False
     refused = anon_client.post(
         "/api/auth/google/complete",
-        json={"username": "notadmin", "display_name": "x", "invite_code": "CLUB-2026"},
+        json={"terms_accepted": True, "username": "notadmin", "display_name": "x", "invite_code": "CLUB-2026"},
     )
     assert refused.status_code == 400
     assert "이메일 확인" in refused.json()["detail"]
@@ -226,7 +226,7 @@ def test_the_verified_admin_email_becomes_admin_without_a_code(
 ) -> None:
     google_says(anon_client, start(anon_client), sub="g-owner", email=ADMIN_EMAIL.upper())
     made = anon_client.post(
-        "/api/auth/google/complete", json={"username": "owner", "display_name": "운영자"}
+        "/api/auth/google/complete", json={"terms_accepted": True, "username": "owner", "display_name": "운영자"}
     )
     assert made.status_code == 201, made.text
     assert made.json()["role"] == "admin"
@@ -384,7 +384,7 @@ def test_a_google_only_member_withdraws_by_typing_the_username(
     google_says(anon_client, start(anon_client))
     anon_client.post(
         "/api/auth/google/complete",
-        json={"username": "leaver", "display_name": "x", "invite_code": "CLUB-2026"},
+        json={"terms_accepted": True, "username": "leaver", "display_name": "x", "invite_code": "CLUB-2026"},
     )
     assert anon_client.get("/api/auth/me").json()["has_password"] is False
 

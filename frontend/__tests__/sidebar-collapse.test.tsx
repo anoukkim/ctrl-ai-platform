@@ -114,4 +114,14 @@ describe("collapsible sidebar", () => {
     getItem.mockRestore();
     setItem.mockRestore();
   });
+
+  test("the footer links the privacy policy and terms (privacy-and-terms)", async () => {
+    await renderShell();
+    expect(screen.getByRole("link", { name: "개인정보" }).getAttribute("href")).toBe("/privacy");
+    expect(screen.getByRole("link", { name: "약관" }).getAttribute("href")).toBe("/terms");
+
+    // The collapsed rail has no room for them; they come back on expand.
+    fireEvent.click(screen.getByRole("button", { name: "사이드바 접기" }));
+    expect(screen.queryByRole("link", { name: "개인정보" })).toBeNull();
+  });
 });

@@ -30,6 +30,7 @@ import {
 
 import styles from "@/app/login/auth.module.css";
 
+import ConsentCheckbox from "../ConsentCheckbox";
 import DataLocationNotice from "../DataLocationNotice";
 import Skeleton from "@/app/components/Skeleton";
 
@@ -43,6 +44,7 @@ export default function GoogleSetupForm() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -51,6 +53,7 @@ export default function GoogleSetupForm() {
   const usernameId = useId();
   const nameId = useId();
   const codeId = useId();
+  const termsId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +88,8 @@ export default function GoogleSetupForm() {
     state.pending.email_verified &&
     usernameValid &&
     displayName.trim().length > 0 &&
-    (!needsCode || inviteCode.trim().length > 0);
+    (!needsCode || inviteCode.trim().length > 0) &&
+    termsAccepted;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -97,6 +101,7 @@ export default function GoogleSetupForm() {
         username: trimmedUsername,
         display_name: displayName.trim(),
         invite_code: inviteCode.trim(),
+        terms_accepted: termsAccepted,
       });
       try {
         window.sessionStorage.removeItem(INVITE_CODE_STORAGE_KEY);
@@ -230,6 +235,8 @@ export default function GoogleSetupForm() {
                   <span className={styles.hint}>동아리에서 받은 초대 코드를 적어 주세요.</span>
                 </div>
               )}
+
+              <ConsentCheckbox id={termsId} checked={termsAccepted} onChange={setTermsAccepted} />
 
               <button className="btn btn-primary" type="submit" disabled={busy || !canSubmit}>
                 {busy ? "가입 중…" : "가입하고 시작하기"}

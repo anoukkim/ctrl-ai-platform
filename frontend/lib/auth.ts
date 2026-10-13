@@ -35,6 +35,8 @@ export interface SignupInput {
   display_name: string;
   /** 초대 코드. 대소문자와 앞뒤 공백은 백엔드가 정리합니다. */
   invite_code: string;
+  /** 개인정보 처리방침·이용약관 동의 — 백엔드가 다시 확인합니다. */
+  terms_accepted: boolean;
 }
 
 export const MIN_PASSWORD_LENGTH = 8;
@@ -91,6 +93,8 @@ export function completeGoogleSignup(input: {
   username: string;
   display_name: string;
   invite_code: string;
+  /** 개인정보 처리방침·이용약관 동의 — 백엔드가 다시 확인합니다. */
+  terms_accepted: boolean;
 }): Promise<CurrentUser> {
   return request<CurrentUser>("/auth/google/complete", {
     method: "POST",
