@@ -323,10 +323,13 @@ directly in the page that shows them.
 
 ## Design
 
-A single dark theme, inspired by developer tools rather than a generic
-dashboard. Every colour is a token in `frontend/app/globals.css`; no component
-hard-codes one. There is deliberately no light theme, so the prototype looks the
-same for everyone reviewing it.
+**Two themes — dark (default) and light** (ui-polish, 2026-10-07). The
+choice lives in `localStorage` (`ctrlai-theme`), is applied before paint
+by an inline head script, and toggles from the ☀/☾ button in the sidebar
+footer. Every colour is a token in `frontend/app/globals.css`; no
+component hard-codes one, which is what makes the second theme a token
+swap rather than a redesign. Type is self-hosted Pretendard Variable.
+Under `prefers-reduced-motion` nothing moves (ui-friendly-motion).
 
 Shared classes (`.card`, `.btn`, `.badge`, `.field`, `.meter`, `.table`) also
 live in `globals.css`. Anything used by one screen only lives in that screen's

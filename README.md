@@ -12,18 +12,19 @@ hold API keys — and records usage per member and quarter.
 **M1 — beta launch, in progress.** The goal is an invite-only beta on
 `ctrlai.my` with real Claude chat and everything else labelled test mode.
 
-- **Done:** video-higgsfield-only, Phase 2 Chat, chat-model-choice,
-  ui-polish, single-wallet, prompt-caching, cost-calibration,
-  chat-builder-starter and **prep-beta-launch** (merged 2026-10-13): the
-  beta's code, Docker images built by GitHub Actions, and the Korean
-  deployment guide.
+- **Done:** everything in
+  [`docs/archive/done.md`](docs/archive/done.md) — most recently (as of
+  2026-10-14) member-password-login, chat-plus-rendering,
+  admin-and-nav-cleanup (AI Models by provider), fix-beta-blockers and
+  personal-topup-off, on top of the beta stack (Chat with real budget
+  rules, invite-only sign-up, Google login behind a mock,
+  prep-beta-launch).
 - **Deployed (2026-10-13):** `ctrlai-server` runs `db`, `api` and `web`
   with every provider on mock. `caddy` (HTTPS) starts once the `ctrlai.my`
   A record is live at Gabia.
-- **Before members are invited:** invite-only-signup,
-  test-database-isolation, and one real Claude message with the owner's
-  key. Until invite codes exist, **do not share the address** — anyone who
-  has it can sign up.
+- **Before members are invited:** privacy-and-terms (the owner reviews
+  the text), the one real Claude message with the owner's key, and invite
+  codes created on the server — until then **do not share the address**.
 - **Next:** the top of **Next** in [`docs/BACKLOG.md`](docs/BACKLOG.md),
   which is the only place the order is written. Milestones are in
   [`docs/ROADMAP.md`](docs/ROADMAP.md).

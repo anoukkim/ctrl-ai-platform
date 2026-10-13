@@ -8,8 +8,8 @@ feature names, not the plan.
 | | Milestone | Status |
 | - | --------- | ------ |
 | M0 | Foundation | ✅ done |
-| **M1** | **Beta launch** | **in progress — 3/9** |
-| M2 | Real creation | not started |
+| **M1** | **Beta launch** | **in progress — the item list below has the ticks** |
+| M2 | Real creation | not started (chat-plus-tools being built mock-first in the 2026-10-14 batch) |
 | M3 | Sharing | not started |
 | M4 | Running costs | needs discussion |
 | Later | Secure runtime | not started |
@@ -27,7 +27,11 @@ chat, everything else labelled test mode.
 ✅ chat-model-choice · ✅ single-wallet · ✅ prompt-caching ·
 ✅ cost-calibration · ✅ chat-builder-starter · ✅ invite-only-signup ·
 ✅ test-database-isolation · ✅ google-login · ✅ ui-friendly-motion ·
-✅ chat-plus-rendering · ✅ member-password-login · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
+✅ chat-plus-rendering · ✅ member-password-login ·
+✅ admin-and-nav-cleanup (2026-10-14: Report Issue and Dev Tools gone,
+AI Models by provider) · ✅ fix-beta-blockers · ✅ personal-topup-off ·
+⬜ privacy-and-terms (owner reviews the text) · ⬜ offsite-backups 💳 ·
+⬜ monitoring 💳 · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
 ⬜ anonymous-feedback-board · ⬜ token-guard · ⬜ live-cost-display ·
 ⬜ chat-thinking-view · ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
 `ctrlai-server`, e2-medium in Seoul, on mock providers).
@@ -41,7 +45,9 @@ Draft / 게시됨 status).
 ⬜ real Higgsfield adapter [6] · ⬜ builder-python (after builder-static-runtime) ·
 ⬜ builder-static-runtime (the Builder
 MVP [3] plus static member apps on a separate, sandboxed origin) ·
-⬜ chat-plus-tools (web search, web fetch, code execution in Chat) ·
+⬜ chat-plus-tools (web search, web fetch, code execution in Chat —
+**moved into Next on 2026-10-14**, mock tools only, after token-guard and
+live-cost-display) ·
 ⬜ image-generation (waits on the budget-by-provider decision).
 
 **M3 Sharing** — work leaves CTRL+AI and comes back as community posts.
