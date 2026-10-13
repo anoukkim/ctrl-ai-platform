@@ -30,7 +30,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models import SignupAttempt
+from app.models import LoginAttempt, SignupAttempt
 
 ATTEMPT_WINDOW = timedelta(hours=1)
 FAILURE_WINDOW = timedelta(minutes=15)
@@ -77,6 +77,48 @@ def mark_failed(db: Session, attempt: SignupAttempt) -> None:
     db.commit()
 
 
+LOGIN_WINDOW = timedelta(minutes=15)
+
+
+def login_blocked(db: Session, address: str, username: str, settings: Settings) -> bool:
+    """Too many failed password sign-ins.
+
+    Three ceilings, so that guessing is slow but nobody can lock someone
+    else out from another address:
+
+    * this address, this username — the limit itself;
+    * this address, any username — three times it (one address guessing
+      many accounts);
+    * this username, any address — ten times it, only as a backstop
+      against a distributed guess. Reaching it takes many addresses.
+    """
+    limit = settings.login_failures_per_15_minutes
+    if limit <= 0:
+        return False
+    since = datetime.now(timezone.utc) - LOGIN_WINDOW
+    name = username.strip().lower()[:64]
+
+    def failures(*conditions) -> int:
+        return db.scalar(
+            select(func.count(LoginAttempt.id)).where(LoginAttempt.created_at >= since, *conditions)
+        ) or 0
+
+    return (
+        failures(LoginAttempt.address == address, LoginAttempt.username == name) >= limit
+        or failures(LoginAttempt.address == address) >= 3 * limit
+        or failures(LoginAttempt.username == name) >= 10 * limit
+    )
+
+
+def record_login_failure(db: Session, address: str, username: str) -> None:
+    now = datetime.now(timezone.utc)
+    db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < now - RETENTION))
+    db.add(
+        LoginAttempt(address=address[:64], username=username.strip().lower()[:64], created_at=now)
+    )
+    db.commit()
+
+
 def _in(address: str, networks: list) -> bool:
     try:
         ip = ip_address(address)
@@ -85,7 +127,29 @@ def _in(address: str, networks: list) -> bool:
     return any(ip in network for network in networks)
 
 
+def _bucket(address: str) -> str:
+    """The key an address is counted under.
+
+    IPv6 clients are counted by their /64 network: one household or one
+    attacker usually holds a whole /64, and counting single addresses would
+    let them step around every per-address limit.
+    """
+    try:
+        ip = ip_address(address)
+    except ValueError:
+        return address
+    if ip.version == 6 and ip.ipv4_mapped is None:
+        return str(ip_network(f"{ip}/64", strict=False))
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        return str(ip.ipv4_mapped)
+    return address
+
+
 def client_address(request: Request, settings: Settings) -> str:
+    return _bucket(_client_address(request, settings))
+
+
+def _client_address(request: Request, settings: Settings) -> str:
     peer = request.client.host if request.client else ""
     networks = []
     for part in settings.trusted_proxies.split(","):

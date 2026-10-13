@@ -24,6 +24,8 @@ export interface CurrentUser {
   account_status: AccountStatus;
   /** 관리 메뉴를 보여 줄지 결정합니다. 권한 자체는 백엔드가 다시 확인합니다. */
   is_admin: boolean;
+  /** Google로 만든 계정은 비밀번호가 없습니다 — 탈퇴 확인은 아이디로 합니다. */
+  has_password: boolean;
 }
 
 export interface SignupInput {
@@ -61,3 +63,68 @@ export function logout(): Promise<void> {
 export function fetchCurrentUser(): Promise<CurrentUser> {
   return request<CurrentUser>("/auth/me");
 }
+
+// ------------------------------------------------------------ Google (google-login)
+
+/** "Google로 계속하기" — 백엔드가 Google로 보냅니다. 토큰은 브라우저에 오지 않습니다. */
+export const GOOGLE_START_URL = "/api/auth/google/start";
+/** Profile에서 지금 계정에 Google을 연결합니다. */
+export const GOOGLE_LINK_URL = "/api/account/google/link/start";
+
+/** 처음 Google로 들어온 사람의 설정 화면이 받는 정보. */
+export interface GooglePending {
+  email: string;
+  /** Google에서 이메일 확인이 끝났는지. 아니면 가입할 수 없습니다. */
+  email_verified: boolean;
+  name: string;
+  suggested_username: string;
+  needs_invite_code: boolean;
+  /** 이 이메일로 이미 가입한 계정이 있음 — 그 계정으로 로그인해 연결해야 합니다. */
+  email_taken: boolean;
+}
+
+export function fetchGooglePending(): Promise<GooglePending> {
+  return request<GooglePending>("/auth/google/pending");
+}
+
+export function completeGoogleSignup(input: {
+  username: string;
+  display_name: string;
+  invite_code: string;
+}): Promise<CurrentUser> {
+  return request<CurrentUser>("/auth/google/complete", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export interface GoogleConnection {
+  available: boolean;
+  linked: boolean;
+  email: string;
+}
+
+export function fetchGoogleConnection(): Promise<GoogleConnection> {
+  return request<GoogleConnection>("/account/google");
+}
+
+/** 로그인·연결 뒤 주소의 `?google=` 값이 뜻하는 것. */
+export const GOOGLE_RESULT_MESSAGE: Record<string, string> = {
+  cancelled: "Google 로그인을 취소했어요.",
+  expired: "시간이 지나 다시 시작해야 해요. 한 번 더 눌러 주세요.",
+  failed: "Google에서 정보를 받지 못했어요. 잠시 후 다시 시도해 주세요.",
+  blocked: "사용할 수 없는 계정입니다. 관리자에게 문의해 주세요.",
+  linked: "Google 계정을 연결했어요. 다음부터 Google로 로그인할 수 있어요.",
+  taken: "이 Google 계정은 이미 다른 CTRL+AI 계정에 연결되어 있어요.",
+  already: "이미 이 계정에 연결된 Google 계정이에요.",
+  other: "이 계정에는 이미 다른 Google 계정이 연결되어 있어요.",
+};
+
+/** `?google=` 값에 맞는 문장. 모르는 값(또는 `constructor` 같은 이름)은 null. */
+export function googleResultMessage(result: string | null): string | null {
+  if (!result || !Object.hasOwn(GOOGLE_RESULT_MESSAGE, result)) return null;
+  return GOOGLE_RESULT_MESSAGE[result];
+}
+
+/** 초대 링크(/signup?code=…)로 왔다면 Google 설정 화면까지 코드를 들고 갑니다. */
+export const INVITE_CODE_STORAGE_KEY = "ctrlai.invite-code";

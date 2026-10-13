@@ -19,6 +19,7 @@ import { MOCK_APPS } from "@/lib/mock-data";
 import PageHeader from "@/app/components/PageHeader";
 
 import { AccountSettings, Identity } from "./AccountIdentity";
+import GoogleConnectionRow from "./GoogleConnectionRow";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
 import WithdrawalSection from "./WithdrawalSection";
@@ -50,6 +51,7 @@ export default function ProfilePage() {
 
         <section className="card">
           <h2 className="section-title">연결한 서비스</h2>
+          <GoogleConnectionRow />
           <div className={styles.connection}>
             <div>
               <p className={styles.connectionName}>GitHub 연결</p>
@@ -67,7 +69,10 @@ export default function ProfilePage() {
           <div className={styles.connection}>
             <div>
               <p className={styles.connectionName}>YouTube 연결</p>
-              <p className={styles.connectionHint}>만든 영상을 내 채널에 올립니다.</p>
+              <p className={styles.connectionHint}>
+                만든 영상을 내 채널에 올립니다. 연결할 때 같은 Google 계정에 업로드 권한을
+                따로 물어봅니다.
+              </p>
             </div>
             <span className={styles.connectionRight}>
               <span className="badge badge-muted">연결 안 됨</span>

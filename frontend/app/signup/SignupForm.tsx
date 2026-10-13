@@ -16,18 +16,39 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import BrandMark from "@/app/components/BrandMark";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
+import GoogleButton from "@/app/components/GoogleButton";
+import { useSite, useSiteLoaded } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
-import { MIN_PASSWORD_LENGTH, USERNAME_PATTERN, register } from "@/lib/auth";
+import {
+  GOOGLE_START_URL,
+  INVITE_CODE_STORAGE_KEY,
+  MIN_PASSWORD_LENGTH,
+  USERNAME_PATTERN,
+  register,
+} from "@/lib/auth";
 
 import styles from "@/app/login/auth.module.css";
 
 import DataLocationNotice from "./DataLocationNotice";
 
 export default function SignupForm({ initialCode = "" }: { initialCode?: string }) {
+  const site = useSite();
+  const loaded = useSiteLoaded();
   const [inviteCode, setInviteCode] = useState(initialCode);
+
+  // 초대 링크의 코드를 Google 설정 화면까지 들고 갑니다. 코드는 비밀이
+  // 아니고(회원에게 나눠 주는 값), 이 탭이 닫히면 사라집니다.
+  useEffect(() => {
+    if (!initialCode) return;
+    try {
+      window.sessionStorage.setItem(INVITE_CODE_STORAGE_KEY, initialCode);
+    } catch {
+      /* 저장소를 막아 둔 브라우저에서는 설정 화면에서 직접 적습니다 */
+    }
+  }, [initialCode]);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -97,6 +118,19 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
           </p>
         )}
 
+        {!loaded ? (
+          <p className="small muted">불러오는 중…</p>
+        ) : site.google_login ? (
+          // google-login: 회원은 Google로 가입합니다. 아이디와 초대 코드는
+          // Google에서 돌아온 뒤의 설정 화면에서 정합니다.
+          <div className={styles.form}>
+            <GoogleButton href={GOOGLE_START_URL} />
+            <p className={styles.hint}>
+              처음이면 Google에서 돌아온 뒤 아이디와 이름을 정하고 초대 코드를 적어요.
+              {initialCode ? " 받은 초대 코드는 그 화면에 미리 채워 둘게요." : ""}
+            </p>
+          </div>
+        ) : (
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor={codeId}>
@@ -203,6 +237,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
             {busy ? "가입 중…" : "가입하고 시작하기"}
           </button>
         </form>
+        )}
 
         <DataLocationNotice />
 

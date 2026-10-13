@@ -69,13 +69,17 @@ export function getMyWithdrawalPreview(): Promise<WithdrawalPreview> {
   return request<WithdrawalPreview>("/account/withdrawal");
 }
 
+/**
+ * 회원 탈퇴. 비밀번호가 있는 계정은 비밀번호를, Google로 만든 계정(비밀번호
+ * 없음)은 아이디를 다시 적어 확인합니다.
+ */
 export function withdrawMyAccount(
-  password: string,
+  confirmation: { password: string } | { confirm_username: string },
   publishedWork: PublishedWorkChoice,
 ): Promise<Withdrawal> {
   return request<Withdrawal>("/account/withdrawal", {
     method: "POST",
-    body: JSON.stringify({ password, published_work: publishedWork }),
+    body: JSON.stringify({ ...confirmation, published_work: publishedWork }),
   });
 }
 

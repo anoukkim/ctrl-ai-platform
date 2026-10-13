@@ -29,4 +29,6 @@ class SiteInfo(BaseModel):
     is_beta: bool
     data_location_notice: str
     top_ups_enabled: bool
+    #: "Google로 계속하기" is offered (google-login).
+    google_login: bool
     test_mode: TestMode

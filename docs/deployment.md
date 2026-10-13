@@ -573,6 +573,70 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 
 ---
 
+## 14. Google 로그인 켜기 (나중에 — 도메인이 살아난 뒤)
+
+회원은 **Google로 계속하기**로 들어옵니다(google-login). 서버에서는
+`GOOGLE_LOGIN_PROVIDER=google`로 바꾸기 전까지 Google 버튼이 보이지 않고,
+지금처럼 아이디·비밀번호로 로그인합니다. 아래는 모두 **내가 Google Cloud
+콘솔에서 직접 하는** 단계입니다(비용 없음).
+
+### 14-1. OAuth 동의 화면
+
+1. 콘솔 → **API 및 서비스** → **OAuth 동의 화면**(화면에 따라 **Google 인증
+   플랫폼**).
+2. 사용자 유형 **외부(External)**.
+3. 앱 이름 `CTRL+AI`, 사용자 지원 이메일, 개발자 연락처 이메일.
+4. **승인된 도메인**에 `ctrlai.my`.
+5. 범위(Scopes)는 **`openid`, `email`, `profile`만** 추가합니다. YouTube
+   범위는 지금 넣지 않습니다(Phase 7에서 따로 묻습니다).
+6. 게시 상태:
+   - **테스트(Testing)** 상태에서는 **테스트 사용자**로 등록한 Google 계정만
+     로그인할 수 있습니다. 처음엔 이렇게 시작하고 내 계정과 몇 명을 넣어
+     확인합니다.
+   - 확인이 끝나면 **앱 게시(Publish app)**. 이 세 범위는 민감하지 않은 범위라
+     Google의 앱 심사가 필요 없습니다. (YouTube 업로드 범위는 심사가 필요하고,
+     심사 전에는 업로드가 비공개로만 됩니다 — Phase 7.)
+
+### 14-2. OAuth 클라이언트 ID
+
+1. **사용자 인증 정보** → **사용자 인증 정보 만들기** → **OAuth 클라이언트 ID**.
+2. 애플리케이션 유형 **웹 애플리케이션**, 이름 `ctrlai-web`.
+3. **승인된 리디렉션 URI**: `https://ctrlai.my/api/auth/google/callback`
+   (한 글자도 다르면 Google이 거절합니다). 자바스크립트 원본은 필요 없습니다.
+4. 만들면 나오는 **클라이언트 ID**와 **클라이언트 보안 비밀번호**를 복사합니다.
+   보안 비밀번호는 어디에도 붙여 넣지 말고 바로 서버의 `.env`에만 적습니다.
+
+### 14-3. 서버의 `.env`
+
+```bash
+cd ~/ctrl-ai-platform
+nano .env
+#   GOOGLE_LOGIN_PROVIDER=google
+#   GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+#   GOOGLE_CLIENT_SECRET=(복사한 보안 비밀번호)
+#   GOOGLE_REDIRECT_URI=https://ctrlai.my/api/auth/google/callback
+dc up -d --force-recreate api
+```
+
+셋 중 하나라도 비어 있으면 api가 켜지지 않고 `Refusing to start:` 뒤에 빠진
+이름이 적힙니다(12단계 표).
+
+### 14-4. 관리자 계정에 Google 연결 — 순서가 중요합니다
+
+관리자 계정(`ADMIN_EMAIL`, 지금은 ctrlai.platform@gmail.com)은 이미
+있습니다. 같은 이메일로 **새로 가입하려 하면 막힙니다** — 이메일이 같다는
+이유로 남의 계정에 들어가게 하지 않기 때문입니다. 그래서:
+
+1. `https://ctrlai.my/login/password`에서 관리자 아이디·비밀번호로 로그인.
+2. **Profile → 연결한 서비스 → Google 계정 → 연결하기**.
+3. 그 Google 계정을 고르면 "연결됨". 다음부터는 로그인 화면의 Google
+   버튼으로 들어옵니다. `/login/password`는 비상용으로 남습니다.
+
+비밀번호로 먼저 가입한 회원이 있다면 같은 방법으로 연결하라고 안내합니다.
+새 회원은 Google로 들어와 아이디·이름·초대 코드를 적으면 가입됩니다.
+
+---
+
 ## 부록 — 내 PC에서 운영 구성 그대로 띄워 보기 (개발자용)
 
 서버에 올리기 전에 네 개 서비스가 함께 켜지는지 PC에서 확인하는 방법입니다.

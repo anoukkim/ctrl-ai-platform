@@ -167,6 +167,18 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     google_client_secret: str = ""
 
+    # ---------- Google sign-in (google-login) ----------
+    # "mock" (the default) or "google". The mock is offered in development
+    # only: anywhere else it would let a visitor claim any Google account,
+    # so on a server Google sign-in stays hidden until this is "google".
+    google_login_provider: str = "mock"
+    # From the Google Cloud console's OAuth client (docs/deployment.md).
+    # The secret above (GOOGLE_CLIENT_SECRET) is shared with Phase 7.
+    google_client_id: str = ""
+    # Must match a redirect URI registered on that client exactly, e.g.
+    # https://ctrlai.my/api/auth/google/callback.
+    google_redirect_uri: str = ""
+
     # ---------- Claude ----------
     # How Chat (and the Video prompt helper) call Claude. The model itself
     # comes from the chat model catalogue and is never written into the
@@ -218,6 +230,9 @@ class Settings(BaseSettings):
     # because guessing codes is what the limit is for.
     signup_attempts_per_hour: int = 30
     invite_failures_per_15_minutes: int = 10
+    # Failed password sign-ins per address, and per username, in 15 minutes.
+    # Password sign-in is the admin's emergency door (google-login).
+    login_failures_per_15_minutes: int = 10
     # Peers whose X-Forwarded-For is believed: the Next.js server (and, in
     # production, the reverse proxy). Comma-separated addresses or networks.
     trusted_proxies: str = "127.0.0.1,::1"
@@ -330,6 +345,17 @@ class Settings(BaseSettings):
                 missing.append("CLAUDE_PROVIDER (mock 또는 anthropic)")
             if not self.anthropic_api_key.strip():
                 missing.append("ANTHROPIC_API_KEY")
+        google = self.google_login_provider.strip().lower()
+        if google not in {"mock", "google"}:
+            missing.append("GOOGLE_LOGIN_PROVIDER (mock 또는 google)")
+        elif google == "google":
+            for name, value in (
+                ("GOOGLE_CLIENT_ID", self.google_client_id),
+                ("GOOGLE_CLIENT_SECRET", self.google_client_secret),
+                ("GOOGLE_REDIRECT_URI", self.google_redirect_uri),
+            ):
+                if not value.strip():
+                    missing.append(name)
         return missing
 
     @property

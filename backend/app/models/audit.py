@@ -74,6 +74,11 @@ class AuditAction:
     INVITE_CREATED = "invite.created"
     INVITE_DEACTIVATED = "invite.deactivated"
     INVITE_REACTIVATED = "invite.reactivated"
+    # google-login: an account made admin because its verified Google email
+    # equals ADMIN_EMAIL. Logged with the new account as the actor.
+    ADMIN_BY_GOOGLE = "account.admin_by_google"
+    # A member linked Google to their account: a new way in.
+    GOOGLE_LINKED = "account.google_linked"
     # The chat model catalogue (chat-model-choice). Prices, who may pick a
     # model, and which one is the default all move what members spend.
     # `CLAUDE_PRICE_UPDATED` above stays for the rows written before it.
@@ -106,6 +111,8 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.INVITE_CREATED: "초대 코드 생성",
     AuditAction.INVITE_DEACTIVATED: "초대 코드 사용 중지",
     AuditAction.INVITE_REACTIVATED: "초대 코드 다시 사용",
+    AuditAction.ADMIN_BY_GOOGLE: "Google 계정으로 관리자 가입",
+    AuditAction.GOOGLE_LINKED: "Google 로그인 연결",
     AuditAction.CHAT_MODEL_CREATED: "Claude 모델 추가",
     AuditAction.CHAT_MODEL_UPDATED: "Claude 모델 변경",
 }

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import Settings, get_settings
-from app.core.security import verify_password
+from app.core.security import UNUSABLE_PASSWORD_HASH, verify_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.withdrawal import WithdrawalPreviewRead, WithdrawalRead, WithdrawRequest
@@ -48,7 +48,12 @@ def withdraw(
     The password is asked for again even though the member is signed in:
     a browser left open is not the same as the member deciding to leave.
     """
-    if not verify_password(payload.password, user.password_hash):
+    if user.password_hash == UNUSABLE_PASSWORD_HASH:
+        # An account made with Google has no password (google-login); typing
+        # the username out is the deliberate step instead.
+        if payload.confirm_username.strip() != user.username:
+            raise HTTPException(status_code=400, detail="아이디를 정확히 입력해 주세요.")
+    elif not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=400, detail="비밀번호가 올바르지 않습니다.")
 
     try:

@@ -321,6 +321,18 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/auth/register"): None,
     ("POST", "/api/auth/login"): None,
     ("POST", "/api/auth/logout"): None,
+    # google-login. Starting, the callback, the mock consent page and the
+    # setup screen come before an account exists; the backend checks the
+    # state cookie, the single-use state row and the pending sign-up.
+    ("GET", "/api/auth/google/start"): None,
+    ("GET", "/api/auth/google/callback"): None,
+    ("GET", "/api/auth/google/pending"): None,
+    ("POST", "/api/auth/google/complete"): None,
+    ("GET", "/api/auth/google/mock-consent"): None,
+    ("GET", "/api/auth/google/mock-consent/approve"): None,
+    # Linking needs the signed-in member; reading the link status too.
+    ("GET", "/api/account/google/link/start"): "get_current_user",
+    ("GET", "/api/account/google"): "get_current_user",
     ("GET", "/api/auth/me"): "get_current_user",
     # Leaving CTRL+AI. Not participation-gated: the way out must not be
     # behind participating.
@@ -502,6 +514,8 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         ("POST", "/api/auth/register"),
         ("POST", "/api/auth/login"),
         ("POST", "/api/auth/logout"),
+        # Finishing a Google sign-up creates the account, like register.
+        ("POST", "/api/auth/google/complete"),
         # Applying is the way out of being inactive.
         ("POST", "/api/quarters/{quarter_id}/apply"),
         ("POST", "/api/quarters/applications/{application_id}/cancel"),

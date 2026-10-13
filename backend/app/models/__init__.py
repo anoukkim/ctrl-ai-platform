@@ -6,6 +6,7 @@ imported here is invisible to both.
 """
 
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
+from app.models.connected_account import ConnectedAccount, OAuthState, PendingGoogleSignup
 from app.models.chat import ChatAction, ChatMessage, ChatMessageStatus, ChatRole, Conversation
 from app.models.feedback import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, Feedback
 from app.models.builder import BuilderProject, BuilderProjectFile, BuilderProjectStatus
@@ -26,7 +27,7 @@ from app.models.quarter import (
 from app.models.usage import FundingSource, UsageEvent, UsageFeature
 from app.models.membership import MembershipStatus, QuarterMembership
 from app.models.session import UserSession
-from app.models.signup_attempt import SignupAttempt
+from app.models.signup_attempt import LoginAttempt, SignupAttempt
 from app.models.user import AccountStatus, User, UserRole
 from app.models.video import (
     VIDEO_VERSION_KIND_LABEL,
@@ -86,7 +87,11 @@ __all__ = [
     "AccountStatus",
     "AuditAction",
     "AuditLog",
+    "ConnectedAccount",
+    "OAuthState",
+    "PendingGoogleSignup",
     "SignupAttempt",
+    "LoginAttempt",
     "User",
     "UserRole",
     "UserSession",

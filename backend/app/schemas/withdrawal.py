@@ -28,9 +28,11 @@ class WithdrawalPreviewRead(BaseModel):
 
 
 class WithdrawRequest(BaseModel):
-    """The member's own 회원 탈퇴. The password is checked again."""
+    """The member's own 회원 탈퇴. The password is checked again — or, for an
+    account made with Google that has none, the username typed out."""
 
-    password: str = Field(min_length=1, max_length=200)
+    password: str = Field(default="", max_length=200)
+    confirm_username: str = Field(default="", max_length=60)
     published_work: PublishedWorkChoice = PublishedWorkChoice.KEEP
 
 

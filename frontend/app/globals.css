@@ -870,6 +870,11 @@ code {
 /* ---------- 표 ---------- */
 
 .table-wrap {
+  /* Positioned, so a `.sr-only` label inside a header cell is placed (and
+     clipped) within the scrolling box. Without it the label's containing
+     block is the page, and a wide table pushes the whole page sideways on
+     a phone. */
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
