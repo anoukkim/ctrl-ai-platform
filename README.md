@@ -9,15 +9,51 @@ hold API keys — and records usage per member and quarter.
 
 ## Where we are
 
-**M1 베타 오픈: 3/9** — an invite-only beta on `ctrlai.my` with real Claude
-chat, everything else labelled test mode. Done: video-higgsfield-only,
-Phase 2 Chat, chat-model-choice. Next: single-wallet (one 동아리 지원
-wallet per member per quarter), ui-friendly-motion and the DeepSeek
-research, then invite-only-signup and the Chat+ items. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for every
-milestone and [`docs/BACKLOG.md`](docs/BACKLOG.md) for the order.
+**M1 — beta launch, in progress.** The goal is an invite-only beta on
+`ctrlai.my` with real Claude chat and everything else labelled test mode.
+
+- **Done:** video-higgsfield-only, Phase 2 Chat, chat-model-choice and
+  **prep-beta-launch** (merged 2026-10-13): the beta's code, Docker images
+  built by GitHub Actions, and the Korean deployment guide.
+- **Deployed (2026-10-13):** `ctrlai-server` runs `db`, `api` and `web`
+  with every provider on mock. `caddy` (HTTPS) starts once the `ctrlai.my`
+  A record is live at Gabia.
+- **Before members are invited:** invite-only-signup,
+  test-database-isolation, and one real Claude message with the owner's
+  key. Until invite codes exist, **do not share the address** — anyone who
+  has it can sign up.
+- **Next:** the top of **Next** in [`docs/BACKLOG.md`](docs/BACKLOG.md),
+  which is the only place the order is written. Milestones are in
+  [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Every external provider runs as a **mock by default**, so the whole
 platform runs locally with no API keys.
+
+## Production (beta)
+
+| | |
+| - | - |
+| Site | `https://ctrlai.my` (www redirects to it) |
+| Server | Google Cloud Compute Engine `ctrlai-server` — e2-medium (2 vCPU, 4 GB), Seoul `asia-northeast3-c`, Debian 13, 30 GB disk, static IP `34.47.78.228` |
+| Stack | `docker-compose.prod.yml`: `caddy` (80/443, automatic HTTPS), `web` (Next.js), `api` (FastAPI), `db` (PostgreSQL 16, no published port) |
+| Images | Built and pushed to ghcr.io by GitHub Actions on every push to `main`; the server only pulls |
+| Secrets | `.env` on the server only, `chmod 600`, never committed (beta-only exception, `CLAUDE.md` section 17) |
+| DNS | Gabia: `@` A `34.47.78.228`, `www` CNAME `ctrlai.my.` |
+| Billing | Google Cloud free trial (₩407,626) — **upgrade the billing account by 2027-01-04**, or the server stops when the trial ends |
+
+Setting up, updating, backing up and restoring the server are step by step,
+in Korean, in [`docs/deployment.md`](docs/deployment.md). From a Windows PC,
+use `gcloud.cmd` rather than `gcloud` (the same execution-policy reason as
+`npm.cmd`):
+
+```powershell
+gcloud.cmd compute ssh ctrlai-server --zone=asia-northeast3-c
+# then, on the server:
+sudo -iu ctrlai_platform
+```
+
+**Never paste or screenshot the server's `.env`.** If a secret is shown
+anywhere, treat it as compromised and rotate it.
 
 ## Quick start
 
