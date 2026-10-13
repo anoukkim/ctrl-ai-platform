@@ -39,8 +39,9 @@ def upgrade() -> None:
     connection.execute(
         sa.text(
             "INSERT INTO chat_models (provider, model_id, label, description, "
-            "input_usd_per_mtok, output_usd_per_mtok, visibility, is_default, sort_order, "
-            "created_at, updated_at) VALUES (:p, :m, :label, :description, 0.30, 1.20, "
+            "input_usd_per_mtok, output_usd_per_mtok, cache_read_usd_per_mtok, "
+            "visibility, is_default, sort_order, "
+            "created_at, updated_at) VALUES (:p, :m, :label, :description, 0.30, 1.20, 0.006, "
             "'disabled', false, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
         ),
         {

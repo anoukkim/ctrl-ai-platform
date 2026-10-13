@@ -169,7 +169,7 @@ def create_chat_model(
     except chat_models.ModelChoiceError as error:
         raise _bad(str(error)) from error
     if not MODEL_ID.match(model_id):
-        raise _bad("모델 ID는 영문 소문자, 숫자, 점(.)과 대시(-)만 쓸 수 있습니다.")
+        raise _bad("모델 ID는 영문 소문자, 숫자, 점(.), 대시(-), 슬래시(/)만 쓸 수 있습니다.")
     exists = db.scalar(
         select(ChatModel.id).where(ChatModel.provider == provider, ChatModel.model_id == model_id)
     )

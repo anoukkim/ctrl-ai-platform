@@ -141,7 +141,8 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
 #: Rows for providers that are not connected yet (admin-and-nav-cleanup):
 #: listed in Admin, closed. Seeded with the defaults and by migration
 #: c4d8e2a6f1b9. Prices from docs/research/deepseek-research.md
-#: (2026-10-08): V4.1 Flash at a US host, 0.30 / 1.20 $/MTok.
+#: (2026-10-08): V4.1 Flash at a US host, 0.30 / 1.20 $/MTok, cache read
+#: 0.006 (Together and Fireworks both list it).
 PENDING_CATALOGUE: list[CatalogueSeed] = [
     CatalogueSeed(
         model_id="deepseek/deepseek-v4.1-flash",
@@ -153,6 +154,7 @@ PENDING_CATALOGUE: list[CatalogueSeed] = [
         is_default=False,
         sort_order=100,
         provider=DEEPSEEK,
+        cache_read_usd_per_mtok=Decimal("0.006"),
     ),
 ]
 

@@ -272,11 +272,18 @@ export default function ModelCatalog() {
                               </td>
                               <td className="numeric">{model.model_id}</td>
                               <td>
+                                {/* 연결 전 제공자의 행은 열 수 없지만, 어쩌다 열려
+                                    있는 행(옛 데이터)은 닫을 수는 있어야 하므로
+                                    "사용 안 함"만 남기고 켜 둡니다. */}
                                 <select
                                   className={`field ${styles.visibilitySelect}`}
                                   aria-label={`${model.label} 공개 범위`}
                                   value={model.visibility}
-                                  disabled={busyId === model.id || model.is_default || !provider.ready}
+                                  disabled={
+                                    busyId === model.id ||
+                                    model.is_default ||
+                                    (!provider.ready && model.visibility === "disabled")
+                                  }
                                   aria-describedby={
                                     !provider.ready
                                       ? `${headingId}-why`
@@ -288,7 +295,12 @@ export default function ModelCatalog() {
                                     void setVisibility(model, event.target.value as ChatModelVisibility)
                                   }
                                 >
-                                  {VISIBILITY_ORDER.map((value) => (
+                                  {VISIBILITY_ORDER.filter(
+                                    (value) =>
+                                      provider.ready ||
+                                      value === "disabled" ||
+                                      value === model.visibility,
+                                  ).map((value) => (
                                     <option key={value} value={value}>
                                       {VISIBILITY_LABEL[value]}
                                     </option>
@@ -587,7 +599,7 @@ function NewModelForm({
         <>
           {!chosen.ready && (
             <p className="small dim">
-              {chosen.label}은(는) 아직 연결되지 않았습니다. 모델을 적어 둘 수는 있지만, 연결될
+              이 제공자는 아직 연결되지 않았습니다. 모델을 적어 둘 수는 있지만, 연결될
               때까지 &quot;사용 안 함&quot;으로 남습니다.
             </p>
           )}

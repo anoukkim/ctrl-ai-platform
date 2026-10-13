@@ -1,8 +1,9 @@
 """Feedback a member sends from the 의견 보내기 button.
 
-Report Issue sends members to GitHub, which needs an account and makes
-the report public. The beta needs something lighter: a short note saved
-here and read in Admin › Feedback (prep-beta-launch, point 2).
+The 의견 보내기 button in the sidebar footer is the one way a member
+sends a note (admin-and-nav-cleanup, 2026-10-14 — Report Issue and
+`/issues` are gone): a short note saved here and read in Admin ›
+Feedback (prep-beta-launch, point 2).
 
 The author is a foreign key and nothing else — no copied username. A
 withdrawn member is anonymised after 30 days, and a name copied into this
