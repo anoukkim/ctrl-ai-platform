@@ -24,14 +24,19 @@ import app.models  # noqa: F401
 
 config = context.config
 
-if config.config_file_name is not None:
+# Logging from alembic.ini — except when the test suite migrates its own
+# database in-process (tests/pg.py), where it would silence the app's
+# loggers for the rest of the run.
+if config.config_file_name is not None and "database_url" not in config.attributes:
     fileConfig(config.config_file_name)
 
 # A URL handed in by the caller wins (the test suite migrates its own
 # database this way — tests/pg.py); otherwise the application's setting.
+# `%` is configparser's interpolation character; a URL-encoded password
+# can contain it.
 config.set_main_option(
     "sqlalchemy.url",
-    config.attributes.get("database_url") or get_settings().database_url,
+    (config.attributes.get("database_url") or get_settings().database_url).replace("%", "%%"),
 )
 
 target_metadata = Base.metadata

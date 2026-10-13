@@ -90,12 +90,26 @@ def pg_engine():
     Created on the server if missing, emptied and migrated at the start of
     the run, and emptied again at the end.
     """
+    from sqlalchemy.engine import make_url
+
+    from app.core.config import get_settings
     from tests import pg
 
     url = pg.configured_url()
+    app_url = get_settings().database_url
+    message = pg.refusal(url, app_url)
+    if message:  # also checked at session start; checked again here
+        pytest.fail(message, pytrace=False)
+    if not make_url(url).database:
+        pytest.fail(f"TEST_DATABASE_URL names no database: {pg.shown(url)}", pytrace=False)
     engine = pg.ensure_database(url)
     if engine is None:
         pytest.skip(f"No PostgreSQL test database reachable at {pg.shown(url)}")
+    try:
+        pg.prove_separate(url, app_url, engine)
+    except pg.UnsafeTestDatabase as problem:
+        engine.dispose()
+        pytest.fail(str(problem), pytrace=False)
     pg.reset_schema(engine)
     pg.migrate(url)
     yield engine

@@ -182,3 +182,38 @@ def test_the_test_database_is_built_by_the_migrations(pg_engine) -> None:
         models = conn.execute(text("SELECT count(*) FROM chat_models")).scalar()
     assert versions == [head]
     assert models > 0
+
+
+# ------------------------------------------- the second check, before dropping
+
+
+@pytest.mark.parametrize(
+    ("url", "reason"),
+    [
+        # No database name: libpq would use the user name — often the
+        # developer's database.
+        ("postgresql+psycopg://ctrlai:x@127.0.0.1:55433/", "names no database"),
+        ("postgresql+psycopg://ctrlai:x@127.0.0.1:55433/ctrlai", "must end in _test"),
+        ("postgresql+psycopg://ctrlai:x@127.0.0.1:55433/ctrlai_test?dbname=ctrlai", "dbname"),
+        ("postgresql+psycopg://ctrlai:x@127.0.0.1:55433/ctrlai_test?host=elsewhere", "host"),
+    ],
+)
+def test_urls_that_could_reach_another_database_are_refused(url: str, reason: str) -> None:
+    """Checked before any connection, so no server is needed."""
+
+    class NeverConnects:
+        def connect(self):  # pragma: no cover - must not be reached
+            raise AssertionError("connected before refusing")
+
+    with pytest.raises(pg.UnsafeTestDatabase, match=reason):
+        pg.prove_separate(url, "postgresql+psycopg://x:x@127.0.0.1:1/none", NeverConnects())
+
+
+def test_the_real_test_database_is_proved_separate(pg_engine) -> None:
+    # Reaching here means the fixture's own check passed; run it once more
+    # against a stand-in developer database on the same server.
+    pg.prove_separate(
+        pg.configured_url(),
+        make_url(pg.configured_url()).set(database="postgres").render_as_string(hide_password=False),
+        pg_engine,
+    )

@@ -128,14 +128,83 @@ def ensure_database(url: str) -> Engine | None:
                 {"name": parsed.database},
             ).scalar()
             if not exists:
-                conn.execute(text(f'CREATE DATABASE "{parsed.database}"'))
+                name = conn.dialect.identifier_preparer.quote(parsed.database)
+                conn.execute(text(f"CREATE DATABASE {name}"))
     finally:
         server.dispose()
     return connect(url)
 
 
+#: Connection options that can send a connection somewhere other than
+#: the host and database the URL names. Refused outright.
+_REDIRECTING_QUERY_KEYS = {"dbname", "host", "hostaddr", "port", "service", "servicefile"}
+
+
+class UnsafeTestDatabase(Exception):
+    """The test database cannot be proved separate from DATABASE_URL's."""
+
+
+def _server_identity(engine: Engine) -> tuple:
+    with engine.connect() as conn:
+        return tuple(
+            conn.execute(
+                text(
+                    "SELECT current_database(), inet_server_addr()::text, "
+                    "inet_server_port(), pg_postmaster_start_time()::text"
+                )
+            ).one()
+        )
+
+
+def prove_separate(test_url: str, app_url: str, engine: Engine) -> None:
+    """Raise unless `engine` is certainly the test database and not the app's.
+
+    The URL comparison (`refusal`) runs first, at session start. This runs
+    again right before anything is dropped, and checks what the server
+    itself reports, because a URL can reach a database it does not name:
+    no database name (libpq then uses the user name), `?dbname=` in the
+    query, `PGDATABASE`, or another spelling of the host.
+    """
+    message = refusal(test_url, app_url)
+    if message:
+        raise UnsafeTestDatabase(message)
+    parsed = make_url(test_url)
+    name = parsed.database or ""
+    if not name:
+        raise UnsafeTestDatabase(f"TEST_DATABASE_URL names no database: {shown(test_url)}")
+    if not name.endswith("_test"):
+        raise UnsafeTestDatabase(
+            f"The test database's name must end in _test ({shown(test_url)}), so a "
+            "mistyped URL can never empty a real database."
+        )
+    redirecting = _REDIRECTING_QUERY_KEYS & {key.lower() for key in parsed.query}
+    if redirecting:
+        raise UnsafeTestDatabase(
+            f"TEST_DATABASE_URL may not set {', '.join(sorted(redirecting))} in its query: "
+            f"{shown(test_url)}"
+        )
+    test_identity = _server_identity(engine)
+    if test_identity[0] != name:
+        raise UnsafeTestDatabase(
+            f"Connected to {test_identity[0]!r}, not {name!r} — refusing to touch it."
+        )
+    app_engine = connect(app_url)
+    if app_engine is not None:
+        try:
+            if _server_identity(app_engine) == test_identity:
+                raise UnsafeTestDatabase(
+                    "TEST_DATABASE_URL and DATABASE_URL reach the same database on the "
+                    f"same server ({shown(test_url)} / {shown(app_url)})."
+                )
+        finally:
+            app_engine.dispose()
+
+
 def reset_schema(engine: Engine) -> None:
-    """Drop everything in `public` — the test database only."""
+    """Drop everything in `public` — the test database only.
+
+    Callers prove the engine is the test database first (`prove_separate`).
+    """
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))

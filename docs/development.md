@@ -263,6 +263,14 @@ test database** (test-database-isolation), never on `DATABASE_URL`:
   anything changed `DATABASE_URL`'s tables or `alembic_version`;
 - with Docker down those tests skip and everything else still runs.
 
+Before anything is dropped, the fixture also checks what the server
+reports: the test database's name must end in `_test`, the URL may not
+carry `dbname`, `host` or `service` in its query, `current_database()`
+must be that name, and the server must not report the same database as
+`DATABASE_URL`'s. The after-run check compares tables and
+`alembic_version` only — a stray *row* written into the development
+database would not be caught by it, so tests must use the fixtures.
+
 ## Stopping
 
 ```powershell
