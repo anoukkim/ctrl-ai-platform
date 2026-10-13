@@ -8,12 +8,13 @@
  * 감싸는 화면들은 그대로 Server Component입니다.
  *
  * 언어 규칙: 메뉴는 전부 영어입니다 — 묶음 제목(Create, Explore,
- * Account)과 화면 이름(Chat, Project Builder, Video Generator,
- * CtrlAIApps, CtrlAITube, Usage, Profile, Admin) 모두. 의견은 아래쪽의 '의견 보내기'로 보냅니다.
- * 메뉴 밖에서 회원이 읽는 문구는 모두 한국어입니다.
+ * Manage, Account)과 화면 이름(Chat, Project Builder, Video Generator,
+ * CtrlAIApps, CtrlAITube, Usage, Profile, Admin) 모두. 의견은 아래쪽의
+ * '의견 보내기'로 보냅니다. 메뉴 밖에서 회원이 읽는 문구는 모두 한국어입니다.
  *
- * 관리 묶음은 따로 없습니다. Admin은 제목이 아니라 눌러서 펼치는 항목
- * 자체이고(`AdminNavBlock`), 그 이름은 이미 영어입니다.
+ * 묶음 순서는 Create, Explore, Manage, Account입니다(owner, 2026-10-14).
+ * Manage는 관리자에게만 보이고, 그 안의 Admin은 눌러서 구역을 펼치는
+ * 항목입니다(`AdminNavBlock`).
  */
 
 import {
@@ -76,7 +77,7 @@ interface NavGroup {
 }
 
 /**
- * 사이드바 위쪽: 무언가를 만들거나 둘러보는 곳.
+ * 사이드바 위쪽: 무언가를 만들거나 둘러보는 곳 (관리자에게는 그 아래 Manage).
  *
  * 아래쪽(Account)과 나눠 둔 이유는 성격이 다르기 때문입니다. 위쪽은 작업,
  * 아래쪽은 내 계정과 남은 지원금입니다. 사이에 빈 공간을 두어 눈으로도
@@ -261,16 +262,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               />
             ))}
 
-            {/* Admin 메뉴는 관리자에게만 보입니다. 보이지 않게 하는 것은
-                편의일 뿐이고, 실제 차단은 백엔드의 require_admin이 합니다.
-                위쪽 묶음에 붙입니다 — 아래쪽은 Account와 계정 영역
-                전용입니다. */}
+            {/* Manage 묶음 — 관리자에게만 보입니다(owner, 2026-10-14). 순서는
+                Create, Explore, Manage, Account. 보이지 않게 하는 것은 편의일
+                뿐이고, 실제 차단은 백엔드의 require_admin이 합니다. */}
             {user.is_admin && (
-              <AdminNavBlock
-                pathname={pathname}
-                onNavigate={() => setMenuOpen(false)}
-                collapsed={collapsed}
-              />
+              <div className={styles.navGroup}>
+                <p className={styles.navGroupLabel}>Manage</p>
+                <AdminNavBlock
+                  pathname={pathname}
+                  onNavigate={() => setMenuOpen(false)}
+                  collapsed={collapsed}
+                />
+              </div>
             )}
           </div>
 
@@ -282,7 +285,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               group={PERSONAL_GROUP}
               pathname={pathname}
               onNavigate={() => setMenuOpen(false)}
-              compact
               collapsed={collapsed}
             />
             <MemberStatus onNavigate={() => setMenuOpen(false)} />
@@ -295,7 +297,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {user.display_name.slice(0, 1)}
             </span>
             <span className={styles.navUserNames}>
-              <span className={styles.navUserName}>{user.display_name}</span>
+              <span className={styles.navUserNameRow}>
+                <span className={styles.navUserName}>{user.display_name}</span>
+                {user.is_admin && <span className={styles.adminBadge}>관리자</span>}
+              </span>
               <span className={styles.navUserHandle}>@{user.username}</span>
             </span>
           </span>
@@ -359,26 +364,26 @@ function GuideButton({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-/** 메뉴 한 묶음. 위/아래 두 곳에서 같은 모양으로 그립니다. */
+/**
+ * 메뉴 한 묶음. 위/아래 두 곳에서 같은 모양으로 그립니다 — Account도
+ * Chat처럼 아이콘과 이름이 한 줄인 세로 항목입니다(fix-ui-polish-admin).
+ */
 function NavGroupBlock({
   group,
   pathname,
   onNavigate,
-  compact = false,
   collapsed = false,
 }: {
   group: NavGroup;
   pathname: string;
   onNavigate: () => void;
-  /** Account 묶음: 세 항목을 한 줄에, 아이콘 위·이름 아래로. */
-  compact?: boolean;
   /** 접힌 사이드바: 이름은 화면에서 감추고(읽어 주기는 그대로) 툴팁으로. */
   collapsed?: boolean;
 }) {
   return (
-    <div>
+    <div className={styles.navGroup}>
       <p className={styles.navGroupLabel}>{group.label}</p>
-      <ul className={`${styles.navList} ${compact ? styles.navListCompact : ""}`}>
+      <ul className={styles.navList}>
         {group.items.map((item) => {
           // "/"는 Chat이므로 정확히 일치할 때만 선택 표시를 합니다.
           const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -406,18 +411,16 @@ function NavGroupBlock({
 }
 
 /**
- * 사이드바의 Admin 묶음 — 눌러서 펼칩니다.
+ * Manage 묶음의 Admin 항목 — 눌러서 펼칩니다.
  *
- * 다른 묶음(Create, Explore)은 제목이 글자일 뿐이고 항목이 두세 개
- * 입니다. Admin은 구역이 아홉 개라, 묶음 제목 자체를 누를 수 있는 단추로
- * 두고 아래에 구역을 폅니다.
+ * 구역이 열 개가 넘어, Admin 항목을 누를 수 있는 단추로 두고 아래에
+ * 구역을 폅니다.
  *
- * 펼친 상태는 브라우저에 남겨 둡니다. 회원마다 쓰는 구역이 다르고,
+ * 펼친 상태는 브라우저에 남겨 둡니다. 관리자마다 쓰는 구역이 다르고,
  * 화면을 옮길 때마다 다시 펼치게 하면 두 번 누르는 메뉴가 됩니다.
  *
- * 숫자 배지는 손이 필요한 구역에만 붙습니다 — 심사를 기다리는 신청과
- * 확인을 기다리는 충전입니다. 둘 다 사람이 움직이지 않으면 회원이 기다리게
- * 되는 일입니다.
+ * 숫자 배지는 손이 필요한 보이는 구역에만 붙습니다 — 지금은 심사를
+ * 기다리는 신청입니다. 사람이 움직이지 않으면 회원이 기다리게 되는 일입니다.
  */
 function AdminNavBlock({
   pathname,

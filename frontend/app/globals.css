@@ -226,7 +226,6 @@
   --fs-meta: 12px; /* 날짜·부가 정보 */
   --fs-label: 11px; /* 사이드바 묶음 이름, 썸네일 자리 표시 */
   --fs-nav: 14px;
-  --fs-nav-compact: 11.5px;
   --fs-chip: 12.5px;
   --fs-count: 13px;
   --fs-button: 14px;
@@ -241,7 +240,9 @@
   --lh-body: 1.6;
 
   /* ---------- 자리와 간격 ---------- */
-  --sidebar-width: 248px;
+  /* 228px (fix-ui-polish-admin): every item, the tagline and the Admin
+     sub-items still fit on one line — checked in the browser. */
+  --sidebar-width: 228px;
   --sidebar-collapsed-width: 68px;
   --sidebar-pad-top: 20px;
   --sidebar-pad-x: 12px;

@@ -75,14 +75,20 @@ outside the menu that a member reads is Korean.
 ```text
 CTRL+AI
 
-Create            Explore          Account
-  Chat              CtrlAIApps       Usage
-  Project Builder   CtrlAITube       Profile
+Create            Explore          Manage (admins only)   Account
+  Chat              CtrlAIApps       Admin ▸ sections       Usage
+  Project Builder   CtrlAITube                              Profile
   Video Generator
 ```
 
-An admin additionally sees **Admin**, below Explore — a single expanding
-item whose sections are defined **once**, in
+The groups run in that order, each with the same heading style; the
+collapsed icon rail shows a divider between groups instead of headings.
+**Manage** (owner decision 2026-10-14, replacing the earlier "no Manage
+group") is shown to admins only and holds the **Admin** item; members
+never see it or anything under it, and the admin's name in the account
+area carries a small **관리자** badge. Admin pages keep the breadcrumb
+"Admin › …". Admin is a single expanding item (its open/closed state is
+remembered) whose sections are defined **once**, in
 `frontend/app/admin/sections.ts`, which the sidebar, tabs, breadcrumbs,
 dashboard cards and each section's own heading all read. Eleven sections
 are visible (Dashboard, Members, Applications, Quarters, Budget, Video
