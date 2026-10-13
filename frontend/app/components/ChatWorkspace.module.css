@@ -437,6 +437,25 @@
   font-size: var(--fs-meta);
 }
 
+/* 흐르는 답장 옆의 "약 N원" (live-cost-display). 숫자가 바뀌어도 줄이
+   흔들리지 않도록 숫자 폭을 고정합니다. */
+.liveCost {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 끝난 답장 아래 영수증 — 장부의 숫자. */
+.receipt {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
 .errorNote {
   margin: 0.4rem 0 0.45rem;
   padding: 0.55rem 0.8rem;

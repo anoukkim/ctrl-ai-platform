@@ -24,6 +24,14 @@ type State =
 interface Value {
   state: State;
   refresh: () => Promise<void>;
+  /**
+   * 차감 직후 남은 동아리 지원을 바로 반영합니다(live-cost-display).
+   *
+   * 답장의 `done` 이벤트가 장부가 잠근 트랜잭션에서 나온 값을 들고
+   * 오므로, 다시 요청하지 않고 그대로 씁니다 — 사이드바 지갑 카드가
+   * 새로고침 없이 그 자리에서 줄어듭니다.
+   */
+  applyWalletRemaining: (remainingKrw: number) => void;
 }
 
 const MyQuarterContext = createContext<Value | null>(null);
@@ -70,6 +78,24 @@ export default function MyQuarterProvider({ children }: { children: React.ReactN
     }
   }, [signedIn]);
 
+  const applyWalletRemaining = useCallback((remainingKrw: number) => {
+    setState((current) => {
+      if (current.phase !== "ready" || current.quarter.allocation === null) return current;
+      const allocation = current.quarter.allocation;
+      return {
+        phase: "ready",
+        quarter: {
+          ...current.quarter,
+          allocation: {
+            ...allocation,
+            remaining_krw: remainingKrw,
+            consumed_krw: Math.max(0, allocation.budget_krw - remainingKrw),
+          },
+        },
+      };
+    });
+  }, []);
+
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
     if (!signedIn) return;
@@ -89,6 +115,8 @@ export default function MyQuarterProvider({ children }: { children: React.ReactN
   }, [signedIn, userId]);
 
   return (
-    <MyQuarterContext.Provider value={{ state, refresh }}>{children}</MyQuarterContext.Provider>
+    <MyQuarterContext.Provider value={{ state, refresh, applyWalletRemaining }}>
+      {children}
+    </MyQuarterContext.Provider>
   );
 }

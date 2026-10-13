@@ -40,7 +40,43 @@ export interface ChatMessage {
   model_id: string | null;
   /** 답장이 1회 비용 한도에 닿아 멈췄다면 그 한도(원). 아니면 null. */
   capped_krw?: number | null;
+  /** 답장의 영수증 — 장부의 숫자. 대화를 다시 열어도 그대로 옵니다. */
+  receipt?: ReplyReceipt | null;
   created_at: string;
+}
+
+/** 답장 하나가 실제로 쓴 토큰. 캐시 칸은 캐시가 꺼져 있으면 null입니다. */
+export interface ReplyUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_write_tokens: number | null;
+  cache_read_tokens: number | null;
+}
+
+/** 답장 아래 영수증(live-cost-display). 합계는 장부가 차감한 금액입니다. */
+export interface ReplyReceipt extends ReplyUsage {
+  charged_krw: number;
+}
+
+/**
+ * 흐르는 답장 옆 "약 N원"의 재료(live-cost-display). `start` 이벤트로
+ * 옵니다: 입력 쪽 비용(원, 미리 계산됨)과 출력 1,000토큰당 가격(원).
+ */
+export interface StreamEstimate {
+  base_krw: number;
+  won_per_1k_output: number;
+}
+
+/**
+ * 지금까지 흘러온 글로 어림한 비용(원). 백엔드의 어림과 같은 규칙 —
+ * 글자 하나를 토큰 하나로 — 이라 실제보다 약간 후합니다. 화면은 반드시
+ * 약을 붙여 보여 줍니다; 정산은 영수증(장부)이 합니다.
+ */
+export function runningEstimateKrw(estimate: StreamEstimate, streamedChars: number): number {
+  return Math.max(
+    1,
+    Math.ceil(estimate.base_krw + (streamedChars * estimate.won_per_1k_output) / 1000),
+  );
 }
 
 /** 대화가 길어졌을 때의 안내(token-guard). 짧은 대화에는 null입니다. */
@@ -149,12 +185,16 @@ export type StreamOutcome =
       message: ChatMessage | null;
       chargedKrw: number;
       longHistory?: LongHistory | null;
+      /** 답장이 실제로 쓴 토큰(장부). 아무것도 쓰지 않았으면 null. */
+      usage?: ReplyUsage | null;
+      /** 차감 직후 남은 동아리 지원(원). 차감이 없었으면 null. */
+      walletRemainingKrw?: number | null;
     }
   | { kind: "error"; detail: string }
   | { kind: "stopped" };
 
 export interface StreamHandlers {
-  onStart?: (userMessage: ChatMessage) => void;
+  onStart?: (userMessage: ChatMessage, estimate: StreamEstimate | null) => void;
   onDelta?: (text: string) => void;
 }
 
@@ -213,7 +253,7 @@ export async function sendMessage(
     }
     if (!name || !data) return;
     const payload = JSON.parse(data);
-    if (name === "start") handlers.onStart?.(payload.user_message);
+    if (name === "start") handlers.onStart?.(payload.user_message, payload.estimate ?? null);
     else if (name === "delta") handlers.onDelta?.(payload.text);
     else if (name === "done")
       outcome = {
@@ -221,6 +261,8 @@ export async function sendMessage(
         message: payload.message,
         chargedKrw: payload.charged_krw,
         longHistory: payload.long_history ?? null,
+        usage: payload.usage ?? null,
+        walletRemainingKrw: payload.wallet_remaining_krw ?? null,
       };
     else if (name === "error") outcome = { kind: "error", detail: payload.detail };
   };
