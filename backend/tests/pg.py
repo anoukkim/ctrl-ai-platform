@@ -32,7 +32,24 @@ _LOCAL_HOSTS = {"", "localhost", "127.0.0.1", "::1"}
 
 
 def configured_url() -> str:
-    return os.environ.get("TEST_DATABASE_URL", "").strip() or DEFAULT_TEST_DATABASE_URL
+    """TEST_DATABASE_URL from the environment, else the root `.env`, else the default.
+
+    The application's settings read `.env` themselves; this is a test-only
+    value, so it is looked up the same way here.
+    """
+    from_env = os.environ.get("TEST_DATABASE_URL", "").strip()
+    if from_env:
+        return from_env
+    from dotenv import dotenv_values
+
+    from app.core.config import BACKEND_DIR, REPO_ROOT
+
+    for path in (BACKEND_DIR / ".env", REPO_ROOT / ".env"):
+        if path.is_file():
+            value = (dotenv_values(path).get("TEST_DATABASE_URL") or "").strip()
+            if value:
+                return value
+    return DEFAULT_TEST_DATABASE_URL
 
 
 def shown(url: str | URL) -> str:
