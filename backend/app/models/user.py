@@ -1,8 +1,9 @@
 """User model, role and account status enumerations."""
 
 import enum
+from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, String
+from sqlalchemy import DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -93,6 +94,13 @@ class User(TimestampMixin, Base):
         ),
         nullable=True,
         index=True,
+    )
+    #: When this account agreed to the 개인정보 처리방침 and 이용약관 at
+    #: sign-up (privacy-and-terms). NULL for accounts that predate the
+    #: terms — whether they must consent again is the owner's decision,
+    #: deliberately not forced here.
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     @property
