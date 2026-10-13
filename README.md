@@ -115,10 +115,11 @@ again (development and a localhost database only; it refuses otherwise):
 npm.cmd test; npx tsc --noEmit; npm.cmd run lint; npm.cmd run build
 ```
 
-⚠ One backend test needs real PostgreSQL and writes to whatever
-`DATABASE_URL` names — your development database — until
-`test-database-isolation` lands. See
-[`docs/development.md` › Operator notes](docs/development.md#operator-notes).
+A few backend tests need real PostgreSQL. They use their **own** database,
+`TEST_DATABASE_URL` (default `ctrlai_test` on the Docker Compose server,
+created on first use), never your development database, and skip when no
+PostgreSQL is running. See
+[`docs/development.md` › Verifying the project](docs/development.md#verifying-the-project).
 
 ## Where to find things
 

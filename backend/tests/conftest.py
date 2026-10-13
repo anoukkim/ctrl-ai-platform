@@ -45,6 +45,64 @@ from app.main import app  # noqa: E402
 from app import models  # noqa: F401, E402
 
 
+# ---------------------------------------------------------------------
+# PostgreSQL (test-database-isolation): a separate test database, never
+# the developer's. See tests/pg.py.
+# ---------------------------------------------------------------------
+
+_DEVELOPER_DATABASE_BEFORE = None
+
+
+def pytest_sessionstart(session) -> None:
+    """Refuse to run against the developer's database; note how it looks."""
+    global _DEVELOPER_DATABASE_BEFORE
+    from app.core.config import get_settings
+    from tests import pg
+
+    message = pg.refusal(pg.configured_url(), get_settings().database_url)
+    if message:
+        raise pytest.UsageError(message)
+    _DEVELOPER_DATABASE_BEFORE = pg.snapshot(get_settings().database_url)
+
+
+def pytest_sessionfinish(session, exitstatus) -> None:
+    """The developer's database must look exactly as it did before the run."""
+    from app.core.config import get_settings
+    from tests import pg
+
+    if _DEVELOPER_DATABASE_BEFORE is None:
+        return
+    after = pg.snapshot(get_settings().database_url)
+    if after is not None and after != _DEVELOPER_DATABASE_BEFORE:
+        session.config.get_terminal_writer().line(
+            "The test run changed DATABASE_URL's database "
+            f"({pg.shown(get_settings().database_url)}): tables or alembic_version "
+            f"before {_DEVELOPER_DATABASE_BEFORE}, after {after}.",
+            red=True,
+        )
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+@pytest.fixture(scope="session")
+def pg_engine():
+    """The PostgreSQL test database, migrated to head; skips without one.
+
+    Created on the server if missing, emptied and migrated at the start of
+    the run, and emptied again at the end.
+    """
+    from tests import pg
+
+    url = pg.configured_url()
+    engine = pg.ensure_database(url)
+    if engine is None:
+        pytest.skip(f"No PostgreSQL test database reachable at {pg.shown(url)}")
+    pg.reset_schema(engine)
+    pg.migrate(url)
+    yield engine
+    pg.reset_schema(engine)
+    engine.dispose()
+
+
 @pytest.fixture(autouse=True)
 def empty_mock_prompt_cache() -> Generator[None, None, None]:
     """Each test starts with the mock's prompt cache empty.

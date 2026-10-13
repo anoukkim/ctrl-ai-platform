@@ -442,31 +442,7 @@ def test_a_rolled_back_change_leaves_no_audit_row(
 # -------------------------------------------------- concurrency (PostgreSQL)
 
 
-def _postgres_engine():
-    """A real PostgreSQL engine, or None when one is not reachable.
-
-    SQLite ignores `SELECT ... FOR UPDATE`, so the lock that prevents
-    overspending cannot be demonstrated on it. This test therefore needs
-    the real database and skips politely without it, which keeps
-    `pytest` working when Docker is not running.
-    """
-    from sqlalchemy import create_engine
-
-    from app.core.config import get_settings
-
-    url = get_settings().database_url
-    if not url.startswith("postgresql"):
-        return None
-    try:
-        engine = create_engine(url, connect_args={"connect_timeout": 2})
-        with engine.connect():
-            pass
-        return engine
-    except Exception:
-        return None
-
-
-def test_concurrent_charges_cannot_overspend() -> None:
+def test_concurrent_charges_cannot_overspend(pg_engine) -> None:
     """Eight threads each try to spend 20,000원 of a 100,000원 wallet.
 
     Five can succeed; three must be refused. Without the row lock, several
@@ -480,15 +456,11 @@ def test_concurrent_charges_cannot_overspend() -> None:
 
     from sqlalchemy.orm import sessionmaker
 
-    from app.db.base import Base
     from app.models import User, UserRole, AccountStatus
 
-    engine = _postgres_engine()
-    if engine is None:
-        pytest.skip("PostgreSQL is not reachable; the row lock cannot be tested on SQLite")
-
-    Base.metadata.create_all(bind=engine)
-    Session_ = sessionmaker(bind=engine, expire_on_commit=False)
+    # The PostgreSQL test database, migrated to head (tests/pg.py). Skips
+    # without one: SQLite ignores SELECT ... FOR UPDATE.
+    Session_ = sessionmaker(bind=pg_engine, expire_on_commit=False)
     tag = uuid.uuid4().hex[:8]
 
     with Session_() as setup:
@@ -525,7 +497,7 @@ def test_concurrent_charges_cannot_overspend() -> None:
         member_id, quarter_id = member.id, quarter.id
 
     # current_quarter() picks the earliest ACTIVE quarter, which may not be
-    # this one if the development database already has quarters. Charge
+    # this one if another test left a quarter in the database. Charge
     # against the allocation directly through a patched lookup.
     import app.services.usage as usage_module
 
@@ -593,4 +565,3 @@ def test_concurrent_charges_cannot_overspend() -> None:
             cleanup.query(Quarter).filter_by(id=quarter_id).delete()
             cleanup.query(User).filter_by(id=member_id).delete()
             cleanup.commit()
-        engine.dispose()

@@ -249,6 +249,20 @@ pass whether or not Docker is running. The frontend tests run in `jsdom` and
 never call the backend, for the same reason: a test that needs a server
 running proves less, not more.
 
+**A few tests need real PostgreSQL** — the wallet's row lock and the last
+use of an invite code, which SQLite cannot show. They run on a **separate
+test database** (test-database-isolation), never on `DATABASE_URL`:
+
+- `TEST_DATABASE_URL`, default
+  `postgresql+psycopg://ctrlai:ctrlai@localhost:5432/ctrlai_test` — the
+  same Docker Compose server, a different database, created on first use;
+- emptied and **migrated with `alembic upgrade head`** at the start of a
+  run, emptied again at the end;
+- the run **refuses to start** if `TEST_DATABASE_URL` names the same
+  database as `DATABASE_URL`, however it is spelled, and **fails** if
+  anything changed `DATABASE_URL`'s tables or `alembic_version`;
+- with Docker down those tests skip and everything else still runs.
+
 ## Stopping
 
 ```powershell
@@ -427,10 +441,8 @@ each one cost an investigation.
   then, give a slow `alembic upgrade head` a couple of minutes before
   stopping it.
 
-- **`pytest` writes to the database named by `DATABASE_URL`.** The
-  row-lock test needs real PostgreSQL and calls `create_all` on it, so
-  running the suite on a branch creates that branch's new tables in the
-  development database while leaving `alembic_version` alone — after
-  which `alembic upgrade head` fails with `relation ... already exists`.
-  Item 3, `test-database-isolation`, fixes it; until then, drop the
-  stray table before migrating.
+- **`pytest` used to write to the database named by `DATABASE_URL`**
+  (until 2026-10-13): the row-lock test called `create_all` on the
+  development database, which created a branch's tables without its
+  migrations. `test-database-isolation` moved those tests to their own
+  database. If an old run left a stray table, drop it before migrating.

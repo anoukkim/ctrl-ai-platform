@@ -27,7 +27,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# A URL handed in by the caller wins (the test suite migrates its own
+# database this way — tests/pg.py); otherwise the application's setting.
+config.set_main_option(
+    "sqlalchemy.url",
+    config.attributes.get("database_url") or get_settings().database_url,
+)
 
 target_metadata = Base.metadata
 
