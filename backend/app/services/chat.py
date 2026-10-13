@@ -42,6 +42,7 @@ from app.models import (
     ChatMessageStatus,
     ChatRole,
     Conversation,
+    FundingSource,
     UsageFeature,
     User,
 )
@@ -622,7 +623,12 @@ def finish_turn(
             )
             charged = result.event.charged_krw
             event_id = result.event.id
-            wallet_remaining = result.community_remaining_krw
+            # The sidebar shows the 동아리 지원 wallet, so only a
+            # community-funded charge may carry a figure for it: after a
+            # personal-funded one (top-ups on) the screen must refetch,
+            # or its personal balance goes stale.
+            if result.funding_source is FundingSource.COMMUNITY:
+                wallet_remaining = result.community_remaining_krw
         except usage_service.NoQuarterError:
             # The quarter closed while the reply was streaming. There is no
             # quarter to charge against; the reply is still the member's.
@@ -669,7 +675,10 @@ def finish_turn(
             long_history = None
 
     usage: ReplyUsage | None = None
-    if input_tokens or output_tokens or written or read:
+    # Only what the ledger actually recorded gets a receipt: with no
+    # event (the quarter closed mid-stream) a 0원 receipt would claim a
+    # charge the ledger does not have, and vanish on reload.
+    if event_id is not None:
         cached = turn.request.cache_ttl is not None
         usage = ReplyUsage(
             input_tokens=input_tokens,

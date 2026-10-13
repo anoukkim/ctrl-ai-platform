@@ -123,3 +123,106 @@ def test_the_estimate_base_prices_input_as_the_precheck_does(
     write = price.krw(0, 0, cache_write_tokens=2000)
     assert write > plain
     assert base >= write  # 시스템 프롬프트가 더해져 더 크다
+
+
+def test_a_personal_funded_charge_carries_no_wallet_figure(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    """Review round 2, finding 3.
+
+    The done event's wallet figure is the 동아리 지원 wallet. A charge the
+    personal balance paid (top-ups on) leaves that wallet untouched but
+    makes the *personal* figures stale — so the event must carry None and
+    send the screen back to refetch, never an unchanged community number.
+    """
+    from app.services.wallet import get_or_create_balance
+
+    settings = Settings(app_env="development", chat_mock_delay_ms=0, personal_topup_enabled=True)
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    budgeted.consumed_krw = budgeted.budget_krw - 1  # 지갑에 1원만 남김
+    balance = get_or_create_balance(db_session, budgeted.user_id)
+    balance.balance_krw = 500_000
+    balance.overage_enabled = True
+    db_session.commit()
+
+    conversation = new_conversation(client)
+    events = events_of(send(client, conversation, "안녕하세요").text)
+    done = one(events, "done")
+
+    event = db_session.scalars(select(UsageEvent)).one()
+    assert event.funding_source.value == "personal"
+    assert done["charged_krw"] == event.charged_krw
+    assert done["usage"] is not None  # 영수증은 그대로 — 장부에 있으니까
+    assert done["wallet_remaining_krw"] is None  # 지갑 숫자는 들고 오지 않는다
+
+
+def test_no_ledger_row_means_no_receipt(
+    client: TestClient, db_session: Session, budgeted, config, dev_user
+) -> None:
+    """Review round 2, finding 4: the quarter closed while streaming.
+
+    finish_turn writes no usage event, so the done payload must carry no
+    usage either — a 0원 receipt would claim a charge the ledger does not
+    have, and vanish on reload.
+    """
+    from datetime import datetime, timezone
+
+    from app.models import (
+        ChatMessage,
+        ChatMessageStatus,
+        ChatRole,
+        Conversation,
+        Quarter,
+        QuarterStatus,
+    )
+    from app.services import chat as chat_service
+    from app.services.claude_provider import ChatRequest
+
+    conversation = Conversation(user_id=dev_user.id, title="분기 끝")
+    db_session.add(conversation)
+    db_session.flush()
+    mine = ChatMessage(
+        conversation_id=conversation.id,
+        user_id=dev_user.id,
+        role=ChatRole.USER,
+        content="안녕",
+        status=ChatMessageStatus.COMPLETE,
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(mine)
+    db_session.commit()
+
+    model = default_model(db_session, config)
+    turn = chat_service.PreparedTurn(
+        conversation_id=conversation.id,
+        user_id=dev_user.id,
+        user_message=mine,
+        request=ChatRequest(
+            system="s",
+            messages=[{"role": "user", "content": "안녕"}],
+            max_tokens=100,
+            model=model.model_id,
+            cache_ttl=None,
+        ),
+        price=price_for(db_session, model),
+        model_id=model.model_id,
+        estimated_input_tokens=10,
+    )
+    state = chat_service.TurnState(
+        raw_text="답장", input_tokens=10, output_tokens=5, stop_reason="end_turn"
+    )
+
+    # 스트림 도중 분기가 닫혔다: 더 이상 현재 분기가 없다.
+    quarter = db_session.get(Quarter, budgeted.quarter_id)
+    quarter.status = QuarterStatus.CLOSED
+    db_session.commit()
+
+    result = chat_service.finish_turn(db_session, config, turn, state)
+
+    assert result.charged_krw == 0
+    assert result.usage is None
+    assert result.wallet_remaining_krw is None
+    assert db_session.scalars(select(UsageEvent)).first() is None
+    # 답장 자체는 회원의 것이라 저장된다.
+    assert result.message is not None

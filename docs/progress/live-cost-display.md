@@ -20,10 +20,13 @@ Spec: BACKLOG › "live-cost-display — full spec". Branch
    its usage event (one query; no schema change), so receipts survive a
    reload.
 4. **Sidebar wallet updates at once**: the `done` event carries
-   `wallet_remaining_krw` (from `charge()`'s locked result);
-   `MyQuarterProvider.applyWalletRemaining` patches the context without a
-   fetch (the existing AnimatedNumber card animates). Stopped/error paths
-   keep the existing refresh.
+   `wallet_remaining_krw` — only for a **community-funded** charge (a
+   personal-funded one carries null, so the screen refetches and the
+   personal figures stay fresh); `MyQuarterProvider.applyWalletRemaining`
+   patches the context without a fetch and reports whether it could —
+   when it could not (still loading, no wallet), and on every stopped,
+   disconnected and settle path, the screen falls back to `refresh()`.
+   A true server error charges nothing, so it refreshes nothing.
 5. **A stopped or capped reply gets the same receipt**: capped replies
    end normally (the done event carries everything); a stopped reply's
    connection is gone, so the conversation is refetched shortly after and
@@ -57,3 +60,31 @@ Spec: BACKLOG › "live-cost-display — full spec". Branch
   ~0.9s later and the persisted receipt fills in; if the member has
   already moved to another conversation nothing is overwritten
   (activeIdRef guard).
+
+## Review round 2 — fixes
+
+1. A client-side stream loss is its own outcome (`disconnected`), treated
+   like 중지: the backend's detached task **does** save and charge what
+   streamed, so the "이 시도는 청구되지 않았어요" note now appears only
+   for a server-sent `error` event (nothing charged, by construction).
+   The member sees "연결이 끊어졌습니다. 여기까지 온 답장은 저장되고, 쓴
+   만큼만 차감됩니다."
+2. The late settle no longer replaces the whole thread: it finds the
+   reply saved **after my message** (`savedUserId` from the start event)
+   and swaps only that bubble, so a message sent in the same conversation
+   within 0.9s survives; when settlement is slower it retries at 0.9s /
+   1.5s / 3s and leaves the partial text alone until the saved version
+   exists.
+3. `wallet_remaining_krw` only for community-funded charges (above).
+4. No ledger row (quarter closed mid-stream) → no `usage`, so no 0원
+   receipt that a reload would contradict.
+5. `applyWalletRemaining` returns whether it applied; the done path falls
+   back to `refresh()` when it could not.
+6. Switching conversations within the settle window still refreshes the
+   wallet, just never touches the other conversation's screen.
+
+Tests added: disconnected (no not-charged note; settle fills the
+receipt), the same-conversation re-send race, the slow-settlement retry,
+the apply-fallback, personal-funded `wallet_remaining_krw: null`
+(backend), and no-ledger-row → no receipt (backend). Suites re-run green:
+backend full (PG tests running), frontend 342 vitest, tsc 0, eslint 0.
