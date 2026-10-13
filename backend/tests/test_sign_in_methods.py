@@ -29,7 +29,7 @@ def google_member(client: TestClient, db: Session, *, username="gmember", sub="g
     google_says(client, start(client), sub=sub, email=f"{username}@example.com")
     made = client.post(
         "/api/auth/google/complete",
-        json={"username": username, "display_name": "구글 회원", "invite_code": "CLUB-2026"},
+        json={"terms_accepted": True, "username": username, "display_name": "구글 회원", "invite_code": "CLUB-2026"},
     )
     assert made.status_code == 201, made.text
 
@@ -231,6 +231,7 @@ def test_a_password_member_signs_up_and_signs_in_without_google(
     made = anon_client.post(
         "/api/auth/register",
         json={
+            "terms_accepted": True,
             "username": "pwmember",
             "email": "pw@example.com",
             "password": NEW_PASSWORD,
@@ -454,6 +455,7 @@ def test_an_email_in_other_case_is_taken(anon_client: TestClient, invite_code, d
     made = anon_client.post(
         "/api/auth/register",
         json={
+            "terms_accepted": True,
             "username": "copycat",
             "email": dev_user.email.upper(),
             "password": NEW_PASSWORD,

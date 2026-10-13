@@ -20,6 +20,7 @@ SIGNUP = {
     "email": "invited@ctrl.ai",
     "password": "a-good-password",
     "display_name": "초대받은 회원",
+    "terms_accepted": True,
 }
 
 

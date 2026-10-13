@@ -69,7 +69,9 @@ disabled, so the shell is never mistaken for working functionality.
 | Route                 | Screen          | Notes                                        |
 | --------------------- | --------------- | -------------------------------------------- |
 | `/login`              | 로그인          | Korean sign-in; logged-out visitors land here |
-| `/signup`             | 회원가입        | Korean sign-up                                |
+| `/signup`             | 회원가입        | Korean sign-up; consent to the two documents below is required (privacy-and-terms) |
+| `/privacy`            | 개인정보 처리방침 | Korean privacy policy; logged out too          |
+| `/terms`              | 이용약관        | Korean terms of use; logged out too            |
 | `/`                   | Chat            | Default landing page (requires sign-in)      |
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |

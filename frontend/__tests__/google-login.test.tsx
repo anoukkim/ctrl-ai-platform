@@ -116,12 +116,14 @@ describe("Google 설정 화면", () => {
     expect((screen.getByLabelText("초대 코드") as HTMLInputElement).value).toBe("CLUB-2026");
     await user.clear(screen.getByLabelText("아이디"));
     await user.type(screen.getByLabelText("아이디"), "newbie");
+    await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "가입하고 시작하기" }));
 
     expect(completeGoogleSignup).toHaveBeenCalledWith({
       username: "newbie",
       display_name: "새 회원",
       invite_code: "CLUB-2026",
+      terms_accepted: true,
     });
   });
 

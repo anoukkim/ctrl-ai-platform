@@ -73,6 +73,11 @@ def _start_session(db: Session, response: Response, user: User, settings: Settin
     )
 
 
+#: privacy-and-terms: shown when the consent box was not ticked. The
+#: Google completion route uses the same sentence.
+TERMS_REQUIRED = "개인정보 처리방침과 이용약관에 동의해야 가입할 수 있습니다."
+
+
 @router.post(
     "/register",
     response_model=CurrentUser,
@@ -101,6 +106,12 @@ def register(
        a moment earlier, the claim changes nothing and this signup gets
        the same "unusable" message.
     """
+    # Consent first: a pure payload check that reveals nothing, costs
+    # nothing and must hold on every path (privacy-and-terms). The
+    # browser disables the button, but the backend is the rule.
+    if not payload.terms_accepted:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=TERMS_REQUIRED)
+
     address = rate_limit.client_address(request, settings)
     if rate_limit.blocked(db, address, settings):
         raise HTTPException(
@@ -149,6 +160,7 @@ def register(
         role=UserRole.MEMBER,
         account_status=AccountStatus.ACTIVE,
         invite_code_id=invite.id,
+        terms_accepted_at=datetime.now(timezone.utc),
     )
     db.add(user)
     try:

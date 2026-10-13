@@ -153,3 +153,27 @@
   height: 1px;
   background: var(--border);
 }
+
+/* 가입 동의 (privacy-and-terms) — 체크박스와 문장 한 줄. */
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.consent input {
+  margin-top: 0.2rem;
+  accent-color: var(--accent-strong);
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+}
+
+.consent a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

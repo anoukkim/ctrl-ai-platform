@@ -28,6 +28,9 @@ class RegisterRequest(BaseModel):
     #: only so that a missing code gets the Korean message from the route
     #: rather than a generic validation error.
     invite_code: str = Field(default="", max_length=60)
+    #: 개인정보 처리방침·이용약관 동의 (privacy-and-terms). Default False
+    #: for the same reason as the code: the route answers in Korean.
+    terms_accepted: bool = False
 
 
 class LoginRequest(BaseModel):
