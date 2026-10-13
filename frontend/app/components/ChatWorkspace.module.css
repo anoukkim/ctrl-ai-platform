@@ -456,6 +456,68 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 서버 도구가 돌고 있을 때 — 검색 중… (chat-plus-tools). */
+.toolStatus {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
+/* 답장이 인용한 출처 — 번호 달린 도메인 링크. */
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.7rem;
+  margin: 0.35rem 0 0;
+  padding: 0 0.2rem;
+  list-style: none;
+  font-size: var(--fs-meta);
+}
+
+.sources a {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sources a:hover {
+  color: var(--text);
+}
+
+/* 입력창 옆 도구 토글(chat-plus-tools). 모델 고르기와 같은 줄. */
+.toolChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.toolChip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.toolChip:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.toolChip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.toolChipOn {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+
 .errorNote {
   margin: 0.4rem 0 0.45rem;
   padding: 0.55rem 0.8rem;

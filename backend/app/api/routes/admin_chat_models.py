@@ -63,6 +63,12 @@ _AUDITED = (
     "visibility",
     "sort_order",
     "is_default",
+    # Server tools (chat-plus-tools): opening one changes what members can
+    # spend, so it is audited like a price.
+    "tools_web_search",
+    "tools_web_fetch",
+    "tools_code_execution",
+    "web_search_usd_per_call",
 )
 
 
@@ -84,7 +90,7 @@ def _snapshot(row: ChatModel) -> dict:
             getattr(row, field).value
             if field == "visibility"
             else str(getattr(row, field))
-            if field.endswith("_mtok")
+            if field.endswith(("_mtok", "_per_call"))
             else getattr(row, field)
         )
         for field in _AUDITED
@@ -187,6 +193,10 @@ def create_chat_model(
         visibility=payload.visibility,
         is_default=False,
         sort_order=payload.sort_order,
+        tools_web_search=payload.tools_web_search,
+        tools_web_fetch=payload.tools_web_fetch,
+        tools_code_execution=payload.tools_code_execution,
+        web_search_usd_per_call=payload.web_search_usd_per_call,
     )
     db.add(row)
     db.flush()

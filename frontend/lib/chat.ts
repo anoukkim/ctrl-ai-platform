@@ -23,6 +23,19 @@ export interface Conversation {
   last_message_at: string;
   /** 다음 답장이 쓸 모델(`ChatModelOption.id`). null이면 기본 모델. */
   chat_model_id: number | null;
+  /** 서버 도구 토글(chat-plus-tools). 모델이 허용할 때만 실제로 쓰입니다. */
+  use_web_search?: boolean;
+  use_web_fetch?: boolean;
+  use_code_execution?: boolean;
+}
+
+/** 서버 도구 한 가지. */
+export type ToolKind = "web_search" | "web_fetch" | "code_execution";
+
+/** 답장이 인용한 출처 하나 — 번호 달린 링크로 보여 줍니다. */
+export interface ReplySource {
+  title: string;
+  url: string;
 }
 
 export type ChatRole = "user" | "assistant";
@@ -42,6 +55,8 @@ export interface ChatMessage {
   capped_krw?: number | null;
   /** 답장의 영수증 — 장부의 숫자. 대화를 다시 열어도 그대로 옵니다. */
   receipt?: ReplyReceipt | null;
+  /** 웹 검색이 인용한 출처(chat-plus-tools). 도구를 안 썼으면 null. */
+  sources?: ReplySource[] | null;
   created_at: string;
 }
 
@@ -51,6 +66,9 @@ export interface ReplyUsage {
   output_tokens: number;
   cache_write_tokens: number | null;
   cache_read_tokens: number | null;
+  /** 청구된 웹 검색 횟수와 그 요금(원). 0이면 검색 줄이 없습니다. */
+  web_search_count?: number;
+  tool_fee_krw?: number;
 }
 
 /** 답장 아래 영수증(live-cost-display). 합계는 장부가 차감한 금액입니다. */
@@ -106,6 +124,12 @@ export interface ChatModelOption {
   /** "recent" — 최근 실제 답장의 중앙값(비용 보정), "formula" — 공식 어림값. */
   estimate_basis?: "recent" | "formula";
   estimate_samples?: number;
+  /** 관리자가 이 모델에 열어 둔 서버 도구(chat-plus-tools). */
+  tools_web_search?: boolean;
+  tools_web_fetch?: boolean;
+  tools_code_execution?: boolean;
+  /** 웹 검색 1회 요금(원). 환율이 없으면 null. */
+  web_search_krw_per_call?: number | null;
 }
 
 export interface ChatInfo {
@@ -167,6 +191,24 @@ export function modelLabel(info: ChatInfo | null, modelId: string | null): strin
   return info.models.find((model) => model.model_id === modelId)?.label ?? "";
 }
 
+/** 도구 토글(chat-plus-tools). 모델이 허용하지 않으면 백엔드가 400으로 거절합니다. */
+export function setConversationTool(
+  id: number,
+  tool: ToolKind,
+  enabled: boolean,
+): Promise<Conversation> {
+  const field =
+    tool === "web_search"
+      ? "use_web_search"
+      : tool === "web_fetch"
+        ? "use_web_fetch"
+        : "use_code_execution";
+  return request<Conversation>(`/chat/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ [field]: enabled }),
+  });
+}
+
 export function renameConversation(id: number, title: string): Promise<Conversation> {
   return request<Conversation>(`/chat/conversations/${id}`, {
     method: "PATCH",
@@ -204,6 +246,16 @@ export type StreamOutcome =
 export interface StreamHandlers {
   onStart?: (userMessage: ChatMessage, estimate: StreamEstimate | null) => void;
   onDelta?: (text: string) => void;
+  /**
+   * 서버 도구가 돌기 시작했거나 끝났을 때 — "검색 중…" 줄의 재료.
+   * 끝난 사용은 방금 더해진 비용(원)을 함께 들고 와서, 흐르는 약 N원이
+   * 그 순간 눈에 띄게 뜁니다. 정산은 영수증(장부)이 합니다.
+   */
+  onTool?: (
+    kind: ToolKind,
+    status: "running" | "done" | "error",
+    addedKrw?: number,
+  ) => void;
 }
 
 /**
@@ -263,6 +315,8 @@ export async function sendMessage(
     const payload = JSON.parse(data);
     if (name === "start") handlers.onStart?.(payload.user_message, payload.estimate ?? null);
     else if (name === "delta") handlers.onDelta?.(payload.text);
+    else if (name === "tool")
+      handlers.onTool?.(payload.kind, payload.status, payload.added_krw ?? 0);
     else if (name === "done")
       outcome = {
         kind: "done",

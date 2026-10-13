@@ -46,7 +46,7 @@ from app.models import (
     UsageFeature,
     User,
 )
-from app.services import calibration, chat_limits, pricing, providers
+from app.services import calibration, chat_limits, chat_tools, pricing, providers
 from app.services import usage as usage_service
 from app.services import chat_models as chat_models_service
 from app.services.chat_models import ChosenModel
@@ -391,6 +391,10 @@ class PreparedTurn:
     #: `tokens(streamed text) × rate` and labels the sum 약.
     estimate_base_krw: int = 0
     won_per_1k_output: float = 0.0
+    #: Server tools this turn sends (chat-plus-tools) and the per-search
+    #: dollar price the fee is charged at.
+    tools: tuple[str, ...] = ()
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
 
 @dataclass
@@ -402,6 +406,12 @@ class TurnState:
     output_tokens: int = 0
     cache_write_tokens: int = 0
     cache_read_tokens: int = 0
+    #: Billed web searches (chat-plus-tools) — the fee rides on these.
+    web_search_count: int = 0
+    #: Pages fetched — no fee, recorded in the ledger.
+    web_fetch_count: int = 0
+    #: [{"title": str, "url": str}, ...] the reply cited, saved with it.
+    sources: list[dict[str, str]] | None = None
     stop_reason: str | None = None
     stopped: bool = False
     error: ClaudeError | None = None
@@ -443,16 +453,36 @@ def prepare_turn(
     # reports real usage — the charge is exact, with no estimate of an
     # aborted stream. Thinking tokens count toward `max_tokens` and are
     # billed as output, so the cap covers them too.
+    # Server tools (chat-plus-tools): sent only when the member's toggle
+    # AND the model's switch are both on. Their worst case joins every
+    # money check below, so neither the wallet nor the cap can be passed
+    # by a fee the tokens did not show.
+    tools = chat_tools.tools_in_force(conversation, model)
+    # The wallet covers a turn's full possible cost (fees + the fetch
+    # cap); the per-reply cap reserves every enabled tool's worst case —
+    # fees AND result tokens (the owner's rule) — so a tooled reply's
+    # charge stays inside the cap (`chat_tools.cap_extra_krw`).
+    tool_extra = chat_tools.worst_case_extra_krw(price, tools, model.web_search_usd_per_call)
+    cap_tool_extra = chat_tools.cap_extra_krw(price, tools, model.web_search_usd_per_call)
+
     limits = chat_limits.current(db)
     max_tokens = settings.chat_max_output_tokens
     reply_cap_krw: int | None = None
     if limits.reply_cap_krw > 0:
         affordable_output = chat_limits.output_budget(
-            price, limits.reply_cap_krw, calibrated_input
+            price, limits.reply_cap_krw - cap_tool_extra, calibrated_input
         )
         if affordable_output < 1:
-            # The input alone reaches the cap: refuse free of charge, with
-            # the same advice as the long-history warning.
+            # The input (and any tool worst case) alone reaches the cap:
+            # refuse free of charge, naming what to change.
+            if cap_tool_extra > 0:
+                names = ", ".join(chat_tools.LABELS[kind] for kind in tools)
+                raise ChatRefusal(
+                    f"켜 둔 도구({names})의 최대 비용까지 치면 1회 비용 한도"
+                    f"({limits.reply_cap_krw:,}원)에 닿아요. 도구를 끄고 보내거나, "
+                    "관리자가 1회 비용 한도를 올려야 쓸 수 있어요.",
+                    status_code=400,
+                )
             raise ChatRefusal(
                 f"대화가 길어져 입력만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
                 "닿아요. 새 대화로 시작해 주세요.",
@@ -462,7 +492,7 @@ def prepare_turn(
             max_tokens = affordable_output
             reply_cap_krw = limits.reply_cap_krw
 
-    worst_case = price.worst_case_krw(calibrated_input, max_tokens)
+    worst_case = price.worst_case_krw(calibrated_input, max_tokens) + tool_extra
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
 
     # The running-cost estimate (live-cost-display): the input side once,
@@ -497,6 +527,7 @@ def prepare_turn(
             max_tokens=max_tokens,
             model=model.model_id,
             cache_ttl=settings.cache_ttl,
+            tools=tools,
         ),
         price=price,
         model_id=model.model_id,
@@ -505,6 +536,8 @@ def prepare_turn(
         reply_cap_krw=reply_cap_krw,
         estimate_base_krw=estimate_base_krw,
         won_per_1k_output=won_per_1k_output,
+        tools=tools,
+        web_search_usd_per_call=model.web_search_usd_per_call,
     )
 
 
@@ -521,6 +554,10 @@ class ReplyUsage:
     output_tokens: int
     cache_write_tokens: int | None
     cache_read_tokens: int | None
+    #: Billed web searches and their fee in won (chat-plus-tools). Zero
+    #: when no tool ran — the receipt then shows no 검색 line.
+    web_search_count: int = 0
+    tool_fee_krw: int = 0
 
 
 @dataclass
@@ -548,6 +585,24 @@ def _status_for(state: TurnState) -> ChatMessageStatus:
     if state.stop_reason == "max_tokens":
         return ChatMessageStatus.TRUNCATED
     return ChatMessageStatus.COMPLETE
+
+
+def _safe_sources(sources: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
+    """Only http(s) sources are saved — anything else is dropped.
+
+    The provider's citations become clickable links on the member's
+    screen; a javascript: or data: URL there would run as the member
+    (chat-plus-tools review round 2). Filtered at save time, the one
+    place every path goes through. The reply's own text is untouched.
+    """
+    if not sources:
+        return None
+    safe = [
+        source
+        for source in sources
+        if str(source.get("url", "")).lower().startswith(("http://", "https://"))
+    ]
+    return safe or None
 
 
 def finish_turn(
@@ -594,8 +649,14 @@ def finish_turn(
     charged = 0
     event_id: int | None = None
     wallet_remaining: int | None = None
+    # The tool fee (chat-plus-tools): billed searches at the catalogue's
+    # per-search price. Exact, not an estimate — the provider reported the
+    # count with its usage.
+    tool_fee = chat_tools.search_fee_krw(
+        turn.price, turn.web_search_usd_per_call, state.web_search_count
+    )
     if input_tokens or output_tokens or written or read:
-        amount = turn.price.krw(input_tokens, output_tokens, written, read)
+        amount = turn.price.krw(input_tokens, output_tokens, written, read) + tool_fee
         try:
             result = usage_service.charge(
                 db,
@@ -606,9 +667,10 @@ def finish_turn(
                 model_id=turn.model_id,
                 provider_units=input_tokens + output_tokens + written + read,
                 provider_unit="tokens",
-                provider_cost=turn.price.usd(input_tokens, output_tokens, written, read).quantize(
-                    Decimal("0.000001")
-                ),
+                provider_cost=(
+                    turn.price.usd(input_tokens, output_tokens, written, read)
+                    + Decimal(state.web_search_count) * turn.web_search_usd_per_call
+                ).quantize(Decimal("0.000001")),
                 provider_currency="USD",
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
@@ -617,6 +679,9 @@ def finish_turn(
                 estimated_input_tokens=turn.estimated_input_tokens,
                 exchange_rate_krw=turn.price.usd_krw,
                 conversation_id=conversation.id if conversation else None,
+                web_search_count=state.web_search_count or None,
+                web_fetch_count=state.web_fetch_count or None,
+                tool_fee_krw=tool_fee or None,
                 commit=False,
                 cap_to_available=True,
                 settings=settings,
@@ -653,6 +718,7 @@ def finish_turn(
             capped_krw=(
                 turn.reply_cap_krw if state.stop_reason == "max_tokens" else None
             ),
+            sources=_safe_sources(state.sources),
             usage_event_id=event_id,
             created_at=datetime.now(timezone.utc),
         )
@@ -685,6 +751,8 @@ def finish_turn(
             output_tokens=output_tokens,
             cache_write_tokens=written if cached else None,
             cache_read_tokens=read if cached else None,
+            web_search_count=state.web_search_count,
+            tool_fee_krw=tool_fee,
         )
     return TurnResult(
         message=message,

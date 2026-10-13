@@ -69,6 +69,9 @@ def test_the_done_event_reports_the_ledgers_figures(
         "output_tokens": event.output_tokens,
         "cache_write_tokens": event.cache_write_tokens,
         "cache_read_tokens": event.cache_read_tokens,
+        # chat-plus-tools: no tool ran here.
+        "web_search_count": 0,
+        "tool_fee_krw": 0,
     }
 
     db_session.refresh(budgeted)
@@ -92,6 +95,9 @@ def test_reading_the_conversation_attaches_each_replys_receipt(
         "output_tokens": event.output_tokens,
         "cache_write_tokens": event.cache_write_tokens,
         "cache_read_tokens": event.cache_read_tokens,
+        # chat-plus-tools: no tool ran here, so no 검색 line.
+        "web_search_count": 0,
+        "tool_fee_krw": 0,
         "charged_krw": event.charged_krw,
     }
 

@@ -45,6 +45,10 @@ function model(over: Partial<AdminChatModel>): AdminChatModel {
     sort_order: 10,
     updated_at: "2026-10-14T00:00:00Z",
     estimated_reply_krw: 20,
+    tools_web_search: false,
+    tools_web_fetch: false,
+    tools_code_execution: false,
+    web_search_usd_per_call: "0.01",
     ...over,
   };
 }

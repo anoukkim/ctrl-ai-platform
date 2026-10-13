@@ -106,6 +106,10 @@ class ChatRequest:
     model: str = ""
     #: "5m" / "1h" to mark the prompt cacheable; None sends no marker.
     cache_ttl: str | None = None
+    #: Server tools in force for this turn (chat-plus-tools): a subset of
+    #: {"web_search", "web_fetch", "code_execution"}. Per conversation,
+    #: because changing the tool list breaks the prompt cache.
+    tools: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -125,6 +129,35 @@ class UsageUpdate:
     output_tokens: int
     cache_write_tokens: int = 0
     cache_read_tokens: int = 0
+    #: Web searches billed so far (server_tool_use). Fees are charged per
+    #: search on top of the tokens (chat-plus-tools).
+    web_search_count: int = 0
+    #: Pages fetched so far — no fee, recorded in the ledger.
+    web_fetch_count: int = 0
+
+
+@dataclass(frozen=True)
+class ToolStatus:
+    """A server tool started or finished — the screen's 검색 중… line.
+
+    On "done" it also carries what the use just added, so the running
+    cost can jump the moment a search or fetch completes: the result
+    tokens (the mock knows them exactly; the real adapter may not and
+    sends 0 — the final usage still settles the ledger) and the billed
+    searches this use added.
+    """
+
+    kind: str  #: "web_search" | "web_fetch" | "code_execution"
+    status: str  #: "running" | "done" | "error"
+    result_tokens: int = 0
+    searches: int = 0
+
+
+@dataclass(frozen=True)
+class ToolSources:
+    """Sources the reply cites, as (title, url) pairs — saved with it."""
+
+    sources: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True)
@@ -133,7 +166,7 @@ class StreamEnd:
     stop_reason: str
 
 
-StreamEvent = TextDelta | UsageUpdate | StreamEnd
+StreamEvent = TextDelta | UsageUpdate | ToolStatus | ToolSources | StreamEnd
 
 
 @dataclass(frozen=True)
@@ -159,6 +192,65 @@ class StarterApp:
     model: str
     input_tokens: int
     output_tokens: int
+
+
+# ----------------------------------------------------- server tools
+
+#: The spec's caps (chat-plus-tools): searches and fetches are bounded so
+#: one reply cannot run up fees or pull 125k tokens of a PDF into one
+#: request. Result tokens are billed once, inside that reply — they are
+#: not persisted and never re-sent on later turns.
+WEB_SEARCH_MAX_USES = 3
+WEB_FETCH_MAX_USES = 2
+WEB_FETCH_MAX_CONTENT_TOKENS = 20_000
+
+
+def web_search_tool_type(model: str) -> str:
+    """Which web-search tool version a model takes.
+
+    Haiku 4.5 has no dynamic filtering and takes the older version; the
+    Claude 5 family takes 20260209 (the spec, 2026-10-07).
+    """
+    return "web_search_20250305" if "haiku" in model else "web_search_20260209"
+
+
+def server_tool_params(tools: tuple[str, ...], model: str) -> list[dict[str, Any]]:
+    """The request's `tools` blocks for the real API (Phase 9 turns it on).
+
+    Written now so switching CLAUDE_PROVIDER=anthropic is a configuration
+    change, exactly like every other provider seam. Only the mock
+    exercises the flows for now; no real API is called. File ids never
+    appear here — a member has no way to supply one, and code-execution
+    containers are not reused across requests.
+    """
+    blocks: list[dict[str, Any]] = []
+    for kind in tools:
+        if kind == "web_search":
+            blocks.append(
+                {
+                    "type": web_search_tool_type(model),
+                    "name": "web_search",
+                    "max_uses": WEB_SEARCH_MAX_USES,
+                    "user_location": {
+                        "type": "approximate",
+                        "country": "KR",
+                        "timezone": "Asia/Seoul",
+                    },
+                }
+            )
+        elif kind == "web_fetch":
+            blocks.append(
+                {
+                    "type": "web_fetch_20260209",
+                    "name": "web_fetch",
+                    "max_uses": WEB_FETCH_MAX_USES,
+                    "max_content_tokens": WEB_FETCH_MAX_CONTENT_TOKENS,
+                }
+            )
+        elif kind == "code_execution":
+            # Runs on Anthropic's servers only — nothing executes on ours.
+            blocks.append({"type": "code_execution_20260521", "name": "code_execution"})
+    return blocks
 
 
 class ClaudeProvider(Protocol):
@@ -418,6 +510,102 @@ _CHAT_FALLBACK = (
     "이야기해 주시면 알맞은 곳으로 안내해 드릴게요."
 )
 
+# --------------------------------------------- the mock's server tools
+
+#: Plausible, clearly-labelled example sources (chat-plus-tools).
+_MOCK_SEARCH_SOURCES: tuple[tuple[str, str], ...] = (
+    ("서울시 열린데이터 광장 — 자치구별 인구 통계", "https://data.seoul.go.kr/dataList/10727"),
+    ("통계청 KOSIS — 주민등록 인구 현황", "https://kosis.kr/statHtml/statHtml.do?orgId=101"),
+    ("연합뉴스 — 2026년 인구 동향 기사", "https://www.yna.co.kr/view/AKR20260110001"),
+)
+
+_MOCK_URL = re.compile(r"https?://[^\s)\"']+")
+
+
+def _mock_tool_turn(
+    tools: tuple[str, ...], text: str
+) -> tuple[str | None, list["StreamEvent"], tuple[tuple[str, str], ...], int, int, int]:
+    """What the mock's server tools do with one message.
+
+    Returns (reply or None, tool events, sources, billed searches,
+    fetches, extra input tokens from tool results — billed once, inside
+    this reply). Deterministic, keyed on the message like `_CHAT_RULES`,
+    and only ever reached when the request carries the tool. The canned
+    triggers:
+
+    * "검색 오류" — the tool fails (an HTTP-200 error block for real):
+      a Korean sentence, tokens charged, **no search billed**;
+    * "검색" — two billed searches, three sources, ~800 result tokens;
+    * a URL with 웹 페이지 읽기 on — one fetch, the page as the source;
+    * "실행"/"계산" with 코드 실행 on — a code-output block. The mock
+      fabricates the output; nothing is ever executed here.
+    """
+    if "web_search" in tools and "검색 오류" in text:
+        return (
+            "검색 도구가 응답하지 않아, 검색 없이 아는 범위에서 답해요. 잠시 뒤 다시 "
+            "시도해 주세요. (테스트 모드의 예시 응답입니다.)",
+            [ToolStatus("web_search", "running"), ToolStatus("web_search", "error")],
+            (),
+            0,
+            0,
+            0,
+        )
+    if "web_search" in tools and "검색" in text:
+        reply = (
+            "웹에서 찾아봤어요. 요약하면 이렇습니다.\n\n"
+            "1. 공공 데이터 기준 최신 수치는 올해 초에 갱신됐어요.\n"
+            "2. 기관마다 집계 기준이 달라서, 출처를 함께 확인하는 편이 안전해요.\n\n"
+            "자세한 내용은 아래 출처에 있어요. (테스트 모드의 예시 검색 결과입니다.)"
+        )
+        return (
+            reply,
+            [
+                ToolStatus("web_search", "running"),
+                ToolStatus("web_search", "done", result_tokens=800, searches=2),
+            ],
+            _MOCK_SEARCH_SOURCES,
+            2,
+            0,
+            800,
+        )
+    url_match = _MOCK_URL.search(text)
+    if "web_fetch" in tools and url_match:
+        url = url_match.group(0)
+        reply = (
+            "페이지를 읽었어요. 간추리면: 소개, 주요 기능, 사용 방법의 세 부분으로 "
+            "이루어져 있고, 본문은 약 1,200자예요. (테스트 모드의 예시 요약입니다.)"
+        )
+        return (
+            reply,
+            [
+                ToolStatus("web_fetch", "running"),
+                ToolStatus("web_fetch", "done", result_tokens=500),
+            ],
+            (("읽은 페이지", url),),
+            0,
+            1,
+            500,
+        )
+    if "code_execution" in tools and ("실행" in text or "계산" in text):
+        reply = (
+            "코드를 실행해 확인했어요.\n\n```text\n>>> sum(range(1, 101))\n5050\n```\n\n"
+            "1부터 100까지의 합은 5,050이에요. (테스트 모드의 예시 결과입니다 — 코드는 "
+            "Anthropic 서버에서만 실행되고, CTRL+AI 서버에서는 아무것도 실행되지 않아요.)"
+        )
+        return (
+            reply,
+            [
+                ToolStatus("code_execution", "running"),
+                ToolStatus("code_execution", "done", result_tokens=120),
+            ],
+            (),
+            0,
+            0,
+            120,
+        )
+    return (None, [], (), 0, 0, 0)
+
+
 _PROMPT_RULES: list[tuple[re.Pattern[str], str, str | None]] = [
     (
         re.compile(r"어둡|어두운|밤|톤 다운|차분"),
@@ -549,14 +737,33 @@ class MockClaudeProvider:
             kind = failure.group(1)
             raise ClaudeError(kind if kind in MEMBER_MESSAGE else ProviderErrorKind.UNKNOWN, "mock")
 
+        # The tool list sits above the system prompt in the real cache
+        # hierarchy, so toggling a tool breaks the cache — the mock
+        # simulates that by keying (and billing) a marker block when any
+        # tool is on (chat-plus-tools).
+        blocks = [request.system, *(message["content"] for message in request.messages)]
+        if request.tools:
+            blocks.insert(0, f"[tools:{','.join(request.tools)}]")
         uncached, written, read = MOCK_PROMPT_CACHE.bill(
             request.model or self.model_id,
             request.cache_ttl,
-            [request.system, *(message["content"] for message in request.messages)],
+            blocks,
+        )
+
+        # Server tools (chat-plus-tools): deterministic canned behaviour,
+        # keyed on the message like the mock's other rules, and only when
+        # the request carries the tool — the conversation's toggle AND the
+        # model's switch both had to be on for that.
+        tool_reply, tool_events, sources, searches, fetches, extra_input = _mock_tool_turn(
+            request.tools, last
         )
 
         def usage(output_tokens: int) -> UsageUpdate:
-            return UsageUpdate(uncached, output_tokens, written, read)
+            # Tool results enter this request as input tokens, billed once
+            # here; billed searches and fetches ride along for the ledger.
+            return UsageUpdate(
+                uncached + extra_input, output_tokens, written, read, searches, fetches
+            )
 
         yield usage(0)
 
@@ -564,15 +771,23 @@ class MockClaudeProvider:
             yield StreamEnd("refusal")
             return
 
+        for tool_event in tool_events:
+            if self.delay:
+                await asyncio.sleep(self.delay)
+            yield tool_event
+
         reply, action = _CHAT_FALLBACK, None
-        example = example_reply(whole)
-        if example is not None:
-            reply = example
+        if tool_reply is not None:
+            reply = tool_reply
         else:
-            for pattern, text, rule_action in _CHAT_RULES:
-                if pattern.search(last):
-                    reply, action = text, rule_action
-                    break
+            example = example_reply(whole)
+            if example is not None:
+                reply = example
+            else:
+                for pattern, text, rule_action in _CHAT_RULES:
+                    if pattern.search(last):
+                        reply, action = text, rule_action
+                        break
         if action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
 
@@ -595,6 +810,8 @@ class MockClaudeProvider:
             sent += len(piece)
             yield TextDelta(piece)
             yield usage(sent)
+        if sources:
+            yield ToolSources(sources)
         yield StreamEnd(stop_reason)
 
     def rewrite_video_prompt(self, prompt: str, request: str, model: str = "") -> PromptRewrite:
@@ -865,6 +1082,7 @@ class AnthropicClaudeProvider:
         max_tokens: int,
         model: str = "",
         cache_ttl: str | None = None,
+        tools: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         """The request body. With `cache_ttl`, two cache breakpoints.
 
@@ -883,6 +1101,11 @@ class AnthropicClaudeProvider:
             "messages": messages,
             **thinking_params(model, self._settings.chat_thinking, self._settings.chat_effort),
         }
+        if tools:
+            # Placed before the cache markers in spirit too: the tool list
+            # is part of the cached prefix, which is why it is chosen per
+            # conversation, never per message (chat-plus-tools).
+            params["tools"] = server_tool_params(tools, model)
         if cache_ttl is not None:
             marker: dict[str, str] = {"type": "ephemeral"}
             if cache_ttl == "1h":
@@ -903,6 +1126,9 @@ class AnthropicClaudeProvider:
         output_tokens = 0
         written = 0
         read = 0
+        searches = 0
+        fetches = 0
+        sources: list[tuple[str, str]] = []
         stop_reason = "end_turn"
         try:
             async with client.messages.stream(
@@ -912,6 +1138,7 @@ class AnthropicClaudeProvider:
                     request.max_tokens,
                     request.model,
                     request.cache_ttl,
+                    request.tools,
                 )
             ) as stream:
                 async for event in stream:
@@ -921,9 +1148,46 @@ class AnthropicClaudeProvider:
                         written = getattr(usage, "cache_creation_input_tokens", None) or 0
                         read = getattr(usage, "cache_read_input_tokens", None) or 0
                         output_tokens = usage.output_tokens or 0
-                        yield UsageUpdate(input_tokens, output_tokens, written, read)
+                        yield UsageUpdate(input_tokens, output_tokens, written, read, searches, fetches)
                     elif event.type == "content_block_delta" and event.delta.type == "text_delta":
                         yield TextDelta(event.delta.text)
+                    elif event.type == "content_block_start" and getattr(
+                        getattr(event, "content_block", None), "type", ""
+                    ).startswith("server_tool_use"):
+                        # A server tool started (chat-plus-tools). The name
+                        # is "web_search" / "web_fetch" / "code_execution".
+                        yield ToolStatus(
+                            getattr(event.content_block, "name", "web_search"), "running"
+                        )
+                    elif event.type == "content_block_start" and getattr(
+                        getattr(event, "content_block", None), "type", ""
+                    ).endswith("tool_result"):
+                        block = event.content_block
+                        kind = str(getattr(block, "type", "")).split("_tool_result")[0]
+                        kind = kind or "web_search"
+                        content = getattr(block, "content", None)
+                        # web_fetch_tool_result.content is a single object;
+                        # web_search_tool_result.content is a list. An
+                        # error result carries an error content type.
+                        items = content if isinstance(content, (list, tuple)) else (
+                            [content] if content is not None else []
+                        )
+                        failed = any(
+                            "error" in str(getattr(item, "type", "")) for item in items
+                        )
+                        if failed:
+                            yield ToolStatus(kind, "error")
+                        else:
+                            if kind == "web_fetch":
+                                fetches += 1
+                            # Result tokens are unknown mid-stream for the
+                            # real API — the final usage settles the ledger;
+                            # the live figure only jumps by what is known.
+                            yield ToolStatus(kind, "done")
+                        for item in items:
+                            url = getattr(item, "url", None)
+                            if url:
+                                sources.append((getattr(item, "title", "") or url, url))
                     elif event.type == "message_delta":
                         usage = event.usage
                         if usage is not None:
@@ -936,9 +1200,17 @@ class AnthropicClaudeProvider:
                                 written = usage.cache_creation_input_tokens
                             if getattr(usage, "cache_read_input_tokens", None) is not None:
                                 read = usage.cache_read_input_tokens
+                            server_use = getattr(usage, "server_tool_use", None)
+                            requests = getattr(server_use, "web_search_requests", None)
+                            if requests is not None:
+                                # Billed searches only — a failed search is
+                                # not counted by the API and not charged.
+                                searches = requests
                         if event.delta.stop_reason:
                             stop_reason = event.delta.stop_reason
-                        yield UsageUpdate(input_tokens, output_tokens, written, read)
+                        yield UsageUpdate(input_tokens, output_tokens, written, read, searches, fetches)
+                if sources:
+                    yield ToolSources(tuple(sources))
         except anthropic.APIError as error:
             raise classify(error) from None
         yield StreamEnd(stop_reason)

@@ -35,6 +35,12 @@ class ChatModelAdminRead(BaseModel):
     estimated_reply_krw: int | None = None
     estimate_basis: str = "formula"
     estimate_samples: int = 0
+    # Server tools (chat-plus-tools): which this model may use, and the
+    # $ one web search costs. Off until an admin opens one.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
 
 class ChatProviderRead(BaseModel):
@@ -59,6 +65,12 @@ class ChatModelCreate(BaseModel):
     #: New models start closed: an admin opens one on purpose.
     visibility: ChatModelVisibility = ChatModelVisibility.DISABLED
     sort_order: int = Field(default=100, ge=0, le=10000)
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    #: $ per web search. The bound catches a typo ($10, the per-1,000
+    #: price, typed per call), not any real price.
+    web_search_usd_per_call: Decimal = Field(default=Decimal("0.01"), ge=0, le=1, decimal_places=6)
 
 
 class ChatModelUpdate(BaseModel):
@@ -75,6 +87,12 @@ class ChatModelUpdate(BaseModel):
     visibility: ChatModelVisibility | None = None
     sort_order: int | None = Field(default=None, ge=0, le=10000)
     is_default: bool | None = None
+    tools_web_search: bool | None = None
+    tools_web_fetch: bool | None = None
+    tools_code_execution: bool | None = None
+    web_search_usd_per_call: Decimal | None = Field(
+        default=None, ge=0, le=1, decimal_places=6
+    )
 
 
 class ExchangeRateRead(BaseModel):
