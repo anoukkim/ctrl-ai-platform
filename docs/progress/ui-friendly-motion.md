@@ -116,3 +116,10 @@ Left as is, on purpose:
   member actions.
 - The wallet savepoint fix is proved on SQLite with a simulated race; a
   PostgreSQL concurrency test like the row-lock one is a follow-up.
+
+## Review round 2 — clean; three low findings, fixed
+
+- `MotionRoot` follows the reduced-motion setting live (a media query
+  listener), not only at load.
+- On a phone the guide returns focus to the menu button.
+- The reduced-motion test resets global state in `afterEach`.

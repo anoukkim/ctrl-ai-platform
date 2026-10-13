@@ -269,34 +269,29 @@ Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **ui-friendly-motion** · M1 · branch `feat-ui-friendly-motion`
-   Friendlier, less developer-like screens with short, tasteful motion
-   (the `motion` library), plain-Korean copy, empty states and a
-   first-visit guide. Spec saved verbatim below.
-
-2. **deepseek-research** · M3 (research for more-chat-providers) · branch
+1. **deepseek-research** · M3 (research for more-chat-providers) · branch
    `docs-deepseek`
    Research only, no code: can DeepSeek join the chat model catalogue —
    its own API, and hosts that serve DeepSeek models outside China. Writes
    `docs/research/` and a note under `more-chat-providers`. Can run any
    time. Spec saved verbatim below.
 
-3. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
+2. **chat-plus-rendering** · M1 · branch `feat-chat-plus-rendering`
    Replies render Markdown — tables, code blocks with a copy button — and
    the four Chat welcome cards become **기능 둘러보기**, example prompts
    (표 만들기, 파일 요약, 차트 그리기, 웹페이지 만들기). Spec below.
 
-4. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-5. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day. Report Issue
    (`/issues`) becomes a board: members write notes there and read every
    public note with no names; Admin can hide a note, export notes as
@@ -306,14 +301,14 @@ before the post-beta work, which is specced under **After the beta**.
    on:** `prep-beta-launch` and `invite-only-signup` (both merged). Spec
    below, with the owner's revision.
 
-7. **token-guard** · M1 · branch `feat-token-guard`
+6. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-8. **live-cost-display** · M1 · branch `feat-live-cost-display`
+7. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -321,14 +316,14 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-9. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+8. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-10. **builder-python** · M2 · branch `feat-builder-python`
+9. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -547,20 +542,7 @@ Two notes for whoever builds it, from the work that raised it:
 
 → **chat-builder-starter — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-builder-starter--full-spec-merged-2026-10-13).
 
-## ui-friendly-motion — full spec
-
-Branch `feat-ui-friendly-motion`. M1. Added 2026-10-08 at position 2.
-**Starts after single-wallet is merged** — its wallet card and the
-animated wallet number build on that item's screens. Saved exactly as
-written by the developer.
-
-> ITEM 2 — ui-friendly-motion (branch feat-ui-friendly-motion), after Item 1 is merged
-> Goal: friendlier, less developer-like, with tasteful motion, inspired by https://www.easyui.site/ (animated React components). Our members are beginners.
-> - Motion: add the `motion` library (ask me before adding any other dependency; no Tailwind). Card hover lift, button press feedback, page and panel transitions, sidebar collapse animation, skeleton loaders instead of "불러오는 중", toast notifications for saves/deletes/downloads, a typing indicator while Chat streams, an animated wallet number when the balance changes, and gentle success states. Respect prefers-reduced-motion (no motion at all), keep animations short (150–300 ms), and never block input.
-> - Friendlier copy: replace developer terms members see with plain Korean (e.g. Draft → 작성 중, Build/Video budget wording → the single wallet, provider/model jargon → simple descriptions). Keep the English menu names unless you think a change clearly helps; propose, don't decide.
-> - Empty states with a short explanation and one clear action on every list; a short first-visit guide (3–4 steps, dismissible, remembered per browser) that shows Chat, Builder, Video and the wallet.
-> - Keep design tokens in globals.css, Pretendard, dark default, and the existing accessibility rules. Check at 1280px, 1920px and a phone width; send me screenshots (or a short screen recording) of Chat, Builder, Video, Usage and Admin.
-> Tests: reduced-motion disables animations; the guide shows once and can be reopened; empty states render; existing tests still pass.
+→ **ui-friendly-motion — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#ui-friendly-motion--full-spec-merged-2026-10-13).
 
 ## deepseek-research — full spec
 
