@@ -162,10 +162,10 @@ def isolated_storage(tmp_path) -> Generator[None, None, None]:
     """
     from app.core.config import get_settings
 
-    settings = get_settings().model_copy(update={"storage_dir": str(tmp_path / "test-storage")})
-
     def override() -> object:
-        return settings
+        # Copied per request, not once: tests that monkeypatch attributes
+        # on the cached settings object (e.g. app_env) must keep working.
+        return get_settings().model_copy(update={"storage_dir": str(tmp_path / "test-storage")})
 
     app.dependency_overrides[get_settings] = override
     yield
