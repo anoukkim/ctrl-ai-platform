@@ -81,3 +81,38 @@ Found by the browser check and fixed here:
   savepoint and reads the winner's row (`test_two_first_requests_for_a_new_wallet_do_not_fail`).
 - The sidebar name wrapped onto three lines with the extra footer button;
   it is now one line with an ellipsis.
+
+## Review round 1 — 16 findings (4 medium, 12 low)
+
+Fixed:
+- Reduced motion now stops **all** motion animations, fades included
+  (`MotionGlobalConfig.skipAnimations` in `MotionRoot`), not only position.
+- The guide traps Tab inside itself and gives focus back to the ? button.
+- The page fade is skipped on the first load, so the server's HTML never
+  waits blank for JavaScript.
+- Sidebar labels now fade in when the rail opens.
+- Announcements: toasts announce once (the region), the typing dots have a
+  hidden text line, the skeleton inside Chat's log is quiet.
+- Hover lift only where a mouse exists (`@media (hover: hover)`); toasts no
+  longer catch clicks on phones; `.btn` keeps its colour transition; the
+  wallet number counts from what is on screen.
+- Member-facing developer words removed: the libraries' error text (it
+  printed a `uvicorn` command), "개인 접근 토큰", "모델" in the picker
+  (→ 답장 방식), a stale "Draft" comment.
+- Empty states with one action added: Chat's list (새 대화 시작), Profile's
+  apps. The guide's wallet step says where the card is on a phone, and
+  opening the guide from the phone menu closes the menu.
+- Tests added: motion animations skipped under reduced motion; a toast goes
+  away; the Usage screen's empty state.
+
+Left as is, on purpose:
+- Loaders loop (skeleton 1.4 s, typing dots 1 s): they show waiting, not a
+  transition; the 150–300 ms rule is for transitions. Both stop under
+  reduced motion.
+- Admin tables keep their one-line empty text (staff screens, and each
+  already says what fills it); `CommentSection` is still the mock of
+  Phases 5 and 8.
+- Admin saves keep `ResultMessage` (now with a checkmark); toasts are for
+  member actions.
+- The wallet savepoint fix is proved on SQLite with a simulated race; a
+  PostgreSQL concurrency test like the row-lock one is a follow-up.

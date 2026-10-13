@@ -285,8 +285,7 @@ export default function VideoLibrary() {
         <div className={styles.error}>
           <p className={styles.errorTitle}>영상 프로젝트를 불러오지 못했습니다</p>
           <p className={styles.errorText}>
-            {state.message}. 백엔드가 실행 중인지 확인해 주세요. <code>backend</code> 폴더에서{" "}
-            <code>uvicorn app.main:app --reload --port 8000</code>을 실행하면 됩니다.
+            {state.message}. 잠시 후 다시 시도해 주세요. 계속 안 되면 Report Issue로 알려 주세요.
           </p>
           <button className="btn btn-sm" type="button" onClick={reload}>
             다시 시도

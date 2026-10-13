@@ -15,11 +15,21 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+const getMyUsage = vi.fn();
+vi.mock("@/lib/quarters", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/quarters")>();
+  return { ...actual, getMyUsage: () => getMyUsage() };
+});
+
+import { MotionGlobalConfig } from "motion/react";
+
 import AnimatedNumber from "@/app/components/AnimatedNumber";
+import MotionRoot from "@/app/components/MotionRoot";
 import EmptyState from "@/app/components/EmptyState";
 import GuideProvider, { GUIDE_STEPS, GUIDE_STORAGE_KEY, useGuide } from "@/app/components/FirstVisitGuide";
 import Skeleton from "@/app/components/Skeleton";
 import ToastProvider, { useToast } from "@/app/components/ToastProvider";
+import UsageView from "@/app/usage/UsageView";
 import { DRAFT_LABEL } from "@/lib/projects";
 
 function setReducedMotion(reduce: boolean) {
@@ -64,6 +74,18 @@ describe("움직임 줄이기", () => {
 
     rerender(<AnimatedNumber value={79_980} format={won} />);
     await waitFor(() => expect(screen.getByTestId("animated-number").textContent).toBe("79,980원"));
+  });
+
+  test("motion의 움직임도 모두 건너뛴다 (흐려짐 포함)", async () => {
+    setReducedMotion(true);
+    render(
+      <MotionRoot>
+        <p>내용</p>
+      </MotionRoot>,
+    );
+    await waitFor(() => expect(MotionGlobalConfig.skipAnimations).toBe(true));
+    setReducedMotion(false);
+    MotionGlobalConfig.skipAnimations = false;
   });
 
   test("움직임을 켜 두면 새 값까지 세어 간다", async () => {
@@ -150,6 +172,23 @@ describe("빈 목록", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  test("실제 화면 — 쓴 기록이 없는 Usage", async () => {
+    getMyUsage.mockResolvedValue({
+      quarter_code: "2026-Q4",
+      quarter_name: "2026 Q4",
+      days_remaining: 80,
+      membership_status: "active",
+      wallet: { budget_krw: 80_000, consumed_krw: 0, remaining_krw: 80_000 },
+      breakdown: [],
+      personal: { balance_krw: 0, consumed_krw: 0, remaining_krw: 0, overage_enabled: false },
+      events: [],
+    });
+    render(<UsageView />);
+    const empty = await screen.findByTestId("empty-state");
+    expect(empty.textContent).toContain("아직 쓴 기록이 없어요");
+    expect(screen.getByRole("link", { name: "Chat에서 시작하기" })).toBeTruthy();
+  });
+
   test("링크로 가는 할 일도 된다", () => {
     render(<EmptyState title="t" text="x" action={{ label: "Chat에서 시작하기", href: "/" }} />);
     expect(screen.getByRole("link", { name: "Chat에서 시작하기" }).getAttribute("href")).toBe("/");
@@ -180,7 +219,8 @@ describe("나머지", () => {
     );
     await user.click(screen.getByRole("button", { name: "바꾸기" }));
     expect(await screen.findByText("이름을 바꿨어요.")).toBeTruthy();
-  });
+    await waitFor(() => expect(screen.queryByText("이름을 바꿨어요.")).toBeNull(), { timeout: 5000 });
+  }, 10_000);
 
   test("상태 배지는 개발자 말 대신 '작성 중'", () => {
     expect(DRAFT_LABEL).toBe("작성 중");

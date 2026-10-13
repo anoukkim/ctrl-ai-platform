@@ -22,20 +22,25 @@ export default function AnimatedNumber({
 }) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(value);
-  const previous = useRef(value);
+  // What is on screen right now — a new change mid-count starts from here,
+  // not from the last target, so the number never jumps.
+  const onScreen = useRef(value);
 
   useEffect(() => {
-    const from = previous.current;
-    previous.current = value;
+    const from = onScreen.current;
     if (from === value) return;
     if (reduced) {
+      onScreen.current = value;
       queueMicrotask(() => setShown(value));
       return;
     }
     const controls = animate(from, value, {
       duration: 0.4,
       ease: "easeOut",
-      onUpdate: (latest) => setShown(Math.round(latest)),
+      onUpdate: (latest) => {
+        onScreen.current = Math.round(latest);
+        setShown(onScreen.current);
+      },
     });
     return () => controls.stop();
   }, [value, reduced]);

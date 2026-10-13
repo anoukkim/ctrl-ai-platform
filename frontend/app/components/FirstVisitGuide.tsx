@@ -43,7 +43,7 @@ export const GUIDE_STEPS: Step[] = [
   {
     Icon: Wallet,
     title: "동아리 지원금",
-    text: "왼쪽 아래 카드가 이번 분기 지원금이에요. 채팅도 영상도 여기서 쓰고, 버튼 옆에 예상 비용이 먼저 보여요.",
+    text: "메뉴 아래쪽 카드가 이번 분기 지원금이에요(휴대폰에서는 위의 '메뉴'를 눌러 보세요). 채팅도 영상도 여기서 쓰고, 버튼 옆에 예상 비용이 먼저 보여요.",
   },
 ];
 
@@ -109,6 +109,15 @@ export default function GuideProvider({
 function GuideDialog({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const primary = useRef<HTMLButtonElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  // 닫으면 연 단추(사이드바의 ?)로 초점을 돌려줍니다.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    return () => {
+      if (opener && typeof opener.focus === "function") opener.focus();
+    };
+  }, []);
   const last = step === GUIDE_STEPS.length - 1;
   const { Icon, title, text } = GUIDE_STEPS[step];
 
@@ -118,7 +127,28 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Tab은 창 안에서만 돕니다(aria-modal).
+      if (event.key !== "Tab" || box.current === null) return;
+      const focusable = Array.from(
+        box.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href]"),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!box.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -136,6 +166,7 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
       }}
     >
       <motion.div
+        ref={box}
         className={styles.dialog}
         role="dialog"
         aria-modal="true"

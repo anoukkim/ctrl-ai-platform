@@ -304,7 +304,7 @@ describe("ChatWorkspace", () => {
 
   test("the picker starts on the default model and shows its estimated cost", async () => {
     await renderChat();
-    const trigger = await screen.findByRole("button", { name: /모델: 균형 잡힌 답변/ });
+    const trigger = await screen.findByRole("button", { name: /답장 방식: 균형 잡힌 답변/ });
     expect(trigger.textContent).toContain("답장 1회 약 20원");
 
     fireEvent.click(trigger);
@@ -323,7 +323,7 @@ describe("ChatWorkspace", () => {
     });
     await renderChat();
 
-    fireEvent.click(await screen.findByRole("button", { name: /모델: 균형 잡힌 답변/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /답장 방식: 균형 잡힌 답변/ }));
     fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
     typeAndSend("안녕");
 
@@ -343,13 +343,13 @@ describe("ChatWorkspace", () => {
     // The earlier reply keeps the name of the model that wrote it.
     expect(await screen.findByText("균형 잡힌 답변 (Sonnet 5.5)", { selector: "p" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /모델: 균형 잡힌 답변/ }));
+    fireEvent.click(screen.getByRole("button", { name: /답장 방식: 균형 잡힌 답변/ }));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
     });
 
     expect(chatApi.setConversationModel).toHaveBeenCalledWith(CONVERSATION.id, HAIKU.id);
-    expect(await screen.findByRole("button", { name: /모델: 빠른 답변/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /답장 방식: 빠른 답변/ })).toBeTruthy();
   });
 
   test("a conversation whose model is no longer offered asks for another", async () => {
@@ -363,6 +363,6 @@ describe("ChatWorkspace", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "가계부 아이디어" }));
 
-    expect(await screen.findByRole("button", { name: "모델을 골라 주세요" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "답장 방식을 골라 주세요" })).toBeTruthy();
   });
 });

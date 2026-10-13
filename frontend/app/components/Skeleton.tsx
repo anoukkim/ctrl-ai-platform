@@ -14,7 +14,10 @@ export default function Skeleton({
   label = "불러오는 중…",
   lines = 3,
   variant = "lines",
+  quiet = false,
 }: {
+  /** 이미 읽어 주는 영역(대화 기록 등) 안: 따로 알리지 않습니다. */
+  quiet?: boolean;
   /** 화면 읽기 프로그램이 읽는 문구. */
   label?: string;
   lines?: number;
@@ -22,7 +25,11 @@ export default function Skeleton({
   variant?: "lines" | "card" | "inline";
 }) {
   return (
-    <div className={`${styles.wrap} ${styles[variant]}`} role="status" aria-live="polite">
+    <div
+      className={`${styles.wrap} ${styles[variant]}`}
+      role={quiet ? undefined : "status"}
+      aria-live={quiet ? undefined : "polite"}
+    >
       <span className="sr-only">{label}</span>
       {variant === "inline" ? (
         <span className={styles.bar} aria-hidden="true" />

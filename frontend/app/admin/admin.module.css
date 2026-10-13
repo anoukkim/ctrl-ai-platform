@@ -444,10 +444,15 @@
     transform 0.16s ease;
 }
 
-/* 누를 수 있는 카드만 반응합니다 — 살짝 떠오릅니다(ui-friendly-motion). */
+/* 누를 수 있는 카드만 반응합니다. 마우스가 있으면 살짝 떠오릅니다(ui-friendly-motion). */
 a.card:hover {
   border-color: var(--accent-border);
-  transform: translateY(-2px);
+}
+
+@media (hover: hover) {
+  a.card:hover {
+    transform: translateY(-2px);
+  }
 }
 
 a.card:focus-visible {

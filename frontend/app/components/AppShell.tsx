@@ -317,7 +317,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {/* 의견 보내기 — 어느 화면에서든 한 번에. 저장되고 Admin › Feedback에서
               읽습니다. */}
           <FeedbackButton variant="icon" className={styles.footerButton} />
-          <GuideButton />
+          <GuideButton onOpen={() => setMenuOpen(false)} />
           <button
             className={styles.footerButton}
             type="button"
@@ -342,14 +342,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** 사이드바 아래의 물음표 — 첫 안내를 다시 엽니다. */
-function GuideButton() {
+/** 사이드바 아래의 물음표 — 첫 안내를 다시 엽니다. 휴대폰 메뉴는 닫습니다. */
+function GuideButton({ onOpen }: { onOpen: () => void }) {
   const { open } = useGuide();
   return (
     <button
       className={styles.footerButton}
       type="button"
-      onClick={open}
+      onClick={() => {
+        onOpen();
+        open();
+      }}
       aria-label="처음 안내 다시 보기"
       title="처음 안내 다시 보기"
     >

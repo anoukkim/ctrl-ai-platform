@@ -458,7 +458,8 @@ export default function ChatWorkspace() {
             compact
             icon={MessageSquare}
             title="아직 대화가 없어요"
-            text="오른쪽 입력창에 궁금한 것을 적으면 첫 대화가 여기에 생겨요."
+            text="입력창에 궁금한 것을 적으면 첫 대화가 여기에 생겨요."
+            action={{ label: "새 대화 시작", onClick: startNew, disabled: streaming }}
           />
         )}
 
@@ -549,7 +550,7 @@ export default function ChatWorkspace() {
         <div className={styles.threadScroll} ref={threadRef} role="log" aria-label="대화 내용">
           <div className={styles.threadInner}>
             {loadingConversation ? (
-              <Skeleton label="대화를 불러오는 중…" />
+              <Skeleton quiet label="대화를 불러오는 중…" />
             ) : !started ? (
               // 아직 대화가 없을 때만 보이는 안내. 대화가 시작되면 사라집니다.
               <div className={styles.empty}>
@@ -596,10 +597,11 @@ export default function ChatWorkspace() {
                         {message.content}
                         {message.streaming && !message.content && (
                           // 첫 글자가 오기 전: 세 점이 차례로 뛰는 "쓰는 중"(ui-friendly-motion).
-                          <span className={styles.typing} role="status" aria-label="답장을 쓰는 중">
-                            <span />
-                            <span />
-                            <span />
+                          <span className={styles.typing}>
+                            <span aria-hidden="true" />
+                            <span aria-hidden="true" />
+                            <span aria-hidden="true" />
+                            <span className="sr-only">답장을 쓰는 중</span>
                           </span>
                         )}
                         {message.streaming && message.content && (

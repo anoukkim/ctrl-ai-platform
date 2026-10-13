@@ -378,7 +378,7 @@
   vertical-align: middle;
 }
 
-.typing span {
+.typing span[aria-hidden] {
   width: 6px;
   height: 6px;
   border-radius: 999px;
@@ -386,11 +386,11 @@
   animation: typing-bounce 1s ease-in-out infinite;
 }
 
-.typing span:nth-child(2) {
+.typing span[aria-hidden]:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.typing span:nth-child(3) {
+.typing span[aria-hidden]:nth-child(3) {
   animation-delay: 0.3s;
 }
 
@@ -409,7 +409,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .caret,
-  .typing span {
+  .typing span[aria-hidden] {
     animation: none;
   }
 }
