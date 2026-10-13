@@ -463,7 +463,7 @@
   .shell {
     display: grid;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-    transition: grid-template-columns 0.18s ease;
+    transition: grid-template-columns 0.2s ease;
     align-items: start;
   }
 
@@ -618,5 +618,14 @@
 
   .mainChat .mainInner {
     height: 100%;
+  }
+}
+
+/* 사이드바를 접고 펼 때 이름이 함께 흐려졌다 나타납니다(ui-friendly-motion). */
+@media (min-width: 60rem) {
+  .navLabel,
+  .brandPhase,
+  .navGroupLabel {
+    transition: opacity 0.18s ease;
   }
 }

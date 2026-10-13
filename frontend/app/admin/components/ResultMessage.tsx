@@ -10,6 +10,8 @@
  * 실패는 `role="alert"`로 더 급하게 알립니다.
  */
 
+import { CheckCircle2 } from "lucide-react";
+
 import styles from "../admin.module.css";
 
 export interface Result {
@@ -33,7 +35,11 @@ export default function ResultMessage({
       }`}
       role={result.kind === "error" ? "alert" : "status"}
     >
-      <span>{result.text}</span>
+      {/* 성공은 체크 하나가 톡 나타나며 알립니다(ui-friendly-motion). */}
+      {result.kind === "ok" && (
+        <CheckCircle2 className="success-pop" size={15} aria-hidden="true" style={{ flex: "none" }} />
+      )}
+      <span style={{ flex: "1 1 auto" }}>{result.text}</span>
       {onDismiss && (
         <button className={styles.resultClose} type="button" onClick={onDismiss}>
           <span className="sr-only">닫기</span>✕

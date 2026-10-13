@@ -325,17 +325,17 @@ describe("수정 · 이어서 만들기", () => {
 });
 
 describe("상태 배지", () => {
-  test("최종본을 골라도 배지는 Draft — Ready는 회원에게 보이지 않는다", async () => {
+  test("최종본을 골라도 배지는 작성 중 — Ready는 회원에게 보이지 않는다", async () => {
     const user = userEvent.setup();
     const chosen = { ...project(KLING, [version()]), final_version_id: 11, status: "ready" as const };
     api.updateVideoProject.mockResolvedValue(chosen);
     await open(project(KLING, [version()]));
-    expect(screen.getByText("Draft")).toBeDefined();
+    expect(screen.getByText("작성 중")).toBeDefined();
 
     await user.click(screen.getByRole("button", { name: /최종본으로 선택/ }));
 
     await waitFor(() => expect(api.updateVideoProject).toHaveBeenCalled());
-    expect(screen.getByText("Draft")).toBeDefined();
+    expect(screen.getByText("작성 중")).toBeDefined();
     expect(screen.queryByText("Ready")).toBeNull();
   });
 });

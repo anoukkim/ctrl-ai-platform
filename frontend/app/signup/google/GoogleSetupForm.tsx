@@ -31,6 +31,7 @@ import {
 import styles from "@/app/login/auth.module.css";
 
 import DataLocationNotice from "../DataLocationNotice";
+import Skeleton from "@/app/components/Skeleton";
 
 type State =
   | { phase: "loading" }
@@ -123,7 +124,7 @@ export default function GoogleSetupForm() {
           <p className={styles.subtitle}>CTRL+AI에서 쓸 아이디와 이름을 정해 주세요.</p>
         </div>
 
-        {state.phase === "loading" && <p className="small muted">불러오는 중…</p>}
+        {state.phase === "loading" && <Skeleton />}
 
         {state.phase === "missing" && (
           <>

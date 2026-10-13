@@ -22,6 +22,7 @@ import AdminTable, { type Column } from "../components/AdminTable";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function FeedbackAdmin() {
   const [items, setItems] = useState<FeedbackAdminItem[] | null>(null);
@@ -57,7 +58,7 @@ export default function FeedbackAdmin() {
     return (
       <>
         <PageHeader />
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       </>
     );
   }

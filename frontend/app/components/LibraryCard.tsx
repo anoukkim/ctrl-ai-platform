@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { describeError } from "@/lib/http";
 
 import styles from "./library.module.css";
+import { useToast } from "./ToastProvider";
 
 /** 메뉴 한 줄. `href`가 있으면 링크로 그립니다 — WorkspaceTitle과 같습니다. */
 export interface CardAction {
@@ -69,6 +70,7 @@ export default function LibraryCard({
   thumbnailPlacement = "top",
 }: LibraryCardProps) {
   const [open, setOpen] = useState(false);
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [busy, setBusy] = useState(false);
@@ -238,7 +240,10 @@ export default function LibraryCard({
                         className={styles.cardMenuItem}
                         download
                         href={action.href}
-                        onClick={() => setOpen(false)}
+                        onClick={() => {
+                          setOpen(false);
+                          toast.show("내려받기를 시작했어요.", "info");
+                        }}
                         role="menuitem"
                         title={action.title}
                       >

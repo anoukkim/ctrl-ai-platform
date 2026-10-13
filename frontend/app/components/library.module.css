@@ -63,11 +63,16 @@
   color: var(--text);
   transition:
     border-color 0.14s ease,
-    background-color 0.14s ease;
+    background-color 0.14s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
+/* 손을 올리면 살짝 떠오릅니다(ui-friendly-motion). */
 .card:hover {
   border-color: var(--accent-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow), 0 10px 24px var(--scrim);
 }
 
 /* 옆에 그림을 두는 배치 — 지금은 쓰지 않지만 LibraryCard가 받습니다. */

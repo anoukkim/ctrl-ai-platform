@@ -440,12 +440,14 @@
   text-decoration: none;
   transition:
     border-color 0.12s ease,
-    background-color 0.12s ease;
+    background-color 0.12s ease,
+    transform 0.16s ease;
 }
 
-/* 누를 수 있는 카드만 반응합니다. */
+/* 누를 수 있는 카드만 반응합니다 — 살짝 떠오릅니다(ui-friendly-motion). */
 a.card:hover {
   border-color: var(--accent-border);
+  transform: translateY(-2px);
 }
 
 a.card:focus-visible {

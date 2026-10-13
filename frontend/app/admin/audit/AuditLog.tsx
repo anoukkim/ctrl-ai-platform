@@ -25,6 +25,7 @@ import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import PageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function AuditLogView() {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
@@ -114,7 +115,7 @@ export default function AuditLogView() {
         </div>
       )}
 
-      {error === null && entries === null && <p className="small muted">불러오는 중…</p>}
+      {error === null && entries === null && <Skeleton />}
 
       {error === null && entries !== null && (
         <>

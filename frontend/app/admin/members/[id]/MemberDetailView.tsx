@@ -48,6 +48,7 @@ import styles from "../../admin.module.css";
 import Fact from "./Fact";
 import WithdrawalPanel from "./WithdrawalPanel";
 import PageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function MemberDetailView({ userId }: { userId: number }) {
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
@@ -121,7 +122,7 @@ export default function MemberDetailView({ userId }: { userId: number }) {
   }
 
   if (member === null) {
-    return <p className="small muted">불러오는 중…</p>;
+    return <Skeleton />;
   }
 
   const quarterRows = member.quarters;

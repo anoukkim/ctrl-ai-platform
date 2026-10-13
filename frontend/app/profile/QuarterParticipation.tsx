@@ -28,6 +28,7 @@ import {
 } from "@/lib/quarters";
 
 import styles from "./profile.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 type State =
   | { phase: "loading" }
@@ -90,7 +91,7 @@ export default function QuarterParticipation() {
   if (state.phase === "loading") {
     return (
       <section className={styles.season}>
-        <p className="small dim">분기 정보를 불러오는 중…</p>
+        <Skeleton label="분기 정보를 불러오는 중…" />
       </section>
     );
   }

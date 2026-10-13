@@ -27,6 +27,7 @@ import { describeError } from "@/lib/http";
 import { GOOGLE_START_URL, googleResultMessage, login } from "@/lib/auth";
 
 import styles from "./auth.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password" }) {
   const site = useSite();
@@ -100,7 +101,7 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
         )}
 
         {!loaded && mode === "auto" ? (
-          <p className="small muted">불러오는 중…</p>
+          <Skeleton />
         ) : googleFirst ? (
           <GoogleButton href={GOOGLE_START_URL} />
         ) : (

@@ -29,6 +29,7 @@ import { describeError } from "@/lib/http";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 const THINKING_LABEL: Record<string, string> = {
   off: "끔 (끌 수 있는 모델에서)",
@@ -116,7 +117,7 @@ export default function ClaudePricingPanel() {
           <p className="small muted">Claude 설정을 불러오지 못했습니다. {error}.</p>
         </div>
       )}
-      {error === null && settings === null && <p className="small muted">불러오는 중…</p>}
+      {error === null && settings === null && <Skeleton />}
 
       {settings !== null && (
         <div className={`card ${styles.pricingCard}`}>

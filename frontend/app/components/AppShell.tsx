@@ -18,6 +18,7 @@
 
 import {
   CircleAlert,
+  CircleHelp,
   Clapperboard,
   Code2,
   Gauge,
@@ -41,8 +42,11 @@ import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
 
 import { useTheme } from "@/lib/theme";
 
+import AnimatedNumber from "./AnimatedNumber";
 import BrandMark from "./BrandMark";
 import FeedbackButton from "./FeedbackButton";
+import GuideProvider, { useGuide } from "./FirstVisitGuide";
+import Skeleton from "./Skeleton";
 
 import { useAdminNav } from "./AdminNavProvider";
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
@@ -172,9 +176,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (state.phase !== "authenticated") {
     return (
       <div className={styles.bare}>
-        <p className="small muted" style={{ padding: "2rem", textAlign: "center" }}>
-          {state.phase === "loading" ? "불러오는 중…" : "로그인 화면으로 이동합니다…"}
-        </p>
+        <div style={{ padding: "2rem", maxWidth: "28rem", margin: "0 auto", width: "100%" }}>
+          <Skeleton label={state.phase === "loading" ? "불러오는 중…" : "로그인 화면으로 이동합니다…"} />
+        </div>
       </div>
     );
   }
@@ -196,6 +200,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    // 처음 로그인한 브라우저에서 한 번 뜨는 안내(ui-friendly-motion).
+    <GuideProvider autoOpen>
     <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""}`}>
       <header className={styles.topbar}>
         <Link className={styles.brandLink} href="/" onClick={() => setMenuOpen(false)}>
@@ -311,6 +317,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {/* 의견 보내기 — 어느 화면에서든 한 번에. 저장되고 Admin › Feedback에서
               읽습니다. */}
           <FeedbackButton variant="icon" className={styles.footerButton} />
+          <GuideButton />
           <button
             className={styles.footerButton}
             type="button"
@@ -331,6 +338,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={styles.mainInner}>{children}</div>
       </main>
     </div>
+    </GuideProvider>
+  );
+}
+
+/** 사이드바 아래의 물음표 — 첫 안내를 다시 엽니다. */
+function GuideButton() {
+  const { open } = useGuide();
+  return (
+    <button
+      className={styles.footerButton}
+      type="button"
+      onClick={open}
+      aria-label="처음 안내 다시 보기"
+      title="처음 안내 다시 보기"
+    >
+      <CircleHelp size={16} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -575,7 +599,10 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
         <div className={styles.wallet}>
           <div className={styles.meterLabel}>
             <span>동아리 지원</span>
-            <span className={styles.meterValue}>{formatKrw(allocation.remaining_krw)}</span>
+            <span className={styles.meterValue}>
+              {/* 채팅 답장 하나로 줄면 새 값까지 세어 내려갑니다. */}
+              <AnimatedNumber value={allocation.remaining_krw} format={formatKrw} />
+            </span>
           </div>
           <div
             className="meter"

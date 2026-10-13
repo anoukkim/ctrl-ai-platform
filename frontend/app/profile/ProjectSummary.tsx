@@ -23,6 +23,9 @@ import {
 } from "@/lib/projects";
 
 import styles from "./profile.module.css";
+import Skeleton from "@/app/components/Skeleton";
+import EmptyState from "@/app/components/EmptyState";
+import { Clapperboard, Code2 } from "lucide-react";
 
 /** 요약이므로 최근 3개까지만 보여 줍니다. */
 const PREVIEW_COUNT = 3;
@@ -69,10 +72,16 @@ export default function ProjectSummary() {
           {builder && <span className="badge badge-muted">{builder.length}개</span>}
         </h2>
 
-        {builder === null && <p className="small dim">불러오는 중…</p>}
+        {builder === null && <Skeleton />}
 
         {builder?.length === 0 && (
-          <p className="small dim">아직 만든 프로젝트가 없습니다.</p>
+          <EmptyState
+            compact
+            icon={Code2}
+            title="아직 만든 앱이 없어요"
+            text="만들고 싶은 앱을 설명하면 작은 예시 앱부터 만들어 드려요."
+            action={{ label: "첫 앱 만들기", href: "/builder" }}
+          />
         )}
 
         {builder && builder.length > 0 && (
@@ -101,10 +110,16 @@ export default function ProjectSummary() {
           {video && <span className="badge badge-muted">{video.length}개</span>}
         </h2>
 
-        {video === null && <p className="small dim">불러오는 중…</p>}
+        {video === null && <Skeleton />}
 
         {video?.length === 0 && (
-          <p className="small dim">아직 만든 영상 프로젝트가 없습니다.</p>
+          <EmptyState
+            compact
+            icon={Clapperboard}
+            title="아직 만든 영상이 없어요"
+            text="아이디어 한 줄이면 짧은 영상을 만들 수 있어요."
+            action={{ label: "첫 영상 만들기", href: "/video" }}
+          />
         )}
 
         {video && video.length > 0 && (

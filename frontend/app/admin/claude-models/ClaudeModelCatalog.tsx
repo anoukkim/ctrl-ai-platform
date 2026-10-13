@@ -37,6 +37,7 @@ import { formatKrw } from "@/lib/quarters";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 type State =
   | { phase: "loading" }
@@ -163,7 +164,7 @@ export default function ClaudeModelCatalog() {
         />
       )}
 
-      {state.phase === "loading" && <p className="small muted">모델 목록을 불러오는 중…</p>}
+      {state.phase === "loading" && <Skeleton label="모델 목록을 불러오는 중…" />}
 
       {state.phase === "error" && (
         <div className="card">

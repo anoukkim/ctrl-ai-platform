@@ -44,6 +44,7 @@ import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 /** 상태 탭. 기본은 승인 대기 — 이 화면에 온 이유가 그것입니다. */
 const TABS: { key: string; label: string; status: ApplicationStatus | null }[] = [
@@ -183,7 +184,7 @@ export default function ApplicationReview() {
     return (
       <>
         <PageHeader />
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       </>
     );
   }

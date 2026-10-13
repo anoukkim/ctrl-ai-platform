@@ -37,6 +37,7 @@ import QuarterForm from "./QuarterForm";
 
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function QuarterAdmin() {
   const { selected, select, refresh: refreshDashboard } = useAdminQuarter();
@@ -98,7 +99,7 @@ export default function QuarterAdmin() {
     return (
       <>
         <PageHeader />
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       </>
     );
   }

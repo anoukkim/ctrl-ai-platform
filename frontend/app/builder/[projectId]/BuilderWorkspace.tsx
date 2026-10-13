@@ -46,6 +46,8 @@ import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import PreviewPane from "./PreviewPane";
 import styles from "./workspace.module.css";
+import Skeleton from "@/app/components/Skeleton";
+import { useToast } from "@/app/components/ToastProvider";
 
 type Mode = "code" | "preview" | "split";
 
@@ -108,6 +110,7 @@ function highlight(code: string): React.ReactNode[] {
 }
 
 export default function BuilderWorkspace({ projectId }: { projectId: string }) {
+  const toast = useToast();
   // 참여하지 않는 분기에도 이 화면은 열립니다 — 내 작업물은 언제든 볼 수
   // 있어야 하니까요. 막히는 것은 바꾸는 쪽뿐입니다.
   const mayCreate = useMayCreate();
@@ -205,13 +208,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const rename = useCallback(
     async (name: string) => {
       const updated = await updateBuilderProject(projectId, { name });
+      toast.show("이름을 바꿨어요.");
       setState({ phase: "ready", project: updated });
       // 건너가기 메뉴에도 새 이름이 보이도록.
       setSiblings((list) =>
         list.map((item) => (item.id === updated.id ? { ...item, name: updated.name } : item)),
       );
     },
-    [projectId],
+    [toast, projectId],
   );
 
   // 지운 뒤에는 이 화면이 가리킬 것이 없으므로 목록으로 돌아갑니다.
@@ -225,6 +229,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     setDeleteError(null);
     try {
       await deleteBuilderProject(projectId);
+      toast.show("삭제했어요. 실수였다면 관리자가 되살릴 수 있어요.");
       router.push("/builder");
       router.refresh();
     } catch (error) {
@@ -232,7 +237,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     } finally {
       setDeleting(false);
     }
-  }, [projectId, router]);
+  }, [toast, projectId, router]);
 
   const askToDelete = useCallback((name: string) => {
     setDeleteError(null);
@@ -249,7 +254,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     return (
       <div className={ws.shell}>
         <div className={ws.loading}>
-          <p className="muted">프로젝트를 불러오는 중…</p>
+          <Skeleton label="프로젝트를 불러오는 중…" />
         </div>
       </div>
     );

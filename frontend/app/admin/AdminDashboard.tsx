@@ -20,6 +20,7 @@ import { visibleSections, type AdminSection } from "./sections";
 
 import styles from "./admin.module.css";
 import PageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function AdminDashboard() {
   const { selected, dashboard, error } = useAdminQuarter();
@@ -33,7 +34,7 @@ export default function AdminDashboard() {
   }
 
   if (dashboard === null) {
-    return <p className="small muted">불러오는 중…</p>;
+    return <Skeleton />;
   }
 
   const sections = visibleSections(dashboard.is_development).filter(

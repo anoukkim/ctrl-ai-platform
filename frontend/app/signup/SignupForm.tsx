@@ -33,6 +33,7 @@ import {
 import styles from "@/app/login/auth.module.css";
 
 import DataLocationNotice from "./DataLocationNotice";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function SignupForm({ initialCode = "" }: { initialCode?: string }) {
   const site = useSite();
@@ -119,7 +120,7 @@ export default function SignupForm({ initialCode = "" }: { initialCode?: string 
         )}
 
         {!loaded ? (
-          <p className="small muted">불러오는 중…</p>
+          <Skeleton />
         ) : site.google_login ? (
           // google-login: 회원은 Google로 가입합니다. 아이디와 초대 코드는
           // Google에서 돌아온 뒤의 설정 화면에서 정합니다.

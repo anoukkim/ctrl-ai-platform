@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { getChatCalibration, type ModelCalibration } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
+import Skeleton from "@/app/components/Skeleton";
 
 function tokens(value: number | null): string {
   return value === null ? "–" : Math.round(value).toLocaleString("ko-KR");
@@ -57,7 +58,7 @@ export default function CalibrationPanel() {
       {error !== null ? (
         <p className="small muted">보정 정보를 불러오지 못했습니다. {error}.</p>
       ) : rows === null ? (
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       ) : (
         <div className="table-wrap">
           <table className="table">

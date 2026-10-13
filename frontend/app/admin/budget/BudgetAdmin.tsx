@@ -35,6 +35,7 @@ import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 /** 단위 이름 — 제공자가 무엇으로 셈하는지. */
 const UNIT_LABEL: Record<string, string> = { tokens: "토큰", seconds: "초" };
@@ -158,7 +159,7 @@ export default function BudgetAdmin() {
     return (
       <>
         <PageHeader />
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       </>
     );
   }

@@ -15,6 +15,7 @@ import { Suspense } from "react";
 
 import AdminFrame from "./AdminFrame";
 import AdminQuarterProvider from "./AdminQuarterProvider";
+import Skeleton from "@/app/components/Skeleton";
 
 export const metadata: Metadata = {
   title: "Admin — CTRL+AI",
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<p className="small muted">Admin을 불러오는 중…</p>}>
+    <Suspense fallback={<Skeleton label="Admin을 불러오는 중…" />}>
       <AdminQuarterProvider>
         <AdminFrame>{children}</AdminFrame>
       </AdminQuarterProvider>

@@ -41,6 +41,7 @@ import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
+import Skeleton from "@/app/components/Skeleton";
 
 type SortKey = "name" | "role" | "account" | "membership";
 
@@ -201,7 +202,7 @@ export default function MemberList() {
     return (
       <>
         <PageHeader />
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       </>
     );
   }

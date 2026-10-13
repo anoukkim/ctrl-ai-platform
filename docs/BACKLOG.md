@@ -67,7 +67,7 @@ Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
   (dynamic subset, imported in `app/layout.tsx`).
 - **`PageHeader`** (`app/components/PageHeader.tsx`) is the one list-page
   header: eyebrow, title, subtitle, action, divider. New list screens use it.
-- **Project status as members see it:** only "Draft" and "게시됨", with
+- **Project status as members see it:** only "작성 중" (was "Draft" until ui-friendly-motion) and "게시됨", with
   "생성 중…" while building or generating (`projectBadge()` in
   `lib/projects.ts`). There is no archived status (migration `7c1d5e93a4b2`).
 - **The sidebar collapses** to an icon rail, remembered per browser

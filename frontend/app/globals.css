@@ -798,6 +798,8 @@ code {
   height: 100%;
   border-radius: 999px;
   background: var(--build);
+  /* 잔액이 바뀌면 막대도 함께 줄어듭니다(ui-friendly-motion). */
+  transition: width 0.4s ease-out;
 }
 
 .meter-fill-blue {
@@ -955,5 +957,58 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .working::before {
     animation: none;
+  }
+}
+
+/* ---------- 움직임 (ui-friendly-motion) ---------- */
+
+/* 화면 전환을 감싸는 상자. Chat과 작업 공간은 높이를 꽉 채웁니다. */
+.page-transition {
+  height: 100%;
+  min-width: 0;
+}
+
+/* 누를 때 살짝 눌리는 느낌. 0.12초, 입력을 막지 않습니다. */
+.btn {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* 성공을 알리는 작은 체크 — 한 번 톡 커졌다가 자리 잡습니다. */
+.success-pop {
+  animation: success-pop 0.28s ease-out;
+}
+
+@keyframes success-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 움직임 줄이기: CSS로 만든 움직임은 모두 멈춥니다. motion 라이브러리로
+   만든 것은 MotionRoot(reducedMotion="user")가 같은 일을 합니다. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

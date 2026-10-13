@@ -23,6 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { describeError } from "@/lib/http";
 
 import ws from "./workspace.module.css";
+import { useToast } from "./ToastProvider";
 
 /** 메뉴에서 건너갈 수 있는 다른 작업물 한 줄. */
 export interface TitleSibling {
@@ -86,6 +87,7 @@ export default function WorkspaceTitle({
   extraActions = [],
 }: WorkspaceTitleProps) {
   const [open, setOpen] = useState(false);
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [busy, setBusy] = useState(false);
@@ -272,7 +274,10 @@ export default function WorkspaceTitle({
                   className={ws.switcherAction}
                   download
                   href={action.href}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    toast.show("내려받기를 시작했어요.", "info");
+                  }}
                   role="menuitem"
                   title={action.title}
                 >

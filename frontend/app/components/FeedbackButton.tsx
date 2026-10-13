@@ -14,7 +14,7 @@
  * 창의 모양은 확인창(ConfirmDialog)의 것을 그대로 씁니다.
  */
 
-import { MessageSquarePlus } from "lucide-react";
+import { CheckCircle2, MessageSquarePlus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -116,6 +116,12 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
         {sent ? (
           <>
             <p className={dialogStyles.dialogEffect} role="status">
+              <CheckCircle2
+                className="success-pop"
+                size={18}
+                aria-hidden="true"
+                style={{ verticalAlign: "-3px", marginRight: "0.35rem", color: "var(--ok-text)" }}
+              />
               고맙습니다. 운영진에게 잘 전달했어요.
             </p>
             <div className={dialogStyles.dialogActions}>
