@@ -1613,3 +1613,33 @@ The owner's words, verbatim:
 >    call any DeepSeek API; the adapter stays in more-chat-providers.
 > 6. Update the section list in CLAUDE.md section 15 and every test that
 >    counts Admin sections.
+
+## fix-beta-blockers — full spec (merged 2026-10-14)
+
+PART A1 of the owner's overnight batch of 2026-10-14 (merge pre-approved
+when clean). The owner's words, verbatim:
+
+> A1. fix-beta-blockers
+> 1. Profile shows mock apps for the hard-coded user "yurikim" to every member. Show only the signed-in member's own data, with an empty state; remove that mock path.
+> 2. Remove docs/index.html and docs/.nojekyll (the old ui-polish prototype, 3 MB). Write in the run log how I turn off GitHub Pages; do not change settings yourself.
+> 3. Three backend test files write GIFs into the real backend/var/storage. Every test uses a temporary storage dir; add a guard test that fails if any test writes there.
+> 4. httpx2 is imported at runtime but only in requirements-dev.txt. Move it to requirements.txt; add a test that imports the anthropic adapter with runtime requirements only.
+> 5. Dev-only scripts (init_db seed, reset_dev) must refuse to run in the production image; confirm and test.
+
+Checklist and decisions: [`../progress/fix-beta-blockers.md`](../progress/fix-beta-blockers.md).
+
+## personal-topup-off — full spec (merged 2026-10-14)
+
+PART A2 of the owner's overnight batch of 2026-10-14 (merge pre-approved
+when clean). The owner's words, verbatim:
+
+> A2. personal-topup-off — Owner decision 2026-10-14: personal top-ups (개인 충전) are not offered. Update CLAUDE.md sections 1, 9, 12 and 14 and docs/product.md.
+> - Remove every member-facing trace: the 개인 잔액 block on Usage and the sidebar, overage opt-in, any top-up button or copy, and 개인 충전 wording in the wallet card. Members see only the 동아리 지원 wallet.
+> - Hide Admin › Top-ups from the menu and sections.ts. The backend top-up and personal-spend routes refuse with a Korean message in every environment, behind one setting PERSONAL_TOPUP_ENABLED=false (default false, in .env.example). Keep tables and code; no migration that drops data.
+> - charge() never uses personal money while the setting is off; test it.
+> - Withdrawal: drop the 환불 대기 path from the member screen while top-ups are off; keep the backend logic for any existing balance.
+> - Add a backlog item personal-topup-ui (after the beta).
+
+Checklist and decisions (including why the 환불 대기 copy stays for money
+that already existed):
+[`../progress/personal-topup-off.md`](../progress/personal-topup-off.md).
