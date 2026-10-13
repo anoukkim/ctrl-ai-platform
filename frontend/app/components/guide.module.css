@@ -11,17 +11,32 @@
   background: var(--scrim);
 }
 
+/* Same inner padding and column rules as every other dialog
+   (confirm-dialog.module.css `.dialog`, fix-ui-polish-admin). */
 .dialog {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
   width: 100%;
   max-width: 26rem;
-  padding: 26px 24px 20px;
+  max-height: calc(100dvh - 2.4rem);
+  overflow-y: auto;
+  padding: 22px 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--elevated);
   box-shadow: var(--shadow), 0 24px 64px var(--scrim);
+}
+
+.dialog > * {
+  min-width: 0;
+}
+
+@media (max-width: 26rem) {
+  .dialog {
+    padding: 18px 16px;
+  }
 }
 
 .close {

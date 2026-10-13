@@ -15,16 +15,38 @@
   background: var(--scrim);
 }
 
+/* One inner padding for every dialog (DialogShell). The single column is
+   `minmax(0, 1fr)` and every child may shrink, so a long word, a wide
+   textarea or a row of buttons can never push past the padding; the text
+   rules are reset because a dialog must not inherit its opener's
+   (fix-ui-polish-admin). */
 .dialog {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.8rem;
   width: 100%;
   max-width: 28rem;
+  max-height: calc(100dvh - 2.4rem);
+  overflow-y: auto;
   padding: 22px 24px;
   background: var(--elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow), 0 24px 64px var(--scrim);
+  color: var(--text);
+  font-size: var(--fs-body);
+  text-align: left;
+  white-space: normal;
+}
+
+.dialog > * {
+  min-width: 0;
+}
+
+@media (max-width: 26rem) {
+  .dialog {
+    padding: 18px 16px;
+  }
 }
 
 .dialogTitle {
@@ -67,8 +89,13 @@
   gap: 0.25rem;
 }
 
+.dialogField > * {
+  min-width: 0;
+}
+
 .dialogField textarea {
   width: 100%;
+  max-width: 100%;
   resize: vertical;
   font-family: inherit;
 }
@@ -85,6 +112,7 @@
 
 .dialogActions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.4rem;

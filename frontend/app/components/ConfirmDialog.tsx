@@ -26,6 +26,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import DialogShell from "./DialogShell";
 import styles from "./confirm-dialog.module.css";
 
 export interface ConfirmRequest {
@@ -114,74 +115,65 @@ function Dialog({
   const missingReason = request.reason?.required === true && reason.trim() === "";
 
   return (
-    <div
-      className={styles.dialogBackdrop}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <DialogShell
+      onClose={onClose}
+      labelledBy="confirm-dialog-title"
+      describedBy="confirm-dialog-effect"
     >
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-effect"
-      >
-        <h2 className={styles.dialogTitle} id="confirm-dialog-title">
-          {request.title}
-        </h2>
-        {Array.isArray(request.effect) ? (
-          <ul className={`${styles.dialogEffect} ${styles.dialogEffectList}`} id="confirm-dialog-effect">
-            {request.effect.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className={styles.dialogEffect} id="confirm-dialog-effect">
-            {request.effect}
-          </p>
-        )}
+      <h2 className={styles.dialogTitle} id="confirm-dialog-title">
+        {request.title}
+      </h2>
+      {Array.isArray(request.effect) ? (
+        <ul className={`${styles.dialogEffect} ${styles.dialogEffectList}`} id="confirm-dialog-effect">
+          {request.effect.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className={styles.dialogEffect} id="confirm-dialog-effect">
+          {request.effect}
+        </p>
+      )}
 
-        {request.reason && (
-          <div className={styles.dialogField}>
-            <label className={styles.fieldLabel} htmlFor="confirm-dialog-reason">
-              {request.reason.label}
-              {request.reason.required && <span className={styles.required}> *</span>}
-            </label>
-            <textarea
-              className="field"
-              id="confirm-dialog-reason"
-              ref={reasonRef}
-              rows={3}
-              value={reason}
-              placeholder={request.reason.placeholder}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </div>
-        )}
-
-        {error && (
-          <p className={styles.dialogError} role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className={styles.dialogActions}>
-          <button className="btn" type="button" onClick={onClose} disabled={busy}>
-            취소
-          </button>
-          <button
-            className={`btn ${request.danger ? "btn-danger" : "btn-primary"}`}
-            ref={confirmRef}
-            type="button"
-            onClick={() => void request.onConfirm(reason.trim())}
-            disabled={busy || missingReason}
-            title={missingReason ? "사유를 적어야 진행할 수 있습니다" : undefined}
-          >
-            {busy ? "처리 중…" : request.confirmLabel}
-          </button>
+      {request.reason && (
+        <div className={styles.dialogField}>
+          <label className={styles.fieldLabel} htmlFor="confirm-dialog-reason">
+            {request.reason.label}
+            {request.reason.required && <span className={styles.required}> *</span>}
+          </label>
+          <textarea
+            className="field"
+            id="confirm-dialog-reason"
+            ref={reasonRef}
+            rows={3}
+            value={reason}
+            placeholder={request.reason.placeholder}
+            onChange={(event) => setReason(event.target.value)}
+          />
         </div>
+      )}
+
+      {error && (
+        <p className={styles.dialogError} role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className={styles.dialogActions}>
+        <button className="btn" type="button" onClick={onClose} disabled={busy}>
+          취소
+        </button>
+        <button
+          className={`btn ${request.danger ? "btn-danger" : "btn-primary"}`}
+          ref={confirmRef}
+          type="button"
+          onClick={() => void request.onConfirm(reason.trim())}
+          disabled={busy || missingReason}
+          title={missingReason ? "사유를 적어야 진행할 수 있습니다" : undefined}
+        >
+          {busy ? "처리 중…" : request.confirmLabel}
+        </button>
       </div>
-    </div>
+    </DialogShell>
   );
 }
