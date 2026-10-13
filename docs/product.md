@@ -41,7 +41,7 @@ principles.
 
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
-| Navigation & shell    | Built — sidebar (228px; Create · Explore · Manage (admins) · Account, collapsible to an icon rail) with quarterly participation status; menu button on narrow screens |
+| Navigation & shell    | Built — sidebar (230px; Create · Explore · Manage (admins) · Account, collapsible to an icon rail) with quarterly participation status; menu button on narrow screens |
 | Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, live 약 N원 + ledger receipts, per-reply/daily cost caps, tool toggles (웹 검색·페이지 읽기·코드 실행, mock), 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |

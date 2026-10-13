@@ -1334,6 +1334,13 @@ button.statCardActive:hover {
   padding: 0.6rem 0.2rem;
 }
 
+/* The same form standing alone as a card (초대 코드, + 모델 추가) needs
+   the card's own padding — the slim one above is for inside a table row,
+   and it used to win, leaving the fields flush with the card's edge. */
+.modelEditor:global(.card) {
+  padding: var(--card-pad-y) var(--card-pad-x);
+}
+
 .modelEditorGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -1491,6 +1498,21 @@ button.statCardActive:hover {
 }
 
 /* 공개 범위 칸의 고르는 칸: 칸 너비만큼 늘어나 옆 칸을 덮지 않게. */
+/* AI Models: one price per line inside the (non-wrapping) price cell. */
+.priceLine {
+  display: block;
+}
+
+/* Quarters: a date range on two lines. */
+.dateRange > span {
+  display: block;
+}
+
+/* AI Models: a "host/model" id may wrap at its <wbr> after the slash. */
+td.modelIdCell {
+  white-space: normal;
+}
+
 .visibilitySelect:global(.field) {
   width: auto;
   min-width: 9.5rem;

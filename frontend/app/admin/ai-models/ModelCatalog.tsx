@@ -270,7 +270,19 @@ export default function ModelCatalog() {
                                   </span>
                                 </span>
                               </td>
-                              <td className="numeric">{model.model_id}</td>
+                              <td className={`numeric ${styles.modelIdCell}`}>
+                                {/* A long "host/model" id may break after the slash. */}
+                                {model.model_id.split("/").map((part, index, parts) => (
+                                  <Fragment key={index}>
+                                    {part}
+                                    {index < parts.length - 1 && (
+                                      <>
+                                        /<wbr />
+                                      </>
+                                    )}
+                                  </Fragment>
+                                ))}
+                              </td>
                               <td>
                                 {/* 연결 전 제공자의 행은 열 수 없지만, 어쩌다 열려
                                     있는 행(옛 데이터)은 닫을 수는 있어야 하므로
@@ -324,12 +336,16 @@ export default function ModelCatalog() {
                                   </button>
                                 )}
                               </td>
+                              {/* Two lines, not one: table cells don't wrap, and
+                                  all three prices on one line pushed 설정 past
+                                  the table's right edge at 1280px. */}
                               <td className="numeric">
-                                입력 ${Number(model.input_usd_per_mtok)} · 출력 $
-                                {Number(model.output_usd_per_mtok)}
-                                <span className="small dim">
-                                  {" "}
-                                  · 캐시 읽기 ${cacheReadPrice(model)}
+                                <span className={styles.priceLine}>
+                                  입력 ${Number(model.input_usd_per_mtok)} · 출력 $
+                                  {Number(model.output_usd_per_mtok)}
+                                </span>
+                                <span className={`small dim ${styles.priceLine}`}>
+                                  캐시 읽기 ${cacheReadPrice(model)}
                                 </span>
                               </td>
                               <td className="numeric">

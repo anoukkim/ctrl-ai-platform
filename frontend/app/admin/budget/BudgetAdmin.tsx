@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useSite } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
 import {
   MEMBERSHIP_LABEL,
@@ -112,6 +113,7 @@ const PROVIDER_COLUMNS: Column<ProviderSpend>[] = [
 ];
 
 export default function BudgetAdmin() {
+  const site = useSite();
   const { selected } = useAdminQuarter();
   const quarterId = selected?.id ?? null;
   const [loaded, setLoaded] = useState<{ quarterId: number; budget: QuarterBudget } | null>(
@@ -262,8 +264,9 @@ export default function BudgetAdmin() {
           회원의 지갑은 하나지만 크레딧은 제공자마다 따로 사고, 한 번 산 크레딧은 옮길 수
           없습니다. &ldquo;지원금 총액을 이 비중으로&rdquo;는 지금까지의 사용 비율대로 지원금
           총액({formatKrw(budget.total_budget_krw)})을 나눈 참고값입니다. 제공자 청구액은
-          제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다. 개인 잔액에서 나간
-          사용도 같은 크레딧을 쓰므로 함께 셉니다.
+          제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다.
+          {/* 개인 충전이 꺼져 있는 동안(personal-topup-off)은 말하지 않습니다. */}
+          {site.top_ups_enabled && " 개인 잔액에서 나간 사용도 같은 크레딧을 쓰므로 함께 셉니다."}
         </p>
       </section>
 

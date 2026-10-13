@@ -20,6 +20,7 @@ import {
   getMemberDetail,
   type MemberDetail,
 } from "@/lib/admin";
+import { useSite } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
 import {
   MEMBERSHIP_LABEL,
@@ -51,6 +52,7 @@ import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
 
 export default function MemberDetailView({ userId }: { userId: number }) {
+  const site = useSite();
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
 
   const [member, setMember] = useState<MemberDetail | null>(null);
@@ -406,66 +408,73 @@ export default function MemberDetailView({ userId }: { userId: number }) {
         />
       </section>
 
-      {/* ---------- 개인 잔액 ---------- */}
-      <section aria-labelledby="member-personal">
-        <h2 className="section-title" id="member-personal">
-          개인 잔액
-          <span className={styles.sectionNote}>
-            동아리 지원금과 더하지 않습니다
-          </span>
-        </h2>
-        <div className={`card ${styles.factGrid}`}>
-          <Fact label="충전 잔액" value={formatKrw(member.personal?.balance_krw ?? 0)} mono />
-          <Fact label="개인 사용" value={formatKrw(member.personal?.consumed_krw ?? 0)} mono />
-          <Fact
-            label="남은 개인 잔액"
-            value={formatKrw(member.personal?.remaining_krw ?? 0)}
-            mono
-          />
-          <Fact
-            label="개인 잔액 사용"
-            value={
-              <span className={`badge ${member.personal?.overage_enabled ? "badge-ok" : "badge-muted"}`}>
-                {member.personal?.overage_enabled ? "회원이 허용" : "꺼짐"}
-              </span>
-            }
-          />
-        </div>
-
-        {member.top_ups.length > 0 && (
-          <div style={{ marginTop: "0.7rem" }}>
-            <AdminTable
-              columns={[
-                {
-                  key: "amount",
-                  header: "금액",
-                  numeric: true,
-                  render: (topUp) => formatKrw(topUp.amount_krw),
-                },
-                {
-                  key: "status",
-                  header: "상태",
-                  render: (topUp) => <TopUpBadge status={topUp.status} />,
-                },
-                {
-                  key: "requested",
-                  header: "신청",
-                  numeric: true,
-                  render: (topUp) => formatDate(topUp.requested_at),
-                },
-                {
-                  key: "reference",
-                  header: "입금 참조",
-                  render: (topUp) => topUp.payment_reference || "—",
-                },
-              ]}
-              rows={member.top_ups}
-              rowKey={(topUp) => topUp.id}
-              empty="충전 신청이 없습니다."
+      {/* ---------- 개인 잔액 ----------
+          개인 충전이 꺼져 있는 동안(personal-topup-off)은 이 회원에게 실제
+          개인 돈이나 충전 기록이 있을 때만 보입니다 — 정리할 돈은 숨기지
+          않고, 없는 기능은 보여 주지 않습니다. */}
+      {(site.top_ups_enabled ||
+        (member.personal?.balance_krw ?? 0) > 0 ||
+        member.top_ups.length > 0) && (
+        <section aria-labelledby="member-personal">
+          <h2 className="section-title" id="member-personal">
+            개인 잔액
+            <span className={styles.sectionNote}>
+              동아리 지원금과 더하지 않습니다
+            </span>
+          </h2>
+          <div className={`card ${styles.factGrid}`}>
+            <Fact label="충전 잔액" value={formatKrw(member.personal?.balance_krw ?? 0)} mono />
+            <Fact label="개인 사용" value={formatKrw(member.personal?.consumed_krw ?? 0)} mono />
+            <Fact
+              label="남은 개인 잔액"
+              value={formatKrw(member.personal?.remaining_krw ?? 0)}
+              mono
+            />
+            <Fact
+              label="개인 잔액 사용"
+              value={
+                <span className={`badge ${member.personal?.overage_enabled ? "badge-ok" : "badge-muted"}`}>
+                  {member.personal?.overage_enabled ? "회원이 허용" : "꺼짐"}
+                </span>
+              }
             />
           </div>
-        )}
-      </section>
+
+          {member.top_ups.length > 0 && (
+            <div style={{ marginTop: "0.7rem" }}>
+              <AdminTable
+                columns={[
+                  {
+                    key: "amount",
+                    header: "금액",
+                    numeric: true,
+                    render: (topUp) => formatKrw(topUp.amount_krw),
+                  },
+                  {
+                    key: "status",
+                    header: "상태",
+                    render: (topUp) => <TopUpBadge status={topUp.status} />,
+                  },
+                  {
+                    key: "requested",
+                    header: "신청",
+                    numeric: true,
+                    render: (topUp) => formatDate(topUp.requested_at),
+                  },
+                  {
+                    key: "reference",
+                    header: "입금 참조",
+                    render: (topUp) => topUp.payment_reference || "—",
+                  },
+                ]}
+                rows={member.top_ups}
+                rowKey={(topUp) => topUp.id}
+                empty="충전 신청이 없습니다."
+              />
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ---------- 회원 탈퇴 ---------- */}
       <WithdrawalPanel

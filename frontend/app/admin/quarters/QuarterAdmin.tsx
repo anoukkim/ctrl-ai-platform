@@ -116,21 +116,23 @@ export default function QuarterAdmin() {
       ),
     },
     {
+      // Two lines per range: on one line each the two date columns pushed
+      // 사용률 and the row actions past the table's edge at 1280px.
       key: "period",
       header: "기간",
       numeric: true,
-      render: (quarter) => `${formatDate(quarter.starts_at)} – ${formatDate(quarter.ends_at)}`,
+      render: (quarter) => <DateRange from={quarter.starts_at} to={quarter.ends_at} />,
     },
     {
       key: "application-period",
       header: "신청 기간",
       numeric: true,
       render: (quarter) =>
-        quarter.application_opens_at
-          ? `${formatDate(quarter.application_opens_at)} – ${formatDate(
-              quarter.application_closes_at,
-            )}`
-          : "–",
+        quarter.application_opens_at ? (
+          <DateRange from={quarter.application_opens_at} to={quarter.application_closes_at} />
+        ) : (
+          "–"
+        ),
     },
     {
       key: "status",
@@ -299,6 +301,16 @@ export default function QuarterAdmin() {
 
       <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
     </div>
+  );
+}
+
+/** A date range on two lines — "2026.10.01 –" above "2026.12.31". */
+function DateRange({ from, to }: { from: string | null; to: string | null }) {
+  return (
+    <span className={styles.dateRange}>
+      <span>{formatDate(from)} –</span>
+      <span>{formatDate(to)}</span>
+    </span>
   );
 }
 
