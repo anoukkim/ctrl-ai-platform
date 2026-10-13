@@ -1643,3 +1643,78 @@ when clean). The owner's words, verbatim:
 Checklist and decisions (including why the 환불 대기 copy stays for money
 that already existed):
 [`../progress/personal-topup-off.md`](../progress/personal-topup-off.md).
+
+## token-guard — full spec (merged 2026-10-14)
+
+Branch `feat-token-guard`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> token-guard: a per-reply cost cap (admin setting, default about 100원) that stops the reply and charges only what was used, with a Korean notice; a warning when a conversation's history is long, suggesting a new conversation, with the estimated saving; an optional daily cap per member. Stopping a reply already exists — keep its rule (stopped replies are saved and charged for tokens used).
+
+**Depends on:** `single-wallet`, `prompt-caching`, `cost-calibration`
+(all merged).
+
+1. **Per-reply cap, an admin setting** (Admin › System, audited like the
+   exchange rate; default **100원**). Enforced **before** the call rather
+   than by cutting the stream: from the calibrated input estimate and the
+   model's prices, the backend works out how many output tokens the rest
+   of the cap buys and sends that as `max_tokens` (never above
+   `CHAT_MAX_OUTPUT_TOKENS`). The API then stops at the cap itself and
+   reports real usage, so the charge is exact, with no estimate of an
+   aborted stream. Thinking tokens count toward `max_tokens` and are
+   billed as output, so the cap covers them too.
+2. **The notice.** A reply that ends with `stop_reason: "max_tokens"`
+   because of the cap is saved and charged for what was used (the
+   existing stop rule) and shows: "답장이 1회 비용 한도(100원)에 닿아
+   여기서 멈췄어요. 이어서 받으려면 '계속해 줘'라고 보내 주세요." A
+   member's own 중지 keeps today's behaviour.
+3. **If the input alone is over the cap** (a very long history on an
+   expensive model): refuse before calling, charge nothing, and show the
+   suggestion from point 4.
+4. **Long-history warning.** When the calibrated input estimate passes a
+   threshold (admin setting, default 8,000 tokens, half of
+   `CHAT_CONTEXT_TOKENS`), a note above the composer: "대화가 길어져
+   답장마다 약 N원이 더 들어요. 새 대화로 시작하면 약 M원 아낄 수
+   있어요." N and M come from the same price functions as the pre-check,
+   at the cache-read price where the history is cached
+   (`prompt-caching`), so the saving is not overstated. A 새 대화 button
+   sits beside it.
+5. **Optional daily cap per member** (admin setting, 0 = off). Counted
+   from today's `UsageEvent` rows (KST day) and checked with the wallet
+   pre-check; refused with a Korean message before anything is spent.
+   Applies to every paid feature, not only Chat.
+6. **Tests:** `max_tokens` derived from the cap and the input estimate;
+   a capped reply is saved, charged its real usage and carries the
+   notice; input over the cap is refused with no charge and no provider
+   call; the warning and its figures; the daily cap counts across
+   features and resets at KST midnight; the settings are audited.
+
+## live-cost-display — full spec (merged 2026-10-14)
+
+Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> live-cost-display (after cost-calibration): while a reply streams, show the running cost in won next to it; after it ends, a small receipt (input, output, cache read, won) and the wallet card in the sidebar updates at once. The ledger stays the single source of truth; the live figure is an estimate settled by the real usage.
+
+**Depends on:** `cost-calibration` (merged); `token-guard` (the same
+running estimate drives its cap); best after `chat-plus-rendering`,
+which reworks the same reply bubble.
+
+1. **While streaming:** beside the reply, "약 N원", updating as text
+   arrives: the calibrated input estimate plus the output so far
+   (`estimate_tokens` of the streamed text), priced for the model.
+   Always labelled as an estimate (약). Updated at most a few times a
+   second.
+2. **When it ends:** the `done` event carries the real usage the ledger
+   recorded (input, output, cache write and cache read tokens, and
+   `charged_krw`), and the bubble shows a small receipt: 입력 / 출력 /
+   캐시 읽기 / 합계 N원. The figure shown is the **ledger's**, never the
+   estimate; if they differ, the receipt simply replaces the estimate.
+3. **The sidebar wallet card updates at once** (a `MyQuarterProvider`
+   refresh, or the remaining balance carried in the `done` event), and
+   the Usage page shows the same row.
+4. **A stopped or capped reply** gets the same receipt; a failed call
+   shows "청구되지 않았어요".
+5. **Tests:** the running figure never shows without 약; the receipt's
+   numbers equal the usage event's; the wallet card changes without a
+   reload; a failed call shows no charge.

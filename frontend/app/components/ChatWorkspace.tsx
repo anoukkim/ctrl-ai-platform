@@ -105,6 +105,13 @@ const EXAMPLE_TONE: Record<ChatExample["icon"], string> = {
 /** 입력창이 늘어날 수 있는 최대 줄 수. 그보다 길어지면 안에서 스크롤됩니다. */
 const MAX_ROWS = 6;
 
+/**
+ * 중지되거나 연결이 끊긴 답장의 저장본(영수증 포함)을 다시 읽어 올 때까지
+ * 기다리는 간격. 정산이 늦으면 다음 간격으로 다시 시도하고, 다 지나도
+ * 없으면(내용 없이 중지) 지갑만 새로 읽습니다.
+ */
+const SETTLE_DELAYS_MS = [900, 1500, 3000];
+
 /** 테스트 모드 표시. prep-beta-launch가 다른 화면에도 같은 문구를 씁니다. */
 export const TEST_MODE_LABEL = "테스트 모드 – 실제 AI 결과가 아닙니다";
 
@@ -423,6 +430,62 @@ export default function ChatWorkspace() {
     });
   }, []);
 
+  /**
+   * 중지되거나 연결이 끊긴 답장의 저장본을 뒤늦게 채웁니다.
+   *
+   * done 이벤트가 오지 않았으니 영수증도, 정확한 저장본도 화면에 없습니다.
+   * 백엔드의 정산이 끝나면 대화에 내 메시지(`savedUserId`) **다음의**
+   * 답장이 생기므로 그것을 찾아 **그 말풍선 한 줄만** 바꿉니다 — 전체를
+   * 갈아끼우면 그 사이에 같은 대화에서 새로 보낸 말풍선이 지워집니다.
+   * 정산이 늦으면 다음 간격으로 다시 시도하고, 저장된 답장이 끝내 없으면
+   * (내용 없이 중지) 지갑만 새로 읽습니다. 다른 대화로 옮겨 갔으면
+   * 화면은 건드리지 않되 지갑은 맞춰 둡니다.
+   */
+  const settleStopped = useCallback(
+    function settle(
+      conversationId: number,
+      replyKey: string,
+      savedUserId: number | null,
+      attempt: number,
+    ) {
+      window.setTimeout(() => {
+        if (activeIdRef.current !== conversationId) {
+          void refreshQuarter();
+          return;
+        }
+        getConversation(conversationId)
+          .then((detail) => {
+            if (activeIdRef.current !== conversationId) {
+              void refreshQuarter();
+              return;
+            }
+            const settled =
+              savedUserId === null
+                ? undefined
+                : detail.messages.find(
+                    (message) => message.role === "assistant" && message.id > savedUserId,
+                  );
+            if (settled) {
+              setMessages((rows) =>
+                rows.map((row) => (row.key === replyKey ? toView(settled) : row)),
+              );
+              setLongHistory(detail.long_history ?? null);
+              void refreshQuarter();
+            } else if (attempt + 1 < SETTLE_DELAYS_MS.length) {
+              settle(conversationId, replyKey, savedUserId, attempt + 1);
+            } else {
+              void refreshQuarter();
+            }
+          })
+          .catch(() => {
+            // 영수증이 늦는 것뿐 — 다음에 열면 보입니다. 지갑은 맞춰 둡니다.
+            void refreshQuarter();
+          });
+      }, SETTLE_DELAYS_MS[attempt]);
+    },
+    [refreshQuarter],
+  );
+
   const send = useCallback(async () => {
     if (!mayCreate || streaming) return;
     const text = draft.trim();
@@ -491,6 +554,8 @@ export default function ChatWorkspace() {
     let estimate: StreamEstimate | null = null;
     let streamedChars = 0;
     let lastPaintAt = 0;
+    // 저장된 내 메시지의 id — 중지/끊김 뒤 저장된 답장을 찾는 기준.
+    let savedUserId: number | null = null;
     const paintEstimate = () => {
       if (estimate === null) return;
       const krw = runningEstimateKrw(estimate, streamedChars);
@@ -502,7 +567,8 @@ export default function ChatWorkspace() {
         conversationId,
         text,
         {
-          onStart: (_saved, startEstimate) => {
+          onStart: (saved, startEstimate) => {
+            savedUserId = saved.id;
             estimate = startEstimate;
             paintEstimate();
           },
@@ -530,31 +596,28 @@ export default function ChatWorkspace() {
           saved && outcome.usage ? { ...outcome.usage, charged_krw: outcome.chargedKrw } : null;
         patchReply(() => (saved ? { ...toView(saved), receipt: receipt ?? saved.receipt ?? null } : null));
         setLongHistory(outcome.longHistory ?? null);
-        if (outcome.walletRemainingKrw != null) {
-          applyWalletRemaining(outcome.walletRemainingKrw);
-        } else {
+        // 들고 온 잔액이 있으면 그 자리에서 반영하고, 반영할 곳이 없거나
+        // (아직 불러오는 중) 잔액이 없으면 새로 읽습니다.
+        if (
+          outcome.walletRemainingKrw == null ||
+          !applyWalletRemaining(outcome.walletRemainingKrw)
+        ) {
           void refreshQuarter();
         }
-      } else if (outcome.kind === "stopped") {
+      } else if (outcome.kind === "stopped" || outcome.kind === "disconnected") {
+        // 중지했거나 연결이 끊겼습니다 — 어느 쪽이든 백엔드는 그때까지
+        // 만든 답장을 저장하고 쓴 만큼 차감하므로, 차감이 없었다고
+        // 말하면 안 됩니다. 저장본과 영수증은 정산이 끝난 뒤 가져옵니다.
         patchReply((row) => (row.content ? { ...row, streaming: false, status: "stopped" } : null));
-        // 연결을 끊었으니 done 이벤트는 오지 않습니다. 백엔드가 정산을
-        // 마친 뒤 대화를 다시 읽어 영수증(그리고 정확한 저장본)을
-        // 채웁니다 — 그 사이 다른 대화로 옮겨 갔으면 건드리지 않습니다.
-        window.setTimeout(() => {
-          if (activeIdRef.current !== conversationId) return;
-          getConversation(conversationId)
-            .then((detail) => {
-              if (activeIdRef.current !== conversationId) return;
-              setMessages(detail.messages.map(toView));
-              setLongHistory(detail.long_history ?? null);
-            })
-            .catch(() => {
-              /* 영수증이 늦는 것뿐 — 다음에 열면 보입니다 */
-            });
-          void refreshQuarter();
-        }, 900);
+        if (outcome.kind === "disconnected") {
+          setSendError(
+            `${outcome.detail} 여기까지 온 답장은 저장되고, 쓴 만큼만 차감됩니다.`,
+          );
+        }
+        settleStopped(conversationId, replyKey, savedUserId, 0);
       } else {
-        // 실패한 답장은 지우고, 이유를 내 메시지 아래에 붙입니다.
+        // 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이
+        // 확실합니다. 실패한 답장은 지우고, 이유를 내 메시지 아래에 붙입니다.
         patchReply(() => null);
         setMessages((rows) =>
           rows.map((row) => (row.key === userKey ? { ...row, error: outcome.detail } : row)),
@@ -580,6 +643,7 @@ export default function ChatWorkspace() {
     mayCreate,
     refreshList,
     refreshQuarter,
+    settleStopped,
     streaming,
   ]);
 

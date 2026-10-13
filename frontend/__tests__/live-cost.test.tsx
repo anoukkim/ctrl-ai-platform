@@ -3,8 +3,8 @@
  * 봅니다 (`backend/tests/test_live_cost.py`).
  */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { runningEstimateKrw, type StreamHandlers, type StreamOutcome } from "@/lib/chat";
 
@@ -75,10 +75,16 @@ function typeAndSend(text: string) {
   fireEvent.keyDown(box, { key: "Enter" });
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
   for (const fn of Object.values(chatApi)) fn.mockReset();
   quarter.refresh.mockClear();
   quarter.applyWalletRemaining.mockClear();
+  // 반영에 성공한 것으로 — 실패하면 화면은 refresh()로 대신합니다.
+  quarter.applyWalletRemaining.mockReturnValue(true);
   chatApi.getChatInfo.mockResolvedValue({
     is_mock: true,
     rate_limit_per_minute: 10,
@@ -216,6 +222,26 @@ describe("흐르는 답장의 비용", () => {
     expect(quarter.applyWalletRemaining).not.toHaveBeenCalled();
   });
 
+  test("반영할 지갑이 없으면 refresh로 대신한다", async () => {
+    quarter.applyWalletRemaining.mockReturnValue(false);
+    chatApi.sendMessage.mockImplementation(
+      async (_id: number, _t: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onDelta?.("answer");
+        return {
+          kind: "done",
+          chargedKrw: 12,
+          message: REPLY,
+          usage: { input_tokens: 1, output_tokens: 1, cache_write_tokens: null, cache_read_tokens: null },
+          walletRemainingKrw: 79_988,
+        };
+      },
+    );
+    await renderChat();
+    typeAndSend("질문");
+
+    await waitFor(() => expect(quarter.refresh).toHaveBeenCalled());
+  });
+
   test("다시 연 대화의 답장에도 영수증이 붙는다", async () => {
     chatApi.listConversations.mockResolvedValue([CONVERSATION]);
     chatApi.getConversation.mockResolvedValue({
@@ -239,5 +265,168 @@ describe("흐르는 답장의 비용", () => {
 
     const receipt = await screen.findByTestId("receipt");
     expect(receipt.textContent).toContain("합계 4원");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 중지 · 연결 끊김 — 뒤늦은 정산 (리뷰 2라운드)                        */
+/* ------------------------------------------------------------------ */
+
+const SAVED_MINE = {
+  id: 10,
+  role: "user" as const,
+  content: "질문",
+  status: "complete" as const,
+  action: null,
+  action_title: "",
+  model_id: null,
+  created_at: "2026-10-14T00:00:00Z",
+};
+
+const SETTLED_REPLY = {
+  ...REPLY,
+  id: 11,
+  content: "부분 답장",
+  status: "stopped" as const,
+  receipt: {
+    input_tokens: 40,
+    output_tokens: 8,
+    cache_write_tokens: null,
+    cache_read_tokens: null,
+    charged_krw: 2,
+  },
+};
+
+/** 가짜 타이머에서는 waitFor를 못 쓰므로 마이크로태스크만 비웁니다. */
+async function flush(times = 6) {
+  await act(async () => {
+    for (let i = 0; i < times; i += 1) await Promise.resolve();
+  });
+}
+
+async function renderChatWithFakeTimers() {
+  const { default: ChatWorkspace } = await import("@/app/components/ChatWorkspace");
+  render(<ChatWorkspace />);
+  await flush();
+  expect(chatApi.listConversations).toHaveBeenCalled();
+}
+
+describe("중지·끊김 뒤의 정산", () => {
+  test("연결이 끊겨도 청구가 없었다고 말하지 않고, 정산 뒤 저장본을 가져온다", async () => {
+    vi.useFakeTimers();
+    chatApi.sendMessage.mockImplementation(
+      async (_id: number, _t: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onStart?.(SAVED_MINE, { base_krw: 2, won_per_1k_output: 10 });
+        handlers.onDelta?.("부분 답장");
+        return { kind: "disconnected", detail: "답장을 받는 중에 연결이 끊어졌습니다." };
+      },
+    );
+    chatApi.getConversation.mockResolvedValue({
+      ...CONVERSATION,
+      messages: [SAVED_MINE, SETTLED_REPLY],
+      long_history: null,
+    });
+    await renderChatWithFakeTimers();
+    typeAndSend("질문");
+    await flush();
+
+    // 끊긴 답장: 남은 글은 중지된 것으로 보이고, 청구 없음 문구는 없다.
+    expect(screen.getByText("부분 답장")).toBeTruthy();
+    expect(screen.queryByTestId("not-charged")).toBeNull();
+    expect(screen.getByText(/연결이 끊어졌습니다/)).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950);
+    });
+
+    expect(chatApi.getConversation).toHaveBeenCalledWith(CONVERSATION.id);
+    expect(screen.getByTestId("receipt").textContent).toContain("합계 2원");
+    expect(quarter.refresh).toHaveBeenCalled();
+  });
+
+  test("0.9초 안에 같은 대화에서 또 보내도 새 말풍선이 지워지지 않는다", async () => {
+    vi.useFakeTimers();
+    chatApi.sendMessage.mockImplementationOnce(
+      async (_id: number, _t: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onStart?.(SAVED_MINE, null);
+        handlers.onDelta?.("부분 답장");
+        return { kind: "stopped" };
+      },
+    );
+    chatApi.getConversation.mockResolvedValue({
+      ...CONVERSATION,
+      messages: [SAVED_MINE, SETTLED_REPLY],
+      long_history: null,
+    });
+    await renderChatWithFakeTimers();
+    typeAndSend("질문");
+    await flush();
+
+    // 정산 전에 바로 다음 메시지를 보낸다.
+    chatApi.sendMessage.mockImplementationOnce(
+      async (_id: number, _t: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onDelta?.("두 번째 답장");
+        return {
+          kind: "done",
+          chargedKrw: 3,
+          message: { ...REPLY, id: 13, content: "두 번째 답장" },
+          usage: { input_tokens: 1, output_tokens: 1, cache_write_tokens: null, cache_read_tokens: null },
+          walletRemainingKrw: null,
+        };
+      },
+    );
+    // 가짜 타이머에서는 Date.now가 멈춰 말풍선 key가 겹치므로 조금 흘립니다
+    // (실제 시계에서는 밀리초가 달라 겹치지 않습니다).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    typeAndSend("한 번 더");
+    await flush();
+    expect(screen.getByText("두 번째 답장")).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950);
+    });
+
+    // 중지된 첫 답장은 정산본으로 바뀌고, 두 번째 말풍선은 그대로 있다.
+    expect(screen.getByText("부분 답장")).toBeTruthy();
+    expect(screen.getByText("두 번째 답장")).toBeTruthy();
+    expect(screen.getAllByTestId("receipt").length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("정산이 늦으면 다음 간격에 다시 시도한다", async () => {
+    vi.useFakeTimers();
+    chatApi.sendMessage.mockImplementation(
+      async (_id: number, _t: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onStart?.(SAVED_MINE, null);
+        handlers.onDelta?.("부분 답장");
+        return { kind: "stopped" };
+      },
+    );
+    // 첫 번째 조회: 아직 정산 전 — 답장이 저장돼 있지 않다.
+    chatApi.getConversation
+      .mockResolvedValueOnce({ ...CONVERSATION, messages: [SAVED_MINE], long_history: null })
+      .mockResolvedValueOnce({
+        ...CONVERSATION,
+        messages: [SAVED_MINE, SETTLED_REPLY],
+        long_history: null,
+      });
+    await renderChatWithFakeTimers();
+    typeAndSend("질문");
+    await flush();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950);
+    });
+    expect(chatApi.getConversation).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("receipt")).toBeNull();
+    // 부분 글은 지워지지 않았다 (리뷰 2라운드 (b)).
+    expect(screen.getByText("부분 답장")).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
+    });
+    expect(chatApi.getConversation).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("receipt").textContent).toContain("합계 2원");
   });
 });

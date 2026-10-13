@@ -232,7 +232,15 @@ export type StreamOutcome =
       /** 차감 직후 남은 동아리 지원(원). 차감이 없었으면 null. */
       walletRemainingKrw?: number | null;
     }
+  /** 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이 확실합니다. */
   | { kind: "error"; detail: string }
+  /**
+   * 우리 쪽에서 스트림이 끊겼습니다(연결 손실, 끝나지 않은 응답).
+   * 백엔드의 produce 작업은 계속 돌아 그때까지 만든 답장을 저장하고 쓴
+   * 만큼 차감하므로, **청구가 없었다고 말하면 안 됩니다** — 중지와 같이
+   * 다룹니다.
+   */
+  | { kind: "disconnected"; detail: string }
   | { kind: "stopped" };
 
 export interface StreamHandlers {
@@ -326,14 +334,13 @@ export async function sendMessage(
     }
   } catch {
     if (signal.aborted) return { kind: "stopped" };
-    return { kind: "error", detail: "답장을 받는 중에 연결이 끊어졌습니다. 다시 보내 주세요." };
+    // 서버가 아니라 연결이 실패했습니다 — 차감이 있었을 수 있습니다.
+    return { kind: "disconnected", detail: "답장을 받는 중에 연결이 끊어졌습니다." };
   }
 
   if (buffer.trim()) handle(buffer);
   if (signal.aborted) return { kind: "stopped" };
-  return (
-    outcome ?? { kind: "error", detail: "답장이 끝까지 오지 않았습니다. 다시 보내 주세요." }
-  );
+  return outcome ?? { kind: "disconnected", detail: "답장이 끝까지 오지 않았습니다." };
 }
 
 /** 액션 단추가 여는 주소. 회원이 한 말을 아이디어로 그대로 들고 갑니다. */
