@@ -122,10 +122,13 @@ def chat_info(
 ) -> ChatInfo:
     rate = pricing.current_rate(db)
     default = chat_models.default_row(db)
+    limits = chat_limits.current(db)
     return ChatInfo(
         is_mock=settings.provider_is_mock("claude"),
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
         max_message_length=MAX_MESSAGE_LENGTH,
+        web_fetch_max_uses=limits.web_fetch_max_uses,
+        web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
         models=[_option(db, row, default, rate) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
     )

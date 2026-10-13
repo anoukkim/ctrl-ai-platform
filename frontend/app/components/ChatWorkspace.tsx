@@ -195,8 +195,13 @@ export const TOOL_META: Record<
   code_execution: { label: "코드 실행", running: "코드 실행 중…", failed: "코드 실행이 실패했어요." },
 };
 
-/** 도구를 켜기 전에 보여 줄 비용 안내(chat-plus-tools). */
-export function toolCostEffect(kind: ToolKind, searchKrw: number | null): string[] {
+/** 도구를 켜기 전에 보여 줄 비용 안내(chat-plus-tools). 페이지 읽기의
+ * 한도는 관리자 설정이라(/chat/info) 숫자를 박아 두지 않습니다. */
+export function toolCostEffect(
+  kind: ToolKind,
+  searchKrw: number | null,
+  fetchLimits?: { maxUses: number; maxTokens: number } | null,
+): string[] {
   if (kind === "web_search") {
     return [
       `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 3회).`,
@@ -205,8 +210,10 @@ export function toolCostEffect(kind: ToolKind, searchKrw: number | null): string
     ];
   }
   if (kind === "web_fetch") {
+    const uses = fetchLimits?.maxUses ?? 1;
+    const tokens = fetchLimits?.maxTokens ?? 10_000;
     return [
-      "대화에 있는 주소의 페이지를 읽어요 (한 답장에 최대 2회, 페이지당 최대 20,000토큰).",
+      `대화에 있는 주소의 페이지를 읽어요 (한 답장에 최대 ${uses}회, 페이지당 최대 ${tokens.toLocaleString()}토큰).`,
       "읽은 분량의 토큰 비용이 이 답장에 들어요 — 1회 비용 한도가 낮으면 이 도구를 켠 채 보낼 수 없어요.",
     ];
   }
@@ -738,7 +745,13 @@ export default function ChatWorkspace() {
       setConfirmError(null);
       setConfirm({
         title: `${TOOL_META[kind].label} 도구를 켤까요?`,
-        effect: toolCostEffect(kind, selectedModel?.web_search_krw_per_call ?? null),
+        effect: toolCostEffect(
+          kind,
+          selectedModel?.web_search_krw_per_call ?? null,
+          info
+            ? { maxUses: info.web_fetch_max_uses, maxTokens: info.web_fetch_max_content_tokens }
+            : null,
+        ),
         confirmLabel: "켜기",
         onConfirm: async () => {
           setConfirmBusy(true);
@@ -753,7 +766,7 @@ export default function ChatWorkspace() {
         },
       });
     },
-    [activeId, streaming, toolFlags, selectedModel],
+    [activeId, streaming, toolFlags, selectedModel, info],
   );
 
   const hint = !mayCreate

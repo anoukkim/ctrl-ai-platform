@@ -128,6 +128,8 @@ describe("도구 토글", () => {
       is_mock: true,
       rate_limit_per_minute: 10,
       max_message_length: 8000,
+      web_fetch_max_uses: 1,
+      web_fetch_max_content_tokens: 10_000,
       models: [SONNET_WITH_SEARCH],
       default_model_id: SONNET_WITH_SEARCH.id,
     });

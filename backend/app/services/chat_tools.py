@@ -25,11 +25,7 @@ from decimal import ROUND_CEILING, Decimal
 
 from app.models import Conversation
 from app.services.chat_models import ChosenModel
-from app.services.claude_provider import (
-    WEB_FETCH_MAX_CONTENT_TOKENS,
-    WEB_FETCH_MAX_USES,
-    WEB_SEARCH_MAX_USES,
-)
+from app.services.claude_provider import WEB_SEARCH_MAX_USES
 from app.services.pricing import Price
 
 #: Every kind there is, in display order.
@@ -46,8 +42,9 @@ LABELS: dict[str, str] = {
 #: code output have no API-side cap, so these are our own defensible
 #: worst cases: a search's result blocks run to roughly a thousand tokens
 #: each in practice — 2,000 is double that; code output is ordinarily a
-#: few lines — 1,000 covers a long traceback. Fetch needs no reserve of
-#: its own constant: the API caps it at `max_content_tokens`.
+#: few lines — 1,000 covers a long traceback. Fetch needs no constant of
+#: its own: the admin's 채팅 한도 settings bound it (tool-cap-defaults —
+#: 1회 × 10,000토큰 by default), and the API enforces them.
 SEARCH_RESULT_RESERVE_TOKENS = 2_000
 CODE_RESULT_RESERVE_TOKENS = 1_000
 
@@ -72,32 +69,46 @@ def search_fee_krw(price: Price, per_call_usd: Decimal, searches: int) -> int:
     return int(won)
 
 
-def cap_extra_krw(price: Price, tools: tuple[str, ...], per_call_usd: Decimal) -> int:
+def cap_extra_krw(
+    price: Price,
+    tools: tuple[str, ...],
+    per_call_usd: Decimal,
+    *,
+    fetch_max_uses: int,
+    fetch_max_content_tokens: int,
+) -> int:
     """What the per-reply cap reserves for the enabled tools: everything.
 
     The owner's rule (2026-10-14): the cap includes tool fees **and**
     result tokens. Result tokens arrive as input in the middle of the
     request, outside `max_tokens`' reach, so the only way the cap can
     honestly include them is to reserve their worst case up front —
-    priced the dear way, like the pre-check prices input. The consequence
-    is real and deliberate: a tool whose worst case alone reaches the cap
-    cannot be used until it is turned off or the admin raises the 1회
-    비용 한도 (웹 페이지 읽기 needs ≈250원 on Sonnet 5.5); the refusal in
-    `chat.prepare_turn` says exactly that.
+    priced the dear way, like the pre-check prices input. A tool whose
+    worst case alone reaches the cap cannot be used until it is turned
+    off or the admin raises the 1회 비용 한도; the refusal in
+    `chat.prepare_turn` says exactly that. At the morning-of-2026-10-14
+    defaults (cap 200원, fetch 1회 × 10,000토큰) every tool fits on every
+    member-visible model: on Sonnet 5.5 the fetch reserve is ≈35원 and
+    the search reserve ≈63원 (fees + 6,000 result tokens).
     """
     extra = 0
     if "web_search" in tools:
         extra += search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
         extra += price.worst_case_krw(WEB_SEARCH_MAX_USES * SEARCH_RESULT_RESERVE_TOKENS, 0)
     if "web_fetch" in tools:
-        extra += price.worst_case_krw(WEB_FETCH_MAX_USES * WEB_FETCH_MAX_CONTENT_TOKENS, 0)
+        extra += price.worst_case_krw(fetch_max_uses * fetch_max_content_tokens, 0)
     if "code_execution" in tools:
         extra += price.worst_case_krw(CODE_RESULT_RESERVE_TOKENS, 0)
     return extra
 
 
 def worst_case_extra_krw(
-    price: Price, tools: tuple[str, ...], per_call_usd: Decimal
+    price: Price,
+    tools: tuple[str, ...],
+    per_call_usd: Decimal,
+    *,
+    fetch_max_uses: int,
+    fetch_max_content_tokens: int,
 ) -> int:
     """What the **wallet** pre-check adds on top of the token worst case.
 
@@ -113,5 +124,5 @@ def worst_case_extra_krw(
     if "web_search" in tools:
         extra += search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
     if "web_fetch" in tools:
-        extra += price.krw(WEB_FETCH_MAX_USES * WEB_FETCH_MAX_CONTENT_TOKENS, 0)
+        extra += price.krw(fetch_max_uses * fetch_max_content_tokens, 0)
     return extra

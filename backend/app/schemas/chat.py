@@ -155,6 +155,10 @@ class ChatInfo(BaseModel):
     is_mock: bool
     rate_limit_per_minute: int
     max_message_length: int
+    #: 웹 페이지 읽기 bounds (tool-cap-defaults) — quoted in the member's
+    #: toggle dialog, so the copy never hardcodes an amount.
+    web_fetch_max_uses: int
+    web_fetch_max_content_tokens: int
     #: The models this member may pick, in catalogue order.
     models: list["ChatModelOption"] = []
     #: What a new conversation uses. None only with an empty catalogue.

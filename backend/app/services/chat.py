@@ -459,14 +459,27 @@ def prepare_turn(
     # money check below, so neither the wallet nor the cap can be passed
     # by a fee the tokens did not show.
     tools = chat_tools.tools_in_force(conversation, model)
+    limits = chat_limits.current(db)
     # The wallet covers a turn's full possible cost (fees + the fetch
     # cap); the per-reply cap reserves every enabled tool's worst case —
     # fees AND result tokens (the owner's rule) — so a tooled reply's
-    # charge stays inside the cap (`chat_tools.cap_extra_krw`).
-    tool_extra = chat_tools.worst_case_extra_krw(price, tools, model.web_search_usd_per_call)
-    cap_tool_extra = chat_tools.cap_extra_krw(price, tools, model.web_search_usd_per_call)
+    # charge stays inside the cap (`chat_tools.cap_extra_krw`). The fetch
+    # bounds are the admin's 채팅 한도 settings (tool-cap-defaults).
+    tool_extra = chat_tools.worst_case_extra_krw(
+        price,
+        tools,
+        model.web_search_usd_per_call,
+        fetch_max_uses=limits.web_fetch_max_uses,
+        fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+    )
+    cap_tool_extra = chat_tools.cap_extra_krw(
+        price,
+        tools,
+        model.web_search_usd_per_call,
+        fetch_max_uses=limits.web_fetch_max_uses,
+        fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+    )
 
-    limits = chat_limits.current(db)
     max_tokens = settings.chat_max_output_tokens
     reply_cap_krw: int | None = None
     if limits.reply_cap_krw > 0:
@@ -529,6 +542,8 @@ def prepare_turn(
             model=model.model_id,
             cache_ttl=settings.cache_ttl,
             tools=tools,
+            fetch_max_uses=limits.web_fetch_max_uses,
+            fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
         ),
         price=price,
         model_id=model.model_id,

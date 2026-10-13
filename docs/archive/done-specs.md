@@ -1865,6 +1865,13 @@ exactly as written:
    call; the warning and its figures; the daily cap counts across
    features and resets at KST midnight; the settings are audited.
 
+
+**Owner decision — 2026-10-14 (morning, tool-cap-defaults):** the default
+per-reply cap rises **100원 → 200원** — the strict cap stayed (result
+tokens reserved inside it), and at 100원 웹 페이지 읽기 could never fit.
+The default lives in `chat_limits.DEFAULTS` only; the table is never
+seeded, so no data moved.
+
 ## live-cost-display — full spec (merged 2026-10-14)
 
 Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
@@ -1958,6 +1965,14 @@ injection): there are no client tools, so a page can only steer the
 text, and links in replies show their domain. The member's query goes to
 the search provider (said in the toggle's tooltip). Code execution is not
 ZDR-eligible and runs on Anthropic's servers, never ours.
+
+**Owner decision — 2026-10-14 (morning, tool-cap-defaults):** 웹 페이지
+읽기 is bounded to **1회 per reply × 10,000토큰 per page** by default,
+and both figures became admin settings in Admin › System › 채팅 한도
+(audited, carried on each request to the adapter and the mock). With the
+cap at its new 200원 default, 웹 검색 and 페이지 읽기 fit on every
+member-visible model — pinned by a catalogue-iterating test; a cap below
+a tool's worst case still refuses with the Korean notice.
 
 ## audit-caching-and-distribution — full spec (merged 2026-10-14)
 
