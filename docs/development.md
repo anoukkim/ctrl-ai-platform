@@ -87,6 +87,15 @@ from a backup (`docs/deployment.md`, step 8).
 
 Phase 1a added accounts, so the first thing the app asks for is a login.
 
+**Google is the main way in** (google-login, 2026-10-13). With
+`GOOGLE_LOGIN_PROVIDER=mock` (the default) the login screen's **Google로
+계속하기** opens a stand-in "Google" page on the backend where you type an
+email, an account id (`sub`) and whether the email is verified — development
+only. An unknown `sub` goes to the setup screen (username, name, invite code
+`DEV-WELCOME`); a known one signs straight in. Username and password stay
+as the administrator's emergency sign-in at **`/login/password`**, which is
+where the seeded `dev` account below signs in.
+
 The seed creates a development administrator:
 
 | Field | Value |

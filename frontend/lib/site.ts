@@ -18,6 +18,8 @@ export interface SiteInfo {
   /** 회원가입 화면의 "정보가 어디에 저장되는지" 안내. 서버 .env에서 고칩니다. */
   data_location_notice: string;
   top_ups_enabled: boolean;
+  /** "Google로 계속하기"를 보여 줄지 (google-login). */
+  google_login: boolean;
   test_mode: Record<TestModeArea, boolean>;
 }
 
@@ -33,6 +35,7 @@ export const UNKNOWN_SITE: SiteInfo = {
   is_beta: false,
   data_location_notice: "",
   top_ups_enabled: true,
+  google_login: false,
   test_mode: { chat: false, builder: false, video: false, community: false },
 };
 

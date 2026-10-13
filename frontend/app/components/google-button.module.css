@@ -1,0 +1,42 @@
+/* Google로 계속하기. Google의 브랜드 규칙대로 흰 바탕에 색 있는 G를 두되,
+   모서리와 높이는 다른 버튼과 맞춥니다. 어두운 테마에서도 흰 바탕입니다. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #dadce0;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: #1f1f1f;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.button:hover {
+  background: #f7f8f8;
+  box-shadow: var(--shadow);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mark {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}

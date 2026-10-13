@@ -93,9 +93,11 @@ cd backend
 `npm.cmd` rather than `npm`: PowerShell's default execution policy blocks
 the `npm.ps1` script, and `npm.cmd` is the same command without it.
 
-Open **http://localhost:3000** and sign in with the development account
-the seed created — 아이디 `dev`, 비밀번호 `devpassword` (development only;
-the seed refuses to run anywhere else).
+Open **http://localhost:3000**. Sign-in is **Google로 계속하기** — locally
+a mock Google page where you type any email (development only). The
+seeded development account signs in at **http://localhost:3000/login/password**
+— 아이디 `dev`, 비밀번호 `devpassword` (development only; the seed refuses
+to run anywhere else).
 
 **Reset the local test data** — wipes the local database and seeds it
 again (development and a localhost database only; it refuses otherwise):

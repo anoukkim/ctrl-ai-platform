@@ -16,13 +16,22 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { UNKNOWN_SITE, fetchSite, type SiteInfo } from "@/lib/site";
 
 const SiteContext = createContext<SiteInfo>(UNKNOWN_SITE);
+/** 백엔드의 답을 받았는지(또는 못 받는다고 알았는지). 로그인 화면이 Google
+ *  버튼과 비밀번호 칸 중 무엇을 보여 줄지 정하기 전에 기다릴 때 씁니다.
+ *  Provider 바깥(화면 하나만 그리는 테스트)에서는 이미 받은 것으로 봅니다. */
+const SiteLoadedContext = createContext<boolean>(true);
 
 export function useSite(): SiteInfo {
   return useContext(SiteContext);
 }
 
+export function useSiteLoaded(): boolean {
+  return useContext(SiteLoadedContext);
+}
+
 export default function SiteProvider({ children }: { children: React.ReactNode }) {
   const [site, setSite] = useState<SiteInfo>(UNKNOWN_SITE);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +41,9 @@ export default function SiteProvider({ children }: { children: React.ReactNode }
       })
       .catch(() => {
         /* 못 읽으면 아무것도 덧붙이지 않습니다 */
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -44,5 +56,9 @@ export default function SiteProvider({ children }: { children: React.ReactNode }
     else delete root.dataset.beta;
   }, [site.is_beta]);
 
-  return <SiteContext.Provider value={site}>{children}</SiteContext.Provider>;
+  return (
+    <SiteContext.Provider value={site}>
+      <SiteLoadedContext.Provider value={loaded}>{children}</SiteLoadedContext.Provider>
+    </SiteContext.Provider>
+  );
 }

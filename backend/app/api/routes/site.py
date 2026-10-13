@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.config import Settings, get_settings
 from app.schemas.site import SiteInfo, TestMode
+from app.services.google_login import google_login_available
 
 router = APIRouter(tags=["site"])
 
@@ -28,6 +29,7 @@ def site_info(settings: Settings = Depends(get_settings)) -> SiteInfo:
         is_beta=settings.is_beta,
         data_location_notice=settings.data_location_notice.strip(),
         top_ups_enabled=settings.top_ups_enabled,
+        google_login=google_login_available(settings),
         test_mode=TestMode(
             chat=deployed and claude_mock,
             # Project Builder's starter app is written by Claude.

@@ -20,6 +20,7 @@ from app.api.routes import (
     builder,
     chat,
     feedback,
+    google_auth,
     health,
     quarters,
     site,
@@ -32,6 +33,7 @@ api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
 api_router.include_router(site.router)
 api_router.include_router(auth.router)
+api_router.include_router(google_auth.router)
 api_router.include_router(account.router)
 api_router.include_router(users.router)
 api_router.include_router(builder.router)

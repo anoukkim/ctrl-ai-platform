@@ -68,6 +68,7 @@ function site(overrides: Partial<SiteInfo> = {}): SiteInfo {
     is_beta: true,
     data_location_notice: "회원님의 정보는 Google Cloud 서울 리전(asia-northeast3)에 저장됩니다.",
     top_ups_enabled: false,
+    google_login: false,
     test_mode: { chat: false, builder: false, video: true, community: true },
     ...overrides,
   };

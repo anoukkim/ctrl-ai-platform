@@ -67,6 +67,13 @@ the same commit that adds it.
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
+| `GET /api/auth/google/start` | none | Google로 계속하기: a single-use state + PKCE verifier, then to Google (404 where Google sign-in is off) |
+| `GET /api/auth/google/callback` | none | State must match the cookie and an unexpired row; matched by Google `sub` only |
+| `GET /api/auth/google/pending` | none | The setup screen's Google sign-up, from its HttpOnly cookie |
+| `POST /api/auth/google/complete` | none | Creates the account: username, name, invite code (none for a verified ADMIN_EMAIL) |
+| `GET /api/auth/google/mock-consent` (+ `/approve`) | none | Development's stand-in Google page; 404 elsewhere |
+| `GET /api/account/google` | `get_current_user` | Is Google linked |
+| `GET /api/account/google/link/start` | `get_current_user` | Profile › 연결하기 |
 | `GET /api/auth/me` | `get_current_user` | |
 | `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
 | `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
