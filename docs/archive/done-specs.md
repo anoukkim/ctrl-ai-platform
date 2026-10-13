@@ -1579,3 +1579,37 @@ summary under **more-chat-providers** in [`../BACKLOG.md`](../BACKLOG.md).
 Merged with the owner's approval on 2026-10-14, into
 `feat-admin-and-nav-cleanup` (`30de894`), which also seeded the closed
 catalogue row (연결 준비 중) from the research's prices.
+
+### admin-and-nav-cleanup — full spec (merged 2026-10-14)
+
+Branch `feat-admin-and-nav-cleanup`. M1. Added by the owner on
+2026-10-14, to be built at once with the run's loop and pre-approval.
+The owner's words, verbatim:
+
+> 1. Remove Report Issue from the menu and remove the /issues page
+>    (redirect /issues to Chat). The 의견 보내기 button in the sidebar
+>    footer stays as the one way to send feedback. Update
+>    anonymous-feedback-board's spec to match: no menu item and no
+>    /issues; its member board is a page reached from a "다른 의견 보기"
+>    link inside the 의견 보내기 dialog. Update CLAUDE.md sections 1 and
+>    15, docs/product.md and sections.ts.
+> 2. Remove Dev Tools from Admin (menu, page, tab). Keep the backend
+>    simulate-usage route only if tests still need it; otherwise remove it
+>    too. Keep python -m app.db.reset_dev.
+> 3. Fix the Claude Models table: in the 공개 범위 column the badge, the
+>    select and the "기본으로" button overlap. One control per cell,
+>    nothing overlapping, at 1280px and at 390px (table scrolls inside its
+>    own box), both themes.
+> 4. Rename the Admin section "Claude Models" to "AI Models" (route can
+>    stay or redirect). Group the catalogue by provider with a heading per
+>    provider: Anthropic (Claude) first. "+ 모델 추가" asks for the
+>    provider first. A provider with no adapter yet is listed as "연결 준비
+>    중", and its models cannot be made visible to members or default
+>    (enforced in the backend, with a test).
+> 5. DeepSeek: merge the docs-deepseek research branch (docs only, owner
+>    approves). Add DeepSeek as a provider entry marked "연결 준비 중" with
+>    the model the research recommends, prices from the research,
+>    visibility disabled. Do not write a real DeepSeek adapter and do not
+>    call any DeepSeek API; the adapter stays in more-chat-providers.
+> 6. Update the section list in CLAUDE.md section 15 and every test that
+>    counts Admin sections.

@@ -18,10 +18,20 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Unattended run of 2026-10-13 in progress** — the owner's instruction
-to build every item in Next that needs no domain, real key or cloud
-change, merging each after the full loop. Progress and the board:
-[`progress/RUN-2026-10-13.md`](progress/RUN-2026-10-13.md).
+**Overnight batch of 2026-10-14 in progress** — the owner's instruction
+(recorded in the run log): finish `admin-and-nav-cleanup` (merged
+2026-10-14), then **fix-beta-blockers** and **personal-topup-off** (batch
+items, specs go straight to the archive when they merge), then
+`token-guard` → `live-cost-display` → `chat-plus-tools` (moved into Next,
+mock tools only), a `docs-cleanup` branch that **waits for the owner**,
+an `audit-caching-and-distribution` branch (PART F), and — only when
+PART A and B are merged and main is green — a deploy of `main` to
+`ctrlai-server` (pre-approved for this batch only). Board and details:
+[`progress/RUN-2026-10-13.md`](progress/RUN-2026-10-13.md) › "Run of
+2026-10-14".
+
+**Unattended run of 2026-10-13** — build every item in Next that needs no
+domain, real key or cloud change, merging each after the full loop.
 `invite-only-signup` (merged 2026-10-13) is deployed to `ctrlai-server`
 with `prep-beta-launch`, on mock providers; caddy waits for the A record.
 
@@ -262,31 +272,47 @@ assumption they came first. Four notes were rewritten to match:
 `test-database-isolation` second, `google-login` third, then everything
 else in the order it already had. single-wallet, prompt-caching,
 cost-calibration and chat-builder-starter merged on 2026-10-13 (through
-`feat-chat-builder-starter`) and moved to Done. Items 8–12 were added by
-the owner on 2026-10-13 as specs. `invite-only-signup`, first in that
-order, merged the same day.
+`feat-chat-builder-starter`) and moved to Done. token-guard,
+live-cost-display, chat-thinking-view, builder-python and
+anonymous-feedback-board were added by the owner on 2026-10-13 as specs.
+`invite-only-signup`, first in that order, merged the same day.
+privacy-and-terms, offsite-backups and monitoring were put at the top by
+the owner on 2026-10-14.
 
 Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **admin-and-nav-cleanup** · M1 · branch `feat-admin-and-nav-cleanup`
-   Added by the owner on 2026-10-14, to be built before the rest of Next.
-   Report Issue and Dev Tools go; the Claude Models table stops
-   overlapping; the section becomes **AI Models**, grouped by provider,
-   with DeepSeek listed as 연결 준비 중. Spec below.
+1. **privacy-and-terms** · M1 · branch `feat-privacy-and-terms`
+   Added by the owner on 2026-10-14, at the top of Next. 개인정보
+   처리방침 and 이용약관 pages in Korean for a club; consent checkbox at
+   sign-up (Google and password); links on the sign-up screen and the
+   sidebar footer. **Before members are invited, and the owner must
+   review the text** — not part of the pre-approved overnight batch.
+   Spec below.
 
-2. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+2. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+   Added by the owner on 2026-10-14. The daily `pg_dump` also copied to
+   a Cloud Storage bucket in `asia-northeast3` with a 30-day lifecycle;
+   a monthly restore test in `docs/deployment.md`. The owner creates the
+   bucket — the item lists the console steps. Spec below.
+
+3. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+   Added by the owner on 2026-10-14. An uptime check on
+   https://ctrlai.my and error alerts to the club's email, the cheapest
+   option; the owner does the console steps. Spec below.
+
+4. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+5. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-4. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day and again on
    2026-10-14 (admin-and-nav-cleanup): **no menu item and no `/issues`**
    — the member board is a page of its own, reached from a "다른 의견
@@ -299,14 +325,14 @@ before the post-beta work, which is specced under **After the beta**.
    `invite-only-signup` (both merged). Spec below, with the owner's
    revisions.
 
-5. **token-guard** · M1 · branch `feat-token-guard`
+7. **token-guard** · M1 · branch `feat-token-guard`
    Added by the owner on 2026-10-13. A per-reply cost cap (admin
    setting, about 100원) enforced through `max_tokens`, a warning on long
    conversations with the saving of starting a new one, and an optional
    daily cap per member. **Depends on:** `single-wallet`,
    `prompt-caching` and `cost-calibration` (all merged). Spec below.
 
-6. **live-cost-display** · M1 · branch `feat-live-cost-display`
+8. **live-cost-display** · M1 · branch `feat-live-cost-display`
    Added by the owner on 2026-10-13. A running cost in won beside a
    streaming reply, a small receipt when it ends, and the sidebar wallet
    card updated at once; the ledger stays the source of truth. **Depends
@@ -314,14 +340,25 @@ before the post-beta work, which is specced under **After the beta**.
    estimate), and best after `chat-plus-rendering` (same reply bubble).
    Spec below.
 
-7. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+9. **chat-plus-tools** · M2 · branch `feat-chat-plus-tools`
+   Moved from *After the beta* into Next by the owner on 2026-10-14
+   (part of the overnight batch). Web search, web fetch and code
+   execution in Chat as Anthropic server tools — **mock tools only for
+   now**: plausible results, no real API call, no real search fee. Each
+   tool switched on per catalogue model by an admin and per conversation
+   by the member, off by default, with its extra cost shown first.
+   **Depends on:** `token-guard` and `live-cost-display` (the cap
+   includes tool fees; the receipt shows them) — built after them. Spec
+   below, with the owner's 2026-10-14 rules.
+
+10. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-8. **builder-python** · M2 · branch `feat-builder-python`
+11. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -339,8 +376,6 @@ shipped**, and each has a milestone in [`ROADMAP.md`](ROADMAP.md). Full
 specs are at the end of this file; the research behind them is in
 [`research/chat-plus-research.md`](research/chat-plus-research.md).
 
-- **chat-plus-tools** · M2 — web search, web fetch and code execution in
-  Chat (Anthropic server tools), with per-search fees in the ledger.
 - **builder-static-runtime** · M2 — Phase 3's generation (Claude writes
   the project's files) plus static member apps served from a separate,
   sandboxed origin. Absorbs the Builder MVP [3].
@@ -350,6 +385,34 @@ specs are at the end of this file; the research behind them is in
 - **more-chat-providers** (optional) · M3 — Gemini, Grok, DeepSeek
   (hosted outside China only) or an aggregator as further catalogue
   providers, on the seam `chat-model-choice` left.
+- **personal-topup-ui** · M3 — bring personal top-ups back when real
+  money may move: unhide Admin › Top-ups, the 개인 잔액 block on Usage
+  and the sidebar, the overage opt-in and the top-up request flow
+  (`PERSONAL_TOPUP_ENABLED=true`), and the 환불 대기 withdrawal path on
+  the member screen. Added 2026-10-14 when `personal-topup-off` turned
+  all of it off for the beta; the tables and backend logic were kept, so
+  this is UI and a setting, not a rebuild.
+
+**Refactors** (owner, 2026-10-14 — "PART D": backlog only, do not build
+yet; each is its own branch; **never squash Alembic migrations**). The
+owner's words, kept whole in each line:
+
+- **chore-ruff** — ruff as the backend's linter and formatter, in CI and
+  the loop.
+- **refactor-charge-flow** — one price→check→call→charge helper for
+  chat, the builder starter and video, instead of three hand-rolled
+  copies.
+- **refactor-session-cookie** — one session-cookie helper; `google_auth`
+  stops importing private helpers; one Google-connection endpoint.
+- **refactor-libraries** — one library component for Builder and Video,
+  fix 프로젝트을, one modal, one `.card`, one fetch-error parser,
+  AppGrid/VideoGrid.
+- **chore-dead-code** — `MembershipRead`, `AUTO_MODEL_VALUE`,
+  `providers.get_status`, `PersonalUsage`, routes no frontend calls,
+  dead mock data, duplicated test fixtures into conftest, tests
+  importing other tests.
+- **chore-naming** — `admin.py` → `video_models`, `models/pricing.py` →
+  `chat_models`, season CSS classes, the three `workspace.module.css`.
 
 ---
 
@@ -577,39 +640,29 @@ Rules all three follow:
 
 → **member-password-login — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#member-password-login--full-spec-merged-2026-10-14).
 
-### admin-and-nav-cleanup — full spec
+→ **admin-and-nav-cleanup — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#admin-and-nav-cleanup--full-spec-merged-2026-10-14).
 
-Branch `feat-admin-and-nav-cleanup`. M1. Added by the owner on
-2026-10-14, to be built at once with the run's loop and pre-approval.
-The owner's words, verbatim:
+### privacy-and-terms — full spec
 
-> 1. Remove Report Issue from the menu and remove the /issues page
->    (redirect /issues to Chat). The 의견 보내기 button in the sidebar
->    footer stays as the one way to send feedback. Update
->    anonymous-feedback-board's spec to match: no menu item and no
->    /issues; its member board is a page reached from a "다른 의견 보기"
->    link inside the 의견 보내기 dialog. Update CLAUDE.md sections 1 and
->    15, docs/product.md and sections.ts.
-> 2. Remove Dev Tools from Admin (menu, page, tab). Keep the backend
->    simulate-usage route only if tests still need it; otherwise remove it
->    too. Keep python -m app.db.reset_dev.
-> 3. Fix the Claude Models table: in the 공개 범위 column the badge, the
->    select and the "기본으로" button overlap. One control per cell,
->    nothing overlapping, at 1280px and at 390px (table scrolls inside its
->    own box), both themes.
-> 4. Rename the Admin section "Claude Models" to "AI Models" (route can
->    stay or redirect). Group the catalogue by provider with a heading per
->    provider: Anthropic (Claude) first. "+ 모델 추가" asks for the
->    provider first. A provider with no adapter yet is listed as "연결 준비
->    중", and its models cannot be made visible to members or default
->    (enforced in the backend, with a test).
-> 5. DeepSeek: merge the docs-deepseek research branch (docs only, owner
->    approves). Add DeepSeek as a provider entry marked "연결 준비 중" with
->    the model the research recommends, prices from the research,
->    visibility disabled. Do not write a real DeepSeek adapter and do not
->    call any DeepSeek API; the adapter stays in more-chat-providers.
-> 6. Update the section list in CLAUDE.md section 15 and every test that
->    counts Admin sections.
+Branch `feat-privacy-and-terms`. M1, top of Next. Added by the owner on
+2026-10-14. **The owner reviews the text before it ships.** Saved exactly
+as written:
+
+> privacy-and-terms: 개인정보 처리방침 and 이용약관 pages in Korean for a club (collected data — Google email/name, username, chats, files, usage; why; retention; withdrawal and anonymisation after 30 days; stored in Google Cloud Seoul; contact ctrlai.platform@gmail.com). Consent checkbox at sign-up (Google and password); links on the sign-up screen and sidebar footer. Before members are invited; I must review the text.
+
+### offsite-backups — full spec
+
+Branch `chore-offsite-backups`. M1 · 💳. Added by the owner on
+2026-10-14. Saved exactly as written:
+
+> offsite-backups: daily pg_dump also copied to a Cloud Storage bucket in asia-northeast3, 30-day lifecycle; monthly restore test in deployment.md. 💳; I create the bucket — list the console steps.
+
+### monitoring — full spec
+
+Branch `chore-monitoring`. M1 · 💳 if any. Added by the owner on
+2026-10-14. Saved exactly as written:
+
+> monitoring: uptime check on https://ctrlai.my and error alerts to ctrlai.platform@gmail.com, cheapest option; 💳 if any; I do the console steps.
 
 ### chat-plus-files — full spec
 
@@ -1268,8 +1321,18 @@ it yearly).
 
 ## chat-plus-tools — full spec
 
-After the beta · M2 · branch `feat-chat-plus-tools`. Effort: **M**
-(3–5 days). Added 2026-10-07.
+Next (item 9) · M2 · branch `feat-chat-plus-tools`. Effort: **M**
+(3–5 days). Added 2026-10-07; **moved into Next by the owner on
+2026-10-14** as part of the overnight batch, with these rules, which win
+over the points below where they differ:
+
+> - Mock tools only: plausible search results, page text and code output; no real API call, no real search fee.
+> - Each tool is switched on per catalogue model by an admin and per conversation by the member, off by default. Turning one on shows its extra cost first (search ≈ 14원 each plus result tokens).
+> - token-guard's per-reply cap includes tool fees and result tokens; the live cost and receipt show them; usage events record server_tool_use and the fees.
+> - "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool runs; sources shown under the reply as links.
+> - Code execution runs only on Anthropic's side; nothing runs on our server.
+> - List in docs/deployment.md what changes when CLAUDE_PROVIDER=anthropic (real fees).
+> - Depends on token-guard and live-cost-display; if either is not merged yet, build it after them.
 
 1. **Three Anthropic server tools**, each switched on per catalogue model
    by an admin (new catalogue columns), and per conversation by the
