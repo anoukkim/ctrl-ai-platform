@@ -42,11 +42,14 @@ from app.models import (
     ChatMessageStatus,
     ChatRole,
     Conversation,
+    FundingSource,
+    ProviderErrorKind,
     UsageFeature,
     User,
 )
-from app.services import calibration, pricing, providers
+from app.services import calibration, chat_limits, chat_tools, pricing, providers
 from app.services import usage as usage_service
+from app.services import chat_models as chat_models_service
 from app.services.chat_models import ChosenModel
 from app.services.claude_provider import (
     CHAT_SYSTEM_PROMPT,
@@ -254,6 +257,54 @@ def build_context(
     return merged[start:], sum(costs[start:]) + estimate_tokens(CHAT_SYSTEM_PROMPT)
 
 
+# ----------------------------------------------- the long-history warning
+
+
+@dataclass(frozen=True)
+class LongHistory:
+    """What a long conversation adds to every reply (token-guard, point 4)."""
+
+    #: The input estimate a reply would carry beyond the system prompt.
+    history_tokens: int
+    #: What that history adds to one reply — and what a new conversation
+    #: saves — in won, at the cache-read price where caching is on.
+    extra_krw: int
+
+
+def long_history_info(
+    db: Session,
+    settings: Settings,
+    history: list[ChatMessage],
+    model: ChosenModel,
+) -> LongHistory | None:
+    """The composer's warning figures, or None while the history is short.
+
+    Uses the same trimmed context, calibration and prices as the pre-check
+    in `prepare_turn`, so the warning and the charge can never disagree
+    about what "long" costs.
+    """
+    limits = chat_limits.current(db)
+    if limits.long_history_tokens <= 0 or not history:
+        return None
+    try:
+        _, estimated_input = build_context(history, "", settings)
+    except ChatRefusal:  # pragma: no cover — "" never exceeds the budget
+        return None
+    measured = calibration.for_model(db, model.model_id)
+    calibrated = measured.calibrated_input(estimated_input)
+    if calibrated < limits.long_history_tokens:
+        return None
+    history_tokens = max(0, estimated_input - estimate_tokens(CHAT_SYSTEM_PROMPT))
+    try:
+        price = pricing.price_for(db, model, cache_ttl=settings.cache_ttl)
+    except pricing.PricingError:
+        return None
+    extra = chat_limits.history_cost_krw(price, measured.calibrated_input(history_tokens))
+    if extra <= 0:
+        return None
+    return LongHistory(history_tokens=history_tokens, extra_krw=extra)
+
+
 #: When a conversation outgrows the limit, it is cut back to this share of
 #: the limit at once — and then grows for that long before the start
 #: moves again. 2 → half the limit; the cached prefix holds for roughly
@@ -331,6 +382,20 @@ class PreparedTurn:
     estimated_input_tokens: int
     #: The mock answered rather than Claude — for the Admin status board.
     is_mock: bool = False
+    #: Set when the per-reply cap, not the global output limit, decided
+    #: `max_tokens` (token-guard): the cap in force, in won. A reply that
+    #: then ends with stop_reason "max_tokens" stopped at the cap.
+    reply_cap_krw: int | None = None
+    #: The running-cost estimate's two halves (live-cost-display): the
+    #: input side in won, priced the way the pre-check prices it, and the
+    #: output price per 1,000 tokens in won. The screen adds
+    #: `tokens(streamed text) × rate` and labels the sum 약.
+    estimate_base_krw: int = 0
+    won_per_1k_output: float = 0.0
+    #: Server tools this turn sends (chat-plus-tools) and the per-search
+    #: dollar price the fee is charged at.
+    tools: tuple[str, ...] = ()
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
 
 @dataclass
@@ -342,6 +407,12 @@ class TurnState:
     output_tokens: int = 0
     cache_write_tokens: int = 0
     cache_read_tokens: int = 0
+    #: Billed web searches (chat-plus-tools) — the fee rides on these.
+    web_search_count: int = 0
+    #: Pages fetched — no fee, recorded in the ledger.
+    web_fetch_count: int = 0
+    #: [{"title": str, "url": str}, ...] the reply cited, saved with it.
+    sources: list[dict[str, str]] | None = None
     stop_reason: str | None = None
     stopped: bool = False
     error: ClaudeError | None = None
@@ -377,8 +448,59 @@ def prepare_turn(
     # replies (never above the one-token-per-character figure); the output
     # side stays the full maximum, so this is still a worst case.
     calibrated_input = calibration.for_model(db, model.model_id).calibrated_input(estimated_input)
-    worst_case = price.worst_case_krw(calibrated_input, settings.chat_max_output_tokens)
+
+    # The per-reply cost cap (token-guard): worked out *before* the call
+    # as a smaller `max_tokens`, so the API itself stops at the cap and
+    # reports real usage — the charge is exact, with no estimate of an
+    # aborted stream. Thinking tokens count toward `max_tokens` and are
+    # billed as output, so the cap covers them too.
+    # Server tools (chat-plus-tools): sent only when the member's toggle
+    # AND the model's switch are both on. Their worst case joins every
+    # money check below, so neither the wallet nor the cap can be passed
+    # by a fee the tokens did not show.
+    tools = chat_tools.tools_in_force(conversation, model)
+    # The wallet covers a turn's full possible cost (fees + the fetch
+    # cap); the per-reply cap reserves every enabled tool's worst case —
+    # fees AND result tokens (the owner's rule) — so a tooled reply's
+    # charge stays inside the cap (`chat_tools.cap_extra_krw`).
+    tool_extra = chat_tools.worst_case_extra_krw(price, tools, model.web_search_usd_per_call)
+    cap_tool_extra = chat_tools.cap_extra_krw(price, tools, model.web_search_usd_per_call)
+
+    limits = chat_limits.current(db)
+    max_tokens = settings.chat_max_output_tokens
+    reply_cap_krw: int | None = None
+    if limits.reply_cap_krw > 0:
+        affordable_output = chat_limits.output_budget(
+            price, limits.reply_cap_krw - cap_tool_extra, calibrated_input
+        )
+        if affordable_output < 1:
+            # The input (and any tool worst case) alone reaches the cap:
+            # refuse free of charge, naming what to change.
+            if cap_tool_extra > 0:
+                names = ", ".join(chat_tools.LABELS[kind] for kind in tools)
+                raise ChatRefusal(
+                    f"켜 둔 도구({names})의 최대 비용까지 치면 1회 비용 한도"
+                    f"({limits.reply_cap_krw:,}원)에 닿아요. 도구를 끄고 보내거나, "
+                    "관리자가 1회 비용 한도를 올려야 쓸 수 있어요.",
+                    status_code=400,
+                )
+            raise ChatRefusal(
+                f"대화가 길어져 입력만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
+                "닿아요. 새 대화로 시작해 주세요.",
+                status_code=400,
+            )
+        if affordable_output < max_tokens:
+            max_tokens = affordable_output
+            reply_cap_krw = limits.reply_cap_krw
+
+    worst_case = price.worst_case_krw(calibrated_input, max_tokens) + tool_extra
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
+
+    # The running-cost estimate (live-cost-display): the input side once,
+    # priced like the pre-check (cache write when caching is on), plus a
+    # per-1,000-output-token rate the screen multiplies as text arrives.
+    estimate_base_krw = price.worst_case_krw(calibrated_input, 0)
+    won_per_1k_output = float(price.output_usd_per_mtok * price.usd_krw) / 1000
 
     now = datetime.now(timezone.utc)
     message = ChatMessage(
@@ -403,15 +525,40 @@ def prepare_turn(
         request=ChatRequest(
             system=CHAT_SYSTEM_PROMPT,
             messages=messages,
-            max_tokens=settings.chat_max_output_tokens,
+            max_tokens=max_tokens,
             model=model.model_id,
             cache_ttl=settings.cache_ttl,
+            tools=tools,
         ),
         price=price,
         model_id=model.model_id,
         estimated_input_tokens=estimated_input,
         is_mock=is_mock,
+        reply_cap_krw=reply_cap_krw,
+        estimate_base_krw=estimate_base_krw,
+        won_per_1k_output=won_per_1k_output,
+        tools=tools,
+        web_search_usd_per_call=model.web_search_usd_per_call,
     )
+
+
+@dataclass(frozen=True)
+class ReplyUsage:
+    """What the ledger recorded for one reply — the receipt's numbers.
+
+    The cache fields are None when caching is off, exactly as on the
+    usage event, so the receipt never shows a 캐시 읽기 line the ledger
+    does not have.
+    """
+
+    input_tokens: int
+    output_tokens: int
+    cache_write_tokens: int | None
+    cache_read_tokens: int | None
+    #: Billed web searches and their fee in won (chat-plus-tools). Zero
+    #: when no tool ran — the receipt then shows no 검색 line.
+    web_search_count: int = 0
+    tool_fee_krw: int = 0
 
 
 @dataclass
@@ -419,6 +566,16 @@ class TurnResult:
     message: ChatMessage | None
     charged_krw: int
     error: ClaudeError | None = None
+    #: The composer's long-history warning after this reply, so the screen
+    #: updates without refetching the whole conversation (token-guard).
+    long_history: LongHistory | None = None
+    #: The receipt's token split (live-cost-display). None when nothing
+    #: was used — then there is nothing to show.
+    usage: ReplyUsage | None = None
+    #: 동아리 지원 remaining after this charge, from the same locked
+    #: transaction — the sidebar updates from it without another request.
+    #: None when nothing was charged.
+    wallet_remaining_krw: int | None = None
 
 
 def _status_for(state: TurnState) -> ChatMessageStatus:
@@ -429,6 +586,24 @@ def _status_for(state: TurnState) -> ChatMessageStatus:
     if state.stop_reason == "max_tokens":
         return ChatMessageStatus.TRUNCATED
     return ChatMessageStatus.COMPLETE
+
+
+def _safe_sources(sources: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
+    """Only http(s) sources are saved — anything else is dropped.
+
+    The provider's citations become clickable links on the member's
+    screen; a javascript: or data: URL there would run as the member
+    (chat-plus-tools review round 2). Filtered at save time, the one
+    place every path goes through. The reply's own text is untouched.
+    """
+    if not sources:
+        return None
+    safe = [
+        source
+        for source in sources
+        if str(source.get("url", "")).lower().startswith(("http://", "https://"))
+    ]
+    return safe or None
 
 
 def finish_turn(
@@ -443,7 +618,10 @@ def finish_turn(
     label_suffix = " (mock)" if turn.is_mock else ""
 
     if state.error is not None:
-        providers.record_failure(db, "claude", state.error.kind, state.error.detail)
+        if state.error.kind != ProviderErrorKind.BUSY:
+            # BUSY is our own concurrency limit (PART F): the provider was
+            # never called, so the status board must not blame it.
+            providers.record_failure(db, "claude", state.error.kind, state.error.detail)
         db.commit()
         return TurnResult(message=None, charged_krw=0, error=state.error)
 
@@ -474,8 +652,15 @@ def finish_turn(
 
     charged = 0
     event_id: int | None = None
+    wallet_remaining: int | None = None
+    # The tool fee (chat-plus-tools): billed searches at the catalogue's
+    # per-search price. Exact, not an estimate — the provider reported the
+    # count with its usage.
+    tool_fee = chat_tools.search_fee_krw(
+        turn.price, turn.web_search_usd_per_call, state.web_search_count
+    )
     if input_tokens or output_tokens or written or read:
-        amount = turn.price.krw(input_tokens, output_tokens, written, read)
+        amount = turn.price.krw(input_tokens, output_tokens, written, read) + tool_fee
         try:
             result = usage_service.charge(
                 db,
@@ -486,9 +671,10 @@ def finish_turn(
                 model_id=turn.model_id,
                 provider_units=input_tokens + output_tokens + written + read,
                 provider_unit="tokens",
-                provider_cost=turn.price.usd(input_tokens, output_tokens, written, read).quantize(
-                    Decimal("0.000001")
-                ),
+                provider_cost=(
+                    turn.price.usd(input_tokens, output_tokens, written, read)
+                    + Decimal(state.web_search_count) * turn.web_search_usd_per_call
+                ).quantize(Decimal("0.000001")),
                 provider_currency="USD",
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
@@ -497,12 +683,21 @@ def finish_turn(
                 estimated_input_tokens=turn.estimated_input_tokens,
                 exchange_rate_krw=turn.price.usd_krw,
                 conversation_id=conversation.id if conversation else None,
+                web_search_count=state.web_search_count or None,
+                web_fetch_count=state.web_fetch_count or None,
+                tool_fee_krw=tool_fee or None,
                 commit=False,
                 cap_to_available=True,
                 settings=settings,
             )
             charged = result.event.charged_krw
             event_id = result.event.id
+            # The sidebar shows the 동아리 지원 wallet, so only a
+            # community-funded charge may carry a figure for it: after a
+            # personal-funded one (top-ups on) the screen must refetch,
+            # or its personal balance goes stale.
+            if result.funding_source is FundingSource.COMMUNITY:
+                wallet_remaining = result.community_remaining_krw
         except usage_service.NoQuarterError:
             # The quarter closed while the reply was streaming. There is no
             # quarter to charge against; the reply is still the member's.
@@ -522,6 +717,12 @@ def finish_turn(
             # The whole prompt, cached or not — what the reply was written from.
             input_tokens=input_tokens + written + read,
             output_tokens=output_tokens,
+            # Stopped by the per-reply cap, not the global limit — so the
+            # screen can say so, after a reload too (token-guard).
+            capped_krw=(
+                turn.reply_cap_krw if state.stop_reason == "max_tokens" else None
+            ),
+            sources=_safe_sources(state.sources),
             usage_event_id=event_id,
             created_at=datetime.now(timezone.utc),
         )
@@ -532,4 +733,35 @@ def finish_turn(
     db.commit()
     if message is not None:
         db.refresh(message)
-    return TurnResult(message=message, charged_krw=charged)
+
+    long_history = None
+    if conversation is not None:
+        try:
+            model = chat_models_service.for_conversation(db, settings, user, conversation)
+            long_history = long_history_info(
+                db, settings, messages_of(db, conversation), model
+            )
+        except (chat_models_service.ModelChoiceError, pricing.PricingError):
+            long_history = None
+
+    usage: ReplyUsage | None = None
+    # Only what the ledger actually recorded gets a receipt: with no
+    # event (the quarter closed mid-stream) a 0원 receipt would claim a
+    # charge the ledger does not have, and vanish on reload.
+    if event_id is not None:
+        cached = turn.request.cache_ttl is not None
+        usage = ReplyUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_write_tokens=written if cached else None,
+            cache_read_tokens=read if cached else None,
+            web_search_count=state.web_search_count,
+            tool_fee_krw=tool_fee,
+        )
+    return TurnResult(
+        message=message,
+        charged_krw=charged,
+        long_history=long_history,
+        usage=usage,
+        wallet_remaining_krw=wallet_remaining,
+    )

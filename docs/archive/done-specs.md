@@ -1820,6 +1820,162 @@ Checklist and decisions (including why the 환불 대기 copy stays for money
 that already existed):
 [`progress-2026-10-13/personal-topup-off.md`](progress-2026-10-13/personal-topup-off.md).
 
+## token-guard — full spec (merged 2026-10-14)
+
+Branch `feat-token-guard`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> token-guard: a per-reply cost cap (admin setting, default about 100원) that stops the reply and charges only what was used, with a Korean notice; a warning when a conversation's history is long, suggesting a new conversation, with the estimated saving; an optional daily cap per member. Stopping a reply already exists — keep its rule (stopped replies are saved and charged for tokens used).
+
+**Depends on:** `single-wallet`, `prompt-caching`, `cost-calibration`
+(all merged).
+
+1. **Per-reply cap, an admin setting** (Admin › System, audited like the
+   exchange rate; default **100원**). Enforced **before** the call rather
+   than by cutting the stream: from the calibrated input estimate and the
+   model's prices, the backend works out how many output tokens the rest
+   of the cap buys and sends that as `max_tokens` (never above
+   `CHAT_MAX_OUTPUT_TOKENS`). The API then stops at the cap itself and
+   reports real usage, so the charge is exact, with no estimate of an
+   aborted stream. Thinking tokens count toward `max_tokens` and are
+   billed as output, so the cap covers them too.
+2. **The notice.** A reply that ends with `stop_reason: "max_tokens"`
+   because of the cap is saved and charged for what was used (the
+   existing stop rule) and shows: "답장이 1회 비용 한도(100원)에 닿아
+   여기서 멈췄어요. 이어서 받으려면 '계속해 줘'라고 보내 주세요." A
+   member's own 중지 keeps today's behaviour.
+3. **If the input alone is over the cap** (a very long history on an
+   expensive model): refuse before calling, charge nothing, and show the
+   suggestion from point 4.
+4. **Long-history warning.** When the calibrated input estimate passes a
+   threshold (admin setting, default 8,000 tokens, half of
+   `CHAT_CONTEXT_TOKENS`), a note above the composer: "대화가 길어져
+   답장마다 약 N원이 더 들어요. 새 대화로 시작하면 약 M원 아낄 수
+   있어요." N and M come from the same price functions as the pre-check,
+   at the cache-read price where the history is cached
+   (`prompt-caching`), so the saving is not overstated. A 새 대화 button
+   sits beside it.
+5. **Optional daily cap per member** (admin setting, 0 = off). Counted
+   from today's `UsageEvent` rows (KST day) and checked with the wallet
+   pre-check; refused with a Korean message before anything is spent.
+   Applies to every paid feature, not only Chat.
+6. **Tests:** `max_tokens` derived from the cap and the input estimate;
+   a capped reply is saved, charged its real usage and carries the
+   notice; input over the cap is refused with no charge and no provider
+   call; the warning and its figures; the daily cap counts across
+   features and resets at KST midnight; the settings are audited.
+
+## live-cost-display — full spec (merged 2026-10-14)
+
+Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> live-cost-display (after cost-calibration): while a reply streams, show the running cost in won next to it; after it ends, a small receipt (input, output, cache read, won) and the wallet card in the sidebar updates at once. The ledger stays the single source of truth; the live figure is an estimate settled by the real usage.
+
+**Depends on:** `cost-calibration` (merged); `token-guard` (the same
+running estimate drives its cap); best after `chat-plus-rendering`,
+which reworks the same reply bubble.
+
+1. **While streaming:** beside the reply, "약 N원", updating as text
+   arrives: the calibrated input estimate plus the output so far
+   (`estimate_tokens` of the streamed text), priced for the model.
+   Always labelled as an estimate (약). Updated at most a few times a
+   second.
+2. **When it ends:** the `done` event carries the real usage the ledger
+   recorded (input, output, cache write and cache read tokens, and
+   `charged_krw`), and the bubble shows a small receipt: 입력 / 출력 /
+   캐시 읽기 / 합계 N원. The figure shown is the **ledger's**, never the
+   estimate; if they differ, the receipt simply replaces the estimate.
+3. **The sidebar wallet card updates at once** (a `MyQuarterProvider`
+   refresh, or the remaining balance carried in the `done` event), and
+   the Usage page shows the same row.
+4. **A stopped or capped reply** gets the same receipt; a failed call
+   shows "청구되지 않았어요".
+5. **Tests:** the running figure never shows without 약; the receipt's
+   numbers equal the usage event's; the wallet card changes without a
+   reload; a failed call shows no charge.
+
+## chat-plus-tools — full spec (merged 2026-10-14)
+
+Next (item 7) · M2 · branch `feat-chat-plus-tools`. Effort: **M**
+(3–5 days). Added 2026-10-07; **moved into Next by the owner on
+2026-10-14** as part of the overnight batch, with these rules, which win
+over the points below where they differ:
+
+> - Mock tools only: plausible search results, page text and code output; no real API call, no real search fee.
+> - Each tool is switched on per catalogue model by an admin and per conversation by the member, off by default. Turning one on shows its extra cost first (search ≈ 14원 each plus result tokens).
+> - token-guard's per-reply cap includes tool fees and result tokens; the live cost and receipt show them; usage events record server_tool_use and the fees.
+> - "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool runs; sources shown under the reply as links.
+> - Code execution runs only on Anthropic's side; nothing runs on our server.
+> - List in docs/deployment.md what changes when CLAUDE_PROVIDER=anthropic (real fees).
+> - Depends on token-guard and live-cost-display; if either is not merged yet, build it after them.
+
+1. **Three Anthropic server tools**, each switched on per catalogue model
+   by an admin (new catalogue columns), and per conversation by the
+   member with a toggle next to the model picker — per conversation, not
+   per message, because changing the tool list breaks the prompt cache:
+   - **웹 검색** — `web_search_20260209` on Sonnet 5.5 and Opus 5.5;
+     `web_search_20250305` on Haiku 4.5 (no dynamic filtering there).
+     `max_uses` 3, `user_location` Korea. **$10 per 1,000 searches (≈ 14원
+     each) plus the result tokens**, which stay in the history and are
+     billed again on later turns.
+   - **웹 페이지 읽기** — `web_fetch_20260209`; only URLs already in the
+     conversation. No fee beyond tokens, so `max_content_tokens` 20,000
+     and `max_uses` 2 — one fetched 500 KB PDF would otherwise be about
+     125k tokens (≈ 350원 on Sonnet).
+   - **코드 실행** — `code_execution_20260521`; free when web search or
+     fetch `_20260209` is in the request, otherwise inside the
+     organisation's 1,550 free container-hours a month (then $0.05 an
+     hour, 5-minute minimum). Files it creates come back through the
+     Files API; the backend copies them into the storage interface at once
+     and serves them as chat attachments. **File ids from a member are
+     never accepted** — they are workspace-wide.
+2. **The ledger.** `UsageEvent` records the response's `server_tool_use`
+   counts (searches, fetches). KRW = tokens as now + searches × the
+   per-search price (a catalogue value, `web_search_usd_per_call`, seeded
+   $0.01) × the rate. The worst-case pre-check adds `max_uses` × the
+   search price and the fetch cap.
+3. **Screens.** "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool
+   runs; sources under the reply as numbered links showing their domain
+   (web search answers carry citations); code output — text, an image, a
+   file — as an attachment chip. The picker's estimate gains "+ 검색 1회당
+   약 14원".
+
+**Charged:** the wallet, by the token plus per search. A typical question with
+two searches: ≈ 50원 Haiku / 73원 Sonnet / 118원 Opus (research doc; the
+result-token size is an estimate this item measures).
+
+**Tests:** a tool is sent only when both the model and the conversation
+allow it; Haiku gets the basic search version; searches are charged at
+the catalogue price; the pre-check includes `max_uses`; a member-supplied
+file id is refused; a tool error (HTTP 200 with an error block) shows
+Korean and charges only tokens; mock replies cover search, fetch and code
+output.
+
+**Risks:** cost — the per-search fee and re-billed results (caps, the
+visible estimate). Untrusted web content in the context (prompt
+injection): there are no client tools, so a page can only steer the
+text, and links in replies show their domain. The member's query goes to
+the search provider (said in the toggle's tooltip). Code execution is not
+ZDR-eligible and runs on Anthropic's servers, never ours.
+
+## audit-caching-and-distribution — full spec (merged 2026-10-14)
+
+PART F of the owner's 2026-10-14 addendum (merge pre-approved when clean;
+"include in the PART E deploy if it finishes before it, otherwise list it
+as 'deploy next'" — it finished after, so it deploys next). The owner's
+words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
+2026-10-14) and the built details in
+[`../progress/audit-caching.md`](../progress/audit-caching.md) and
+[`../progress/audit-caching-and-distribution.md`](../progress/audit-caching-and-distribution.md);
+the member/admin-facing result is [`../api-distribution.md`](../api-distribution.md).
+
+**Owner decision — 2026-10-14 (morning):** the Sonnet 5.5 cache-read
+over-charge ($0.20 instead of the documented $0.10) is **not
+compensated** — every charge made at the wrong price was mock or
+development data; no member's real money moved. The ledger keeps the
+recorded figures as history.
+
 ## Queue history — how Next was reordered (2026-10-01 → 2026-10-13)
 
 *(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*

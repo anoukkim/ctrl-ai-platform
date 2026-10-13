@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 
-import { getChatCalibration, type ModelCalibration } from "@/lib/admin";
+import { getChatCacheStats, getChatCalibration, type ModelCacheDay, type ModelCalibration } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
 import Skeleton from "@/app/components/Skeleton";
@@ -29,6 +29,7 @@ function percent(value: number | null): string {
 
 export default function CalibrationPanel() {
   const [rows, setRows] = useState<ModelCalibration[] | null>(null);
+  const [cacheDays, setCacheDays] = useState<ModelCacheDay[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
@@ -41,6 +42,12 @@ export default function CalibrationPanel() {
       .catch((caught: unknown) => {
         if (!cancelled) setError(describeError(caught));
       });
+    // 캐시 절약은 덤입니다: 못 불러와도 본표는 그대로 보입니다.
+    getChatCacheStats()
+      .then((result) => {
+        if (!cancelled) setCacheDays(result);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -111,6 +118,49 @@ export default function CalibrationPanel() {
         여전히 최대치로 잡습니다). 대화 기록을 자르는 기준은 바꾸지 않습니다 — 바꾸면 프롬프트
         캐시가 깨집니다.
       </p>
+
+      {/* PART F: 캐싱이 실제로 일하는지 — 모델·일별 적중률과 아낀 돈. */}
+      {cacheDays !== null && cacheDays.length > 0 && (
+        <>
+          <h3 className="section-title" style={{ marginTop: "1.4rem" }} id="cache-savings">
+            캐시 절약 <span className="small dim" style={{ fontWeight: 400 }}>최근 14일 · KST</span>
+          </h3>
+          <div className="table-wrap">
+            <table className="table">
+              <caption className="sr-only">모델별 일별 캐시 활동</caption>
+              <thead>
+                <tr>
+                  <th scope="col">날짜</th>
+                  <th scope="col">모델</th>
+                  <th scope="col">답장</th>
+                  <th scope="col">캐시 적중</th>
+                  <th scope="col">캐시에서 읽음</th>
+                  <th scope="col">아낀 금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cacheDays.map((day) => (
+                  <tr key={`${day.day}-${day.model_id}`}>
+                    <td className="numeric">{day.day}</td>
+                    <td>{day.label}</td>
+                    <td className="numeric">{day.replies.toLocaleString("ko-KR")}</td>
+                    <td className="numeric">
+                      {day.replies > 0 ? Math.round((day.cache_hit_replies / day.replies) * 100) : 0}%
+                    </td>
+                    <td className="numeric">{day.read_tokens.toLocaleString("ko-KR")} 토큰</td>
+                    <td className="numeric">{formatKrw(day.saved_krw)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="small dim" style={{ marginTop: "0.6rem" }}>
+            아낀 금액은 캐시에서 읽은 토큰을 입력 요금 대신 읽기 요금으로 계산한 차이 — 오늘의
+            카탈로그 요금 기준 어림입니다. 두 번째 답장부터 적중이 쌓이는 것이 정상이고, Haiku는
+            대화가 길어져야(4,096 토큰 이상) 캐시가 잡히기 시작합니다.
+          </p>
+        </>
+      )}
     </section>
   );
 }

@@ -225,6 +225,9 @@ describe("Admin › Budget", () => {
   const budget: QuarterBudget = {
     quarter: QUARTER,
     member_budget_krw: 80_000,
+    anthropic_month_usd: 0,
+    anthropic_month_budget_usd: null,
+    anthropic_month: "2026-10",
     wallets: [
       {
         user_id: 2,

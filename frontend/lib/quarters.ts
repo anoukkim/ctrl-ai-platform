@@ -464,6 +464,11 @@ export interface QuarterBudget {
   total_remaining_krw: number;
   providers: ProviderSpend[];
   total_charged_krw: number;
+  /** 이번 달(KST) Anthropic에 쓴 달러 — provider_cost의 합 (PART F). */
+  anthropic_month_usd: number;
+  /** ANTHROPIC_MONTHLY_BUDGET_USD. null이면 막대를 그리지 않습니다. */
+  anthropic_month_budget_usd: number | null;
+  anthropic_month: string;
 }
 
 export function getQuarterBudget(quarterId: number): Promise<QuarterBudget> {

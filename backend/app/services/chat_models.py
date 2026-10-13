@@ -122,7 +122,12 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
         visibility=ChatModelVisibility.MEMBERS,
         is_default=True,
         sort_order=20,
-        cache_read_usd_per_mtok=Decimal("0.20"),
+        # Sonnet 5.5 also reads its cache at a twentieth of input ($0.10),
+        # not a tenth. The first seed said 0.20 — members were charged
+        # cache reads at twice the list price until migration f7c3a9e1d5b2
+        # (audit-caching-and-distribution, 2026-10-14, citing
+        # https://platform.claude.com/docs/en/docs/build-with-claude/prompt-caching).
+        cache_read_usd_per_mtok=Decimal("0.10"),
     ),
     CatalogueSeed(
         model_id="claude-opus-5-5",
@@ -191,6 +196,13 @@ class ChosenModel:
     row_id: int | None = None
     #: None means a tenth of the input price.
     cache_read_usd_per_mtok: Decimal | None = None
+    # Server tools the admin opened on this model (chat-plus-tools). The
+    # empty-catalogue fallback has none — a tool needs a catalogue row.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    #: $ per web search; only meaningful while `tools_web_search` is on.
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
     @classmethod
     def of(cls, row: ChatModel) -> ChosenModel:
@@ -206,6 +218,10 @@ class ChosenModel:
                 if row.cache_read_usd_per_mtok is not None
                 else None
             ),
+            tools_web_search=row.tools_web_search,
+            tools_web_fetch=row.tools_web_fetch,
+            tools_code_execution=row.tools_code_execution,
+            web_search_usd_per_call=Decimal(row.web_search_usd_per_call),
         )
 
 

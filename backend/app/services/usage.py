@@ -64,6 +64,7 @@ from app.models import (
     User,
 )
 from app.models.usage import spending_group
+from app.services import chat_limits
 from app.services.quarters import current_quarter
 from app.services.wallet import get_or_create_balance
 
@@ -116,6 +117,19 @@ def ensure_affordable(
     if quarter is None:
         raise NoQuarterError("지금은 진행 중인 분기가 없습니다.")
 
+    # The daily cap (token-guard), before any pot is consulted: it is a
+    # guard on the member's day, not on where the money comes from.
+    # Checked only here — `charge()` settles work the club has already
+    # paid for, and refusing there would lose a paid reply.
+    limits = chat_limits.current(db)
+    if limits.daily_cap_krw > 0:
+        spent_today = chat_limits.daily_spent_krw(db, user.id)
+        if spent_today + amount_krw > limits.daily_cap_krw:
+            raise InsufficientBudgetError(
+                f"오늘 쓸 수 있는 금액({limits.daily_cap_krw:,}원)을 넘습니다. "
+                f"오늘 {spent_today:,}원을 썼습니다. 내일 다시 이용해 주세요."
+            )
+
     allocation = db.scalar(
         select(QuarterAllocation).where(
             QuarterAllocation.user_id == user.id,
@@ -159,6 +173,9 @@ def charge(
     estimated_input_tokens: int | None = None,
     exchange_rate_krw: Decimal | None = None,
     conversation_id: int | None = None,
+    web_search_count: int | None = None,
+    web_fetch_count: int | None = None,
+    tool_fee_krw: int | None = None,
     commit: bool = True,
     cap_to_available: bool = False,
     settings: Settings | None = None,
@@ -271,6 +288,9 @@ def charge(
         cache_write_tokens=cache_write_tokens,
         cache_read_tokens=cache_read_tokens,
         estimated_input_tokens=estimated_input_tokens,
+        web_search_count=web_search_count,
+        web_fetch_count=web_fetch_count,
+        tool_fee_krw=tool_fee_krw,
         exchange_rate_krw=exchange_rate_krw,
         conversation_id=conversation_id,
     )

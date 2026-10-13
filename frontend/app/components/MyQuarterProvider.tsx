@@ -10,7 +10,7 @@
  * 로그인하지 않았으면 아무것도 부르지 않습니다.
  */
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { getMyQuarter, type MyQuarterStatus } from "@/lib/quarters";
 
@@ -24,6 +24,17 @@ type State =
 interface Value {
   state: State;
   refresh: () => Promise<void>;
+  /**
+   * 차감 직후 남은 동아리 지원을 바로 반영합니다(live-cost-display).
+   *
+   * 답장의 `done` 이벤트가 장부가 잠근 트랜잭션에서 나온 값을 들고
+   * 오므로, 다시 요청하지 않고 그대로 씁니다 — 사이드바 지갑 카드가
+   * 새로고침 없이 그 자리에서 줄어듭니다.
+   *
+   * 반영했으면 true. 아직 불러오는 중이거나 지갑이 없으면 false —
+   * 부른 쪽이 `refresh()`로 대신합니다.
+   */
+  applyWalletRemaining: (remainingKrw: number) => boolean;
 }
 
 const MyQuarterContext = createContext<Value | null>(null);
@@ -70,6 +81,34 @@ export default function MyQuarterProvider({ children }: { children: React.ReactN
     }
   }, [signedIn]);
 
+  // setState의 갱신 함수는 나중에 불릴 수 있어, 반영 가능 여부는 ref로
+  // 지금 바로 판단합니다.
+  const stateRef = useRef<State>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const applyWalletRemaining = useCallback((remainingKrw: number): boolean => {
+    const now = stateRef.current;
+    if (now.phase !== "ready" || now.quarter.allocation === null) return false;
+    setState((current) => {
+      if (current.phase !== "ready" || current.quarter.allocation === null) return current;
+      const allocation = current.quarter.allocation;
+      return {
+        phase: "ready",
+        quarter: {
+          ...current.quarter,
+          allocation: {
+            ...allocation,
+            remaining_krw: remainingKrw,
+            consumed_krw: Math.max(0, allocation.budget_krw - remainingKrw),
+          },
+        },
+      };
+    });
+    return true;
+  }, []);
+
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
     if (!signedIn) return;
@@ -89,6 +128,8 @@ export default function MyQuarterProvider({ children }: { children: React.ReactN
   }, [signedIn, userId]);
 
   return (
-    <MyQuarterContext.Provider value={{ state, refresh }}>{children}</MyQuarterContext.Provider>
+    <MyQuarterContext.Provider value={{ state, refresh, applyWalletRemaining }}>
+      {children}
+    </MyQuarterContext.Provider>
   );
 }

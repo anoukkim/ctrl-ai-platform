@@ -57,6 +57,7 @@ from app.services import (
     video_assets,
     video_catalog,
 )
+from app.services import chat_limits, provider_limiter
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     PROMPT_HELP_SYSTEM,
@@ -690,6 +691,11 @@ def prompt_help(
             amount_krw=price.krw(estimated_input, max_output),
             settings=config,
         )
+        # PART F: a slot under the process-wide provider limit; refused
+        # free, and never written to the status board — the provider was
+        # not called.
+        if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
+            raise ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
         try:
             answer = provider.rewrite_video_prompt(
                 payload.prompt, payload.request, model.model_id
@@ -698,6 +704,8 @@ def prompt_help(
             providers.record_failure(db, "claude", error.kind, error.detail)
             db.commit()
             raise
+        finally:
+            provider_limiter.release()
         result = usage_service.charge(
             db,
             user=user,

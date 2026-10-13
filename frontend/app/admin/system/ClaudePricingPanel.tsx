@@ -21,6 +21,7 @@ import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDial
 import {
   formatWhen,
   getClaudeSettings,
+  setChatLimits,
   setExchangeRate,
   type ClaudeSettings,
 } from "@/lib/admin";
@@ -44,10 +45,22 @@ export default function ClaudePricingPanel() {
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [limitsDraft, setLimitsDraft] = useState({
+    reply_cap_krw: "",
+    long_history_tokens: "",
+    daily_cap_krw: "",
+    provider_concurrency: "",
+  });
 
   const apply = useCallback((value: ClaudeSettings) => {
     setSettings(value);
     setRateDraft(value.exchange_rate?.krw_per_usd ?? "");
+    setLimitsDraft({
+      reply_cap_krw: String(value.chat_limits.reply_cap_krw),
+      long_history_tokens: String(value.chat_limits.long_history_tokens),
+      daily_cap_krw: String(value.chat_limits.daily_cap_krw),
+      provider_concurrency: String(value.chat_limits.provider_concurrency),
+    });
   }, []);
 
   useEffect(() => {
@@ -86,6 +99,31 @@ export default function ClaudePricingPanel() {
     },
     [apply],
   );
+
+  const askLimits = () => {
+    const next = {
+      reply_cap_krw: Number(limitsDraft.reply_cap_krw),
+      long_history_tokens: Number(limitsDraft.long_history_tokens),
+      daily_cap_krw: Number(limitsDraft.daily_cap_krw),
+      provider_concurrency: Number(limitsDraft.provider_concurrency),
+    };
+    const won = (value: number) => (value > 0 ? `${value.toLocaleString()}원` : "끔 (0)");
+    ask(
+      {
+        title: "채팅 한도를 바꿀까요?",
+        effect: [
+          `답장 1회 비용 한도: ${won(next.reply_cap_krw)} — 답장이 이 금액에 닿으면 멈추고, 쓴 만큼만 차감됩니다.`,
+          `긴 대화 경고: 입력 ${next.long_history_tokens.toLocaleString()} 토큰부터 (0이면 경고 없음)`,
+          `하루 한도: ${won(next.daily_cap_krw)} — 회원마다, 모든 유료 기능 합산 (KST 기준)`,
+          `동시 호출: ${next.provider_concurrency}개 — 서버 프로세스마다, AI 호출을 한 번에 이만큼만`,
+          "감사 기록에 남습니다.",
+        ],
+        confirmLabel: "한도 바꾸기",
+      },
+      () => setChatLimits(next),
+      "채팅 한도를 저장했습니다.",
+    );
+  };
 
   const askRate = () => {
     ask(
@@ -194,6 +232,98 @@ export default function ClaudePricingPanel() {
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className={styles.rateBlock}>
+            <p className={styles.rateLabel} id="chat-limits-label">
+              채팅 한도 (token-guard) — 0은 그 한도를 끕니다
+            </p>
+            <div className={styles.limitsGrid} aria-labelledby="chat-limits-label">
+              <label className={styles.limitField}>
+                <span>답장 1회 한도 (원)</span>
+                <input
+                  className="field numeric"
+                  inputMode="numeric"
+                  value={limitsDraft.reply_cap_krw}
+                  onChange={(event) =>
+                    setLimitsDraft((current) => ({ ...current, reply_cap_krw: event.target.value }))
+                  }
+                />
+              </label>
+              <label className={styles.limitField}>
+                <span>긴 대화 경고 (입력 토큰)</span>
+                <input
+                  className="field numeric"
+                  inputMode="numeric"
+                  value={limitsDraft.long_history_tokens}
+                  onChange={(event) =>
+                    setLimitsDraft((current) => ({
+                      ...current,
+                      long_history_tokens: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className={styles.limitField}>
+                <span>하루 한도 (원, 회원마다)</span>
+                <input
+                  className="field numeric"
+                  inputMode="numeric"
+                  value={limitsDraft.daily_cap_krw}
+                  onChange={(event) =>
+                    setLimitsDraft((current) => ({ ...current, daily_cap_krw: event.target.value }))
+                  }
+                />
+              </label>
+              <label className={styles.limitField}>
+                <span>동시 호출 (프로세스마다, 1 이상)</span>
+                <input
+                  className="field numeric"
+                  inputMode="numeric"
+                  value={limitsDraft.provider_concurrency}
+                  onChange={(event) =>
+                    setLimitsDraft((current) => ({
+                      ...current,
+                      provider_concurrency: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <button
+                className="btn btn-sm"
+                type="button"
+                disabled={
+                  [
+                    limitsDraft.reply_cap_krw,
+                    limitsDraft.long_history_tokens,
+                    limitsDraft.daily_cap_krw,
+                    limitsDraft.provider_concurrency,
+                  ].some((value) => value.trim() === "" || !Number.isInteger(Number(value))) ||
+                  Number(limitsDraft.provider_concurrency) < 1 ||
+                  (Number(limitsDraft.reply_cap_krw) === settings.chat_limits.reply_cap_krw &&
+                    Number(limitsDraft.long_history_tokens) ===
+                      settings.chat_limits.long_history_tokens &&
+                    Number(limitsDraft.daily_cap_krw) === settings.chat_limits.daily_cap_krw &&
+                    Number(limitsDraft.provider_concurrency) ===
+                      settings.chat_limits.provider_concurrency)
+                }
+                onClick={askLimits}
+              >
+                저장
+              </button>
+            </div>
+            <p className={styles.pricingNote}>
+              답장이 1회 한도에 닿으면 거기서 멈추고 쓴 만큼만 차감됩니다. 긴 대화 경고는
+              입력창 위에 &lsquo;새 대화로 시작하면 아낄 수 있어요&rsquo;를 띄웁니다. 하루 한도는 회원마다
+              모든 유료 기능을 합산해 적용됩니다 (0 = 없음).
+              {settings.chat_limits.set_at
+                ? ` 마지막 변경: ${formatWhen(settings.chat_limits.set_at)}${
+                    settings.chat_limits.set_by_username
+                      ? ` · ${settings.chat_limits.set_by_username}`
+                      : ""
+                  }`
+                : " 아직 바꾼 적이 없습니다 (기본값)."}
+            </p>
           </div>
 
           {saved !== null && (

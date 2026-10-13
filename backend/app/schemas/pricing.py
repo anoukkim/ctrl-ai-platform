@@ -35,6 +35,12 @@ class ChatModelAdminRead(BaseModel):
     estimated_reply_krw: int | None = None
     estimate_basis: str = "formula"
     estimate_samples: int = 0
+    # Server tools (chat-plus-tools): which this model may use, and the
+    # $ one web search costs. Off until an admin opens one.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
 
 class ChatProviderRead(BaseModel):
@@ -59,6 +65,12 @@ class ChatModelCreate(BaseModel):
     #: New models start closed: an admin opens one on purpose.
     visibility: ChatModelVisibility = ChatModelVisibility.DISABLED
     sort_order: int = Field(default=100, ge=0, le=10000)
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    #: $ per web search. The bound catches a typo ($10, the per-1,000
+    #: price, typed per call), not any real price.
+    web_search_usd_per_call: Decimal = Field(default=Decimal("0.01"), ge=0, le=1, decimal_places=6)
 
 
 class ChatModelUpdate(BaseModel):
@@ -75,6 +87,12 @@ class ChatModelUpdate(BaseModel):
     visibility: ChatModelVisibility | None = None
     sort_order: int | None = Field(default=None, ge=0, le=10000)
     is_default: bool | None = None
+    tools_web_search: bool | None = None
+    tools_web_fetch: bool | None = None
+    tools_code_execution: bool | None = None
+    web_search_usd_per_call: Decimal | None = Field(
+        default=None, ge=0, le=1, decimal_places=6
+    )
 
 
 class ExchangeRateRead(BaseModel):
@@ -86,6 +104,27 @@ class ExchangeRateRead(BaseModel):
 
 class ExchangeRateWrite(BaseModel):
     krw_per_usd: Decimal = Field(ge=100, le=10000, decimal_places=2)
+
+
+class ChatLimitsRead(BaseModel):
+    """The three spending guards (token-guard). 0 = that guard is off."""
+
+    reply_cap_krw: int
+    long_history_tokens: int
+    daily_cap_krw: int
+    provider_concurrency: int
+    set_at: datetime | None = None
+    set_by_username: str = ""
+
+
+class ChatLimitsWrite(BaseModel):
+    """Bounds catch typos (a cap in dollars, a threshold in characters)."""
+
+    reply_cap_krw: int = Field(ge=0, le=100_000)
+    long_history_tokens: int = Field(ge=0, le=1_000_000)
+    daily_cap_krw: int = Field(ge=0, le=10_000_000)
+    #: Never 0: that would stop every provider call outright.
+    provider_concurrency: int = Field(ge=1, le=50)
 
 
 class ClaudeSettingsRead(BaseModel):
@@ -108,6 +147,22 @@ class ClaudeSettingsRead(BaseModel):
     cache_ttl: str | None = "5m"
     exchange_rate: ExchangeRateRead | None
     rate_history: list[ExchangeRateRead]
+    #: token-guard: the per-reply cap, the warning threshold, the daily cap.
+    chat_limits: ChatLimitsRead
+
+
+class ModelCacheDayRead(BaseModel):
+    """Admin › AI Models › 비용 보정 › 캐시 절약: one model, one KST day."""
+
+    model_id: str
+    label: str
+    day: str
+    replies: int
+    cache_hit_replies: int
+    read_tokens: int
+    #: At today's catalogue prices and each event's own rate — an
+    #: approximation, said so on the screen.
+    saved_krw: int
 
 
 class ModelCalibrationRead(BaseModel):

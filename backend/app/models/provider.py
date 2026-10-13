@@ -39,6 +39,7 @@ class ProviderErrorKind:
     AUTH = "auth"  # key missing, wrong, or revoked
     CREDIT = "credit"  # out of credit or over a quota
     RATE_LIMITED = "rate_limited"  # too many requests for now; retry later
+    BUSY = "busy"  # our own concurrency limit; the provider was never called
     UNAVAILABLE = "unavailable"  # the service is down or unreachable
     TIMEOUT = "timeout"
     NOT_IMPLEMENTED = "not_implemented"  # real adapter not built yet
