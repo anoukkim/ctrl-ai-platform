@@ -240,8 +240,12 @@
 /* 1100px보다 좁은 화면 — 사이드바(244px)를 뺀 이 영역이 856px 아래일 때 —
    에는 대화 목록을 서랍으로 접습니다. */
 @container (max-width: 856px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
+  /* 컨테이너 쿼리는 컨테이너(.layout) 자신은 바꾸지 못하고 그 안쪽만
+     바꿉니다. 그래서 칸 나누기는 그대로 두고, 대화 칸이 두 칸을 모두
+     차지하게 합니다. 예전에는 .layout의 칸을 바꾸려다 무시되어, 휴대폰에서
+     대화가 왼쪽 236px에만 그려졌습니다. */
+  .chat {
+    grid-column: 1 / -1;
   }
 
   .list {
@@ -344,6 +348,10 @@
   /* 답장의 줄바꿈과 "-" 목록을 그대로 보여 줍니다. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* 넓은 표나 긴 코드가 말풍선을 줄 밖으로 밀어내지 않게. 그런 것은 제
+     상자 안에서 옆으로 밀립니다(ChatMarkdown). */
+  max-width: 100%;
+  min-width: 0;
 }
 
 .rowUser .bubble {
