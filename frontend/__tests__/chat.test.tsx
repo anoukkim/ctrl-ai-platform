@@ -63,7 +63,7 @@ describe("sendMessage", () => {
     );
 
     expect(pieces.join("")).toBe("안녕하세요!");
-    expect(outcome).toEqual({ kind: "done", message: SAVED_REPLY, chargedKrw: 3 });
+    expect(outcome).toEqual({ kind: "done", message: SAVED_REPLY, chargedKrw: 3, longHistory: null });
   });
 
   test("an error event is a result, not a throw", async () => {
