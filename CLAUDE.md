@@ -49,6 +49,7 @@ answered them, and they are no longer up for debate:
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
 | Roles | **`admin` and `member` only.** |
 | Quarter support | **One 동아리 지원 wallet per member per quarter** (decided by the owner 2026-10-08, `single-wallet`) — 80,000원 by default, set per quarter. Chat, video and every other paid feature spend from it; there is no Build/Video split. The club still buys credit per provider, forecast from usage by provider. See sections 9 and 10. |
+| Personal top-ups | **Not offered** (decided by the owner 2026-10-14, `personal-topup-off`). Members see only the 동아리 지원 wallet; the tables, routes and admin screen are kept behind `PERSONAL_TOPUP_ENABLED=false` for `personal-topup-ui` later. See section 9. |
 | Club name | **CTRL+AI**, shown wherever a member reads the name. Product names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and every route are unchanged. |
 
 Remaining names in this document are working names and may still change.
@@ -469,13 +470,16 @@ Example:
 채팅  12,200원
 영상  15,000원
 기타     500원
-
-개인 잔액
-
-충전 잔액:     30,000원
-개인 사용:      5,000원
-남은 개인 잔액: 25,000원
 ```
+
+**Personal top-ups are not offered** (decided by the owner 2026-10-14,
+`personal-topup-off`): members see only the 동아리 지원 wallet. The
+`PersonalBalance` / `PersonalTopUp` tables and routes are kept behind
+`PERSONAL_TOPUP_ENABLED` (default `false` in every environment); the
+routes refuse in Korean, `charge()` never touches personal money while it
+is off, and Admin › Top-ups is hidden from the menu.
+`personal-topup-ui` (After the beta) is the switch-on. The rules below
+describe how personal money behaves **when it is on**.
 
 **One wallet** (`single-wallet`, 2026-10-08). A member has one 동아리 지원
 balance per quarter and every paid feature spends from it. The 채팅 / 영상 /
@@ -725,6 +729,12 @@ Admin features should eventually include:
 - approve or reject
 - approving creates the member's wallet
 
+## Top-ups — hidden (`personal-topup-off`, 2026-10-14)
+The deposit-confirmation screen for 개인 충전 stays in the code but off
+the menu while personal top-ups are not offered; its backend routes
+refuse while `PERSONAL_TOPUP_ENABLED` is false. `personal-topup-ui`
+brings it back.
+
 ## Credit Allocation
 Admin should be able to open a member and assign resources.
 
@@ -829,14 +839,15 @@ One live application per user per quarter.
 - approved_at
 - approved_by
 
-## PersonalBalance
+## PersonalBalance — kept, feature off (`personal-topup-off`, 2026-10-14)
 - id
 - user_id
 - balance_krw
 - consumed_krw
-- overage_enabled (the member must opt in before personal money is spent)
+- overage_enabled (the member must opt in before personal money is spent;
+  ignored entirely while `PERSONAL_TOPUP_ENABLED` is false)
 
-## PersonalTopUp
+## PersonalTopUp — kept, feature off (`personal-topup-off`, 2026-10-14)
 - id
 - user_id
 - amount_krw
@@ -975,7 +986,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its twelve sections are named in English too:
+and its eleven visible sections are named in English too:
 
 ```text
 Admin
@@ -983,7 +994,6 @@ Admin
   Members
   Applications
   Quarters
-  Top-ups
   Budget
   Video Models
   AI Models
@@ -992,6 +1002,10 @@ Admin
   Audit Log
   System
 ```
+
+**Top-ups is hidden** while personal top-ups are off
+(`personal-topup-off`, 2026-10-14) — the route and screen stay in the
+code, like Content, until `personal-topup-ui` unhides them.
 
 **AI Models** (formerly Claude Models; `/admin/claude-models` redirects to
 `/admin/ai-models`) groups the chat catalogue by provider, Anthropic

@@ -77,14 +77,14 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore/[slug]` | App detail      | Hero, 앱 실행, tabs; same comments as CtrlAITube |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
-| `/usage`              | Usage           | The one 동아리 지원 wallet and personal balance, in KRW |
+| `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
 | `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
 | `/admin/applications` | Applications    | Approve or reject, with stat cards and tabs  |
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
-| `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
+| `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
 | `/admin/budget`       | Budget          | Every wallet in a quarter, and spend by provider (what to buy) |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
 | `/admin/ai-models`    | AI Models       | Chat models by provider, their prices, who may pick them, the default (`/admin/claude-models` redirects) |
@@ -296,8 +296,9 @@ The interface is **Korean-first, with an English menu**.
 **The navigation is English throughout** — the group headings (Create,
 Explore, Account), the item names (Chat, Project Builder, Video Generator,
 CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and the Admin section
-names (Dashboard, Members, Applications, Quarters, Top-ups, Budget, Video
-Models, AI Models, Feedback, Deleted Items, Audit Log, System). Feedback
+names (Dashboard, Members, Applications, Quarters, Budget, Video
+Models, AI Models, Feedback, Deleted Items, Audit Log, System; Top-ups is
+hidden while personal top-ups are off — `personal-topup-off`). Feedback
 has no menu item for members: the 의견 보내기 button in the sidebar footer
 is the one way to send a note (admin-and-nav-cleanup, 2026-10-14). A screen's own heading matches its
 menu name, so the two never disagree.
@@ -424,7 +425,7 @@ its own screen needs:
 | CtrlAITube | title, description, creator | creator, sort |
 | Admin — Members | name, username | role, account status, membership status, sort |
 | Admin — Applications | member name, username | status tabs + stat cards |
-| Admin — Top-ups | member name, username | top-up status |
+| Admin — Top-ups (hidden while top-ups are off) | member name, username | top-up status |
 | Admin — Audit Log | summary, admin, action, target | action |
 | Admin — Video Models | model name, provider, model id | — |
 | Admin — AI Models | label, provider, model id | — |
@@ -447,7 +448,9 @@ rules are the same either way:
   yet — `budget-by-provider` adds one);
 - a remaining 개인 충전 balance, or a top-up request nobody has reviewed,
   marks the withdrawal **환불 대기**; an admin records the refund with
-  **환불 완료 기록**;
+  **환불 완료 기록** (with personal top-ups off — `personal-topup-off` —
+  nobody can acquire a new balance, so this shows only for money that
+  already existed);
 - published work stays up labelled 탈퇴 회원, or is unpublished if the
   member chose that;
 - usage history is untouched, so quarter reports still add up.
