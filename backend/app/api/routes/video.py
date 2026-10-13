@@ -312,7 +312,7 @@ def _produce(
     try:
         amount = video_catalog.cost_krw(model, version.resolution or "", charged_seconds)
         # Refused here, nothing has been spent: the provider is not called.
-        usage_service.ensure_affordable(db, user=user, amount_krw=amount)
+        usage_service.ensure_affordable(db, user=user, amount_krw=amount, settings=config)
         result = call(get_video_provider(config))
     except (
         usage_service.InsufficientBudgetError,
@@ -345,6 +345,7 @@ def _produce(
             video_project_id=project.id,
             video_version_id=version.id,
             commit=False,
+            settings=config,
         )
     except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
         # Lost a race with another charge after the pre-check. The version
@@ -687,6 +688,7 @@ def prompt_help(
             db,
             user=user,
             amount_krw=price.krw(estimated_input, max_output),
+            settings=config,
         )
         try:
             answer = provider.rewrite_video_prompt(
@@ -714,6 +716,7 @@ def prompt_help(
             video_project_id=project.id,
             commit=False,
             cap_to_available=True,
+            settings=config,
         )
         providers.record_success(
             db, "claude", "프롬프트 도움" + (" (mock)" if is_mock else "")

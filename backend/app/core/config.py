@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # "deployed": no dev tools, no dev seed, no API docs. Beta adds the
     # banner and turns off personal top-ups (prep-beta-launch).
     app_env: str = "development"
+    # 개인 충전. Off everywhere until the owner decides real money may
+    # move (personal-topup-off, 2026-10-14); the tables and routes stay,
+    # refusing with a Korean message. personal-topup-ui turns it back on.
+    personal_topup_enabled: bool = False
     backend_port: int = 8000
     frontend_port: int = 3000
 
@@ -262,11 +266,15 @@ class Settings(BaseSettings):
 
     @property
     def top_ups_enabled(self) -> bool:
-        """Whether members may ask to add personal money.
+        """Whether members may add or spend personal money.
 
-        Off in the beta: no real money moves while the site is a test.
+        An explicit setting, **off by default in every environment**
+        (personal-topup-off, owner 2026-10-14): members see only the
+        동아리 지원 wallet until the owner turns this on
+        (personal-topup-ui). The beta forces it off besides — no real
+        money moves while the site is a test.
         """
-        return not self.is_beta
+        return self.personal_topup_enabled and not self.is_beta
 
     @property
     def cookie_domain(self) -> str | None:

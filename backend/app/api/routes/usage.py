@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
     BuilderProject,
@@ -74,6 +75,7 @@ def _label_for(db: Session, event) -> str:
 def read_my_usage(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> MyUsage:
     quarter = current_quarter(db)
     balance = personal_balance(db, user.id)
@@ -122,11 +124,14 @@ def read_my_usage(
         membership_status=membership_status,
         wallet=wallet,
         breakdown=breakdown,
+        # personal-topup-off: not shown to members while 개인 충전 is off.
         personal=PersonalUsage(
             balance_krw=balance.balance_krw,
             consumed_krw=balance.consumed_krw,
             remaining_krw=max(0, balance.balance_krw - balance.consumed_krw),
             overage_enabled=balance.overage_enabled,
-        ),
+        )
+        if settings.top_ups_enabled
+        else None,
         events=events,
     )
