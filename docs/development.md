@@ -418,7 +418,7 @@ ctrl-ai-platform/
 │  └─ architecture.md         # target infrastructure, storage, security
 ├─ docker-compose.yml         # local PostgreSQL
 ├─ .env.example
-├─ CLAUDE.md                  # product definition and phase plan (authoritative)
+├─ CLAUDE.md                  # settled decisions, standing rules, working method
 └─ README.md                  # what exists today, and how to run it
 ```
 

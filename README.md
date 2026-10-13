@@ -40,7 +40,7 @@ platform runs locally with no API keys.
 | Server | Google Cloud Compute Engine `ctrlai-server` — e2-medium (2 vCPU, 4 GB), Seoul `asia-northeast3-c`, Debian 13, 30 GB disk, static IP `34.47.78.228` |
 | Stack | `docker-compose.prod.yml`: `caddy` (80/443, automatic HTTPS), `web` (Next.js), `api` (FastAPI), `db` (PostgreSQL 16, no published port) |
 | Images | Built and pushed to ghcr.io by GitHub Actions on every push to `main`; the server only pulls |
-| Secrets | `.env` on the server only, `chmod 600`, never committed (beta-only exception, `CLAUDE.md` section 17) |
+| Secrets | `.env` on the server only, `chmod 600`, never committed (beta-only exception, `CLAUDE.md` section 8) |
 | DNS | Gabia: `@` A `34.47.78.228`, `www` CNAME `ctrlai.my.` |
 | Billing | Google Cloud free trial (₩407,626) — **upgrade the billing account by 2027-01-04**, or the server stops when the trial ends |
 

@@ -2,7 +2,7 @@
 
 Milestones, and what is done in each. **Order within a milestone is set
 by [`BACKLOG.md`](BACKLOG.md) › Next (in order)**, not here. Old phase
-numbers from `CLAUDE.md` section 20 are in brackets; phases are now
+numbers from the phase plan (`archive/phases.md`) are in brackets; phases are now
 feature names, not the plan.
 
 | | Milestone | Status |
