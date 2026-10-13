@@ -183,6 +183,36 @@
   gap: 0.4rem;
 }
 
+/* ---------- 로그인 방법 (member-password-login) ---------- */
+
+.methodForm {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+
+.methodField {
+  display: grid;
+  gap: 0.3rem;
+  font-size: var(--fs-chip);
+  color: var(--text-muted);
+}
+
+.methodError {
+  color: var(--error-text);
+  font-size: var(--fs-chip);
+}
+
+.methodActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
 /* ---------- 내가 만든 것 ---------- */
 
 .lists {

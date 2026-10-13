@@ -108,6 +108,42 @@ export function fetchGoogleConnection(): Promise<GoogleConnection> {
   return request<GoogleConnection>("/account/google");
 }
 
+// ------------------------------------------------------------ 로그인 방법 (member-password-login)
+
+/** Profile › 로그인 방법. 둘 중 하나는 늘 남아 있어야 합니다(백엔드가 지킵니다). */
+export interface SignInMethods {
+  password: boolean;
+  google: GoogleConnection;
+}
+
+export function fetchSignInMethods(): Promise<SignInMethods> {
+  return request<SignInMethods>("/account/sign-in");
+}
+
+/** 비밀번호 만들기(처음) 또는 바꾸기(지금 비밀번호 필요). 다른 브라우저는 로그아웃됩니다. */
+export function setPassword(newPassword: string, currentPassword = ""): Promise<SignInMethods> {
+  return request<SignInMethods>("/account/password", {
+    method: "PUT",
+    body: JSON.stringify({ new_password: newPassword, current_password: currentPassword }),
+  });
+}
+
+/** 비밀번호 로그인 없애기 — Google이 연결되어 있을 때만. */
+export function removePassword(currentPassword: string): Promise<SignInMethods> {
+  return request<SignInMethods>("/account/password/remove", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword }),
+  });
+}
+
+/** Google 연결 끊기 — 비밀번호가 있을 때만, 그 비밀번호로 확인합니다. */
+export function unlinkGoogle(currentPassword: string): Promise<SignInMethods> {
+  return request<SignInMethods>("/account/google/unlink", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword }),
+  });
+}
+
 /** 로그인·연결 뒤 주소의 `?google=` 값이 뜻하는 것. */
 export const GOOGLE_RESULT_MESSAGE: Record<string, string> = {
   cancelled: "Google 로그인을 취소했어요.",
@@ -118,6 +154,7 @@ export const GOOGLE_RESULT_MESSAGE: Record<string, string> = {
   taken: "이 Google 계정은 이미 다른 CTRL+AI 계정에 연결되어 있어요.",
   already: "이미 이 계정에 연결된 Google 계정이에요.",
   other: "이 계정에는 이미 다른 Google 계정이 연결되어 있어요.",
+  reauth: "보안을 위해 로그아웃한 뒤 다시 로그인하고 연결해 주세요. 로그인한 지 10분이 지났어요.",
 };
 
 /** `?google=` 값에 맞는 문장. 모르는 값(또는 `constructor` 같은 이름)은 null. */

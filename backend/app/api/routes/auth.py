@@ -12,7 +12,7 @@ Error messages are Korean, because members read them.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -120,8 +120,13 @@ def register(
     if invite is None:
         raise refuse_code(invites.CODE_UNUSABLE)
 
+    # The email compared without case: Victim@gmail.com and victim@gmail.com
+    # are one mailbox, and Google sign-up compares them the same way.
     taken = db.scalar(
-        select(User).where((User.username == payload.username) | (User.email == payload.email))
+        select(User).where(
+            (User.username == payload.username)
+            | (func.lower(User.email) == payload.email.strip().lower())
+        )
     )
     if taken is not None:
         # Which field collided is safe to say: both are visible to anyone
@@ -170,8 +175,8 @@ def login(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> CurrentUser:
-    # Limited per address and per username: password sign-in is the admin's
-    # emergency door now that members use Google (google-login).
+    # Limited per address and per username. Every member may sign in by
+    # password as well as with Google (member-password-login, 2026-10-14).
     address = rate_limit.client_address(request, settings)
     if rate_limit.login_blocked(db, address, payload.username, settings):
         raise HTTPException(

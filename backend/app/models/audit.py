@@ -79,6 +79,11 @@ class AuditAction:
     ADMIN_BY_GOOGLE = "account.admin_by_google"
     # A member linked Google to their account: a new way in.
     GOOGLE_LINKED = "account.google_linked"
+    # member-password-login: the other ways in or out of an account.
+    GOOGLE_UNLINKED = "account.google_unlinked"
+    PASSWORD_SET = "account.password_set"
+    PASSWORD_CHANGED = "account.password_changed"
+    PASSWORD_REMOVED = "account.password_removed"
     # The chat model catalogue (chat-model-choice). Prices, who may pick a
     # model, and which one is the default all move what members spend.
     # `CLAUDE_PRICE_UPDATED` above stays for the rows written before it.
@@ -113,6 +118,10 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.INVITE_REACTIVATED: "초대 코드 다시 사용",
     AuditAction.ADMIN_BY_GOOGLE: "Google 계정으로 관리자 가입",
     AuditAction.GOOGLE_LINKED: "Google 로그인 연결",
+    AuditAction.GOOGLE_UNLINKED: "Google 로그인 연결 해제",
+    AuditAction.PASSWORD_SET: "비밀번호 로그인 추가",
+    AuditAction.PASSWORD_CHANGED: "비밀번호 변경",
+    AuditAction.PASSWORD_REMOVED: "비밀번호 로그인 삭제",
     AuditAction.CHAT_MODEL_CREATED: "Claude 모델 추가",
     AuditAction.CHAT_MODEL_UPDATED: "Claude 모델 변경",
 }

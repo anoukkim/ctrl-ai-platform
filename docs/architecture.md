@@ -77,6 +77,10 @@ the same commit that adds it.
 | `GET /api/auth/me` | `get_current_user` | |
 | `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
 | `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
+| `GET /api/account/sign-in` | `get_current_user` | Profile › 로그인 방법: password set? Google linked? |
+| `PUT /api/account/password` | `get_current_user` | **Deliberately open** — set a first password, or change it (current password re-checked, under the sign-in limit) |
+| `POST /api/account/password/remove` | `get_current_user` | **Deliberately open** — only while Google is linked; row locked; current password re-checked |
+| `POST /api/account/google/unlink` | `get_current_user` | **Deliberately open** — only while a password is set; row locked; that password re-checked |
 | `GET /api/chat/info` | `get_current_user` | Mock or real, and the rate limit |
 | `GET /api/chat/conversations` | `get_current_user` | Reading your own conversations — works while inactive |
 | `GET /api/chat/conversations/{id}` | `get_current_user` | Reading your own conversation |

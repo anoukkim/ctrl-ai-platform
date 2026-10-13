@@ -87,14 +87,24 @@ from a backup (`docs/deployment.md`, step 8).
 
 Phase 1a added accounts, so the first thing the app asks for is a login.
 
-**Google is the main way in** (google-login, 2026-10-13). With
-`GOOGLE_LOGIN_PROVIDER=mock` (the default) the login screen's **Google로
-계속하기** opens a stand-in "Google" page on the backend where you type an
-email, an account id (`sub`) and whether the email is verified — development
-only. An unknown `sub` goes to the setup screen (username, name, invite code
-`DEV-WELCOME`); a known one signs straight in. Username and password stay
-as the administrator's emergency sign-in at **`/login/password`**, which is
-where the seeded `dev` account below signs in.
+**Google or username and password** (member-password-login, 2026-10-14).
+The login screen has both. With `GOOGLE_LOGIN_PROVIDER=mock` (the default)
+**Google로 계속하기** opens a stand-in "Google" page on the backend where
+you type an email, an account id (`sub`) and whether the email is verified
+— development only. An unknown `sub` goes to the setup screen (username,
+name, invite code `DEV-WELCOME`); a known one signs straight in. The
+username/password form below it is where the seeded `dev` account signs
+in.
+
+The seed also makes one member for each way in (password
+`memberpassword` where there is one) and a single-use code nobody has
+used, `DEV-TRY-ONCE`:
+
+| 아이디 | 로그인 방법 | 목업 Google `sub` |
+| ------ | ----------- | ----------------- |
+| `pw_member` | 비밀번호만 | — |
+| `google_member` | Google만 | `mock-sub-google-member` |
+| `both_member` | 둘 다 | `mock-sub-both-member` |
 
 The seed creates a development administrator:
 

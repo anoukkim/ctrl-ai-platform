@@ -616,11 +616,21 @@ If privacy/legal requirements later require account deletion, design a separate 
 
 # 11. Authentication and Profile
 
-**Google is the main way to sign in** (decided by the owner, 2026-10-13;
-built by the backlog item `google-login`). Members sign in and sign up
-with **Google로 계속하기**; the first Google sign-in leads to a setup
-screen where they choose a username and display name, and — in the beta —
-enter an invite code.
+**Members sign in with Google or with username and password — both, for
+everyone** (decided by the owner, 2026-10-14, `member-password-login`;
+before that, 2026-10-13, Google was the only way in for members and the
+password was the admin's emergency door). The login screen shows
+**Google로 계속하기** and, below it, the username/password form. Sign-up
+is with Google (the first Google sign-in leads to a setup screen for a
+username and display name) or with username + email + password; an invite
+code is required either way.
+
+**Profile › 로그인 방법:** a Google member can set a password (and then
+sign in by username too); a password member can link Google. Either may
+remove one method — **only while the other remains**, checked in the
+backend with the account row locked, so nobody locks themselves out.
+Changing or removing a password, or unlinking Google, asks for the current
+password and counts towards the sign-in attempt limit.
 
 - **Sign-in scopes are `openid`, `email` and `profile` only.** No YouTube
   scope at sign-in; YouTube is asked for later (below).
@@ -630,8 +640,9 @@ enter an invite code.
 - **The admin:** the account whose Google email is verified
   (`email_verified=true`) and equals `ADMIN_EMAIL` becomes admin when it
   is created.
-- **Username and password stay only as the admin's emergency login.**
-  Members do not see the password form.
+- **Username and password are open to every member** (member-password-login).
+  `/login/password`, the admin's old emergency address, redirects to
+  `/login`.
 - **The backend does the whole OAuth exchange** with `state` and PKCE; the
   client secret lives only in the server's `.env`; the browser receives
   the same HttpOnly session cookie as before and never a Google token.
@@ -643,8 +654,8 @@ Fields:
 - email
 - display name
 - avatar optional
-- Google `sub` (in the connected account), or a password hash for the
-  admin's emergency login
+- Google `sub` (in the connected account), a password hash (Argon2id),
+  or both — at least one always
 
 Security:
 - NEVER store plaintext passwords

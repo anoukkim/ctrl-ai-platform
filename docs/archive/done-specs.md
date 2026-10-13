@@ -1430,6 +1430,12 @@ Notes for the build, not changes to the request:
   still rate-limited, and member accounts created by Google have no
   usable password (`UNUSABLE_PASSWORD_HASH`). Existing password members
   link Google from Profile before the password form disappears for them.
+  **Superseded 2026-10-14 by `member-password-login`:** the password form
+  is back on `/login` for every member, under the Google button;
+  `/login/password` redirects there; a Google member can set a password
+  and either method can be removed from Profile › 로그인 방법 while the
+  other remains. Google-created accounts still start with no usable
+  password.
 - **Google verification:** openid/email/profile are non-sensitive scopes,
   so sign-in works for everyone without Google's app review once the
   consent screen is in production; the YouTube upload scope is the one

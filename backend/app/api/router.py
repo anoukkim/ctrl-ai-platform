@@ -23,6 +23,7 @@ from app.api.routes import (
     google_auth,
     health,
     quarters,
+    sign_in_methods,
     site,
     usage,
     users,
@@ -35,6 +36,7 @@ api_router.include_router(site.router)
 api_router.include_router(auth.router)
 api_router.include_router(google_auth.router)
 api_router.include_router(account.router)
+api_router.include_router(sign_in_methods.router)
 api_router.include_router(users.router)
 api_router.include_router(builder.router)
 api_router.include_router(chat.router)

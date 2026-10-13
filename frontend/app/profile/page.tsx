@@ -1,5 +1,5 @@
 /**
- * Profile — 계정과 분기, 연결한 서비스 (목업).
+ * Profile — 계정과 분기, 로그인 방법, 연결한 서비스 (일부 목업).
  *
  * 분기 카드는 네 가지를 한눈에 보여 주는 것이 목적입니다.
  *   1. 지금 어느 분기인지
@@ -21,9 +21,9 @@ import PageHeader from "@/app/components/PageHeader";
 import { LayoutGrid } from "lucide-react";
 
 import { AccountSettings, Identity } from "./AccountIdentity";
-import GoogleConnectionRow from "./GoogleConnectionRow";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
+import SignInMethodsSection from "./SignInMethodsSection";
 import WithdrawalSection from "./WithdrawalSection";
 import styles from "./profile.module.css";
 
@@ -51,9 +51,10 @@ export default function ProfilePage() {
       <div className={styles.columns}>
         <AccountSettings />
 
+        <SignInMethodsSection />
+
         <section className="card">
           <h2 className="section-title">연결한 서비스</h2>
-          <GoogleConnectionRow />
           <div className={styles.connection}>
             <div>
               <p className={styles.connectionName}>GitHub 연결</p>

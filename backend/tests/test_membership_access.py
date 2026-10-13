@@ -338,6 +338,13 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # behind participating.
     ("GET", "/api/account/withdrawal"): "get_current_user",
     ("POST", "/api/account/withdrawal"): "get_current_user",
+    # member-password-login: Profile › 로그인 방법. Your own way in — never
+    # behind participation, or a member sitting a quarter out could not
+    # sign in safely.
+    ("GET", "/api/account/sign-in"): "get_current_user",
+    ("PUT", "/api/account/password"): "get_current_user",
+    ("POST", "/api/account/password/remove"): "get_current_user",
+    ("POST", "/api/account/google/unlink"): "get_current_user",
     # Chat — reads open (past conversations stay readable while inactive),
     # writes gated. Sending is the call that spends the Build budget.
     ("GET", "/api/chat/info"): "get_current_user",
@@ -525,6 +532,12 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # Leaving. Spends nothing, and must work for a member who is not
         # participating this quarter. The password is checked again.
         ("POST", "/api/account/withdrawal"),
+        # Your own sign-in methods (member-password-login). Spend nothing,
+        # must work while not participating; the current password is
+        # checked again and one method always remains.
+        ("PUT", "/api/account/password"),
+        ("POST", "/api/account/password/remove"),
+        ("POST", "/api/account/google/unlink"),
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),

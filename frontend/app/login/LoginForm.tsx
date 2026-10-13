@@ -3,11 +3,10 @@
 /**
  * 로그인 화면.
  *
- * **Google이 기본입니다**(google-login, 2026-10-13). Google 로그인이 켜진
- * 곳에서는 "Google로 계속하기"만 보이고, 아이디·비밀번호 칸은 관리자의
- * 비상 로그인용으로 따로 둔 주소(`/login/password`)에만 있습니다. Google
- * 로그인이 아직 꺼진 곳(설정 전의 서버)에서는 지금처럼 비밀번호 칸을
- * 보여 줍니다 — 그렇지 않으면 아무도 들어올 수 없습니다.
+ * 누구나 **Google로 계속하기** 또는 **아이디·비밀번호**로 들어옵니다
+ * (member-password-login, 2026-10-14). Google 로그인이 켜진 곳에서는 Google
+ * 단추가 위에, 그 아래에 아이디·비밀번호 칸이 함께 보입니다. Google
+ * 로그인이 꺼진 곳(설정 전의 서버)에서는 칸만 보입니다.
  *
  * 비밀번호는 상태에 잠깐 머물렀다가 요청과 함께 떠나고, 어디에도 저장하지
  * 않습니다. 성공하면 백엔드가 HttpOnly 쿠키를 내려 주므로 이 화면이 토큰을
@@ -29,7 +28,7 @@ import { GOOGLE_START_URL, googleResultMessage, login } from "@/lib/auth";
 import styles from "./auth.module.css";
 import Skeleton from "@/app/components/Skeleton";
 
-export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password" }) {
+export default function LoginForm() {
   const site = useSite();
   const loaded = useSiteLoaded();
   const [googleNote, setGoogleNote] = useState<string | null>(null);
@@ -51,7 +50,7 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
     if (message) queueMicrotask(() => setGoogleNote(message));
   }, []);
 
-  const googleFirst = mode === "auto" && site.google_login;
+  const withGoogle = site.google_login;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -78,13 +77,11 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
         </span>
 
         <div>
-          <h1 className={styles.title}>{mode === "password" ? "관리자 로그인" : "로그인"}</h1>
+          <h1 className={styles.title}>로그인</h1>
           <p className={styles.subtitle}>
-            {mode === "password"
-              ? "관리자 비상 로그인입니다. 회원은 Google로 로그인해 주세요."
-              : googleFirst
-                ? "Google 계정으로 로그인해요. 처음이면 다음 화면에서 아이디를 정해요."
-                : "아이디와 비밀번호를 입력해 주세요."}
+            {withGoogle
+              ? "Google 계정이나 아이디와 비밀번호로 로그인해요."
+              : "아이디와 비밀번호를 입력해 주세요."}
           </p>
         </div>
 
@@ -100,11 +97,18 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
           </p>
         )}
 
-        {!loaded && mode === "auto" ? (
+        {!loaded ? (
           <Skeleton />
-        ) : googleFirst ? (
-          <GoogleButton href={GOOGLE_START_URL} />
         ) : (
+        <>
+        {withGoogle && (
+          <>
+            <GoogleButton href={GOOGLE_START_URL} />
+            <p className={styles.divider}>
+              <span>또는 아이디로 로그인</span>
+            </p>
+          </>
+        )}
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor={usernameId}>
@@ -117,7 +121,7 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               autoComplete="username"
-              autoFocus
+              autoFocus={!withGoogle}
               required
             />
           </div>
@@ -146,6 +150,7 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
             {busy ? "로그인 중…" : "로그인"}
           </button>
         </form>
+        </>
         )}
 
         <p className={styles.footer}>
