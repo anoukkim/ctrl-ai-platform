@@ -185,13 +185,19 @@
 /* admin-restructure — 구역별 경로, 카드 현관, 확인창                   */
 /* ================================================================== */
 
+/* 칸 너비를 minmax(0, 1fr)로: 넓은 표가 그 칸을 화면 밖으로 밀지 않고 자기
+   상자(.table-wrap) 안에서 옆으로 밀리게 합니다. 기본값(auto)이면 표의 가장
+   좁은 너비가 칸의 최소 너비가 되어 페이지 전체가 옆으로 밀렸습니다
+   (admin-and-nav-cleanup에서 AI Models 표가 겹쳐 보인 원인). */
 .frame {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
 .frameBody {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.3rem;
 }
 
