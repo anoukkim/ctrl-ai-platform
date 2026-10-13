@@ -229,10 +229,14 @@ def update_chat_model(
     becomes_default = changes.pop("is_default", False) and not row.is_default
     visibility = changes.get("visibility", row.visibility)
     # A provider with no adapter first: its own reason, before the others.
-    try:
-        chat_models.check_open(row.provider, visibility, default=becomes_default)
-    except chat_models.ModelChoiceError as error:
-        raise _bad(str(error)) from error
+    # Only when this change opens the row or makes it the default — a
+    # price-only edit of a row that is already open (stray old data) is
+    # not what the rule is for, and closing such a row must stay possible.
+    if "visibility" in changes or becomes_default:
+        try:
+            chat_models.check_open(row.provider, visibility, default=becomes_default)
+        except chat_models.ModelChoiceError as error:
+            raise _bad(str(error)) from error
     if (row.is_default or becomes_default) and visibility is not ChatModelVisibility.MEMBERS:
         raise _bad(
             "기본 모델은 회원에게 공개되어 있어야 합니다. "

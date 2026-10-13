@@ -468,6 +468,9 @@ def test_deepseek_is_seeded_closed_with_the_researchs_prices(
     assert row.provider == "deepseek"
     assert row.visibility is ChatModelVisibility.DISABLED
     assert (row.input_usd_per_mtok, row.output_usd_per_mtok) == (Decimal("0.30"), Decimal("1.20"))
+    # The research's cache-read price — without it the tenth-of-input rule
+    # would charge $0.03 instead of $0.006.
+    assert row.cache_read_usd_per_mtok == Decimal("0.006")
     listed = next(r for r in client.get("/api/admin/chat-models").json() if r["id"] == row.id)
     assert listed["provider_ready"] is False
     assert listed["provider_label"].startswith("DeepSeek")
@@ -511,6 +514,43 @@ def test_a_model_added_for_a_provider_not_connected_starts_and_stays_closed(
     made = client.post("/api/admin/chat-models", json=body)
     assert made.status_code == 201, made.text
     assert made.json()["visibility"] == "disabled"
+
+
+def test_a_stray_open_row_of_an_unknown_provider_can_be_priced_and_closed(
+    client: TestClient, db_session: Session, config
+) -> None:
+    """Old data: a row whose provider has no adapter but which is open.
+
+    The rule is "never *opened* or made the default", not "may not exist":
+    its price may be edited while it stays open, it can be closed, and
+    only re-opening is refused.
+    """
+    stray = ChatModel(
+        provider="openrouter",
+        model_id="stray/model",
+        label="옛 행",
+        description="",
+        input_usd_per_mtok=Decimal("1"),
+        output_usd_per_mtok=Decimal("2"),
+        visibility=ChatModelVisibility.ADMIN,
+        is_default=False,
+        sort_order=90,
+    )
+    db_session.add(stray)
+    db_session.commit()
+
+    priced = client.patch(
+        f"/api/admin/chat-models/{stray.id}", json={"input_usd_per_mtok": "1.10"}
+    )
+    assert priced.status_code == 200, priced.text
+    assert priced.json()["visibility"] == "admin"
+
+    closed = client.patch(f"/api/admin/chat-models/{stray.id}", json={"visibility": "disabled"})
+    assert closed.status_code == 200, closed.text
+
+    reopened = client.patch(f"/api/admin/chat-models/{stray.id}", json={"visibility": "admin"})
+    assert reopened.status_code == 400
+    assert "연결 준비 중" in reopened.json()["detail"]
 
 
 def test_an_implausible_price_is_refused(client: TestClient, db_session: Session, config) -> None:
