@@ -264,6 +264,7 @@ def test_removing_both_at_once_leaves_one(pg_engine) -> None:
     from sqlalchemy.orm import sessionmaker
 
     from app.api.routes.sign_in_methods import drop_google, drop_password
+    from app.core.config import Settings
     from app.core.security import hash_password
     from app.models import AccountStatus, UserRole
 
@@ -308,7 +309,10 @@ def test_removing_both_at_once_leaves_one(pg_engine) -> None:
                         outcomes.append(str(refused.status_code))
 
             threads = [
-                threading.Thread(target=attempt, args=(drop_password,)),
+                threading.Thread(
+                    target=attempt,
+                    args=(lambda session, person: drop_password(session, person, Settings(app_env="development")),),
+                ),
                 threading.Thread(target=attempt, args=(drop_google,)),
             ]
             for thread in threads:
@@ -378,3 +382,84 @@ def test_the_dev_seed_has_one_account_for_each_way_in(db_session: Session, anon_
     response = google_says(anon_client, start(anon_client), sub="mock-sub-google-member", email="x@y.z")
     assert response.headers["location"] == "/"
     assert anon_client.get("/api/auth/me").json()["username"] == "google_member"
+
+
+
+# ------------------------------------------------------------- review round 1
+
+
+def _age_sessions(db: Session, minutes: int) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import UserSession
+
+    for row in db.scalars(select(UserSession)):
+        row.created_at = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    db.commit()
+
+
+def test_a_first_password_needs_a_recent_sign_in(anon_client: TestClient, db_session: Session) -> None:
+    google_member(anon_client, db_session)
+    _age_sessions(db_session, 30)
+    refused = anon_client.put("/api/account/password", json={"new_password": NEW_PASSWORD})
+    assert refused.status_code == 403
+    assert "다시 로그인" in refused.json()["detail"]
+    assert methods(anon_client)["password"] is False
+
+
+def test_linking_google_needs_a_recent_sign_in(client: TestClient, db_session: Session) -> None:
+    _age_sessions(db_session, 30)
+    response = client.get("/api/account/google/link/start", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/profile?google=reauth"
+
+
+def test_removing_a_method_signs_out_other_browsers(
+    client: TestClient, db_session: Session, dev_user
+) -> None:
+    from app.main import app
+
+    google_says(client, start(client, "/api/account/google/link/start"), sub="g-dev", email="dev@g.com")
+    with TestClient(app) as other:
+        other.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
+        assert other.get("/api/auth/me").status_code == 200
+        done = client.post("/api/account/google/unlink", json={"current_password": DEV_PASSWORD})
+        assert done.status_code == 200, done.text
+        assert other.get("/api/auth/me").status_code == 401
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_the_password_stays_while_google_sign_in_is_off(
+    anon_client: TestClient, db_session: Session, settings_for  # noqa: F811
+) -> None:
+    google_member(anon_client, db_session)
+    anon_client.put("/api/account/password", json={"new_password": NEW_PASSWORD})
+    settings_for(google_login_provider="off")
+    refused = anon_client.post("/api/account/password/remove", json={"current_password": NEW_PASSWORD})
+    assert refused.status_code == 409
+    assert "Google 로그인이 꺼져" in refused.json()["detail"]
+    assert methods(anon_client)["google"]["available"] is False
+
+
+def test_withdrawal_password_guesses_count_towards_the_limit(
+    client: TestClient, settings_for  # noqa: F811
+) -> None:
+    settings_for(login_failures_per_15_minutes=2)
+    for _ in range(2):
+        assert client.post("/api/account/withdrawal", json={"password": "guess"}).status_code == 400
+    assert client.post("/api/account/withdrawal", json={"password": DEV_PASSWORD}).status_code == 429
+
+
+def test_an_email_in_other_case_is_taken(anon_client: TestClient, invite_code, dev_user) -> None:
+    made = anon_client.post(
+        "/api/auth/register",
+        json={
+            "username": "copycat",
+            "email": dev_user.email.upper(),
+            "password": NEW_PASSWORD,
+            "display_name": "x",
+            "invite_code": invite_code.code,
+        },
+    )
+    assert made.status_code == 409
+    assert "이메일" in made.json()["detail"]

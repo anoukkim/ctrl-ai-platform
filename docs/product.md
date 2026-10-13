@@ -205,12 +205,17 @@ password + invite code. An invite code is required either way.
   연결 끊기. Unlinking asks for the password and is refused while the
   password is not set.
 - **아이디와 비밀번호** — 만들기 for a Google member (8 characters or more,
-  typed twice), 바꾸기 (current password; other browsers are signed out),
-  없애기 (current password; refused while Google is not linked).
+  typed twice), 바꾸기 (current password), 없애기 (current password;
+  refused while Google is not linked, or while Google sign-in is switched
+  off on the server).
 
-The backend keeps one method at all times, with the account row locked
-while it checks. Wrong current passwords count towards the sign-in
-attempt limit. Each change is in the audit log (비밀번호 로그인 추가,
+Adding a way in — a first password, or linking Google — needs a sign-in
+less than 10 minutes old (there is no password to ask for), so a browser
+left open is not enough. Every change signs out the member's other
+browsers. The backend keeps one method at all times, with the account row
+locked while it checks. Wrong current passwords — here and in withdrawal —
+count towards the sign-in attempt limit. Sign-up compares emails without
+case. Each change is in the audit log (비밀번호 로그인 추가,
 비밀번호 변경, 비밀번호 로그인 삭제, Google 로그인 연결 해제). Withdrawal
 asks for the password when there is one, the username otherwise.
 

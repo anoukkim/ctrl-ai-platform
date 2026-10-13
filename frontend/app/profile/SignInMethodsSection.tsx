@@ -8,17 +8,20 @@
  * - 비밀번호 회원은 Google을 연결하고(`sub`로 이어집니다, 이메일이 아니라),
  * - 둘 다 있으면 하나를 없앨 수 있습니다.
  *
- * **하나만 남았을 때는 없애는 단추가 꺼져 있습니다.** 화면은 이유를
- * 설명할 뿐이고, 실제로 막는 것은 백엔드입니다 — 계정 행을 잠근 채로 다른
- * 방법이 남아 있는지 다시 확인합니다.
+ * **하나만 남았을 때는 없애는 단추가 꺼져 있고**, 왜 꺼졌는지 바로 아래
+ * 글로 알려 줍니다(`aria-describedby`). 실제로 막는 것은 백엔드입니다 —
+ * 계정 행을 잠근 채로 다른 방법이 남아 있는지 다시 확인합니다.
  *
- * 비밀번호를 바꾸거나 없애거나 Google을 끊을 때는 지금 비밀번호를 다시
- * 묻습니다. 열려 있던 브라우저만으로 로그인 방법이 바뀌지 않게 하려는
- * 것입니다. Google에서 돌아오면 주소에 `?google=linked` 같은 결과가 붙어
- * 옵니다.
+ * 비밀번호를 바꾸거나 없애거나 Google을 끊을 때는 현재 비밀번호를 다시
+ * 묻습니다. 처음 비밀번호를 만들거나 Google을 연결할 때는 물을 비밀번호가
+ * 없으니, 로그인한 지 10분이 지났으면 다시 로그인하라고 합니다 — 열려
+ * 있던 브라우저만으로 로그인 방법이 늘지 않게 하려는 것입니다. 무엇을
+ * 바꾸든 다른 브라우저는 로그아웃됩니다.
+ *
+ * Google에서 돌아오면 주소에 `?google=linked` 같은 결과가 붙어 옵니다.
  */
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import { useToast } from "@/app/components/ToastProvider";
@@ -38,7 +41,22 @@ import styles from "./profile.module.css";
 
 type Editing = null | "set" | "change" | "remove" | "unlink";
 
-const LAST_ONE = "로그인 방법이 하나뿐이라 없앨 수 없어요. 다른 방법을 먼저 추가해 주세요.";
+/** 백엔드가 받는 가장 긴 비밀번호. */
+const MAX_PASSWORD_LENGTH = 128;
+
+const FORM_TITLE: Record<Exclude<Editing, null>, string> = {
+  set: "비밀번호 만들기",
+  change: "비밀번호 바꾸기",
+  remove: "비밀번호 로그인 없애기",
+  unlink: "Google 연결 끊기",
+};
+
+const DONE: Record<Exclude<Editing, null>, string> = {
+  set: "비밀번호를 만들었어요. 이제 아이디로도 로그인할 수 있어요. 다른 브라우저는 로그아웃됐어요.",
+  change: "비밀번호를 바꿨어요. 다른 브라우저는 로그아웃됐어요.",
+  remove: "비밀번호 로그인을 없앴어요. 이제 Google로만 로그인해요. 다른 브라우저는 로그아웃됐어요.",
+  unlink: "Google 연결을 끊었어요. 이제 아이디와 비밀번호로만 로그인해요. 다른 브라우저는 로그아웃됐어요.",
+};
 
 export default function SignInMethodsSection() {
   const [methods, setMethods] = useState<SignInMethods | null>(null);
@@ -52,9 +70,9 @@ export default function SignInMethodsSection() {
   const [busy, setBusy] = useState(false);
   const { refresh } = useCurrentUser();
   const toast = useToast();
-  const currentId = useId();
-  const nextId = useId();
-  const confirmId = useId();
+  const id = useId();
+  /** 폼을 연 단추. 닫히면 초점을 여기로 돌려줍니다. */
+  const opener = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,12 +90,24 @@ export default function SignInMethodsSection() {
     };
   }, []);
 
-  function open(which: Editing) {
+  function open(which: Exclude<Editing, null>, button: HTMLButtonElement) {
+    opener.current = button;
     setEditing(which);
     setCurrent("");
     setNext("");
     setConfirm("");
     setError(null);
+  }
+
+  function close() {
+    setEditing(null);
+    // 폼을 연 단추로. 그 단추가 사라졌으면 칸 제목으로.
+    setTimeout(() => {
+      const target = opener.current?.isConnected
+        ? opener.current
+        : document.getElementById(`${id}-title`);
+      target?.focus();
+    }, 0);
   }
 
   const needsCurrent = editing === "change" || editing === "remove" || editing === "unlink";
@@ -88,30 +118,22 @@ export default function SignInMethodsSection() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!canSubmit || editing === null) return;
+    const action = editing;
     setBusy(true);
     setError(null);
     try {
       const updated =
-        editing === "set"
+        action === "set"
           ? await setPassword(next)
-          : editing === "change"
+          : action === "change"
             ? await setPassword(next, current)
-            : editing === "remove"
+            : action === "remove"
               ? await removePassword(current)
               : await unlinkGoogle(current);
       setMethods(updated);
-      setEditing(null);
       setNote(null);
-      toast.show(
-        editing === "set"
-          ? "비밀번호를 만들었어요. 이제 아이디로도 로그인할 수 있어요."
-          : editing === "change"
-            ? "비밀번호를 바꿨어요. 다른 브라우저에서는 로그아웃됐어요."
-            : editing === "remove"
-              ? "비밀번호 로그인을 없앴어요. 이제 Google로만 로그인해요."
-              : "Google 연결을 끊었어요. 이제 아이디와 비밀번호로 로그인해요.",
-        "ok",
-      );
+      close();
+      toast.show(DONE[action], "ok");
       // 탈퇴 칸은 비밀번호가 있는지에 따라 묻는 것이 달라집니다.
       await refresh();
     } catch (caught) {
@@ -135,14 +157,102 @@ export default function SignInMethodsSection() {
   const google = methods?.google;
   const hasPassword = methods?.password ?? false;
   const linked = google?.linked ?? false;
+  const googleOn = google?.available ?? false;
+  const unlinkBlocked = linked && !hasPassword;
+  const removeBlocked = hasPassword && !(linked && googleOn);
+
+  const form = editing !== null && (
+    <form className={styles.methodForm} onSubmit={submit} aria-labelledby={`${id}-form`}>
+      <p className={styles.connectionName} id={`${id}-form`}>
+        {FORM_TITLE[editing]}
+      </p>
+      {needsCurrent && (
+        <label className={styles.methodField} htmlFor={`${id}-current`}>
+          <span>현재 비밀번호</span>
+          <input
+            className="field"
+            id={`${id}-current`}
+            type="password"
+            autoComplete="current-password"
+            maxLength={MAX_PASSWORD_LENGTH}
+            value={current}
+            onChange={(event) => setCurrent(event.target.value)}
+            autoFocus
+          />
+        </label>
+      )}
+      {needsNew && (
+        <>
+          <label className={styles.methodField} htmlFor={`${id}-new`}>
+            <span>새 비밀번호</span>
+            <input
+              className="field"
+              id={`${id}-new`}
+              type="password"
+              autoComplete="new-password"
+              maxLength={MAX_PASSWORD_LENGTH}
+              value={next}
+              onChange={(event) => setNext(event.target.value)}
+              autoFocus={!needsCurrent}
+              aria-describedby={`${id}-rule`}
+            />
+          </label>
+          <label className={styles.methodField} htmlFor={`${id}-confirm`}>
+            <span>새 비밀번호 확인</span>
+            <input
+              className="field"
+              id={`${id}-confirm`}
+              type="password"
+              autoComplete="new-password"
+              maxLength={MAX_PASSWORD_LENGTH}
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+              aria-describedby={`${id}-rule`}
+            />
+          </label>
+          <p className={styles.connectionHint} id={`${id}-rule`}>
+            {next && next.length < MIN_PASSWORD_LENGTH
+              ? `${MIN_PASSWORD_LENGTH}자 이상 입력해 주세요.`
+              : confirm && next !== confirm
+                ? "두 칸의 비밀번호가 달라요."
+                : `${MIN_PASSWORD_LENGTH}자 이상. 다른 곳에서 쓰지 않는 비밀번호가 좋아요.`}
+          </p>
+        </>
+      )}
+      {editing === "remove" && (
+        <p className={styles.connectionHint}>없애면 Google로만 로그인할 수 있어요.</p>
+      )}
+      {editing === "unlink" && (
+        <p className={styles.connectionHint}>끊으면 아이디와 비밀번호로만 로그인할 수 있어요.</p>
+      )}
+      {error && (
+        <p className={styles.methodError} role="alert">
+          {error}
+        </p>
+      )}
+      <div className={styles.methodActions}>
+        <button className="btn btn-sm" type="button" onClick={close} disabled={busy}>
+          취소
+        </button>
+        <button
+          className={`btn btn-sm ${editing === "remove" || editing === "unlink" ? "btn-danger" : "btn-primary"}`}
+          type="submit"
+          disabled={!canSubmit}
+        >
+          {busy ? "처리 중…" : editing === "remove" ? "없애기" : editing === "unlink" ? "연결 끊기" : "저장"}
+        </button>
+      </div>
+    </form>
+  );
 
   return (
-    <section className="card" aria-labelledby={`${currentId}-title`}>
-      <h2 className="section-title" id={`${currentId}-title`}>
+    <section className="card" aria-labelledby={`${id}-title`}>
+      <h2 className="section-title" id={`${id}-title`} tabIndex={-1}>
         로그인 방법
       </h2>
       <p className={styles.connectionHint}>
-        둘 중 하나로 로그인해요. 하나는 늘 남아 있어야 해서, 하나뿐일 때는 없앨 수 없어요.
+        Google 계정이나 아이디·비밀번호로 로그인해요. 로그인 방법은 하나 이상 있어야 해서,
+        하나만 있을 때는 없앨 수 없어요.
       </p>
       {note && (
         <p className={styles.connectionHint} role="status">
@@ -158,7 +268,7 @@ export default function SignInMethodsSection() {
             {methods === null
               ? "불러오는 중…"
               : linked
-                ? `${google?.email}(으)로 로그인합니다.`
+                ? `${google?.email}(으)로 로그인해요.`
                 : "연결해 두면 Google로도 로그인할 수 있어요."}
           </p>
         </div>
@@ -170,14 +280,14 @@ export default function SignInMethodsSection() {
                 <button
                   className="btn btn-sm"
                   type="button"
-                  onClick={() => open("unlink")}
-                  disabled={!hasPassword || busy}
-                  title={hasPassword ? undefined : LAST_ONE}
+                  onClick={(event) => open("unlink", event.currentTarget)}
+                  disabled={unlinkBlocked || busy}
+                  aria-describedby={unlinkBlocked ? `${id}-unlink-why` : undefined}
                 >
                   연결 끊기
                 </button>
               </>
-            ) : google?.available ? (
+            ) : googleOn ? (
               <>
                 <span className="badge badge-muted">연결 안 됨</span>
                 <a className="btn btn-sm" href={GOOGLE_LINK_URL}>
@@ -187,12 +297,7 @@ export default function SignInMethodsSection() {
             ) : (
               <>
                 <span className="badge badge-muted">준비 중</span>
-                <button
-                  className="btn btn-sm"
-                  type="button"
-                  disabled
-                  title="Google 로그인이 아직 켜지지 않았습니다"
-                >
+                <button className="btn btn-sm" type="button" disabled aria-describedby={`${id}-google-off`}>
                   연결하기
                 </button>
               </>
@@ -200,9 +305,17 @@ export default function SignInMethodsSection() {
           </span>
         )}
       </div>
-      {linked && !hasPassword && methods !== null && (
-        <p className={styles.connectionHint}>Google 연결을 끊으려면 먼저 비밀번호를 만들어 주세요.</p>
+      {unlinkBlocked && (
+        <p className={styles.connectionHint} id={`${id}-unlink-why`}>
+          Google 연결을 끊으려면 먼저 비밀번호를 만들어 주세요.
+        </p>
       )}
+      {methods !== null && !linked && !googleOn && (
+        <p className={styles.connectionHint} id={`${id}-google-off`}>
+          이 서버에서는 Google 로그인이 아직 켜지지 않았어요.
+        </p>
+      )}
+      {editing === "unlink" && form}
 
       {/* 비밀번호 */}
       <div className={styles.connection}>
@@ -221,15 +334,20 @@ export default function SignInMethodsSection() {
             {hasPassword ? (
               <>
                 <span className="badge badge-ok">사용 중</span>
-                <button className="btn btn-sm" type="button" onClick={() => open("change")} disabled={busy}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  onClick={(event) => open("change", event.currentTarget)}
+                  disabled={busy}
+                >
                   바꾸기
                 </button>
                 <button
                   className="btn btn-sm"
                   type="button"
-                  onClick={() => open("remove")}
-                  disabled={!linked || busy}
-                  title={linked ? undefined : LAST_ONE}
+                  onClick={(event) => open("remove", event.currentTarget)}
+                  disabled={removeBlocked || busy}
+                  aria-describedby={removeBlocked ? `${id}-remove-why` : undefined}
                 >
                   없애기
                 </button>
@@ -237,7 +355,12 @@ export default function SignInMethodsSection() {
             ) : (
               <>
                 <span className="badge badge-muted">없음</span>
-                <button className="btn btn-sm" type="button" onClick={() => open("set")} disabled={busy}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  onClick={(event) => open("set", event.currentTarget)}
+                  disabled={busy}
+                >
                   만들기
                 </button>
               </>
@@ -245,100 +368,14 @@ export default function SignInMethodsSection() {
           </span>
         )}
       </div>
-      {hasPassword && !linked && methods !== null && (
-        <p className={styles.connectionHint}>비밀번호를 없애려면 먼저 Google을 연결해 주세요.</p>
+      {removeBlocked && methods !== null && (
+        <p className={styles.connectionHint} id={`${id}-remove-why`}>
+          {linked
+            ? "이 서버에서 Google 로그인이 꺼져 있어 비밀번호를 없앨 수 없어요."
+            : "비밀번호를 없애려면 먼저 Google을 연결해 주세요."}
+        </p>
       )}
-
-      {editing !== null && (
-        <form className={styles.methodForm} onSubmit={submit}>
-          <p className={styles.connectionName}>
-            {editing === "set"
-              ? "비밀번호 만들기"
-              : editing === "change"
-                ? "비밀번호 바꾸기"
-                : editing === "remove"
-                  ? "비밀번호 로그인 없애기"
-                  : "Google 연결 끊기"}
-          </p>
-          {needsCurrent && (
-            <label className={styles.methodField} htmlFor={currentId}>
-              <span>지금 비밀번호</span>
-              <input
-                className="field"
-                id={currentId}
-                type="password"
-                autoComplete="current-password"
-                value={current}
-                onChange={(event) => setCurrent(event.target.value)}
-                autoFocus
-              />
-            </label>
-          )}
-          {needsNew && (
-            <>
-              <label className={styles.methodField} htmlFor={nextId}>
-                <span>새 비밀번호</span>
-                <input
-                  className="field"
-                  id={nextId}
-                  type="password"
-                  autoComplete="new-password"
-                  value={next}
-                  onChange={(event) => setNext(event.target.value)}
-                  autoFocus={!needsCurrent}
-                />
-              </label>
-              <label className={styles.methodField} htmlFor={confirmId}>
-                <span>새 비밀번호 한 번 더</span>
-                <input
-                  className="field"
-                  id={confirmId}
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                />
-              </label>
-              <p className={styles.connectionHint}>
-                {next && next.length < MIN_PASSWORD_LENGTH
-                  ? `${MIN_PASSWORD_LENGTH}자 이상 입력해 주세요.`
-                  : confirm && next !== confirm
-                    ? "두 칸의 비밀번호가 달라요."
-                    : `${MIN_PASSWORD_LENGTH}자 이상. 다른 곳에서 쓰지 않는 비밀번호가 좋아요.`}
-              </p>
-            </>
-          )}
-          {editing === "remove" && (
-            <p className={styles.connectionHint}>없애면 Google로만 로그인할 수 있어요.</p>
-          )}
-          {editing === "unlink" && (
-            <p className={styles.connectionHint}>끊으면 아이디와 비밀번호로만 로그인할 수 있어요.</p>
-          )}
-          {error && (
-            <p className={styles.methodError} role="alert">
-              {error}
-            </p>
-          )}
-          <div className={styles.methodActions}>
-            <button className="btn btn-sm" type="button" onClick={() => setEditing(null)} disabled={busy}>
-              취소
-            </button>
-            <button
-              className={`btn btn-sm ${editing === "remove" || editing === "unlink" ? "btn-danger" : "btn-primary"}`}
-              type="submit"
-              disabled={!canSubmit}
-            >
-              {busy
-                ? "처리 중…"
-                : editing === "remove"
-                  ? "없애기"
-                  : editing === "unlink"
-                    ? "연결 끊기"
-                    : "저장"}
-            </button>
-          </div>
-        </form>
-      )}
+      {editing !== null && editing !== "unlink" && form}
     </section>
   );
 }

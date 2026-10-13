@@ -19,8 +19,10 @@ The flow:
    * an unknown `sub` becomes a `PendingGoogleSignup`, and the member
      finishes on the setup screen (username, display name, invite code).
 
-Accounts made this way have no usable password. Username and password
-remain only as the administrator's emergency sign-in.
+Accounts made this way start with no usable password. Since
+member-password-login (2026-10-14) every member may also sign in by
+username and password; Profile › 로그인 방법 sets one
+(`routes/sign_in_methods.py`). Linking Google needs a recent sign-in.
 """
 
 from __future__ import annotations
@@ -175,6 +177,12 @@ def google_link_start(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
+    # A new way into the account: not from a browser that signed in long
+    # ago and may have been left open (member-password-login).
+    from app.api.routes.sign_in_methods import signed_in_recently
+
+    if not signed_in_recently(db, request, settings):
+        return _to("/profile", google="reauth")
     return _begin(db, settings, "link", user.id, rate_limit.client_address(request, settings))
 
 

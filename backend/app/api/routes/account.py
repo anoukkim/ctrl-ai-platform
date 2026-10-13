@@ -5,7 +5,7 @@ this quarter out still owns their account, and the way out of CTRL+AI must
 not be locked behind participating in it.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -14,6 +14,7 @@ from app.core.security import UNUSABLE_PASSWORD_HASH, verify_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.withdrawal import WithdrawalPreviewRead, WithdrawalRead, WithdrawRequest
+from app.services import rate_limit
 from app.services import withdrawal as withdrawal_service
 
 router = APIRouter(prefix="/account", tags=["account"])
@@ -38,6 +39,7 @@ def preview_withdrawal(
 )
 def withdraw(
     payload: WithdrawRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -53,8 +55,18 @@ def withdraw(
         # the username out is the deliberate step instead.
         if payload.confirm_username.strip() != user.username:
             raise HTTPException(status_code=400, detail="아이디를 정확히 입력해 주세요.")
-    elif not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="비밀번호가 올바르지 않습니다.")
+    else:
+        # Counted like the sign-in form (member-password-login): a stolen
+        # session must not be a quiet place to guess the password.
+        address = rate_limit.client_address(request, settings)
+        if rate_limit.login_blocked(db, address, user.username, settings):
+            raise HTTPException(
+                status_code=429,
+                detail="비밀번호를 너무 여러 번 틀렸습니다. 15분 뒤에 다시 시도해 주세요.",
+            )
+        if not verify_password(payload.password, user.password_hash):
+            rate_limit.record_login_failure(db, address, user.username)
+            raise HTTPException(status_code=400, detail="비밀번호가 올바르지 않습니다.")
 
     try:
         row = withdrawal_service.withdraw(

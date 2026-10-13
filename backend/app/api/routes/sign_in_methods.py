@@ -13,8 +13,20 @@ guess a password from a browser left open.
 
 The "is another method left" check runs with the member's row locked
 (`SELECT … FOR UPDATE`), so a password removal and a Google unlink sent at
-the same moment cannot both pass.
+the same moment cannot both pass. Removing the password also needs Google
+sign-in to be *switched on* on this server — a linked Google account is no
+way in while Google sign-in is off.
+
+**Adding a way in needs a recent sign-in.** A first password (a Google
+member has no password to ask for) and linking Google are refused when
+this browser signed in more than `RECENT_SIGN_IN` ago: a browser left open
+must not be enough to give someone a lasting way into the account.
+
+Every change signs out the member's other browsers and keeps this one —
+whoever knew the old method should not stay in.
 """
+
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -38,9 +50,15 @@ from app.services.google_login import get_google_login
 
 router = APIRouter(prefix="/account", tags=["account"])
 
-WRONG_PASSWORD = "지금 쓰는 비밀번호가 올바르지 않습니다."
+WRONG_PASSWORD = "현재 비밀번호가 올바르지 않습니다."
 TOO_MANY = "비밀번호를 너무 여러 번 틀렸습니다. 15분 뒤에 다시 시도해 주세요."
-LAST_METHOD = "로그인 방법이 하나만 남아 있어 지울 수 없습니다. 다른 방법을 먼저 추가해 주세요."
+LAST_METHOD = "로그인 방법이 하나만 남아 있어 없앨 수 없습니다. 다른 방법을 먼저 추가해 주세요."
+GOOGLE_OFF = "지금은 이 서버에서 Google 로그인이 꺼져 있어 비밀번호를 없앨 수 없습니다."
+SIGN_IN_AGAIN = "보안을 위해 로그아웃한 뒤 다시 로그인하고 해 주세요. 로그인한 지 10분이 지났어요."
+ALREADY_SET = "이미 비밀번호가 있습니다. 화면을 새로 고친 뒤 바꾸기를 써 주세요."
+
+#: How recent a sign-in must be to add a way into the account.
+RECENT_SIGN_IN = timedelta(minutes=10)
 
 
 class GoogleMethod(BaseModel):
@@ -89,7 +107,7 @@ def _methods(db: Session, user: User, settings: Settings) -> SignInMethods:
     )
 
 
-def _check_current_password(
+def check_current_password(
     db: Session, request: Request, user: User, given: str, settings: Settings
 ) -> None:
     """The current password, under the sign-in form's attempt limit."""
@@ -99,6 +117,28 @@ def _check_current_password(
     if not verify_password(given, user.password_hash):
         rate_limit.record_login_failure(db, address, user.username)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=WRONG_PASSWORD)
+
+
+def _session_token(request: Request, settings: Settings) -> str:
+    return request.cookies.get(settings.session_cookie_name, "")
+
+
+def signed_in_recently(db: Session, request: Request, settings: Settings) -> bool:
+    """This browser's session began less than `RECENT_SIGN_IN` ago."""
+    row = db.scalar(select(UserSession).where(UserSession.token == _session_token(request, settings)))
+    if row is None:
+        return False
+    created = row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - created <= RECENT_SIGN_IN
+
+
+def end_other_sessions(db: Session, user_id: int, keep_token: str) -> None:
+    """Sign the member out everywhere but this browser. Does not commit."""
+    db.execute(
+        delete(UserSession)
+        .where(UserSession.user_id == user_id, UserSession.token != keep_token)
+        .execution_options(synchronize_session=False)
+    )
 
 
 def _locked(db: Session, user: User) -> User:
@@ -116,12 +156,15 @@ def _locked(db: Session, user: User) -> User:
     return row
 
 
-def drop_password(db: Session, user: User) -> User:
-    """Remove the password, if Google is still linked — under the row lock.
+def drop_password(db: Session, user: User, settings: Settings, keep_token: str = "") -> User:
+    """Remove the password, if Google is still linked and switched on —
+    under the row lock. Signs out other browsers. Commits.
 
-    Commits. Kept apart from the route so the lock can be tested with two
-    real connections at once.
+    Kept apart from the route so the lock can be tested with two real
+    connections at once.
     """
+    if get_google_login(settings) is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_OFF)
     member = _locked(db, user)
     if not _has_password(member):
         db.rollback()
@@ -130,6 +173,7 @@ def drop_password(db: Session, user: User) -> User:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=LAST_METHOD)
     member.password_hash = UNUSABLE_PASSWORD_HASH
+    end_other_sessions(db, member.id, keep_token)
     audit.record(
         db,
         actor=member,
@@ -143,8 +187,9 @@ def drop_password(db: Session, user: User) -> User:
     return member
 
 
-def drop_google(db: Session, user: User) -> User:
-    """Unlink Google, if a password remains — under the row lock. Commits."""
+def drop_google(db: Session, user: User, keep_token: str = "") -> User:
+    """Unlink Google, if a password remains — under the row lock. Signs out
+    other browsers. Commits."""
     member = _locked(db, user)
     account = _google_account(db, member.id)
     if not _has_password(member):
@@ -152,6 +197,7 @@ def drop_google(db: Session, user: User) -> User:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=LAST_METHOD)
     if account is not None:
         db.delete(account)
+        end_other_sessions(db, member.id, keep_token)
         audit.record(
             db,
             actor=member,
@@ -189,16 +235,18 @@ def set_password(
     """
     had_password = _has_password(user)
     if had_password:
-        _check_current_password(db, request, user, payload.current_password, settings)
+        check_current_password(db, request, user, payload.current_password, settings)
+    elif not signed_in_recently(db, request, settings):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SIGN_IN_AGAIN)
 
     member = _locked(db, user)
+    if _has_password(member) and not had_password:
+        # Another request set a first password while this one waited: a
+        # change now needs that password.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ALREADY_SET)
     member.password_hash = hash_password(payload.new_password)
-    current = request.cookies.get(settings.session_cookie_name, "")
-    db.execute(
-        delete(UserSession)
-        .where(UserSession.user_id == member.id, UserSession.token != current)
-        .execution_options(synchronize_session=False)
-    )
+    end_other_sessions(db, member.id, _session_token(request, settings))
     audit.record(
         db,
         actor=member,
@@ -227,9 +275,11 @@ def remove_password(
 ) -> SignInMethods:
     if not _has_password(user):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="비밀번호가 설정되어 있지 않습니다.")
-    _check_current_password(db, request, user, payload.current_password, settings)
+    if get_google_login(settings) is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=GOOGLE_OFF)
+    check_current_password(db, request, user, payload.current_password, settings)
 
-    member = drop_password(db, user)
+    member = drop_password(db, user, settings, _session_token(request, settings))
     db.refresh(member)
     return _methods(db, member, settings)
 
@@ -248,8 +298,8 @@ def unlink_google(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="연결된 Google 계정이 없습니다.")
     if not _has_password(user):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=LAST_METHOD)
-    _check_current_password(db, request, user, payload.current_password, settings)
+    check_current_password(db, request, user, payload.current_password, settings)
 
-    member = drop_google(db, user)
+    member = drop_google(db, user, _session_token(request, settings))
     db.refresh(member)
     return _methods(db, member, settings)

@@ -154,6 +154,7 @@ export const GOOGLE_RESULT_MESSAGE: Record<string, string> = {
   taken: "이 Google 계정은 이미 다른 CTRL+AI 계정에 연결되어 있어요.",
   already: "이미 이 계정에 연결된 Google 계정이에요.",
   other: "이 계정에는 이미 다른 Google 계정이 연결되어 있어요.",
+  reauth: "보안을 위해 로그아웃한 뒤 다시 로그인하고 연결해 주세요. 로그인한 지 10분이 지났어요.",
 };
 
 /** `?google=` 값에 맞는 문장. 모르는 값(또는 `constructor` 같은 이름)은 null. */

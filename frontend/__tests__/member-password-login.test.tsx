@@ -64,7 +64,7 @@ describe("Profile › 로그인 방법", () => {
     api.fetchSignInMethods.mockResolvedValue(methods(false, true));
     render(<SignInMethodsSection />);
 
-    expect(await screen.findByText("me@gmail.com(으)로 로그인합니다.")).toBeTruthy();
+    expect(await screen.findByText("me@gmail.com(으)로 로그인해요.")).toBeTruthy();
     const unlink = screen.getByRole("button", { name: "연결 끊기" }) as HTMLButtonElement;
     expect(unlink.disabled).toBe(true);
     expect(screen.getByText("Google 연결을 끊으려면 먼저 비밀번호를 만들어 주세요.")).toBeTruthy();
@@ -96,18 +96,40 @@ describe("Profile › 로그인 방법", () => {
 
     await user.clear(screen.getByLabelText("새 비밀번호"));
     await user.type(screen.getByLabelText("새 비밀번호"), "long-enough-1");
-    await user.type(screen.getByLabelText("새 비밀번호 한 번 더"), "long-enough-2");
+    await user.type(screen.getByLabelText("새 비밀번호 확인"), "long-enough-2");
     expect(screen.getByText("두 칸의 비밀번호가 달라요.")).toBeTruthy();
     expect(save.disabled).toBe(true);
 
-    await user.clear(screen.getByLabelText("새 비밀번호 한 번 더"));
-    await user.type(screen.getByLabelText("새 비밀번호 한 번 더"), "long-enough-1");
+    await user.clear(screen.getByLabelText("새 비밀번호 확인"));
+    await user.type(screen.getByLabelText("새 비밀번호 확인"), "long-enough-1");
     await user.click(save);
 
     expect(api.setPassword).toHaveBeenCalledWith("long-enough-1");
     await waitFor(() => expect(screen.getByText("사용 중")).toBeTruthy());
     // 탈퇴 칸이 비밀번호를 묻도록 현재 사용자를 다시 읽습니다.
     expect(refresh).toHaveBeenCalled();
+    // 폼이 닫히면 초점은 그 자리의 단추로 돌아갑니다(만들기가 바꾸기가 됨).
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("바꾸기"));
+  });
+
+  test("Google 로그인이 꺼진 서버에서는 비밀번호를 없앨 수 없고, 이유가 단추에 이어진다", async () => {
+    api.fetchSignInMethods.mockResolvedValue({
+      password: true,
+      google: { available: false, linked: true, email: "me@gmail.com" },
+    });
+    render(<SignInMethodsSection />);
+    const remove = (await screen.findByRole("button", { name: "없애기" })) as HTMLButtonElement;
+    expect(remove.disabled).toBe(true);
+    const why = document.getElementById(remove.getAttribute("aria-describedby") ?? "");
+    expect(why?.textContent).toContain("Google 로그인이 꺼져");
+  });
+
+  test("열린 폼에는 이름이 있다", async () => {
+    api.fetchSignInMethods.mockResolvedValue(methods(true, true));
+    const user = userEvent.setup();
+    render(<SignInMethodsSection />);
+    await user.click(await screen.findByRole("button", { name: "바꾸기" }));
+    expect(screen.getByRole("form", { name: "비밀번호 바꾸기" })).toBeTruthy();
   });
 
   test("둘 다 있으면 비밀번호를 없앨 수 있고, 지금 비밀번호를 묻는다", async () => {
@@ -117,7 +139,7 @@ describe("Profile › 로그인 방법", () => {
     render(<SignInMethodsSection />);
 
     await user.click(await screen.findByRole("button", { name: "없애기" }));
-    await user.type(screen.getByLabelText("지금 비밀번호"), "memberpassword");
+    await user.type(screen.getByLabelText("현재 비밀번호"), "memberpassword");
     const forms = screen.getAllByRole("button", { name: "없애기" });
     await user.click(forms[forms.length - 1]);
 
@@ -132,7 +154,7 @@ describe("Profile › 로그인 방법", () => {
     render(<SignInMethodsSection />);
 
     await user.click(await screen.findByRole("button", { name: "연결 끊기" }));
-    await user.type(screen.getByLabelText("지금 비밀번호"), "memberpassword");
+    await user.type(screen.getByLabelText("현재 비밀번호"), "memberpassword");
     const buttons = screen.getAllByRole("button", { name: "연결 끊기" });
     await user.click(buttons[buttons.length - 1]);
 
@@ -147,7 +169,7 @@ describe("Profile › 로그인 방법", () => {
     render(<SignInMethodsSection />);
 
     await user.click(await screen.findByRole("button", { name: "없애기" }));
-    await user.type(screen.getByLabelText("지금 비밀번호"), "wrong");
+    await user.type(screen.getByLabelText("현재 비밀번호"), "wrong");
     const forms = screen.getAllByRole("button", { name: "없애기" });
     await user.click(forms[forms.length - 1]);
 

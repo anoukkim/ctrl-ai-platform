@@ -12,7 +12,7 @@ Error messages are Korean, because members read them.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -120,8 +120,13 @@ def register(
     if invite is None:
         raise refuse_code(invites.CODE_UNUSABLE)
 
+    # The email compared without case: Victim@gmail.com and victim@gmail.com
+    # are one mailbox, and Google sign-up compares them the same way.
     taken = db.scalar(
-        select(User).where((User.username == payload.username) | (User.email == payload.email))
+        select(User).where(
+            (User.username == payload.username)
+            | (func.lower(User.email) == payload.email.strip().lower())
+        )
     )
     if taken is not None:
         # Which field collided is safe to say: both are visible to anyone
