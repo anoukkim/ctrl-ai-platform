@@ -1065,6 +1065,14 @@ What this changes in the points above:
 - **Point 1's page and menu name are replaced:** the board is the Report
   Issue page (`/issues`), no new menu item. The 의견 보내기 button
   elsewhere (sidebar, beta banner) stays and writes to the same board.
+
+### Owner decision — 2026-10-14 (admin-and-nav-cleanup; wins over both above)
+
+Report Issue and `/issues` are gone (`/issues` redirects to Chat). **No
+menu item, no `/issues`.** The **의견 보내기** button in the sidebar
+footer stays the one way to send a note; the member board is a page of
+its own, reached from a **"다른 의견 보기"** link inside the 의견 보내기
+dialog (not from the menu). Everything else above stands.
 - **Points 2–6 stand** (no names, the earlier staff-only notes kept off
   the board, the "운영진만 보기" choice, hiding, the Markdown export, the
   tests), plus the GitHub sending above and its tests: only public notes

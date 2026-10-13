@@ -43,7 +43,7 @@ answered them, and they are no longer up for debate:
 
 | Decision | Settled as |
 | -------- | ---------- |
-| Interface language | **Korean-first, with an English menu.** Everything a member reads or writes is Korean, except: the navigation — group headings (Create, Explore, Account) and item names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) — plus the Admin section names and external service names (Claude, Higgsfield, GitHub, YouTube). See section 15. |
+| Interface language | **Korean-first, with an English menu.** Everything a member reads or writes is Korean, except: the navigation — group headings (Create, Explore, Account) and item names (Chat, Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Usage, Profile, Admin) — plus the Admin section names and external service names (Claude, Higgsfield, GitHub, YouTube). See section 15. |
 | App store screen name | **CtrlAIApps.** The route stays `/ctrlaistore` so existing links do not break. |
 | Usage screen name | **Usage** — not "Usage & Credits", "My Credits" or "Balance". |
 | Participation period | **Quarter — three months** (2026 Q1, 2026 Q2, …). The earlier four-month "Season" concept is retired; see section 10. |
@@ -959,8 +959,13 @@ Explore
 Account
   Usage
   Profile
-  Report Issue
 ```
+
+**Feedback has no menu item** (admin-and-nav-cleanup, 2026-10-14). The
+**의견 보내기** button in the sidebar footer is the one way a member sends
+a note; Report Issue and its `/issues` page are gone (`/issues` redirects
+to Chat). The member board of `anonymous-feedback-board` will be a page
+reached from a "다른 의견 보기" link inside the 의견 보내기 dialog.
 
 **The navigation is entirely in English** — group headings and item names
 alike. Phase 0 built the headings in Korean (만들기 / 둘러보기 / 내 정보)
@@ -970,7 +975,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its thirteen sections are named in English too:
+and its twelve sections are named in English too:
 
 ```text
 Admin
@@ -981,13 +986,20 @@ Admin
   Top-ups
   Budget
   Video Models
-  Claude Models
+  AI Models
   Feedback
   Deleted Items
   Audit Log
   System
-  Dev Tools        (development only)
 ```
+
+**AI Models** (formerly Claude Models; `/admin/claude-models` redirects to
+`/admin/ai-models`) groups the chat catalogue by provider, Anthropic
+(Claude) first. A provider without an adapter is shown as **연결 준비 중**:
+its models can be listed and priced but never opened or made the default
+— the backend refuses (`chat_models.check_open`). DeepSeek is listed that
+way, from `docs/research/deepseek-research.md`; its adapter belongs to
+more-chat-providers.
 
 **Deleted Items** is where work a member deleted is restored. Deleting is
 soft — the row keeps its `deleted_at` and every member route answers 404 —
@@ -1350,12 +1362,12 @@ deletes a row, and the API exposes only a list. `actor_user_id` is
 `ON DELETE SET NULL` with the username denormalised, so removing an admin
 account never erases the record of what they changed.
 
-**Simulate usage** (`POST /api/admin/simulate-usage`) spends a budget
-without calling a provider, so the Usage screen and the audit log can be
-exercised before Phases 2 and 6. It goes through the same `charge()` the
-real providers will use — a shortcut writing its own ledger row would
-prove nothing. It returns **404 outside development**, not 403: a deployed
-instance should not reveal that the route exists.
+**Simulate usage** (`POST /api/admin/simulate-usage`, Admin › Dev Tools)
+spent a budget without calling a provider, so the Usage screen and the
+audit log could be exercised before Phases 2 and 6. Removed with Dev
+Tools on 2026-10-14 (admin-and-nav-cleanup): Chat and video now charge
+through `charge()` under their mocks, and no test needed it any more.
+`python -m app.db.reset_dev` stays.
 
 ## Phase 2 — Chat
 
