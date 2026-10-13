@@ -19,6 +19,7 @@ import { Download } from "lucide-react";
 import { videoVersionDownloadUrl, type VideoVersion } from "@/lib/projects";
 
 import styles from "./workspace.module.css";
+import { useToast } from "@/app/components/ToastProvider";
 
 export const NO_FILE_HINT = "파일이 없는 이전 버전입니다";
 
@@ -32,6 +33,7 @@ interface Props {
 export default function VersionDownload({ projectId, version, compact = false }: Props) {
   const label = `${version.label} 다운로드`;
   const className = compact ? styles.versionDownload : "btn btn-sm";
+  const toast = useToast();
 
   if (!version.has_asset) {
     return (
@@ -55,6 +57,7 @@ export default function VersionDownload({ projectId, version, compact = false }:
       className={className}
       download
       href={videoVersionDownloadUrl(projectId, version.id)}
+      onClick={() => toast.show("내려받기를 시작했어요.", "info")}
       title={`${version.label}을(를) 파일로 내려받습니다`}
     >
       <Download size={12} aria-hidden="true" />

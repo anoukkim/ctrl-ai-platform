@@ -28,6 +28,7 @@ import {
   LayoutGrid,
   ListIcon,
   Lock,
+  MessageSquare,
   Pencil,
   PlayCircle,
   Plus,
@@ -71,6 +72,8 @@ import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
+import Skeleton from "./Skeleton";
+import EmptyState from "./EmptyState";
 
 /** 바로가기 카드의 아이콘. 사이드바와 같은 한 벌을 씁니다. */
 /** 바로가기 아이콘 칸의 색. 만드는 곳은 영역 색, 둘러보는 곳은 강조색입니다. */
@@ -451,7 +454,13 @@ export default function ChatWorkspace() {
 
         {listError !== null && <p className={styles.listNote}>{listError}</p>}
         {listError === null && conversations.length === 0 && (
-          <p className={styles.listNote}>아직 대화가 없습니다.</p>
+          <EmptyState
+            compact
+            icon={MessageSquare}
+            title="아직 대화가 없어요"
+            text="입력창에 궁금한 것을 적으면 첫 대화가 여기에 생겨요."
+            action={{ label: "새 대화 시작", onClick: startNew, disabled: streaming }}
+          />
         )}
 
         {conversations.length > 0 && <p className={`section-label ${styles.listLabel}`}>최근 대화</p>}
@@ -541,7 +550,7 @@ export default function ChatWorkspace() {
         <div className={styles.threadScroll} ref={threadRef} role="log" aria-label="대화 내용">
           <div className={styles.threadInner}>
             {loadingConversation ? (
-              <p className={styles.listNote}>대화를 불러오는 중…</p>
+              <Skeleton quiet label="대화를 불러오는 중…" />
             ) : !started ? (
               // 아직 대화가 없을 때만 보이는 안내. 대화가 시작되면 사라집니다.
               <div className={styles.empty}>
@@ -586,7 +595,16 @@ export default function ChatWorkspace() {
                     {(message.content || message.streaming) && (
                       <div className={styles.bubble}>
                         {message.content}
-                        {message.streaming && (
+                        {message.streaming && !message.content && (
+                          // 첫 글자가 오기 전: 세 점이 차례로 뛰는 "쓰는 중"(ui-friendly-motion).
+                          <span className={styles.typing}>
+                            <span aria-hidden="true" />
+                            <span aria-hidden="true" />
+                            <span aria-hidden="true" />
+                            <span className="sr-only">답장을 쓰는 중</span>
+                          </span>
+                        )}
+                        {message.streaming && message.content && (
                           <span className={styles.caret} aria-label="답장을 쓰는 중" />
                         )}
                       </div>

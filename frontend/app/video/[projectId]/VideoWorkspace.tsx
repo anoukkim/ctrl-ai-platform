@@ -60,6 +60,8 @@ import VersionActionPanel, { type VersionAction } from "./VersionActionPanel";
 import VersionDownload from "./VersionDownload";
 import VideoSettings, { ASPECT_LABEL, ASPECT_RATIO_CSS, type Aspect } from "./VideoSettings";
 import styles from "./workspace.module.css";
+import Skeleton from "@/app/components/Skeleton";
+import { useToast } from "@/app/components/ToastProvider";
 
 /** 재생 눈금의 간격(ms). 실제 영상이 아니라 재생 느낌만 흉내 냅니다. */
 const TICK_MS = 150;
@@ -139,6 +141,7 @@ type State =
 type Mode = { kind: "generate" } | { kind: VersionAction; sourceId: number };
 
 export default function VideoWorkspace({ projectId }: { projectId: string }) {
+  const toast = useToast();
   // 참여하지 않는 분기에도 이 화면은 열리고, 지난 버전은 모두 볼 수
   // 있습니다. 막히는 것은 저장·생성·최종본 선택처럼 바꾸는 쪽입니다.
   // 실제 거절은 백엔드가 합니다 — 아래 잠금은 설명일 뿐입니다.
@@ -281,11 +284,12 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     async (name: string) => {
       const updated = await updateVideoProject(projectId, { name });
       applyProject(updated);
+      toast.show("이름을 바꿨어요.");
       setSiblings((list) =>
         list.map((item) => (item.id === updated.id ? { ...item, name: updated.name } : item)),
       );
     },
-    [applyProject, projectId],
+    [toast, applyProject, projectId],
   );
 
   const remove = useCallback(async () => {
@@ -293,6 +297,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     setDeleteError(null);
     try {
       await deleteVideoProject(projectId);
+      toast.show("삭제했어요. 실수였다면 관리자가 되살릴 수 있어요.");
       router.push("/video");
       router.refresh();
     } catch (error) {
@@ -300,7 +305,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     } finally {
       setDeleting(false);
     }
-  }, [projectId, router]);
+  }, [toast, projectId, router]);
 
   const askToDelete = useCallback((name: string) => {
     setDeleteError(null);
@@ -424,7 +429,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
     return (
       <div className={ws.shell}>
         <div className={ws.loading}>
-          <p className="muted">영상 프로젝트를 불러오는 중…</p>
+          <Skeleton label="영상 프로젝트를 불러오는 중…" />
         </div>
       </div>
     );
@@ -653,7 +658,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                       lockedReason={lockedReason}
                     />
                   ) : (
-                    <p className={styles.settingHint}>모델 정보를 불러오는 중…</p>
+                    <Skeleton variant="inline" label="모델 정보를 불러오는 중…" />
                   )}
 
                   {notice && (

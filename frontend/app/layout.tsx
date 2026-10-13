@@ -4,8 +4,10 @@ import AdminNavProvider from "@/app/components/AdminNavProvider";
 import AppShell from "@/app/components/AppShell";
 import BetaBanner from "@/app/components/BetaBanner";
 import CurrentUserProvider from "@/app/components/CurrentUserProvider";
+import MotionRoot from "@/app/components/MotionRoot";
 import MyQuarterProvider from "@/app/components/MyQuarterProvider";
 import SiteProvider from "@/app/components/SiteProvider";
+import ToastProvider from "@/app/components/ToastProvider";
 
 import { THEME_BOOT_SCRIPT } from "@/lib/theme-boot";
 
@@ -37,18 +39,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* 이 배포가 베타인지, 어느 화면이 테스트 모드인지. 로그인 전에도
             필요해서 가장 바깥에 둡니다. */}
-        <SiteProvider>
-          <CurrentUserProvider>
-            <BetaBanner />
-            <MyQuarterProvider>
-              {/* 사이드바의 Admin 묶음이 쓰는 숫자. 관리자가 아니면 아무것도
-                  부르지 않습니다. */}
-              <AdminNavProvider>
-                <AppShell>{children}</AppShell>
-              </AdminNavProvider>
-            </MyQuarterProvider>
-          </CurrentUserProvider>
-        </SiteProvider>
+        {/* 움직임 줄이기를 켠 사람에게는 motion이 움직이지 않습니다. */}
+        <MotionRoot>
+          <SiteProvider>
+            <CurrentUserProvider>
+              <ToastProvider>
+                <BetaBanner />
+                <MyQuarterProvider>
+                  {/* 사이드바의 Admin 묶음이 쓰는 숫자. 관리자가 아니면 아무것도
+                      부르지 않습니다. */}
+                  <AdminNavProvider>
+                    <AppShell>{children}</AppShell>
+                  </AdminNavProvider>
+                </MyQuarterProvider>
+              </ToastProvider>
+            </CurrentUserProvider>
+          </SiteProvider>
+        </MotionRoot>
       </body>
     </html>
   );

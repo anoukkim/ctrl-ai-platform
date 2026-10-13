@@ -30,6 +30,7 @@ import {
 import { describeError } from "@/lib/http";
 
 import styles from "../admin.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function ProviderPanel() {
   const [providers, setProviders] = useState<ProviderStatus[] | null>(null);
@@ -90,7 +91,7 @@ export default function ProviderPanel() {
         </div>
       )}
 
-      {error === null && providers === null && <p className="small muted">불러오는 중…</p>}
+      {error === null && providers === null && <Skeleton />}
 
       {providers !== null && (
         <div className={styles.providerGrid}>

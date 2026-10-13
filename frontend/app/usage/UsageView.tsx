@@ -14,9 +14,10 @@
  * 받았다"고 오해합니다.
  */
 
-import { Wallet } from "lucide-react";
+import { Gauge, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import EmptyState from "@/app/components/EmptyState";
 import { useSite } from "@/app/components/SiteProvider";
 
 import {
@@ -28,7 +29,7 @@ import {
   SPENDING_ORDER_NOTE,
   formatKrw,
   getMyUsage,
-  providerName,
+  providerFriendly,
   walletSentence,
   type MyUsage,
   type SpendingLine,
@@ -37,6 +38,7 @@ import {
 import { describeError } from "@/lib/http";
 
 import styles from "./usage.module.css";
+import Skeleton from "@/app/components/Skeleton";
 
 type State =
   | { phase: "loading" }
@@ -70,7 +72,7 @@ export default function UsageView() {
   }, []);
 
   if (state.phase === "loading") {
-    return <p className="small muted">불러오는 중…</p>;
+    return <Skeleton />;
   }
 
   if (state.phase === "error") {
@@ -165,12 +167,12 @@ export default function UsageView() {
       <h2 className="section-title">최근 사용 내역</h2>
 
       {usage.events.length === 0 ? (
-        <div className="card">
-          <p className={styles.ledgerEmpty}>
-            아직 사용 내역이 없습니다. Project Builder나 Video Generator에서 무언가를 만들면
-            여기에 쌓입니다.
-          </p>
-        </div>
+        <EmptyState
+          icon={Gauge}
+          title="아직 쓴 기록이 없어요"
+          text="Chat에서 질문하거나 Project Builder, Video Generator에서 무언가를 만들면 쓴 금액이 여기에 쌓여요."
+          action={{ label: "Chat에서 시작하기", href: "/" }}
+        />
       ) : (
         <div className="table-wrap">
           <table className="table">
@@ -179,7 +181,7 @@ export default function UsageView() {
                 <th scope="col">날짜</th>
                 <th scope="col">구분</th>
                 <th scope="col">사용한 곳</th>
-                <th scope="col">제공자</th>
+                <th scope="col">만든 곳</th>
                 <th scope="col">금액</th>
                 <th scope="col">차감</th>
               </tr>
@@ -192,7 +194,7 @@ export default function UsageView() {
                     <span className="badge badge-muted">{SPENDING_LABEL[event.group]}</span>
                   </td>
                   <td>{event.label}</td>
-                  <td>{providerName(event.provider)}</td>
+                  <td>{providerFriendly(event.provider)}</td>
                   <td className={styles.amount}>{formatKrw(event.charged_krw)}</td>
                   <td>
                     <span

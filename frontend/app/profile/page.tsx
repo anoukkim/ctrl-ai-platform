@@ -16,7 +16,9 @@ import Link from "next/link";
 
 import { MOCK_APPS } from "@/lib/mock-data";
 
+import EmptyState from "@/app/components/EmptyState";
 import PageHeader from "@/app/components/PageHeader";
+import { LayoutGrid } from "lucide-react";
 
 import { AccountSettings, Identity } from "./AccountIdentity";
 import GoogleConnectionRow from "./GoogleConnectionRow";
@@ -82,7 +84,7 @@ export default function ProfilePage() {
             </span>
           </div>
           <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            CTRL+AI는 개인 접근 토큰을 붙여넣어 달라고 요청하지 않습니다.
+            CTRL+AI는 GitHub나 Google의 비밀번호·토큰을 붙여 넣어 달라고 하지 않습니다.
           </p>
         </section>
       </div>
@@ -104,7 +106,13 @@ export default function ProfilePage() {
               ))}
             </ul>
           ) : (
-            <p className="small dim">아직 게시한 앱이 없습니다.</p>
+            <EmptyState
+              compact
+              icon={LayoutGrid}
+              title="아직 게시한 앱이 없어요"
+              text="Project Builder에서 만든 앱을 게시하면 여기에 모여요."
+              action={{ label: "앱 만들러 가기", href: "/builder" }}
+            />
           )}
         </section>
 

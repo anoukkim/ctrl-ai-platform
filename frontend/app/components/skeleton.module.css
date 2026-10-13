@@ -1,0 +1,49 @@
+/* 불러오는 동안의 회색 막대. 색은 토큰에서, 반짝임은 1.4초 한 번. */
+
+.wrap {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.card {
+  padding: var(--card-pad-y, 1rem) var(--card-pad-x, 1rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.inline {
+  display: inline-grid;
+  width: 8rem;
+  vertical-align: middle;
+}
+
+.bar {
+  display: block;
+  height: 0.8rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--panel-2) 0%,
+    var(--border) 50%,
+    var(--panel-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
+}

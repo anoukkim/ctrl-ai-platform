@@ -48,6 +48,7 @@ import { useChatIdea } from "@/app/components/useChatIdea";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
+import { useToast } from "@/app/components/ToastProvider";
 
 type State =
   | { phase: "loading" }
@@ -55,6 +56,7 @@ type State =
   | { phase: "error"; message: string };
 
 export default function BuilderLibrary() {
+  const toast = useToast();
   // 참여하지 않는 분기에는 새로 만들 수 없습니다. 실제 차단은
   // 백엔드의 require_active_member가 하고, 여기서는 이유를 설명합니다.
   const mayCreate = useMayCreate();
@@ -76,7 +78,7 @@ export default function BuilderLibrary() {
     null,
   );
   const [query, setQuery] = useState("");
-  // 전체 / Draft / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
+  // 전체 / 작성 중 / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
   // 브라우저 안에서 합니다.
   const [statusFilter, setStatusFilter] = useState<LibraryFilter>("all");
   // 지우려고 고른 프로젝트. 창에 이름을 보여 줘야 하므로 id만으로는
@@ -163,6 +165,7 @@ export default function BuilderLibrary() {
   // 어려워집니다.
   const rename = useCallback(async (id: number, name: string) => {
     const updated = await updateBuilderProject(id, { name });
+    toast.show("이름을 바꿨어요.");
     setState((current) =>
       current.phase === "ready"
         ? {
@@ -171,13 +174,14 @@ export default function BuilderLibrary() {
           }
         : current,
     );
-  }, []);
+  }, [toast]);
 
   const remove = useCallback(async (id: number) => {
     setRemoving(true);
     setRemoveError(null);
     try {
       await deleteBuilderProject(id);
+      toast.show("삭제했어요. 실수였다면 관리자가 되살릴 수 있어요.");
       setConfirm(null);
       setState((current) =>
         current.phase === "ready"
@@ -190,7 +194,7 @@ export default function BuilderLibrary() {
     } finally {
       setRemoving(false);
     }
-  }, []);
+  }, [toast]);
 
   const askToDelete = useCallback(
     (project: BuilderProject) => {
@@ -341,7 +345,7 @@ export default function BuilderLibrary() {
                 totalCount={state.projects.length}
               />
             </div>
-            {/* 전체 / Draft / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
+            {/* 전체 / 작성 중 / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
             <div className="segmented" role="group" aria-label="상태">
               {LIBRARY_FILTERS.map((option) => (
                 <button
@@ -371,8 +375,7 @@ export default function BuilderLibrary() {
         <div className={styles.error}>
           <p className={styles.errorTitle}>프로젝트를 불러오지 못했습니다</p>
           <p className={styles.errorText}>
-            {state.message}. 백엔드가 실행 중인지 확인해 주세요. <code>backend</code> 폴더에서{" "}
-            <code>uvicorn app.main:app --reload --port 8000</code>을 실행하면 됩니다.
+            {state.message}. 잠시 후 다시 시도해 주세요. 계속 안 되면 Report Issue로 알려 주세요.
           </p>
           <button className="btn btn-sm" type="button" onClick={reload}>
             다시 시도

@@ -1,5 +1,5 @@
 /**
- * 프로젝트 상태 표시 — 회원이 보는 배지는 "Draft"와 "게시됨" 둘뿐이고,
+ * 프로젝트 상태 표시 — 회원이 보는 배지는 "작성 중"와 "게시됨" 둘뿐이고,
  * 만드는 중(building, generating)에는 배지 대신 "생성 중…"입니다.
  * 그리고 Project Builder 목록의 세 거르기가 백엔드에 같은 값을 보내는지.
  */
@@ -21,9 +21,9 @@ import {
 
 const BUILDER_STATUSES: BuilderProjectStatus[] = ["draft", "building", "ready", "published"];
 const VIDEO_STATUSES: VideoProjectStatus[] = ["draft", "generating", "ready", "published"];
-const BADGES = new Set(["Draft", "게시됨"]);
+const BADGES = new Set(["작성 중", "게시됨"]);
 
-describe("상태 배지는 Draft와 게시됨뿐", () => {
+describe("상태 배지는 작성 중과 게시됨뿐", () => {
   test.each([...BUILDER_STATUSES, ...VIDEO_STATUSES])("%s", (status) => {
     const badge = projectBadge(status);
     if (status === "building" || status === "generating") {
@@ -31,7 +31,7 @@ describe("상태 배지는 Draft와 게시됨뿐", () => {
     } else {
       expect(badge.kind).toBe("badge");
       expect(BADGES.has(badge.label)).toBe(true);
-      expect(badge.label).toBe(status === "published" ? "게시됨" : "Draft");
+      expect(badge.label).toBe(status === "published" ? "게시됨" : "작성 중");
     }
   });
 
@@ -52,15 +52,15 @@ describe("상태 배지는 Draft와 게시됨뿐", () => {
       ...Object.values(BUILDER_STATUS_LABEL),
       ...Object.values(VIDEO_STATUS_LABEL),
     ]);
-    expect(labels).toEqual(new Set(["Draft", "게시됨", "생성 중…"]));
+    expect(labels).toEqual(new Set(["작성 중", "게시됨", "생성 중…"]));
     expect(Object.keys(BUILDER_STATUS_LABEL)).not.toContain("archived");
     expect(Object.keys(VIDEO_STATUS_LABEL)).not.toContain("archived");
   });
 
-  test("거르기는 정확히 셋: 전체 / Draft / 게시됨", () => {
+  test("거르기는 정확히 셋: 전체 / 작성 중 / 게시됨", () => {
     expect(LIBRARY_FILTERS).toEqual([
       { value: "all", label: "전체" },
-      { value: "draft", label: "Draft" },
+      { value: "draft", label: "작성 중" },
       { value: "published", label: "게시됨" },
     ]);
   });
@@ -108,7 +108,7 @@ describe("Project Builder 목록", () => {
 
     const group = screen.getByRole("group", { name: "상태" });
     for (const [label, value] of [
-      ["Draft", "draft"],
+      ["작성 중", "draft"],
       ["게시됨", "published"],
       ["전체", "all"],
     ]) {
@@ -131,7 +131,7 @@ describe("Project Builder 목록", () => {
     const shown = [...document.querySelectorAll("article .badge, article .working")].map(
       (node) => node.textContent,
     );
-    expect(shown.sort()).toEqual(["Draft", "Draft", "게시됨", "생성 중…"].sort());
+    expect(shown.sort()).toEqual(["작성 중", "작성 중", "게시됨", "생성 중…"].sort());
     expect(screen.queryByText("Ready")).toBeNull();
     expect(screen.queryByText("Building")).toBeNull();
     // 빗금 자리는 Phase 3까지 "미리보기 썸네일"이라고 적혀 있습니다.

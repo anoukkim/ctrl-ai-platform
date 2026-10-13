@@ -1,0 +1,112 @@
+/* 처음 온 회원을 위한 안내 창. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: var(--scrim);
+}
+
+.dialog {
+  position: relative;
+  display: grid;
+  gap: 0.9rem;
+  width: 100%;
+  max-width: 26rem;
+  padding: 26px 24px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--elevated);
+  box-shadow: var(--shadow), 0 24px 64px var(--scrim);
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--panel-2);
+}
+
+.counter {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.step {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 9.5rem;
+}
+
+.icon {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.dotOn {
+  width: 18px;
+  background: var(--accent);
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.actionsRight {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    transition: none;
+  }
+}

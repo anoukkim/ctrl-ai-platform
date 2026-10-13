@@ -39,6 +39,7 @@ import { sectionLabel } from "../sections";
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
 import { useSite } from "@/app/components/SiteProvider";
+import Skeleton from "@/app/components/Skeleton";
 
 export default function TopUpAdmin() {
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
@@ -129,7 +130,7 @@ export default function TopUpAdmin() {
     return (
       <>
         <PageHeader />
-        <p className="small muted">불러오는 중…</p>
+        <Skeleton />
       </>
     );
   }

@@ -1441,3 +1441,20 @@ Notes for the build, not changes to the request:
   linked elsewhere; only a verified ADMIN_EMAIL becomes admin; no route
   returns a token; the access table and `EXPECTED_GUARDS` gain the new
   routes.
+
+---
+
+## ui-friendly-motion — full spec (merged 2026-10-13)
+
+Branch `feat-ui-friendly-motion`. M1. Added 2026-10-08 at position 2.
+**Starts after single-wallet is merged** — its wallet card and the
+animated wallet number build on that item's screens. Saved exactly as
+written by the developer.
+
+> ITEM 2 — ui-friendly-motion (branch feat-ui-friendly-motion), after Item 1 is merged
+> Goal: friendlier, less developer-like, with tasteful motion, inspired by https://www.easyui.site/ (animated React components). Our members are beginners.
+> - Motion: add the `motion` library (ask me before adding any other dependency; no Tailwind). Card hover lift, button press feedback, page and panel transitions, sidebar collapse animation, skeleton loaders instead of "불러오는 중", toast notifications for saves/deletes/downloads, a typing indicator while Chat streams, an animated wallet number when the balance changes, and gentle success states. Respect prefers-reduced-motion (no motion at all), keep animations short (150–300 ms), and never block input.
+> - Friendlier copy: replace developer terms members see with plain Korean (e.g. Draft → 작성 중, Build/Video budget wording → the single wallet, provider/model jargon → simple descriptions). Keep the English menu names unless you think a change clearly helps; propose, don't decide.
+> - Empty states with a short explanation and one clear action on every list; a short first-visit guide (3–4 steps, dismissible, remembered per browser) that shows Chat, Builder, Video and the wallet.
+> - Keep design tokens in globals.css, Pretendard, dark default, and the existing accessibility rules. Check at 1280px, 1920px and a phone width; send me screenshots (or a short screen recording) of Chat, Builder, Video, Usage and Admin.
+> Tests: reduced-motion disables animations; the guide shows once and can be reopened; empty states render; existing tests still pass.

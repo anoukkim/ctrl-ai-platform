@@ -369,8 +369,47 @@
   }
 }
 
+/* 첫 글자가 오기 전의 세 점. 차례로 살짝 떠오릅니다(ui-friendly-motion). */
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 1.2em;
+  vertical-align: middle;
+}
+
+.typing span[aria-hidden] {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  animation: typing-bounce 1s ease-in-out infinite;
+}
+
+.typing span[aria-hidden]:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing span[aria-hidden]:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .caret {
+  .caret,
+  .typing span[aria-hidden] {
     animation: none;
   }
 }

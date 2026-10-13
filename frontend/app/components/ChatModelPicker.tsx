@@ -69,18 +69,18 @@ export default function ChatModelPicker({ models, current, onChange, disabled }:
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        aria-label={current ? `모델: ${current.label}. 바꾸기` : "모델을 골라 주세요"}
+        aria-label={current ? `답장 방식: ${current.label}. 바꾸기` : "답장 방식을 골라 주세요"}
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className={styles.triggerLabel}>{current ? current.label : "모델을 골라 주세요"}</span>
+        <span className={styles.triggerLabel}>{current ? current.label : "답장 방식을 골라 주세요"}</span>
         {current && <span className={styles.triggerCost}>{costLabel(current)}</span>}
         <ChevronDown size={14} aria-hidden="true" />
       </button>
 
       {open && (
         <div className={styles.popover}>
-          <ul className={styles.list} id={listId} role="listbox" aria-label="모델">
+          <ul className={styles.list} id={listId} role="listbox" aria-label="답장 방식">
             {models.map((model) => {
               const selected = current?.id === model.id;
               return (

@@ -313,6 +313,20 @@ export function providerName(id: string): string {
   return PROVIDER_LABEL[id] ?? id;
 }
 
+/**
+ * 회원이 읽는 이름 — 회사 이름 대신 무엇을 하는 곳인지(ui-friendly-motion).
+ * Admin은 제공자 이름을 그대로 봅니다(`providerName`).
+ */
+export const PROVIDER_FRIENDLY: Record<string, string> = {
+  claude: "Claude · 대화와 글",
+  anthropic: "Claude · 대화와 글",
+  higgsfield: "Higgsfield · 영상",
+};
+
+export function providerFriendly(id: string): string {
+  return PROVIDER_FRIENDLY[id] ?? providerName(id);
+}
+
 export interface UsageEvent {
   id: number;
   created_at: string;

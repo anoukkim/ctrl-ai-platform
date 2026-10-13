@@ -463,7 +463,7 @@
   .shell {
     display: grid;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-    transition: grid-template-columns 0.18s ease;
+    transition: grid-template-columns 0.2s ease;
     align-items: start;
   }
 
@@ -596,7 +596,16 @@
   display: grid;
   line-height: 1.3;
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* One line each, ellipsis rather than a name broken across three lines
+     now that the footer holds four small buttons (ui-friendly-motion). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navUserName {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .navUserHandle {
@@ -618,5 +627,32 @@
 
   .mainChat .mainInner {
     height: 100%;
+  }
+}
+
+/* 사이드바를 펼 때 이름이 함께 흐려졌다 나타납니다(ui-friendly-motion).
+   접힌 동안 이름은 투명하고, 펴지면 0.2초에 걸쳐 나타납니다. */
+@media (min-width: 60rem) {
+  .navLabel,
+  .navToggleLabel {
+    transition: opacity 0.2s ease 0.05s;
+  }
+
+  .shellCollapsed .navLabel {
+    opacity: 0;
+  }
+
+  .navGroupLabel,
+  .brandPhase {
+    animation: label-in 0.2s ease;
+  }
+}
+
+@keyframes label-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

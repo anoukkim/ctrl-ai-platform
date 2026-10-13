@@ -32,7 +32,8 @@ export interface BuilderProject {
 /* ---------- 상태: 회원에게는 둘뿐입니다 ----------
  *
  * 데이터베이스에는 draft / building(generating) / ready / published가
- * 있지만, 회원이 보는 배지는 **Draft**와 **게시됨** 둘뿐입니다
+ * 있지만, 회원이 보는 배지는 **작성 중**과 **게시됨** 둘뿐입니다(ui-friendly-motion이
+ * 개발자 말투의 Draft를 바꿨습니다)
  * (2026-10-07 결정). 만드는 중(building, generating)은 상태가 아니라
  * 지금 일어나는 일이라 배지 대신 "생성 중…" 표시를 붙입니다.
  * 보관(archived)은 없어졌습니다 — 지우기가 되살릴 수 있는 삭제입니다.
@@ -42,7 +43,7 @@ export interface BuilderProject {
 
 export type ProjectStatus = BuilderProjectStatus | VideoProjectStatus;
 
-export const DRAFT_LABEL = "Draft";
+export const DRAFT_LABEL = "작성 중";
 export const PUBLISHED_LABEL = "게시됨";
 export const WORKING_LABEL = "생성 중…";
 
@@ -86,7 +87,7 @@ export const BUILDER_STATUS_BADGE: Record<BuilderProjectStatus, string> = {
   published: badgeClassOf("published"),
 };
 
-/** 목록의 세 거르기 — 전체 / Draft / 게시됨. 백엔드의 `?status=`와 같은 값. */
+/** 목록의 세 거르기 — 전체 / 작성 중 / 게시됨. 백엔드의 `?status=`와 같은 값. */
 export type LibraryFilter = "all" | "draft" | "published";
 
 export const LIBRARY_FILTERS: { value: LibraryFilter; label: string }[] = [

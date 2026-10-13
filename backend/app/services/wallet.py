@@ -8,6 +8,7 @@ creation lives here rather than being written twice.
 """
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import PersonalBalance
@@ -23,7 +24,18 @@ def get_or_create_balance(db: Session, user_id: int) -> PersonalBalance:
     if balance is not None:
         return balance
 
+    # A new member's first screen asks for the wallet from two requests at
+    # once (the sidebar and Usage). Both find nothing and both insert; the
+    # second hits the unique user_id. Inside a savepoint that loser rolls
+    # back only its own insert and reads the winner's row.
     balance = PersonalBalance(user_id=user_id, balance_krw=0, consumed_krw=0)
-    db.add(balance)
-    db.flush()
+    try:
+        with db.begin_nested():
+            db.add(balance)
+            db.flush()
+    except IntegrityError:
+        existing = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == user_id))
+        if existing is None:
+            raise
+        return existing
     return balance

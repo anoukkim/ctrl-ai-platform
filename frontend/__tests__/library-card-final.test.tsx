@@ -146,7 +146,7 @@ describe("최종본 다운로드", () => {
   });
 });
 
-describe("상태 필터 — 전체 / Draft / 게시됨", () => {
+describe("상태 필터 — 전체 / 작성 중 / 게시됨", () => {
   test("세 칩뿐이고, 고르면 그 값으로 목록을 다시 받는다", async () => {
     listVideoProjects.mockImplementation((filter: string = "all") =>
       Promise.resolve(
@@ -161,7 +161,7 @@ describe("상태 필터 — 전체 / Draft / 게시됨", () => {
 
     const group = screen.getByRole("group", { name: "상태" });
     const chips = within(group).getAllByRole("button").map((chip) => chip.textContent);
-    expect(chips).toEqual(["전체", "Draft", "게시됨"]);
+    expect(chips).toEqual(["전체", "작성 중", "게시됨"]);
 
     const all = within(group).getByRole("button", { name: "전체" });
     expect(all.getAttribute("aria-pressed")).toBe("true");
@@ -175,7 +175,7 @@ describe("상태 필터 — 전체 / Draft / 게시됨", () => {
     expect(all.getAttribute("aria-pressed")).toBe("false");
     expect(screen.queryByText("초안 하나")).toBeNull();
 
-    await userEvent.click(within(group).getByRole("button", { name: "Draft" }));
+    await userEvent.click(within(group).getByRole("button", { name: "작성 중" }));
     expect(listVideoProjects).toHaveBeenLastCalledWith("draft");
   });
 });

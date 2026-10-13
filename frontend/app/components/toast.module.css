@@ -1,0 +1,44 @@
+/* 짧은 알림. 둘레는 클릭이 지나가고(pointer-events: none), 알림 상자만 받습니다. */
+
+.region {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  z-index: 120;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  width: min(26rem, calc(100vw - 2rem));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--elevated);
+  box-shadow: var(--shadow), 0 12px 32px var(--scrim);
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  /* No buttons inside: clicks pass through to what is underneath. */
+  pointer-events: none;
+}
+
+.ok svg {
+  color: var(--ok-text);
+}
+
+.error svg {
+  color: var(--error-text);
+}
+
+.info svg {
+  color: var(--accent);
+}

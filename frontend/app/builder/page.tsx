@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import BuilderLibrary from "./BuilderLibrary";
+import Skeleton from "@/app/components/Skeleton";
 
 export const metadata: Metadata = {
   title: "Project Builder — CTRL+AI",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 export default function BuilderLibraryPage() {
   // 목록이 주소의 ?idea=(Chat의 액션 단추)를 읽으므로 Suspense로 감쌉니다.
   return (
-    <Suspense fallback={<p className="small muted">불러오는 중…</p>}>
+    <Suspense fallback={<Skeleton />}>
       <BuilderLibrary />
     </Suspense>
   );
