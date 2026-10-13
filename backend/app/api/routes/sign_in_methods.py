@@ -22,8 +22,16 @@ member has no password to ask for) and linking Google are refused when
 this browser signed in more than `RECENT_SIGN_IN` ago: a browser left open
 must not be enough to give someone a lasting way into the account.
 
-Every change signs out the member's other browsers and keeps this one —
-whoever knew the old method should not stay in.
+Every change — and linking Google, in `google_auth.py` — signs out the
+member's other browsers and keeps this one: whoever knew the old method
+should not stay in.
+
+What the 10-minute rule cannot do: at a browser still signed in to Google,
+someone can sign out and press Google로 계속하기 to get a fresh session.
+It protects where Google's own session has ended. The link's OAuth state
+is tied to the member, not to the browser session that started it; with
+both lifetimes at 10 minutes a link can finish up to about 20 minutes
+after sign-in. Both accepted for the beta (review round 2).
 """
 
 from datetime import datetime, timedelta, timezone
@@ -54,7 +62,14 @@ WRONG_PASSWORD = "현재 비밀번호가 올바르지 않습니다."
 TOO_MANY = "비밀번호를 너무 여러 번 틀렸습니다. 15분 뒤에 다시 시도해 주세요."
 LAST_METHOD = "로그인 방법이 하나만 남아 있어 없앨 수 없습니다. 다른 방법을 먼저 추가해 주세요."
 GOOGLE_OFF = "지금은 이 서버에서 Google 로그인이 꺼져 있어 비밀번호를 없앨 수 없습니다."
-SIGN_IN_AGAIN = "보안을 위해 로그아웃한 뒤 다시 로그인하고 해 주세요. 로그인한 지 10분이 지났어요."
+SIGN_IN_AGAIN = "보안을 위해 로그아웃한 뒤 다시 로그인하고 나서 만들어 주세요. 로그인한 지 10분이 지났어요."
+#: A Google-only member whose Google sign-in is switched off cannot sign in
+#: again — telling them to log out would lock them out.
+ASK_ADMIN = (
+    "지금은 이 서버에서 Google 로그인이 꺼져 있어 비밀번호를 만들 수 없어요. "
+    "로그아웃하지 말고 관리자에게 문의해 주세요."
+)
+CHANGED_MEANWHILE = "그사이 비밀번호가 바뀌었습니다. 화면을 새로 고친 뒤 다시 해 주세요."
 ALREADY_SET = "이미 비밀번호가 있습니다. 화면을 새로 고친 뒤 바꾸기를 써 주세요."
 
 #: How recent a sign-in must be to add a way into the account.
@@ -234,17 +249,22 @@ def set_password(
     password — or sat at a browser left open — should not stay in.
     """
     had_password = _has_password(user)
+    seen = user.password_hash
     if had_password:
         check_current_password(db, request, user, payload.current_password, settings)
     elif not signed_in_recently(db, request, settings):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SIGN_IN_AGAIN)
+        detail = SIGN_IN_AGAIN if get_google_login(settings) is not None else ASK_ADMIN
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
     member = _locked(db, user)
-    if _has_password(member) and not had_password:
-        # Another request set a first password while this one waited: a
-        # change now needs that password.
+    if member.password_hash != seen:
+        # Another request set, changed or removed the password while this
+        # one was checked: the check was against a password that is gone.
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ALREADY_SET)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ALREADY_SET if not had_password else CHANGED_MEANWHILE,
+        )
     member.password_hash = hash_password(payload.new_password)
     end_other_sessions(db, member.id, _session_token(request, settings))
     audit.record(

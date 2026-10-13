@@ -211,8 +211,10 @@ password + invite code. An invite code is required either way.
 
 Adding a way in — a first password, or linking Google — needs a sign-in
 less than 10 minutes old (there is no password to ask for), so a browser
-left open is not enough. Every change signs out the member's other
-browsers. The backend keeps one method at all times, with the account row
+left open is not enough (where the browser is still signed in to Google
+itself, signing in again is easy — the rule protects where Google's own
+session has ended). Every change, linking Google included, signs out the
+member's other browsers. The backend keeps one method at all times, with the account row
 locked while it checks. Wrong current passwords — here and in withdrawal —
 count towards the sign-in attempt limit. Sign-up compares emails without
 case. Each change is in the audit log (비밀번호 로그인 추가,

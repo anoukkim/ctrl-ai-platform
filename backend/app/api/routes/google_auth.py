@@ -284,7 +284,12 @@ def google_callback(
                 scopes=" ".join(SIGN_IN_SCOPES),
             )
         )
-        # A new way into the account: recorded, as a withdrawal is.
+        # A new way into the account: other browsers are signed out, as
+        # for every sign-in change (member-password-login), and it is
+        # recorded, as a withdrawal is.
+        from app.api.routes.sign_in_methods import end_other_sessions
+
+        end_other_sessions(db, member.id, request.cookies.get(settings.session_cookie_name, ""))
         audit.record(
             db,
             actor=member,

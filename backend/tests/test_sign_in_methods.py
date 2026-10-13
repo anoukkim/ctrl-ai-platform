@@ -463,3 +463,61 @@ def test_an_email_in_other_case_is_taken(anon_client: TestClient, invite_code, d
     )
     assert made.status_code == 409
     assert "이메일" in made.json()["detail"]
+
+
+
+# ------------------------------------------------------------- review round 2
+
+
+def test_with_google_off_an_old_session_is_not_told_to_log_out(
+    anon_client: TestClient, db_session: Session, settings_for  # noqa: F811
+) -> None:
+    google_member(anon_client, db_session)
+    _age_sessions(db_session, 30)
+    settings_for(google_login_provider="off")
+    refused = anon_client.put("/api/account/password", json={"new_password": NEW_PASSWORD})
+    assert refused.status_code == 403
+    assert "관리자에게 문의" in refused.json()["detail"]
+    assert "로그아웃한 뒤" not in refused.json()["detail"]
+
+
+def test_a_password_changed_meanwhile_is_not_overwritten(
+    client: TestClient, db_session: Session, dev_user, monkeypatch
+) -> None:
+    """The current password is checked, then — before the lock — another
+    request changes it. This one must not write over that change."""
+    from app.api.routes import sign_in_methods
+    from app.core.security import hash_password
+
+    real = sign_in_methods.check_current_password
+
+    def check_then_race(db, request, user, given, settings):
+        real(db, request, user, given, settings)
+        db.execute(
+            User.__table__.update()
+            .where(User.id == user.id)
+            .values(password_hash=hash_password("changed-elsewhere"))
+        )
+        db.commit()
+
+    monkeypatch.setattr(sign_in_methods, "check_current_password", check_then_race)
+    refused = client.put(
+        "/api/account/password",
+        json={"current_password": DEV_PASSWORD, "new_password": NEW_PASSWORD},
+    )
+    assert refused.status_code == 409
+    assert "그사이" in refused.json()["detail"]
+
+
+def test_linking_google_signs_out_other_browsers(
+    client: TestClient, db_session: Session, dev_user
+) -> None:
+    from app.main import app
+
+    with TestClient(app) as other:
+        other.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
+        assert other.get("/api/auth/me").status_code == 200
+        response = google_says(client, start(client, "/api/account/google/link/start"), sub="g-dev", email="dev@g.com")
+        assert response.headers["location"] == "/profile?google=linked"
+        assert other.get("/api/auth/me").status_code == 401
+    assert client.get("/api/auth/me").status_code == 200
