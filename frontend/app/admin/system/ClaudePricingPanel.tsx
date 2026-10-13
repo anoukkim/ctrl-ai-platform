@@ -292,7 +292,7 @@ export default function ClaudePricingPanel() {
             </div>
             <p className={styles.pricingNote}>
               답장이 1회 한도에 닿으면 거기서 멈추고 쓴 만큼만 차감됩니다. 긴 대화 경고는
-              입력창 위에 "새 대화로 시작하면 아낄 수 있어요"를 띄웁니다. 하루 한도는 회원마다
+              입력창 위에 &lsquo;새 대화로 시작하면 아낄 수 있어요&rsquo;를 띄웁니다. 하루 한도는 회원마다
               모든 유료 기능을 합산해 적용됩니다 (0 = 없음).
               {settings.chat_limits.set_at
                 ? ` 마지막 변경: ${formatWhen(settings.chat_limits.set_at)}${

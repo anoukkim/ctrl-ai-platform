@@ -42,6 +42,22 @@ Stopped replies keep today's rule (saved, charged for tokens used).
 10. Frontend: capped notice (reload-safe via `capped_krw`), warning +
     새 대화, Admin card; vitest for the notice and the warning.
 
-## Status
+## Status — loop results
 
-(filled at the end of the loop)
+- Backend: full suite green with the PostgreSQL tests actually running
+  (`ctrlai_tg_test` on the throwaway 55433 server — note its real
+  password comes from the container env, not `ctrlai`). Frontend: 331
+  vitest (32 files), tsc 0, eslint 0. `npm run build` not run here —
+  Turbopack refuses a junctioned node_modules; the main session builds
+  on main after merging.
+- Browser check on a preview (backend 8210 on `ctrlai_preview_tg`,
+  frontend 3210, dev seed + approved 80,000원 wallet): with a 7원 cap a
+  real streamed reply stopped at the cap — saved as truncated, charged
+  exactly 7원, the notice under the bubble; the long-history warning with
+  its figure and a working 새 대화 시작 link above the composer; Admin ›
+  System shows the 채팅 한도 card (three fields, last-change line) in
+  light theme; daily cap 5원 refused the next send with 402 "오늘 쓸 수
+  있는 금액(5원)을 넘어요…"; no console errors. Servers stopped after.
+- API checks: POST /chat-limits audited (chat_limits.set), history kept
+  as rows; input alone over a 1원 cap refused free with no provider call.
+
