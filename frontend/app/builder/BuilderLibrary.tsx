@@ -39,6 +39,7 @@ import WalletCheck from "@/app/components/WalletCheck";
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
 import PageHeader from "@/app/components/PageHeader";
+import TestModeNotice from "@/app/components/TestModeNotice";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
@@ -218,6 +219,7 @@ export default function BuilderLibrary() {
         eyebrow="Create"
         tone="build"
         title="Project Builder"
+        titleAddon={<TestModeNotice area="builder" />}
         subtitle="만들고 싶은 것을 한국어로 설명하면 Claude가 프로젝트를 만들어 줍니다."
         actions={
           <button

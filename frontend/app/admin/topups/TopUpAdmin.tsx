@@ -38,9 +38,11 @@ import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
+import { useSite } from "@/app/components/SiteProvider";
 
 export default function TopUpAdmin() {
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
+  const { top_ups_enabled } = useSite();
 
   const [topUps, setTopUps] = useState<TopUp[] | null>(null);
   /** 아이디만으로는 누구인지 알 수 없어 이름을 함께 보여 줍니다. */
@@ -180,6 +182,15 @@ export default function TopUpAdmin() {
       <PageHeader />
 
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
+
+      {!top_ups_enabled && (
+        <div className="card">
+          <p className="small muted">
+            베타 기간에는 개인 충전을 받지 않습니다. 회원은 새로 신청할 수 없고, 남아 있는
+            신청은 거절만 할 수 있습니다.
+          </p>
+        </div>
+      )}
 
       {topUps.length > 0 && (
         <SearchBar

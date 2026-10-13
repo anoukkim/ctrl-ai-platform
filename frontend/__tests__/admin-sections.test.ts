@@ -49,7 +49,7 @@ describe("Admin 구역 목록", () => {
     expect(visibleSections(false).map((s) => s.key)).not.toContain("dev");
   });
 
-  test("보이는 구역은 열한 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("보이는 구역은 열두 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -61,6 +61,7 @@ describe("Admin 구역 목록", () => {
       "budget",
       "video-models",
       "claude-models",
+      "feedback",
       "deleted",
       "audit",
       "system",

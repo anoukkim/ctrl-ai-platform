@@ -26,6 +26,7 @@ import {
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
 import PageHeader from "@/app/components/PageHeader";
+import TestModeNotice from "@/app/components/TestModeNotice";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
@@ -161,6 +162,7 @@ export default function VideoLibrary() {
         eyebrow="Create"
         tone="video"
         title="Video Generator"
+        titleAddon={<TestModeNotice area="video" />}
         subtitle="아이디어를 적고, 다듬고, 여러 번 만들어 보면서 마음에 드는 영상을 고릅니다."
         actions={
           <button

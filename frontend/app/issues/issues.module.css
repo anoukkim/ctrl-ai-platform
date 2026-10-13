@@ -89,10 +89,3 @@
   color: var(--text);
   font-weight: var(--fw-strong);
 }
-
-/* 아직 만들지 않은 자리. 점선으로 "여기 올 것이 있다"만 표시합니다. */
-.placeholder {
-  background: transparent;
-  border: 1.5px dashed var(--border);
-  box-shadow: none;
-}

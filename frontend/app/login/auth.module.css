@@ -3,7 +3,7 @@
 .screen {
   display: grid;
   place-items: center;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--banner-h));
   padding: 2rem 1rem;
   background: var(--bg);
 }
@@ -122,4 +122,16 @@
 .footerLink {
   color: var(--accent);
   font-weight: 650;
+}
+
+/* 회원가입: 정보가 어디에 저장되는지. 문구는 서버 .env에서 옵니다. */
+.notice {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
 }

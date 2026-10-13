@@ -42,6 +42,7 @@ import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
 import { useTheme } from "@/lib/theme";
 
 import BrandMark from "./BrandMark";
+import FeedbackButton from "./FeedbackButton";
 
 import { useAdminNav } from "./AdminNavProvider";
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
@@ -307,6 +308,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Moon size={16} aria-hidden="true" />
             )}
           </button>
+          {/* 의견 보내기 — 어느 화면에서든 한 번에. 저장되고 Admin › Feedback에서
+              읽습니다. */}
+          <FeedbackButton variant="icon" className={styles.footerButton} />
           <button
             className={styles.footerButton}
             type="button"
