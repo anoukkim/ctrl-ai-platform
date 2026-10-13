@@ -34,7 +34,9 @@ SONNET = dict(
     input_usd_per_mtok=Decimal("2"),
     output_usd_per_mtok=Decimal("10"),
     usd_krw=Decimal("1400"),
-    cache_read_usd_per_mtok=Decimal("0.20"),
+    # 0.05x of input — the official page's figure ($0.10/MTok); the first
+    # seed said 0.20 (fixed by audit-caching-and-distribution).
+    cache_read_usd_per_mtok=Decimal("0.10"),
 )
 
 
@@ -49,7 +51,7 @@ def test_cache_writes_cost_more_and_reads_cost_far_less() -> None:
     assert five_minutes.usd(million, 0) == Decimal("2")
     assert five_minutes.usd(0, 0, cache_write_tokens=million) == Decimal("2.5")
     assert one_hour.usd(0, 0, cache_write_tokens=million) == Decimal("4")
-    assert five_minutes.usd(0, 0, cache_read_tokens=million) == Decimal("0.2")
+    assert five_minutes.usd(0, 0, cache_read_tokens=million) == Decimal("0.1")
 
 
 def test_a_model_without_its_own_read_price_reads_at_a_tenth_of_input() -> None:
