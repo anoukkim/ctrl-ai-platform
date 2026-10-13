@@ -191,6 +191,13 @@ class ChosenModel:
     row_id: int | None = None
     #: None means a tenth of the input price.
     cache_read_usd_per_mtok: Decimal | None = None
+    # Server tools the admin opened on this model (chat-plus-tools). The
+    # empty-catalogue fallback has none — a tool needs a catalogue row.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    #: $ per web search; only meaningful while `tools_web_search` is on.
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
     @classmethod
     def of(cls, row: ChatModel) -> ChosenModel:
@@ -206,6 +213,10 @@ class ChosenModel:
                 if row.cache_read_usd_per_mtok is not None
                 else None
             ),
+            tools_web_search=row.tools_web_search,
+            tools_web_fetch=row.tools_web_fetch,
+            tools_code_execution=row.tools_code_execution,
+            web_search_usd_per_call=Decimal(row.web_search_usd_per_call),
         )
 
 

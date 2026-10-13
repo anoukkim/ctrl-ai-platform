@@ -84,6 +84,17 @@ class ChatModel(TimestampMixin, Base):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # Anthropic server tools (chat-plus-tools): which this model may use.
+    # Off until an admin opens one; a member still has to turn it on per
+    # conversation. Mock-only until Phase 9 — no real API is ever called.
+    tools_web_search: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    tools_web_fetch: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    tools_code_execution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: $ per web search ($10 per 1,000). A catalogue value, admin-editable.
+    web_search_usd_per_call: Mapped[Decimal] = mapped_column(
+        Numeric(10, 6), default=Decimal("0.01"), nullable=False
+    )
+
     def __repr__(self) -> str:
         return f"<ChatModel {self.provider}/{self.model_id} {self.visibility.value}>"
 

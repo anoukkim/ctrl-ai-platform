@@ -18,11 +18,16 @@ class ConversationCreate(BaseModel):
 
 
 class ConversationUpdate(BaseModel):
-    """Rename, change the model, or both. At least one must be sent."""
+    """Rename, change the model, the tool toggles — at least one."""
 
     title: str | None = Field(default=None, max_length=100)
     #: Affects later replies only; each reply keeps the model that wrote it.
     chat_model_id: int | None = None
+    #: Server tools (chat-plus-tools), per conversation. Turning one on is
+    #: refused when the conversation's model does not allow it.
+    use_web_search: bool | None = None
+    use_web_fetch: bool | None = None
+    use_code_execution: bool | None = None
 
 
 class ConversationRead(BaseModel):
@@ -34,6 +39,11 @@ class ConversationRead(BaseModel):
     last_message_at: datetime
     #: The catalogue model the next reply uses. None means the default.
     chat_model_id: int | None = None
+    #: The member's tool toggles (chat-plus-tools). A tool still runs only
+    #: when the model allows it too.
+    use_web_search: bool = False
+    use_web_fetch: bool = False
+    use_code_execution: bool = False
 
 
 class ReplyReceipt(BaseModel):
@@ -48,6 +58,9 @@ class ReplyReceipt(BaseModel):
     output_tokens: int
     cache_write_tokens: int | None = None
     cache_read_tokens: int | None = None
+    #: Billed web searches and their fee (chat-plus-tools); 0 = no line.
+    web_search_count: int = 0
+    tool_fee_krw: int = 0
     charged_krw: int
 
 
@@ -65,6 +78,8 @@ class ChatMessageRead(BaseModel):
     #: Set when the reply stopped at the per-reply cost cap (token-guard):
     #: the cap in force, in won. Null for every other ending.
     capped_krw: int | None = None
+    #: Web-search sources the reply cited (chat-plus-tools), in order.
+    sources: list["SourceRead"] | None = None
     #: The reply's receipt, filled from its usage event when the
     #: conversation is read (live-cost-display). Not a column: while a
     #: reply streams, the receipt arrives on the `done` event instead.
@@ -87,7 +102,20 @@ class ConversationDetail(ConversationRead):
     long_history: LongHistoryRead | None = None
 
 
+class SourceRead(BaseModel):
+    """One cited source — shown as a numbered link with its domain."""
+
+    title: str = ""
+    url: str
+
+
 class ChatMessageCreate(BaseModel):
+    #: `extra="forbid"`: a member can send text and nothing else. In
+    #: particular no file or container ids — Anthropic file ids are
+    #: workspace-wide, so accepting one would open other members' files
+    #: (chat-plus-tools).
+    model_config = ConfigDict(extra="forbid")
+
     content: str = Field(min_length=1, max_length=MAX_MESSAGE_LENGTH)
 
 
@@ -108,6 +136,12 @@ class ChatModelOption(BaseModel):
     #: `TYPICAL_OUTPUT_TOKENS` at list price, until there are enough.
     estimate_basis: str = "formula"
     estimate_samples: int = 0
+    #: Which server tools the admin opened on this model, and what one
+    #: web search costs in won — the member's toggle shows it first.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    web_search_krw_per_call: int | None = None
 
 
 class ChatInfo(BaseModel):

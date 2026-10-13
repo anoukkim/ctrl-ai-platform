@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from decimal import ROUND_CEILING, Decimal
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -64,6 +65,8 @@ from app.services.claude_provider import (
     ClaudeError,
     StreamEnd,
     TextDelta,
+    ToolSources,
+    ToolStatus,
     UsageUpdate,
     get_claude_provider,
 )
@@ -100,6 +103,8 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
             output_tokens=row.output_tokens or 0,
             cache_write_tokens=row.cache_write_tokens,
             cache_read_tokens=row.cache_read_tokens,
+            web_search_count=row.web_search_count or 0,
+            tool_fee_krw=row.tool_fee_krw or 0,
             charged_krw=row.charged_krw,
         )
         for row in rows
@@ -127,6 +132,13 @@ def chat_info(
 
 def _option(db: Session, row, default, rate) -> ChatModelOption:
     estimate = pricing.reply_estimate(db, chat_models.ChosenModel.of(row), rate)
+    search_krw = None
+    if rate is not None:
+        search_krw = int(
+            (Decimal(row.web_search_usd_per_call) * Decimal(rate.krw_per_unit)).to_integral_value(
+                rounding=ROUND_CEILING
+            )
+        )
     return ChatModelOption(
         id=row.id,
         model_id=row.model_id,
@@ -137,6 +149,10 @@ def _option(db: Session, row, default, rate) -> ChatModelOption:
         estimated_reply_krw=estimate.krw,
         estimate_basis=estimate.basis,
         estimate_samples=estimate.samples,
+        tools_web_search=row.tools_web_search,
+        tools_web_fetch=row.tools_web_fetch,
+        tools_code_execution=row.tools_code_execution,
+        web_search_krw_per_call=search_krw,
     )
 
 
@@ -217,10 +233,20 @@ def update_conversation(
     payload: ConversationUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
 ) -> Conversation:
-    """Rename, or change the model later replies use. Earlier replies keep theirs."""
+    """Rename, change the model, or flip a tool toggle. Later replies only."""
     conversation = _owned(db, user, conversation_id)
-    if payload.title is None and payload.chat_model_id is None:
+    toggles = {
+        "use_web_search": payload.use_web_search,
+        "use_web_fetch": payload.use_web_fetch,
+        "use_code_execution": payload.use_code_execution,
+    }
+    if (
+        payload.title is None
+        and payload.chat_model_id is None
+        and all(value is None for value in toggles.values())
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="바꿀 내용을 보내 주세요."
         )
@@ -238,6 +264,28 @@ def update_conversation(
             ).id
         except chat_models.ModelChoiceError as error:
             raise _model_error(error) from error
+    if any(value is not None for value in toggles.values()):
+        # Turning a tool ON needs the conversation's model to allow it —
+        # otherwise the toggle would promise something no reply delivers.
+        # Turning one OFF is always allowed.
+        try:
+            model = chat_models.for_conversation(db, settings, user, conversation)
+        except chat_models.ModelChoiceError as error:
+            raise _model_error(error) from error
+        allowed = {
+            "use_web_search": model.tools_web_search,
+            "use_web_fetch": model.tools_web_fetch,
+            "use_code_execution": model.tools_code_execution,
+        }
+        for field, value in toggles.items():
+            if value is None:
+                continue
+            if value and not allowed[field]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="이 모델에서는 쓸 수 없는 도구입니다. 모델을 바꾸거나 도구를 꺼 주세요.",
+                )
+            setattr(conversation, field, value)
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -365,6 +413,15 @@ def send_message(
                     state.output_tokens = event.output_tokens
                     state.cache_write_tokens = event.cache_write_tokens
                     state.cache_read_tokens = event.cache_read_tokens
+                    state.web_search_count = event.web_search_count
+                elif isinstance(event, ToolStatus):
+                    # 검색 중… / 페이지 읽는 중… / 코드 실행 중… — the
+                    # screen's line while a server tool runs.
+                    queue.put_nowait(("tool", {"kind": event.kind, "status": event.status}))
+                elif isinstance(event, ToolSources):
+                    state.sources = [
+                        {"title": title, "url": url} for title, url in event.sources
+                    ]
                 elif isinstance(event, StreamEnd):
                     state.stop_reason = event.stop_reason
                 # 중지 closes the connection. Checked between pieces, so
@@ -412,6 +469,9 @@ def send_message(
                 if kind == "delta":
                     yield _sse("delta", {"text": payload})
                     continue
+                if kind == "tool":
+                    yield _sse("tool", payload)  # type: ignore[arg-type]
+                    continue
                 result: chat_service.TurnResult = payload  # type: ignore[assignment]
                 if result.error is not None:
                     yield _sse("error", {"detail": str(result.error), "kind": result.error.kind})
@@ -430,6 +490,9 @@ def send_message(
                                     "output_tokens": result.usage.output_tokens,
                                     "cache_write_tokens": result.usage.cache_write_tokens,
                                     "cache_read_tokens": result.usage.cache_read_tokens,
+                                    # chat-plus-tools: the receipt's 검색 line.
+                                    "web_search_count": result.usage.web_search_count,
+                                    "tool_fee_krw": result.usage.tool_fee_krw,
                                 }
                                 if result.usage
                                 else None
