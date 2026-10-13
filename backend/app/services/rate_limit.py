@@ -81,23 +81,33 @@ LOGIN_WINDOW = timedelta(minutes=15)
 
 
 def login_blocked(db: Session, address: str, username: str, settings: Settings) -> bool:
-    """Too many failed password sign-ins from this address, or for this name."""
+    """Too many failed password sign-ins.
+
+    Three ceilings, so that guessing is slow but nobody can lock someone
+    else out from another address:
+
+    * this address, this username — the limit itself;
+    * this address, any username — three times it (one address guessing
+      many accounts);
+    * this username, any address — ten times it, only as a backstop
+      against a distributed guess. Reaching it takes many addresses.
+    """
     limit = settings.login_failures_per_15_minutes
     if limit <= 0:
         return False
     since = datetime.now(timezone.utc) - LOGIN_WINDOW
-    by_address = db.scalar(
-        select(func.count(LoginAttempt.id)).where(
-            LoginAttempt.address == address, LoginAttempt.created_at >= since
-        )
-    ) or 0
-    by_name = db.scalar(
-        select(func.count(LoginAttempt.id)).where(
-            LoginAttempt.username == username.strip().lower()[:64],
-            LoginAttempt.created_at >= since,
-        )
-    ) or 0
-    return by_address >= limit or by_name >= limit
+    name = username.strip().lower()[:64]
+
+    def failures(*conditions) -> int:
+        return db.scalar(
+            select(func.count(LoginAttempt.id)).where(LoginAttempt.created_at >= since, *conditions)
+        ) or 0
+
+    return (
+        failures(LoginAttempt.address == address, LoginAttempt.username == name) >= limit
+        or failures(LoginAttempt.address == address) >= 3 * limit
+        or failures(LoginAttempt.username == name) >= 10 * limit
+    )
 
 
 def record_login_failure(db: Session, address: str, username: str) -> None:

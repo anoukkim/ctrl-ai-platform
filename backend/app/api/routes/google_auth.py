@@ -113,12 +113,17 @@ def _clear(response: Response, settings: Settings, name: str) -> None:
     )
 
 
-#: The most sign-ins that may be under way at once. Each press of the button
-#: writes a row; this keeps a flood of presses from filling the table.
-MAX_OPEN_STATES = 500
+#: Sign-ins under way from one address at once. Each press of the button
+#: writes a row; a person needs a few, a script flooding the table hits this.
+MAX_OPEN_STATES_PER_ADDRESS = 20
+#: A backstop for the whole table, far above any real use, so a flood from
+#: many addresses still cannot grow it without bound.
+MAX_OPEN_STATES = 20_000
 
 
-def _begin(db: Session, settings: Settings, purpose: str, user_id: int | None) -> RedirectResponse:
+def _begin(
+    db: Session, settings: Settings, purpose: str, user_id: int | None, address: str
+) -> RedirectResponse:
     provider = _provider_or_404(settings)
     now = datetime.now(timezone.utc)
     db.execute(
@@ -126,7 +131,11 @@ def _begin(db: Session, settings: Settings, purpose: str, user_id: int | None) -
         .where(OAuthState.created_at < now - STATE_LIFETIME)
         .execution_options(synchronize_session=False)
     )
-    if (db.scalar(select(func.count()).select_from(OAuthState)) or 0) >= MAX_OPEN_STATES:
+    from_here = db.scalar(
+        select(func.count()).select_from(OAuthState).where(OAuthState.address == address)
+    ) or 0
+    in_total = db.scalar(select(func.count()).select_from(OAuthState)) or 0
+    if from_here >= MAX_OPEN_STATES_PER_ADDRESS or in_total >= MAX_OPEN_STATES:
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -136,7 +145,12 @@ def _begin(db: Session, settings: Settings, purpose: str, user_id: int | None) -
     verifier = new_verifier()
     db.add(
         OAuthState(
-            state=state, code_verifier=verifier, purpose=purpose, user_id=user_id, created_at=now
+            state=state,
+            code_verifier=verifier,
+            purpose=purpose,
+            user_id=user_id,
+            address=address[:64],
+            created_at=now,
         )
     )
     db.commit()
@@ -147,19 +161,21 @@ def _begin(db: Session, settings: Settings, purpose: str, user_id: int | None) -
 
 @router.get("/auth/google/start", summary="Google로 계속하기 — sign in or sign up")
 def google_start(
+    request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
-    return _begin(db, settings, "signin", None)
+    return _begin(db, settings, "signin", None, rate_limit.client_address(request, settings))
 
 
 @router.get("/account/google/link/start", summary="Link Google to the signed-in account")
 def google_link_start(
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
-    return _begin(db, settings, "link", user.id)
+    return _begin(db, settings, "link", user.id, rate_limit.client_address(request, settings))
 
 
 def _to(path: str, **query: str) -> RedirectResponse:

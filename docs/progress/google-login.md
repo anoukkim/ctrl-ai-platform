@@ -118,3 +118,16 @@ Left as decisions for the owner:
 - The setup screen says when the visitor's own Google email already has an
   account (before any invite code is checked). It reveals only their own
   address; kept, because the alternative is a dead end with no explanation.
+
+## Review round 2 — 2 findings (1 medium, 1 low-medium), fixed
+
+- The login limit counted failures per username from any address, so
+  anyone could lock an account out. Now: the limit per (address, username),
+  3× per address, and 10× per username only as a distributed backstop.
+- The open-sign-in cap was global, so one script could shut Google sign-in
+  for everyone. Now 20 per address (`oauth_states.address`), with a global
+  backstop of 20,000.
+- Noted, not changed: a Google-only member confirms withdrawal by typing
+  their (public) username — proof of intent, not identity; the 30-day
+  grace period makes it reversible. A fresh Google sign-in would be the
+  stronger check later.

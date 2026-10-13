@@ -49,6 +49,7 @@ def upgrade() -> None:
         sa.Column("state", sa.String(length=100), primary_key=True),
         sa.Column("code_verifier", sa.String(length=200), nullable=False),
         sa.Column("purpose", sa.String(length=20), nullable=False),
+        sa.Column("address", sa.String(length=64), nullable=False, server_default=""),
         sa.Column(
             "user_id",
             sa.Integer(),
@@ -57,6 +58,7 @@ def upgrade() -> None:
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
+    op.create_index("ix_oauth_states_address", "oauth_states", ["address"])
 
     op.create_table(
         "pending_google_signups",
@@ -87,6 +89,7 @@ def downgrade() -> None:
     op.drop_index("ix_login_attempts_address", table_name="login_attempts")
     op.drop_table("login_attempts")
     op.drop_table("pending_google_signups")
+    op.drop_index("ix_oauth_states_address", table_name="oauth_states")
     op.drop_table("oauth_states")
     op.drop_index("ix_connected_accounts_user_id", table_name="connected_accounts")
     op.drop_table("connected_accounts")

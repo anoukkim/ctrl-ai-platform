@@ -427,3 +427,35 @@ def test_a_broken_answer_from_google_is_a_failed_sign_in_not_a_500() -> None:
     payload = base64.urlsafe_b64encode(json.dumps([1, 2]).encode()).rstrip(b"=").decode()
     with pytest.raises(GoogleLoginError):
         RealGoogleLogin(settings, transport=lambda u, f: {"id_token": f"h.{payload}.s"}).exchange("c", "v")
+
+
+# ------------------------------------------------------------- review round 2
+
+
+def test_someone_else_cannot_lock_a_member_out(
+    db_session: Session, dev_user, settings_for
+) -> None:
+    """Failures from one address lock that address, not the account."""
+    from app.services import rate_limit
+
+    settings = settings_for(login_failures_per_15_minutes=3)
+    for _ in range(3):
+        rate_limit.record_login_failure(db_session, "198.51.100.66", dev_user.username)
+    assert rate_limit.login_blocked(db_session, "198.51.100.66", dev_user.username, settings)
+    assert not rate_limit.login_blocked(db_session, "203.0.113.5", dev_user.username, settings)
+
+
+def test_one_address_cannot_use_up_google_sign_in_for_everyone(
+    anon_client: TestClient, db_session: Session, monkeypatch
+) -> None:
+    from app.api.routes import google_auth
+
+    monkeypatch.setattr(google_auth, "MAX_OPEN_STATES_PER_ADDRESS", 2)
+    assert anon_client.get("/api/auth/google/start", follow_redirects=False).status_code == 302
+    assert anon_client.get("/api/auth/google/start", follow_redirects=False).status_code == 302
+    assert anon_client.get("/api/auth/google/start", follow_redirects=False).status_code == 429
+
+    # Another address still gets in.
+    db_session.query(OAuthState).update({OAuthState.address: "203.0.113.200"})
+    db_session.commit()
+    assert anon_client.get("/api/auth/google/start", follow_redirects=False).status_code == 302

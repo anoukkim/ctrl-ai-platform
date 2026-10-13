@@ -64,6 +64,8 @@ class OAuthState(Base):
     code_verifier: Mapped[str] = mapped_column(String(200), nullable=False)
     #: "signin" or "link".
     purpose: Mapped[str] = mapped_column(String(20), nullable=False)
+    #: Who pressed the button (the client address), for the per-address cap.
+    address: Mapped[str] = mapped_column(String(64), default="", nullable=False, index=True)
     #: For "link": the signed-in member who pressed the button.
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=True
