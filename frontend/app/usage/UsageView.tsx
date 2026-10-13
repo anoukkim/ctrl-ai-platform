@@ -17,6 +17,8 @@
 import { Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useSite } from "@/app/components/SiteProvider";
+
 import {
   FUNDING_LABEL,
   MEMBERSHIP_BADGE,
@@ -48,6 +50,7 @@ function formatDay(iso: string): string {
 
 export default function UsageView() {
   const [state, setState] = useState<State>({ phase: "loading" });
+  const site = useSite();
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
@@ -150,6 +153,11 @@ export default function UsageView() {
               ? "지금은 개인 사용이 켜져 있습니다."
               : "지금은 개인 사용이 꺼져 있어, 지원금을 다 쓰면 사용이 멈춥니다."}
           </p>
+          {!site.top_ups_enabled && (
+            <p className={styles.personalNote} data-testid="top-ups-off">
+              베타 기간에는 개인 충전을 받지 않습니다. 동아리 지원금으로 이용해 주세요.
+            </p>
+          )}
         </section>
       )}
 

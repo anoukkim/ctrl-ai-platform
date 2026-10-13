@@ -57,6 +57,8 @@ def _start_session(db: Session, response: Response, user: User, settings: Settin
         httponly=True,
         secure=settings.session_cookie_secure,
         samesite=settings.session_cookie_samesite,
+        # None (the default) is a host-only cookie: the main domain only.
+        domain=settings.cookie_domain,
         # The cookie is scoped to the whole site because Next.js proxies
         # /api/* on the same origin.
         path="/",
@@ -156,6 +158,7 @@ def logout(
         httponly=True,
         secure=settings.session_cookie_secure,
         samesite=settings.session_cookie_samesite,
+        domain=settings.cookie_domain,
         path="/",
     )
 

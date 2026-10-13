@@ -1,0 +1,35 @@
+# Caddy — the only service reachable from the internet (ports 80 and 443).
+#
+# Caddy gets and renews the HTTPS certificate from Let's Encrypt by itself,
+# as soon as DNS points SITE_DOMAIN at this server. Nothing to install,
+# nothing to renew by hand. The certificate is kept in the `caddy_data`
+# volume, so restarts do not ask Let's Encrypt again.
+#
+# SITE_DOMAIN and MAX_UPLOAD_MB come from docker-compose.prod.yml.
+
+# The site: everything goes to the Next.js server, which serves the pages
+# and forwards /api/* to FastAPI. FastAPI itself is never exposed, so its
+# /docs page is not reachable from outside (and is off outside development
+# anyway).
+{$SITE_DOMAIN} {
+	request_body {
+		max_size {$MAX_UPLOAD_MB}MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	# Chat replies stream as text/event-stream; Caddy passes those through
+	# immediately without buffering.
+	reverse_proxy web:3000
+}
+
+# www.ctrlai.my -> https://ctrlai.my, keeping the path.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}

@@ -62,6 +62,8 @@ the same commit that adds it.
 | Endpoint | Guard | Why |
 | -------- | ----- | --- |
 | `GET /api/health` | none | Must answer while the database is down |
+| `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
+| `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
 | `POST /api/auth/register` | none | Creating the account |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
@@ -101,7 +103,7 @@ the same commit that adds it.
 | `POST /api/quarters/applications/{id}/cancel` | `get_current_user` | Same |
 | `GET /api/quarters/me/wallet` | `get_current_user` | Own money |
 | `PATCH /api/quarters/me/wallet` | `get_current_user` | Own money, no community budget touched |
-| `POST /api/quarters/me/top-ups` | `get_current_user` | Own money |
+| `POST /api/quarters/me/top-ups` | `get_current_user` | Own money; refused in `APP_ENV=beta` |
 | `GET /api/quarters/me/top-ups` | `get_current_user` | Own money |
 | `GET /api/usage/me` | `get_current_user` | Reading your own ledger |
 | `GET /api/users` | `require_admin` | |
@@ -120,6 +122,7 @@ the same commit that adds it.
 | `GET /api/admin/video-models` | `require_admin` | |
 | `PATCH /api/admin/video-models/{id}` | `require_admin` | |
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
+| `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, read-only |
 | `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows |
 | `GET /api/admin/members/{user_id}` | `require_admin` | Read-only; one member's history, budgets and audit trail |
 | `GET /api/admin/stats/applications` | `require_admin` | Read-only; grouped counts for one quarter |
@@ -208,15 +211,28 @@ usage per member and quarter.
 Hosting is expected to be Google Cloud, but nothing here is created until
 Phase 9, and every item below bills someone.
 
-### Beta hosting (decided 2026-10-07)
+### Beta hosting (decided 2026-10-13)
 
 The invite-only beta does **not** use the full layout below. It runs on
-`ctrlai.my` from one Compute Engine e2-micro VM (Always Free region) with
-Docker Compose: Caddy for HTTPS, the Next.js app, FastAPI, and PostgreSQL
-on the same VM with no published port. Billing starts on the Google Cloud
-free trial at the deploy step. The full decision, and how to grow out of
-it, is in `docs/BACKLOG.md` › prep-beta-launch › **Hosting decisions**.
-The layout below is the target after the beta.
+`ctrlai.my` from one Compute Engine VM, `ctrlai-server`: an **e2-medium**
+(2 vCPU, 4 GB RAM, paid) in **Seoul** (`asia-northeast3-c`), Debian 13,
+a 30 GB standard disk and the static IP `34.47.78.228`, on the Google
+Cloud free trial until about 2027-01-11. Docker Compose
+(`docker-compose.prod.yml`) runs four services:
+
+```text
+Internet ─ 80/443 ─▶ caddy (HTTPS, Let's Encrypt; www → apex)
+                       └─▶ web  (Next.js standalone, /api/* rewrite)
+                             └─▶ api (FastAPI, reads the server's .env)
+                                   └─▶ db (PostgreSQL 16, no published port)
+```
+
+There is no `api` subdomain: the browser only talks to `ctrlai.my`.
+Images are built by GitHub Actions and pulled from ghcr.io. Secrets sit
+in a `chmod 600` `.env` on the VM — the beta-only exception in
+`CLAUDE.md` section 17. The full decision is in `docs/archive/done-specs.md` ›
+prep-beta-launch › **Hosting decisions — 2026-10-13**; running it is
+`docs/deployment.md`. The layout below is the target after the beta.
 
 ```text
 Google Cloud

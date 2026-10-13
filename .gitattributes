@@ -1,0 +1,6 @@
+# Files that run on the Linux server keep LF line endings even when they
+# are edited or built on Windows: a CRLF shell script fails with
+# "bad interpreter", and a CRLF Caddyfile confuses its parser.
+*.sh       text eol=lf
+Caddyfile  text eol=lf
+Dockerfile text eol=lf

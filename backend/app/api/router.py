@@ -18,8 +18,10 @@ from app.api.routes import (
     auth,
     builder,
     chat,
+    feedback,
     health,
     quarters,
+    site,
     usage,
     users,
     video,
@@ -27,6 +29,7 @@ from app.api.routes import (
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
+api_router.include_router(site.router)
 api_router.include_router(auth.router)
 api_router.include_router(account.router)
 api_router.include_router(users.router)
@@ -42,3 +45,4 @@ api_router.include_router(admin_quarters.router)
 api_router.include_router(admin_overview.router)
 api_router.include_router(admin_work.router)
 api_router.include_router(admin_withdrawals.router)
+api_router.include_router(feedback.router)

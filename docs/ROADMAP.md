@@ -27,7 +27,8 @@ chat, everything else labelled test mode.
 ✅ chat-model-choice · ⬜ single-wallet · ⬜ ui-friendly-motion ·
 ⬜ invite-only-signup ·
 ⬜ chat-plus-rendering · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
-⬜ test-database-isolation · ⬜ prep-beta-launch [9, beta subset].
+⬜ test-database-isolation · ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
+`ctrlai-server`, e2-medium in Seoul, on mock providers).
 The three `chat-plus-*` items joined on 2026-10-07: members have never
 used Claude, so Chat shows what it can do — tables, files, previews —
 before the site opens.

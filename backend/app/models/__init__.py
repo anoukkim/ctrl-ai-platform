@@ -7,6 +7,7 @@ imported here is invisible to both.
 
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
 from app.models.chat import ChatAction, ChatMessage, ChatMessageStatus, ChatRole, Conversation
+from app.models.feedback import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, Feedback
 from app.models.builder import BuilderProject, BuilderProjectFile, BuilderProjectStatus
 from app.models.provider import (
     PROVIDER_ERROR_LABEL,
@@ -59,6 +60,9 @@ __all__ = [
     "BuilderProject",
     "BuilderProjectFile",
     "BuilderProjectStatus",
+    "FEEDBACK_MAX_LENGTH",
+    "FEEDBACK_PER_HOUR",
+    "Feedback",
     "FundingSource",
     "MembershipStatus",
     "PersonalBalance",

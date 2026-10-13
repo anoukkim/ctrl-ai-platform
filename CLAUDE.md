@@ -931,7 +931,7 @@ a member reads is still Korean.
 
 An admin additionally sees **Admin**, below Explore. It is a single
 expanding item rather than a group heading — there is no Manage group —
-and its twelve sections are named in English too:
+and its thirteen sections are named in English too:
 
 ```text
 Admin
@@ -943,6 +943,7 @@ Admin
   Budget
   Video Models
   Claude Models
+  Feedback
   Deleted Items
   Audit Log
   System
@@ -1032,7 +1033,8 @@ Non-negotiable:
     and never baked into a Docker image; the Anthropic key has a monthly
     spend limit set in the Anthropic Console; and every key is rotated
     when the secrets move to Secret Manager after the beta. See
-    `docs/BACKLOG.md` › prep-beta-launch › **Hosting decisions**.
+    `docs/archive/done-specs.md` › prep-beta-launch › **Hosting decisions
+    — 2026-10-13**.
 - maintain audit logs for admin credit/membership changes
 
 ---
@@ -1460,12 +1462,16 @@ costs money and the only one that needs a domain or an API key.
 > databases, hosting plans and provider API keys all bill someone. Confirm
 > first — this is also rule 5 of section 21.
 
-> **Beta hosting is decided (2026-10-07).** The domain `ctrlai.my` is
-> bought. The beta runs on one e2-micro VM with Docker Compose and
-> PostgreSQL on the VM, billed on the Google Cloud free trial from the
-> deploy step. See `docs/BACKLOG.md` › prep-beta-launch › **Hosting
-> decisions**. The managed PostgreSQL and Secret Manager lines below
-> describe the target after the beta.
+> **Beta hosting is decided (2026-10-13).** The domain `ctrlai.my` is
+> bought. The beta runs on one Compute Engine VM, `ctrlai-server` — an
+> **e2-medium** (2 vCPU, 4 GB, paid, about US$32 a month) in **Seoul**
+> (`asia-northeast3-c`), static IP `34.47.78.228` — with Docker Compose
+> and PostgreSQL on the VM. It is billed on the Google Cloud free trial
+> (₩407,626, 2026-10-13 to about 2027-01-11); the billing account must be
+> upgraded to paid before the trial ends. See `docs/archive/done-specs.md` ›
+> prep-beta-launch › **Hosting decisions — 2026-10-13**, and
+> `docs/deployment.md` for the step-by-step guide. The managed PostgreSQL
+> and Secret Manager lines below describe the target after the beta.
 
 Implement:
 

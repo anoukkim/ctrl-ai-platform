@@ -16,19 +16,28 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-# A real provider selected without its key or model is refused here, at
-# startup, rather than on the first member's message (CLAUDE.md section
-# 19). With every provider on mock — the default — nothing is required.
-_missing = settings.missing_provider_settings()
-if _missing:
-    raise RuntimeError(
-        "A real provider is selected but these settings are missing: " + ", ".join(_missing)
-    )
+# Refused here, at startup, rather than on the first member's request:
+# a real provider selected without its key (CLAUDE.md section 19), a
+# deployed server left in development mode, or a deployed server whose
+# ADMIN_PASSWORD is a known default (prep-beta-launch, Launch data rules).
+# With every provider on mock and APP_ENV=development, nothing is required.
+_problems = settings.startup_problems()
+if _problems:
+    raise RuntimeError("Refusing to start: " + " | ".join(_problems))
+
+# The interactive API docs (/docs, /redoc, /openapi.json) exist only in
+# development. On a deployed server they would list every route to anyone
+# who asked; nothing there needs them, and the browser reaches the API only
+# through the Next.js /api/* rewrite anyway.
+_docs = settings.is_development
 
 app = FastAPI(
     title="Ctrl AI Backend",
     version="0.1.0",
     description="Core API for the Ctrl AI community platform.",
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
 )
 
 # A browser refuses to read a response from a different origin unless that
@@ -50,4 +59,7 @@ app.include_router(api_router)
 @app.get("/", tags=["meta"], summary="Service banner")
 def root() -> dict[str, str]:
     """Tiny response so hitting the bare URL confirms the server is up."""
-    return {"service": "ctrl-ai-backend", "docs": "/docs", "health": "/api/health"}
+    banner = {"service": "ctrl-ai-backend", "health": "/api/health"}
+    if _docs:
+        banner["docs"] = "/docs"
+    return banner

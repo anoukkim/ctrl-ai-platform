@@ -33,6 +33,16 @@ def _connect_args(database_url: str) -> dict[str, object]:
     return {}
 
 
+def _pool_args(database_url: str) -> dict[str, object]:
+    """Pool sizes from the environment (DB_POOL_SIZE, DB_MAX_OVERFLOW).
+
+    SQLite's pool takes neither option, so it is left alone.
+    """
+    if database_url.startswith("postgresql"):
+        return {"pool_size": settings.db_pool_size, "max_overflow": settings.db_max_overflow}
+    return {}
+
+
 engine = create_engine(
     settings.database_url,
     # Check that a pooled connection is still alive before reusing it.
@@ -40,6 +50,7 @@ engine = create_engine(
     pool_pre_ping=True,
     connect_args=_connect_args(settings.database_url),
     echo=False,
+    **_pool_args(settings.database_url),
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

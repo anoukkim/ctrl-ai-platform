@@ -319,6 +319,16 @@ body {
   max-width: 100%;
 }
 
+/* 베타 배너의 높이(BetaBanner). 베타가 아니면 0이고, 화면 높이를 꽉
+   채우는 규칙들(사이드바, Chat, 작업 공간)이 모두 이 값을 뺍니다. */
+:root {
+  --banner-h: 0px;
+}
+
+html[data-beta] {
+  --banner-h: 2rem;
+}
+
 body {
   min-height: 100vh;
   color: var(--text);
@@ -645,6 +655,15 @@ code {
   color: var(--accent);
   background: var(--accent-soft);
   border-color: var(--accent-border);
+}
+
+/* "테스트 모드 – 실제 AI 결과가 아닙니다" (TestModeNotice). 배지이지만 문장이
+   길어, 좁은 화면에서는 줄을 바꾸고 놓인 칸을 다 차지하지 않습니다. */
+.test-mode {
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+  font-weight: 600;
 }
 
 /* 아직 동작하지 않는 자리를 표시합니다. */

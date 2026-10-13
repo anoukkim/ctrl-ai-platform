@@ -17,6 +17,7 @@ import {
   FileText,
   Trash2,
   LayoutDashboard,
+  MessageSquarePlus,
   PiggyBank,
   ScrollText,
   Server,
@@ -110,6 +111,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Claude Models",
     description: "회원이 Chat에서 고를 수 있는 Claude 모델과 요금을 정합니다.",
     Icon: Bot,
+  },
+  {
+    // prep-beta-launch. 회원이 "의견 보내기"로 남긴 글. Report Issue(GitHub)와
+    // 달리 공개되지 않고 운영진만 읽습니다.
+    key: "feedback",
+    href: "/admin/feedback",
+    label: "Feedback",
+    description: "회원이 화면 어디에서든 '의견 보내기'로 남긴 글을 읽습니다.",
+    Icon: MessageSquarePlus,
   },
   {
     // 회원이 지운 것을 되살리는 곳. Audit Log 앞에 둡니다 — 둘 다 지난

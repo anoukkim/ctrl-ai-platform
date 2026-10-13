@@ -67,6 +67,7 @@ def withdraw(
         httponly=True,
         secure=settings.session_cookie_secure,
         samesite=settings.session_cookie_samesite,
+        domain=settings.cookie_domain,
         path="/",
     )
     return WithdrawalRead.of(row)

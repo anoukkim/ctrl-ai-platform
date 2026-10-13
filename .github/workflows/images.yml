@@ -1,0 +1,90 @@
+# Build the two images the server runs and push them to GitHub's container
+# registry (ghcr.io). The server only pulls (docs/deployment.md).
+#
+#   ghcr.io/anoukkim/ctrl-ai-platform-api:latest   (and :<commit sha>)
+#   ghcr.io/anoukkim/ctrl-ai-platform-web:latest   (and :<commit sha>)
+#
+# Runs on every push to main — that is, after an item is merged — and can
+# be started by hand from the Actions tab. The tests run first; a red test
+# means no new image, so the server cannot pull a broken build.
+
+name: images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: images
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Backend tests
+        working-directory: backend
+        env:
+          # Nothing to connect to: the suite uses SQLite, and the one
+          # PostgreSQL-only test skips itself.
+          DATABASE_URL: postgresql+psycopg://ci:ci@127.0.0.1:1/none
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+          python -m pytest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend tests, types and lint
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npx tsc --noEmit
+          npm run lint
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: api
+            context: backend
+            build-args: ""
+          - name: web
+            context: frontend
+            # Compiled into the Next.js /api/* rewrite. Not a secret.
+            build-args: BACKEND_ORIGIN=http://api:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          # ctrlai-server is x86_64.
+          platforms: linux/amd64
+          push: true
+          build-args: ${{ matrix.build-args }}
+          tags: |
+            ghcr.io/${{ github.repository }}-${{ matrix.name }}:latest
+            ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

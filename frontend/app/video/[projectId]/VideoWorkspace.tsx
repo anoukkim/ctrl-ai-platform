@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "@/app/components/MyQuarterProvider";
 import WalletCheck from "@/app/components/WalletCheck";
+import TestModeNotice from "@/app/components/TestModeNotice";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
@@ -527,6 +528,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
+        <TestModeNotice area="video" />
 
         <span className={ws.topbarSpacer} />
       </div>

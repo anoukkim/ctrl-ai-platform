@@ -311,6 +311,13 @@ def test_a_member_cannot_reach_admin_pages(other_client: TestClient) -> None:
 EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/"): None,
     ("GET", "/api/health"): None,
+    # The deployment as the frontend sees it (beta banner, test-mode labels,
+    # the data-location notice on sign-up) — needed before signing in.
+    ("GET", "/api/site"): None,
+    # Feedback (prep-beta-launch). Sending spends nothing and is open to a
+    # member who is not participating; the list is Admin's.
+    ("POST", "/api/feedback"): "get_current_user",
+    ("GET", "/api/admin/feedback"): "require_admin",
     ("POST", "/api/auth/register"): None,
     ("POST", "/api/auth/login"): None,
     ("POST", "/api/auth/logout"): None,
@@ -500,6 +507,9 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # Leaving. Spends nothing, and must work for a member who is not
         # participating this quarter. The password is checked again.
         ("POST", "/api/account/withdrawal"),
+        # Feedback. Spends nothing; a member who cannot create is exactly
+        # who should be able to say so.
+        ("POST", "/api/feedback"),
     }
 
     offenders = [

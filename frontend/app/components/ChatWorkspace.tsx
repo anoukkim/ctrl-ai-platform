@@ -65,6 +65,7 @@ import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
 import ChatModelPicker from "./ChatModelPicker";
+import TestModeNotice from "./TestModeNotice";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
@@ -622,6 +623,9 @@ export default function ChatWorkspace() {
         <div className={styles.composerArea}>
           <div className={styles.composerInner}>
             <NotParticipatingBanner />
+            {/* 배포된 사이트에서 Claude가 아직 목업이면 — 답이 진짜 AI의
+                것이 아니라고 입력창 바로 위에서 말합니다. */}
+            <TestModeNotice area="chat" />
             {sendError !== null && (
               <p className={styles.errorNote} role="alert">
                 {sendError}

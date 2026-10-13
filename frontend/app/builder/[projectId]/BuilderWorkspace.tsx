@@ -40,6 +40,7 @@ import {
 } from "@/lib/projects";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import WalletCheck from "@/app/components/WalletCheck";
+import TestModeNotice from "@/app/components/TestModeNotice";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
@@ -318,6 +319,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
+        <TestModeNotice area="builder" />
         <span className="badge badge-muted">
           {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
         </span>
