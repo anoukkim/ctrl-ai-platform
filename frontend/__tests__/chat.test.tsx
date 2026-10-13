@@ -63,7 +63,15 @@ describe("sendMessage", () => {
     );
 
     expect(pieces.join("")).toBe("안녕하세요!");
-    expect(outcome).toEqual({ kind: "done", message: SAVED_REPLY, chargedKrw: 3, longHistory: null });
+    expect(outcome).toEqual({
+      kind: "done",
+      message: SAVED_REPLY,
+      chargedKrw: 3,
+      longHistory: null,
+      // live-cost-display: 옛 이벤트에는 없던 칸 — 없으면 null로 읽습니다.
+      usage: null,
+      walletRemainingKrw: null,
+    });
   });
 
   test("an error event is a result, not a throw", async () => {

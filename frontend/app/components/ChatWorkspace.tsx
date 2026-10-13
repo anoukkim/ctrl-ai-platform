@@ -61,9 +61,12 @@ import {
   type ChatInfo,
   type ChatMessage,
   type ChatMessageStatus,
+  runningEstimateKrw,
   type ChatModelOption,
   type Conversation,
   type LongHistory,
+  type ReplyReceipt,
+  type StreamEstimate,
 } from "@/lib/chat";
 import { describeError } from "@/lib/http";
 import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
@@ -99,6 +102,13 @@ const EXAMPLE_TONE: Record<ChatExample["icon"], string> = {
 /** 입력창이 늘어날 수 있는 최대 줄 수. 그보다 길어지면 안에서 스크롤됩니다. */
 const MAX_ROWS = 6;
 
+/**
+ * 중지되거나 연결이 끊긴 답장의 저장본(영수증 포함)을 다시 읽어 올 때까지
+ * 기다리는 간격. 정산이 늦으면 다음 간격으로 다시 시도하고, 다 지나도
+ * 없으면(내용 없이 중지) 지갑만 새로 읽습니다.
+ */
+const SETTLE_DELAYS_MS = [900, 1500, 3000];
+
 /** 테스트 모드 표시. prep-beta-launch가 다른 화면에도 같은 문구를 씁니다. */
 export const TEST_MODE_LABEL = "테스트 모드 – 실제 AI 결과가 아닙니다";
 
@@ -114,6 +124,10 @@ interface ViewMessage {
   modelId: string | null;
   /** 1회 비용 한도에 닿아 멈춘 답장이면 그 한도(원). */
   cappedKrw?: number | null;
+  /** 답장의 영수증 — 장부의 숫자(live-cost-display). */
+  receipt?: ReplyReceipt | null;
+  /** 오고 있는 답장 옆의 어림값(원). 끝나면 영수증이 대신합니다. */
+  estimateKrw?: number | null;
   /** 답장이 아직 오고 있습니다. */
   streaming?: boolean;
   /** 이 메시지 다음에 보여 줄 오류. 답장이 실패했을 때 붙습니다. */
@@ -130,7 +144,25 @@ function toView(message: ChatMessage): ViewMessage {
     actionTitle: message.action_title,
     modelId: message.model_id,
     cappedKrw: message.capped_krw ?? null,
+    receipt: message.receipt ?? null,
   };
+}
+
+/**
+ * 영수증 한 줄. 입력은 새로 처리한 토큰(캐시 쓰기 포함), 캐시 읽기는
+ * 캐시가 켜져 있던 답장에만 보입니다. 합계는 장부가 차감한 금액 —
+ * 어림값이 아닙니다.
+ */
+export function receiptLine(receipt: ReplyReceipt): string {
+  const parts = [
+    `입력 ${(receipt.input_tokens + (receipt.cache_write_tokens ?? 0)).toLocaleString()}토큰`,
+    `출력 ${receipt.output_tokens.toLocaleString()}토큰`,
+  ];
+  if (receipt.cache_read_tokens !== null) {
+    parts.push(`캐시 읽기 ${receipt.cache_read_tokens.toLocaleString()}토큰`);
+  }
+  parts.push(`합계 ${formatKrw(receipt.charged_krw)}`);
+  return parts.join(" · ");
 }
 
 /** 답장 아래에 붙는 한 줄 설명. 끝까지 온 답장에는 없습니다. */
@@ -153,8 +185,10 @@ export function statusNote(message: ViewMessage): string | undefined {
 
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
-  // 답장이 끝날 때마다 사이드바의 지갑을 새로 읽습니다 — 같은 지갑입니다.
-  const { refresh: refreshQuarter } = useMyQuarter();
+  // 답장이 끝나면 사이드바의 지갑이 그 자리에서 줄어듭니다 — done
+  // 이벤트가 장부의 값을 들고 오면 그대로 쓰고(live-cost-display),
+  // 값이 없는 길(중지, 오류)에서만 다시 읽습니다.
+  const { refresh: refreshQuarter, applyWalletRemaining } = useMyQuarter();
 
   const [info, setInfo] = useState<ChatInfo | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -185,6 +219,12 @@ export default function ChatWorkspace() {
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // 중지된 답장의 영수증을 뒤늦게 채울 때, 그 사이에 다른 대화로
+  // 옮겨 갔으면 덮어쓰지 않도록 지금 열려 있는 대화를 기억합니다.
+  const activeIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const started = messages.length > 0;
 
@@ -325,6 +365,62 @@ export default function ChatWorkspace() {
     });
   }, []);
 
+  /**
+   * 중지되거나 연결이 끊긴 답장의 저장본을 뒤늦게 채웁니다.
+   *
+   * done 이벤트가 오지 않았으니 영수증도, 정확한 저장본도 화면에 없습니다.
+   * 백엔드의 정산이 끝나면 대화에 내 메시지(`savedUserId`) **다음의**
+   * 답장이 생기므로 그것을 찾아 **그 말풍선 한 줄만** 바꿉니다 — 전체를
+   * 갈아끼우면 그 사이에 같은 대화에서 새로 보낸 말풍선이 지워집니다.
+   * 정산이 늦으면 다음 간격으로 다시 시도하고, 저장된 답장이 끝내 없으면
+   * (내용 없이 중지) 지갑만 새로 읽습니다. 다른 대화로 옮겨 갔으면
+   * 화면은 건드리지 않되 지갑은 맞춰 둡니다.
+   */
+  const settleStopped = useCallback(
+    function settle(
+      conversationId: number,
+      replyKey: string,
+      savedUserId: number | null,
+      attempt: number,
+    ) {
+      window.setTimeout(() => {
+        if (activeIdRef.current !== conversationId) {
+          void refreshQuarter();
+          return;
+        }
+        getConversation(conversationId)
+          .then((detail) => {
+            if (activeIdRef.current !== conversationId) {
+              void refreshQuarter();
+              return;
+            }
+            const settled =
+              savedUserId === null
+                ? undefined
+                : detail.messages.find(
+                    (message) => message.role === "assistant" && message.id > savedUserId,
+                  );
+            if (settled) {
+              setMessages((rows) =>
+                rows.map((row) => (row.key === replyKey ? toView(settled) : row)),
+              );
+              setLongHistory(detail.long_history ?? null);
+              void refreshQuarter();
+            } else if (attempt + 1 < SETTLE_DELAYS_MS.length) {
+              settle(conversationId, replyKey, savedUserId, attempt + 1);
+            } else {
+              void refreshQuarter();
+            }
+          })
+          .catch(() => {
+            // 영수증이 늦는 것뿐 — 다음에 열면 보입니다. 지갑은 맞춰 둡니다.
+            void refreshQuarter();
+          });
+      }, SETTLE_DELAYS_MS[attempt]);
+    },
+    [refreshQuarter],
+  );
+
   const send = useCallback(async () => {
     if (!mayCreate || streaming) return;
     const text = draft.trim();
@@ -387,22 +483,72 @@ export default function ChatWorkspace() {
         }),
       );
 
+    // 흐르는 답장 옆의 "약 N원"(live-cost-display): start 이벤트의 두
+    // 값으로, 흘러온 글자 수만큼 더해 가며 어림합니다. 화면을 조각마다
+    // 다시 그리지 않도록 몇 번에 한 번만 반영합니다.
+    let estimate: StreamEstimate | null = null;
+    let streamedChars = 0;
+    let lastPaintAt = 0;
+    // 저장된 내 메시지의 id — 중지/끊김 뒤 저장된 답장을 찾는 기준.
+    let savedUserId: number | null = null;
+    const paintEstimate = () => {
+      if (estimate === null) return;
+      const krw = runningEstimateKrw(estimate, streamedChars);
+      patchReply((row) => (row.estimateKrw === krw ? row : { ...row, estimateKrw: krw }));
+    };
+
     try {
       const outcome = await sendMessage(
         conversationId,
         text,
-        { onDelta: (piece) => patchReply((row) => ({ ...row, content: row.content + piece })) },
+        {
+          onStart: (saved, startEstimate) => {
+            savedUserId = saved.id;
+            estimate = startEstimate;
+            paintEstimate();
+          },
+          onDelta: (piece) => {
+            streamedChars += piece.length;
+            patchReply((row) => ({ ...row, content: row.content + piece }));
+            const now = Date.now();
+            if (now - lastPaintAt >= 300) {
+              lastPaintAt = now;
+              paintEstimate();
+            }
+          },
+        },
         controller.signal,
       );
 
       if (outcome.kind === "done") {
         const saved = outcome.message;
-        patchReply(() => (saved ? toView(saved) : null));
+        // 영수증은 장부의 숫자(done 이벤트)로 그 자리에서 채웁니다.
+        const receipt: ReplyReceipt | null =
+          saved && outcome.usage ? { ...outcome.usage, charged_krw: outcome.chargedKrw } : null;
+        patchReply(() => (saved ? { ...toView(saved), receipt: receipt ?? saved.receipt ?? null } : null));
         setLongHistory(outcome.longHistory ?? null);
-      } else if (outcome.kind === "stopped") {
+        // 들고 온 잔액이 있으면 그 자리에서 반영하고, 반영할 곳이 없거나
+        // (아직 불러오는 중) 잔액이 없으면 새로 읽습니다.
+        if (
+          outcome.walletRemainingKrw == null ||
+          !applyWalletRemaining(outcome.walletRemainingKrw)
+        ) {
+          void refreshQuarter();
+        }
+      } else if (outcome.kind === "stopped" || outcome.kind === "disconnected") {
+        // 중지했거나 연결이 끊겼습니다 — 어느 쪽이든 백엔드는 그때까지
+        // 만든 답장을 저장하고 쓴 만큼 차감하므로, 차감이 없었다고
+        // 말하면 안 됩니다. 저장본과 영수증은 정산이 끝난 뒤 가져옵니다.
         patchReply((row) => (row.content ? { ...row, streaming: false, status: "stopped" } : null));
+        if (outcome.kind === "disconnected") {
+          setSendError(
+            `${outcome.detail} 여기까지 온 답장은 저장되고, 쓴 만큼만 차감됩니다.`,
+          );
+        }
+        settleStopped(conversationId, replyKey, savedUserId, 0);
       } else {
-        // 실패한 답장은 지우고, 이유를 내 메시지 아래에 붙입니다.
+        // 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이
+        // 확실합니다. 실패한 답장은 지우고, 이유를 내 메시지 아래에 붙입니다.
         patchReply(() => null);
         setMessages((rows) =>
           rows.map((row) => (row.key === userKey ? { ...row, error: outcome.detail } : row)),
@@ -418,9 +564,18 @@ export default function ChatWorkspace() {
       abortRef.current = null;
       setStreaming(false);
       void refreshList();
-      void refreshQuarter();
     }
-  }, [activeId, chosenModelId, draft, mayCreate, refreshList, refreshQuarter, streaming]);
+  }, [
+    activeId,
+    applyWalletRemaining,
+    chosenModelId,
+    draft,
+    mayCreate,
+    refreshList,
+    refreshQuarter,
+    settleStopped,
+    streaming,
+  ]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -671,6 +826,18 @@ export default function ChatWorkspace() {
                         )}
                       </div>
                     )}
+                    {message.streaming && message.estimateKrw != null && (
+                      // 흐르는 동안의 어림값. 반드시 약을 붙입니다 —
+                      // 정산은 끝난 뒤의 영수증(장부)이 합니다.
+                      <p className={styles.liveCost} data-testid="live-cost" aria-live="off">
+                        약 {formatKrw(message.estimateKrw)}
+                      </p>
+                    )}
+                    {message.role === "assistant" && !message.streaming && message.receipt && (
+                      <p className={styles.receipt} data-testid="receipt">
+                        {receiptLine(message.receipt)}
+                      </p>
+                    )}
                     {message.role === "assistant" &&
                       !message.streaming &&
                       modelLabel(info, message.modelId) && (
@@ -688,9 +855,14 @@ export default function ChatWorkspace() {
                       </Link>
                     )}
                     {message.error && (
-                      <p className={styles.errorNote} role="alert">
-                        {message.error}
-                      </p>
+                      <>
+                        <p className={styles.errorNote} role="alert">
+                          {message.error}
+                        </p>
+                        <p className={styles.statusNote} data-testid="not-charged">
+                          이 시도는 청구되지 않았어요.
+                        </p>
+                      </>
                     )}
                   </li>
                 ))}
