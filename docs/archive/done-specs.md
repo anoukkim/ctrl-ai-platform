@@ -1865,6 +1865,13 @@ exactly as written:
    call; the warning and its figures; the daily cap counts across
    features and resets at KST midnight; the settings are audited.
 
+
+**Owner decision — 2026-10-14 (morning, tool-cap-defaults):** the default
+per-reply cap rises **100원 → 200원** — the strict cap stayed (result
+tokens reserved inside it), and at 100원 웹 페이지 읽기 could never fit.
+The default lives in `chat_limits.DEFAULTS` only; the table is never
+seeded, so no data moved.
+
 ## live-cost-display — full spec (merged 2026-10-14)
 
 Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
@@ -1894,12 +1901,6 @@ which reworks the same reply bubble.
 5. **Tests:** the running figure never shows without 약; the receipt's
    numbers equal the usage event's; the wallet card changes without a
    reload; a failed call shows no charge.
-
-**Owner decision — 2026-10-14 (morning, tool-cap-defaults):** the default
-per-reply cap rises **100원 → 200원** — the strict cap stayed (result
-tokens reserved inside it), and at 100원 웹 페이지 읽기 could never fit.
-The default lives in `chat_limits.DEFAULTS` only; the table is never
-seeded, so no data moved.
 
 ## chat-plus-tools — full spec (merged 2026-10-14)
 
