@@ -112,6 +112,7 @@ class ChatLimitsRead(BaseModel):
     reply_cap_krw: int
     long_history_tokens: int
     daily_cap_krw: int
+    provider_concurrency: int
     set_at: datetime | None = None
     set_by_username: str = ""
 
@@ -122,6 +123,8 @@ class ChatLimitsWrite(BaseModel):
     reply_cap_krw: int = Field(ge=0, le=100_000)
     long_history_tokens: int = Field(ge=0, le=1_000_000)
     daily_cap_krw: int = Field(ge=0, le=10_000_000)
+    #: Never 0: that would stop every provider call outright.
+    provider_concurrency: int = Field(ge=1, le=50)
 
 
 class ClaudeSettingsRead(BaseModel):

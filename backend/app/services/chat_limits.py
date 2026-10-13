@@ -42,12 +42,16 @@ class Limits:
     reply_cap_krw: int
     long_history_tokens: int
     daily_cap_krw: int
+    #: Outgoing provider calls at once, per server process (PART F).
+    provider_concurrency: int
 
 
 #: In force while the table is empty. The owner asked for "about 100원"
 #: per reply and a warning at half the context limit; the daily cap is
 #: opt-in.
-DEFAULTS = Limits(reply_cap_krw=100, long_history_tokens=8_000, daily_cap_krw=0)
+DEFAULTS = Limits(
+    reply_cap_krw=100, long_history_tokens=8_000, daily_cap_krw=0, provider_concurrency=3
+)
 
 
 def current(db: Session) -> Limits:
@@ -59,6 +63,7 @@ def current(db: Session) -> Limits:
         reply_cap_krw=row.reply_cap_krw,
         long_history_tokens=row.long_history_tokens,
         daily_cap_krw=row.daily_cap_krw,
+        provider_concurrency=row.provider_concurrency,
     )
 
 

@@ -418,6 +418,8 @@ export interface ChatLimits {
   reply_cap_krw: number;
   long_history_tokens: number;
   daily_cap_krw: number;
+  /** 서버 프로세스마다, AI 호출을 한 번에 몇 개까지 (PART F). */
+  provider_concurrency: number;
   set_at: string | null;
   set_by_username: string;
 }
@@ -426,6 +428,7 @@ export interface ChatLimitsWrite {
   reply_cap_krw: number;
   long_history_tokens: number;
   daily_cap_krw: number;
+  provider_concurrency: number;
 }
 
 export function getClaudeSettings(): Promise<ClaudeSettings> {

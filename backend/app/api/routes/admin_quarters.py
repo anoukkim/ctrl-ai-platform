@@ -606,13 +606,14 @@ def read_quarter_budget(
     quarter_id: int,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
 ) -> QuarterBudgetRead:
     """Admin › Budget. Read-only: the per-provider totals are what the 팀장
     reads before buying the next round of credit from each provider."""
     quarter = db.get(Quarter, quarter_id)
     if quarter is None:
         raise HTTPException(status_code=404, detail="분기를 찾을 수 없습니다.")
-    return quarter_budget_service.quarter_budget(db, quarter)
+    return quarter_budget_service.quarter_budget(db, quarter, settings)
 
 
 @router.get("/audit", response_model=list[AuditLogRead], summary="Audit log (read-only)")
