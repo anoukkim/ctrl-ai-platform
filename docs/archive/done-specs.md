@@ -1718,3 +1718,67 @@ which reworks the same reply bubble.
 5. **Tests:** the running figure never shows without 약; the receipt's
    numbers equal the usage event's; the wallet card changes without a
    reload; a failed call shows no charge.
+
+## chat-plus-tools — full spec (merged 2026-10-14)
+
+Next (item 7) · M2 · branch `feat-chat-plus-tools`. Effort: **M**
+(3–5 days). Added 2026-10-07; **moved into Next by the owner on
+2026-10-14** as part of the overnight batch, with these rules, which win
+over the points below where they differ:
+
+> - Mock tools only: plausible search results, page text and code output; no real API call, no real search fee.
+> - Each tool is switched on per catalogue model by an admin and per conversation by the member, off by default. Turning one on shows its extra cost first (search ≈ 14원 each plus result tokens).
+> - token-guard's per-reply cap includes tool fees and result tokens; the live cost and receipt show them; usage events record server_tool_use and the fees.
+> - "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool runs; sources shown under the reply as links.
+> - Code execution runs only on Anthropic's side; nothing runs on our server.
+> - List in docs/deployment.md what changes when CLAUDE_PROVIDER=anthropic (real fees).
+> - Depends on token-guard and live-cost-display; if either is not merged yet, build it after them.
+
+1. **Three Anthropic server tools**, each switched on per catalogue model
+   by an admin (new catalogue columns), and per conversation by the
+   member with a toggle next to the model picker — per conversation, not
+   per message, because changing the tool list breaks the prompt cache:
+   - **웹 검색** — `web_search_20260209` on Sonnet 5.5 and Opus 5.5;
+     `web_search_20250305` on Haiku 4.5 (no dynamic filtering there).
+     `max_uses` 3, `user_location` Korea. **$10 per 1,000 searches (≈ 14원
+     each) plus the result tokens**, which stay in the history and are
+     billed again on later turns.
+   - **웹 페이지 읽기** — `web_fetch_20260209`; only URLs already in the
+     conversation. No fee beyond tokens, so `max_content_tokens` 20,000
+     and `max_uses` 2 — one fetched 500 KB PDF would otherwise be about
+     125k tokens (≈ 350원 on Sonnet).
+   - **코드 실행** — `code_execution_20260521`; free when web search or
+     fetch `_20260209` is in the request, otherwise inside the
+     organisation's 1,550 free container-hours a month (then $0.05 an
+     hour, 5-minute minimum). Files it creates come back through the
+     Files API; the backend copies them into the storage interface at once
+     and serves them as chat attachments. **File ids from a member are
+     never accepted** — they are workspace-wide.
+2. **The ledger.** `UsageEvent` records the response's `server_tool_use`
+   counts (searches, fetches). KRW = tokens as now + searches × the
+   per-search price (a catalogue value, `web_search_usd_per_call`, seeded
+   $0.01) × the rate. The worst-case pre-check adds `max_uses` × the
+   search price and the fetch cap.
+3. **Screens.** "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool
+   runs; sources under the reply as numbered links showing their domain
+   (web search answers carry citations); code output — text, an image, a
+   file — as an attachment chip. The picker's estimate gains "+ 검색 1회당
+   약 14원".
+
+**Charged:** the wallet, by the token plus per search. A typical question with
+two searches: ≈ 50원 Haiku / 73원 Sonnet / 118원 Opus (research doc; the
+result-token size is an estimate this item measures).
+
+**Tests:** a tool is sent only when both the model and the conversation
+allow it; Haiku gets the basic search version; searches are charged at
+the catalogue price; the pre-check includes `max_uses`; a member-supplied
+file id is refused; a tool error (HTTP 200 with an error block) shows
+Korean and charges only tokens; mock replies cover search, fetch and code
+output.
+
+**Risks:** cost — the per-search fee and re-billed results (caps, the
+visible estimate). Untrusted web content in the context (prompt
+injection): there are no client tools, so a page can only steer the
+text, and links in replies show their domain. The member's query goes to
+the search provider (said in the toggle's tooltip). Code execution is not
+ZDR-eligible and runs on Anthropic's servers, never ours.
