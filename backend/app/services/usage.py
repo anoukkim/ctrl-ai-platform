@@ -126,8 +126,8 @@ def ensure_affordable(
         spent_today = chat_limits.daily_spent_krw(db, user.id)
         if spent_today + amount_krw > limits.daily_cap_krw:
             raise InsufficientBudgetError(
-                f"오늘 쓸 수 있는 금액({limits.daily_cap_krw:,}원)을 넘어요. "
-                f"오늘은 {spent_today:,}원을 썼어요. 내일 다시 이용해 주세요."
+                f"오늘 쓸 수 있는 금액({limits.daily_cap_krw:,}원)을 넘습니다. "
+                f"오늘 {spent_today:,}원을 썼습니다. 내일 다시 이용해 주세요."
             )
 
     allocation = db.scalar(

@@ -67,8 +67,11 @@ def output_budget(price: Price, cap_krw: int, input_tokens: int) -> int:
 
     The input is priced the way the pre-check prices it — as a cache
     write when caching is on, the dearest way input can be billed — so
-    the cap can never be exceeded by the input being billed dearer than
-    assumed. Returns 0 or less when the input alone reaches the cap.
+    the cap is not exceeded by the input being billed dearer than
+    assumed. (It can still be exceeded slightly when the *calibrated
+    estimate* undershoots the real input tokens — a very token-dense
+    prompt; the spec accepts charging real usage.) Returns 0 or less
+    when the input alone reaches the cap.
     """
     budget_usd = Decimal(cap_krw) / price.usd_krw
     input_usd = (

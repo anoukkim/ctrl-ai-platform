@@ -27,7 +27,7 @@ Stopped replies keep today's rule (saved, charged for tokens used).
    refusal before anything is spent. `charge()` deliberately unchecked:
    it settles work the club already paid for.
 6. Long-history warning: `ConversationDetail.long_history` and the SSE
-   `done` event carry {history_tokens, extra_krw, saving_krw} when the
+   `done` event carry {history_tokens, extra_krw} when the
    calibrated input estimate passes the threshold; the composer shows
    "대화가 길어져 답장마다 약 N원이 더 들어요…" with a 새 대화 button.
 7. Admin › System: 채팅 한도 card (three figures, audited like the
