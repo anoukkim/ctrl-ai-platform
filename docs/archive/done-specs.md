@@ -2057,3 +2057,23 @@ single-wallet and `ui-friendly-motion` merged 2026-10-13,
 `deepseek-research` merged 2026-10-14 (owner approved, with
 admin-and-nav-cleanup).
 
+
+## privacy-and-terms — full spec (merged 2026-10-14)
+
+Branch `feat-privacy-and-terms`. M1, top of Next. Added by the owner on
+2026-10-14. **The owner reviews the text before it ships.** Saved exactly
+as written:
+
+> privacy-and-terms: 개인정보 처리방침 and 이용약관 pages in Korean for a club (collected data — Google email/name, username, chats, files, usage; why; retention; withdrawal and anonymisation after 30 days; stored in Google Cloud Seoul; contact ctrlai.platform@gmail.com). Consent checkbox at sign-up (Google and password); links on the sign-up screen and sidebar footer. Before members are invited; I must review the text.
+
+**Built (2026-10-14):** `/privacy` and `/terms` (Korean, logged-out,
+시행일 2026-10-14 · v1), consent checkbox on both sign-up paths enforced
+server-side before any invite use (`users.terms_accepted_at`, migration
+`b9e6a3d1f4c7`; existing members stay NULL — re-consent is the owner's
+call), 개인정보 · 약관 links in the sidebar footer. Two review rounds
+checked every sentence against the code (backups: the newest 7 kept by
+hand, no day-based retention; attempt rows pruned on the next attempt;
+deletes need an active quarter; community screens in future tense).
+**운영진 검토 필요** — the owner reads the final text before inviting
+members. Open: no member password-reset tool exists (약관 §3 says "운영진에게
+알려 주세요").

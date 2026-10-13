@@ -67,36 +67,28 @@ Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
 first — the beta's one real feature — so the `chat-plus-*` items come
 before the post-beta work, which is specced under **After the beta**.
 
-1. **privacy-and-terms** · M1 · branch `feat-privacy-and-terms`
-   Added by the owner on 2026-10-14, at the top of Next. 개인정보
-   처리방침 and 이용약관 pages in Korean for a club; consent checkbox at
-   sign-up (Google and password); links on the sign-up screen and the
-   sidebar footer. **Before members are invited, and the owner must
-   review the text** — not part of the pre-approved overnight batch.
-   Spec below.
-
-2. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+1. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    Added by the owner on 2026-10-14. The daily `pg_dump` also copied to
    a Cloud Storage bucket in `asia-northeast3` with a 30-day lifecycle;
    a monthly restore test in `docs/deployment.md`. The owner creates the
    bucket — the item lists the console steps. Spec below.
 
-3. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+2. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Added by the owner on 2026-10-14. An uptime check on
    https://ctrlai.my and error alerts to the club's email, the cheapest
    option; the owner does the console steps. Spec below.
 
-4. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
    Images, PDF, CSV and text attached to a message through the storage
    interface, with limits, an estimated cost before sending and Korean
    errors. Spec below.
 
-5. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
    `allow-scripts` only, no same-origin, no network), with 코드 보기,
    다운로드 and Builder로 보내기. Spec below.
 
-6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
    Added by the owner on 2026-10-13, revised the same day and again on
    2026-10-14 (admin-and-nav-cleanup): **no menu item and no `/issues`**
    — the member board is a page of its own, reached from a "다른 의견
@@ -109,14 +101,14 @@ before the post-beta work, which is specced under **After the beta**.
    `invite-only-signup` (both merged). Spec below, with the owner's
    revisions.
 
-7. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+6. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
    보기: Claude's summarized thinking as numbered steps under the reply,
    off by default, with its cost shown before it is turned on. **Depends
    on:** `chat-model-choice` and `cost-calibration` (merged), and
    `live-cost-display` (the receipt shows the thinking part). Spec below.
 
-8. **builder-python** · M2 · branch `feat-builder-python`
+7. **builder-python** · M2 · branch `feat-builder-python`
    Added by the owner on 2026-10-13. Small Python apps from Project
    Builder, with a working example, running **in the visitor's browser
    only** through Pyodide. **Depends on:** `chat-builder-starter`
@@ -400,13 +392,7 @@ Rules all three follow:
 
 → **admin-and-nav-cleanup — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#admin-and-nav-cleanup--full-spec-merged-2026-10-14).
 
-### privacy-and-terms — full spec
-
-Branch `feat-privacy-and-terms`. M1, top of Next. Added by the owner on
-2026-10-14. **The owner reviews the text before it ships.** Saved exactly
-as written:
-
-> privacy-and-terms: 개인정보 처리방침 and 이용약관 pages in Korean for a club (collected data — Google email/name, username, chats, files, usage; why; retention; withdrawal and anonymisation after 30 days; stored in Google Cloud Seoul; contact ctrlai.platform@gmail.com). Consent checkbox at sign-up (Google and password); links on the sign-up screen and sidebar footer. Before members are invited; I must review the text.
+→ **privacy-and-terms — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#privacy-and-terms--full-spec-merged-2026-10-14).
 
 ### offsite-backups — full spec
 
