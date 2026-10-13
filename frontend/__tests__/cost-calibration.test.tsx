@@ -15,7 +15,7 @@ vi.mock("@/lib/admin", async (importOriginal) => {
   return { ...actual, getChatCalibration: () => getChatCalibration() };
 });
 
-const { default: CalibrationPanel } = await import("@/app/admin/claude-models/CalibrationPanel");
+const { default: CalibrationPanel } = await import("@/app/admin/ai-models/CalibrationPanel");
 
 const SONNET: ChatModelOption = {
   id: 2,

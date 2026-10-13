@@ -5,7 +5,7 @@
  *
  * Chat 답장과 프롬프트 도움 한 번의 값은 두 숫자로 정해집니다: 모델의
  * 토큰 요금(달러, 100만 토큰당)과 환율(1달러 = 몇 원). 요금은 모델과 함께
- * Admin › Claude Models에서, 환율은 여기서 바꿉니다. 바꾸면 **그 뒤의**
+ * Admin › AI Models에서, 환율은 여기서 바꿉니다. 바꾸면 **그 뒤의**
  * 사용분부터 적용되고, 이미 차감된 기록은 그때의 요금과 환율을 그대로
  * 갖고 있습니다. 바꾼 사람과 전후 값은 감사 기록에 남습니다.
  *
@@ -159,7 +159,7 @@ export default function ClaudePricingPanel() {
           <p className={styles.pricingNote}>
             생각, 한도, 프롬프트 캐시는 .env의 CHAT_* 값으로 정하고 서버를 다시 시작하면 바뀝니다. 모델과
             모델별 요금, 회원이 고를 수 있는 모델은{" "}
-            <Link href="/admin/claude-models">{sectionLabel("claude-models")}</Link>에서
+            <Link href="/admin/ai-models">{sectionLabel("ai-models")}</Link>에서
             정합니다.
           </p>
 
