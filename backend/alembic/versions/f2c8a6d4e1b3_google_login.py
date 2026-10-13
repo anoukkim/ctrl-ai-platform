@@ -1,4 +1,4 @@
-"""google login: connected accounts, OAuth states, pending Google sign-ups
+"""google login: connected accounts, OAuth states, pending sign-ups, login attempts
 
 google-login (owner decision 2026-10-13: Google is the main way to sign
 in). `connected_accounts` is the table CLAUDE.md section 14 describes; a
@@ -68,8 +68,24 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
+    # Failed password sign-ins: the admin's emergency door is rate-limited.
+    op.create_table(
+        "login_attempts",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("address", sa.String(length=64), nullable=False),
+        sa.Column("username", sa.String(length=64), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+    )
+    op.create_index("ix_login_attempts_address", "login_attempts", ["address"])
+    op.create_index("ix_login_attempts_username", "login_attempts", ["username"])
+    op.create_index("ix_login_attempts_created_at", "login_attempts", ["created_at"])
+
 
 def downgrade() -> None:
+    op.drop_index("ix_login_attempts_created_at", table_name="login_attempts")
+    op.drop_index("ix_login_attempts_username", table_name="login_attempts")
+    op.drop_index("ix_login_attempts_address", table_name="login_attempts")
+    op.drop_table("login_attempts")
     op.drop_table("pending_google_signups")
     op.drop_table("oauth_states")
     op.drop_index("ix_connected_accounts_user_id", table_name="connected_accounts")

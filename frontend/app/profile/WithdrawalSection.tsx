@@ -44,7 +44,11 @@ import styles from "./profile.module.css";
 const CHOICES: PublishedWorkChoice[] = ["keep", "unpublish"];
 
 export default function WithdrawalSection() {
-  const { refresh } = useCurrentUser();
+  const { refresh, state } = useCurrentUser();
+  // Google로 만든 계정에는 비밀번호가 없습니다(google-login). 그때는 아이디를
+  // 다시 적어 확인합니다.
+  const hasPassword = state.phase !== "authenticated" || state.user.has_password !== false;
+  const username = state.phase === "authenticated" ? state.user.username : "";
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<WithdrawalPreview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -74,7 +78,10 @@ export default function WithdrawalSection() {
       onConfirm: async () => {
         setBusy(true);
         try {
-          const result = await withdrawMyAccount(password, choice);
+          const result = await withdrawMyAccount(
+            hasPassword ? { password } : { confirm_username: password.trim() },
+            choice,
+          );
           setConfirm(null);
           setPassword("");
           setDone(result);
@@ -180,11 +187,13 @@ export default function WithdrawalSection() {
       </fieldset>
 
       <label className={styles.withdrawPassword}>
-        <span className={styles.rowLabel}>비밀번호 확인</span>
+        <span className={styles.rowLabel}>
+          {hasPassword ? "비밀번호 확인" : `확인을 위해 아이디(${username})를 그대로 적어 주세요`}
+        </span>
         <input
           className="field"
-          type="password"
-          autoComplete="current-password"
+          type={hasPassword ? "password" : "text"}
+          autoComplete={hasPassword ? "current-password" : "off"}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
@@ -199,7 +208,13 @@ export default function WithdrawalSection() {
           type="button"
           onClick={askToConfirm}
           disabled={preview === null || password === ""}
-          title={password === "" ? "비밀번호를 입력해야 진행할 수 있습니다" : undefined}
+          title={
+            password === ""
+              ? hasPassword
+                ? "비밀번호를 입력해야 진행할 수 있습니다"
+                : "아이디를 입력해야 진행할 수 있습니다"
+              : undefined
+          }
         >
           탈퇴하기
         </button>

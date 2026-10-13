@@ -52,3 +52,6 @@ class CurrentUser(BaseModel):
     role: UserRole
     account_status: AccountStatus
     is_admin: bool
+    #: False for an account made with Google (google-login): it has no
+    #: password, so screens that re-check one ask for something else.
+    has_password: bool = True

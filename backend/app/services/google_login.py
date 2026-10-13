@@ -122,11 +122,14 @@ class MockGoogleLogin:
 
 def _decode_jwt_payload(token: str) -> dict:
     try:
-        part = token.split(".")[1]
+        part = str(token).split(".")[1]
         padded = part + "=" * (-len(part) % 4)
-        return json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
-    except (IndexError, ValueError, json.JSONDecodeError) as error:
+        claims = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+    except (IndexError, ValueError, UnicodeError) as error:
         raise GoogleLoginError("unreadable id_token") from error
+    if not isinstance(claims, dict):
+        raise GoogleLoginError("id_token payload is not an object")
+    return claims
 
 
 class RealGoogleLogin:
@@ -169,13 +172,17 @@ class RealGoogleLogin:
         )
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
-                return json.loads(response.read().decode("utf-8"))
+                answer = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             # Google's error body names the problem; it never contains the
-            # client secret, but it is still only logged by the caller.
+            # client secret, and only the status is passed on.
             raise GoogleLoginError(f"token endpoint answered {error.code}") from error
-        except (urllib.error.URLError, TimeoutError) as error:
-            raise GoogleLoginError("token endpoint unreachable") from error
+        except (OSError, ValueError) as error:
+            # Unreachable, timed out, connection dropped, or not JSON.
+            raise GoogleLoginError(f"token endpoint failed ({type(error).__name__})") from error
+        if not isinstance(answer, dict):
+            raise GoogleLoginError("token endpoint answered something other than an object")
+        return answer
 
     def exchange(self, code: str, code_verifier: str) -> GoogleIdentity:
         answer = self._transport(
@@ -199,9 +206,16 @@ class RealGoogleLogin:
         audiences = audience if isinstance(audience, list) else [audience]
         if self.client_id not in audiences:
             raise GoogleLoginError("id_token is for another client")
+        # With several audiences, the token must have been issued to us.
+        if len(audiences) > 1 and claims.get("azp") != self.client_id:
+            raise GoogleLoginError("id_token authorized for another party")
         import time
 
-        if int(claims.get("exp") or 0) < time.time():
+        try:
+            expires = float(claims.get("exp") or 0)
+        except (TypeError, ValueError) as error:
+            raise GoogleLoginError("id_token has no usable exp") from error
+        if expires < time.time():
             raise GoogleLoginError("id_token expired")
         sub = str(claims.get("sub") or "")
         email = str(claims.get("email") or "")

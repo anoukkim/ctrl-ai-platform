@@ -14,6 +14,24 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
+class LoginAttempt(Base):
+    """A failed password sign-in, for the per-address and per-username limit.
+
+    Password sign-in is the administrator's emergency door (google-login);
+    an unlimited one invites guessing. Only failures are recorded.
+    """
+
+    __tablename__ = "login_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    address: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    #: Lower-cased, so Admin and admin count together.
+    username: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
 class SignupAttempt(Base):
     __tablename__ = "signup_attempts"
 

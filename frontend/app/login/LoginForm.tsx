@@ -24,7 +24,7 @@ import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import GoogleButton from "@/app/components/GoogleButton";
 import { useSite, useSiteLoaded } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
-import { GOOGLE_RESULT_MESSAGE, GOOGLE_START_URL, login } from "@/lib/auth";
+import { GOOGLE_START_URL, googleResultMessage, login } from "@/lib/auth";
 
 import styles from "./auth.module.css";
 
@@ -46,9 +46,8 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
   // 정적 화면 전체가 Suspense를 요구하므로 주소를 직접 읽습니다.
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get("google");
-    if (result && GOOGLE_RESULT_MESSAGE[result]) {
-      queueMicrotask(() => setGoogleNote(GOOGLE_RESULT_MESSAGE[result]));
-    }
+    const message = googleResultMessage(result);
+    if (message) queueMicrotask(() => setGoogleNote(message));
   }, []);
 
   const googleFirst = mode === "auto" && site.google_login;

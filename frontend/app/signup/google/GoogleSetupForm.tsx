@@ -81,6 +81,7 @@ export default function GoogleSetupForm() {
   const canSubmit =
     state.phase === "ready" &&
     !state.pending.email_taken &&
+    state.pending.email_verified &&
     usernameValid &&
     displayName.trim().length > 0 &&
     (!needsCode || inviteCode.trim().length > 0);
@@ -147,7 +148,19 @@ export default function GoogleSetupForm() {
           </>
         )}
 
-        {state.phase === "ready" && !state.pending.email_taken && (
+        {state.phase === "ready" && !state.pending.email_taken && !state.pending.email_verified && (
+          <>
+            <p className={styles.error} role="alert">
+              {state.pending.email}은(는) Google에서 아직 이메일 확인이 끝나지 않았어요. Google에서
+              확인을 마친 뒤 다시 시도해 주세요.
+            </p>
+            <Link className="btn" href="/signup">
+              처음부터 다시 하기
+            </Link>
+          </>
+        )}
+
+        {state.phase === "ready" && !state.pending.email_taken && state.pending.email_verified && (
           <>
             <p className={styles.notice}>
               Google 계정 <strong>{state.pending.email}</strong>(으)로 가입합니다.

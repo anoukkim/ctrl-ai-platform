@@ -27,7 +27,7 @@ from app.models.quarter import (
 from app.models.usage import FundingSource, UsageEvent, UsageFeature
 from app.models.membership import MembershipStatus, QuarterMembership
 from app.models.session import UserSession
-from app.models.signup_attempt import SignupAttempt
+from app.models.signup_attempt import LoginAttempt, SignupAttempt
 from app.models.user import AccountStatus, User, UserRole
 from app.models.video import (
     VIDEO_VERSION_KIND_LABEL,
@@ -91,6 +91,7 @@ __all__ = [
     "OAuthState",
     "PendingGoogleSignup",
     "SignupAttempt",
+    "LoginAttempt",
     "User",
     "UserRole",
     "UserSession",

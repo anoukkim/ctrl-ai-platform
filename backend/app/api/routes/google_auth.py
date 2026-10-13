@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -113,10 +113,25 @@ def _clear(response: Response, settings: Settings, name: str) -> None:
     )
 
 
+#: The most sign-ins that may be under way at once. Each press of the button
+#: writes a row; this keeps a flood of presses from filling the table.
+MAX_OPEN_STATES = 500
+
+
 def _begin(db: Session, settings: Settings, purpose: str, user_id: int | None) -> RedirectResponse:
     provider = _provider_or_404(settings)
     now = datetime.now(timezone.utc)
-    db.execute(delete(OAuthState).where(OAuthState.created_at < now - STATE_LIFETIME))
+    db.execute(
+        delete(OAuthState)
+        .where(OAuthState.created_at < now - STATE_LIFETIME)
+        .execution_options(synchronize_session=False)
+    )
+    if (db.scalar(select(func.count()).select_from(OAuthState)) or 0) >= MAX_OPEN_STATES:
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="지금 로그인하려는 사람이 많습니다. 잠시 후 다시 시도해 주세요.",
+        )
     state = secrets.token_urlsafe(32)
     verifier = new_verifier()
     db.add(
@@ -164,11 +179,31 @@ def google_callback(
     provider = _provider_or_404(settings)
     cookie_state = request.cookies.get(STATE_COOKIE, "")
 
-    row = db.get(OAuthState, state) if state else None
-    if row is not None:
-        # Single use, whatever happens next.
-        db.delete(row)
+    row = None
+    if state:
+        # Single use, whatever happens next: taken atomically, so two
+        # requests carrying the same state cannot both get it.
+        taken = db.execute(
+            delete(OAuthState)
+            .where(OAuthState.state == state)
+            .execution_options(synchronize_session=False)
+            .returning(
+                OAuthState.state,
+                OAuthState.code_verifier,
+                OAuthState.purpose,
+                OAuthState.user_id,
+                OAuthState.created_at,
+            )
+        ).first()
         db.commit()
+        if taken is not None:
+            row = OAuthState(
+                state=taken.state,
+                code_verifier=taken.code_verifier,
+                purpose=taken.purpose,
+                user_id=taken.user_id,
+                created_at=taken.created_at,
+            )
 
     def fail(reason: str) -> RedirectResponse:
         target = "/profile" if row is not None and row.purpose == "link" else "/login"
@@ -198,8 +233,15 @@ def google_callback(
     )
 
     if row.purpose == "link":
+        # The browser must still be signed in as the member who pressed
+        # 연결하기. On a shared computer someone else may have taken over at
+        # Google's account chooser.
+        try:
+            current = get_current_user(request, db, settings)
+        except HTTPException:
+            current = None
         member = db.get(User, row.user_id) if row.user_id else None
-        if member is None or not member.can_sign_in:
+        if member is None or not member.can_sign_in or current is None or current.id != member.id:
             return fail("failed")
         if linked is not None:
             return fail("taken" if linked.user_id != member.id else "already")
@@ -218,6 +260,16 @@ def google_callback(
                 scopes=" ".join(SIGN_IN_SCOPES),
             )
         )
+        # A new way into the account: recorded, as a withdrawal is.
+        audit.record(
+            db,
+            actor=member,
+            action=AuditAction.GOOGLE_LINKED,
+            target_type="user",
+            target_id=member.id,
+            target_label=member.username,
+            summary=f"{member.username} 계정에 Google 로그인을 연결했습니다.",
+        )
         db.commit()
         response = _to("/profile", google="linked")
         _clear(response, settings, STATE_COOKIE)
@@ -235,7 +287,11 @@ def google_callback(
 
     # A Google account we do not know: hold it for the setup screen.
     now = datetime.now(timezone.utc)
-    db.execute(delete(PendingGoogleSignup).where(PendingGoogleSignup.created_at < now - PENDING_LIFETIME))
+    db.execute(
+        delete(PendingGoogleSignup)
+        .where(PendingGoogleSignup.created_at < now - PENDING_LIFETIME)
+        .execution_options(synchronize_session=False)
+    )
     token = secrets.token_urlsafe(32)
     db.add(
         PendingGoogleSignup(
@@ -263,7 +319,23 @@ def _is_admin_email(identity_email: str, verified: bool, settings: Settings) -> 
     return bool(wanted) and verified and identity_email.strip().lower() == wanted
 
 
+def _prune_pending(db: Session) -> None:
+    now = datetime.now(timezone.utc)
+    db.execute(
+        delete(PendingGoogleSignup)
+        .where(PendingGoogleSignup.created_at < now - PENDING_LIFETIME)
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+
+
+def _email_taken(db: Session, email: str) -> bool:
+    lowered = email.strip().lower()
+    return db.scalar(select(User.id).where(func.lower(User.email) == lowered)) is not None
+
+
 def _pending(db: Session, request: Request) -> PendingGoogleSignup | None:
+    _prune_pending(db)
     token = request.cookies.get(SIGNUP_COOKIE, "")
     if not token:
         return None
@@ -278,6 +350,8 @@ def _pending(db: Session, request: Request) -> PendingGoogleSignup | None:
 
 class PendingRead(BaseModel):
     email: str
+    #: Google has not confirmed this address: no account can be made with it.
+    email_verified: bool
     name: str
     suggested_username: str
     needs_invite_code: bool
@@ -307,9 +381,10 @@ def google_pending(
     pending = _pending(db, request)
     if pending is None:
         raise HTTPException(status_code=404, detail="Google 가입 정보가 없거나 만료되었습니다. 처음부터 다시 해 주세요.")
-    taken = db.scalar(select(User.id).where(User.email == pending.email)) is not None
+    taken = _email_taken(db, pending.email)
     return PendingRead(
         email=pending.email,
+        email_verified=pending.email_verified,
         name=pending.name,
         suggested_username=_suggest(pending.email),
         needs_invite_code=not _is_admin_email(pending.email, pending.email_verified, settings),
@@ -342,6 +417,14 @@ def google_complete(
     if not display_name or len(display_name) > 100:
         raise HTTPException(status_code=400, detail="이름을 1~100자로 적어 주세요.")
 
+    if not pending.email_verified:
+        # An unconfirmed address could be someone else's, and taking it
+        # would block its real owner from ever signing up.
+        raise HTTPException(
+            status_code=400,
+            detail="Google에서 이메일 확인이 끝나지 않은 계정입니다. 확인을 마친 뒤 다시 시도해 주세요.",
+        )
+
     is_admin = _is_admin_email(pending.email, pending.email_verified, settings)
 
     invite = None
@@ -359,7 +442,7 @@ def google_complete(
             rate_limit.mark_failed(db, attempt)
             raise HTTPException(status_code=400, detail=invites.CODE_UNUSABLE)
 
-    if db.scalar(select(User.id).where(User.email == pending.email)) is not None:
+    if _email_taken(db, pending.email):
         raise HTTPException(
             status_code=409,
             detail="이 이메일로 이미 가입한 계정이 있습니다. 그 계정으로 로그인한 뒤 Profile에서 Google을 연결해 주세요.",

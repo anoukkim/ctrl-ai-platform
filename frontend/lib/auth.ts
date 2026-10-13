@@ -24,6 +24,8 @@ export interface CurrentUser {
   account_status: AccountStatus;
   /** 관리 메뉴를 보여 줄지 결정합니다. 권한 자체는 백엔드가 다시 확인합니다. */
   is_admin: boolean;
+  /** Google로 만든 계정은 비밀번호가 없습니다 — 탈퇴 확인은 아이디로 합니다. */
+  has_password: boolean;
 }
 
 export interface SignupInput {
@@ -72,6 +74,8 @@ export const GOOGLE_LINK_URL = "/api/account/google/link/start";
 /** 처음 Google로 들어온 사람의 설정 화면이 받는 정보. */
 export interface GooglePending {
   email: string;
+  /** Google에서 이메일 확인이 끝났는지. 아니면 가입할 수 없습니다. */
+  email_verified: boolean;
   name: string;
   suggested_username: string;
   needs_invite_code: boolean;
@@ -115,6 +119,12 @@ export const GOOGLE_RESULT_MESSAGE: Record<string, string> = {
   already: "이미 이 계정에 연결된 Google 계정이에요.",
   other: "이 계정에는 이미 다른 Google 계정이 연결되어 있어요.",
 };
+
+/** `?google=` 값에 맞는 문장. 모르는 값(또는 `constructor` 같은 이름)은 null. */
+export function googleResultMessage(result: string | null): string | null {
+  if (!result || !Object.hasOwn(GOOGLE_RESULT_MESSAGE, result)) return null;
+  return GOOGLE_RESULT_MESSAGE[result];
+}
 
 /** 초대 링크(/signup?code=…)로 왔다면 Google 설정 화면까지 코드를 들고 갑니다. */
 export const INVITE_CODE_STORAGE_KEY = "ctrlai.invite-code";

@@ -30,7 +30,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models import SignupAttempt
+from app.models import LoginAttempt, SignupAttempt
 
 ATTEMPT_WINDOW = timedelta(hours=1)
 FAILURE_WINDOW = timedelta(minutes=15)
@@ -74,6 +74,38 @@ def record(db: Session, address: str) -> SignupAttempt:
 def mark_failed(db: Session, attempt: SignupAttempt) -> None:
     """The attempt's invite code was missing or unusable."""
     attempt.failed = True
+    db.commit()
+
+
+LOGIN_WINDOW = timedelta(minutes=15)
+
+
+def login_blocked(db: Session, address: str, username: str, settings: Settings) -> bool:
+    """Too many failed password sign-ins from this address, or for this name."""
+    limit = settings.login_failures_per_15_minutes
+    if limit <= 0:
+        return False
+    since = datetime.now(timezone.utc) - LOGIN_WINDOW
+    by_address = db.scalar(
+        select(func.count(LoginAttempt.id)).where(
+            LoginAttempt.address == address, LoginAttempt.created_at >= since
+        )
+    ) or 0
+    by_name = db.scalar(
+        select(func.count(LoginAttempt.id)).where(
+            LoginAttempt.username == username.strip().lower()[:64],
+            LoginAttempt.created_at >= since,
+        )
+    ) or 0
+    return by_address >= limit or by_name >= limit
+
+
+def record_login_failure(db: Session, address: str, username: str) -> None:
+    now = datetime.now(timezone.utc)
+    db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < now - RETENTION))
+    db.add(
+        LoginAttempt(address=address[:64], username=username.strip().lower()[:64], created_at=now)
+    )
     db.commit()
 
 

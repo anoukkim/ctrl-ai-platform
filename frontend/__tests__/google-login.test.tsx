@@ -101,6 +101,7 @@ describe("Google 설정 화면", () => {
     window.sessionStorage.setItem("ctrlai.invite-code", "CLUB-2026");
     fetchGooglePending.mockResolvedValue({
       email: "new@example.com",
+      email_verified: true,
       name: "새 회원",
       suggested_username: "new",
       needs_invite_code: true,
@@ -126,6 +127,7 @@ describe("Google 설정 화면", () => {
   test("관리자 이메일이면 초대 코드 칸이 없다", async () => {
     fetchGooglePending.mockResolvedValue({
       email: "owner@example.com",
+      email_verified: true,
       name: "운영자",
       suggested_username: "owner",
       needs_invite_code: false,
@@ -139,6 +141,7 @@ describe("Google 설정 화면", () => {
   test("같은 이메일의 계정이 있으면 새로 만들지 않고 연결하라고 한다", async () => {
     fetchGooglePending.mockResolvedValue({
       email: "old@example.com",
+      email_verified: true,
       name: "",
       suggested_username: "old",
       needs_invite_code: true,
@@ -163,5 +166,29 @@ describe("Profile의 Google 연결", () => {
     render(<GoogleConnectionRow />);
     expect(await screen.findByText("연결됨")).toBeTruthy();
     expect(screen.getByText("me@example.com(으)로 로그인합니다.")).toBeTruthy();
+  });
+});
+
+describe("검토에서 나온 것", () => {
+  test("Google에서 확인되지 않은 이메일로는 가입할 수 없다", async () => {
+    fetchGooglePending.mockResolvedValue({
+      email: "unverified@example.com",
+      email_verified: false,
+      name: "",
+      suggested_username: "unverified",
+      needs_invite_code: true,
+      email_taken: false,
+    });
+    render(<GoogleSetupForm />);
+    expect((await screen.findByRole("alert")).textContent).toContain("이메일 확인이 끝나지 않았어요");
+    expect(screen.queryByRole("button", { name: "가입하고 시작하기" })).toBeNull();
+  });
+
+  test("주소의 ?google= 값은 아는 것만 문장이 된다", async () => {
+    const { googleResultMessage } = await import("@/lib/auth");
+    expect(googleResultMessage("linked")).toContain("연결했어요");
+    expect(googleResultMessage("constructor")).toBeNull();
+    expect(googleResultMessage("toString")).toBeNull();
+    expect(googleResultMessage(null)).toBeNull();
   });
 });

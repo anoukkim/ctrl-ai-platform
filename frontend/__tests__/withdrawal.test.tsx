@@ -184,7 +184,7 @@ describe("Profile — 회원 탈퇴", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "탈퇴하기" }));
 
-    expect(withdrawMyAccount).toHaveBeenCalledWith("memberpassword", "unpublish");
+    expect(withdrawMyAccount).toHaveBeenCalledWith({ password: "memberpassword" }, "unpublish");
     expect(await screen.findByText("탈퇴가 완료되었습니다")).toBeTruthy();
     expect(screen.getByText(/15,000원은 관리자가 환불을 처리합니다/)).toBeTruthy();
   });

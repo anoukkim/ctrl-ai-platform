@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import UNUSABLE_PASSWORD_HASH
 from app.models import (
+    ConnectedAccount,
     GRACE_PERIOD_DAYS,
     AccountStatus,
     AccountWithdrawal,
@@ -588,6 +589,10 @@ def anonymise(db: Session, row: AccountWithdrawal, now: datetime | None = None) 
     member.password_hash = UNUSABLE_PASSWORD_HASH
     member.account_status = AccountStatus.FORMER
     db.execute(delete(UserSession).where(UserSession.user_id == member.id))
+    # The Google link (google-login) holds the Google email and account id:
+    # personal data, and it would bind that Google account to this former
+    # account for good, so the person could never join again.
+    db.execute(delete(ConnectedAccount).where(ConnectedAccount.user_id == member.id))
     row.anonymised_at = now
 
     audit.record(

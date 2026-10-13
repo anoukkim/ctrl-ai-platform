@@ -206,16 +206,19 @@ def test_an_existing_account_is_never_entered_by_email(
 
 
 def test_only_a_verified_admin_email_becomes_admin(anon_client: TestClient, db_session: Session) -> None:
-    # Unverified: an ordinary member, and it needs a code like anyone.
+    """Unverified: refused outright — an unconfirmed address could be
+    someone else's, and taking it would lock its owner out."""
     make_code(db_session)
     google_says(anon_client, start(anon_client), sub="g-unverified", email=ADMIN_EMAIL, verified=False)
-    assert anon_client.get("/api/auth/google/pending").json()["needs_invite_code"] is True
-    made = anon_client.post(
+    pending = anon_client.get("/api/auth/google/pending").json()
+    assert pending["email_verified"] is False
+    refused = anon_client.post(
         "/api/auth/google/complete",
         json={"username": "notadmin", "display_name": "x", "invite_code": "CLUB-2026"},
     )
-    assert made.status_code == 201
-    assert made.json()["role"] == "member"
+    assert refused.status_code == 400
+    assert "이메일 확인" in refused.json()["detail"]
+    assert db_session.query(User).filter_by(username="notadmin").count() == 0
 
 
 def test_the_verified_admin_email_becomes_admin_without_a_code(
@@ -333,3 +336,94 @@ def test_real_provider_asks_only_for_sign_in_scopes() -> None:
     assert query["scope"] == "openid email profile"
     assert query["code_challenge_method"] == "S256"
     assert "youtube" not in url
+
+
+# ------------------------------------------------------------- review round 1
+
+
+def test_an_email_taken_in_another_case_is_still_taken(
+    anon_client: TestClient, db_session: Session, other_user
+) -> None:
+    make_code(db_session)
+    google_says(anon_client, start(anon_client), sub="g-case", email="OTHER@ctrl.ai")
+    assert anon_client.get("/api/auth/google/pending").json()["email_taken"] is True
+
+
+def test_linking_needs_the_same_member_still_signed_in(
+    client: TestClient, db_session: Session, dev_user
+) -> None:
+    query = start(client, "/api/account/google/link/start")
+    client.post("/api/auth/logout")  # walked away; someone else at the chooser
+    response = google_says(client, query, sub="g-intruder")
+    assert response.headers["location"] == "/profile?google=failed"
+    assert db_session.query(ConnectedAccount).count() == 0
+
+
+def test_linking_is_audited(client: TestClient, db_session: Session) -> None:
+    google_says(client, start(client, "/api/account/google/link/start"), sub="g-dev")
+    assert db_session.query(AuditLog).filter_by(action="account.google_linked").count() == 1
+
+
+def test_password_sign_in_is_rate_limited(
+    anon_client: TestClient, dev_user, settings_for
+) -> None:
+    settings_for(login_failures_per_15_minutes=3)
+    for _ in range(3):
+        wrong = anon_client.post("/api/auth/login", json={"username": dev_user.username, "password": "nope"})
+        assert wrong.status_code == 401
+    blocked = anon_client.post(
+        "/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD}
+    )
+    assert blocked.status_code == 429
+
+
+def test_a_google_only_member_withdraws_by_typing_the_username(
+    anon_client: TestClient, db_session: Session
+) -> None:
+    make_code(db_session)
+    google_says(anon_client, start(anon_client))
+    anon_client.post(
+        "/api/auth/google/complete",
+        json={"username": "leaver", "display_name": "x", "invite_code": "CLUB-2026"},
+    )
+    assert anon_client.get("/api/auth/me").json()["has_password"] is False
+
+    wrong = anon_client.post("/api/account/withdrawal", json={"confirm_username": "someone"})
+    assert wrong.status_code == 400
+    done = anon_client.post("/api/account/withdrawal", json={"confirm_username": "leaver"})
+    assert done.status_code == 200, done.text
+
+
+def test_anonymising_drops_the_google_link(db_session: Session, other_user) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from app.services import withdrawal
+
+    db_session.add(ConnectedAccount(user_id=other_user.id, provider="google", provider_account_id="g-gone", email="x@example.com"))
+    db_session.commit()
+    row = withdrawal.withdraw(db_session, member=other_user, actor=other_user)
+    db_session.commit()
+    withdrawal.anonymise(db_session, row, now=datetime.now(timezone.utc) + timedelta(days=31))
+    db_session.commit()
+    assert db_session.query(ConnectedAccount).filter_by(user_id=other_user.id).count() == 0
+
+
+def test_a_broken_answer_from_google_is_a_failed_sign_in_not_a_500() -> None:
+    import time
+
+    settings = Settings(google_client_id="club-client", google_client_secret="s", google_redirect_uri="https://ctrlai.my/api/auth/google/callback")
+    good = {"iss": "https://accounts.google.com", "aud": "club-client", "exp": time.time() + 600,
+            "sub": "1", "email": "a@example.com", "email_verified": True}
+    for answer in (
+        {"id_token": "not-a-jwt"},
+        {"id_token": _jwt({**good, "exp": "soon"})},
+        {"id_token": _jwt({**good, "aud": ["club-client", "other"], "azp": "other"})},
+    ):
+        with pytest.raises(GoogleLoginError):
+            RealGoogleLogin(settings, transport=lambda u, f, a=answer: a).exchange("c", "v")
+    import base64
+    import json
+
+    payload = base64.urlsafe_b64encode(json.dumps([1, 2]).encode()).rstrip(b"=").decode()
+    with pytest.raises(GoogleLoginError):
+        RealGoogleLogin(settings, transport=lambda u, f: {"id_token": f"h.{payload}.s"}).exchange("c", "v")

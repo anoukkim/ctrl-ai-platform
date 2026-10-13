@@ -15,8 +15,8 @@ import { useEffect, useState } from "react";
 
 import {
   GOOGLE_LINK_URL,
-  GOOGLE_RESULT_MESSAGE,
   fetchGoogleConnection,
+  googleResultMessage,
   type GoogleConnection,
 } from "@/lib/auth";
 
@@ -36,9 +36,8 @@ export default function GoogleConnectionRow() {
         if (!cancelled) setConnection({ available: false, linked: false, email: "" });
       });
     const result = new URLSearchParams(window.location.search).get("google");
-    if (result && GOOGLE_RESULT_MESSAGE[result]) {
-      queueMicrotask(() => setNote(GOOGLE_RESULT_MESSAGE[result]));
-    }
+    const message = googleResultMessage(result);
+    if (message) queueMicrotask(() => setNote(message));
     return () => {
       cancelled = true;
     };

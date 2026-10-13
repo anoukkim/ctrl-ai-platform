@@ -230,6 +230,9 @@ class Settings(BaseSettings):
     # because guessing codes is what the limit is for.
     signup_attempts_per_hour: int = 30
     invite_failures_per_15_minutes: int = 10
+    # Failed password sign-ins per address, and per username, in 15 minutes.
+    # Password sign-in is the admin's emergency door (google-login).
+    login_failures_per_15_minutes: int = 10
     # Peers whose X-Forwarded-For is believed: the Next.js server (and, in
     # production, the reverse proxy). Comma-separated addresses or networks.
     trusted_proxies: str = "127.0.0.1,::1"

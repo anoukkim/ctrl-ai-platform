@@ -18,7 +18,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import Settings, get_settings
-from app.core.security import hash_password, new_session_token, verify_password
+from app.core.security import (
+    UNUSABLE_PASSWORD_HASH,
+    hash_password,
+    new_session_token,
+    verify_password,
+)
 from app.db.session import get_db
 from app.models import AccountStatus, User, UserRole, UserSession
 from app.schemas.auth import CurrentUser, LoginRequest, RegisterRequest
@@ -36,6 +41,7 @@ def _as_current_user(user: User) -> CurrentUser:
         role=user.role,
         account_status=user.account_status,
         is_admin=user.role is UserRole.ADMIN,
+        has_password=user.password_hash != UNUSABLE_PASSWORD_HASH,
     )
 
 
@@ -159,15 +165,26 @@ def register(
 @router.post("/login", response_model=CurrentUser, summary="Sign in")
 def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> CurrentUser:
+    # Limited per address and per username: password sign-in is the admin's
+    # emergency door now that members use Google (google-login).
+    address = rate_limit.client_address(request, settings)
+    if rate_limit.login_blocked(db, address, payload.username, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="로그인 시도가 너무 많습니다. 15분 뒤에 다시 시도해 주세요.",
+        )
+
     user = db.scalar(select(User).where(User.username == payload.username))
 
     # One message for "no such account" and for "wrong password", so the
     # endpoint cannot be used to discover which usernames exist.
     if user is None or not verify_password(payload.password, user.password_hash):
+        rate_limit.record_login_failure(db, address, payload.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="아이디 또는 비밀번호가 올바르지 않습니다.",
