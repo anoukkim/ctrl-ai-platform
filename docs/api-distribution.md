@@ -35,7 +35,7 @@
 | 겹| 무엇 | 어디 |
 | -- | ---- | ---- |
 | 분당 횟수 | 1분에 10개(설정) — 스팸 방지 | `chat.check_rate_limit` |
-| 답장 1회 비용 한도 | 기본 100원, `max_tokens`로 미리 자름 | token-guard |
+| 답장 1회 비용 한도 | 기본 200원 (2026-10-14 아침 결정 — 100원으로는 페이지 읽기가 안 들어감), `max_tokens`로 미리 자름; 켜 둔 도구의 최악 비용(검색 요금+결과 토큰, 페이지 읽기 기본 1회×10,000토큰)을 미리 떼어 둠 | token-guard · chat-plus-tools · tool-cap-defaults |
 | 하루 한도 | 회원마다, 모든 유료 기능 합산, KST (0=끔) | token-guard |
 | 지갑 사전 확인 | 최악의 경우를 감당 못 하면 호출 안 함 | `usage.ensure_affordable` |
 | **동시 호출 한도** | **서버 프로세스마다 동시에 N개까지만 제공자를 부름** (기본 3) | `provider_limiter` (PART F 신설) |

@@ -198,6 +198,8 @@ def test_the_concurrency_setting_is_saved_audited_and_bounded(
             "long_history_tokens": 8_000,
             "daily_cap_krw": 0,
             "provider_concurrency": 5,
+            "web_fetch_max_uses": 1,
+            "web_fetch_max_content_tokens": 10_000,
         },
     )
     assert saved.status_code == 200, saved.text
@@ -211,6 +213,8 @@ def test_the_concurrency_setting_is_saved_audited_and_bounded(
             "long_history_tokens": 8_000,
             "daily_cap_krw": 0,
             "provider_concurrency": 0,
+            "web_fetch_max_uses": 1,
+            "web_fetch_max_content_tokens": 10_000,
         },
     )
     assert refused.status_code == 422

@@ -113,6 +113,11 @@ class ChatRequest:
     #: {"web_search", "web_fetch", "code_execution"}. Per conversation,
     #: because changing the tool list breaks the prompt cache.
     tools: tuple[str, ...] = ()
+    #: 웹 페이지 읽기 limits (tool-cap-defaults): admin settings, set by
+    #: `prepare_turn` from `chat_limits.current`. The literals mirror
+    #: `chat_limits.DEFAULTS` for callers that build a request directly.
+    fetch_max_uses: int = 1
+    fetch_max_content_tokens: int = 10_000
 
 
 @dataclass(frozen=True)
@@ -199,13 +204,12 @@ class StarterApp:
 
 # ----------------------------------------------------- server tools
 
-#: The spec's caps (chat-plus-tools): searches and fetches are bounded so
-#: one reply cannot run up fees or pull 125k tokens of a PDF into one
-#: request. Result tokens are billed once, inside that reply — they are
-#: not persisted and never re-sent on later turns.
+#: The spec's caps (chat-plus-tools): searches are bounded so one reply
+#: cannot run up fees; result tokens are billed once, inside that reply —
+#: they are not persisted and never re-sent on later turns. The fetch
+#: bounds are **admin settings** since tool-cap-defaults (2026-10-14):
+#: they ride on the request (`ChatRequest.fetch_*`), not constants here.
 WEB_SEARCH_MAX_USES = 3
-WEB_FETCH_MAX_USES = 2
-WEB_FETCH_MAX_CONTENT_TOKENS = 20_000
 
 
 def web_search_tool_type(model: str) -> str:
@@ -217,7 +221,12 @@ def web_search_tool_type(model: str) -> str:
     return "web_search_20250305" if "haiku" in model else "web_search_20260209"
 
 
-def server_tool_params(tools: tuple[str, ...], model: str) -> list[dict[str, Any]]:
+def server_tool_params(
+    tools: tuple[str, ...],
+    model: str,
+    fetch_max_uses: int,
+    fetch_max_content_tokens: int,
+) -> list[dict[str, Any]]:
     """The request's `tools` blocks for the real API (Phase 9 turns it on).
 
     Written now so switching CLAUDE_PROVIDER=anthropic is a configuration
@@ -246,8 +255,8 @@ def server_tool_params(tools: tuple[str, ...], model: str) -> list[dict[str, Any
                 {
                     "type": "web_fetch_20260209",
                     "name": "web_fetch",
-                    "max_uses": WEB_FETCH_MAX_USES,
-                    "max_content_tokens": WEB_FETCH_MAX_CONTENT_TOKENS,
+                    "max_uses": fetch_max_uses,
+                    "max_content_tokens": fetch_max_content_tokens,
                 }
             )
         elif kind == "code_execution":
@@ -526,7 +535,7 @@ _MOCK_URL = re.compile(r"https?://[^\s)\"']+")
 
 
 def _mock_tool_turn(
-    tools: tuple[str, ...], text: str
+    tools: tuple[str, ...], text: str, fetch_max_content_tokens: int = 10_000
 ) -> tuple[str | None, list["StreamEvent"], tuple[tuple[str, str], ...], int, int, int]:
     """What the mock's server tools do with one message.
 
@@ -573,6 +582,9 @@ def _mock_tool_turn(
         )
     url_match = _MOCK_URL.search(text)
     if "web_fetch" in tools and url_match:
+        # The mock's page is small; a real page is cut at the admin's
+        # max_content_tokens, so the mock honours the same ceiling.
+        fetch_tokens = min(500, fetch_max_content_tokens)
         url = url_match.group(0)
         reply = (
             "페이지를 읽었어요. 간추리면: 소개, 주요 기능, 사용 방법의 세 부분으로 "
@@ -582,12 +594,12 @@ def _mock_tool_turn(
             reply,
             [
                 ToolStatus("web_fetch", "running"),
-                ToolStatus("web_fetch", "done", result_tokens=500),
+                ToolStatus("web_fetch", "done", result_tokens=fetch_tokens),
             ],
             (("읽은 페이지", url),),
             0,
             1,
-            500,
+            fetch_tokens,
         )
     if "code_execution" in tools and ("실행" in text or "계산" in text):
         reply = (
@@ -758,7 +770,7 @@ class MockClaudeProvider:
         # the request carries the tool — the conversation's toggle AND the
         # model's switch both had to be on for that.
         tool_reply, tool_events, sources, searches, fetches, extra_input = _mock_tool_turn(
-            request.tools, last
+            request.tools, last, request.fetch_max_content_tokens
         )
 
         def usage(output_tokens: int) -> UsageUpdate:
@@ -1086,6 +1098,8 @@ class AnthropicClaudeProvider:
         model: str = "",
         cache_ttl: str | None = None,
         tools: tuple[str, ...] = (),
+        fetch_max_uses: int = 1,
+        fetch_max_content_tokens: int = 10_000,
     ) -> dict[str, Any]:
         """The request body. With `cache_ttl`, two cache breakpoints.
 
@@ -1108,7 +1122,9 @@ class AnthropicClaudeProvider:
             # Placed before the cache markers in spirit too: the tool list
             # is part of the cached prefix, which is why it is chosen per
             # conversation, never per message (chat-plus-tools).
-            params["tools"] = server_tool_params(tools, model)
+            params["tools"] = server_tool_params(
+                tools, model, fetch_max_uses, fetch_max_content_tokens
+            )
         if cache_ttl is not None:
             marker: dict[str, str] = {"type": "ephemeral"}
             if cache_ttl == "1h":
@@ -1142,6 +1158,8 @@ class AnthropicClaudeProvider:
                     request.model,
                     request.cache_ttl,
                     request.tools,
+                    request.fetch_max_uses,
+                    request.fetch_max_content_tokens,
                 )
             ) as stream:
                 async for event in stream:
