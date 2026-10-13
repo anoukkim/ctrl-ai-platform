@@ -264,7 +264,10 @@ def test_the_dashboard_warns_when_a_real_provider_is_failing(
     )
     db_session.commit()
 
-    assert client.get("/api/admin/dashboard").json()["failing_providers"] == ["Claude"]
+    # PART F: the alert names the reason, so the admin's next step is clear.
+    assert client.get("/api/admin/dashboard").json()["failing_providers"] == [
+        "Claude — 키가 잘못되었거나 만료"
+    ]
 
 
 def test_a_later_success_clears_the_dashboard_warning(

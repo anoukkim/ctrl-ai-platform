@@ -43,6 +43,7 @@ from app.models import (
     ChatRole,
     Conversation,
     FundingSource,
+    ProviderErrorKind,
     UsageFeature,
     User,
 )
@@ -617,7 +618,10 @@ def finish_turn(
     label_suffix = " (mock)" if turn.is_mock else ""
 
     if state.error is not None:
-        providers.record_failure(db, "claude", state.error.kind, state.error.detail)
+        if state.error.kind != ProviderErrorKind.BUSY:
+            # BUSY is our own concurrency limit (PART F): the provider was
+            # never called, so the status board must not blame it.
+            providers.record_failure(db, "claude", state.error.kind, state.error.detail)
         db.commit()
         return TurnResult(message=None, charged_krw=0, error=state.error)
 

@@ -66,6 +66,9 @@ MEMBER_MESSAGE: dict[str, str] = {
     ProviderErrorKind.RATE_LIMITED: (
         "지금 Claude에 요청이 많이 몰렸습니다. 1분쯤 뒤에 다시 보내 주세요."
     ),
+    ProviderErrorKind.BUSY: (
+        "지금 CTRL+AI에 요청이 많습니다. 잠시 뒤 다시 보내 주세요."
+    ),
     ProviderErrorKind.UNAVAILABLE: (
         "Claude 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."
     ),

@@ -47,6 +47,7 @@ def _limits_read(db: Session) -> ChatLimitsRead:
         reply_cap_krw=limits.reply_cap_krw,
         long_history_tokens=limits.long_history_tokens,
         daily_cap_krw=limits.daily_cap_krw,
+        provider_concurrency=limits.provider_concurrency,
         set_at=row.created_at if row is not None else None,
         set_by_username=who.username if who else "",
     )
@@ -136,6 +137,7 @@ def set_chat_limits(
             reply_cap_krw=payload.reply_cap_krw,
             long_history_tokens=payload.long_history_tokens,
             daily_cap_krw=payload.daily_cap_krw,
+            provider_concurrency=payload.provider_concurrency,
             set_by=admin.id,
         )
     )
@@ -152,13 +154,15 @@ def set_chat_limits(
         summary=(
             f"답장 1회 한도 {won(payload.reply_cap_krw)} · "
             f"긴 대화 경고 {payload.long_history_tokens:,} 토큰 · "
-            f"하루 한도 {won(payload.daily_cap_krw)}"
+            f"하루 한도 {won(payload.daily_cap_krw)} · "
+            f"동시 호출 {payload.provider_concurrency}"
         ),
         detail={
             "before": {
                 "reply_cap_krw": before.reply_cap_krw,
                 "long_history_tokens": before.long_history_tokens,
                 "daily_cap_krw": before.daily_cap_krw,
+                "provider_concurrency": before.provider_concurrency,
             },
             "after": payload.model_dump(),
         },

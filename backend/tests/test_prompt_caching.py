@@ -34,7 +34,9 @@ SONNET = dict(
     input_usd_per_mtok=Decimal("2"),
     output_usd_per_mtok=Decimal("10"),
     usd_krw=Decimal("1400"),
-    cache_read_usd_per_mtok=Decimal("0.20"),
+    # 0.05x of input — the official page's figure ($0.10/MTok); the first
+    # seed said 0.20 (fixed by audit-caching-and-distribution).
+    cache_read_usd_per_mtok=Decimal("0.10"),
 )
 
 
@@ -49,7 +51,7 @@ def test_cache_writes_cost_more_and_reads_cost_far_less() -> None:
     assert five_minutes.usd(million, 0) == Decimal("2")
     assert five_minutes.usd(0, 0, cache_write_tokens=million) == Decimal("2.5")
     assert one_hour.usd(0, 0, cache_write_tokens=million) == Decimal("4")
-    assert five_minutes.usd(0, 0, cache_read_tokens=million) == Decimal("0.2")
+    assert five_minutes.usd(0, 0, cache_read_tokens=million) == Decimal("0.1")
 
 
 def test_a_model_without_its_own_read_price_reads_at_a_tenth_of_input() -> None:
@@ -288,3 +290,52 @@ def test_admin_system_shows_the_cache_settings(client: TestClient) -> None:
     body = client.get("/api/admin/claude-pricing").json()
     assert body["prompt_cache"] is True
     assert body["cache_ttl"] == "5m"
+
+
+def test_admin_cache_stats_per_model_and_kst_day(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    """캐시 절약 (audit-caching): replies, hits, tokens read, won saved.
+
+    Saved = read tokens billed at the read price instead of input, at
+    today's catalogue prices (Sonnet: $2 in, $0.10 read) and the event's
+    own rate. 23:50 and 00:10 UTC land on different KST days only when
+    the KST boundary (15:00 UTC) sits between them.
+    """
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.models import UsageFeature
+
+    def event(created: datetime, read: int) -> UsageEvent:
+        return UsageEvent(
+            user_id=budgeted.user_id,
+            quarter_id=budgeted.quarter_id,
+            funding_source="community",
+            provider="claude",
+            feature=UsageFeature.CHAT.value,
+            model_id="claude-sonnet-5-5",
+            charged_krw=1,
+            cache_read_tokens=read,
+            exchange_rate_krw=Decimal("1400"),
+            created_at=created,
+        )
+
+    # 14:50 UTC and 15:10 UTC straddle KST midnight: Oct 10 vs Oct 11 KST.
+    db_session.add(event(datetime(2026, 10, 10, 14, 50, tzinfo=timezone.utc), 0))
+    db_session.add(event(datetime(2026, 10, 10, 15, 10, tzinfo=timezone.utc), 1_000_000))
+    db_session.commit()
+
+    rows = client.get("/api/admin/chat-models/cache-stats").json()
+    by_day = {row["day"]: row for row in rows if row["model_id"] == "claude-sonnet-5-5"}
+
+    first = by_day["2026-10-10"]
+    assert (first["replies"], first["cache_hit_replies"], first["read_tokens"]) == (1, 0, 0)
+    assert first["saved_krw"] == 0
+
+    second = by_day["2026-10-11"]
+    assert (second["replies"], second["cache_hit_replies"]) == (1, 1)
+    assert second["read_tokens"] == 1_000_000
+    # 1M tokens x ($2 - $0.10)/MTok x 1,400원 = 2,660원.
+    assert second["saved_krw"] == 2_660
+    assert second["label"].startswith("균형")

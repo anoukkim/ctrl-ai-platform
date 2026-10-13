@@ -121,6 +121,12 @@ class ChatLimits(Base):
     reply_cap_krw: Mapped[int] = mapped_column(Integer, nullable=False)
     long_history_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     daily_cap_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Outgoing provider calls allowed at once, per server process
+    #: (audit-caching-and-distribution). Guards the club key against one
+    #: member starting many streams; never 0 — that would stop Chat.
+    provider_concurrency: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="3"
+    )
     set_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

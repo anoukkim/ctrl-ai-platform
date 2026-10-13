@@ -59,7 +59,7 @@ from app.schemas.chat import (
     ReplyReceipt,
 )
 from app.services import chat as chat_service
-from app.services import chat_tools
+from app.services import chat_limits, chat_tools, provider_limiter
 from app.services import chat_models, pricing
 from app.services import usage as usage_service
 from app.services.claude_provider import (
@@ -387,6 +387,11 @@ def send_message(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
         ) from error
 
+    # PART F: the club has one key; one process keeps at most this many
+    # provider calls in flight. Read here, while the request's session is
+    # open; checked just before the stream starts.
+    concurrency_limit = chat_limits.current(db).provider_concurrency
+
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
     stop = asyncio.Event()
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
@@ -402,6 +407,14 @@ def send_message(
         """
         state = chat_service.TurnState()
         marker = chat_service.MarkerFilter()
+        # A slot under the process-wide provider limit, waited for off the
+        # event loop. Refused: a BUSY error — the provider was never
+        # called, nothing is charged, and the status board is not marked.
+        if not await run_in_threadpool(provider_limiter.acquire, concurrency_limit):
+            state.error = ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
+            result = await run_in_threadpool(_finish, session_factory, settings, turn, state)
+            queue.put_nowait(("end", result))
+            return
         try:
             async for event in provider.stream_chat(turn.request):
                 if isinstance(event, TextDelta):
@@ -455,6 +468,8 @@ def send_message(
             state.error = error
         except Exception as error:  # noqa: BLE001 — anything else is still a failed call
             state.error = ClaudeError(ProviderErrorKind.UNKNOWN, type(error).__name__)
+        finally:
+            provider_limiter.release()
 
         result = await run_in_threadpool(_finish, session_factory, settings, turn, state)
         if result.error is None:

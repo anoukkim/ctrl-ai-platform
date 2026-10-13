@@ -549,6 +549,11 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 
 ## 11. 보안 점검표
 
+키 하나로 여러 회원이 쓰는 구조와 그 보호 장치(동시 호출 한도, 월 예산
+막대, 크레딧 소진 시의 동작, Console 쪽 규칙)는
+[`api-distribution.md`](api-distribution.md)에 따로 정리되어 있습니다.
+
+
 - [ ] `ls -l ~/ctrl-ai-platform/.env`가 `-rw-------`
 - [ ] `git -C ~/ctrl-ai-platform status`에 `.env`가 보이지 않음(무시되는 파일)
 - [ ] 방화벽은 80, 443, SSH뿐. `dc ps`에서 `db`에 `0.0.0.0:5432` 같은 표시 없음

@@ -49,6 +49,7 @@ export default function ClaudePricingPanel() {
     reply_cap_krw: "",
     long_history_tokens: "",
     daily_cap_krw: "",
+    provider_concurrency: "",
   });
 
   const apply = useCallback((value: ClaudeSettings) => {
@@ -58,6 +59,7 @@ export default function ClaudePricingPanel() {
       reply_cap_krw: String(value.chat_limits.reply_cap_krw),
       long_history_tokens: String(value.chat_limits.long_history_tokens),
       daily_cap_krw: String(value.chat_limits.daily_cap_krw),
+      provider_concurrency: String(value.chat_limits.provider_concurrency),
     });
   }, []);
 
@@ -103,6 +105,7 @@ export default function ClaudePricingPanel() {
       reply_cap_krw: Number(limitsDraft.reply_cap_krw),
       long_history_tokens: Number(limitsDraft.long_history_tokens),
       daily_cap_krw: Number(limitsDraft.daily_cap_krw),
+      provider_concurrency: Number(limitsDraft.provider_concurrency),
     };
     const won = (value: number) => (value > 0 ? `${value.toLocaleString()}원` : "끔 (0)");
     ask(
@@ -112,6 +115,7 @@ export default function ClaudePricingPanel() {
           `답장 1회 비용 한도: ${won(next.reply_cap_krw)} — 답장이 이 금액에 닿으면 멈추고, 쓴 만큼만 차감됩니다.`,
           `긴 대화 경고: 입력 ${next.long_history_tokens.toLocaleString()} 토큰부터 (0이면 경고 없음)`,
           `하루 한도: ${won(next.daily_cap_krw)} — 회원마다, 모든 유료 기능 합산 (KST 기준)`,
+          `동시 호출: ${next.provider_concurrency}개 — 서버 프로세스마다, AI 호출을 한 번에 이만큼만`,
           "감사 기록에 남습니다.",
         ],
         confirmLabel: "한도 바꾸기",
@@ -271,6 +275,20 @@ export default function ClaudePricingPanel() {
                   }
                 />
               </label>
+              <label className={styles.limitField}>
+                <span>동시 호출 (프로세스마다, 1 이상)</span>
+                <input
+                  className="field numeric"
+                  inputMode="numeric"
+                  value={limitsDraft.provider_concurrency}
+                  onChange={(event) =>
+                    setLimitsDraft((current) => ({
+                      ...current,
+                      provider_concurrency: event.target.value,
+                    }))
+                  }
+                />
+              </label>
               <button
                 className="btn btn-sm"
                 type="button"
@@ -279,11 +297,15 @@ export default function ClaudePricingPanel() {
                     limitsDraft.reply_cap_krw,
                     limitsDraft.long_history_tokens,
                     limitsDraft.daily_cap_krw,
+                    limitsDraft.provider_concurrency,
                   ].some((value) => value.trim() === "" || !Number.isInteger(Number(value))) ||
+                  Number(limitsDraft.provider_concurrency) < 1 ||
                   (Number(limitsDraft.reply_cap_krw) === settings.chat_limits.reply_cap_krw &&
                     Number(limitsDraft.long_history_tokens) ===
                       settings.chat_limits.long_history_tokens &&
-                    Number(limitsDraft.daily_cap_krw) === settings.chat_limits.daily_cap_krw)
+                    Number(limitsDraft.daily_cap_krw) === settings.chat_limits.daily_cap_krw &&
+                    Number(limitsDraft.provider_concurrency) ===
+                      settings.chat_limits.provider_concurrency)
                 }
                 onClick={askLimits}
               >

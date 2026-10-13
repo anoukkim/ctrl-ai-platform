@@ -44,6 +44,13 @@ function percent(share: number | null): string {
   return share === null ? "–" : `${Math.round(share * 100)}%`;
 }
 
+
+/** 이번 달 Anthropic 지출이 월 예산의 몇 %인지 (막대와 경고가 같이 쓴다). */
+function monthShare(budget: QuarterBudget): number {
+  if (!budget.anthropic_month_budget_usd) return 0;
+  return Math.min(100, Math.round((budget.anthropic_month_usd / budget.anthropic_month_budget_usd) * 100));
+}
+
 function nativeUnits(line: ProviderSpend): string {
   const parts: string[] = [];
   if (line.input_tokens || line.output_tokens) {
@@ -212,6 +219,32 @@ export default function BudgetAdmin() {
           { key: "left", label: "남음", value: formatKrw(budget.total_remaining_krw) },
         ]}
       />
+
+      {budget.anthropic_month_budget_usd !== null && budget.anthropic_month_budget_usd > 0 && (
+        <section aria-labelledby="budget-month" className="card" style={{ marginBottom: "1rem" }}>
+          {/* PART F: 이번 달 Anthropic 지출을 .env의
+              ANTHROPIC_MONTHLY_BUDGET_USD와 비교합니다. 실제 차단은
+              Anthropic Console의 월 한도가 하고, 이 막대는 그 전에
+              알아차리기 위한 것입니다. */}
+          <h2 className="section-title" id="budget-month">
+            이번 달 Anthropic 지출 ({budget.anthropic_month} · KST 기준 — Console의 월 한도와는 시간대가 다를 수 있습니다)
+            <span className={styles.sectionNote}>Console 월 한도에 닿기 전에 보는 막대</span>
+          </h2>
+          <div
+            className="meter"
+            role="img"
+            aria-label={`월 예산 ${budget.anthropic_month_budget_usd}달러 중 ${monthShare(budget)}% 사용`}
+          >
+            <div className="meter-fill" style={{ width: `${monthShare(budget)}%` }} />
+          </div>
+          <p className={monthShare(budget) >= 80 ? "notice" : "small muted"} style={{ marginTop: "0.5rem" }}>
+            ${budget.anthropic_month_usd.toFixed(2)} / ${budget.anthropic_month_budget_usd}
+            {monthShare(budget) >= 80
+              ? " — 월 예산의 80%를 넘었습니다. Console 한도에 닿으면 Chat이 멈추니, 예산을 올리거나 사용을 줄여 주세요."
+              : ""}
+          </p>
+        </section>
+      )}
 
       <section aria-labelledby="budget-providers">
         <h2 className="section-title" id="budget-providers">

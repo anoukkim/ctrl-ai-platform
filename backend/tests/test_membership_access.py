@@ -420,6 +420,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/chat-models/providers"): "require_admin",
     ("GET", "/api/admin/chat-models/calibration"): "require_admin",
+    ("GET", "/api/admin/chat-models/cache-stats"): "require_admin",
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/invites"): "require_admin",
     ("POST", "/api/admin/invites"): "require_admin",

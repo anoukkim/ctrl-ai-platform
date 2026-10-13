@@ -481,3 +481,9 @@ class QuarterBudgetRead(BaseModel):
     providers: list[ProviderSpendRead] = Field(default_factory=list)
     #: 모든 제공자의 `charged_krw` 합계 — 개인 잔액에서 나간 것도 포함.
     total_charged_krw: int = 0
+    #: 이번 달(KST) Anthropic에 쓴 달러 — `provider_cost`의 합.
+    anthropic_month_usd: float = 0.0
+    #: ANTHROPIC_MONTHLY_BUDGET_USD. 비어 있으면 막대를 그리지 않습니다.
+    anthropic_month_budget_usd: float | None = None
+    #: "2026-10" — 어느 달의 합인지.
+    anthropic_month: str = ""

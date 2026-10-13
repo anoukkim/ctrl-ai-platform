@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # move (personal-topup-off, 2026-10-14); the tables and routes stay,
     # refusing with a Korean message. personal-topup-ui turns it back on.
     personal_topup_enabled: bool = False
+    # Admin > Budget shows the month's Anthropic spend (USD, summed from
+    # provider_cost) against this figure, warning at 80%. Empty = no bar.
+    # Informational only — the real stop is the Console's own monthly
+    # limit (audit-caching-and-distribution).
+    anthropic_monthly_budget_usd: str = ""
     backend_port: int = 8000
     frontend_port: int = 3000
 
@@ -263,6 +268,20 @@ class Settings(BaseSettings):
     def is_beta(self) -> bool:
         """The invite-only beta: a deployed site with a banner on every page."""
         return self.app_env.strip().lower() == "beta"
+
+    @property
+    def monthly_budget_usd(self) -> "Decimal | None":
+        """ANTHROPIC_MONTHLY_BUDGET_USD as a number, or None when unset."""
+        from decimal import Decimal, InvalidOperation
+
+        raw = self.anthropic_monthly_budget_usd.strip()
+        if not raw:
+            return None
+        try:
+            value = Decimal(raw)
+        except InvalidOperation:
+            return None
+        return value if value > 0 else None
 
     @property
     def top_ups_enabled(self) -> bool:

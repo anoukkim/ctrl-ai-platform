@@ -29,11 +29,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models import BuilderProject, BuilderProjectFile, UsageFeature, User
+from app.models import BuilderProject, BuilderProjectFile, ProviderErrorKind, UsageFeature, User
 from app.services import chat_models, pricing, providers
+from app.services import chat_limits, provider_limiter
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     STARTER_SYSTEM,
+    ClaudeError,
     ClaudeProvider,
     starter_request_text,
 )
@@ -158,17 +160,20 @@ def create_starter(
         settings=settings,
     )
 
+    # PART F: a slot under the process-wide provider limit; refused free.
+    if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
+        raise ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
     try:
         app = provider.generate_starter_app(
             project.name, idea, model.model_id, settings.builder_max_output_tokens
         )
     except Exception as error:
-        from app.services.claude_provider import ClaudeError
-
         if isinstance(error, ClaudeError):
             providers.record_failure(db, "claude", error.kind, error.detail)
             db.commit()
         raise
+    finally:
+        provider_limiter.release()
     files = check_files(app.files)
 
     amount = price.krw(app.input_tokens, app.output_tokens)

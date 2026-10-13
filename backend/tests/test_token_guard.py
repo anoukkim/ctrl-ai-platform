@@ -286,13 +286,19 @@ def test_the_limits_are_an_audited_admin_setting(
         "reply_cap_krw": 100,
         "long_history_tokens": 8_000,
         "daily_cap_krw": 0,
+        "provider_concurrency": 3,
         "set_at": None,
         "set_by_username": "",
     }
 
     response = client.post(
         "/api/admin/claude-pricing/chat-limits",
-        json={"reply_cap_krw": 200, "long_history_tokens": 10_000, "daily_cap_krw": 3_000},
+        json={
+            "reply_cap_krw": 200,
+            "long_history_tokens": 10_000,
+            "daily_cap_krw": 3_000,
+            "provider_concurrency": 3,
+        },
     )
     assert response.status_code == 200, response.text
     after = response.json()["chat_limits"]
@@ -310,7 +316,12 @@ def test_the_limits_are_an_audited_admin_setting(
     # History is rows: a second change keeps the first.
     client.post(
         "/api/admin/claude-pricing/chat-limits",
-        json={"reply_cap_krw": 150, "long_history_tokens": 10_000, "daily_cap_krw": 0},
+        json={
+            "reply_cap_krw": 150,
+            "long_history_tokens": 10_000,
+            "daily_cap_krw": 0,
+            "provider_concurrency": 3,
+        },
     )
     assert db_session.query(ChatLimits).count() == 2
     assert limits_service.current(db_session).reply_cap_krw == 150
@@ -319,7 +330,12 @@ def test_the_limits_are_an_audited_admin_setting(
     assert (
         client.post(
             "/api/admin/claude-pricing/chat-limits",
-            json={"reply_cap_krw": -1, "long_history_tokens": 0, "daily_cap_krw": 0},
+            json={
+                "reply_cap_krw": -1,
+                "long_history_tokens": 0,
+                "daily_cap_krw": 0,
+                "provider_concurrency": 3,
+            },
         ).status_code
         == 422
     )
