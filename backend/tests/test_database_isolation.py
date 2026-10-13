@@ -122,8 +122,15 @@ _PROBE_TEST = textwrap.dedent(
 
 @pytest.fixture
 def probe_database(pg_engine):
-    """A stand-in for the developer's database, on the test server."""
-    url = make_url(pg.configured_url()).set(database="ctrlai_isolation_probe")
+    """A stand-in for the developer's database, on the test server.
+
+    Its own unique name ending in `_test`, so it can never be a real
+    database, and two runs never share one.
+    """
+    import uuid
+
+    probe_name = f"ctrlai_isolation_probe_{uuid.uuid4().hex[:8]}_test"
+    url = make_url(pg.configured_url()).set(database=probe_name)
     rendered = url.render_as_string(hide_password=False)
     engine = pg.ensure_database(rendered)
     assert engine is not None
@@ -135,7 +142,8 @@ def probe_database(pg_engine):
     server = pg.connect(url.set(database="postgres").render_as_string(hide_password=False))
     if server is not None:
         with server.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            conn.execute(text('DROP DATABASE IF EXISTS "ctrlai_isolation_probe" WITH (FORCE)'))
+            quoted = conn.dialect.identifier_preparer.quote(probe_name)
+            conn.execute(text(f"DROP DATABASE IF EXISTS {quoted} WITH (FORCE)"))
         server.dispose()
 
 
