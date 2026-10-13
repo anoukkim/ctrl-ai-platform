@@ -51,11 +51,27 @@ from app import models  # noqa: F401, E402
 # ---------------------------------------------------------------------
 
 _DEVELOPER_DATABASE_BEFORE = None
+_REAL_STORAGE_BEFORE: set[str] | None = None
+
+
+def _real_storage_files() -> set[str] | None:
+    """Every file under the real storage dir, or None when it is absent.
+
+    The *real* dir: the one the developer's settings point at
+    (`backend/var/storage` by default) — exactly what no test may touch.
+    """
+    from app.core.config import get_settings
+    from app.services.storage import storage_root
+
+    root = storage_root(get_settings())
+    if not root.exists():
+        return None
+    return {str(path.relative_to(root)) for path in root.rglob("*") if path.is_file()}
 
 
 def pytest_sessionstart(session) -> None:
     """Refuse to run against the developer's database; note how it looks."""
-    global _DEVELOPER_DATABASE_BEFORE
+    global _DEVELOPER_DATABASE_BEFORE, _REAL_STORAGE_BEFORE
     from app.core.config import get_settings
     from tests import pg
 
@@ -63,21 +79,37 @@ def pytest_sessionstart(session) -> None:
     if message:
         raise pytest.UsageError(message)
     _DEVELOPER_DATABASE_BEFORE = pg.snapshot(get_settings().database_url)
+    _REAL_STORAGE_BEFORE = _real_storage_files()
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:
-    """The developer's database must look exactly as it did before the run."""
+    """The developer's database and storage dir must look as they did before."""
     from app.core.config import get_settings
     from tests import pg
 
-    if _DEVELOPER_DATABASE_BEFORE is None:
-        return
-    after = pg.snapshot(get_settings().database_url)
-    if after is not None and after != _DEVELOPER_DATABASE_BEFORE:
+    if _DEVELOPER_DATABASE_BEFORE is not None:
+        after = pg.snapshot(get_settings().database_url)
+        if after is not None and after != _DEVELOPER_DATABASE_BEFORE:
+            session.config.get_terminal_writer().line(
+                "The test run changed DATABASE_URL's database "
+                f"({pg.shown(get_settings().database_url)}): tables or alembic_version "
+                f"before {_DEVELOPER_DATABASE_BEFORE}, after {after}.",
+                red=True,
+            )
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+    # The same promise for files (fix-beta-blockers 3): no test writes
+    # into the real storage dir. `isolated_storage` redirects every test,
+    # so a difference here means a new code path resolved the settings
+    # some other way — fix that path, never this guard.
+    storage_after = _real_storage_files()
+    if storage_after != _REAL_STORAGE_BEFORE:
+        before = _REAL_STORAGE_BEFORE or set()
+        after_files = storage_after or set()
         session.config.get_terminal_writer().line(
-            "The test run changed DATABASE_URL's database "
-            f"({pg.shown(get_settings().database_url)}): tables or alembic_version "
-            f"before {_DEVELOPER_DATABASE_BEFORE}, after {after}.",
+            "The test run changed the real storage dir (STORAGE_DIR): "
+            f"added {sorted(after_files - before) or '[]'}, "
+            f"removed {sorted(before - after_files) or '[]'}.",
             red=True,
         )
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
@@ -114,6 +146,31 @@ def pg_engine():
     yield engine
     pg.reset_schema(engine)
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage(tmp_path) -> Generator[None, None, None]:
+    """Every test's storage writes land in a throwaway directory.
+
+    Routes resolve settings through `Depends(get_settings)`, so a default
+    override here redirects `storage_dir` for every request — tests that
+    wrote the mock GIF used to leave it in the real `backend/var/storage`
+    (fix-beta-blockers 3). A test file's own `get_settings` override
+    (e.g. test_video_download.py) replaces this one for its tests, which
+    is fine: those point at their own tmp dir. The session guard in
+    `pytest_sessionfinish` proves the real dir stayed untouched.
+    """
+    from app.core.config import get_settings
+
+    settings = get_settings().model_copy(update={"storage_dir": str(tmp_path / "test-storage")})
+
+    def override() -> object:
+        return settings
+
+    app.dependency_overrides[get_settings] = override
+    yield
+    if app.dependency_overrides.get(get_settings) is override:
+        app.dependency_overrides.pop(get_settings, None)
 
 
 @pytest.fixture(autouse=True)
