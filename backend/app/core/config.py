@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 # backend/app/core/config.py -> parents[2] == backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -34,6 +35,10 @@ DEFAULT_ADMIN_PASSWORDS = frozenset(
         ADMIN_PASSWORD_PLACEHOLDER,
     }
 )
+
+#: Database passwords a deployed server refuses: the development default
+#: from .env.example and docker-compose.yml, and the obvious ones.
+DEFAULT_DATABASE_PASSWORDS = frozenset({"", "ctrlai", "postgres", "password"})
 
 #: The shortest administrator password a deployed server accepts.
 MIN_ADMIN_PASSWORD_LENGTH = 12
@@ -260,6 +265,12 @@ class Settings(BaseSettings):
                     "(or production) in .env."
                 )
             return problems
+
+        url = make_url(self.database_url)
+        if url.get_backend_name() == "postgresql" and (url.password or "") in DEFAULT_DATABASE_PASSWORDS:
+            problems.append(
+                "POSTGRES_PASSWORD is the development default. Set a long random one in .env."
+            )
 
         if self.admin_password:
             problem = admin_password_problem(self.admin_password)

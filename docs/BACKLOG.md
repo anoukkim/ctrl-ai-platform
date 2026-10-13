@@ -48,8 +48,9 @@ stopping after each for the developer to check and merge:
 1. `invite-only-signup`
 2. `chat-plus-rendering`
 3. `test-database-isolation`
-4. `prep-beta-launch` — **code part only, cloud-neutral** (see *Cloud-neutral
-   code part — 2026-10-07* in its spec)
+4. `prep-beta-launch` — the cloud was chosen on 2026-10-13 (see
+   *Hosting decisions — 2026-10-13* in its spec); built on
+   `feat-prep-beta-launch`
 
 `chat-plus-files` and `chat-plus-artifacts` keep their specs and are not
 in this run. Mock providers only, no real API call, the developer's
@@ -362,13 +363,16 @@ six places.
    short real message with the owner's key; see **Now**. Not a branch,
    but `prep-beta-launch` does not start until it has been run.
 
-12. **prep-beta-launch** · M1 · no branch named yet
+12. **prep-beta-launch** · M1 · branch `feat-prep-beta-launch`
    The invite-only beta on a real domain. Spec saved verbatim below,
    keeping its **Launch data rules** section. ⚠ **Costs money** — the
-   domain is already bought (`ctrlai.my`); the rest is one Google Cloud
-   VM on the 90-day free trial, started only at the deploy step. See
-   **Hosting decisions** in its spec; ask before creating anything.
-   **Do not start before item 11**, nor before Phase 2's point 10.
+   domain is bought (`ctrlai.my`) and the owner created the VM
+   (`ctrlai-server`, e2-medium in Seoul) on the Google Cloud free trial
+   on 2026-10-13. See **Hosting decisions — 2026-10-13** in its spec; ask
+   before creating anything else. The developer started the code part
+   and the guide on 2026-10-13, ahead of items 7 and 11 — **the open
+   checks below still stand before the site opens to members.**
+   **Do not open to members before item 11**, nor before Phase 2's point 10.
    Running the suite against a live database is a different order of
    mistake once the database holds members' work rather than one
    developer's test rows. **Storage on the VM** now also holds chat
@@ -1143,49 +1147,61 @@ Added 2026-10-01. Saved exactly as written by the developer.
 > - Never copy the local database to production; the deployment guide says so explicitly.
 > - Add a development-only "reset local test data" script that wipes and reseeds the local database, documented in the README.
 
-### Cloud-neutral code part — 2026-10-07
+### Cloud-neutral code part — superseded 2026-10-13
 
-Set by the developer. **Where this conflicts with Hosting decisions
-below, this wins for now**: the cloud, the region and the VM size are
-being decided in a meeting, so the code part is built first without
-assuming any of them. Saved exactly as written by the developer.
+On 2026-10-07 the developer asked for the code part to be built
+cloud-neutral while the cloud, region and VM size were decided. They were
+decided on 2026-10-13 (below), so that note no longer applies: the code
+part and the guide are written for the chosen VM.
 
-> prep-beta-launch, code part only and cloud-neutral: the cloud, region and VM size are being decided in a meeting. Put provider/region/size-dependent settings in .env with defaults for a 2 GB VM and about 40 members, write docs/dns-for-domain-owner.md in Korean, add an editable data-location notice on sign-up, run the production compose locally, and stop with a list of what's left once the cloud is chosen.
+### Hosting decisions — 2026-10-13
 
-### Hosting decisions — 2026-10-07
+Decided by the owner; updates the 2026-10-07 decisions, which put an
+e2-micro in a free-tier US region. **Where these conflict with points 1,
+3 and 4 above, or with Phase 9 in `CLAUDE.md`, these win for the beta.**
+Points 2 and 5 and the Launch data rules are unchanged.
 
-Decided by the owner. **Where these conflict with points 1, 3 and 4
-above, or with Phase 9 in `CLAUDE.md`, these win for the beta.** Points 2
-and 5 and the Launch data rules are unchanged.
+**The VM (already created by the owner):**
 
-**Point 1 changes in two details only; the rest of it stands:**
+| | |
+| - | - |
+| Name | `ctrlai-server` |
+| Region / zone | `asia-northeast3` (Seoul) / `asia-northeast3-c` |
+| Machine | **e2-medium** — 2 vCPU, 4 GB RAM. Paid, about US$32 a month; not a free-tier machine |
+| OS | Debian 13 (trixie), x86_64 |
+| Disk | standard persistent disk, being resized from 10 GB to 30 GB |
+| Static external IP | `34.47.78.228` |
+| Firewall | HTTP (80) and HTTPS (443) allowed; nothing else besides the default SSH rule |
+| Done on the VM | `apt upgrade`; git; Docker Engine and the Compose plugin from Docker's apt repository; the owner's user `ctrlai_platform` in the `docker` group; a 2 GB swap file in `/etc/fstab` |
 
-- **The domain is `ctrlai.my`**, not the `ctrlai.example` placeholder —
-  in `.env.example` and everywhere else point 1 mentions a domain.
-- **`BACKEND_ORIGIN` is a build argument, not a runtime environment
-  variable.** Point 1 lists "backend URL for the Next.js /api rewrite"
-  among the settings read from the environment, but Next.js compiles
-  rewrites at build time, so the value has to be supplied when the image
-  is built (see **Images are built off the VM** below). The other point 1
-  settings — CORS origins, secure cookies, cookie domain, `APP_ENV`,
-  `DATABASE_URL` — are runtime environment variables as written.
+- **Billing: the Google Cloud free trial — ₩407,626 of credit, started
+  2026-10-13, ending around 2027-01-11.** The billing account must be
+  upgraded to paid before then or the VM stops. `docs/deployment.md` gives
+  the date to act (2027-01-04, a week early) and what happens otherwise.
+  Set a budget alert on day one.
+- **Domain: `ctrlai.my`, already bought.** DNS at the registrar: `@` A →
+  `34.47.78.228`; `www` CNAME → `ctrlai.my` (Caddy redirects www to the
+  apex). Records and checks: `docs/dns-for-domain-owner.md`.
+- **No `api` subdomain.** Point 3 asked for one, and it is not useful: the
+  browser only ever talks to the main domain through the `/api` rewrite,
+  so an `api` record would add a public address, a certificate and a
+  cookie question for nothing. FastAPI is not exposed at all, and its
+  `/docs` is off outside development anyway.
+- **Data location notice on sign-up:** "회원님의 정보는 Google Cloud 서울
+  리전(asia-northeast3)에 저장됩니다." — editable as `DATA_LOCATION_NOTICE`
+  in `.env`.
+- **Sizes in `.env.example` are for the e2-medium and about 40 members:**
+  `WEB_CONCURRENCY=2`, `DB_POOL_SIZE=5` + `DB_MAX_OVERFLOW=5` (20
+  connections at most), PostgreSQL `shared_buffers=256MB`,
+  `max_connections=50`, Caddy `MAX_UPLOAD_MB=20`.
 
-- **Domain: `ctrlai.my`, already bought.** Use it instead of
-  `ctrlai.example` in `.env.example` and `docs/deployment.md`. DNS at the
-  registrar: `@` A → the VM's static IP; `www` CNAME → `ctrlai.my`
-  (Caddy redirects to the apex). Keep point 3's `api` subdomain only if
-  it is useful; if it exists, FastAPI's `/docs` must not be public in
-  `APP_ENV=beta`.
-- **One host, not two hosts and a managed database.** A single Compute
-  Engine **e2-micro** VM in `us-west1`, `us-central1` or `us-east1` (the
-  Always Free regions), 30 GB *standard* persistent disk, a reserved
-  static external IP, firewall open on 80 and 443 only. Docker Compose
-  runs four services: `caddy` (80/443, automatic Let's Encrypt HTTPS),
-  `web` (Next.js standalone output), `api` (FastAPI) and `db`
-  (`postgres:16-alpine`, **no published port**, a named volume).
-- **No Cloud SQL, Cloud Run or Secret Manager for the beta.** Cloud SQL
-  has no free tier (the smallest instance is about $10 a month with
-  storage). Secret Manager comes after the beta.
+**Unchanged from 2026-10-07:**
+
+- **One Docker Compose with four services:** `caddy` (80/443, automatic
+  Let's Encrypt HTTPS), `web` (Next.js standalone output), `api`
+  (FastAPI) and `db` (`postgres:16-alpine`, **no published port**, a named
+  volume). File: `docker-compose.prod.yml`.
+- **No Cloud SQL, Cloud Run or Secret Manager for the beta.**
 - **Production secrets live in a `.env` on the VM — a beta-only exception
   to `CLAUDE.md` section 17, decided by the owner.** It holds as long as
   every condition holds:
@@ -1196,28 +1212,23 @@ and 5 and the Launch data rules are unchanged.
     Console;
   - **every key is rotated** when the secrets move to Secret Manager
     after the beta.
-- **Images are built off the VM.** 1 GB of RAM cannot run `next build`.
-  GitHub Actions builds both images and pushes them to ghcr.io; the VM
-  only pulls. Next.js rewrites are compiled at build time, so
-  `BACKEND_ORIGIN` (`http://api:8000`) is a **build argument**, not a
-  runtime variable. The VM gets a 2 GB swap file.
-- **Billing: the Google Cloud 90-day / $300 free trial, activated at the
-  deploy step — not before.** The trial clock starts at sign-up, so
-  everything this item can do locally (including running the production
-  compose file on a laptop) is finished first. Set a budget alert on day
-  one. **Before day 90 the account must be upgraded to paid, or the VM
-  stops;** after the upgrade an e2-micro in those regions stays free.
-  `docs/deployment.md` says both, with the date to act.
+- **Images are built off the VM.** GitHub Actions builds both images and
+  pushes them to ghcr.io (`.github/workflows/images.yml`); the VM only
+  pulls. Next.js rewrites are compiled at build time, so `BACKEND_ORIGIN`
+  (`http://api:8000`) is a **build argument**, not a runtime variable.
+- **Point 1 changes in two details only:** the domain is `ctrlai.my`, and
+  `BACKEND_ORIGIN` is a build argument. CORS origins, secure cookies,
+  cookie domain, `APP_ENV` and `DATABASE_URL` are runtime environment
+  variables as written.
 - **The first background job runs from host cron:** once a day,
-  `docker compose exec api python -m app.jobs.anonymise_withdrawn`.
-- **Backups:** `pg_dump` from the `db` container before every update,
-  kept off the VM.
-- **Growing later is configuration, not a rewrite**, and
-  `docs/deployment.md` lists the paths: resize the VM (e2-small or
-  e2-medium, a few minutes of downtime); move PostgreSQL to Cloud SQL by
-  dump and restore plus a new `DATABASE_URL`; move to the Seoul region by
-  disk snapshot and a DNS change; or run the same images on Cloud Run.
-  Each one ends the free tier for what it touches.
+  `python -m app.jobs.anonymise_withdrawn` in the `api` container
+  (`deploy/daily-jobs.sh`).
+- **Backups:** `pg_dump` from the `db` container before every update
+  (`deploy/backup.sh`), kept off the VM.
+- **Growing later is configuration, not a rewrite:** move PostgreSQL to
+  Cloud SQL by dump and restore plus a new `DATABASE_URL`, or run the same
+  images on Cloud Run. Resizing the VM (e2-standard-2 and up) is a stop,
+  a machine-type change and a start.
 
 ---
 

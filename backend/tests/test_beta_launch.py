@@ -42,6 +42,7 @@ from app.models import (
 )
 
 STRONG_PASSWORD = "a-real-admin-passphrase-2026"
+SERVER_DATABASE = "postgresql+psycopg://ctrlai:3f9c1e0a7b5d2c84@db:5432/ctrlai"
 
 
 @pytest.fixture
@@ -231,6 +232,7 @@ def _import_app(**env: str) -> subprocess.CompletedProcess[str]:
         "ANTHROPIC_API_KEY": "",
         "ADMIN_PASSWORD": "",
         "DEPLOYED": "false",
+        "DATABASE_URL": SERVER_DATABASE,
         **env,
     }
     return subprocess.run(
@@ -271,9 +273,21 @@ def test_deployed_settings_refuse_a_default_admin_password(password: str) -> Non
 
 
 def test_a_real_admin_password_is_accepted() -> None:
-    assert Settings(app_env="beta", admin_password=STRONG_PASSWORD).startup_problems() == []
+    settings = Settings(
+        app_env="beta", admin_password=STRONG_PASSWORD, database_url=SERVER_DATABASE
+    )
+    assert settings.startup_problems() == []
     # Blank is fine: the admin was created earlier and the line removed.
-    assert Settings(app_env="beta", admin_password="").startup_problems() == []
+    blank = Settings(app_env="beta", admin_password="", database_url=SERVER_DATABASE)
+    assert blank.startup_problems() == []
+
+
+def test_deployed_settings_refuse_the_development_database_password() -> None:
+    problems = Settings(
+        app_env="beta",
+        database_url="postgresql+psycopg://ctrlai:ctrlai@db:5432/ctrlai",
+    ).startup_problems()
+    assert any("POSTGRES_PASSWORD" in problem for problem in problems)
 
 
 def test_development_keeps_its_development_password() -> None:
