@@ -90,6 +90,14 @@ are invited** — the run log marks it 운영진 검토 필요 at merge.
    `tests/test_sign_in_methods.py` and redundant consent keys in
    `tests/test_auth.py` cleaned.
 
+**Round-2 loop:** backend full suite green with **0 skipped** (every
+PostgreSQL test ran, real container password, `ctrlai_pt_test`);
+frontend **357** vitest (35 files), tsc 0, eslint 0. Browser re-check
+at a true 390px width (same-origin iframe; the window itself would not
+resize) in dark and light: both pages render, no sideways scroll, the
+backup sentence on `/privacy`, future-tense community wording on both.
+`npm run build` not run in the worktree (Turbopack) — run it on main.
+
 ## Self-review notes (for the owner's text review — 운영진 검토 필요)
 
 - Every claim in both documents was re-checked against the code after
