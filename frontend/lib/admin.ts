@@ -262,7 +262,7 @@ export function formatWhenOrNever(iso: string | null): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Claude 모델 목록 (Admin › Claude Models)                             */
+/* AI 모델 목록 (Admin › AI Models)                                     */
 /* ------------------------------------------------------------------ */
 
 /** 누가 고를 수 있는가. */
@@ -293,6 +293,22 @@ export interface AdminChatModel {
   estimated_reply_krw: number | null;
   estimate_basis?: "recent" | "formula";
   estimate_samples?: number;
+  /** "Anthropic (Claude)". */
+  provider_label?: string;
+  /** false: 연결 준비 중 — 공개도 기본도 될 수 없습니다(백엔드가 막습니다). */
+  provider_ready?: boolean;
+}
+
+/** 제공자 한 곳. 화면에 보이는 순서대로 옵니다 — Anthropic이 먼저. */
+export interface ChatProvider {
+  id: string;
+  label: string;
+  /** 연결(어댑터)이 있는지. false면 "연결 준비 중". */
+  ready: boolean;
+}
+
+export function listChatProviders(): Promise<ChatProvider[]> {
+  return request<ChatProvider[]>("/admin/chat-models/providers");
 }
 
 export interface ChatModelChanges {
@@ -307,6 +323,7 @@ export interface ChatModelChanges {
 }
 
 export interface NewChatModel {
+  provider: string;
   model_id: string;
   label: string;
   description: string;
@@ -314,7 +331,7 @@ export interface NewChatModel {
   output_usd_per_mtok: string;
 }
 
-/** Admin › Claude Models › 비용 보정 — 모델별 어림값과 실제 답장. */
+/** Admin › AI Models › 비용 보정 — 모델별 어림값과 실제 답장. */
 export interface ModelCalibration {
   model_id: string;
   label: string;
@@ -350,7 +367,7 @@ export function updateChatModel(id: number, changes: ChatModelChanges): Promise<
 export function createChatModel(input: NewChatModel): Promise<AdminChatModel> {
   return request<AdminChatModel>("/admin/chat-models", {
     method: "POST",
-    body: JSON.stringify({ provider: "anthropic", ...input }),
+    body: JSON.stringify(input),
   });
 }
 

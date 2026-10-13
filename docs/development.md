@@ -213,7 +213,7 @@ The mock streams canned Korean replies and charges the member's wallet as if
 it were the conversation's chosen model (chat-model-choice: Sonnet 5.5 by
 default, Haiku 4.5 if the member picks it), so the ledger and the budget
 behave as they will for real. The model comes from the catalogue in
-Admin › Claude Models; `ANTHROPIC_MODEL` is only the fallback when that
+Admin › AI Models; `ANTHROPIC_MODEL` is only the fallback when that
 catalogue is empty. To see an error path without a key,
 put a marker in a message:
 

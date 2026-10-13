@@ -27,5 +27,10 @@ export default defineConfig({
     globals: true,
     include: ["__tests__/**/*.test.tsx", "__tests__/**/*.test.ts"],
     setupFiles: ["./__tests__/setup.ts"],
+    // Several tests import a whole screen (AppShell, Chat, Builder) inside
+    // the test. Cold, with every file running at once on a busy Windows
+    // machine, that import alone passed the 5 s default (2026-10-14) — a
+    // timeout about the machine, not the code. 15 s still catches a hang.
+    testTimeout: 15_000,
   },
 });

@@ -15,7 +15,7 @@ Rounded **up** to whole won, with a minimum of 1원 for any call that used
 a token: the club pays Anthropic in fractions of a cent, and a member's
 budget must never be charged less than what their use cost.
 
-The prices live in the chat model catalogue (Admin › Claude Models) and
+The prices live in the chat model catalogue (Admin › AI Models) and
 the rate in Admin › System, both in the database
 (`app/models/pricing.py`). Every charge copies the dollar figure and the
 rate onto its `UsageEvent`, so a later change moves nothing already

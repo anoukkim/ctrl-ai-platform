@@ -79,7 +79,6 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
 | `/usage`              | Usage           | The one 동아리 지원 wallet and personal balance, in KRW |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
-| `/issues`             | Report Issue    | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
 | `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
@@ -88,11 +87,10 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
 | `/admin/budget`       | Budget          | Every wallet in a quarter, and spend by provider (what to buy) |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
-| `/admin/claude-models` | Claude Models  | Chat models, their prices, who may pick them, the default |
+| `/admin/ai-models`    | AI Models       | Chat models by provider, their prices, who may pick them, the default (`/admin/claude-models` redirects) |
 | `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
 | `/admin/system`       | System          | Server health and external service status    |
-| `/admin/dev`          | Dev Tools       | Usage simulator; development only            |
 
 `/admin/content` exists in the code but is hidden from the navigation until
 Phases 5/8 fill it — a menu item that always leads to an empty screen is in
@@ -111,7 +109,7 @@ the code keep their existing `ctrl-ai` / `ctrlai` spellings: renaming them
 would break remotes and connection strings for a change nobody can see.
 
 Product names (Chat, Project Builder, Video Generator, CtrlAIApps,
-CtrlAITube, Usage, Profile, Report Issue, Admin) are unchanged, as are all
+CtrlAITube, Usage, Profile, Admin) are unchanged, as are all
 routes.
 
 Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
@@ -258,7 +256,7 @@ Chat is the opening screen and a real conversation with Claude, behind
   1.25 × input price + cache reads × the cache-read price + output × output
   price in dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
   records the model, both token counts, the dollar cost and the rate. Prices
-  are edited with the models in Admin › Claude Models, the rate in Admin ›
+  are edited with the models in Admin › AI Models, the rate in Admin ›
   System; both are audited.
 - **Prompt caching** (prompt-caching). Every request marks the system
   prompt and the conversation so far as cacheable, so each reply re-reads
@@ -274,7 +272,7 @@ Chat is the opening screen and a real conversation with Claude, behind
   replies, "답장 1회 약 N원" becomes the median of its recent replies
   (labelled 최근 실제 기준) and the pre-check prices input at the observed
   ratio × 1.2 — never above one token per character, output still the full
-  maximum. Admin › Claude Models › 비용 보정 shows estimate vs reality per
+  maximum. Admin › AI Models › 비용 보정 shows estimate vs reality per
   model.
 - **Choosing a model** (chat-model-choice). Next to the composer, per
   conversation: each model shows its Korean label, a one-line description
@@ -297,9 +295,11 @@ The interface is **Korean-first, with an English menu**.
 
 **The navigation is English throughout** — the group headings (Create,
 Explore, Account), the item names (Chat, Project Builder, Video Generator,
-CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) and the Admin
-section names (Dashboard, Members, Applications, Quarters, Top-ups, Video
-Models, Audit Log, System, Dev Tools). A screen's own heading matches its
+CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and the Admin section
+names (Dashboard, Members, Applications, Quarters, Top-ups, Budget, Video
+Models, AI Models, Feedback, Deleted Items, Audit Log, System). Feedback
+has no menu item for members: the 의견 보내기 button in the sidebar footer
+is the one way to send a note (admin-and-nav-cleanup, 2026-10-14). A screen's own heading matches its
 menu name, so the two never disagree.
 
 External service names (Claude, Higgsfield, GitHub, YouTube) and technical
@@ -427,7 +427,7 @@ its own screen needs:
 | Admin — Top-ups | member name, username | top-up status |
 | Admin — Audit Log | summary, admin, action, target | action |
 | Admin — Video Models | model name, provider, model id | — |
-| Admin — Claude Models | label, provider, model id | — |
+| Admin — AI Models | label, provider, model id | — |
 
 Filtering currently happens in the browser, because the data is small and
 each screen already holds its list. `SearchBar` only lifts the query out, so

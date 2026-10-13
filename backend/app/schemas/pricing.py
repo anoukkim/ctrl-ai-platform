@@ -1,4 +1,4 @@
-"""Admin › Claude Models (the chat model catalogue) and Admin › System
+"""Admin › AI Models (the chat model catalogue) and Admin › System
 (the exchange rate and the chat limits)."""
 
 from datetime import datetime
@@ -10,7 +10,7 @@ from app.models.pricing import ChatModelVisibility
 
 
 class ChatModelAdminRead(BaseModel):
-    """One catalogue row, as Admin › Claude Models shows it."""
+    """One catalogue row, as Admin › AI Models shows it."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,10 +27,20 @@ class ChatModelAdminRead(BaseModel):
     is_default: bool
     sort_order: int
     updated_at: datetime
+    #: "Anthropic (Claude)"; and False while the provider has no adapter
+    #: (연결 준비 중) — such a row stays closed.
+    provider_label: str = ""
+    provider_ready: bool = True
     #: The same "답장 1회 약 N원" members see in the picker.
     estimated_reply_krw: int | None = None
     estimate_basis: str = "formula"
     estimate_samples: int = 0
+
+
+class ChatProviderRead(BaseModel):
+    id: str
+    label: str
+    ready: bool
 
 
 class ChatModelCreate(BaseModel):
@@ -101,7 +111,7 @@ class ClaudeSettingsRead(BaseModel):
 
 
 class ModelCalibrationRead(BaseModel):
-    """Admin › Claude Models › 비용 보정: estimate vs reality, per model."""
+    """Admin › AI Models › 비용 보정: estimate vs reality, per model."""
 
     model_id: str
     label: str

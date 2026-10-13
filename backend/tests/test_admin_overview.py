@@ -200,11 +200,6 @@ def test_dev_flag_follows_the_environment(client: TestClient, monkeypatch) -> No
     app.dependency_overrides[get_settings] = lambda: Settings(app_env="production")
     try:
         assert client.get("/api/admin/dashboard").json()["is_development"] is False
-        # And the simulator it guards really is gone.
-        simulated = client.post(
-            "/api/admin/simulate-usage", json={"amount_krw": 1000}
-        )
-        assert simulated.status_code == 404
     finally:
         del app.dependency_overrides[get_settings]
 

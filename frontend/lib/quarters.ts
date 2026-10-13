@@ -417,19 +417,6 @@ export function adjustAllocation(
   });
 }
 
-/** 개발 환경에서만 동작합니다. 배포 환경에서는 404를 돌려줍니다. */
-export function simulateUsage(input: {
-  user_id?: number;
-  amount_krw: number;
-  provider?: string;
-  feature?: string;
-}): Promise<UsageEvent> {
-  return request<UsageEvent>("/admin/simulate-usage", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
 /* ------------------------------------------------------------------ */
 /* 관리자 — Budget: 지갑과 제공자별 사용액                               */
 /* ------------------------------------------------------------------ */

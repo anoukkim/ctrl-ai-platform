@@ -169,11 +169,6 @@ def test_admin_cannot_confirm_a_top_up_in_beta(
 # ------------------------------------------------------- dev tools unavailable
 
 
-def test_simulator_is_gone_in_beta(client: TestClient, as_env) -> None:
-    as_env(app_env="beta")
-    assert client.post("/api/admin/simulate-usage", json={"amount_krw": 1000}).status_code == 404
-
-
 def test_dashboard_tells_the_frontend_to_hide_dev_tools_in_beta(
     client: TestClient, as_env
 ) -> None:

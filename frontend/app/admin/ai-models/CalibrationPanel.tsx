@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Admin › Claude Models › 비용 보정 (cost-calibration).
+ * Admin › AI Models › 비용 보정 (cost-calibration).
  *
  * 보내기 전에는 어림만 할 수 있습니다 — 입력은 한 글자에 한 토큰(일부러
  * 넉넉하게), "답장 1회 약 N원"은 입력 3,000 · 출력 800 토큰. 보낸 뒤에는

@@ -53,7 +53,6 @@ const NAV_NAMES = [
   "CtrlAITube",
   "Usage",
   "Profile",
-  "Report Issue",
 ];
 
 describe("collapsible sidebar", () => {

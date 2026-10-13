@@ -144,14 +144,14 @@ the same commit that adds it.
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/quarters-with-stats` | `require_admin` | Read-only; every quarter with its figures |
 | `GET /api/admin/claude-pricing` | `require_admin` | Claude prices, exchange rate, chat limits |
-| `GET /api/admin/chat-models` | `require_admin` | The Claude model catalogue |
+| `GET /api/admin/chat-models` | `require_admin` | The AI model catalogue (Admin › AI Models) |
+| `GET /api/admin/chat-models/providers` | `require_admin` | Providers in display order; `ready` false = 연결 준비 중, its models stay closed |
 | `POST /api/admin/chat-models` | `require_admin` | Audited |
 | `PATCH /api/admin/chat-models/{id}` | `require_admin` | Audited (prices incl. cache-read price) |
 | `GET /api/admin/chat-models/calibration` | `require_admin` | Cost calibration: estimates vs real replies, read-only |
 | `POST /api/admin/claude-pricing/exchange-rate` | `require_admin` | A new rate row; history kept; audited |
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |
-| `POST /api/admin/simulate-usage` | `require_admin` | 404 outside development |
 | `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
 | `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
 | `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |

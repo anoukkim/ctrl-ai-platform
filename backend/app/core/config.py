@@ -160,7 +160,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     # Only the fallback when the chat model catalogue is empty
     # (chat-model-choice). Members pick the model per conversation from the
-    # catalogue in Admin › Claude Models; with any row there, this decides
+    # catalogue in Admin › AI Models; with any row there, this decides
     # nothing — so it is not required to start.
     anthropic_model: str = ""
     hf_credentials: str = ""

@@ -9,7 +9,7 @@
  *
  * 언어 규칙: 메뉴는 전부 영어입니다 — 묶음 제목(Create, Explore,
  * Account)과 화면 이름(Chat, Project Builder, Video Generator,
- * CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) 모두.
+ * CtrlAIApps, CtrlAITube, Usage, Profile, Admin) 모두. 의견은 아래쪽의 '의견 보내기'로 보냅니다.
  * 메뉴 밖에서 회원이 읽는 문구는 모두 한국어입니다.
  *
  * 관리 묶음은 따로 없습니다. Admin은 제목이 아니라 눌러서 펼치는 항목
@@ -17,7 +17,6 @@
  */
 
 import {
-  CircleAlert,
   CircleHelp,
   Clapperboard,
   Code2,
@@ -109,7 +108,6 @@ const PERSONAL_GROUP: NavGroup = {
   items: [
     { href: "/usage", label: "Usage", Icon: Gauge },
     { href: "/profile", label: "Profile", Icon: User },
-    { href: "/issues", label: "Report Issue", Icon: CircleAlert },
   ],
 };
 

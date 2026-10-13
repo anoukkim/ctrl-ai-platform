@@ -1563,3 +1563,19 @@ log, and merge only on the owner's OK, with `--no-ff`, resolving
 conflicts with what merged meanwhile, then re-run step 4 on main and
 stop the preview. A reported problem is fixed on the same branch, steps
 4–6 re-run, the preview refreshed and only the changed checks given.
+
+## deepseek-research — full spec (merged 2026-10-14)
+
+Branch `docs-deepseek`. Research only — nothing is built. Added
+2026-10-08 at position 3; can run any time. Its findings go to
+`docs/research/` and into **more-chat-providers** (*After the beta*).
+Saved exactly as written by the developer.
+
+> ITEM 3 — research only (branch docs-deepseek), can run any time
+> Can we add DeepSeek to the chat model catalogue? Using current docs, report: DeepSeek's own API (pricing, OpenAI-compatible API, streaming, file/image input, where data is stored and the privacy terms, billing and receipts for Concur), and alternatives that host DeepSeek models elsewhere (via OpenRouter with a provider/region choice, or US-hosted providers), with price differences. Recommend whether and how, noting that our company may restrict sending data to servers in China. Write it into docs/research/ and add a "more-chat-providers" note in BACKLOG. Don't build.
+
+Findings (2026-10-08): [`../research/deepseek-research.md`](../research/deepseek-research.md);
+summary under **more-chat-providers** in [`../BACKLOG.md`](../BACKLOG.md).
+Merged with the owner's approval on 2026-10-14, into
+`feat-admin-and-nav-cleanup` (`30de894`), which also seeded the closed
+catalogue row (연결 준비 중) from the research's prices.
