@@ -81,7 +81,7 @@ export default function TermsPage() {
         </li>
         <li>
           탈퇴할 때 게시물을 내릴지 남길지 선택할 수 있습니다. 남기면
-          "탈퇴 회원" 표기와 함께 유지됩니다.
+          ‘탈퇴 회원’ 표기와 함께 유지됩니다.
         </li>
       </ul>
 
@@ -93,7 +93,7 @@ export default function TermsPage() {
           그대로 쓰지 마세요.
         </li>
         <li>
-          서비스는 "있는 그대로" 제공됩니다. 동아리 운영진은 베타 서비스
+          서비스는 ‘있는 그대로’ 제공됩니다. 동아리 운영진은 베타 서비스
           이용으로 생긴 손해에 대해 고의·중과실이 없는 한 책임지지
           않습니다.
         </li>
@@ -108,7 +108,7 @@ export default function TermsPage() {
       <h2>8. 문의</h2>
       <p>
         무엇이든 <strong>ctrlai.platform@gmail.com</strong>으로 — 사이트
-        안에서는 사이드바의 '의견 보내기'가 가장 빠릅니다.
+        안에서는 사이드바의 ‘의견 보내기’가 가장 빠릅니다.
       </p>
     </LegalPage>
   );
