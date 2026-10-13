@@ -302,12 +302,18 @@ def confirm_top_up(
     payload: TopUpConfirm,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
 ) -> PersonalTopUp:
     """Manual deposit confirmation — no payment provider is involved.
 
     The balance only moves on confirmation, so a request alone never gives
-    a member spendable money.
+    a member spendable money. In the beta nothing may be confirmed (no
+    real money moves); rejecting stays possible.
     """
+    if payload.confirm and not settings.top_ups_enabled:
+        raise HTTPException(
+            status_code=403, detail="베타 기간에는 개인 충전을 확인할 수 없습니다."
+        )
     top_up = db.get(PersonalTopUp, top_up_id)
     if top_up is None:
         raise HTTPException(status_code=404, detail="충전 신청을 찾을 수 없습니다.")

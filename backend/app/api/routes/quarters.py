@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
     ApplicationStatus,
@@ -39,6 +40,9 @@ from app.services.wallet import get_or_create_balance
 
 
 router = APIRouter(prefix="/quarters", tags=["quarters"])
+
+#: Why personal money cannot be added or switched on (the beta).
+TOP_UPS_OFF = "베타 기간에는 개인 충전을 쓸 수 없습니다. 동아리 지원금으로 이용해 주세요."
 
 #: Application states that block a second application for the same quarter.
 LIVE_APPLICATION_STATES = {ApplicationStatus.SUBMITTED, ApplicationStatus.APPROVED}
@@ -214,8 +218,11 @@ def update_wallet(
     payload: PersonalBalanceUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> PersonalBalance:
     """Personal money is never spent unless the member opts in here."""
+    if payload.overage_enabled and not settings.top_ups_enabled:
+        raise HTTPException(status_code=403, detail=TOP_UPS_OFF)
     balance = _wallet(db, user)
     balance.overage_enabled = payload.overage_enabled
     db.commit()
@@ -233,12 +240,16 @@ def request_top_up(
     payload: TopUpCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> PersonalTopUp:
     """Records the request only.
 
     No payment provider is called. An admin confirms the deposit, and only
-    then does the balance move.
+    then does the balance move. Refused in the beta, where no real money
+    moves (prep-beta-launch, point 2).
     """
+    if not settings.top_ups_enabled:
+        raise HTTPException(status_code=403, detail=TOP_UPS_OFF)
     top_up = PersonalTopUp(
         user_id=user.id,
         amount_krw=payload.amount_krw,
