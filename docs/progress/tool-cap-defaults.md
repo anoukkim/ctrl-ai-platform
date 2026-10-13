@@ -37,10 +37,6 @@ model.
    chat-plus-tools specs in done-specs; `docs/api-distribution.md`
    numbers updated.
 
-## Status
-
-(filled at the end of the loop)
-
 ## Status — loop results
 
 - Branch from main `263a6ec`; merged main again after docs-cleanup landed
