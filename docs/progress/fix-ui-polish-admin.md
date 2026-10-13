@@ -25,9 +25,11 @@ same loop). Branch `fix-ui-polish-admin`.
    (icon + label, same size, spacing and active state as Chat); the
    three-across compact layout and its styles and token are removed; the
    collapsed rail shows them like every other icon.
-4. **Sidebar width** — ✅ 248px → 228px (`--sidebar-width`); items, the
-   tagline and the Admin sub-items stay on one line (checked in the
-   browser, see screenshots); collapsed rail (68px) and mobile unchanged.
+4. **Sidebar width** — ✅ 248px → **230px** (`--sidebar-width`). At 228px
+   the tagline was cut by 6px (measured), so: 230px, the brand block's side
+   padding 8→6px and the tagline 11.5px — it now fits with ~8px to spare.
+   Every item and Admin sub-item stays on one line (automated check);
+   collapsed rail (68px) and the phone menu unchanged.
 5. **Manage group** (owner decision 2026-10-14) — ✅ order Create, Explore,
    Manage, Account; "Manage" heading for admins only, same heading style
    and spacing, holding the expanding Admin item (open/closed still
@@ -59,8 +61,53 @@ same loop). Branch `fix-ui-polish-admin`.
      Feedback, Deleted Items) no longer render an empty status line.
    - AppShell's comments still described "no Manage group", nine Admin
      sections and top-up badges — updated.
-   - (browser sweep findings are appended below after the screenshot pass)
+   - **Admin › Quarters scrolled sideways at 1280px and Budget at 390px**:
+     the page's `.sections` grid used an `auto` track, which sizes to the
+     widest child's min-content (the quarter table, the stat cards) —
+     now `minmax(0, 1fr)`, so tables scroll inside their own box.
+   - **Account area was too cramped for the 관리자 badge**: with avatar,
+     name and four icon buttons on one line the name ellipsised to nothing
+     and the badge read "관리". The account area is now two rows — avatar,
+     name, 관리자 badge, handle; then 개인정보 · 약관 (from
+     privacy-and-terms) on the left and the four icon buttons on the right
+     — with a divider above. Collapsed rail: avatar, then the buttons in a
+     column; the legal links stay hidden there (privacy's test still passes).
+   - **Admin › AI Models hid its 설정 column past the table edge at
+     1280px**: the three prices sat on one non-wrapping line, and the long
+     `deepseek/deepseek-v4.1-flash` id could not break. Cache-read price
+     moved to its own line; a host/model id may break after the slash. Both
+     tables now fit at 1280 and 1920 (measured).
+   - **Admin › Quarters hid 사용률 and the row actions (신청 열기) past the
+     table edge at 1280px** (143px): each date range now shows on two
+     lines; the table fits.
+   - **Invite-code form and + 모델 추가 form sat flush against their
+     card's edge**: the slim in-table editor padding (`.modelEditor`) beat
+     `.card`; the standalone card variant now gets the card padding.
+   - **Leftover personal-money wording** while top-ups are off: Budget's
+     note about 개인 잔액 now appears only when top-ups are on; Member
+     detail's 개인 잔액 section shows only when top-ups are on or that
+     member actually has personal money or top-up history (money to settle
+     is never hidden).
 
-## Status
+## Status — loop results
 
-(filled at the end of the loop)
+- Merged `main` (privacy-and-terms, `0cdcee8`) mid-run; its sidebar
+  footer links are inside the reworked account area and its tests pass.
+- Frontend: **360 vitest / 35 files**, tsc 0, eslint 0. Backend: full
+  suite green with the PostgreSQL tests actually running (dedicated
+  `ctrlai_ui_test`; `-rs` shows no skips). `npm run build` not run in the
+  worktree (Turbopack refuses here) — run it on main at merge.
+- Browser: preview on 8270/3270 in **beta mode** (as on ctrlai.my — the
+  banner is one of the two 의견 보내기 entry points), Playwright driving
+  Chrome, both themes at 1280 and 390px. An automated geometry pass checks
+  every Admin page (incl. member detail), the member pages, /privacy and
+  /terms for sideways scroll, every search input for text under its icon,
+  the sidebar for wrapped/cut items, tagline and badge, and every dialog
+  (feedback from the sidebar and from the banner, quarter creation, invite
+  code, default model, chat limits, withdrawal) for content outside its
+  padding and portal placement — **0 findings** on the final run; members
+  never see Manage, Admin or the badge (checked).
+- Screenshots: 104 jpgs (5.1 MB) in `docs/progress/screens/fix-ui-polish-admin/`
+  — `admin-<page>-<theme>-<width>`, `sidebar-{admin,member}-{expanded,collapsed,menu}-…`,
+  `dialog-<name>-<theme>-<width>`, `public-{privacy,terms}-…`,
+  `page-{apps,tube,builder,video}-dark-…`.
