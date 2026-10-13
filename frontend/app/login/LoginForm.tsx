@@ -83,7 +83,7 @@ export default function LoginForm({ mode = "auto" }: { mode?: "auto" | "password
             {mode === "password"
               ? "관리자 비상 로그인입니다. 회원은 Google로 로그인해 주세요."
               : googleFirst
-                ? "Google 계정으로 들어옵니다. 처음이면 다음 화면에서 아이디를 정해요."
+                ? "Google 계정으로 로그인해요. 처음이면 다음 화면에서 아이디를 정해요."
                 : "아이디와 비밀번호를 입력해 주세요."}
           </p>
         </div>
