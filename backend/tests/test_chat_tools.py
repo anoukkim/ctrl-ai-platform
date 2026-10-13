@@ -148,9 +148,9 @@ def test_searches_are_charged_at_the_catalogue_price(
     events = events_of(send(client, conversation, "서울 인구를 검색해 줘").text)
 
     statuses = [data for event, data in events if event == "tool"]
-    assert statuses == [
-        {"kind": "web_search", "status": "running"},
-        {"kind": "web_search", "status": "done"},
+    assert [(s["kind"], s["status"]) for s in statuses] == [
+        ("web_search", "running"),
+        ("web_search", "done"),
     ]
 
     event = db_session.scalars(select(UsageEvent)).one()
@@ -219,15 +219,16 @@ def test_the_precheck_adds_max_uses_searches(
     assert ok.status_code == 200
 
 
-def test_the_reply_cap_covers_tool_fees(
+def test_a_tool_whose_worst_case_reaches_the_cap_is_refused_free(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
     open_tools(db_session)
     conversation = new_conversation(client)
     turn_on(client, conversation, use_web_search=True)
 
-    # A cap just above the 3-search worst case: with the tool on, nothing
-    # is left for output → refused free, naming the tools.
+    # A cap just above the 3-search fee: the result-token reserve pushes
+    # past it, so nothing is left for output → refused free, naming the
+    # tool and the way out (turn it off, or the admin raises the cap).
     db_session.add(
         ChatLimits(
             reply_cap_krw=search_fee(db_session, config, WEB_SEARCH_MAX_USES) + 1,
@@ -241,8 +242,50 @@ def test_the_reply_cap_covers_tool_fees(
         f"/api/chat/conversations/{conversation}/messages", json={"content": "검색해 줘"}
     )
     assert refused.status_code == 400
-    assert "도구를 끄거나" in refused.json()["detail"]
+    assert "웹 검색" in refused.json()["detail"]
+    assert "도구를 끄고" in refused.json()["detail"]
+    assert "1회 비용 한도" in refused.json()["detail"]
     assert db_session.scalar(select(UsageEvent)) is None
+
+
+def test_fetch_is_refused_at_the_default_cap(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    """The honest consequence of the owner's rule: 2 × 20,000 result
+    tokens cannot fit a 100원 cap, so 페이지 읽기 refuses until the admin
+    raises the 1회 비용 한도 (≈250원 on Sonnet)."""
+    open_tools(db_session)
+    conversation = new_conversation(client)
+    turn_on(client, conversation, use_web_fetch=True)
+
+    refused = client.post(
+        f"/api/chat/conversations/{conversation}/messages",
+        json={"content": "https://example.com/guide 를 요약해 줘"},
+    )
+    assert refused.status_code == 400
+    assert "페이지 읽기" in refused.json()["detail"]
+    assert db_session.scalar(select(UsageEvent)) is None
+
+
+def test_a_tooled_replys_charge_never_exceeds_the_cap(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    """The final charge — tokens + result tokens + fees — stays inside
+    the cap, because the cap reserved every enabled tool's worst case."""
+    open_tools(db_session)
+    conversation = new_conversation(client)
+    turn_on(client, conversation, use_web_search=True)
+    db_session.add(ChatLimits(reply_cap_krw=150, long_history_tokens=8000, daily_cap_krw=0))
+    db_session.commit()
+
+    response = client.post(
+        f"/api/chat/conversations/{conversation}/messages",
+        json={"content": "서울 인구를 검색해 줘"},
+    )
+    assert response.status_code == 200
+    event = db_session.scalars(select(UsageEvent)).one()
+    assert (event.web_search_count or 0) == 2  # the tool really ran
+    assert event.charged_krw <= 150
 
 
 # ------------------------------------------------- refusals and errors
@@ -269,7 +312,7 @@ def test_a_tool_error_shows_korean_and_charges_only_tokens(
     events = events_of(send(client, conversation, "검색 오류 상황을 보여 줘").text)
 
     statuses = [data for event, data in events if event == "tool"]
-    assert statuses[-1] == {"kind": "web_search", "status": "error"}
+    assert (statuses[-1]["kind"], statuses[-1]["status"]) == ("web_search", "error")
     done = one(events, "done")
     assert "검색 없이" in done["message"]["content"]
 
@@ -287,6 +330,9 @@ def test_the_mock_fetches_a_page_already_in_the_conversation(
     open_tools(db_session)
     conversation = new_conversation(client)
     turn_on(client, conversation, use_web_fetch=True)
+    # The default 100원 cap refuses fetch (tested above); raise it here.
+    db_session.add(ChatLimits(reply_cap_krw=500, long_history_tokens=8000, daily_cap_krw=0))
+    db_session.commit()
 
     events = events_of(
         send(client, conversation, "https://example.com/guide 를 요약해 줘").text
@@ -298,6 +344,7 @@ def test_the_mock_fetches_a_page_already_in_the_conversation(
     assert done["message"]["sources"][0]["url"] == "https://example.com/guide"
     event = db_session.scalars(select(UsageEvent)).one()
     assert (event.tool_fee_krw or 0) == 0  # fetches carry no per-call fee
+    assert event.web_fetch_count == 1  # but the ledger counts them
 
 
 def test_the_mock_runs_code_on_anthropics_side_only(
@@ -313,3 +360,72 @@ def test_the_mock_runs_code_on_anthropics_side_only(
     assert statuses[0]["kind"] == "code_execution"
     done = one(events, "done")
     assert "5050" in done["message"]["content"]
+
+
+# ------------------------------------------------- round 2: live cost, URLs, cache
+
+
+def test_a_finished_tool_use_carries_what_it_added(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    """The done tool event carries added_krw = result tokens + fees, so
+    the running 약 N원 jumps the moment the search lands."""
+    open_tools(db_session)
+    conversation = new_conversation(client)
+    turn_on(client, conversation, use_web_search=True)
+
+    events = events_of(send(client, conversation, "서울 인구를 검색해 줘").text)
+    done_tool = [d for e, d in events if e == "tool" and d["status"] == "done"]
+    assert len(done_tool) == 1
+
+    price = price_for(db_session, default_model(db_session, config), cache_ttl=config.cache_ttl)
+    expected = price.krw(800, 0) + search_fee(db_session, config, 2)
+    assert done_tool[0]["added_krw"] == expected
+    running = [d for e, d in events if e == "tool" and d["status"] == "running"]
+    assert running[0]["added_krw"] == 0
+
+
+def test_a_javascript_source_url_is_dropped_at_save(
+    client: TestClient, db_session: Session, budgeted, config, monkeypatch
+) -> None:
+    from app.services import claude_provider
+
+    monkeypatch.setattr(
+        claude_provider,
+        "_MOCK_SEARCH_SOURCES",
+        (
+            ("나쁜 링크", "javascript:alert(1)"),
+            ("좋은 링크", "https://kosis.kr/stat"),
+        ),
+    )
+    open_tools(db_session)
+    conversation = new_conversation(client)
+    turn_on(client, conversation, use_web_search=True)
+
+    events = events_of(send(client, conversation, "통계를 검색해 줘").text)
+    sources = one(events, "done")["message"]["sources"]
+    assert [s["url"] for s in sources] == ["https://kosis.kr/stat"]
+
+    detail = client.get(f"/api/chat/conversations/{conversation}").json()
+    assert [s["url"] for s in detail["messages"][-1]["sources"]] == ["https://kosis.kr/stat"]
+
+
+def test_toggling_a_tool_breaks_the_mock_prompt_cache(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    """The tool list sits above the system prompt in the cache hierarchy,
+    so flipping a toggle invalidates the cached prefix — the mock
+    simulates it, and the member pays a cache write again."""
+    open_tools(db_session)
+    conversation = new_conversation(client)
+    turn_on(client, conversation, use_web_search=True)
+
+    send(client, conversation, "안녕하세요")
+    send(client, conversation, "반가워요")
+    events = list(db_session.scalars(select(UsageEvent).order_by(UsageEvent.id)))
+    assert (events[1].cache_read_tokens or 0) > 0  # same tool list: a cache hit
+
+    turn_on(client, conversation, use_code_execution=True)
+    send(client, conversation, "고마워요")
+    events = list(db_session.scalars(select(UsageEvent).order_by(UsageEvent.id)))
+    assert (events[2].cache_read_tokens or 0) == 0  # the toggle broke the prefix

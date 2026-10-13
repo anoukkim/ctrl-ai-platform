@@ -74,15 +74,19 @@ code execution never on our server.
 
 ## Decisions
 
-1. **The cap sets aside fees only** (`chat_tools.cap_extra_krw`): result
-   tokens arrive as *input* mid-request and cannot be bounded by
-   `max_tokens`, exactly like thinking tokens — they settle at real
-   usage, and the next turn's input-over-cap refusal catches a
-   conversation the results made too dear. Subtracting the full fetch
-   cap would have made 웹 페이지 읽기 unusable under the default 100원
-   cap (found in the browser check, pinned by a test). The **wallet**
-   pre-check still adds the full worst case (3 searches + 2×20,000
-   fetch tokens).
+1. **The cap reserves every enabled tool's full worst case**
+   (`chat_tools.cap_extra_krw`, review round 2 — replaces round 1's
+   fees-only design): the owner's rule says the cap includes tool fees
+   AND result tokens, and result tokens land as input outside
+   `max_tokens`' reach, so the only honest enforcement is an up-front
+   reserve — 3 × fee + 3 × 2,000 result tokens for search, 2 × 20,000
+   tokens for fetch, 1,000 tokens for code output (documented constants).
+   A tool whose worst case alone reaches the cap is **refused free**,
+   naming the tool and saying the admin can raise the 1회 비용 한도 —
+   deliberately, 웹 페이지 읽기 is unusable at the default 100원 cap
+   (≈250원 covers it on Sonnet). Tool results are billed once, inside
+   this reply; they are **not** persisted or re-sent on later turns. The
+   **wallet** pre-check keeps its own full worst case.
 2. Tool toggles appear once the conversation exists (after the first
    message) — the toggle is the conversation's, and a brand-new chat has
    no row yet. Turning a tool **off** never needs the model's permission.
@@ -90,3 +94,32 @@ code execution never on our server.
    at the schema, not a string scan.
 4. The mock's triggers: 검색 (two billed searches), a URL (fetch), 실행/
    계산 (code output), 검색 오류 (a tool error charged tokens only).
+
+## Review round 2 (coordinator, enforcing the owner's cap rule)
+
+1. The cap now reserves each enabled tool's **full worst case** (fees +
+   result-token reserves; constants documented in `chat_tools.py`); a
+   tool over the cap is refused free, naming the tool and that the admin
+   can raise the 1회 비용 한도. Pinned by tests: a tooled reply's final
+   charge ≤ the cap; 페이지 읽기 refused at the default 100원 cap.
+2. The false "results are re-billed next turn" narrative removed from
+   `chat_tools.py`, `claude_provider.py`, the toggle copy, deployment.md
+   and this file — results are billed once, inside the reply; they are
+   never persisted or re-sent.
+3. The running 약 N원 jumps when a tool use completes: the done `tool`
+   SSE event carries `added_krw` (result tokens priced + fees); backend
+   and vitest tests pin it. The ledger's receipt still settles.
+4. Source URLs are filtered to http/https **at save** (`_safe_sources`);
+   a doctored `javascript:` source is dropped (tested).
+5. `usage_events.web_fetch_count` added — **migration `d9e2f7a4c3b8`
+   amended in place** (unmerged, so allowed; any scratch DB that ran the
+   old version must be recreated). The mock prompt cache keys on the
+   tool list, so toggling a tool breaks the cached prefix in test mode
+   (tested); the real adapter handles `web_fetch_tool_result.content`
+   being a single object, emits ToolStatus "error" for error blocks and
+   counts fetches; duplicate source URLs no longer collide as React keys.
+6. Browser re-check (preview 8230/3230, fresh DB on the amended
+   migration): 페이지 읽기 at the default cap refused with the exact
+   Korean message; after the admin raised the cap to 500원 the fetch ran
+   (source "1. example.com", receipt 합계 10원, no 검색 line); the
+   toggle dialog shows the corrected cost copy.

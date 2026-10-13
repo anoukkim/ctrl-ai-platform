@@ -200,19 +200,19 @@ export function toolCostEffect(kind: ToolKind, searchKrw: number | null): string
   if (kind === "web_search") {
     return [
       `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 3회).`,
-      "검색 결과만큼 입력 토큰 비용도 늘고, 결과는 대화에 남아 다음 답장에도 비용이 들어요.",
+      "검색 결과 토큰 비용까지 이 답장의 1회 비용 한도 안에서 함께 계산돼요.",
       "검색어가 검색 서비스로 전달돼요.",
     ];
   }
   if (kind === "web_fetch") {
     return [
       "대화에 있는 주소의 페이지를 읽어요 (한 답장에 최대 2회, 페이지당 최대 20,000토큰).",
-      "읽은 분량만큼 입력 토큰 비용이 들고, 내용은 대화에 남아 다음 답장에도 비용이 들어요.",
+      "읽은 분량의 토큰 비용이 이 답장에 들어요 — 1회 비용 한도가 낮으면 이 도구를 켠 채 보낼 수 없어요.",
     ];
   }
   return [
     "코드는 Anthropic 서버에서만 실행돼요 — CTRL+AI 서버에서는 아무것도 실행되지 않아요.",
-    "실행 결과만큼 토큰 비용이 들어요.",
+    "실행 결과만큼 이 답장의 토큰 비용이 들어요.",
   ];
 }
 
@@ -553,12 +553,13 @@ export default function ChatWorkspace() {
     // 다시 그리지 않도록 몇 번에 한 번만 반영합니다.
     let estimate: StreamEstimate | null = null;
     let streamedChars = 0;
+    let toolKrw = 0; // 끝난 도구 사용이 더한 비용 — 약 N원이 그만큼 뜁니다.
     let lastPaintAt = 0;
     // 저장된 내 메시지의 id — 중지/끊김 뒤 저장된 답장을 찾는 기준.
     let savedUserId: number | null = null;
     const paintEstimate = () => {
       if (estimate === null) return;
-      const krw = runningEstimateKrw(estimate, streamedChars);
+      const krw = runningEstimateKrw(estimate, streamedChars) + toolKrw;
       patchReply((row) => (row.estimateKrw === krw ? row : { ...row, estimateKrw: krw }));
     };
 
@@ -581,9 +582,13 @@ export default function ChatWorkspace() {
               paintEstimate();
             }
           },
-          onTool: (kind, status) => {
+          onTool: (kind, status, addedKrw) => {
             // "검색 중…" 줄. 끝나면 지우고, 실패하면 실패했다고 남깁니다.
             setToolStatus(status === "done" ? null : { kind, status });
+            if (addedKrw) {
+              toolKrw += addedKrw;
+              paintEstimate();
+            }
           },
         },
         controller.signal,
@@ -959,7 +964,7 @@ export default function ChatWorkspace() {
                       (message.sources?.length ?? 0) > 0 && (
                         <ol className={styles.sources} data-testid="sources">
                           {message.sources!.map((source, order) => (
-                            <li key={source.url}>
+                            <li key={`${order}-${source.url}`}>
                               <a
                                 href={source.url}
                                 target="_blank"
