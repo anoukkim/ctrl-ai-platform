@@ -34,6 +34,26 @@ Spec: BACKLOG › "live-cost-display — full spec". Branch
    reload; a failed call shows no charge. Backend tests for the start
    estimate, the done usage/wallet fields and the detail receipts.
 
-## Status
+## Status — loop results
 
-(filled at the end of the loop)
+- Backend: full suite green via the throwaway PG (ctrlai_lcd_test on
+  55433, real container password — PG row-lock tests ran, no skips) with
+  DATABASE_URL on a dead port. 5 new tests in test_live_cost.py.
+- Frontend: 338 vitest green (33 files; 7 new in live-cost.test.tsx —
+  one pre-existing SSE-shape assertion extended for the new null fields),
+  tsc 0, eslint 0. `npm run build` not run here (worktree); run on main
+  at merge time.
+- Browser (preview 8220/3220, practice DB ctrlai_preview_lcd, approved
+  80,000원 wallet): while the mock streamed, 약 9원 → 약 11원 beside the
+  bubble; on finish the receipt replaced it (입력 1,836토큰 · 출력
+  150토큰 · 캐시 읽기 0토큰 · 합계 9원); the sidebar quarter card and
+  남은 지원금 went 80,000원 → 79,991원 → 79,986원 **without a reload**;
+  the second reply's receipt showed 캐시 읽기 1,836토큰 at 합계 5원 —
+  the cache visibly saving money. Receipts still there after a reload
+  (detail enrichment), light and dark themes both checked; preview
+  servers stopped, helper scripts deleted.
+- Design note: a **stopped** reply cannot receive the done event (the
+  member cut the connection), so the screen refetches the conversation
+  ~0.9s later and the persisted receipt fills in; if the member has
+  already moved to another conversation nothing is overwritten
+  (activeIdRef guard).
