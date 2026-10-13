@@ -187,8 +187,8 @@ export default function TopUpAdmin() {
       {!top_ups_enabled && (
         <div className="card">
           <p className="small muted">
-            베타 기간에는 개인 충전을 받지 않습니다. 회원은 새로 신청할 수 없고, 남아 있는
-            신청은 거절만 할 수 있습니다.
+            지금은 개인 충전을 받지 않습니다 (PERSONAL_TOPUP_ENABLED 꺼짐). 회원은 새로
+            신청할 수 없고, 남아 있는 신청은 거절만 할 수 있습니다.
           </p>
         </div>
       )}

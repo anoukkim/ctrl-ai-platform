@@ -45,3 +45,20 @@ drops data.
 ## Status
 
 (filled at the end of the loop)
+
+## Status — loop results
+
+- Backend: full suite green (throwaway settings; PostgreSQL tests on
+  ctrlai_test@55433). Frontend: 326 vitest, tsc 0, eslint 0, build ok.
+- Browser (localhost:3100, dev seed): Usage shows only 동아리 지원 (no
+  개인 잔액, no 개인 충전 anywhere); Admin menu/tabs show eleven sections
+  without Top-ups; the dashboard has no 충전 신청 card; POST
+  /api/quarters/me/top-ups answers 403 "지금은 개인 충전을 쓸 수
+  없습니다…".
+- Review round 1 (independent subagent): every spec point met; 1 medium +
+  2 low fixed — Profile's 쓰는-순서 문장 now appears only while top-ups
+  are on (with a test), the hidden Top-ups admin screen's banner no
+  longer says 베타, deployment.md stops crediting APP_ENV=beta with
+  turning top-ups off. Two INFO notes accepted and documented (pending
+  top-ups are reachable at /admin/topups by URL only; the Usage heading
+  guard is cosmetic).
