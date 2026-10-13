@@ -593,6 +593,14 @@ def anonymise(db: Session, row: AccountWithdrawal, now: datetime | None = None) 
     # personal data, and it would bind that Google account to this former
     # account for good, so the person could never join again.
     db.execute(delete(ConnectedAccount).where(ConnectedAccount.user_id == member.id))
+    # Files attached in Chat (chat-plus-files) may hold anything the member
+    # uploaded — personal documents, photos. The conversations stay as the
+    # member left them; the files do not.
+    from app.core.config import get_settings
+    from app.services import attachments as attachments_service
+    from app.services.storage import get_storage
+
+    attachments_service.delete_for_user(db, get_storage(get_settings()), member.id)
     row.anonymised_at = now
 
     audit.record(

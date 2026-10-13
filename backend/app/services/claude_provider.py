@@ -97,9 +97,11 @@ class ClaudeError(Exception):
 @dataclass(frozen=True)
 class ChatRequest:
     system: str
-    #: [{"role": "user" | "assistant", "content": str}, ...], alternating,
-    #: starting and ending with the member.
-    messages: list[dict[str, str]]
+    #: [{"role": "user" | "assistant", "content": str | [block, ...]}, ...],
+    #: alternating, starting and ending with the member. A message with
+    #: attachments (chat-plus-files) carries content blocks: image and
+    #: document blocks with the bytes themselves, then its text.
+    messages: list[dict]
     max_tokens: int
     #: The provider's model id, from the chat model catalogue. Empty means
     #: the provider's own `model_id` (the `ANTHROPIC_MODEL` fallback).
@@ -499,10 +501,20 @@ class MockPromptCache:
         return digest.hexdigest()
 
     def bill(
-        self, model: str, ttl: str | None, blocks: list[str], now: float | None = None
+        self,
+        model: str,
+        ttl: str | None,
+        blocks: list[str],
+        now: float | None = None,
+        sizes: list[int] | None = None,
     ) -> tuple[int, int, int]:
-        """(uncached input, cache write, cache read) for one request."""
-        sizes = [estimate_tokens(block) for block in blocks]
+        """(uncached input, cache write, cache read) for one request.
+
+        `sizes`, when given, are the blocks' token counts (attachments are
+        not one token per character); otherwise each block's length.
+        """
+        if sizes is None:
+            sizes = [estimate_tokens(block) for block in blocks]
         total = sum(sizes)
         if ttl is None or not blocks:
             return total, 0, 0
@@ -532,6 +544,36 @@ class MockPromptCache:
 MOCK_PROMPT_CACHE = MockPromptCache()
 
 
+def _text_of(content: str | list[dict]) -> str:
+    """A message's text, whether it is plain text or content blocks."""
+    if isinstance(content, str):
+        return content
+    return "\n\n".join(block.get("text", "") for block in content if block.get("type") == "text")
+
+
+def _cache_key(content: str | list[dict]) -> str:
+    if isinstance(content, str):
+        return content
+    import json
+
+    return json.dumps(content, sort_keys=True, ensure_ascii=False)
+
+
+def _files_reply(files: list[dict]) -> str:
+    """The mock's answer to a message with attachments: what arrived."""
+    images = sum(1 for block in files if block.get("type") == "image")
+    documents = len(files) - images
+    parts = []
+    if images:
+        parts.append(f"사진 {images}장")
+    if documents:
+        parts.append(f"문서 {documents}개")
+    return (
+        f"첨부한 파일({', '.join(parts)})을 받았어요. 테스트 모드라 내용을 읽지는 않았지만, "
+        "실제 Claude는 파일을 보고 답해요."
+    )
+
+
 class MockClaudeProvider:
     model_id = "mock"
 
@@ -539,20 +581,32 @@ class MockClaudeProvider:
         self.delay = max(0, delay_ms) / 1000
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]:
-        whole = request.messages[-1]["content"] if request.messages else ""
+        newest = request.messages[-1]["content"] if request.messages else ""
+        whole = _text_of(newest)
         # An unanswered earlier message may have been joined to this one
         # (see `chat.build_context`); the mock answers only the newest part.
         last = whole.rsplit("\n\n", 1)[-1]
+        files = (
+            [block for block in newest if block.get("type") != "text"]
+            if isinstance(newest, list)
+            else []
+        )
 
         failure = MOCK_ERROR.search(last)
         if failure:
             kind = failure.group(1)
             raise ClaudeError(kind if kind in MEMBER_MESSAGE else ProviderErrorKind.UNKNOWN, "mock")
 
+        # Attachments are billed from the same formulas as the estimate
+        # (chat-plus-files), so a test sees the figures the pre-check used.
+        from app.services.attachments import content_tokens
+
+        contents = [request.system, *(message["content"] for message in request.messages)]
         uncached, written, read = MOCK_PROMPT_CACHE.bill(
             request.model or self.model_id,
             request.cache_ttl,
-            [request.system, *(message["content"] for message in request.messages)],
+            [_cache_key(content) for content in contents],
+            sizes=[content_tokens(content) for content in contents],
         )
 
         def usage(output_tokens: int) -> UsageUpdate:
@@ -568,6 +622,8 @@ class MockClaudeProvider:
         example = example_reply(whole)
         if example is not None:
             reply = example
+        elif files:
+            reply = _files_reply(files)
         else:
             for pattern, text, rule_action in _CHAT_RULES:
                 if pattern.search(last):

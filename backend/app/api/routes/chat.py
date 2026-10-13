@@ -34,17 +34,30 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+import urllib.parse
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_current_user, require_active_member
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import ChatModelVisibility, Conversation, ProviderErrorKind, UsageEvent, User
+from app.models import (
+    AttachmentKind,
+    ChatAttachment,
+    ChatModelVisibility,
+    Conversation,
+    ProviderErrorKind,
+    UsageEvent,
+    User,
+)
 from app.schemas.chat import (
+    AttachmentEstimate,
+    AttachmentRead,
+    AttachmentUploaded,
     MAX_MESSAGE_LENGTH,
     ChatInfo,
     ChatModelOption,
@@ -55,9 +68,11 @@ from app.schemas.chat import (
     ConversationRead,
     ConversationUpdate,
 )
+from app.services import attachments as attachments_service
 from app.services import chat as chat_service
 from app.services import chat_models, pricing
 from app.services import usage as usage_service
+from app.services.storage import get_storage
 from app.services.claude_provider import (
     ClaudeError,
     StreamEnd,
@@ -202,6 +217,7 @@ def delete_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
 ) -> Response:
     """A real delete — see `app/models/chat.py`. Its usage events stay."""
     conversation = _owned(db, user, conversation_id)
@@ -212,9 +228,212 @@ def delete_conversation(
         .where(UsageEvent.conversation_id == conversation.id)
         .values(conversation_id=None)
     )
+    # Its files go with it: the rows here, the bytes once the delete has
+    # committed (chat-plus-files).
+    files = list(
+        db.scalars(select(ChatAttachment).where(ChatAttachment.conversation_id == conversation.id))
+    )
+    keys = [row.storage_key for row in files if row.storage_key]
+    for row in files:
+        db.delete(row)
     db.delete(conversation)
     db.commit()
+    attachments_service.delete_bytes(get_storage(settings), keys)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ------------------------------------------------------------- attachments
+
+
+def _estimate(db: Session, settings: Settings, user: User, conversation: Conversation) -> AttachmentEstimate:
+    """What the files waiting in the composer add, for this conversation's model."""
+    tokens = sum(
+        row.estimated_tokens
+        for row in attachments_service.pending_for(db, user.id, conversation.id)
+    )
+    try:
+        model = chat_models.for_conversation(db, settings, user, conversation)
+        price = pricing.price_for(db, model, cache_ttl=settings.cache_ttl)
+        reply = pricing.reply_estimate(db, model, pricing.current_rate(db)).krw
+    except (chat_models.ModelChoiceError, pricing.PricingError):
+        return AttachmentEstimate(tokens=tokens, with_files_krw=None, each_later_krw=None)
+    if not tokens:
+        return AttachmentEstimate(tokens=0, with_files_krw=reply, each_later_krw=0)
+    # The first reply writes the files to the cache (or pays full input
+    # with caching off); each later reply re-reads them.
+    cached = settings.cache_ttl is not None
+    first = price.krw(0 if cached else tokens, 0, tokens if cached else 0, 0)
+    later = price.krw(0 if cached else tokens, 0, 0, tokens if cached else 0)
+    return AttachmentEstimate(
+        tokens=tokens,
+        with_files_krw=(reply or 0) + first if reply is not None else None,
+        each_later_krw=later,
+    )
+
+
+def _owned_attachment(db: Session, user: User, attachment_id: int) -> ChatAttachment:
+    row = db.get(ChatAttachment, attachment_id)
+    if row is None or row.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="파일을 찾을 수 없습니다.")
+    return row
+
+
+@router.post(
+    "/conversations/{conversation_id}/attachments",
+    response_model=AttachmentUploaded,
+    status_code=status.HTTP_201_CREATED,
+    summary="Attach one file to the next message (the body is the file's bytes)",
+)
+async def upload_attachment(
+    conversation_id: int,
+    request: Request,
+    name: str = Query(min_length=1, max_length=255),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> AttachmentUploaded:
+    """One file per request, its bytes as the body and its name in `?name=`.
+
+    Read only up to the largest limit plus one byte: a larger upload is
+    refused without being held in memory. Checked completely — kind, size,
+    pages, count, quotas — before anything is stored.
+    """
+    conversation = _owned(db, user, conversation_id)
+    largest = max(
+        settings.chat_attachment_image_max_mb,
+        settings.chat_attachment_pdf_max_mb,
+        settings.chat_attachment_text_max_mb,
+    )
+    limit = largest * attachments_service.MB
+    chunks: list[bytes] = []
+    received = 0
+    async for chunk in request.stream():
+        received += len(chunk)
+        if received > limit:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=attachments_service.too_big(largest),
+            )
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    # Only the last path part, printable characters only: the name is shown
+    # back to the member and used in a download header.
+    base = name.strip().replace("\\", "/").rsplit("/", 1)[-1]
+    original = "".join(ch for ch in base if ch.isprintable())[:255] or "file"
+
+    try:
+        checked = await run_in_threadpool(attachments_service.check_file, original, data, settings)
+        attachments_service.check_room(db, user.id, conversation.id, checked, settings)
+    except attachments_service.AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+
+    row = ChatAttachment(
+        user_id=user.id,
+        conversation_id=conversation.id,
+        kind=checked.kind,
+        media_type=checked.media_type,
+        original_name=original,
+        stored_size=len(checked.data),
+        page_count=checked.page_count,
+        width=checked.width,
+        height=checked.height,
+        estimated_tokens=checked.estimated_tokens,
+    )
+    db.add(row)
+    db.flush()
+    row.storage_key = attachments_service.storage_key(row)
+    get_storage(settings).save(row.storage_key, checked.data)
+    db.commit()
+    db.refresh(row)
+    return AttachmentUploaded(
+        attachment=AttachmentRead.model_validate(row),
+        estimate=_estimate(db, settings, user, conversation),
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}/attachments/estimate",
+    response_model=AttachmentEstimate,
+    summary="What the files waiting in the composer add",
+)
+def attachment_estimate(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> AttachmentEstimate:
+    return _estimate(db, settings, user, _owned(db, user, conversation_id))
+
+
+@router.get(
+    "/conversations/{conversation_id}/attachments/pending",
+    response_model=list[AttachmentRead],
+    summary="Files uploaded and not sent yet",
+)
+def pending_attachments(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ChatAttachment]:
+    conversation = _owned(db, user, conversation_id)
+    return attachments_service.pending_for(db, user.id, conversation.id)
+
+
+@router.delete(
+    "/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a file not sent yet (✕ in the composer)",
+)
+def delete_attachment(
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    row = _owned_attachment(db, user, attachment_id)
+    if row.message_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 보낸 파일은 지울 수 없습니다. 대화를 지우면 함께 지워집니다.",
+        )
+    key = row.storage_key
+    db.delete(row)
+    db.commit()
+    attachments_service.delete_bytes(get_storage(settings), [key])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/attachments/{attachment_id}/file", summary="The stored copy of an attached file")
+def attachment_file(
+    attachment_id: int,
+    download: bool = False,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """The member's own file — read and download work while not taking part
+    this quarter. Images are shown inline (the bubble's thumbnail) unless
+    `download`; everything else is always a download."""
+    row = _owned_attachment(db, user, attachment_id)
+    try:
+        data = get_storage(settings).load(row.storage_key)
+    except (FileNotFoundError, OSError) as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="파일을 찾을 수 없습니다.") from error
+    inline = row.kind is AttachmentKind.IMAGE and not download
+    quoted = urllib.parse.quote(row.original_name)
+    disposition = f"{'inline' if inline else 'attachment'}; filename*=UTF-8''{quoted}"
+    media_type = row.media_type if row.kind in (AttachmentKind.IMAGE, AttachmentKind.PDF) else "application/octet-stream"
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": disposition,
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=3600",
+            # The bytes are the member's own, but never a page of this site.
+            "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+        },
+    )
 
 
 # ------------------------------------------------------------- sending
@@ -268,6 +487,7 @@ def send_message(
         model = chat_models.for_conversation(db, settings, user, conversation)
         chat_models.require_adapter(model)
         provider = get_claude_provider(settings)
+        storage = get_storage(settings)
         turn = chat_service.prepare_turn(
             db,
             settings,
@@ -276,6 +496,8 @@ def send_message(
             text=payload.content,
             model=model,
             is_mock=settings.provider_is_mock("claude"),
+            attachment_ids=payload.attachment_ids,
+            load=lambda row: storage.load(row.storage_key),
         )
     except chat_models.ModelChoiceError as error:
         raise _model_error(error) from error

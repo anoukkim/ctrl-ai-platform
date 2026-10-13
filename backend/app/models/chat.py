@@ -128,6 +128,67 @@ class ChatMessage(Base):
     )
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+    #: Files sent with this message (chat-plus-files). Read-only here: rows
+    #: are created by the upload route and deleted with the conversation.
+    attachments: Mapped[list["ChatAttachment"]] = relationship(
+        viewonly=True, order_by="ChatAttachment.id", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<ChatMessage {self.id} {self.role.value}>"
+
+
+class AttachmentKind(str, enum.Enum):
+    """What a chat attachment is, decided from its bytes (chat-plus-files)."""
+
+    IMAGE = "image"
+    PDF = "pdf"
+    CSV = "csv"
+    TEXT = "text"
+
+
+class ChatAttachment(Base):
+    """A file a member attached to a chat message (chat-plus-files).
+
+    Uploaded before the message is sent: `message_id` is NULL until the
+    message that carries it is saved, and such a row can still be removed
+    with ✕. The bytes live in storage under `storage_key`
+    (`chat/<user_id>/<conversation_id>/<id>`); images are the re-encoded
+    copy (EXIF gone), everything else the bytes as uploaded.
+
+    Private like the conversation: every route scopes by the owner, and
+    another member's attachment is a 404. Deleting the conversation
+    deletes the rows and the bytes; so does withdrawal anonymisation.
+    """
+
+    __tablename__ = "chat_attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    kind: Mapped[AttachmentKind] = mapped_column(
+        status_enum(AttachmentKind, "attachmentkind"), nullable=False
+    )
+    #: The stored copy's media type (an image may have been re-encoded).
+    media_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The same figure the browser shows and the budget pre-check adds.
+    estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<ChatAttachment {self.id} {self.kind.value}>"

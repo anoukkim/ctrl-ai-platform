@@ -199,6 +199,23 @@ class Settings(BaseSettings):
     chat_context_tokens: int = 16_000
     # Seconds to wait for Claude before giving up on a reply.
     chat_timeout_seconds: float = 60.0
+
+    # Chat attachments (chat-plus-files). Limits are refused, never
+    # truncated: a silently cut table gives a confident wrong answer.
+    chat_attachments_per_message: int = 5
+    chat_attachment_image_max_mb: int = 10
+    chat_attachment_pdf_max_mb: int = 10
+    chat_attachment_pdf_max_pages: int = 30
+    chat_attachment_text_max_mb: int = 1
+    # Per member, all their attachments together.
+    chat_attachment_member_quota_mb: int = 200
+    # Every attachment on this server together. The beta VM has a 30 GB
+    # disk; uploads are refused past this, and Admin's dashboard shows it.
+    chat_attachment_total_limit_gb: int = 5
+    # The most attachment tokens one request may carry (they are resent
+    # every turn while in the history). Older messages with files drop out
+    # of the context first; one message's files must fit on their own.
+    chat_attachment_context_tokens: int = 150_000
     # The mock provider's pause between streamed chunks, so the typing
     # effect is visible locally. Tests set it to 0.
     chat_mock_delay_ms: int = 25
