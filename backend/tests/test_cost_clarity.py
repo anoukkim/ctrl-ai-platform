@@ -145,11 +145,13 @@ def test_haiku_below_its_4096_minimum_is_never_billed_as_a_cache_read(
         assert event.input_tokens > 0
 
 
-def test_haiku_gets_the_basic_web_fetch_and_search_the_newer_models_dynamic() -> None:
+def test_every_model_gets_the_basic_direct_web_tools() -> None:
+    """Was "newer models dynamic"; fix-real-web-search moved every model to
+    the basic versions (dynamic filtering surfaced JSON parsing to members)."""
     haiku = {b["name"]: b["type"] for b in server_tool_params(("web_search", "web_fetch"), "claude-haiku-4-5", 1, 10_000)}
     sonnet = {b["name"]: b["type"] for b in server_tool_params(("web_search", "web_fetch"), "claude-sonnet-5-5", 1, 10_000)}
     assert haiku == {"web_search": "web_search_20250305", "web_fetch": "web_fetch_20250910"}
-    assert sonnet == {"web_search": "web_search_20260209", "web_fetch": "web_fetch_20260209"}
+    assert sonnet == {"web_search": "web_search_20250305", "web_fetch": "web_fetch_20250910"}
 
 
 def test_an_old_row_without_a_split_is_re_priced_and_marked_estimated(

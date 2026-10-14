@@ -562,6 +562,7 @@ def prepare_turn(
         model.web_search_usd_per_call,
         fetch_max_uses=limits.web_fetch_max_uses,
         fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+        search_max_uses=limits.web_search_max_uses,
     )
     cap_tool_extra = chat_tools.cap_extra_krw(
         price,
@@ -569,6 +570,7 @@ def prepare_turn(
         model.web_search_usd_per_call,
         fetch_max_uses=limits.web_fetch_max_uses,
         fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+        search_max_uses=limits.web_search_max_uses,
     )
 
     max_tokens = settings.chat_max_output_tokens
@@ -640,6 +642,7 @@ def prepare_turn(
             tools=tools,
             fetch_max_uses=limits.web_fetch_max_uses,
             fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+            search_max_uses=limits.web_search_max_uses,
             show_thinking=conversation.show_thinking,
         ),
         price=price,
@@ -745,7 +748,7 @@ def _status_for(state: TurnState) -> ChatMessageStatus:
     return ChatMessageStatus.COMPLETE
 
 
-def _safe_sources(sources: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
+def _safe_sources(sources: list[dict] | None) -> list[dict] | None:
     """Only http(s) sources are saved — anything else is dropped.
 
     The provider's citations become clickable links on the member's

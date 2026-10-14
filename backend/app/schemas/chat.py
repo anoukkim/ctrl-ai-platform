@@ -159,10 +159,12 @@ class ConversationDetail(ConversationRead):
 
 
 class SourceRead(BaseModel):
-    """One cited source — shown as a numbered link with its domain."""
+    """One source — shown as a numbered link with its page title."""
 
     title: str = ""
     url: str
+    #: The reply's text cites it (fix-real-web-search) — cited ones first.
+    cited: bool = False
 
 
 class ChatMessageCreate(BaseModel):

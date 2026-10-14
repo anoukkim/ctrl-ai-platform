@@ -137,6 +137,11 @@ class ChatLimits(Base):
     web_fetch_max_content_tokens: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="10000"
     )
+    #: 웹 검색 (fix-real-web-search, owner 2026-10-14): searches per reply,
+    #: sent as the tool's `max_uses`. Inside the per-reply cap's reserve.
+    web_search_max_uses: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="5"
+    )
     set_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

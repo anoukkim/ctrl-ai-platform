@@ -66,4 +66,16 @@ apps.{$SITE_DOMAIN} {
 	file_server {
 		hide .*
 	}
+
+	# A missing file is an error response, which the header block above
+	# does not reach: answer it here with the same policy and no body.
+	handle_errors {
+		header {
+			Content-Security-Policy "default-src 'none'; frame-ancestors https://{$SITE_DOMAIN}"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "no-referrer"
+			-Server
+		}
+		respond "{err.status_code}" {err.status_code}
+	}
 }

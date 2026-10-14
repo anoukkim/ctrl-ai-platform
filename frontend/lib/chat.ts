@@ -39,6 +39,31 @@ export type ToolKind = "web_search" | "web_fetch" | "code_execution";
 export interface ReplySource {
   title: string;
   url: string;
+  /** 답장 본문이 인용한 출처 — 앞에 옵니다(fix-real-web-search). */
+  cited?: boolean;
+}
+
+/** 처음에 보여 줄 출처 수. 나머지는 "더 보기"로. */
+export const SOURCES_VISIBLE = 8;
+
+/**
+ * 화면에 보일 출처: 주소가 같으면 하나로(끝의 / 와 #은 무시), 인용한 것이
+ * 먼저. 백엔드가 이미 정리해 두지만, 예전에 저장된 답장도 같은 모양이
+ * 되도록 여기서 한 번 더 합니다.
+ */
+export function tidySources(sources: ReplySource[]): ReplySource[] {
+  const seen = new Map<string, ReplySource>();
+  for (const source of sources) {
+    const key = source.url.split("#")[0].replace(/\/+$/, "");
+    const known = seen.get(key);
+    if (!known) seen.set(key, { ...source });
+    else {
+      if (!known.title && source.title) known.title = source.title;
+      if (source.cited) known.cited = true;
+    }
+  }
+  const all = [...seen.values()];
+  return [...all.filter((s) => s.cited), ...all.filter((s) => !s.cited)];
 }
 
 export type ChatRole = "user" | "assistant";

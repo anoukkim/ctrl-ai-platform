@@ -107,6 +107,7 @@ import { modelShortName } from "@/lib/spend";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
+import ReplySources from "./ReplySources";
 import EmptyState from "./EmptyState";
 
 /** 기능 둘러보기 카드의 아이콘과 아이콘 칸의 색. */
@@ -315,13 +316,7 @@ function replyNumber(key: string): number | null {
 }
 
 /** 출처 링크에 보여 줄 도메인. 주소가 이상하면 주소 그대로. */
-export function sourceDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
+export { sourceDomain } from "./ReplySources";
 
 /** 서버 도구 세 가지의 이름과, 돌고 있을 때·켜기 전에 보여 줄 문장. */
 export const TOOL_META: Record<
@@ -1308,20 +1303,7 @@ export default function ChatWorkspace() {
                     {message.role === "assistant" &&
                       !message.streaming &&
                       (message.sources?.length ?? 0) > 0 && (
-                        <ol className={styles.sources} data-testid="sources">
-                          {message.sources!.map((source, order) => (
-                            <li key={`${order}-${source.url}`}>
-                              <a
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={source.title || source.url}
-                              >
-                                {order + 1}. {sourceDomain(source.url)}
-                              </a>
-                            </li>
-                          ))}
-                        </ol>
+                        <ReplySources sources={message.sources!} />
                       )}
                     {message.role === "assistant" && !message.streaming && message.receipt && (
                       <ReceiptView receipt={message.receipt} />

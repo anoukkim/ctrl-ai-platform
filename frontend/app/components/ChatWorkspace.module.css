@@ -497,15 +497,56 @@
   font-size: var(--fs-meta);
 }
 
-/* 답장이 인용한 출처 — 번호 달린 도메인 링크. */
-.sources {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.7rem;
-  margin: 0.35rem 0 0;
+/* 답장의 출처 — 번호와 페이지 제목, 인용한 것이 먼저 (fix-real-web-search). */
+.sourcesBox {
+  margin: 0.45rem 0 0;
   padding: 0 0.2rem;
-  list-style: none;
   font-size: var(--fs-meta);
+}
+
+.sourcesTitle {
+  margin: 0 0 0.2rem;
+  color: var(--text-dim);
+  font-weight: 650;
+}
+
+.sources {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.sources li {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceNumber {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sourceDomain {
+  color: var(--text-dim);
+}
+
+.sourcesMore {
+  margin-top: 0.3rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sourcesMore:hover {
+  text-decoration: underline;
 }
 
 .sources a {
