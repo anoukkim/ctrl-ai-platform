@@ -111,6 +111,8 @@ def test_reading_the_conversation_attaches_each_replys_receipt(
         "web_search_count": 0,
         "tool_fee_krw": 0,
         "charged_krw": event.charged_krw,
+        # chat-thinking-view: 생각 과정 보기 was off.
+        "thinking_shown": False,
         # cost-clarity: the won split, identical on reload.
         **receipt_fields(event),
     }

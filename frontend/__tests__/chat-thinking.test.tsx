@@ -61,7 +61,7 @@ const SONNET = {
   is_default: true,
   estimated_reply_krw: 20,
   thinking_extra_krw: 5,
-  thinking_basis: "formula",
+  thinking_basis: "formula" as const,
 };
 const OPUS = { ...SONNET, id: 3, model_id: "claude-opus-5-5", is_default: false, thinking_extra_krw: 0 };
 
