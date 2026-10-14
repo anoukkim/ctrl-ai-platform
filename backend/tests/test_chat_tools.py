@@ -467,3 +467,22 @@ def test_toggling_a_tool_breaks_the_mock_prompt_cache(
     send(client, conversation, "고마워요")
     events = list(db_session.scalars(select(UsageEvent).order_by(UsageEvent.id)))
     assert (events[2].cache_read_tokens or 0) == 0  # the toggle broke the prefix
+
+
+# ------------------------------------------------- fix-new-chat-tools
+
+
+def test_a_new_conversation_takes_the_welcome_screens_tool_choices(
+    client: TestClient, db_session: Session, budgeted, config
+) -> None:
+    open_tools(db_session, search=True, fetch=False, code=False)
+    response = client.post(
+        "/api/chat/conversations", json={"use_web_search": True, "show_thinking": True}
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["use_web_search"], body["use_web_fetch"], body["show_thinking"]) == (True, False, True)
+
+    refused = client.post("/api/chat/conversations", json={"use_web_fetch": True})
+    assert refused.status_code == 400
+    assert "쓸 수 없는 도구" in refused.json()["detail"]

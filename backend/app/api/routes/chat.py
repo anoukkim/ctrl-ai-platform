@@ -207,6 +207,7 @@ def create_conversation(
     payload: ConversationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
 ) -> Conversation:
     if payload.chat_model_id is not None:
         try:
@@ -219,6 +220,31 @@ def create_conversation(
     conversation = Conversation(
         user_id=user.id, title=payload.title.strip(), chat_model_id=model_id
     )
+    # The welcome screen's 도구 choices (fix-new-chat-tools): a tool is
+    # turned on only when the chosen model allows it, exactly as PATCH.
+    wanted = {
+        "use_web_search": payload.use_web_search,
+        "use_web_fetch": payload.use_web_fetch,
+        "use_code_execution": payload.use_code_execution,
+    }
+    if any(wanted.values()):
+        try:
+            model = chat_models.for_conversation(db, settings, user, conversation)
+        except chat_models.ModelChoiceError as error:
+            raise _model_error(error) from error
+        allowed = {
+            "use_web_search": model.tools_web_search,
+            "use_web_fetch": model.tools_web_fetch,
+            "use_code_execution": model.tools_code_execution,
+        }
+        for field, value in wanted.items():
+            if value and not allowed[field]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="이 모델에서는 쓸 수 없는 도구입니다. 모델을 바꾸거나 도구를 꺼 주세요.",
+                )
+            setattr(conversation, field, value)
+    conversation.show_thinking = payload.show_thinking
     db.add(conversation)
     db.commit()
     db.refresh(conversation)

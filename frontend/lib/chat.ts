@@ -218,10 +218,21 @@ export function getConversation(id: number): Promise<ConversationDetail> {
 }
 
 /** 새 대화. 모델을 고르지 않았으면 백엔드가 기본 모델을 넣습니다. */
-export function createConversation(chatModelId: number | null = null): Promise<Conversation> {
+/** 새 대화 화면에서 미리 고른 도구(fix-new-chat-tools). 첫 메시지 때 함께 보냅니다. */
+export interface NewConversationTools {
+  use_web_search?: boolean;
+  use_web_fetch?: boolean;
+  use_code_execution?: boolean;
+  show_thinking?: boolean;
+}
+
+export function createConversation(
+  chatModelId: number | null = null,
+  tools: NewConversationTools = {},
+): Promise<Conversation> {
   return request<Conversation>("/chat/conversations", {
     method: "POST",
-    body: JSON.stringify(chatModelId === null ? {} : { chat_model_id: chatModelId }),
+    body: JSON.stringify({ ...(chatModelId === null ? {} : { chat_model_id: chatModelId }), ...tools }),
   });
 }
 
