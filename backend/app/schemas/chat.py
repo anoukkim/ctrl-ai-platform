@@ -203,6 +203,10 @@ class ChatModelOption(BaseModel):
     tools_web_fetch: bool = False
     tools_code_execution: bool = False
     web_search_krw_per_call: int | None = None
+    #: The 도구 panel's other prices (fix-composer-toolbar): one page read
+    #: and one code run at typical sizes, in won. None without a rate.
+    web_fetch_krw_per_use: int | None = None
+    code_execution_krw_per_use: int | None = None
     #: 생각 과정 보기's "+약 N원" (chat-thinking-view): 0 = 추가 비용 없음
     #: (Opus thinks anyway), None without a rate. Basis as above.
     thinking_extra_krw: int | None = None

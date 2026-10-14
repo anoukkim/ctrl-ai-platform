@@ -329,6 +329,33 @@ def thinking_estimate(db: Session, model: ChosenModel, rate: ExchangeRate | None
     )
 
 
+#: The 도구 panel's price for one 페이지 읽기 (fix-composer-toolbar): an
+#: average web page is about 2,500 tokens (platform.claude.com › web fetch,
+#: "Average web page (10 kB): ~2,500 tokens"), entering the reply as input.
+TYPICAL_FETCH_TOKENS = 2_500
+#: …and for 코드 실행: the code Claude writes (output) and what it prints
+#: back (input) — a few lines each way for the beginners' questions it gets.
+TYPICAL_CODE_INPUT_TOKENS = 500
+TYPICAL_CODE_OUTPUT_TOKENS = 300
+
+
+def tool_use_krw(model: ChosenModel, rate: ExchangeRate | None) -> tuple[int | None, int | None]:
+    """(one 페이지 읽기, one 코드 실행) in won, for the 도구 panel — the
+    same token prices the receipt charges. None without a rate."""
+    if rate is None:
+        return None, None
+    price = Price(
+        model_id=model.model_id,
+        input_usd_per_mtok=model.input_usd_per_mtok,
+        output_usd_per_mtok=model.output_usd_per_mtok,
+        usd_krw=Decimal(rate.krw_per_unit),
+    )
+    return (
+        price.krw(TYPICAL_FETCH_TOKENS, 0),
+        price.krw(TYPICAL_CODE_INPUT_TOKENS, TYPICAL_CODE_OUTPUT_TOKENS),
+    )
+
+
 def estimate_tokens(text: str) -> int:
     """A deliberately generous token estimate: one per character.
 

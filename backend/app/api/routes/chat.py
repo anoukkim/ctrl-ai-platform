@@ -163,6 +163,7 @@ def _option(db: Session, row, default, rate) -> ChatModelOption:
     chosen = chat_models.ChosenModel.of(row)
     estimate = pricing.reply_estimate(db, chosen, rate)
     thinking = pricing.thinking_estimate(db, chosen, rate)
+    fetch_krw, code_krw = pricing.tool_use_krw(chosen, rate)
     search_krw = None
     if rate is not None:
         search_krw = int(
@@ -184,6 +185,8 @@ def _option(db: Session, row, default, rate) -> ChatModelOption:
         tools_web_fetch=row.tools_web_fetch,
         tools_code_execution=row.tools_code_execution,
         web_search_krw_per_call=search_krw,
+        web_fetch_krw_per_use=fetch_krw,
+        code_execution_krw_per_use=code_krw,
         thinking_extra_krw=thinking.krw,
         thinking_basis=thinking.basis,
     )

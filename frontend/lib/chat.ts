@@ -180,6 +180,9 @@ export interface ChatModelOption {
   tools_code_execution?: boolean;
   /** 웹 검색 1회 요금(원). 환율이 없으면 null. */
   web_search_krw_per_call?: number | null;
+  /** "도구" 판의 가격(fix-composer-toolbar): 페이지 읽기 1회, 코드 실행 1회, 원. */
+  web_fetch_krw_per_use?: number | null;
+  code_execution_krw_per_use?: number | null;
   /**
    * 생각 과정 보기가 답장 1회에 더하는 어림값(원). 0이면 추가 비용 없음
    * (Opus는 원래 생각합니다), null이면 환율이 없어 모릅니다.

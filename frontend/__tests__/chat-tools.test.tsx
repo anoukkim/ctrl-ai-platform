@@ -147,28 +147,27 @@ describe("도구 토글", () => {
     await waitFor(() => expect(chatApi.getConversation).toHaveBeenCalled());
   }
 
-  test("켜기 전에 비용을 보여 주고, 확인해야 켠다", async () => {
+  test("도구 판에 비용이 먼저 보이고, 스위치로 켠다", async () => {
     chatApi.setConversationTool.mockResolvedValue({ ...CONVERSATION, use_web_search: true });
     await openConversation();
 
-    const chip = await screen.findByRole("button", { name: "웹 검색" });
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
-    // 모델이 허용하지 않는 도구의 칩은 아예 없다.
-    expect(screen.queryByRole("button", { name: "페이지 읽기" })).toBeNull();
+    fireEvent.click(await screen.findByTestId("tools-button"));
+    const toggle = screen.getByRole("switch", { name: "웹 검색" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByTestId("tool-price-web_search").textContent).toBe("검색 1회 약 15원");
+    // 모델이 허용하지 않는 도구는 줄 자체가 없다.
+    expect(screen.queryByRole("switch", { name: "페이지 읽기" })).toBeNull();
 
-    fireEvent.click(chip);
-    expect(chatApi.setConversationTool).not.toHaveBeenCalled();
-    expect(await screen.findByText(/검색 1회당 약 15원/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "켜기" }));
+    fireEvent.click(toggle);
     await waitFor(() =>
       expect(chatApi.setConversationTool).toHaveBeenCalledWith(5, "web_search", true),
     );
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "웹 검색" }).getAttribute("aria-pressed")).toBe(
+      expect(screen.getByRole("switch", { name: "웹 검색" }).getAttribute("aria-checked")).toBe(
         "true",
       ),
     );
+    expect(screen.getByTestId("tools-button").textContent).toContain("1");
   });
 
   test("끌 때는 묻지 않는다", async () => {
@@ -181,9 +180,8 @@ describe("도구 토글", () => {
     chatApi.setConversationTool.mockResolvedValue({ ...CONVERSATION, use_web_search: false });
     await openConversation();
 
-    const chip = await screen.findByRole("button", { name: "웹 검색" });
-    await waitFor(() => expect(chip.getAttribute("aria-pressed")).toBe("true"));
-    fireEvent.click(chip);
+    // 켠 도구는 버튼 옆 칩(이름 + ✕)으로 남고, ✕가 바로 끈다.
+    fireEvent.click(await screen.findByRole("button", { name: "웹 검색 끄기" }));
     await waitFor(() =>
       expect(chatApi.setConversationTool).toHaveBeenCalledWith(5, "web_search", false),
     );
