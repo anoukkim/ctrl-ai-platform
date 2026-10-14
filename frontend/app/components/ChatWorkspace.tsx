@@ -66,7 +66,10 @@ import {
   runningEstimateKrw,
   type ChatModelOption,
   type Conversation,
+  setConversationThinking,
   setConversationTool,
+  thinkingPriceLabel,
+  thinkingSteps,
   type LongHistory,
   type ReplyReceipt,
   type ReplySource,
@@ -150,6 +153,8 @@ interface ViewMessage {
   receipt?: ReplyReceipt | null;
   /** 웹 검색이 인용한 출처(chat-plus-tools). */
   sources?: ReplySource[] | null;
+  /** Claude의 생각 과정 요약(chat-thinking-view). 보기 전용. */
+  thinking?: string | null;
   /** 붙인 파일(chat-plus-files) — 내 메시지에만. */
   attachments?: ChatAttachment[];
   /** 오고 있는 답장 옆의 어림값(원). 끝나면 영수증이 대신합니다. */
@@ -172,6 +177,7 @@ function toView(message: ChatMessage): ViewMessage {
     cappedKrw: message.capped_krw ?? null,
     receipt: message.receipt ?? null,
     sources: message.sources ?? null,
+    thinking: message.thinking ?? null,
     attachments: message.attachments ?? [],
   };
 }
@@ -191,7 +197,8 @@ export function receiptLine(receipt: ReplyReceipt): string {
   if (receipt.cache_read_tokens !== null) {
     parts.push(`캐시 읽기 ${formatWonPart(receipt.cache_read_krw ?? 0)}`);
   }
-  parts.push(`출력 ${formatWonPart(receipt.output_krw ?? 0)}`);
+  const output = receipt.thinking_shown ? "출력(생각 포함)" : "출력";
+  parts.push(`${output} ${formatWonPart(receipt.output_krw ?? 0)}`);
   if ((receipt.tool_krw ?? 0) > 0 || (receipt.web_search_count ?? 0) > 0) {
     const searches = receipt.web_search_count ? ` (검색 ${receipt.web_search_count}회)` : "";
     parts.push(`도구 ${formatWonPart(receipt.tool_krw ?? receipt.tool_fee_krw ?? 0)}${searches}`);
@@ -204,7 +211,7 @@ export function receiptLine(receipt: ReplyReceipt): string {
 export function receiptTokenLine(receipt: ReplyReceipt): string {
   const parts = [
     `입력 ${(receipt.input_tokens + (receipt.cache_write_tokens ?? 0)).toLocaleString()}토큰`,
-    `출력 ${receipt.output_tokens.toLocaleString()}토큰`,
+    `${receipt.thinking_shown ? "출력(생각 포함)" : "출력"} ${receipt.output_tokens.toLocaleString()}토큰`,
   ];
   if (receipt.cache_read_tokens !== null) {
     parts.push(`캐시 읽기 ${receipt.cache_read_tokens.toLocaleString()}토큰`);
@@ -216,6 +223,42 @@ export function receiptTokenLine(receipt: ReplyReceipt): string {
   }
   parts.push(`합계 ${formatKrw(receipt.charged_krw)}`);
   return parts.join(" · ");
+}
+
+/** 접힌 머리글에 붙는 안내 — 요약이 영어로 올 수 있습니다. */
+export const THINKING_LANGUAGE_NOTE = "영어로 표시될 수 있어요";
+
+/**
+ * 생각 과정 보기(chat-thinking-view): 답장 아래에 접혀 있고, 펼치면 요약을
+ * 문단마다 번호 붙인 짧은 단계로 보여 줍니다(그냥 글자 — 마크다운 없이).
+ * 요약이 비어 있으면(생각하지 않은 답장) 아무것도 그리지 않습니다.
+ */
+export function ThinkingView({ text }: { text: string | null | undefined }) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const steps = thinkingSteps(text);
+  if (steps.length === 0) return null;
+  return (
+    <div className={styles.thinking} data-testid="thinking">
+      <button
+        type="button"
+        className={styles.thinkingToggle}
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span aria-hidden="true">{open ? "▾" : "▸"}</span> 생각 과정 ({steps.length}단계)
+        <span className={styles.thinkingNote}> · {THINKING_LANGUAGE_NOTE}</span>
+      </button>
+      {open && (
+        <ol className={styles.thinkingSteps} id={listId} data-testid="thinking-steps">
+          {steps.map((step, order) => (
+            <li key={order}>{step}</li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
 }
 
 /** 영수증 + 캐시로 아낀 금액 + ⓘ (캐시가 켜져 있던 답장에만). */
@@ -361,6 +404,8 @@ export default function ChatWorkspace() {
   /** 대화가 길어졌을 때 입력창 위에 보이는 안내(token-guard). */
   const [longHistory, setLongHistory] = useState<LongHistory | null>(null);
   /** 이 대화의 도구 토글(chat-plus-tools). 새 대화에는 아직 없습니다. */
+  /** 생각 과정 보기(chat-thinking-view) — 이 대화의 토글. */
+  const [showThinking, setShowThinking] = useState(false);
   const [toolFlags, setToolFlags] = useState<Record<ToolKind, boolean>>({
     web_search: false,
     web_fetch: false,
@@ -501,6 +546,7 @@ export default function ChatWorkspace() {
         web_fetch: detail.use_web_fetch ?? false,
         code_execution: detail.use_code_execution ?? false,
       });
+      setShowThinking(detail.show_thinking ?? false);
     } catch (error) {
       setMessages([]);
       setSendError(describeError(error));
@@ -518,6 +564,7 @@ export default function ChatWorkspace() {
     setSendError(null);
     setLongHistory(null);
     setToolFlags({ web_search: false, web_fetch: false, code_execution: false });
+    setShowThinking(false);
     setPendingFiles([]);
     setFileEstimate(null);
     setFileError(null);
@@ -795,6 +842,11 @@ export default function ChatWorkspace() {
               paintEstimate();
             }
           },
+          onThinking: (piece) => {
+            // 생각 과정 요약 — 출력 토큰이라 약 N원에도 들어갑니다.
+            streamedChars += piece.length;
+            patchReply((row) => ({ ...row, thinking: (row.thinking ?? "") + piece }));
+          },
           onTool: (kind, status, addedKrw) => {
             // "검색 중…" 줄. 끝나면 지우고, 실패하면 실패했다고 남깁니다.
             setToolStatus(status === "done" ? null : { kind, status });
@@ -982,6 +1034,45 @@ export default function ChatWorkspace() {
     },
     [activeId, streaming, toolFlags, selectedModel, info],
   );
+
+  /**
+   * 생각 과정 보기 토글(chat-thinking-view). 켜기 전에 답장마다 더 드는
+   * 어림값을 보여 주고(Opus는 추가 비용 없음 — 바로 켭니다), 끌 때는 바로
+   * 끕니다. 쓰기라서 참여하지 않은 회원은 백엔드가 거절합니다.
+   */
+  const toggleThinking = useCallback(() => {
+    if (activeId === null || streaming) return;
+    const next = !showThinking;
+    const apply = async () => {
+      const updated = await setConversationThinking(activeId, next);
+      setShowThinking(updated.show_thinking ?? false);
+    };
+    if (!next || selectedModel?.thinking_extra_krw === 0) {
+      void apply().catch((error: unknown) => setSendError(describeError(error)));
+      return;
+    }
+    setConfirmError(null);
+    setConfirm({
+      title: "생각 과정 보기를 켤까요?",
+      effect: [
+        `${thinkingPriceLabel(selectedModel)} 정도 더 들어요 — 생각한 분량은 출력 토큰으로 청구돼요.`,
+        "답장 아래에 Claude가 생각한 순서를 짧은 단계로 접어 보여 드려요. 영어로 표시될 수 있어요.",
+        "이 대화의 다음 답장부터 적용돼요. 언제든 다시 끌 수 있어요.",
+      ],
+      confirmLabel: "켜기",
+      onConfirm: async () => {
+        setConfirmBusy(true);
+        try {
+          await apply();
+          setConfirm(null);
+        } catch (error) {
+          setConfirmError(describeError(error));
+        } finally {
+          setConfirmBusy(false);
+        }
+      },
+    });
+  }, [activeId, streaming, showThinking, selectedModel]);
 
   const hint = !mayCreate
     ? "참여 중인 분기가 되면 다시 보낼 수 있습니다. 지난 대화는 그대로 볼 수 있습니다."
@@ -1190,6 +1281,14 @@ export default function ChatWorkspace() {
                         )}
                       </div>
                     )}
+                    {message.streaming && message.thinking && !message.content && (
+                      <p className={styles.toolStatus} data-testid="thinking-live" role="status">
+                        생각하는 중… ({thinkingSteps(message.thinking).length}단계)
+                      </p>
+                    )}
+                    {message.role === "assistant" && !message.streaming && (
+                      <ThinkingView text={message.thinking} />
+                    )}
                     {message.streaming && toolStatus !== null && (
                       // 서버 도구가 돌고 있습니다 — 검색 중… / 페이지
                       // 읽는 중… / 코드 실행 중… (chat-plus-tools).
@@ -1308,6 +1407,19 @@ export default function ChatWorkspace() {
                   onChange={(model) => void chooseModel(model)}
                   disabled={!mayCreate || streaming}
                 />
+                {activeId !== null && selectedModel && (
+                  <button
+                    type="button"
+                    className={`${styles.toolChip} ${showThinking ? styles.toolChipOn : ""}`}
+                    aria-pressed={showThinking}
+                    disabled={streaming || !mayCreate}
+                    onClick={toggleThinking}
+                    data-testid="thinking-toggle"
+                  >
+                    생각 과정 보기
+                    <span className={styles.chipPrice}> · {thinkingPriceLabel(selectedModel)}</span>
+                  </button>
+                )}
                 {activeId !== null &&
                   selectedModel &&
                   (selectedModel.tools_web_search ||

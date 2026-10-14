@@ -551,6 +551,47 @@
   background: color-mix(in oklab, var(--accent) 10%, transparent);
 }
 
+.chipPrice {
+  opacity: 0.8;
+}
+
+/* 생각 과정 보기 (chat-thinking-view): 답장 아래에 접혀 있습니다. */
+.thinking {
+  margin: 0.35rem 0 0;
+  padding: 0 0.2rem;
+  font-size: var(--fs-meta);
+}
+
+.thinkingToggle {
+  border: 0;
+  padding: 0.15rem 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.thinkingToggle:hover,
+.thinkingToggle:focus-visible {
+  color: var(--text);
+}
+
+.thinkingNote {
+  color: var(--text-muted);
+}
+
+.thinkingSteps {
+  margin: 0.3rem 0 0;
+  padding: 0.5rem 0.8rem 0.5rem 2rem;
+  border-left: 2px solid var(--border);
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.thinkingSteps li + li {
+  margin-top: 0.3rem;
+}
+
 .errorNote {
   margin: 0.4rem 0 0.45rem;
   padding: 0.55rem 0.8rem;
