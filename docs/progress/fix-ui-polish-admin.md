@@ -89,14 +89,63 @@ same loop). Branch `fix-ui-polish-admin`.
      member actually has personal money or top-up history (money to settle
      is never hidden).
 
+   **Review round 1** (independent reviewer; all fixed):
+   - **Member detail "HTTP 500" in one screenshot** (dark, 1280). Not
+     reproduced: the route is a pure read (no writes, nothing racy), and
+     three cold-start rounds plus the final pass — every member's detail
+     page in both themes at both widths (16 loads), with every 5xx
+     response logged with its URL — returned none; the backend log has no
+     500. The original run's backend log was truncated, so where that one
+     500 came from is unknown; most likely the preview itself: that pass
+     ran right after `git merge main` brought privacy-and-terms into the
+     worktree, while the dev server was rebuilding and the backend had
+     just restarted. The screenshot pass now treats any 5xx and any
+     "불러오지 못했습니다" on a page as a failure, so a recurrence cannot
+     pass unnoticed. Screenshots re-captured.
+   - **Member detail: a long email ran into the next column**
+     (`both_member@example.com2026.10.14 08:28`). Fact cells may shrink
+     (`min-width: 0`) and long values break inside their own column
+     (`overflow-wrap: anywhere`); the pass now checks every fact value.
+   - **Admin › System: the 채팅 한도 heading sat over an empty body while
+     loading or after a load error** — it now shows the same skeleton /
+     error as 환율.
+   - **Budget: the 지원금 / 개인 column still showed while top-ups are
+     off** — shown only while top-ups are on or someone actually spent
+     personal money (verified with a real provider row).
+   - **Order independence**: `.rateField`, `.createInput`, `.starterIdea`
+     and `.promptArea` (all always used with `.field`) are now
+     `:global(.field)` compounds like the others.
+   - The "공개 범위 칸의 고르는 칸" comment moved back above
+     `.visibilitySelect`; product.md's Video Generator row says the one
+     동아리 지원 wallet instead of "charged to Video".
+   - **Admin sidebar at 1280×860 with Admin open** (about 300px taller
+     than the sidebar): the current admin section now scrolls into view
+     inside the sidebar on load (only the sidebar's own scroll box moves,
+     never the page), and sub-items are 2px tighter. On /admin/system and
+     /admin/audit the active item is visible (automated check on all 11
+     admin pages). **Accepted:** the Account group (Usage, Profile) stays
+     one scroll below while Admin is expanded; collapsing Admin
+     (remembered) brings it back.
+   - **New test** `__tests__/dialog-shell.test.tsx`: the dialog renders
+     into `document.body` (not inside a `white-space: nowrap` opener), a
+     backdrop click and Escape close it, and the banner's and the
+     sidebar's 의견 보내기 open the same dialog.
+   - Found while re-checking: the **승인 대기 badge stretched across the
+     whole 신청 column** in member detail's 분기 이력 (a grid item
+     stretches by default) — `.stackCell` now keeps badges their own
+     width (also Applications and the withdrawal 환불 cell); and **Budget's
+     사용량 cell ran one long line**, pushing the provider table 11px past
+     its box at 1280px once there was real usage — one item per line now.
+
 ## Status — loop results
 
 - Merged `main` (privacy-and-terms, `0cdcee8`) mid-run; its sidebar
   footer links are inside the reworked account area and its tests pass.
-- Frontend: **360 vitest / 35 files**, tsc 0, eslint 0. Backend: full
-  suite green with the PostgreSQL tests actually running (dedicated
-  `ctrlai_ui_test`; `-rs` shows no skips). `npm run build` not run in the
-  worktree (Turbopack refuses here) — run it on main at merge.
+- Frontend: **364 vitest / 36 files** (after review round 1), tsc 0,
+  eslint 0. Backend: full suite green with the PostgreSQL tests actually
+  running (dedicated `ctrlai_ui_test`; `-rs` shows no skips) — round 1
+  touched no backend code. `npm run build` not run in the worktree
+  (Turbopack refuses here) — run it on main at merge.
 - Browser: preview on 8270/3270 in **beta mode** (as on ctrlai.my — the
   banner is one of the two 의견 보내기 entry points), Playwright driving
   Chrome, both themes at 1280 and 390px. An automated geometry pass checks
@@ -106,7 +155,11 @@ same loop). Branch `fix-ui-polish-admin`.
   (feedback from the sidebar and from the banner, quarter creation, invite
   code, default model, chat limits, withdrawal) for content outside its
   padding and portal placement — **0 findings** on the final run; members
-  never see Manage, Admin or the badge (checked).
+  never see Manage, Admin or the badge (checked). Since review round 1 the
+  pass also fails on any 5xx response, any load-error text, any table
+  wider than its box at 1280px, any fact value spilling out of its cell,
+  and an active sidebar item hidden below the fold; member detail is
+  checked for every member; it was run with real usage data present.
 - Screenshots: 104 jpgs (5.1 MB) in `docs/progress/screens/fix-ui-polish-admin/`
   — `admin-<page>-<theme>-<width>`, `sidebar-{admin,member}-{expanded,collapsed,menu}-…`,
   `dialog-<name>-<theme>-<width>`, `public-{privacy,terms}-…`,

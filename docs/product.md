@@ -44,7 +44,7 @@ principles.
 | Navigation & shell    | Built — sidebar (230px; Create · Explore · Manage (admins) · Account, collapsible to an icon rail) with quarterly participation status; menu button on narrow screens |
 | Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, live 약 N원 + ledger receipts, per-reply/daily cost caps, tool toggles (웹 검색·페이지 읽기·코드 실행, mock), 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
-| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |
+| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/영상/기타 breakdown and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
