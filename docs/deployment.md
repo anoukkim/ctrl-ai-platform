@@ -357,8 +357,11 @@ curl.exe -I https://www.ctrlai.my      # 301 → https://ctrlai.my/
 
 ## 6. 매일 도는 작업 (cron)
 
-탈퇴하고 30일이 지난 계정의 이름·이메일을 지우는 작업을 하루 한 번 돌립니다.
-여러 번 돌거나 하루 빠져도 문제없게 만들어져 있습니다.
+하루 한 번: **데이터베이스 백업**(서버에 최근 14개 보관), **그 백업을 서버
+밖 버킷으로 복사**(8단계의 "백업을 서버 밖으로" — 버킷을 만들기 전에는 "아직
+설정되지 않았습니다"라고만 적고 넘어갑니다), 그리고 탈퇴하고 30일이 지난
+계정의 이름·이메일 지우기. 여러 번 돌거나 하루 빠져도 문제없게 만들어져
+있습니다.
 
 ```bash
 chmod +x ~/ctrl-ai-platform/deploy/*.sh
@@ -472,11 +475,85 @@ cd ~/ctrl-ai-platform
 백업 파일에는 회원 정보가 들어 있습니다. 내 PC에서도 아무 데나 두지 말고,
 저장소 폴더 안에는 절대 두지 마세요(`.gitignore`가 막아 두긴 했습니다).
 
-서버의 오래된 백업은 최근 7개만 남기고 지웁니다:
+서버의 백업은 매일 밤 작업(6단계)이 **최근 14개만** 남기고 지웁니다.
+
+### 백업을 서버 밖으로 — Cloud Storage 버킷 (offsite-backups) 💳
+
+매일 밤의 백업이 서울 리전의 버킷에도 복사되고, 버킷은 **30일이 지난 사본을
+저절로 지웁니다.** VM이 통째로 사라져도 최근 30일 중 어느 날로든 돌아갈 수
+있습니다. 비용: 백업 하나가 수십 KB라 30일치가 수 MB — 한 달 **몇 원** 수준
+(Standard 저장 GB당 약 $0.023). 아래는 **주인(owner)이 하는 일**입니다 — 이
+저장소의 코드는 버킷을 만들지 않습니다.
+
+**1. 버킷 만들기** (Google Cloud 콘솔 › Cloud Storage › 버킷 › 만들기)
+
+1. 이름: 전 세계에서 하나뿐이어야 합니다. 예: `ctrlai-backups-` 뒤에 아무
+   숫자 몇 개(예: `ctrlai-backups-7381`).
+2. 위치 유형 **Region**, 위치 **asia-northeast3 (서울)**.
+3. 스토리지 클래스 **Standard**.
+4. 액세스 제어 **균일(Uniform)**, **공개 액세스 방지 사용(Enforce public
+   access prevention)** 체크.
+5. 데이터 보호: 소프트 삭제는 기본값 그대로 둬도 됩니다(7일). 객체 버전 관리는
+   끕니다.
+6. 만들기.
+
+**2. 30일 수명 규칙** (만든 버킷 › 수명 주기(Lifecycle) › 규칙 추가)
+
+- 작업: **객체 삭제(Delete object)**, 조건: **기간(Age) 30일** → 만들기.
+
+**3. 백업만 하는 서비스 계정** (IAM 및 관리자 › 서비스 계정 › 만들기)
+
+1. 이름 `ctrlai-backup`. 프로젝트 전체 역할은 **주지 않습니다**(그냥 완료).
+2. 버킷으로 돌아가 › 권한(Permissions) › 액세스 권한 부여: 주 구성원에
+   `ctrlai-backup@<프로젝트ID>.iam.gserviceaccount.com`, 역할
+   **Storage 객체 생성자(Storage Object Creator)** 와 **Storage 객체
+   뷰어(Storage Object Viewer)** 두 개 → 저장. (만들기와 읽기만 됩니다 — 이
+   키로는 백업을 지우거나 덮어쓸 수 없습니다.)
+3. 서비스 계정 › `ctrlai-backup` › 키 › 키 추가 › 새 키 › **JSON** → 내 PC에
+   파일이 받아집니다. **이 파일은 비밀번호와 같습니다** — 저장소에 넣지 말고,
+   서버에 올린 뒤 내 PC의 사본은 지웁니다.
+
+> VM 자신의 계정은 쓰지 않습니다: 지금 VM의 Cloud Storage 권한 범위가
+> **읽기 전용**이라 쓰려면 VM을 멈추고 범위를 바꿔야 합니다. 키 하나가
+> 더 간단하고, 그 키는 이 버킷 하나에만 쓸 수 있습니다.
+
+**4. 서버에 놓기** (브라우저 SSH 창 › 파일 업로드로 키를 올린 뒤)
 
 ```bash
-ls -1t ~/backups/ctrlai-*.sql.gz | tail -n +8 | xargs -r rm --
+sudo mkdir -p /home/ctrlai_platform/.config
+sudo mv ~/<받은키>.json /home/ctrlai_platform/.config/ctrlai-backup-key.json
+sudo chown -R ctrlai_platform: /home/ctrlai_platform/.config
+sudo chmod 600 /home/ctrlai_platform/.config/ctrlai-backup-key.json
+sudo -iu ctrlai_platform
+cat > ~/.ctrlai-offsite <<'EOF'
+BACKUP_BUCKET=ctrlai-backups-7381
+BACKUP_KEY_FILE=/home/ctrlai_platform/.config/ctrlai-backup-key.json
+EOF
+chmod 600 ~/.ctrlai-offsite
+~/ctrl-ai-platform/deploy/offsite-backup.sh
+# 서버 밖 백업 완료: gs://ctrlai-backups-7381/db/ctrlai-....sql.gz (... bytes)
 ```
+
+(`BACKUP_BUCKET`에는 1단계에서 지은 이름을 `gs://` 없이 적습니다.) 그다음부터는
+매일 밤 작업이 알아서 올립니다. `tail ~/ctrlai-jobs.log`에 `서버 밖 백업
+완료`가 보이면 됩니다. 키를 바꾸거나 없앨 때는 서비스 계정에서 키를 삭제하고
+위 4단계를 다시 합니다(베타가 끝나 Secret Manager로 옮길 때도 교체).
+
+### 복원 시험 — 한 달에 한 번
+
+백업은 **복원해 봐야** 백업입니다. 매달 첫 주에 한 번, 진짜 데이터베이스는
+건드리지 않는 시험용 컨테이너에 복원해 봅니다:
+
+```bash
+cd ~/ctrl-ai-platform
+./deploy/restore-test.sh bucket     # 버킷의 가장 최근 사본으로 (버킷을 만든 뒤)
+./deploy/restore-test.sh            # 또는 서버에 있는 가장 최근 백업으로
+```
+
+시험용 PostgreSQL 컨테이너를 잠깐 띄워(포트도 볼륨도 없음) 복원하고, 회원 ·
+사용 기록 · 프로젝트 수를 지금 데이터베이스와 비교한 뒤 컨테이너를 지웁니다.
+**`복원 시험 통과`** 가 나오면 끝입니다. `실패`가 나오면 그 출력과 함께
+개발자에게 알려 주세요. 결과는 달력이나 메모에 날짜와 함께 적어 둡니다.
 
 ### 복원 — 되돌려야 할 때만
 

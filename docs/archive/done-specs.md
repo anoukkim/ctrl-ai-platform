@@ -5,6 +5,31 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## offsite-backups — full spec (merged 2026-10-14)
+
+Branch `chore-offsite-backups`. M1 · 💳. Added by the owner on
+2026-10-14. Saved exactly as written:
+
+> offsite-backups: daily pg_dump also copied to a Cloud Storage bucket in asia-northeast3, 30-day lifecycle; monthly restore test in deployment.md. 💳; I create the bucket — list the console steps.
+
+**As built.** `deploy/daily-jobs.sh` (cron, 04:15 KST) now takes a
+daily `backup.sh`, copies it with `deploy/offsite-backup.sh` to
+`gs://<bucket>/db/`, keeps the newest 14 locally, then anonymises as
+before; a failure in one step does not skip the others but fails the
+run. The upload uses a dedicated service account key (Storage Object
+Creator + Viewer on that bucket only) because the VM's access scope is
+`devstorage.read_only` (checked on the server 2026-10-14); it reads the
+copy back and compares sizes; without `~/.ctrlai-offsite` it notes that
+and exits 0. `deploy/restore-test.sh [bucket]` restores the newest
+backup into a throwaway `postgres:16-alpine` container and compares
+users / usage events / projects / schema with the live database. The
+owner's console steps (bucket in asia-northeast3, uniform access,
+public access prevention, 30-day delete rule, the service account and
+key) and the monthly test are in `docs/deployment.md` › 8. Not covered:
+the `api_storage` and `apps_data` volumes (chat attachments, member app
+folders) — `pg_dump` holds the projects' files and versions, so apps can
+be rewritten from the database; chat attachments are not backed up.
+
 ## example-apps — full spec (merged 2026-10-14)
 
 Branch `feat-example-apps`. M3. Added by the owner on 2026-10-14. Saved

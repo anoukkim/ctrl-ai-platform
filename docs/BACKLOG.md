@@ -76,20 +76,16 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
-   The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
-   creates the bucket from the console steps. Spec below.
-
-2. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+1. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-3. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+2. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-4. **builder-python** · M2 · branch `feat-builder-python`
+3. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
@@ -374,13 +370,6 @@ Rules all three follow:
 → **admin-and-nav-cleanup — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#admin-and-nav-cleanup--full-spec-merged-2026-10-14).
 
 → **privacy-and-terms — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#privacy-and-terms--full-spec-merged-2026-10-14).
-
-### offsite-backups — full spec
-
-Branch `chore-offsite-backups`. M1 · 💳. Added by the owner on
-2026-10-14. Saved exactly as written:
-
-> offsite-backups: daily pg_dump also copied to a Cloud Storage bucket in asia-northeast3, 30-day lifecycle; monthly restore test in deployment.md. 💳; I create the bucket — list the console steps.
 
 ### monitoring — full spec
 
