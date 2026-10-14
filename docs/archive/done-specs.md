@@ -5,6 +5,30 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## cost-clarity — full spec (merged 2026-10-14)
+
+Branch `feat-cost-clarity`. M1/M4. Added by the owner on 2026-10-14
+(evening) as item 1 — "was club-accounting, plus caching made visible".
+Goal, in the owner's words: *I (owner) and every member can see exactly
+where money went, including what caching saved.* Saved as written:
+
+> a) Accuracy audit first: every charge path through usage.charge(); per-event round-up; provider_cost vs charged_krw; cache write/read prices per model (incl. Haiku 4.5's 4,096-token minimum — a prompt below it is never billed as a cache read); web search/fetch/code-execution costs; failed/cut-off calls. Findings → docs/progress/audit-accounting.md; fix real bugs with tests.
+> b) Members — receipt under each reply: 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계, plus "캐시로 아낀 금액 약 N원" (what the cached part would have cost uncached). A ⓘ explaining caching in two plain Korean sentences. Usage page: per-conversation and per-day totals with the same split, and "이번 분기 캐시로 아낀 금액".
+> c) Admin › Budget:
+>    - 동아리 크레딧 card per provider (Anthropic first): 구매 기록 (date, USD, KRW actually paid, memo; append-only + audit), 사용 (USD provider_cost and KRW), 남은 크레딧 (추정, "Anthropic 콘솔이 최종 기준").
+>    - 지급 vs 사용: wallets granted this quarter, charged_krw total, unspent.
+>    - Caching panel: per model per day — cache hit rate, tokens read/written, KRW saved.
+>    - Per-member table: granted, spent by 채팅/빌더/영상/기타, cache saved.
+> d) Admin › Members: adjust one member's current wallet (+/− KRW, required reason) as an audited adjustment row, never an overwrite.
+> e) Quarter close: "분기 마감" → wallets frozen, unspent shown per member as 회수; per-quarter carry-over % (default 0) applied at next approval. Audited; nothing deleted.
+> f) CSV exports (UTF-8 with BOM): per-member per-quarter, per-day, purchases, caching.
+> g) Optional reconciliation: ANTHROPIC_ADMIN_API_KEY (in .env.example, empty, never required) + ANTHROPIC_ADMIN_PROVIDER=mock (default) → button compares our provider_cost to Anthropic's cost_report for a date range. Mock only in tests.
+> h) docs/api-distribution.md: Korean section "비용 확인하는 법" (owner) and a short member-facing explanation reused in the ⓘ.
+
+**Relation to budget-by-provider** (*After the prototype*): this item
+delivers its purchase records and the per-provider balance; pools, the
+reserve and purchase planning stay there, still waiting on the owner.
+
 ## admin-restructure — full spec (merged 2026-10-01)
 
 Branch `ui-admin-restructure`, merged. Saved exactly as written by the

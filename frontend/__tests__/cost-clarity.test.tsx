@@ -157,7 +157,7 @@ describe("Budget — 동아리 크레딧", () => {
   const CREDIT = {
     providers: [
       {
-        provider: "claude", label: "Anthropic (Claude)", purchased_usd: "10.00", paid_krw: 14_350,
+        provider: "claude", label: "Claude (Anthropic)", purchased_usd: "10.00", paid_krw: 14_350,
         purchases: 1, used_usd: "1.25", absorbed_usd: "0.05", used_krw: 1_800,
         used_usd_quarter: "1.25", used_krw_quarter: 1_800, remaining_usd: "8.75", unpriced_events: 0,
       },
@@ -169,7 +169,7 @@ describe("Budget — 동아리 크레딧", () => {
     ],
     purchases: [
       {
-        id: 1, provider: "claude", provider_label: "Anthropic (Claude)", purchased_on: "2026-10-14",
+        id: 1, provider: "claude", provider_label: "Claude (Anthropic)", purchased_on: "2026-10-14",
         amount_usd: "10.00", paid_krw: 14_350, memo: "첫 구매", created_by_username: "admin",
         created_at: "2026-10-14T01:00:00Z",
       },

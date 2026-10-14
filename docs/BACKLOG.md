@@ -20,10 +20,14 @@ authority on order** — each item in **Next** names its milestone.
 
 **Run of 2026-10-14 (evening) — "RUN-2026-10-14b"** — the owner's batch
 after the morning deploys, with merge **and deploy** pre-approved one item
-at a time for exactly the items numbered 1–9 in **Next** below, plus the
-`set_password` CLI and the `signup-google-first` backlog entry
-(CLAUDE.md §12, "written owner instruction"). Everything after item 9:
-branch, test, report, WAIT. The board is
+at a time for exactly cost-clarity, chat-plus-files, chat-plus-artifacts,
+chat-thinking-view, builder-static-runtime, ctrlaiapps-publish,
+example-apps, offsite-backups and monitoring, plus the `set_password` CLI
+and the `signup-google-first` backlog entry (CLAUDE.md §12, "written owner
+instruction"). **Add-on (owner, same evening):** fix-quarter-form-autofill
+and feat-spend-feedback, also pre-approved to merge and deploy, done right
+after cost-clarity. anonymous-feedback-board and builder-python: branch,
+test, report, WAIT. The board is
 [`progress/RUN-2026-10-14b.md`](progress/RUN-2026-10-14b.md).
 
 Owner answers recorded with this run (2026-10-14): the Google `.env`
@@ -72,56 +76,61 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **cost-clarity** · M1/M4 · branch `feat-cost-clarity`
-   Was `club-accounting`, plus caching made visible. An accuracy audit of
-   every charge path first, then: a per-reply receipt split (입력 / 캐시
-   쓰기 / 캐시 읽기 / 출력 / 도구 / 합계, 캐시로 아낀 금액), Usage per
-   conversation and per day, Admin › Budget club credit per provider
-   (purchase records, use, estimated remaining), 지급 vs 사용, a caching
-   panel, a per-member table, audited wallet adjustments, quarter close
-   with carry-over, CSV exports, optional reconciliation against
-   Anthropic's cost report (mock by default). Spec below.
+1. **fix-quarter-form-autofill** · M1 · branch `fix-quarter-form-autofill`
+   Added by the owner on 2026-10-14 (add-on A, pre-approved). Admin ›
+   Quarters › 새 분기 만들기: the code must be `YYYY-Qn`; a valid code fills
+   the name, the quarter's dates and the application window (still
+   editable, hand edits never overwritten); date pickers enforce order;
+   the backend refuses the same violations, a duplicate code and an
+   overlapping range. Spec below.
 
-2. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
+2. **feat-spend-feedback** · M1 · branch `feat-spend-feedback`
+   Added by the owner on 2026-10-14 (add-on B, pre-approved). A small,
+   game-like "you spent" moment whenever money leaves the wallet: the
+   sidebar balance counts down with a floating "-N원", a merged toast,
+   once-per-quarter milestones stored server-side, a Profile › 알림 switch
+   and reduced motion. Spec below.
+
+3. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
    Images, PDF, CSV and text attached to a message. Spec below.
 
-3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe. Spec below.
 
-4. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+5. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    생각 과정 보기, per conversation, off by default, cost shown first.
    Spec below.
 
-5. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
+6. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
    Both halves: Claude writes and edits project files with restorable
    versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
    volume. **Moved into Next by the owner on 2026-10-14**, on
    `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
 
-6. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+7. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
    The first slice of Phase 5: 게시 from a Builder project to a
    CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
    every mock listing removed. Spec below.
 
-7. **example-apps** · M3 · branch `feat-example-apps`
+8. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-8. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+9. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-9. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+10. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-10. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+11. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-11. **builder-python** · M2 · branch `feat-builder-python`
+12. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime of
     item 5. Spec below.
@@ -597,29 +606,54 @@ preview runs in the member's own browser, in a frame with no origin.
 
 → **ui-apps-detail — full spec** moved to [`archive/done-specs.md`](archive/done-specs.md#ui-apps-detail--full-spec).
 
-## cost-clarity — full spec
+→ **cost-clarity — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#cost-clarity--full-spec-merged-2026-10-14).
 
-Branch `feat-cost-clarity`. M1/M4. Added by the owner on 2026-10-14
-(evening) as item 1 — "was club-accounting, plus caching made visible".
-Goal, in the owner's words: *I (owner) and every member can see exactly
-where money went, including what caching saved.* Saved as written:
+## fix-quarter-form-autofill — full spec
 
-> a) Accuracy audit first: every charge path through usage.charge(); per-event round-up; provider_cost vs charged_krw; cache write/read prices per model (incl. Haiku 4.5's 4,096-token minimum — a prompt below it is never billed as a cache read); web search/fetch/code-execution costs; failed/cut-off calls. Findings → docs/progress/audit-accounting.md; fix real bugs with tests.
-> b) Members — receipt under each reply: 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계, plus "캐시로 아낀 금액 약 N원" (what the cached part would have cost uncached). A ⓘ explaining caching in two plain Korean sentences. Usage page: per-conversation and per-day totals with the same split, and "이번 분기 캐시로 아낀 금액".
-> c) Admin › Budget:
->    - 동아리 크레딧 card per provider (Anthropic first): 구매 기록 (date, USD, KRW actually paid, memo; append-only + audit), 사용 (USD provider_cost and KRW), 남은 크레딧 (추정, "Anthropic 콘솔이 최종 기준").
->    - 지급 vs 사용: wallets granted this quarter, charged_krw total, unspent.
->    - Caching panel: per model per day — cache hit rate, tokens read/written, KRW saved.
->    - Per-member table: granted, spent by 채팅/빌더/영상/기타, cache saved.
-> d) Admin › Members: adjust one member's current wallet (+/− KRW, required reason) as an audited adjustment row, never an overwrite.
-> e) Quarter close: "분기 마감" → wallets frozen, unspent shown per member as 회수; per-quarter carry-over % (default 0) applied at next approval. Audited; nothing deleted.
-> f) CSV exports (UTF-8 with BOM): per-member per-quarter, per-day, purchases, caching.
-> g) Optional reconciliation: ANTHROPIC_ADMIN_API_KEY (in .env.example, empty, never required) + ANTHROPIC_ADMIN_PROVIDER=mock (default) → button compares our provider_cost to Anthropic's cost_report for a date range. Mock only in tests.
-> h) docs/api-distribution.md: Korean section "비용 확인하는 법" (owner) and a short member-facing explanation reused in the ⓘ.
+Branch `fix-quarter-form-autofill`. M1. Added by the owner on 2026-10-14
+(add-on A; merge and deploy pre-approved). Saved as written:
 
-**Relation to budget-by-provider** (*After the prototype*): this item
-delivers its purchase records and the per-provider balance; pools, the
-reserve and purchase planning stay there, still waiting on the owner.
+> Admin › Quarters › 새 분기 만들기:
+> 1. 분기 코드 must match YYYY-Qn (n = 1–4); show a Korean error otherwise ("2026-Q4 꼴로 입력해 주세요"). Backend validates too.
+> 2. When a valid code is typed, auto-fill:
+>    - 화면에 보일 이름 → "2026 Q4"
+>    - 분기 시작일 → first day of the quarter (Q4 → 2026-10-01)
+>    - 분기 종료일 → last day of the quarter (Q4 → 2026-12-31)
+>    - 신청 시작일 → today if today is before the quarter ends, else the quarter start
+>    - 신청 마감일 → 분기 시작일 + 30 days (still editable)
+>    Auto-filled values stay editable. A field the admin has edited by hand is not overwritten when the code changes again.
+> 3. Date pickers enforce order with min/max:
+>    - 분기 종료일 ≥ 분기 시작일
+>    - 신청 마감일 ≥ 신청 시작일 (or ≥ 분기 시작일 when 신청 시작일 is empty); earlier dates are not pickable
+>    - Backend refuses the same violations with Korean messages (never trust the form).
+> 4. Duplicate code or a date range overlapping an existing quarter → Korean error from the backend.
+> 5. Tests: code parsing for Q1–Q4 incl. month ends (2028-Q1 ends 03-31), autofill, hand-edited field not overwritten, min/max on pickers, backend refusals.
+
+## feat-spend-feedback — full spec
+
+Branch `feat-spend-feedback`. M1. Added by the owner on 2026-10-14
+(add-on B; merge and deploy pre-approved). Saved as written:
+
+> Goal: whenever money comes off the member's 동아리 지원 wallet, they see it happen — friendly and a little playful, never annoying.
+> 1. Source of truth: the charged_krw the backend returns for that action (chat `done` event, Builder generation, video, tools, files). Never a client-side estimate. No charge (failed/free call) → no animation.
+> 2. Sidebar wallet (the Usage item / balance in the sidebar):
+>    - the number counts down from old to new balance (~600 ms, eased)
+>    - a small "-12원" chip floats up and fades next to it
+>    - a brief colour pulse on the balance
+> 3. Toast (bottom-right; top on mobile), Korean, short, e.g.:
+>    - "12원을 사용했어요! 남은 지원금 79,988원"
+>    - include what it was for when known: "채팅 · Sonnet", "빌더 · 앱 만들기", "영상 생성"
+>    - several charges within 3 s are merged into one toast ("3번 · 합계 36원")
+>    - auto-dismiss after 3 s, click → /usage
+> 4. Game-like milestones (each shown once per quarter, stored server-side per member + quarter so it survives devices):
+>    - 첫 사용: "첫 작품을 시작했어요 🎉"
+>    - 25% / 50% / 75% of the wallet used: a slightly bigger card with a progress ring and the remaining amount
+>    - 잔액 10,000원 이하: a calm warning (not celebratory), with a link to Usage
+>    - 잔액 0: the existing Korean refusal message stays the authority; the card just points to it
+> 5. Settings: Profile › 알림 → "사용 알림 표시" on/off (default on) and "움직임 줄이기" follows prefers-reduced-motion automatically (no count-up, no floating chip; toast only). Stored per user.
+> 6. Never blocks input, never steals focus, screen readers get one polite aria-live line per toast. Light and dark themes.
+> 7. Tests: animation fires only on a real charge; merge-within-3s; milestones fire once per quarter at the right thresholds (incl. a charge that jumps over two thresholds → only the higher one); setting off → no toast; reduced motion path.
+> 8. Add a short note to docs/product.md (Usage section).
 
 ## ctrlaiapps-publish — full spec
 

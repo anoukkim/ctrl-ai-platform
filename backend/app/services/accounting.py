@@ -70,7 +70,8 @@ PART_LABEL: dict[str, str] = {
 }
 #: Ledger providers that are one purchase (as in quarter_budget).
 PROVIDER_KEY = {"anthropic": "claude"}
-PROVIDER_LABEL = {"claude": "Anthropic (Claude)", "higgsfield": "Higgsfield"}
+#: Same names as Admin › Budget's 제공자별 사용액 (quarter_budget.PROVIDER_LABEL).
+PROVIDER_LABEL = {"claude": "Claude (Anthropic)", "higgsfield": "Higgsfield"}
 #: Purchases can be recorded for these, Anthropic first.
 PURCHASE_PROVIDERS: tuple[str, ...] = ("claude", "higgsfield")
 GROUP_LABEL = {"chat": "채팅", "build": "빌더", "video": "영상", "other": "기타"}
@@ -330,19 +331,16 @@ def provider_credit(db: Session, quarter: Quarter | None) -> list[ProviderCredit
     used: dict[str, dict] = defaultdict(
         lambda: {"usd": Decimal(0), "absorbed": Decimal(0), "krw": 0, "q_usd": Decimal(0), "q_krw": 0, "unpriced": 0}
     )
-    for provider, absorbed, in_quarter, cost, krw, unpriced in db.execute(
+    quarter_id = quarter.id if quarter else None
+    for provider, absorbed, event_quarter, cost, krw, unpriced in db.execute(
         select(
             UsageEvent.provider,
             UsageEvent.club_absorbed,
-            (UsageEvent.quarter_id == (quarter.id if quarter else -1)),
+            UsageEvent.quarter_id,
             func.coalesce(func.sum(UsageEvent.provider_cost), 0),
             func.coalesce(func.sum(UsageEvent.charged_krw), 0),
             func.sum(case((UsageEvent.provider_cost.is_(None), 1), else_=0)),
-        ).group_by(
-            UsageEvent.provider,
-            UsageEvent.club_absorbed,
-            (UsageEvent.quarter_id == (quarter.id if quarter else -1)),
-        )
+        ).group_by(UsageEvent.provider, UsageEvent.club_absorbed, UsageEvent.quarter_id)
     ):
         line = used[provider_key(provider)]
         cost = Decimal(str(cost))
@@ -351,7 +349,7 @@ def provider_credit(db: Session, quarter: Quarter | None) -> list[ProviderCredit
         line["unpriced"] += int(unpriced or 0)
         if absorbed:
             line["absorbed"] += cost
-        if in_quarter:
+        if quarter_id is not None and event_quarter == quarter_id:
             line["q_usd"] += cost
             line["q_krw"] += int(krw)
 

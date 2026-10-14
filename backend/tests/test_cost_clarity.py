@@ -331,7 +331,7 @@ def test_csv_exports_are_utf8_with_a_bom_and_match_the_database(
     assert header.startswith("분기,아이디,이름")
     assert ",700," in line
     purchases = client.get("/api/admin/export/purchases.csv").content.decode("utf-8-sig")
-    assert "2026-10-01,Anthropic (Claude),5.00,7100,구매" in purchases
+    assert "2026-10-01,Claude (Anthropic),5.00,7100,구매" in purchases
 
 
 def test_a_member_cannot_reach_any_money_route(other_client: TestClient, participating) -> None:
@@ -583,3 +583,77 @@ def test_the_prompt_helper_charges_any_cache_tokens_the_api_reports(
     assert (event.cache_write_tokens, event.cache_read_tokens) == (2_000, 3_000)
     assert event.provider_cost == SONNET.usd(100, 50, 2_000, 3_000).quantize(Decimal("0.000001"))
     assert event.cache_saved_usd > 0
+
+
+# ------------------------------------------------- PostgreSQL (real SQL)
+
+
+def test_every_accounting_query_runs_on_postgresql(pg_engine) -> None:
+    """SQLite accepts GROUP BY shapes PostgreSQL refuses (a 500 the local
+    browser check found on Admin › Budget). Every read and write here runs
+    once against the migrated PostgreSQL test database."""
+    import uuid
+
+    from sqlalchemy.orm import sessionmaker
+
+    from app.models import AccountStatus, FundingSource, User, UserRole
+
+    Session_ = sessionmaker(bind=pg_engine, expire_on_commit=False)
+    tag = uuid.uuid4().hex[:8]
+    with Session_() as db:
+        admin = User(
+            username=f"acct_{tag}", email=f"acct_{tag}@ctrl.ai", password_hash="!",
+            display_name="회계 시험", role=UserRole.ADMIN, account_status=AccountStatus.ACTIVE,
+        )
+        db.add(admin)
+        db.flush()
+        quarter = Quarter(
+            code=f"ACCT-{tag}", display_name=f"회계 {tag}", starts_at=date(2026, 10, 1),
+            ends_at=date(2026, 12, 31), status=QuarterStatus.ACTIVE, subsidy_limit_krw=80_000,
+        )
+        db.add(quarter)
+        db.flush()
+        wallet = QuarterAllocation(user_id=admin.id, quarter_id=quarter.id, budget_krw=80_000, consumed_krw=30)
+        db.add(wallet)
+        split = SONNET.split(100, 400, 2_000, 6_000)
+        db.add_all([
+            UsageEvent(
+                user_id=admin.id, quarter_id=quarter.id, funding_source=FundingSource.COMMUNITY,
+                provider="claude", feature="chat", model_id="claude-sonnet-5-5", input_tokens=100,
+                output_tokens=400, cache_write_tokens=2_000, cache_read_tokens=6_000,
+                provider_cost=split.total, exchange_rate_krw=Decimal("1400"), charged_krw=20,
+                **split.ledger_fields(),
+            ),
+            UsageEvent(
+                user_id=admin.id, quarter_id=quarter.id, funding_source=FundingSource.COMMUNITY,
+                provider="higgsfield", feature="video_generate", charged_krw=10,
+            ),
+        ])
+        db.commit()
+
+        accounting.record_purchase(
+            db, admin=admin, provider="claude", purchased_on=date(2026, 10, 14),
+            amount_usd=Decimal("10.00"), paid_krw=14_350, memo="pg",
+        )
+        db.commit()
+        credit = {line.provider: line for line in accounting.provider_credit(db, quarter)}
+        assert credit["claude"].used_usd_quarter == split.total.quantize(Decimal("0.000001"))
+        assert credit["higgsfield"].unpriced_events >= 1
+        rows = accounting.member_rows(db, quarter)
+        assert rows[0].by_group["chat"] == 20 and rows[0].by_group["video"] == 10
+        assert accounting.cache_panel(db, 3650)
+        assert accounting.daily_totals(db, quarter)
+        assert accounting.member_money(db, admin.id, quarter.id).quarter.charged_krw == 30
+        accounting.provider_usd_by_utc_day(db, date(2026, 1, 1), date(2027, 1, 1))
+        for blob in (
+            accounting.members_csv(db, quarter), accounting.daily_csv(db, quarter),
+            accounting.purchases_csv(db), accounting.caching_csv(db, 30),
+        ):
+            assert blob.startswith(b"\xef\xbb\xbf")
+
+        accounting.adjust_wallet(db, admin=admin, quarter=quarter, user_id=admin.id, amount_krw=1_000, reason="pg")
+        db.commit()
+        assert accounting.adjustments_for(db, admin.id)
+        lines = accounting.close_quarter(db, admin=admin, quarter=quarter, percent=10)
+        db.commit()
+        assert lines[0].reclaimed_krw == 80_970 and lines[0].carry_over_krw == 8_097

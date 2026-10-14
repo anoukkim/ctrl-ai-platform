@@ -31,7 +31,7 @@ import ResultMessage, { type Result } from "../components/ResultMessage";
 import styles from "../admin.module.css";
 
 const PROVIDER_OPTIONS = [
-  { value: "claude", label: "Anthropic (Claude)" },
+  { value: "claude", label: "Claude (Anthropic)" },
   { value: "higgsfield", label: "Higgsfield" },
 ];
 
@@ -119,7 +119,7 @@ export default function CreditPanel({
 
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
 
-      <h3 className="section-title" style={{ fontSize: "0.95rem" }}>
+      <h3 className="section-title" style={{ fontSize: "0.95rem", marginTop: "1.2rem" }}>
         구매 기록
         <span className={styles.sectionNote}>덧붙이기만 · 고치거나 지울 수 없음</span>
       </h3>

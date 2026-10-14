@@ -28,7 +28,7 @@ export const QUARTER_STATUS_LABEL: Record<QuarterStatus, string> = {
   draft: "준비 중",
   application_open: "신청 접수 중",
   active: "진행 중",
-  closed: "종료",
+  closed: "마감",
 };
 
 export const QUARTER_STATUS_BADGE: Record<QuarterStatus, string> = {
