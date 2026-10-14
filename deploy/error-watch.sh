@@ -9,7 +9,10 @@
 #   ./deploy/error-watch.sh --test    # write one test entry, to check the alert
 #
 # Uses the VM's own identity: its access scope already allows writing
-# logs (logging.write), so no key is needed. Nothing is written when
+# logs (logging.write), so no key is needed — but its service account
+# also needs the IAM role "Logs Writer" (roles/logging.logWriter), which
+# the owner grants once (docs/deployment.md 6-1; found missing on
+# 2026-10-14 as IAM_PERMISSION_DENIED). Nothing is written when
 # there is nothing to report. The entry carries only the count and the
 # first line of up to three errors (cut to 200 characters) — never a
 # whole traceback, which could hold a member's data.
@@ -39,9 +42,9 @@ pattern='Traceback \(most recent call last\)|^ERROR:|\bERROR\b.*Exception|" 5[0-
 errors=$("${compose[@]}" logs --no-color --no-log-prefix --since "$since" api web 2>/dev/null </dev/null \
   | grep -E "$pattern" || true)
 
-echo "$now" > "$state"
 count=$(printf '%s' "$errors" | grep -c . || true)
 if [ "${count:-0}" -eq 0 ]; then
+  echo "$now" > "$state"
   exit 0
 fi
 
@@ -49,4 +52,7 @@ sample=$(printf '%s\n' "$errors" | head -n 3 | cut -c1-200 | paste -sd '|' -)
 gcloud logging write "$log_name" \
   "CTRL+AI 서버 오류 ${count}건 (${since} 이후): ${sample}" \
   --severity=ERROR >/dev/null
+# Moved forward only once the entry is written: if writing failed (no
+# permission yet, network), the next run reports the same errors again.
+echo "$now" > "$state"
 echo "$now 오류 ${count}건을 Cloud Logging에 남겼습니다."
