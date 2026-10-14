@@ -68,7 +68,6 @@ import {
   type Conversation,
   setConversationThinking,
   setConversationTool,
-  thinkingPriceLabel,
   thinkingSteps,
   type LongHistory,
   type ReplyReceipt,
@@ -108,6 +107,7 @@ import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
 import ReplySources from "./ReplySources";
+import ToolsMenu, { type ToolOption } from "./ToolsMenu";
 import EmptyState from "./EmptyState";
 
 /** 기능 둘러보기 카드의 아이콘과 아이콘 칸의 색. */
@@ -984,15 +984,20 @@ export default function ChatWorkspace() {
   const selectedModel = currentModel(info, chosenModelId);
 
   /**
-   * 도구 토글(chat-plus-tools). 켤 때는 비용을 먼저 보여 주고, 끌 때는
-   * 바로 끕니다. 토글은 대화의 것이라 — 도구 목록이 바뀌면 프롬프트
-   * 캐시가 깨집니다 — 첫 메시지를 보낸 뒤부터 보입니다.
+   * 도구 켜고 끄기 (fix-composer-toolbar). 가격은 "도구" 판의 줄마다 켜기
+   * 전에 보이므로 따로 확인창을 띄우지 않습니다. 도구는 대화의 것이라 —
+   * 도구 목록이 바뀌면 프롬프트 캐시가 깨집니다 — 첫 메시지를 보낸 뒤부터
+   * 보입니다. 쓰기라서 참여하지 않은 회원은 백엔드가 거절합니다.
    */
-  const toggleTool = useCallback(
-    (kind: ToolKind) => {
+  const setTool = useCallback(
+    (kind: ToolOption, next: boolean) => {
       if (activeId === null || streaming) return;
-      const next = !toolFlags[kind];
-      const apply = async () => {
+      const run = async () => {
+        if (kind === "thinking") {
+          const updated = await setConversationThinking(activeId, next);
+          setShowThinking(updated.show_thinking ?? false);
+          return;
+        }
         const updated = await setConversationTool(activeId, kind, next);
         setToolFlags({
           web_search: updated.use_web_search ?? false,
@@ -1000,76 +1005,10 @@ export default function ChatWorkspace() {
           code_execution: updated.use_code_execution ?? false,
         });
       };
-      if (!next) {
-        void apply().catch((error: unknown) => setSendError(describeError(error)));
-        return;
-      }
-      setConfirmError(null);
-      setConfirm({
-        title: `${TOOL_META[kind].label} 도구를 켤까요?`,
-        effect: toolCostEffect(
-          kind,
-          selectedModel?.web_search_krw_per_call ?? null,
-          info
-            ? { maxUses: info.web_fetch_max_uses, maxTokens: info.web_fetch_max_content_tokens }
-            : null,
-          info?.web_search_max_uses ?? 5,
-        ),
-        confirmLabel: "켜기",
-        onConfirm: async () => {
-          setConfirmBusy(true);
-          try {
-            await apply();
-            setConfirm(null);
-          } catch (error) {
-            setConfirmError(describeError(error));
-          } finally {
-            setConfirmBusy(false);
-          }
-        },
-      });
+      void run().catch((error: unknown) => setSendError(describeError(error)));
     },
-    [activeId, streaming, toolFlags, selectedModel, info],
+    [activeId, streaming],
   );
-
-  /**
-   * 생각 과정 보기 토글(chat-thinking-view). 켜기 전에 답장마다 더 드는
-   * 어림값을 보여 주고(Opus는 추가 비용 없음 — 바로 켭니다), 끌 때는 바로
-   * 끕니다. 쓰기라서 참여하지 않은 회원은 백엔드가 거절합니다.
-   */
-  const toggleThinking = useCallback(() => {
-    if (activeId === null || streaming) return;
-    const next = !showThinking;
-    const apply = async () => {
-      const updated = await setConversationThinking(activeId, next);
-      setShowThinking(updated.show_thinking ?? false);
-    };
-    if (!next || selectedModel?.thinking_extra_krw === 0) {
-      void apply().catch((error: unknown) => setSendError(describeError(error)));
-      return;
-    }
-    setConfirmError(null);
-    setConfirm({
-      title: "생각 과정 보기를 켤까요?",
-      effect: [
-        `${thinkingPriceLabel(selectedModel)} 정도 더 들어요 — 생각한 분량은 출력 토큰으로 청구돼요.`,
-        "답장 아래에 Claude가 생각한 순서를 짧은 단계로 접어 보여 드려요. 영어로 표시될 수 있어요.",
-        "이 대화의 다음 답장부터 적용돼요. 언제든 다시 끌 수 있어요.",
-      ],
-      confirmLabel: "켜기",
-      onConfirm: async () => {
-        setConfirmBusy(true);
-        try {
-          await apply();
-          setConfirm(null);
-        } catch (error) {
-          setConfirmError(describeError(error));
-        } finally {
-          setConfirmBusy(false);
-        }
-      },
-    });
-  }, [activeId, streaming, showThinking, selectedModel]);
 
   const hint = !mayCreate
     ? "참여 중인 분기가 되면 다시 보낼 수 있습니다. 지난 대화는 그대로 볼 수 있습니다."
@@ -1392,51 +1331,13 @@ export default function ChatWorkspace() {
                   disabled={!mayCreate || streaming}
                 />
                 {activeId !== null && selectedModel && (
-                  <button
-                    type="button"
-                    className={`${styles.toolChip} ${showThinking ? styles.toolChipOn : ""}`}
-                    aria-pressed={showThinking}
+                  <ToolsMenu
+                    model={selectedModel}
+                    on={{ thinking: showThinking, ...toolFlags }}
+                    onToggle={setTool}
                     disabled={streaming || !mayCreate}
-                    onClick={toggleThinking}
-                    data-testid="thinking-toggle"
-                  >
-                    생각 과정 보기
-                    <span className={styles.chipPrice}> · {thinkingPriceLabel(selectedModel)}</span>
-                  </button>
+                  />
                 )}
-                {activeId !== null &&
-                  selectedModel &&
-                  (selectedModel.tools_web_search ||
-                    selectedModel.tools_web_fetch ||
-                    selectedModel.tools_code_execution) && (
-                    <div className={styles.toolChips} data-testid="tool-chips">
-                      {(["web_search", "web_fetch", "code_execution"] as ToolKind[]).map(
-                        (kind) => {
-                          const allowed =
-                            kind === "web_search"
-                              ? selectedModel.tools_web_search
-                              : kind === "web_fetch"
-                                ? selectedModel.tools_web_fetch
-                                : selectedModel.tools_code_execution;
-                          if (!allowed) return null;
-                          const on = toolFlags[kind];
-                          return (
-                            <button
-                              key={kind}
-                              type="button"
-                              className={`${styles.toolChip} ${on ? styles.toolChipOn : ""}`}
-                              aria-pressed={on}
-                              disabled={streaming || !mayCreate}
-                              title={on ? undefined : "켜면 답장마다 추가 비용이 들 수 있어요"}
-                              onClick={() => toggleTool(kind)}
-                            >
-                              {TOOL_META[kind].label}
-                            </button>
-                          );
-                        },
-                      )}
-                    </div>
-                  )}
                 {mayCreate && (
                   <WalletCheck costKrw={selectedModel?.estimated_reply_krw ?? null} />
                 )}

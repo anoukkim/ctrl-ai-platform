@@ -137,24 +137,25 @@ describe("생각 과정 보기", () => {
     chatApi.getConversation.mockResolvedValue({ ...CONVERSATION, messages: [], long_history: null });
   });
 
-  test("켜기 전에 더 드는 어림값을 보여 주고, 확인해야 켠다", async () => {
+  test("도구 판이 켜기 전에 더 드는 어림값을 보여 주고, 스위치로 켠다", async () => {
+    // fix-composer-toolbar: the price sits on the 도구 panel's row, so the
+    // switch turns it on directly (the old confirm dialog is gone).
     chatApi.setConversationThinking.mockResolvedValue({ ...CONVERSATION, show_thinking: true });
     await openConversation();
 
-    const chip = await screen.findByTestId("thinking-toggle");
-    // 켜기 전부터 칩이 가격을 말한다.
-    expect(chip.textContent).toContain("답장마다 +약 5원");
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(await screen.findByTestId("tools-button"));
+    expect(screen.getByTestId("tool-price-thinking").textContent).toBe("답장마다 +약 5원");
+    const toggle = screen.getByRole("switch", { name: "생각 과정 보기" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
 
-    fireEvent.click(chip);
-    expect(chatApi.setConversationThinking).not.toHaveBeenCalled();
-    expect(await screen.findByText(/답장마다 \+약 5원 정도 더 들어요/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "켜기" }));
+    fireEvent.click(toggle);
     await waitFor(() => expect(chatApi.setConversationThinking).toHaveBeenCalledWith(5, true));
     await waitFor(() =>
-      expect(screen.getByTestId("thinking-toggle").getAttribute("aria-pressed")).toBe("true"),
+      expect(screen.getByRole("switch", { name: "생각 과정 보기" }).getAttribute("aria-checked")).toBe(
+        "true",
+      ),
     );
+    expect(screen.getByRole("button", { name: "생각 과정 보기 끄기" })).toBeTruthy();
   });
 
   test("Opus는 추가 비용이 없어 바로 켠다", async () => {
@@ -171,11 +172,10 @@ describe("생각 과정 보기", () => {
     });
     await openConversation();
 
-    const chip = await screen.findByTestId("thinking-toggle");
-    expect(chip.textContent).toContain("추가 비용 없음");
-    fireEvent.click(chip);
+    fireEvent.click(await screen.findByTestId("tools-button"));
+    expect(screen.getByTestId("tool-price-thinking").textContent).toBe("추가 비용 없음");
+    fireEvent.click(screen.getByRole("switch", { name: "생각 과정 보기" }));
     await waitFor(() => expect(chatApi.setConversationThinking).toHaveBeenCalledWith(5, true));
-    expect(screen.queryByRole("button", { name: "켜기" })).toBeNull();
   });
 
   test("답장 아래에 접혀 있고, 펼치면 번호 달린 단계가 보인다", async () => {

@@ -559,43 +559,6 @@
   color: var(--text);
 }
 
-/* 입력창 옆 도구 토글(chat-plus-tools). 모델 고르기와 같은 줄. */
-.toolChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.toolChip {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.22rem 0.65rem;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--fs-meta);
-  cursor: pointer;
-}
-
-.toolChip:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--text-dim);
-}
-
-.toolChip:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.toolChipOn {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 10%, transparent);
-}
-
-.chipPrice {
-  opacity: 0.8;
-}
-
 /* 생각 과정 보기 (chat-thinking-view): 답장 아래에 접혀 있습니다. */
 .thinking {
   margin: 0.35rem 0 0;
