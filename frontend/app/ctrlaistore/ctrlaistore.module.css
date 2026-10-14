@@ -814,3 +814,64 @@
   text-align: center;
 }
 
+
+/* ---------- ctrlaiapps-publish: real listings ---------- */
+
+/* 설명은 카드에서 세 줄까지. */
+.card .tagline {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 업데이트 메모 한 줄. */
+.note {
+  margin-top: 0.35rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 상세 화면의 실행 미리보기 — 앱 주소를 그대로, 샌드박스 안에서. */
+.livePreview {
+  margin-top: 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.livePreviewBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
+.livePreviewFrame {
+  display: block;
+  width: 100%;
+  height: min(70vh, 640px);
+  border: 0;
+  background: #fff;
+}
+
+.honest {
+  margin-top: 0.9rem;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+}
+
+.reportBox {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}

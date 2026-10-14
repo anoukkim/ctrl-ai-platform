@@ -449,6 +449,7 @@
 }
 
 .versionRow {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -486,4 +487,78 @@
 .versionMeta {
   font-size: 11px;
   color: var(--text-dim);
+}
+
+/* ---------- ctrlaiapps-publish ---------- */
+
+.limitsNote {
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+  line-height: 1.55;
+}
+
+.previewWhich {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.versionLabel {
+  display: block;
+  color: var(--accent);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.versionIcon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.versionIcon:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.versionIconOn {
+  color: var(--accent);
+}
+
+.styleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--fs-chip);
+  color: var(--text-muted);
+}
+
+.styleRow :global(.field) {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding-block: 0.3rem;
+}
+
+.labelForm {
+  display: flex;
+  gap: 0.3rem;
+  flex-basis: 100%;
+  order: 10;
+}
+
+.labelForm :global(.field) {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-block: 0.25rem;
 }

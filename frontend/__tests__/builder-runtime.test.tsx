@@ -67,7 +67,8 @@ const PROJECT: BuilderProject = {
   description: "",
   status: "draft",
   github_repo: null,
-  app_slug: "k3m9qx7pwa",
+  app_slug: null,
+  draft_slug: "k3m9qx7pwa",
   app_runtime_at: "2026-10-14T10:00:00Z",
   created_at: "2026-10-14T00:00:00Z",
   updated_at: "2026-10-14T00:00:00Z",
@@ -180,7 +181,7 @@ describe("말로 고치기와 버전", () => {
     await user.type(screen.getByLabelText("Claude에게 만들거나 고쳐 달라고 하기"), "버튼 색을 바꿔 줘");
     await user.click(screen.getByRole("button", { name: "고치기" }));
 
-    expect(generateProject).toHaveBeenCalledWith("7", "버튼 색을 바꿔 줘");
+    expect(generateProject).toHaveBeenCalledWith("7", "버튼 색을 바꿔 줘", "");
     expect(await screen.findByText("버튼 색을 주황색으로 바꿨어요.")).toBeTruthy();
     expect(screen.getByText("버전 기록 (2)")).toBeTruthy();
     expect(screen.getByText("고치기: 버튼 색을 바꿔 줘")).toBeTruthy();
