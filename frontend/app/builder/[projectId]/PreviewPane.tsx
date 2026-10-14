@@ -28,7 +28,7 @@
 
 import { useState } from "react";
 
-import { PREVIEW_SANDBOX, buildSrcdoc } from "@/lib/static-preview";
+import { PREVIEW_SANDBOX, RUNTIME_SANDBOX, buildSrcdoc } from "@/lib/static-preview";
 
 import styles from "./workspace.module.css";
 
@@ -39,6 +39,19 @@ export interface PreviewRuntimeProps {
   files: PreviewFiles;
   /** 앱의 시작 파일. Sandpack이라면 활성 파일이 됩니다. */
   entry: string;
+}
+
+/** builder-static-runtime: 앱 주소(apps.ctrlai.my)에서 돌리기. */
+export interface AppRuntimeProps {
+  /** 이 프로젝트의 앱 주소. 아직 올린 적이 없거나 앱 서버가 꺼져 있으면 null. */
+  appUrl?: string | null;
+  /** 앱 서버가 켜져 있으면 미리보기 갱신을 보여 줍니다. */
+  runtimeAvailable?: boolean;
+  /** 미리보기 갱신: 지금 파일을 앱 주소에 올립니다. */
+  onRefreshRuntime?: () => void;
+  refreshing?: boolean;
+  /** 앱 주소에 마지막으로 올린 때 — 바뀌면 프레임을 다시 읽습니다. */
+  stamp?: string | null;
 }
 
 /**
@@ -110,17 +123,52 @@ const StaticRuntime: PreviewRuntime = {
   },
 };
 
+/**
+ * 앱 주소 실행기 (builder-static-runtime): apps.ctrlai.my에 올린 파일을
+ * 그 주소 그대로 띄웁니다. 다른 출처라서 CTRL+AI의 쿠키·화면에 닿지 않고,
+ * sandbox도 그대로 둡니다(`RUNTIME_SANDBOX`).
+ */
+function AppFrame({ url }: { url: string }) {
+  return (
+    <div className={styles.staticPreview}>
+      <p className={styles.staticPreviewLabel}>
+        앱 주소에서 실행 중이에요 — CTRL+AI 계정과는 분리되어 있어요. 여기에 비밀번호나 개인
+        정보를 입력하지 마세요.
+      </p>
+      <iframe
+        className={styles.staticPreviewFrame}
+        sandbox={RUNTIME_SANDBOX}
+        src={url}
+        title="앱 미리보기"
+        referrerPolicy="no-referrer"
+      />
+    </div>
+  );
+}
+
 /** 파일이 있으면 정적 실행기, 없으면 안내. */
 function runtimeFor(files: PreviewFiles, entry: string): PreviewRuntime {
   return files[entry] !== undefined ? StaticRuntime : MockRuntime;
 }
 
-export default function PreviewPane({ files, entry }: PreviewRuntimeProps) {
+export default function PreviewPane({
+  files,
+  entry,
+  appUrl = null,
+  runtimeAvailable = false,
+  onRefreshRuntime,
+  refreshing = false,
+  stamp = null,
+}: PreviewRuntimeProps & AppRuntimeProps) {
   const [fullscreen, setFullscreen] = useState(false);
   // 새로 고침: key를 바꾸면 iframe이 처음부터 다시 실행됩니다.
   const [run, setRun] = useState(0);
   const runtime = runtimeFor(files, entry);
   const Runtime = runtime.Component;
+  const hasEntry = files[entry] !== undefined;
+  // 올린 때를 주소 뒤에 붙여, 갱신할 때마다 브라우저가 새 파일을 읽게 합니다.
+  const frameUrl =
+    appUrl && hasEntry ? `${appUrl}?v=${encodeURIComponent(stamp ?? "")}` : null;
 
   return (
     <div className={`${styles.preview} ${fullscreen ? styles.previewFullscreen : ""}`}>
@@ -128,10 +176,31 @@ export default function PreviewPane({ files, entry }: PreviewRuntimeProps) {
         <span className={styles.previewBarTitle}>
           미리보기
           <span className={`badge ${runtime.available ? "badge-ok" : "badge-mock"}`}>
-            {runtime.label}
+            {frameUrl ? "앱 주소" : runtime.label}
           </span>
         </span>
         <span style={{ flex: "1 1 auto" }} />
+        {runtimeAvailable && hasEntry && onRefreshRuntime && (
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={onRefreshRuntime}
+            disabled={refreshing}
+            title="지금 파일을 앱 주소에 올립니다"
+          >
+            {refreshing ? "올리는 중…" : "미리보기 갱신"}
+          </button>
+        )}
+        {frameUrl && (
+          <a
+            className="btn btn-sm"
+            href={appUrl ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            새 창에서 열기
+          </a>
+        )}
         {runtime.available && (
           <button className="btn btn-sm" type="button" onClick={() => setRun((n) => n + 1)}>
             새로 고침
@@ -148,7 +217,11 @@ export default function PreviewPane({ files, entry }: PreviewRuntimeProps) {
       </div>
 
       <div className={styles.previewBody}>
-        <Runtime key={run} files={files} entry={entry} />
+        {frameUrl ? (
+          <AppFrame key={`${run}-${frameUrl}`} url={frameUrl} />
+        ) : (
+          <Runtime key={run} files={files} entry={entry} />
+        )}
       </div>
     </div>
   );

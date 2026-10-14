@@ -458,3 +458,17 @@ def test_the_api_answers_no_cors_to_the_apps_origin(anon_client: TestClient, ori
     assert "access-control-allow-origin" not in preflight.headers
     simple = anon_client.get("/api/health", headers={"Origin": origin})
     assert "access-control-allow-origin" not in simple.headers
+
+
+def test_the_preview_and_the_runtime_use_the_same_storage_shim() -> None:
+    """`frontend/lib/static-preview.ts` repeats the shim for the in-page
+    preview; the two must not drift apart."""
+    import re
+
+    source = (Path(__file__).resolve().parents[2] / "frontend/lib/static-preview.ts").read_text(
+        encoding="utf-8"
+    )
+    start = source.index("export const STORAGE_SHIM")
+    end = source.index('</script>";', start) + len('</script>";')
+    literals = re.findall(r'"([^"]*)"', source[start:end])
+    assert "".join(literals) == app_runtime.STORAGE_SHIM

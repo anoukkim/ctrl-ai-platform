@@ -19,7 +19,7 @@ import functools
 import http.server
 from pathlib import Path
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.services.app_runtime import apps_root
 
 
@@ -61,8 +61,10 @@ class AppsHandler(http.server.SimpleHTTPRequestHandler):
         self.send_error(405)
 
 
-def make_server(port: int = 8300, host: str = "127.0.0.1") -> http.server.ThreadingHTTPServer:
-    settings = get_settings()
+def make_server(
+    port: int = 8300, host: str = "127.0.0.1", settings: Settings | None = None
+) -> http.server.ThreadingHTTPServer:
+    settings = settings or get_settings()
     if not settings.is_development:
         raise SystemExit("dev_apps_server is for local development only (APP_ENV=development).")
     root = apps_root(settings)

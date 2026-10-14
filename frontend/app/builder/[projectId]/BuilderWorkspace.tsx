@@ -8,9 +8,10 @@
  * 위쪽 막대의 전환 메뉴로 옮겼습니다.
  *
  * 프로젝트 정보와 파일은 백엔드에서 가져옵니다. 빈 프로젝트에서는 Claude가
- * 작은 예시 앱(HTML·CSS·JS)을 만들어 줄 수 있고(chat-builder-starter), 만든
- * 앱은 미리보기의 샌드박스 iframe 안에서만 돌아갑니다. 파일은 아직 읽기만
- * 하고, Claude와 대화하며 고치기와 GitHub 연동은 다음 단계입니다.
+ * 작은 예시 앱(HTML·CSS·JS)을 만들어 줄 수 있고(chat-builder-starter),
+ * 오른쪽에서 말로 만들고 고칠 수 있습니다(builder-static-runtime). 바뀔
+ * 때마다 버전이 남아 되돌릴 수 있고, 앱은 앱 주소(apps.ctrlai.my)에 올라가
+ * 미리보기 프레임 안에서 돌아갑니다. GitHub 연동은 다음 단계입니다.
  */
 
 import { ArrowLeft, Lock } from "lucide-react";
@@ -28,16 +29,26 @@ import {
   builderProjectDownloadUrl,
   createStarterApp,
   deleteBuilderProject,
+  appUrl,
   describeError,
+  generateProject,
   getBuilderProject,
+  getGenerateEstimate,
   getStarterEstimate,
   listBuilderFiles,
   listBuilderProjects,
+  listVersions,
+  refreshAppRuntime,
+  restoreVersion,
   updateBuilderProject,
   type BuilderFile,
   type BuilderProject,
+  type BuilderVersion,
+  type GenerateEstimate,
   type StarterEstimate,
 } from "@/lib/projects";
+import { useSite } from "@/app/components/SiteProvider";
+import { relativeTime } from "@/lib/relative-time";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import WalletCheck from "@/app/components/WalletCheck";
 import TestModeNotice from "@/app/components/TestModeNotice";
@@ -58,6 +69,11 @@ type State =
   | { phase: "error"; message: string };
 
 const ENTRY_FILE = "index.html";
+
+/** 숫자 뒤의 "로/으로": 삼으로, 이로, 칠로 (백엔드 버전 메모와 같은 규칙). */
+function particleRo(n: number): string {
+  return [0, 3, 6].includes(n % 10) ? "으로" : "로";
+}
 
 /** 파일 목록을 왼쪽 나무로: 맨 위 파일, 그다음 폴더별 파일. */
 function fileTree(files: BuilderFile[]): { name: string; path: string; depth: number; folder: boolean }[] {
@@ -136,6 +152,17 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // 말로 만들기 / 고치기 (builder-static-runtime).
+  const { apps_base_url: appsBase } = useSite();
+  const [ask, setAsk] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateEstimate, setGenerateEstimate] = useState<GenerateEstimate | null>(null);
+  const [thread, setThread] = useState<{ role: "member" | "claude"; text: string }[]>([]);
+  const [versions, setVersions] = useState<BuilderVersion[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+
   // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
   // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
   // 실행은 밀려났다"고 표시하고 먼저 도착한 응답을 버렸는데, 뒤에 선
@@ -175,6 +202,29 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       .catch((error: unknown) => setFilesError(describeError(error)));
   }, [projectId]);
 
+  // 버전 기록과 만들기 비용 어림. 실패해도 작업 공간은 그대로 씁니다.
+  const loadVersions = useCallback(() => {
+    listVersions(projectId)
+      .then(setVersions)
+      .catch(() => setVersions([]));
+  }, [projectId]);
+
+  useEffect(() => {
+    loadVersions();
+    getGenerateEstimate(projectId)
+      .then(setGenerateEstimate)
+      .catch(() => setGenerateEstimate(null));
+  }, [projectId, loadVersions]);
+
+  // 예시 앱을 만든 뒤에는 백엔드가 앱 주소에도 올렸으므로 프로젝트를 다시 읽습니다.
+  const reloadProject = useCallback(() => {
+    getBuilderProject(projectId)
+      .then((project) => setState({ phase: "ready", project }))
+      .catch(() => {
+        /* 잘 보이던 화면을 그대로 둡니다 */
+      });
+  }, [projectId]);
+
   const makeStarter = useCallback(
     async (idea: string) => {
       setStarting(true);
@@ -185,6 +235,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setActiveFile(ENTRY_FILE);
         setSummary(result.summary);
         setMode("preview");
+        loadVersions();
+        reloadProject();
         void refreshWallet();
         reportCharge({ chargedKrw: result.charged_krw, label: "빌더 · 앱 만들기" });
       } catch (error) {
@@ -193,8 +245,79 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setStarting(false);
       }
     },
-    [projectId, refreshWallet, reportCharge],
+    [projectId, refreshWallet, reportCharge, loadVersions, reloadProject],
   );
+
+  const runGenerate = useCallback(async () => {
+    const text = ask.trim();
+    if (!text) return;
+    setGenerating(true);
+    setGenerateError(null);
+    setThread((list) => [...list, { role: "member", text }]);
+    try {
+      const result = await generateProject(projectId, text);
+      setAsk("");
+      setFiles(result.files);
+      setState({ phase: "ready", project: result.project });
+      setVersions((list) => [result.version, ...list.filter((v) => v.number !== result.version.number)]);
+      setThread((list) => [...list, { role: "claude", text: result.summary }]);
+      if (result.changed.length > 0 && mode !== "preview") setActiveFile(result.changed[0]);
+      void refreshWallet();
+      reportCharge({ chargedKrw: result.charged_krw, label: "빌더 · 고치기" });
+      getGenerateEstimate(projectId).then(setGenerateEstimate).catch(() => undefined);
+    } catch (error) {
+      setGenerateError(describeError(error));
+    } finally {
+      setGenerating(false);
+    }
+  }, [ask, projectId, mode, refreshWallet, reportCharge]);
+
+  // 확인 창은 스스로 닫히지 않습니다. 성공하면 닫고, 실패하면 창 안에 이유를.
+  const restore = useCallback(
+    async (number: number) => {
+      setDeleting(true);
+      setDeleteError(null);
+      try {
+        const result = await restoreVersion(projectId, number);
+        setFiles(result.files);
+        setState({ phase: "ready", project: result.project });
+        setVersions((list) => [result.version, ...list]);
+        setConfirm(null);
+        toast.show(`v${number}의 파일로 되돌렸어요. 되돌리기 전 상태도 버전으로 남아 있어요.`);
+      } catch (error) {
+        setDeleteError(describeError(error));
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [projectId, toast],
+  );
+
+  const askToRestore = useCallback(
+    (version: BuilderVersion) => {
+      setDeleteError(null);
+      setConfirm({
+        title: `v${version.number}${particleRo(version.number)} 되돌리기`,
+        effect: `파일을 v${version.number} 때로 되돌립니다(${version.note}). 비용은 들지 않고, 지금 상태도 새 버전으로 남아 언제든 다시 돌아올 수 있어요.`,
+        confirmLabel: "되돌리기",
+        onConfirm: () => restore(version.number),
+      });
+    },
+    [restore],
+  );
+
+  const refreshRuntime = useCallback(async () => {
+    setRefreshing(true);
+    setRuntimeError(null);
+    try {
+      const project = await refreshAppRuntime(projectId);
+      setState({ phase: "ready", project });
+    } catch (error) {
+      setRuntimeError(describeError(error));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [projectId]);
 
   // 전환 메뉴에 쓸 목록. 실패해도 작업 공간은 그대로 쓸 수 있어야 하므로
   // 조용히 넘어갑니다.
@@ -289,6 +412,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const idea = starterIdea ?? project.description;
   const showCode = mode === "code" || mode === "split";
   const showPreview = mode === "preview" || mode === "split";
+  const liveUrl = appUrl(project, appsBase);
 
   return (
     <div className={ws.shell}>
@@ -482,60 +606,149 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
             {!empty && showPreview && (
               <div className={styles.previewSide}>
-                <PreviewPane files={fileMap} entry={ENTRY_FILE} />
+                <PreviewPane
+                  files={fileMap}
+                  entry={ENTRY_FILE}
+                  appUrl={liveUrl}
+                  runtimeAvailable={Boolean(appsBase) && mayCreate}
+                  onRefreshRuntime={() => void refreshRuntime()}
+                  refreshing={refreshing}
+                  stamp={project.app_runtime_at ?? null}
+                />
+                {runtimeError && (
+                  <p className={styles.starterError} role="alert">
+                    {runtimeError}
+                  </p>
+                )}
               </div>
             )}
           </div>
         </section>
 
-        {/* 오른쪽 — Claude */}
+        {/* 오른쪽 — Claude: 말로 만들기 / 고치기, 버전 기록 */}
         <aside className={`${ws.pane} ${ws.paneLast} ${styles.right}`}>
           <div className={styles.rightInner}>
             <div className={ws.paneHead}>
               <span className={ws.paneHeadTitle}>Claude</span>
-              <span className="badge badge-mock">고치기는 준비 중</span>
+              {generateEstimate && (
+                <span className="badge badge-muted">{generateEstimate.model_label}</span>
+              )}
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
-                {summary ? (
+                {summary && (
                   <div className={`${ws.chatMessage} ${ws.chatAssistant}`}>
                     <span className={ws.chatRole}>Claude</span>
                     {summary}
                   </div>
-                ) : (
+                )}
+                {thread.map((message, index) => (
+                  <div
+                    className={`${ws.chatMessage} ${
+                      message.role === "member" ? ws.chatUser : ws.chatAssistant
+                    }`}
+                    key={index}
+                  >
+                    <span className={ws.chatRole}>{message.role === "member" ? "나" : "Claude"}</span>
+                    {message.text}
+                  </div>
+                ))}
+                {generating && (
+                  <p className={styles.hint} role="status">
+                    Claude가 파일을 쓰는 중이에요… (보통 30초~2분)
+                  </p>
+                )}
+                {!summary && thread.length === 0 && !generating && (
                   <p className={styles.hint}>
                     {empty
-                      ? "가운데에서 예시 앱을 만들면 Claude가 무엇을 만들었는지 여기에서 알려 줘요."
-                      : "Claude에게 말로 고쳐 달라고 하는 기능은 다음 단계에서 열립니다. 지금은 파일을 보고, 미리보기에서 눌러 보고, ZIP으로 받을 수 있어요."}
+                      ? "만들고 싶은 앱을 아래에 적거나, 가운데에서 예시 앱부터 만들어 보세요."
+                      : "바꾸고 싶은 점을 아래에 적으면 Claude가 파일을 고쳐요. 바뀔 때마다 버전이 남아서 언제든 되돌릴 수 있어요."}
                   </p>
                 )}
               </div>
+
+              {versions.length > 0 && (
+                <details className={styles.versions}>
+                  <summary>버전 기록 ({versions.length})</summary>
+                  <ul className={styles.versionList}>
+                    {versions.map((version, index) => (
+                      <li className={styles.versionRow} key={version.number}>
+                        <span className={styles.versionNumber}>v{version.number}</span>
+                        <span className={styles.versionNote} title={version.note}>
+                          {version.note || "변경"}
+                          <span className={styles.versionMeta}>
+                            {relativeTime(version.created_at)} · 파일 {version.file_count}개
+                          </span>
+                        </span>
+                        {index === 0 ? (
+                          <span className="badge badge-muted">지금</span>
+                        ) : (
+                          <button
+                            className="btn btn-sm"
+                            type="button"
+                            onClick={() => askToRestore(version)}
+                            disabled={!mayCreate || generating}
+                            title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+                          >
+                            되돌리기
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
             <div className={ws.chatComposer}>
-              <input
-                className="field"
-                type="text"
-                placeholder={mayCreate ? "무엇을 바꿀까요? (다음 단계)" : "이번 분기에는 사용할 수 없습니다"}
-                disabled
-                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                aria-label={
+              <label className="sr-only" htmlFor="builder-ask">
+                Claude에게 만들거나 고쳐 달라고 하기
+              </label>
+              <textarea
+                className={`field ${styles.askField}`}
+                id="builder-ask"
+                rows={3}
+                maxLength={2000}
+                value={ask}
+                onChange={(event) => setAsk(event.target.value)}
+                placeholder={
                   mayCreate
-                    ? "Claude에게 고쳐 달라고 하기 (다음 단계에서 제공됩니다)"
+                    ? empty
+                      ? "예: 한 달 지출을 적는 가계부를 만들어 줘"
+                      : "예: 버튼 색을 주황색으로 바꿔 줘"
                     : "이번 분기에는 사용할 수 없습니다"
                 }
+                disabled={!mayCreate || generating}
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
-              {/* 막힌 이유가 둘일 수 있습니다. 어느 쪽인지 알려 주지 않으면
-                  회원은 분기에 참여하면 풀린다고 오해합니다. */}
-              <p className={styles.hint}>
-                {mayCreate ? (
-                  <>예: &ldquo;이번 주 달성률을 보여주는 그래프를 추가해줘.&rdquo;</>
-                ) : (
-                  <>
-                    <Lock size={11} aria-hidden="true" /> 이번 분기에 참여하지 않아 사용할 수
-                    없습니다.
-                  </>
+              <div className={styles.askActions}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  type="button"
+                  onClick={() => void runGenerate()}
+                  disabled={!mayCreate || generating || !ask.trim()}
+                >
+                  {generating ? "만드는 중…" : empty ? "만들기" : "고치기"}
+                </button>
+                {generateEstimate && (
+                  <span className={styles.starterCost}>
+                    약 {formatKrw(generateEstimate.estimated_krw)} · 최대{" "}
+                    {formatKrw(generateEstimate.worst_case_krw)}
+                  </span>
                 )}
-              </p>
+              </div>
+              {mayCreate && generateEstimate && (
+                <WalletCheck costKrw={generateEstimate.worst_case_krw} />
+              )}
+              {generateError && (
+                <p className={styles.starterError} role="alert">
+                  {generateError}
+                </p>
+              )}
+              {!mayCreate && (
+                <p className={styles.hint}>
+                  <Lock size={11} aria-hidden="true" /> 이번 분기에 참여하지 않아 사용할 수 없습니다.
+                </p>
+              )}
             </div>
           </div>
         </aside>

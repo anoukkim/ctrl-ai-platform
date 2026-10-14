@@ -40,6 +40,10 @@ export interface BuilderProject {
   description: string;
   status: BuilderProjectStatus;
   github_repo: string | null;
+  /** 앱 주소의 폴더 이름(apps.ctrlai.my/<app_slug>/) — builder-static-runtime. */
+  app_slug?: string | null;
+  /** 그 주소에 파일을 마지막으로 올린 때. 없으면 아직 올라간 적이 없습니다. */
+  app_runtime_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,12 +170,86 @@ export interface StarterResult {
   charged_krw: number;
 }
 
+/**
+ * Claude가 파일을 쓰는 요청의 대기 시간. 백엔드는 180초까지 기다리므로
+ * 화면이 먼저 포기하지 않도록 조금 더 깁니다 — 먼저 끊으면 돈은 나가는데
+ * 결과를 못 받습니다.
+ */
+export const GENERATION_TIMEOUT_MS = 200_000;
+
 /** 빈 프로젝트에 Claude가 작은 예시 앱을 만듭니다. 지원금에서 차감됩니다. */
 export function createStarterApp(id: number | string, idea = ""): Promise<StarterResult> {
   return request<StarterResult>(`/builder/projects/${id}/starter`, {
     method: "POST",
     body: JSON.stringify({ idea }),
+    timeoutMs: GENERATION_TIMEOUT_MS,
   });
+}
+
+// ------------------------------------------------ 만들기 / 고치기, 버전, 앱 주소
+
+export interface GenerateEstimate extends StarterEstimate {
+  max_output_tokens: number;
+}
+
+export function getGenerateEstimate(id: number | string): Promise<GenerateEstimate> {
+  return request<GenerateEstimate>(`/builder/projects/${id}/generate-estimate`);
+}
+
+export interface BuilderVersion {
+  number: number;
+  /** 무엇이 만든 버전인지: "예시 앱", "고치기: …", "v3으로 되돌리기". */
+  note: string;
+  created_at: string;
+  file_count: number;
+  total_bytes: number;
+}
+
+export interface GenerateResult {
+  files: BuilderFile[];
+  /** Claude가 새로 만들거나 바꾼 파일. */
+  changed: string[];
+  summary: string;
+  charged_krw: number;
+  version: BuilderVersion;
+  project: BuilderProject;
+}
+
+/** 말로 만들기 / 고치기. 지원금에서 차감되고, 새 버전으로 저장됩니다. */
+export function generateProject(id: number | string, requestText: string): Promise<GenerateResult> {
+  return request<GenerateResult>(`/builder/projects/${id}/generate`, {
+    method: "POST",
+    body: JSON.stringify({ request: requestText }),
+    timeoutMs: GENERATION_TIMEOUT_MS,
+  });
+}
+
+export function listVersions(id: number | string): Promise<BuilderVersion[]> {
+  return request<BuilderVersion[]>(`/builder/projects/${id}/versions`);
+}
+
+export interface RestoreResult {
+  files: BuilderFile[];
+  version: BuilderVersion;
+  project: BuilderProject;
+}
+
+/** 그 버전으로 되돌립니다. 무료이고, 되돌린 것도 새 버전이 됩니다. */
+export function restoreVersion(id: number | string, number: number): Promise<RestoreResult> {
+  return request<RestoreResult>(`/builder/projects/${id}/versions/${number}/restore`, {
+    method: "POST",
+  });
+}
+
+/** 미리보기 갱신: 지금 파일을 앱 주소에 올립니다. */
+export function refreshAppRuntime(id: number | string): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/runtime`, { method: "POST" });
+}
+
+/** 프로젝트의 앱 주소. 앱 서버가 꺼져 있거나 아직 올린 적이 없으면 null. */
+export function appUrl(project: BuilderProject, base: string | null | undefined): string | null {
+  if (!base || !project.app_slug || !project.app_runtime_at) return null;
+  return `${base.replace(/\/+$/, "")}/${project.app_slug}/`;
 }
 
 export function updateBuilderProject(
