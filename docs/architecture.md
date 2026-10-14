@@ -99,6 +99,11 @@ the same commit that adds it.
 | `GET /api/builder/projects/{id}/files` | `get_current_user` | Reading your own work |
 | `GET /api/builder/starter-estimate` | `get_current_user` | A price, nothing spent |
 | `POST /api/builder/projects/{id}/starter` | **`require_active_member`** | Claude writes a starter app — spends the wallet |
+| `GET /api/builder/projects/{id}/generate-estimate` | `get_current_user` | A price, nothing spent |
+| `POST /api/builder/projects/{id}/generate` | **`require_active_member`** | 만들기 / 고치기: Claude writes files — spends the wallet |
+| `GET /api/builder/projects/{id}/versions` | `get_current_user` | Reading your own work |
+| `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 되돌리기 — changing your work (free) |
+| `POST /api/builder/projects/{id}/runtime` | **`require_active_member`** | 미리보기 갱신 — writes the files to `apps.ctrlai.my` |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |

@@ -10,6 +10,7 @@ loudly at startup if something is malformed.
 
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
@@ -245,11 +246,25 @@ class Settings(BaseSettings):
     # 1h only pays off for pauses of 5-60 minutes.
     chat_cache_ttl: str = "5m"
 
-    # Project Builder's starter app (chat-builder-starter): the most one
-    # generation may write, and how long to wait for it. 8,000 tokens is a
-    # small app of a few hundred lines; the pre-check reserves all of it.
-    builder_max_output_tokens: int = 8000
-    builder_timeout_seconds: float = 120.0
+    # Project Builder's generations (예시 앱, and 만들기 / 고치기 since
+    # builder-static-runtime): the most one generation may write, and how
+    # long to wait for it. 16,000 tokens is a whole small app rewritten
+    # (≈ 230원 on Sonnet); the pre-check reserves all of it.
+    builder_max_output_tokens: int = 16000
+    builder_timeout_seconds: float = 180.0
+
+    # ---------- Member apps (builder-static-runtime) ----------
+    # Where 미리보기 갱신 writes each project's files, one folder per app
+    # slug. Relative paths are resolved against `backend/`. On the server
+    # it is the `apps_data` volume, which Caddy serves read-only.
+    apps_dir: str = "var/apps"
+    # The origin that serves that folder: https://apps.ctrlai.my on the
+    # server (docker-compose.prod.yml sets it), http://localhost:8300 with
+    # `python -m app.dev_apps_server` locally. Blank turns the runtime off:
+    # the preview then runs the files inside the page (srcdoc) as before.
+    apps_base_url: str = ""
+    # All apps together may use this much of the disk (spec: ≤ 2 GB).
+    apps_max_total_mb: int = 2048
 
     # Messages one member may send per minute, across all conversations.
     # Protects the budget from a stuck key or a runaway script.
@@ -319,6 +334,15 @@ class Settings(BaseSettings):
         return self.personal_topup_enabled and not self.is_beta
 
     @property
+    def apps_origin(self) -> str | None:
+        """The member apps' origin, or None while the runtime is off."""
+        base = self.apps_base_url.strip().rstrip("/")
+        if not base:
+            return None
+        parts = urlsplit(base)
+        return f"{parts.scheme}://{parts.netloc}" if parts.scheme and parts.netloc else None
+
+    @property
     def cookie_domain(self) -> str | None:
         """The session cookie's Domain attribute, or None for host-only."""
         return self.session_cookie_domain.strip() or None
@@ -346,6 +370,18 @@ class Settings(BaseSettings):
         if url.get_backend_name() == "postgresql" and (url.password or "") in DEFAULT_DATABASE_PASSWORDS:
             problems.append(
                 "POSTGRES_PASSWORD is the development default. Set a long random one in .env."
+            )
+
+        # apps.ctrlai.my is same-site with ctrlai.my (CLAUDE.md §2): a
+        # Domain cookie would be sent to every member app.
+        if self.session_cookie_domain.strip():
+            problems.append(
+                "SESSION_COOKIE_DOMAIN must stay empty: the session cookie is host-only, "
+                "so member apps on apps.<domain> never receive it."
+            )
+        if self.apps_origin and self.apps_origin in self.cors_origins:
+            problems.append(
+                "CORS_ALLOW_ORIGINS must not list the member apps' origin (APPS_BASE_URL)."
             )
 
         if self.admin_password:

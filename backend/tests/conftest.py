@@ -54,6 +54,12 @@ _DEVELOPER_DATABASE_BEFORE = None
 _REAL_STORAGE_BEFORE: set[str] | None = None
 
 
+
+#: Every test client sends JSON by default, as the frontend does: a POST
+#: without a non-simple Content-Type is refused (`JsonOnlyMiddleware`,
+#: CLAUDE.md §2). Tests of that refusal use a client without this header.
+JSON_HEADERS = {"content-type": "application/json"}
+
 def _real_storage_files() -> set[str] | None:
     """Every file under the real storage dir, or None when it is absent.
 
@@ -239,7 +245,7 @@ def anon_client(db_session: Session) -> Generator[TestClient, None, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=JSON_HEADERS) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
@@ -400,6 +406,6 @@ def client_without_database() -> Generator[TestClient, None, None]:
         yield BrokenSession()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=JSON_HEADERS) as test_client:
         yield test_client
     app.dependency_overrides.clear()

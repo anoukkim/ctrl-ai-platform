@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import BuilderProject, BuilderProjectFile, ProviderErrorKind, UsageFeature, User
-from app.services import chat_models, pricing, providers
+from app.services import builder_versions, chat_models, pricing, providers
 from app.services import chat_limits, provider_limiter
 from app.services import usage as usage_service
 from app.services.claude_provider import (
@@ -208,6 +208,9 @@ def create_starter(
     )
     rows = [BuilderProjectFile(project_id=project.id, path=path, content=content) for path, content in files]
     db.add_all(rows)
+    db.flush()
+    # builder-static-runtime: the starter is the project's first version.
+    builder_versions.snapshot(db, project, "예시 앱", dict(files))
     if not project.description.strip():
         project.description = idea[:2000]
     providers.record_success(db, "claude", "예시 앱" + (" (mock)" if is_mock else ""))

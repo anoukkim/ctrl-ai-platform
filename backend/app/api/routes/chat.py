@@ -88,13 +88,10 @@ from app.services.claude_provider import (
     get_claude_provider,
 )
 
-#: Content types a browser may send cross-origin without a preflight.
-SIMPLE_CONTENT_TYPES = {
-    "",
-    "text/plain",
-    "application/x-www-form-urlencoded",
-    "multipart/form-data",
-}
+#: Content types a browser may send cross-origin without a preflight —
+#: refused for every POST by `JsonOnlyMiddleware`; checked here again so
+#: the upload route is safe on its own.
+from app.core.json_only import SIMPLE_CONTENT_TYPES  # noqa: E402
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 

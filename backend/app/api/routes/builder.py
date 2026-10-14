@@ -7,6 +7,7 @@ so a deleted project is invisible to its owner through every route rather
 than only the ones that remembered to check.
 """
 
+import logging
 from datetime import date, datetime, timezone
 from urllib.parse import quote
 
@@ -18,7 +19,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
 from app.db.session import get_db
-from app.models import BuilderProject, BuilderProjectFile, BuilderProjectStatus, User
+from app.models import (
+    BuilderProject,
+    BuilderProjectFile,
+    BuilderProjectStatus,
+    BuilderProjectVersion,
+    User,
+)
 from app.schemas.builder import (
     BuilderProjectCreate,
     BuilderProjectFromChat,
@@ -28,16 +35,31 @@ from app.schemas.builder import (
 from app.core.config import Settings, get_settings
 from app.schemas.builder import (
     BuilderFileRead,
+    EditEstimateRead,
+    GenerateRead,
+    GenerateRequest,
+    RestoreRead,
     StarterEstimateRead,
     StarterRead,
     StarterRequest,
+    VersionRead,
 )
-from app.services import builder_starter, chat_models, pricing, project_zip
+from app.services import (
+    app_runtime,
+    builder_edit,
+    builder_starter,
+    builder_versions,
+    chat_models,
+    pricing,
+    project_zip,
+)
 from app.services import usage as usage_service
 from app.services.claude_provider import ClaudeError, get_claude_provider
 from app.services.work import InvalidNameError, clean_name
 
 router = APIRouter(prefix="/builder", tags=["builder"])
+
+logger = logging.getLogger(__name__)
 
 
 def _owned_project(project_id: int, db: Session, user: User) -> BuilderProject:
@@ -144,6 +166,7 @@ def create_project_from_chat(
     payload: BuilderProjectFromChat,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
 ) -> BuilderProject:
     """The one Builder route that writes a file from the browser
     (chat-plus-artifacts). Free — nothing is generated; the member's own
@@ -165,6 +188,9 @@ def create_project_from_chat(
     db.add(project)
     db.flush()
     db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
+    db.flush()
+    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html})
+    _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)
     return project
@@ -272,6 +298,7 @@ def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
 ) -> None:
     """Delete a project. The owner, while participating, only.
 
@@ -285,6 +312,9 @@ def delete_project(
     """
     project = _owned_project(project_id, db, user)
     project.deleted_at = datetime.now(timezone.utc)
+    # A deleted project stops being served at once (CLAUDE.md section 10:
+    # deleted work never resurfaces). Restoring it needs 미리보기 갱신 again.
+    app_runtime.remove(settings, project)
     db.commit()
 
 
@@ -370,8 +400,190 @@ def create_starter(
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
     except (ClaudeError, pricing.PricingError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    _refresh_runtime(db, config, project)
+    db.commit()
     return StarterRead(
         files=[BuilderFileRead.model_validate(row) for row in result.files],
         summary=result.summary,
         charged_krw=result.charged_krw,
     )
+
+
+# ------------------------------------------------ builder-static-runtime
+
+
+def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -> None:
+    """Write the project's files to the apps origin after a change, when
+    the runtime is on. A failure here never undoes the change: the preview
+    falls back to running the files inside the page, and 미리보기 갱신
+    can try again (it shows the reason)."""
+    if not app_runtime.enabled(settings):
+        return
+    files = builder_versions.current_files(db, project)
+    if "index.html" not in files:
+        return
+    try:
+        app_runtime.publish(db, settings, project, files)
+    except (app_runtime.AppRuntimeError, OSError) as error:
+        logger.warning("app runtime write failed for project %s: %s", project.id, error)
+
+
+def _version_read(version: BuilderProjectVersion) -> VersionRead:
+    return VersionRead(
+        number=version.number,
+        note=version.note,
+        created_at=version.created_at,
+        file_count=len(version.files),
+        total_bytes=sum(len(str(content).encode("utf-8")) for _path, content in version.files),
+    )
+
+
+def _file_rows(db: Session, project: BuilderProject) -> list[BuilderFileRead]:
+    return [
+        BuilderFileRead.model_validate(row)
+        for row in db.scalars(
+            select(BuilderProjectFile)
+            .where(BuilderProjectFile.project_id == project.id)
+            .order_by(BuilderProjectFile.path)
+        )
+    ]
+
+
+@router.get(
+    "/projects/{project_id}/generate-estimate",
+    response_model=EditEstimateRead,
+    summary="What 만들기 / 고치기 costs, before pressing it",
+)
+def generate_estimate(
+    project_id: int,
+    request: str = Query(default="", max_length=2000),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    config: Settings = Depends(get_settings),
+) -> EditEstimateRead:
+    project = _owned_project(project_id, db, user)
+    try:
+        figures = builder_edit.estimate(db, config, project, request)
+    except (pricing.PricingError, chat_models.ModelChoiceError) as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
+    return EditEstimateRead(
+        estimated_krw=figures.estimated_krw,
+        worst_case_krw=figures.worst_case_krw,
+        model_label=figures.model_label,
+        max_output_tokens=figures.max_output_tokens,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/generate",
+    response_model=GenerateRead,
+    summary="만들기 / 고치기: Claude writes the project's files",
+)
+def generate(
+    project_id: int,
+    payload: GenerateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> GenerateRead:
+    """Static files only, checked before they are stored; charged to the
+    wallet by the token; saved as a new version. See `services/builder_edit.py`."""
+    project = _owned_project(project_id, db, user)
+    try:
+        result = builder_edit.generate(
+            db,
+            config,
+            get_claude_provider(config),
+            user=user,
+            project=project,
+            request=payload.request,
+            is_mock=config.provider_is_mock("claude"),
+        )
+    except builder_starter.StarterError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except usage_service.InsufficientBudgetError as error:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(error)) from error
+    except usage_service.NoQuarterError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    except chat_models.ModelChoiceError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except (ClaudeError, pricing.PricingError) as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    _refresh_runtime(db, config, project)
+    db.commit()
+    db.refresh(project)
+    db.refresh(result.version)
+    return GenerateRead(
+        files=_file_rows(db, project),
+        changed=result.changed,
+        summary=result.summary,
+        charged_krw=result.charged_krw,
+        version=_version_read(result.version),
+        project=BuilderProjectRead.model_validate(project),
+    )
+
+
+@router.get(
+    "/projects/{project_id}/versions",
+    response_model=list[VersionRead],
+    summary="A project's saved versions, newest first",
+)
+def list_versions(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[VersionRead]:
+    """Readable while not participating, like the files themselves."""
+    project = _owned_project(project_id, db, user)
+    return [_version_read(version) for version in builder_versions.list_versions(db, project)]
+
+
+@router.post(
+    "/projects/{project_id}/versions/{number}/restore",
+    response_model=RestoreRead,
+    summary="되돌리기: the project's files as they were in one version",
+)
+def restore_version(
+    project_id: int,
+    number: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> RestoreRead:
+    """Free — nothing is generated. Saved as a new version, so the state
+    being left can be restored in turn."""
+    project = _owned_project(project_id, db, user)
+    try:
+        version = builder_versions.restore(db, project, number)
+    except builder_versions.VersionError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    _refresh_runtime(db, config, project)
+    db.commit()
+    db.refresh(project)
+    db.refresh(version)
+    return RestoreRead(
+        files=_file_rows(db, project),
+        version=_version_read(version),
+        project=BuilderProjectRead.model_validate(project),
+    )
+
+
+@router.post(
+    "/projects/{project_id}/runtime",
+    response_model=BuilderProjectRead,
+    summary="미리보기 갱신: write the project's files to the apps origin",
+)
+def refresh_runtime(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> BuilderProject:
+    project = _owned_project(project_id, db, user)
+    try:
+        app_runtime.publish(db, config, project, builder_versions.current_files(db, project))
+    except app_runtime.AppRuntimeError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    db.refresh(project)
+    return project

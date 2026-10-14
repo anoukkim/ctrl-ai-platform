@@ -26,11 +26,12 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 
-# Run as an ordinary user. var/storage is where generated files live; the
-# compose file mounts a named volume there, which Docker creates with this
-# ownership.
+# Run as an ordinary user. var/storage is where generated files live and
+# var/apps where member apps are written (builder-static-runtime); the
+# compose file mounts a named volume on each, which Docker creates with
+# this ownership.
 RUN useradd --system --uid 10001 --home-dir /app ctrlai \
-    && mkdir -p /app/var/storage \
+    && mkdir -p /app/var/storage /app/var/apps \
     && chown -R ctrlai /app/var
 USER ctrlai
 

@@ -18,7 +18,12 @@ from app.models.chat import (
     Conversation,
 )
 from app.models.feedback import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, Feedback
-from app.models.builder import BuilderProject, BuilderProjectFile, BuilderProjectStatus
+from app.models.builder import (
+    BuilderProject,
+    BuilderProjectFile,
+    BuilderProjectStatus,
+    BuilderProjectVersion,
+)
 from app.models.provider import (
     PROVIDER_ERROR_LABEL,
     ProviderErrorKind,
@@ -82,6 +87,7 @@ __all__ = [
     "BuilderProject",
     "BuilderProjectFile",
     "BuilderProjectStatus",
+    "BuilderProjectVersion",
     "FEEDBACK_MAX_LENGTH",
     "FEEDBACK_PER_HOUR",
     "Feedback",

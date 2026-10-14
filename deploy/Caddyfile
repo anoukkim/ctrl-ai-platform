@@ -33,3 +33,37 @@
 www.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
+
+# Member apps (builder-static-runtime): apps.ctrlai.my/<app-slug>/.
+#
+# Static files only, from the `apps_data` volume, mounted read-only here;
+# the api writes it when a member presses 미리보기 갱신. Nothing runs on
+# the server — these files run in visitors' browsers. Because this host is
+# same-site with ctrlai.my, three rules elsewhere keep it apart from the
+# club's site (CLAUDE.md §2): the session cookie is host-only, every POST
+# to the API must be JSON, and the API answers no CORS to this origin.
+#
+# Every response: the CSP below (only CTRL+AI may frame an app, and an app
+# may load only its own files), nosniff, no Referer, and never a cookie.
+# No directory listings; hidden names (the api's temporary folders) are
+# never served. If DNS for apps.<domain> is missing, Caddy cannot get this
+# certificate and keeps retrying — the main site is unaffected.
+apps.{$SITE_DOMAIN} {
+	root * /srv/apps
+
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors https://{$SITE_DOMAIN}"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Strict-Transport-Security "max-age=31536000"
+		-Set-Cookie
+		-Server
+	}
+
+	@notRead not method GET HEAD
+	respond @notRead 405
+
+	file_server {
+		hide .*
+	}
+}

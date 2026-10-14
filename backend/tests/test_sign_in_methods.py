@@ -14,6 +14,7 @@ from app.models import AuditLog, ConnectedAccount, User
 from app.models.audit import AuditAction
 from tests.conftest import DEV_PASSWORD
 from tests.test_google_login import google_says, make_code, settings_for, start  # noqa: F401
+from tests.conftest import JSON_HEADERS
 
 NEW_PASSWORD = "a-brand-new-password"
 
@@ -99,7 +100,7 @@ def test_changing_the_password_signs_out_other_browsers(
 ) -> None:
     from app.main import app
 
-    with TestClient(app) as other:
+    with TestClient(app, headers=JSON_HEADERS) as other:
         assert (
             other.post(
                 "/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD}
@@ -421,7 +422,7 @@ def test_removing_a_method_signs_out_other_browsers(
     from app.main import app
 
     google_says(client, start(client, "/api/account/google/link/start"), sub="g-dev", email="dev@g.com")
-    with TestClient(app) as other:
+    with TestClient(app, headers=JSON_HEADERS) as other:
         other.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
         assert other.get("/api/auth/me").status_code == 200
         done = client.post("/api/account/google/unlink", json={"current_password": DEV_PASSWORD})
@@ -516,7 +517,7 @@ def test_linking_google_signs_out_other_browsers(
 ) -> None:
     from app.main import app
 
-    with TestClient(app) as other:
+    with TestClient(app, headers=JSON_HEADERS) as other:
         other.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
         assert other.get("/api/auth/me").status_code == 200
         response = google_says(client, start(client, "/api/account/google/link/start"), sub="g-dev", email="dev@g.com")

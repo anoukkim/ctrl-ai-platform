@@ -6,8 +6,9 @@ community-facing record later (Phase 5).
 """
 
 import enum
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
@@ -62,6 +63,15 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     # the UI shows "GitHub 미연결".
     github_repo: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
+    # builder-static-runtime: the app's folder on apps.ctrlai.my — random,
+    # so a project's address says nothing about its owner or its id. Set
+    # the first time 미리보기 갱신 writes the files; `app_runtime_at` is
+    # when they were last written there.
+    app_slug: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    app_runtime_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     files: Mapped[list["BuilderProjectFile"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
@@ -113,3 +123,35 @@ class BuilderProjectFile(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<BuilderProjectFile {self.path!r} project={self.project_id}>"
+
+
+class BuilderProjectVersion(TimestampMixin, Base):
+    """Every file of a project as it was after one change
+    (builder-static-runtime).
+
+    Written after each generation (예시 앱, 만들기 / 고치기), after a
+    되돌리기 and when a project arrives from Chat; the member can go back
+    to any of the last `KEEP` versions. Going back is itself a new version,
+    so nothing is ever lost by restoring. `files` is a list of
+    `[path, content]` pairs — the project is small text (≤ 2 MB).
+    """
+
+    __tablename__ = "builder_project_versions"
+    __table_args__ = (
+        UniqueConstraint("project_id", "number", name="uq_builder_project_versions_number"),
+    )
+
+    #: Versions kept per project; older ones are removed as new ones land.
+    KEEP = 30
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: What made it, in Korean: "예시 앱", "고치기: 버튼 색을…", "v3으로 되돌리기".
+    note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    files: Mapped[list] = mapped_column(JSON, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<BuilderProjectVersion v{self.number} project={self.project_id}>"

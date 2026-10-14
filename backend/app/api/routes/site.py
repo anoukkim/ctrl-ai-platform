@@ -30,6 +30,7 @@ def site_info(settings: Settings = Depends(get_settings)) -> SiteInfo:
         data_location_notice=settings.data_location_notice.strip(),
         top_ups_enabled=settings.top_ups_enabled,
         google_login=google_login_available(settings),
+        apps_base_url=settings.apps_base_url.strip().rstrip("/") or None,
         test_mode=TestMode(
             chat=deployed and claude_mock,
             # Project Builder's starter app is written by Claude.

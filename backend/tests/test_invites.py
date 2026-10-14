@@ -14,6 +14,7 @@ from app.main import app
 from app.models import AuditLog, InviteCode, User
 from app.services import invites, rate_limit
 from tests.conftest import DEV_PASSWORD
+from tests.conftest import JSON_HEADERS
 
 SIGNUP = {
     "username": "invited",
@@ -171,11 +172,11 @@ def test_a_deactivated_code_leaves_its_accounts_alone(
     client: TestClient, db_session: Session
 ) -> None:
     invite = make_code(db_session)
-    other = TestClient(app)
+    other = TestClient(app, headers=JSON_HEADERS)
     assert signup(other, "CLUB-2026").status_code == 201
     assert client.post(f"/api/admin/invites/{invite.id}/deactivate").status_code == 200
 
-    again = TestClient(app)
+    again = TestClient(app, headers=JSON_HEADERS)
     login = again.post(
         "/api/auth/login", json={"username": SIGNUP["username"], "password": SIGNUP["password"]}
     )
@@ -374,7 +375,7 @@ def test_the_list_shows_status_and_who_signed_up(
     invite = make_code(db_session, "SEEN-CODE", max_uses=1)
     make_code(db_session, "OLD-CODE", expires_at=datetime.now(timezone.utc) - timedelta(days=1))
     make_code(db_session, "OFF-CODE", is_active=False)
-    guest = TestClient(app)
+    guest = TestClient(app, headers=JSON_HEADERS)
     assert signup(guest, "SEEN-CODE").status_code == 201
 
     rows = {row["code"]: row for row in client.get("/api/admin/invites").json()}

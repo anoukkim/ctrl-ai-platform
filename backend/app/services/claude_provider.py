@@ -219,6 +219,20 @@ class StarterApp:
     output_tokens: int
 
 
+@dataclass(frozen=True)
+class ProjectEdit:
+    """Claude's change to a Builder project, before the backend checks it
+    (builder-static-runtime)."""
+
+    #: A short Korean answer: what changed, and what to ask next.
+    summary: str
+    #: (path, content) for each file Claude wrote, whole. Checked by the caller.
+    writes: list[tuple[str, str]]
+    model: str
+    input_tokens: int
+    output_tokens: int
+
+
 # ----------------------------------------------------- server tools
 
 #: The spec's caps (chat-plus-tools): searches are bounded so one reply
@@ -308,6 +322,15 @@ class ClaudeProvider(Protocol):
     def generate_starter_app(
         self, name: str, idea: str, model: str = "", max_tokens: int = 8000
     ) -> StarterApp: ...
+
+    def edit_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 16000,
+    ) -> ProjectEdit: ...
 
 
 # -------------------------------------------------------------- the prompt
@@ -402,6 +425,72 @@ STARTER_SCHEMA: dict[str, Any] = {
 
 def starter_request_text(name: str, idea: str) -> str:
     return f"프로젝트 이름: {name.strip()}\n\n만들고 싶은 것:\n{idea.strip() or name.strip()}"
+
+
+EDIT_SYSTEM = """\
+You build and change small web apps for CTRL+AI, a Korean club where \
+beginners make apps with AI. Most members cannot code. The member tells \
+you, in Korean, what to make or change; the project's current files \
+follow their request.
+
+Rules:
+- Static files only: HTML, CSS and browser JavaScript (.html .css .js \
+.json .svg .md .txt). No frameworks, no build step, no TypeScript, no \
+server code of any kind — it will be refused. index.html is the entry.
+- No external scripts, stylesheets, fonts, images or network requests: \
+they are blocked. Use inline SVG or CSS for icons and charts, and \
+localStorage if the app should remember data.
+- Change only what the request needs. Keep everything else as it is.
+- To create or change a file, call write_file with its path and its \
+complete new content — never a fragment or a diff. Call it once per file, \
+all in this one reply. Do not call it for files that stay the same.
+- Everything the member sees is in Korean, with short Korean comments in \
+the code. The layout fits a phone and a laptop.
+- At most 30 files, 200 KB each.
+
+After the tool calls, reply in Korean in one or two short sentences: what \
+you changed, and one thing the member could ask for next.
+"""
+
+#: The one tool a generation may call. `strict` makes every call match the
+#: schema exactly, so a path and a content always arrive.
+WRITE_FILE_TOOL: dict[str, Any] = {
+    "name": "write_file",
+    "description": (
+        "Create or replace one file of the project with its complete content. "
+        "Call once per file that changes."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Relative path, e.g. index.html or js/app.js",
+            },
+            "content": {"type": "string", "description": "The whole file"},
+        },
+        "required": ["path", "content"],
+        "additionalProperties": False,
+    },
+}
+
+#: Rounds of tool use one generation may take. Claude is asked to write
+#: every file in one reply; a second round only happens when it stops to
+#: wait for the result of the first call.
+EDIT_MAX_ROUNDS = 4
+
+
+def edit_request_text(name: str, files: list[tuple[str, str]], request: str) -> str:
+    """The member's request, then every current file, whole."""
+    parts = [f"프로젝트 이름: {name.strip()}", "", "요청:", request.strip(), ""]
+    if files:
+        parts.append("현재 파일:")
+        for path, content in files:
+            parts.append(f'<file path="{path}">\n{content}\n</file>')
+    else:
+        parts.append("현재 파일: 없음 (새로 만듭니다)")
+    return "\n".join(parts)
 
 
 # ------------------------------------------------------------------- mock
@@ -991,6 +1080,61 @@ class MockClaudeProvider:
             output_tokens=sum(len(content) for _, content in files),
         )
 
+    def edit_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 16000,
+    ) -> ProjectEdit:
+        """A plausible, deterministic change (builder-static-runtime).
+
+        * No index.html yet — the starter app.
+        * "색" / "color" in the request — the button colour changes.
+        * Anything else — a short note with the request appears on the page.
+        * `[mock-server-code]` writes a `server.py`, which the backend must
+          refuse; `[mock-error:<kind>]` fails that way.
+        """
+        failure = MOCK_ERROR.search(request)
+        if failure:
+            kind = failure.group(1)
+            raise ClaudeError(kind if kind in MEMBER_MESSAGE else ProviderErrorKind.UNKNOWN, "mock")
+        current = dict(files)
+        title = name.strip() or "내 앱"
+        if "[mock-server-code]" in request:
+            writes = [("server.py", "print('서버에서 실행되는 코드')\n")]
+            summary = "서버 코드를 만들어 봤어요."
+        elif "index.html" not in current:
+            writes = _mock_starter_files(title, request.strip())
+            summary = f"'{title}'의 첫 버전을 만들었어요. 다음엔 바꾸고 싶은 점을 말해 보세요."
+        elif re.search(r"색|color", request, re.IGNORECASE):
+            css = current.get("style.css", "")
+            if MOCK_ACCENT in css:
+                css = css.replace(MOCK_ACCENT, MOCK_ACCENT_NEW)
+            else:
+                css += f"\n/* 요청: 버튼 색 바꾸기 */\nbutton {{ background: {MOCK_ACCENT_NEW}; color: #fff; }}\n"
+            writes = [("style.css", css)]
+            summary = "버튼 색을 주황색으로 바꿨어요. 다음엔 글자 크기를 키워 달라고 해 보세요."
+        else:
+            import html as html_lib
+
+            note = (
+                f'  <p class="change-note">바뀐 점: {html_lib.escape(request.strip()[:120])}</p>\n'
+            )
+            page = current["index.html"]
+            marker = "</main>" if "</main>" in page else "</body>"
+            page = page.replace(marker, note + marker, 1) if marker in page else page + note
+            writes = [("index.html", page)]
+            summary = "요청한 내용을 화면에 반영했어요. 다음엔 색이나 배치를 바꿔 달라고 해 보세요."
+        return ProjectEdit(
+            summary=summary,
+            writes=writes,
+            model=model or self.model_id,
+            input_tokens=estimate_tokens(EDIT_SYSTEM + edit_request_text(name, files, request)),
+            output_tokens=min(max_tokens, sum(len(content) for _, content in writes) // 3 + 60),
+        )
+
     def _rewrite(
         self, prompt: str, request: str, reply: str, revised: str | None
     ) -> PromptRewrite:
@@ -1001,6 +1145,11 @@ class MockClaudeProvider:
             input_tokens=estimate_tokens(PROMPT_HELP_SYSTEM) + len(prompt) + len(request),
             output_tokens=len(reply) + len(revised or ""),
         )
+
+
+#: The mock starter app's button colour, and what "색을 바꿔 줘" turns it into.
+MOCK_ACCENT = "#3b6cf6"
+MOCK_ACCENT_NEW = "#e8590c"
 
 
 def _mock_starter_files(name: str, idea: str) -> list[tuple[str, str]]:
@@ -1502,6 +1651,104 @@ class AnthropicClaudeProvider:
         )
 
 
+    def edit_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 16000,
+    ) -> ProjectEdit:
+        """Claude writes whole files through `write_file` (builder-static-runtime).
+
+        Not streamed and not cached (each request carries different files).
+        `tool_choice` stays `auto`: a forced tool choice cannot be combined
+        with thinking, and the reply's text is the member's summary. Each
+        round of calls is acknowledged with tool results so Claude can
+        finish; the output budget is shared across rounds, and the usage of
+        every round is added up — a failure carries it, so the club's cost
+        is still recorded (cost-clarity).
+        """
+        import anthropic
+
+        kwargs = self._client_kwargs()
+        kwargs["timeout"] = self._settings.builder_timeout_seconds
+        if self._http_client is not None:
+            kwargs["http_client"] = self._http_client
+        client = anthropic.Anthropic(**kwargs)
+
+        messages: list[dict[str, Any]] = [
+            {"role": "user", "content": edit_request_text(name, files, request)}
+        ]
+        writes: list[tuple[str, str]] = []
+        texts: list[str] = []
+        input_tokens = output_tokens = 0
+        used_model = model or self.model_id
+        for _round in range(EDIT_MAX_ROUNDS):
+            remaining = max_tokens - output_tokens
+            if remaining < 1024:
+                raise ClaudeError(
+                    ProviderErrorKind.UNKNOWN, "edit budget", usage=(input_tokens, output_tokens)
+                )
+            params = self.request_params(EDIT_SYSTEM, messages, remaining, model)
+            params["tools"] = [WRITE_FILE_TOOL]
+            params["tool_choice"] = {"type": "auto"}
+            try:
+                message = client.messages.create(**params)
+            except anthropic.APIError as error:
+                failure = classify(error)
+                if input_tokens or output_tokens:
+                    failure.usage = (input_tokens, output_tokens)
+                raise failure from None
+            input_tokens += message.usage.input_tokens or 0
+            output_tokens += message.usage.output_tokens or 0
+            used_model = message.model or used_model
+            billed = (input_tokens, output_tokens)
+            if message.stop_reason in ("max_tokens", "refusal"):
+                # A file cut off half-way, or no answer: nothing usable.
+                raise ClaudeError(
+                    ProviderErrorKind.UNKNOWN, f"edit {message.stop_reason}", usage=billed
+                )
+            results: list[dict[str, Any]] = []
+            for block in message.content:
+                if block.type == "text" and block.text.strip():
+                    texts.append(block.text.strip())
+                elif block.type == "tool_use":
+                    data = block.input if isinstance(block.input, dict) else {}
+                    path, content = data.get("path"), data.get("content")
+                    if block.name != "write_file" or not isinstance(path, str) or not isinstance(
+                        content, str
+                    ):
+                        raise ClaudeError(ProviderErrorKind.UNKNOWN, "edit tool", usage=billed)
+                    writes.append((path, content))
+                    results.append(
+                        {"type": "tool_result", "tool_use_id": block.id, "content": "저장했습니다."}
+                    )
+            if message.stop_reason != "tool_use" or not results:
+                break
+            messages.append(
+                {
+                    "role": "assistant",
+                    # Every block as it came, thinking included: a reply that
+                    # used tools must be sent back unchanged.
+                    "content": [block.model_dump(exclude_none=True) for block in message.content],
+                }
+            )
+            messages.append({"role": "user", "content": results})
+        else:
+            raise ClaudeError(
+                ProviderErrorKind.UNKNOWN, "edit rounds", usage=(input_tokens, output_tokens)
+            )
+
+        return ProjectEdit(
+            summary=texts[-1] if texts else "",
+            writes=writes,
+            model=used_model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+
+
 class UnconfiguredClaudeProvider:
     """Selected as real, but missing its key or model.
 
@@ -1522,6 +1769,17 @@ class UnconfiguredClaudeProvider:
     def generate_starter_app(
         self, name: str, idea: str, model: str = "", max_tokens: int = 8000
     ) -> StarterApp:
+        raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
+
+
+    def edit_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 16000,
+    ) -> ProjectEdit:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 
 
