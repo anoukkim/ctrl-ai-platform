@@ -194,6 +194,8 @@ export interface ChatInfo {
   max_message_length: number;
   /** 웹 페이지 읽기의 현재 한도 — 토글 안내문이 그대로 보여 줍니다. */
   web_fetch_max_uses: number;
+  /** 웹 검색: 한 답장에 최대 몇 회(관리자 설정, fix-real-web-search). */
+  web_search_max_uses?: number;
   web_fetch_max_content_tokens: number;
   models: ChatModelOption[];
   /** 새 대화가 쓰는 모델. 모델 목록이 비었을 때만 null. */

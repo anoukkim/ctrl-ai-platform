@@ -334,10 +334,11 @@ export function toolCostEffect(
   kind: ToolKind,
   searchKrw: number | null,
   fetchLimits?: { maxUses: number; maxTokens: number } | null,
+  searchMaxUses = 5,
 ): string[] {
   if (kind === "web_search") {
     return [
-      `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 3회).`,
+      `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 ${searchMaxUses}회).`,
       "검색 결과 토큰 비용까지 이 답장의 1회 비용 한도 안에서 함께 계산돼요.",
       "검색어가 검색 서비스로 전달돼요.",
     ];
@@ -1012,6 +1013,7 @@ export default function ChatWorkspace() {
           info
             ? { maxUses: info.web_fetch_max_uses, maxTokens: info.web_fetch_max_content_tokens }
             : null,
+          info?.web_search_max_uses ?? 5,
         ),
         confirmLabel: "켜기",
         onConfirm: async () => {

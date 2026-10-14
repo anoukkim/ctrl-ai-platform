@@ -153,6 +153,7 @@ def chat_info(
         max_message_length=MAX_MESSAGE_LENGTH,
         web_fetch_max_uses=limits.web_fetch_max_uses,
         web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+        web_search_max_uses=limits.web_search_max_uses,
         models=[_option(db, row, default, rate) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
     )
