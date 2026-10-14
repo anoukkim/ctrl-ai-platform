@@ -76,40 +76,36 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
-   생각 과정 보기, per conversation, off by default, cost shown first.
-   Spec below.
-
-2. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
+1. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
    Both halves: Claude writes and edits project files with restorable
    versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
    volume. **Moved into Next by the owner on 2026-10-14**, on
    `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
 
-3. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+2. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
    The first slice of Phase 5: 게시 from a Builder project to a
    CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
    every mock listing removed. Spec below.
 
-4. **example-apps** · M3 · branch `feat-example-apps`
+3. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-5. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+4. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-6. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+5. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-7. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-8. **builder-python** · M2 · branch `feat-builder-python`
+7. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime of
     item 5. Spec below.
@@ -752,61 +748,7 @@ dialog (not from the menu). Everything else above stands.
 
 → **live-cost-display — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#live-cost-display--full-spec-merged-2026-10-14).
 
-## chat-thinking-view — full spec
-
-Branch `feat-chat-thinking-view`. Added by the owner on 2026-10-13. Saved
-exactly as written:
-
-> chat-thinking-view: a per-conversation toggle "생각 과정 보기". Off by default because it costs more; the estimate is shown before turning it on. When on, show Claude's summarized thinking as simple numbered steps a beginner can follow, collapsed under the reply. Check the current Anthropic docs for how thinking works on each catalogue model and price it in the ledger.
-
-**Depends on:** `chat-model-choice` and `cost-calibration` (merged);
-`live-cost-display` (the receipt).
-
-**How thinking works on the catalogue models** (checked 2026-10-13
-against the Claude API reference bundled with Claude Code; check again at
-build time):
-
-| Model | Today in Chat (`CHAT_THINKING=off`) | 생각 과정 보기 on | Extra cost of turning it on |
-| --- | --- | --- | --- |
-| Sonnet 5.5 ($2 / $10 per MTok) | `thinking: {type: "between_tools"}`, i.e. no thinking (`disabled` is a 400 on this model) | `thinking: {type: "adaptive", display: "summarized"}` at the conversation's effort (`low`) | **Yes**: thinking tokens, billed as output |
-| Opus 5.5 ($4 / $20) | Thinking cannot be turned off; it already runs adaptive at `low` effort, with `display` defaulting to `"omitted"` (empty text) | The same request plus `display: "summarized"` | **No**: `display` changes visibility only, and the thinking is already billed |
-| Haiku 4.5 ($1 / $5) | No thinking unless asked | `thinking: {type: "enabled", budget_tokens: N}`, at least 1,024 and below `max_tokens`; adaptive is not available on this model | **Yes**, up to the budget (1,024 tokens ≈ 7원 at 1,400원/$) |
-
-- **Billing:** thinking tokens are output tokens and arrive in
-  `usage.output_tokens`; a summary is billed as the full thinking, not by
-  its length. So the ledger is already right by construction. The usage
-  event adds `thinking_shown: bool` so Admin and cost-calibration can
-  tell the two kinds of reply apart, and calibration keeps a separate
-  "typical reply" figure for replies with thinking shown.
-- **The estimate before turning it on** comes from that calibration once
-  there is data, and from a configured starting figure per model until
-  then (Opus: +0원).
-- **Thinking blocks are not sent back.** Sonnet 5.5 and Opus 5.5 bind
-  thinking blocks to the model and the conversation ("preserved
-  thinking"), and accounts created on or after 2026-08-31 get a 400 when
-  history containing them is edited, which Chat's history trimming does.
-  Store the summary text for display only and keep sending history as
-  text, as today; a model switch mid-conversation (`chat-model-choice`)
-  then needs nothing special. Confirm this against the reference's model
-  migration guide before building.
-
-1. **A toggle per conversation**, `conversations.show_thinking` (default
-   false), beside the model picker: 생각 과정 보기, showing "답장 1회 약
-   +N원" (or "추가 비용 없음" on Opus) before it is switched on. Changing it
-   is a write, so inactive members cannot.
-2. **Display:** collapsed under the reply as "생각 과정 (N단계)";
-   expanded, the summary split into short numbered steps (by paragraph),
-   as plain text. If the summary is empty (a reply that did not think),
-   nothing is shown.
-3. **Language:** the summary may come back in English even when the
-   reply is in Korean. The build checks what each model actually returns;
-   if it stays English, the collapsed header says "영어로 표시될 수
-   있어요".
-4. **Tests:** the request body per model (between_tools vs adaptive and
-   summarized on Sonnet; display only on Opus; a budget on Haiku); no
-   thinking block is ever sent back in history; `thinking_shown` on the
-   usage event; the estimate shown before enabling; inactive members
-   refused.
+→ **chat-thinking-view — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-thinking-view--full-spec-merged-2026-10-14).
 
 ## builder-python — full spec
 

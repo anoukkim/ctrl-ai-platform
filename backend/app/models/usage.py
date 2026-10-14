@@ -131,6 +131,10 @@ class UsageEvent(TimestampMixin, Base):
     web_search_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     web_fetch_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tool_fee_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The reply was written with 생각 과정 보기 on (chat-thinking-view), so
+    #: its output includes the thinking tokens. Calibration keeps these
+    #: apart from ordinary replies. Null on everything else.
+    thinking_shown: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     #: The won per unit of `provider_currency` this charge was converted
     #: at, copied from the rate in force. A later rate change does not move
     #: a charge that already happened.

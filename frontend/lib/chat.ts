@@ -28,6 +28,8 @@ export interface Conversation {
   use_web_search?: boolean;
   use_web_fetch?: boolean;
   use_code_execution?: boolean;
+  /** 생각 과정 보기(chat-thinking-view). 이후 답장부터 적용됩니다. */
+  show_thinking?: boolean;
 }
 
 /** 서버 도구 한 가지. */
@@ -58,6 +60,8 @@ export interface ChatMessage {
   receipt?: ReplyReceipt | null;
   /** 웹 검색이 인용한 출처(chat-plus-tools). 도구를 안 썼으면 null. */
   sources?: ReplySource[] | null;
+  /** Claude의 생각 과정 요약(chat-thinking-view). 보기만 할 뿐 Claude에게 다시 보내지 않습니다. */
+  thinking?: string | null;
   /** 이 메시지에 붙인 파일(chat-plus-files). 바이트가 아니라 정보만. */
   attachments?: ChatAttachment[];
   created_at: string;
@@ -72,6 +76,8 @@ export interface ReplyUsage extends ReplyWonSplit {
   /** 청구된 웹 검색 횟수와 그 요금(원). 0이면 검색 줄이 없습니다. */
   web_search_count?: number;
   tool_fee_krw?: number;
+  /** 생각 과정 보기를 켜고 쓴 답장 — 출력에 생각 토큰이 들어 있습니다. */
+  thinking_shown?: boolean;
 }
 
 /** 답장 아래 영수증(live-cost-display). 합계는 장부가 차감한 금액입니다. */
@@ -149,6 +155,12 @@ export interface ChatModelOption {
   tools_code_execution?: boolean;
   /** 웹 검색 1회 요금(원). 환율이 없으면 null. */
   web_search_krw_per_call?: number | null;
+  /**
+   * 생각 과정 보기가 답장 1회에 더하는 어림값(원). 0이면 추가 비용 없음
+   * (Opus는 원래 생각합니다), null이면 환율이 없어 모릅니다.
+   */
+  thinking_extra_krw?: number | null;
+  thinking_basis?: "recent" | "formula";
 }
 
 export interface ChatInfo {
@@ -231,6 +243,31 @@ export function setConversationTool(
   });
 }
 
+/** 생각 과정 보기 토글(chat-thinking-view). 이후 답장부터 적용됩니다. */
+export function setConversationThinking(id: number, enabled: boolean): Promise<Conversation> {
+  return request<Conversation>(`/chat/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ show_thinking: enabled }),
+  });
+}
+
+/** 토글 옆 가격 문구 — 미리 보여 주는 값입니다. */
+export function thinkingPriceLabel(model: ChatModelOption | null): string {
+  const extra = model?.thinking_extra_krw;
+  if (extra === 0) return "추가 비용 없음";
+  if (extra === null || extra === undefined) return "비용이 조금 더 듭니다";
+  return `답장마다 +약 ${extra.toLocaleString("ko-KR")}원`;
+}
+
+/** 생각 과정 요약을 단계(문단)로 나눕니다. 빈 문단은 버립니다. */
+export function thinkingSteps(text: string | null | undefined): string[] {
+  if (!text) return [];
+  return text
+    .split(/\n\s*\n/)
+    .map((step) => step.trim())
+    .filter((step) => step.length > 0);
+}
+
 export function renameConversation(id: number, title: string): Promise<Conversation> {
   return request<Conversation>(`/chat/conversations/${id}`, {
     method: "PATCH",
@@ -268,6 +305,8 @@ export type StreamOutcome =
 export interface StreamHandlers {
   onStart?: (userMessage: ChatMessage, estimate: StreamEstimate | null) => void;
   onDelta?: (text: string) => void;
+  /** 생각 과정 요약 조각(chat-thinking-view) — 답장보다 먼저 옵니다. */
+  onThinking?: (text: string) => void;
   /**
    * 서버 도구가 돌기 시작했거나 끝났을 때 — "검색 중…" 줄의 재료.
    * 끝난 사용은 방금 더해진 비용(원)을 함께 들고 와서, 흐르는 약 N원이
@@ -341,6 +380,7 @@ export async function sendMessage(
     const payload = JSON.parse(data);
     if (name === "start") handlers.onStart?.(payload.user_message, payload.estimate ?? null);
     else if (name === "delta") handlers.onDelta?.(payload.text);
+    else if (name === "thinking") handlers.onThinking?.(payload.text);
     else if (name === "tool")
       handlers.onTool?.(payload.kind, payload.status, payload.added_krw ?? 0);
     else if (name === "done")

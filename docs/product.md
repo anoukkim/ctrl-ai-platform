@@ -318,6 +318,26 @@ Chat is the opening screen and a real conversation with Claude, behind
   it. 검색 중… / 페이지 읽는 중… / 코드 실행 중… shows while a tool runs;
   sources appear as numbered domain links (http/https only); code runs
   only on Anthropic's side, never ours.
+- **생각 과정 보기** (chat-thinking-view). A per-conversation switch next
+  to the model picker, off by default; the chip says what it adds before
+  it is switched on — 답장마다 +약 N원 on Sonnet 5.5 (≈ 300 thinking
+  tokens to start) and Haiku 4.5 (its 1,024-token budget), **추가 비용
+  없음** on Opus 5.5, which thinks anyway. Turning it on (when it costs
+  more) asks first; it is a write, so a member not participating cannot.
+  Once each kind has 10 replies the figure comes from the ledger (median
+  with − median without). Requests: Sonnet/Opus `thinking: {type:
+  "adaptive", display: "summarized"}` at the same low effort; Haiku
+  `{type: "enabled", budget_tokens: 1024}` when the per-reply cap leaves
+  room (otherwise no thinking). The summary streams as 생각하는 중…, then
+  sits collapsed under the reply as **생각 과정 (N단계) · 영어로 표시될 수
+  있어요**, expanding to numbered plain-text steps (one per paragraph);
+  an empty summary shows nothing. Thinking is billed as output (the
+  receipt says 출력(생각 포함)); the usage event carries `thinking_shown`
+  and calibration keeps those replies out of the ordinary 답장 1회 약 N원.
+  The summary is stored for display only — history is sent back as text,
+  never thinking blocks (preserved-thinking rules). Whether a model writes
+  the summary in Korean is unverified until the real API is switched on,
+  so the English note always shows.
 - **One club key, guarded** (audit-caching-and-distribution). Every call
   uses the club's one Anthropic key through the backend; a member's limit
   is their wallet. Five guards keep one member from draining the club:

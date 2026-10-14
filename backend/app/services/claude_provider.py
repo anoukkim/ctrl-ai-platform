@@ -126,10 +126,19 @@ class ChatRequest:
     #: `chat_limits.DEFAULTS` for callers that build a request directly.
     fetch_max_uses: int = 1
     fetch_max_content_tokens: int = 10_000
+    #: 생각 과정 보기 (chat-thinking-view): ask for the summarized thinking.
+    show_thinking: bool = False
 
 
 @dataclass(frozen=True)
 class TextDelta:
+    text: str
+
+
+@dataclass(frozen=True)
+class ThinkingDelta:
+    """A piece of Claude's summarized thinking (chat-thinking-view)."""
+
     text: str
 
 
@@ -182,7 +191,7 @@ class StreamEnd:
     stop_reason: str
 
 
-StreamEvent = TextDelta | UsageUpdate | ToolStatus | ToolSources | StreamEnd
+StreamEvent = TextDelta | ThinkingDelta | UsageUpdate | ToolStatus | ToolSources | StreamEnd
 
 
 @dataclass(frozen=True)
@@ -795,6 +804,27 @@ def _files_reply(files: list[dict]) -> str:
     )
 
 
+#: The mock's summarized thinking (chat-thinking-view): short Korean steps,
+#: one paragraph each, as the screen numbers them.
+MOCK_THINKING: tuple[str, ...] = (
+    "질문이 무엇을 원하는지 먼저 정리했어요.",
+    "초보자도 따라 할 수 있게 쉬운 말로 설명하기로 했어요.",
+    "한 번에 하나씩 해 볼 수 있는 다음 단계를 골랐어요.",
+)
+
+#: Output tokens the mock bills for thinking, per model: Sonnet thinks a
+#: little at low effort; Haiku up to its budget; Opus already thinks, so
+#: showing it adds nothing.
+_MOCK_THINKING_TOKENS = {"claude-sonnet-5-5": 300, "claude-haiku-4-5": 600}
+
+
+def mock_thinking_tokens(model: str) -> int:
+    for prefix, tokens in _MOCK_THINKING_TOKENS.items():
+        if model.startswith(prefix):
+            return tokens
+    return 0
+
+
 class MockClaudeProvider:
     model_id = "mock"
 
@@ -848,11 +878,19 @@ class MockClaudeProvider:
             request.tools, last, request.fetch_max_content_tokens
         )
 
+        thinking_tokens = 0
+
         def usage(output_tokens: int) -> UsageUpdate:
             # Tool results enter this request as input tokens, billed once
             # here; billed searches and fetches ride along for the ledger.
+            # Thinking is output (chat-thinking-view).
             return UsageUpdate(
-                uncached + extra_input, output_tokens, written, read, searches, fetches
+                uncached + extra_input,
+                output_tokens + thinking_tokens,
+                written,
+                read,
+                searches,
+                fetches,
             )
 
         yield usage(0)
@@ -865,6 +903,20 @@ class MockClaudeProvider:
             if self.delay:
                 await asyncio.sleep(self.delay)
             yield tool_event
+
+        # 생각 과정 보기 (chat-thinking-view): a deterministic summary, and
+        # the thinking billed as output like the real API — Opus already
+        # thinks, so showing it costs nothing extra there; Haiku thinks
+        # only within its budget, and not at all without room for one.
+        model_id = request.model or self.model_id
+        if request.show_thinking and thinking_params(
+            model_id, "off", "low", show=True, max_tokens=request.max_tokens
+        ).get("thinking"):
+            thinking_tokens = mock_thinking_tokens(model_id)
+            for paragraph in MOCK_THINKING:
+                if self.delay:
+                    await asyncio.sleep(self.delay)
+                yield ThinkingDelta(paragraph + "\n\n")
 
         reply, action = _CHAT_FALLBACK, None
         if tool_reply is not None:
@@ -888,8 +940,9 @@ class MockClaudeProvider:
         # flow — stop_reason "max_tokens", real usage reported — runs end
         # to end with no key.
         stop_reason = "end_turn"
-        if request.max_tokens > 0 and len(reply) > request.max_tokens:
-            reply = reply[: request.max_tokens]
+        room = request.max_tokens - thinking_tokens
+        if request.max_tokens > 0 and len(reply) > room:
+            reply = reply[: max(0, room)]
             stop_reason = "max_tokens"
 
         # Small pieces, like the real stream, so the screen and the marker
@@ -1075,7 +1128,18 @@ render();
 _EFFORTS = ("low", "medium", "high")
 
 
-def thinking_params(model: str, thinking: str, effort: str) -> dict[str, Any]:
+#: Haiku 4.5's thinking budget when 생각 과정 보기 is on (chat-thinking-view).
+#: The API's minimum; it must stay below `max_tokens`.
+HAIKU_THINKING_BUDGET = 1024
+
+
+def thinking_params(
+    model: str,
+    thinking: str,
+    effort: str,
+    show: bool = False,
+    max_tokens: int = 0,
+) -> dict[str, Any]:
     """The request fields that set how much Claude thinks, per model.
 
     "off" is what was agreed for chat (2026-10-07): no thinking where the
@@ -1088,14 +1152,34 @@ def thinking_params(model: str, thinking: str, effort: str) -> dict[str, Any]:
     * **Haiku 4.5** — does not think unless asked with a token budget, and
       rejects `effort`, so it gets neither field.
 
-    Thinking text is never shown or stored either way; it is only paid for.
+    `show` is 생각 과정 보기 (chat-thinking-view; the docs as checked on
+    2026-10-14, platform.claude.com › Thinking):
+
+    * Sonnet 5.5 and Opus 5.5 default `display` to `"omitted"` — an empty
+      thinking text. On, both send `{"type": "adaptive", "display":
+      "summarized"}` at the conversation's effort. On Sonnet that turns
+      thinking on (extra output tokens); on Opus it only makes the thinking
+      that already runs visible — no extra cost.
+    * Haiku 4.5 takes manual thinking, `{"type": "enabled", "budget_tokens":
+      N}` with N ≥ 1,024 and below `max_tokens`; it returns a summary by
+      default. When the per-reply cap leaves no room for the budget the
+      reply goes without thinking rather than failing.
+
+    A summary is billed as the full thinking, as output tokens.
     """
     chosen = effort.strip().lower()
     effort = chosen if chosen in _EFFORTS else "low"
     off = thinking.strip().lower() != "on"
 
     if model.startswith("claude-haiku-4-5"):
+        if show and max_tokens > HAIKU_THINKING_BUDGET * 2:
+            return {"thinking": {"type": "enabled", "budget_tokens": HAIKU_THINKING_BUDGET}}
         return {}
+    if show:
+        return {
+            "thinking": {"type": "adaptive", "display": "summarized"},
+            "output_config": {"effort": effort},
+        }
     if model.startswith("claude-sonnet-5-5"):
         mode = "between_tools" if off else "adaptive"
         return {"thinking": {"type": mode}, "output_config": {"effort": effort}}
@@ -1177,6 +1261,7 @@ class AnthropicClaudeProvider:
         tools: tuple[str, ...] = (),
         fetch_max_uses: int = 1,
         fetch_max_content_tokens: int = 10_000,
+        show_thinking: bool = False,
     ) -> dict[str, Any]:
         """The request body. With `cache_ttl`, two cache breakpoints.
 
@@ -1193,7 +1278,13 @@ class AnthropicClaudeProvider:
             "max_tokens": max_tokens,
             "system": system,
             "messages": messages,
-            **thinking_params(model, self._settings.chat_thinking, self._settings.chat_effort),
+            **thinking_params(
+                model,
+                self._settings.chat_thinking,
+                self._settings.chat_effort,
+                show=show_thinking,
+                max_tokens=max_tokens,
+            ),
         }
         if tools:
             # Placed before the cache markers in spirit too: the tool list
@@ -1237,6 +1328,7 @@ class AnthropicClaudeProvider:
                     request.tools,
                     request.fetch_max_uses,
                     request.fetch_max_content_tokens,
+                    request.show_thinking,
                 )
             ) as stream:
                 async for event in stream:
@@ -1249,6 +1341,14 @@ class AnthropicClaudeProvider:
                         yield UsageUpdate(input_tokens, output_tokens, written, read, searches, fetches)
                     elif event.type == "content_block_delta" and event.delta.type == "text_delta":
                         yield TextDelta(event.delta.text)
+                    elif (
+                        event.type == "content_block_delta"
+                        and event.delta.type == "thinking_delta"
+                        and getattr(event.delta, "thinking", "")
+                    ):
+                        # Summarized thinking (chat-thinking-view). Empty
+                        # under display "omitted" — nothing to show then.
+                        yield ThinkingDelta(event.delta.thinking)
                     elif event.type == "content_block_start" and getattr(
                         getattr(event, "content_block", None), "type", ""
                     ).startswith("server_tool_use"):

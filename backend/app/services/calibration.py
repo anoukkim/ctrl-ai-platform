@@ -31,7 +31,7 @@ import math
 import statistics
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models import UsageEvent, UsageFeature
@@ -83,20 +83,53 @@ def _prompt(event: UsageEvent) -> int:
     )
 
 
-def for_model(db: Session, model_id: str) -> ModelCalibration:
-    """The calibration of one model from its most recent Chat replies."""
-    events = list(
+def _recent(db: Session, model_id: str, *, thinking: bool) -> list[UsageEvent]:
+    """One model's most recent Chat replies, of one kind.
+
+    Replies written with 생각 과정 보기 on (chat-thinking-view) carry the
+    thinking in their output, so they are kept apart: mixed in, they would
+    lift the ordinary "답장 1회 약 N원" for members who never turned it on.
+    """
+    kind = (
+        UsageEvent.thinking_shown.is_(True)
+        if thinking
+        else or_(UsageEvent.thinking_shown.is_(None), UsageEvent.thinking_shown.is_(False))
+    )
+    return list(
         db.scalars(
             select(UsageEvent)
             .where(
                 UsageEvent.feature == UsageFeature.CHAT.value,
                 UsageEvent.model_id == model_id,
                 UsageEvent.output_tokens.is_not(None),
+                kind,
             )
             .order_by(UsageEvent.id.desc())
             .limit(SAMPLE_SIZE)
         )
     )
+
+
+def thinking_extra_krw(db: Session, model_id: str) -> int | None:
+    """What 생각 과정 보기 adds to a reply, measured — or None.
+
+    The median reply with it on minus the median without, once each kind
+    has `MIN_SAMPLES` replies; never below zero. Until then the caller
+    uses the starting figure (`pricing.thinking_estimate`).
+    """
+    shown = _recent(db, model_id, thinking=True)
+    plain = _recent(db, model_id, thinking=False)
+    if len(shown) < MIN_SAMPLES or len(plain) < MIN_SAMPLES:
+        return None
+    extra = statistics.median(e.charged_krw for e in shown) - statistics.median(
+        e.charged_krw for e in plain
+    )
+    return max(0, math.ceil(extra))
+
+
+def for_model(db: Session, model_id: str) -> ModelCalibration:
+    """The calibration of one model from its most recent ordinary replies."""
+    events = _recent(db, model_id, thinking=False)
     if not events:
         return ModelCalibration(model_id, 0, None, None, None, None, None, None, None)
 

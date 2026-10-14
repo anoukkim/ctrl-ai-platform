@@ -281,6 +281,54 @@ def reply_estimate(db: Session, model: ChosenModel, rate: ExchangeRate | None) -
     return ReplyEstimate(krw=typical_reply_krw(model, rate), basis="formula")
 
 
+#: 생각 과정 보기's starting figure (chat-thinking-view), in extra output
+#: tokens per reply, until the ledger has enough replies of both kinds:
+#: Sonnet 5.5 thinks a little at low effort; Haiku 4.5 up to its 1,024
+#: budget; Opus 5.5 thinks anyway, so showing it costs nothing more.
+THINKING_START_TOKENS: dict[str, int] = {
+    "claude-sonnet-5-5": 300,
+    "claude-haiku-4-5": 1024,
+    "claude-opus-5-5": 0,
+}
+#: A model not in the table: assume it bills like Sonnet.
+THINKING_START_DEFAULT = 300
+
+
+def thinking_start_tokens(model_id: str) -> int:
+    for prefix, tokens in THINKING_START_TOKENS.items():
+        if model_id.startswith(prefix):
+            return tokens
+    return THINKING_START_DEFAULT
+
+
+def thinking_estimate(db: Session, model: ChosenModel, rate: ExchangeRate | None) -> ReplyEstimate:
+    """The toggle's "+약 N원" for 생각 과정 보기 — 0 means 추가 비용 없음.
+
+    Measured from the ledger once there are enough replies with and
+    without it (`calibration.thinking_extra_krw`); before that, the
+    starting tokens at the model's output price.
+    """
+    from app.services import calibration
+
+    start = thinking_start_tokens(model.model_id)
+    if start == 0:
+        return ReplyEstimate(krw=0, basis="formula")
+    measured = calibration.thinking_extra_krw(db, model.model_id)
+    if measured is not None:
+        return ReplyEstimate(krw=measured, basis="recent")
+    if rate is None:
+        return ReplyEstimate(krw=None, basis="formula")
+    return ReplyEstimate(
+        krw=Price(
+            model_id=model.model_id,
+            input_usd_per_mtok=model.input_usd_per_mtok,
+            output_usd_per_mtok=model.output_usd_per_mtok,
+            usd_krw=Decimal(rate.krw_per_unit),
+        ).krw(0, start),
+        basis="formula",
+    )
+
+
 def estimate_tokens(text: str) -> int:
     """A deliberately generous token estimate: one per character.
 

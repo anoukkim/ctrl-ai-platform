@@ -28,6 +28,8 @@ class ConversationUpdate(BaseModel):
     use_web_search: bool | None = None
     use_web_fetch: bool | None = None
     use_code_execution: bool | None = None
+    #: 생각 과정 보기 (chat-thinking-view): later replies only.
+    show_thinking: bool | None = None
 
 
 class ConversationRead(BaseModel):
@@ -44,6 +46,8 @@ class ConversationRead(BaseModel):
     use_web_search: bool = False
     use_web_fetch: bool = False
     use_code_execution: bool = False
+    #: 생각 과정 보기 (chat-thinking-view).
+    show_thinking: bool = False
 
 
 class ReplyReceipt(BaseModel):
@@ -74,6 +78,8 @@ class ReplyReceipt(BaseModel):
     cache_saved_krw: float | None = None
     #: The split was re-priced from today's catalogue (an old reply).
     split_estimated: bool = False
+    #: Written with 생각 과정 보기 on: the output includes the thinking.
+    thinking_shown: bool = False
 
 
 class AttachmentRead(BaseModel):
@@ -127,6 +133,8 @@ class ChatMessageRead(BaseModel):
     capped_krw: int | None = None
     #: Web-search sources the reply cited (chat-plus-tools), in order.
     sources: list["SourceRead"] | None = None
+    #: Claude's summarized thinking (chat-thinking-view). Display only.
+    thinking: str | None = None
     #: The reply's receipt, filled from its usage event when the
     #: conversation is read (live-cost-display). Not a column: while a
     #: reply streams, the receipt arrives on the `done` event instead.
@@ -193,6 +201,10 @@ class ChatModelOption(BaseModel):
     tools_web_fetch: bool = False
     tools_code_execution: bool = False
     web_search_krw_per_call: int | None = None
+    #: 생각 과정 보기's "+약 N원" (chat-thinking-view): 0 = 추가 비용 없음
+    #: (Opus thinks anyway), None without a rate. Basis as above.
+    thinking_extra_krw: int | None = None
+    thinking_basis: str = "formula"
 
 
 class ChatInfo(BaseModel):
