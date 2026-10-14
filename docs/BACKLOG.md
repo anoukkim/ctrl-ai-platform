@@ -76,61 +76,53 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **fix-quarter-form-autofill** · M1 · branch `fix-quarter-form-autofill`
-   Added by the owner on 2026-10-14 (add-on A, pre-approved). Admin ›
-   Quarters › 새 분기 만들기: the code must be `YYYY-Qn`; a valid code fills
-   the name, the quarter's dates and the application window (still
-   editable, hand edits never overwritten); date pickers enforce order;
-   the backend refuses the same violations, a duplicate code and an
-   overlapping range. Spec below.
-
-2. **feat-spend-feedback** · M1 · branch `feat-spend-feedback`
+1. **feat-spend-feedback** · M1 · branch `feat-spend-feedback`
    Added by the owner on 2026-10-14 (add-on B, pre-approved). A small,
    game-like "you spent" moment whenever money leaves the wallet: the
    sidebar balance counts down with a floating "-N원", a merged toast,
    once-per-quarter milestones stored server-side, a Profile › 알림 switch
    and reduced motion. Spec below.
 
-3. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
+2. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
    Images, PDF, CSV and text attached to a message. Spec below.
 
-4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe. Spec below.
 
-5. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+4. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    생각 과정 보기, per conversation, off by default, cost shown first.
    Spec below.
 
-6. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
+5. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
    Both halves: Claude writes and edits project files with restorable
    versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
    volume. **Moved into Next by the owner on 2026-10-14**, on
    `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
 
-7. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+6. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
    The first slice of Phase 5: 게시 from a Builder project to a
    CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
    every mock listing removed. Spec below.
 
-8. **example-apps** · M3 · branch `feat-example-apps`
+7. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-9. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+8. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-10. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+9. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-11. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+10. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-12. **builder-python** · M2 · branch `feat-builder-python`
+11. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime of
     item 5. Spec below.
@@ -608,26 +600,7 @@ preview runs in the member's own browser, in a frame with no origin.
 
 → **cost-clarity — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#cost-clarity--full-spec-merged-2026-10-14).
 
-## fix-quarter-form-autofill — full spec
-
-Branch `fix-quarter-form-autofill`. M1. Added by the owner on 2026-10-14
-(add-on A; merge and deploy pre-approved). Saved as written:
-
-> Admin › Quarters › 새 분기 만들기:
-> 1. 분기 코드 must match YYYY-Qn (n = 1–4); show a Korean error otherwise ("2026-Q4 꼴로 입력해 주세요"). Backend validates too.
-> 2. When a valid code is typed, auto-fill:
->    - 화면에 보일 이름 → "2026 Q4"
->    - 분기 시작일 → first day of the quarter (Q4 → 2026-10-01)
->    - 분기 종료일 → last day of the quarter (Q4 → 2026-12-31)
->    - 신청 시작일 → today if today is before the quarter ends, else the quarter start
->    - 신청 마감일 → 분기 시작일 + 30 days (still editable)
->    Auto-filled values stay editable. A field the admin has edited by hand is not overwritten when the code changes again.
-> 3. Date pickers enforce order with min/max:
->    - 분기 종료일 ≥ 분기 시작일
->    - 신청 마감일 ≥ 신청 시작일 (or ≥ 분기 시작일 when 신청 시작일 is empty); earlier dates are not pickable
->    - Backend refuses the same violations with Korean messages (never trust the form).
-> 4. Duplicate code or a date range overlapping an existing quarter → Korean error from the backend.
-> 5. Tests: code parsing for Q1–Q4 incl. month ends (2028-Q1 ends 03-31), autofill, hand-edited field not overwritten, min/max on pickers, backend refusals.
+→ **fix-quarter-form-autofill — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-quarter-form-autofill--full-spec-merged-2026-10-14).
 
 ## feat-spend-feedback — full spec
 

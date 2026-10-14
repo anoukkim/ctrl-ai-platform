@@ -5,6 +5,27 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## fix-quarter-form-autofill — full spec (merged 2026-10-14)
+
+Branch `fix-quarter-form-autofill`. M1. Added by the owner on 2026-10-14
+(add-on A; merge and deploy pre-approved). Saved as written:
+
+> Admin › Quarters › 새 분기 만들기:
+> 1. 분기 코드 must match YYYY-Qn (n = 1–4); show a Korean error otherwise ("2026-Q4 꼴로 입력해 주세요"). Backend validates too.
+> 2. When a valid code is typed, auto-fill:
+>    - 화면에 보일 이름 → "2026 Q4"
+>    - 분기 시작일 → first day of the quarter (Q4 → 2026-10-01)
+>    - 분기 종료일 → last day of the quarter (Q4 → 2026-12-31)
+>    - 신청 시작일 → today if today is before the quarter ends, else the quarter start
+>    - 신청 마감일 → 분기 시작일 + 30 days (still editable)
+>    Auto-filled values stay editable. A field the admin has edited by hand is not overwritten when the code changes again.
+> 3. Date pickers enforce order with min/max:
+>    - 분기 종료일 ≥ 분기 시작일
+>    - 신청 마감일 ≥ 신청 시작일 (or ≥ 분기 시작일 when 신청 시작일 is empty); earlier dates are not pickable
+>    - Backend refuses the same violations with Korean messages (never trust the form).
+> 4. Duplicate code or a date range overlapping an existing quarter → Korean error from the backend.
+> 5. Tests: code parsing for Q1–Q4 incl. month ends (2028-Q1 ends 03-31), autofill, hand-edited field not overwritten, min/max on pickers, backend refusals.
+
 ## cost-clarity — full spec (merged 2026-10-14)
 
 Branch `feat-cost-clarity`. M1/M4. Added by the owner on 2026-10-14
