@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>동아리 출석 체크</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="notebook">
+    <header class="head">
+      <p class="stamp">CTRL+AI 예시 앱</p>
+      <h1>동아리 출석 체크</h1>
+      <p class="lead">이름을 누를 때마다 <b>출석 → 지각 → 결석</b> 순서로 바뀌어요.</p>
+    </header>
+
+    <!-- 날짜 고르기: 날짜마다 따로 기록됩니다 -->
+    <section class="dateRow">
+      <button id="prev" type="button" aria-label="전날">‹</button>
+      <input id="date" type="date" aria-label="출석 날짜">
+      <button id="next" type="button" aria-label="다음 날">›</button>
+    </section>
+
+    <!-- 오늘의 합계 -->
+    <section class="tally" aria-live="polite">
+      <span class="pill here">출석 <b id="count-here">0</b></span>
+      <span class="pill late">지각 <b id="count-late">0</b></span>
+      <span class="pill away">결석 <b id="count-away">0</b></span>
+      <span class="pill none">미확인 <b id="count-none">0</b></span>
+    </section>
+
+    <ul id="members" class="members"></ul>
+    <p id="empty" class="empty">아직 동아리원이 없어요. 아래에서 이름을 추가해 보세요.</p>
+
+    <!-- 동아리원 추가 -->
+    <form id="add-form" class="addRow">
+      <input id="new-name" placeholder="동아리원 이름" maxlength="20" autocomplete="off" aria-label="동아리원 이름">
+      <button type="submit">추가</button>
+    </form>
+
+    <footer class="foot">
+      기록은 이 기기의 브라우저에만 저장돼요. 다른 사람과 공유되지 않아요.
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

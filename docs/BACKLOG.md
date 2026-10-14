@@ -76,25 +76,20 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **example-apps** · M3 · branch `feat-example-apps`
-   Three small Korean static example apps under `examples/apps/`, and a
-   server-only CLI that imports and publishes them for the admin. Spec
-   below.
-
-2. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+1. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-3. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+2. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-4. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+3. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-5. **builder-python** · M2 · branch `feat-builder-python`
+4. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
@@ -411,17 +406,6 @@ Branch `chore-monitoring`. M1 · 💳 if any. Added by the owner on
 → **fix-quarter-form-autofill — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-quarter-form-autofill--full-spec-merged-2026-10-14).
 
 → **feat-spend-feedback — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#feat-spend-feedback--full-spec-merged-2026-10-14).
-
-## example-apps — full spec
-
-Branch `feat-example-apps`. M3. Added by the owner on 2026-10-14. Saved
-as written:
-
-> - Write 3 small, polished Korean static example apps yourself as files under examples/apps/ (e.g. 동아리 출석 체크, 오늘의 할 일 + 타이머, 간단한 퀴즈 게임). Plain HTML/CSS/JS, no external network, within the size caps, mobile-friendly.
-> - A server-only CLI: python -m app.db.import_example_apps <admin username> → creates Builder projects owned by that user from those files and publishes them (idempotent; second run changes nothing; audited). No API call, no wallet charge.
-> - Give me the exact docker compose command to run it on the server.
-
-**Depends on:** `builder-static-runtime` and `ctrlaiapps-publish`.
 
 ## signup-google-first — full spec
 

@@ -489,6 +489,7 @@ works, the layout fits a phone and a laptop.
 (colours, type, layout, mood) — not a default white card. Fonts only from \
 local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
+- Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs only in the visitor's browser: anything it saves stays on \
 that visitor's device (localStorage) and is never shared with others. Apps \
 that need accounts, logins, shared boards, chats or data across people \
@@ -551,6 +552,7 @@ the code. The layout fits a phone and a laptop.
 (colours, type, layout, mood) — not a default white card. Fonts only from \
 local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
+- Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs only in the visitor's browser: anything it saves stays on \
 that visitor's device (localStorage) and is never shared with others. Apps \
 that need accounts, logins, shared boards, chats or data across people \

@@ -305,6 +305,7 @@ def test_the_prompts_ask_for_a_fitting_look_and_honesty_about_shared_apps() -> N
     for prompt in (EDIT_SYSTEM, STARTER_SYSTEM):
         assert "its own look" in prompt and "no web fonts" in prompt
         assert "never shared with others" in prompt
+        assert "Never use alert(), confirm() or prompt()" in prompt
     assert "keep every element id" in EDIT_SYSTEM
     assert "logins, shared boards" in CHAT_SYSTEM_PROMPT
 

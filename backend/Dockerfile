@@ -25,6 +25,8 @@ RUN pip install -r requirements.txt
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
+# The example apps `python -m app.db.import_example_apps` publishes.
+COPY examples ./examples
 
 # Run as an ordinary user. var/storage is where generated files live and
 # var/apps where member apps are written (builder-static-runtime); the

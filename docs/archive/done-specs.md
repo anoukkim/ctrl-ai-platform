@@ -5,6 +5,34 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## example-apps — full spec (merged 2026-10-14)
+
+Branch `feat-example-apps`. M3. Added by the owner on 2026-10-14. Saved
+as written:
+
+> - Write 3 small, polished Korean static example apps yourself as files under examples/apps/ (e.g. 동아리 출석 체크, 오늘의 할 일 + 타이머, 간단한 퀴즈 게임). Plain HTML/CSS/JS, no external network, within the size caps, mobile-friendly.
+> - A server-only CLI: python -m app.db.import_example_apps <admin username> → creates Builder projects owned by that user from those files and publishes them (idempotent; second run changes nothing; audited). No API call, no wallet charge.
+> - Give me the exact docker compose command to run it on the server.
+
+**Depends on:** `builder-static-runtime` and `ctrlaiapps-publish`.
+
+**As built.** The apps live in `backend/examples/apps/{attendance,
+focus-todo,quiz}/` — under `backend/` because the api image is built
+from that folder (Dockerfile `COPY examples ./examples`); each is
+`index.html` + `style.css` + `app.js`, Korean, no network, no
+alert/confirm/prompt (blocked in the sandboxed preview — the attendance
+app removes a member with a second tap instead). Looks (F2): a lined
+paper notebook with a serif title; a dark night-sky timer with a mint
+progress ring; a bright arcade card with hard shadows and shuffled
+questions and answers. `python -m app.db.import_example_apps <admin>`:
+admin only, matched by name among the admin's live projects (existing →
+left as is), first version "예시 앱 가져오기", published through the same
+`app_publish.publish` as 게시, one audit row `example_apps.imported`
+(actor 서버 운영자) only when something was imported. Server command in
+`docs/deployment.md` › 문제가 생겼을 때 › 예시 앱 세 개를 CtrlAIApps에 올리기:
+`dc exec api python -m app.db.import_example_apps <관리자 아이디>`. The
+Builder prompts also gained "never use alert/confirm/prompt".
+
 ## ctrlaiapps-publish — full spec (merged 2026-10-14)
 
 Branch `feat-ctrlaiapps-publish`. M3 — the first slice of Phase 5. Added
