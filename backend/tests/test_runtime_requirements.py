@@ -22,6 +22,7 @@ DISTRIBUTION = {
     "email_validator": "pydantic",  # pulled in by pydantic[email]
     "dotenv": "pydantic-settings",  # pulled in by pydantic-settings
     "starlette": "fastapi",  # FastAPI is built on it and pins it
+    "PIL": "pillow",  # chat-plus-files: Pillow imports as PIL
 }
 
 

@@ -5,6 +5,100 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## chat-plus-files — full spec (merged 2026-10-14)
+
+Branch `feat-chat-plus-files`. M1. Effort: **M–L** (4–6 days). One
+migration (`chat_attachments`, plus the cache columns in point 5).
+
+1. **What can be attached**, per message, up to **5 files**:
+
+   | Kind | Formats | Upload limit | Sent to Claude as |
+   | ---- | ------- | ------------ | ----------------- |
+   | Image | JPEG, PNG, WebP, GIF (first frame) | 10 MB | `image` block, **re-encoded server-side to a long edge of at most 1,568 px** |
+   | PDF | PDF, not encrypted | 10 MB and **30 pages** | `document` block (base64) |
+   | Table | CSV | 1 MB | text, in a `document` block |
+   | Text | TXT, MD | 1 MB | text, in a `document` block |
+
+   The type is decided from the bytes (magic numbers; `pypdf` opening
+   the PDF), never from the extension. CSV and text are decoded as UTF-8,
+   falling back to **CP949** — Korean Excel exports are CP949, and a
+   garbled summary is a support question. A file over a limit is
+   **refused, never truncated**: a silently cut table gives a confident
+   wrong answer.
+2. **Storage.** Through the existing storage interface
+   (`app/services/storage.py`), key
+   `chat/<user_id>/<conversation_id>/<attachment_id>`. A new
+   `ChatAttachment` row: owner, conversation, message, kind, original
+   name, stored size, page count or pixel size, estimated tokens,
+   created. **Re-encoding images strips EXIF** — phone photos carry GPS.
+   Per member: **200 MB** of attachments. On the beta VM: the upload
+   route refuses once the attachment folder passes **5 GB** of the VM's
+   30 GB disk, and the Admin dashboard shows the figure. Both are
+   settings (`CHAT_ATTACHMENT_*`).
+3. **Deleting.** Deleting a conversation (a real delete, Phase 2) deletes
+   its attachments' bytes and rows. Withdrawal anonymisation
+   (`app/jobs/anonymise_withdrawn`) deletes them too. Usage events stay,
+   as now.
+4. **Estimated cost before sending.** As soon as a file is attached, the
+   composer shows "첨부 포함 답장 1회 약 N원" for the conversation's
+   model — and, because the history is resent every turn, "이 대화에서
+   이어지는 답장마다 약 M원씩 더 듭니다" while the file stays in the
+   context. The token estimate is the same in the browser and in the
+   budget pre-check:
+   - image: `ceil(w/28) × ceil(h/28)` after the resize (1,568 px → at
+     most about 2,350 tokens for 4:3): ≈ 3원 Haiku, 7원 Sonnet, 13원 Opus;
+   - PDF: pages × 3,000 (text) + pages × 1,600 (page image) — the upper
+     end of the documented range until real Korean PDFs are measured with
+     the token-counting endpoint; a 10-page PDF ≈ 46,000 tokens ≈ 64원 /
+     129원 / 258원 on Haiku / Sonnet / Opus;
+   - CSV and text: characters (the existing 1 token per character).
+5. **Prompt caching** — *done by `prompt-caching` (2026-10-13)*; this
+   item only has to keep attachments inside the cached prefix. Original
+   text: turns on with this item, because a file resent on
+   every turn is where the money goes (a 35k-token PDF over five turns:
+   ≈ 490원 → 162원 on Sonnet). Automatic caching (`cache_control` at the
+   top level). The ledger must then price **cache writes at 1.25×** and
+   **cache reads at 0.1×** the input price (Opus 5.5: 0.05×) instead of
+   adding them to input at full price, as the adapter does today: two new
+   catalogue columns (`cache_write_usd_per_mtok`,
+   `cache_read_usd_per_mtok`) and two new `UsageEvent` columns for the
+   split. Haiku 4.5 caches nothing under 4,096 tokens — short Haiku chats
+   see no saving, and that is correct.
+6. **Korean errors**, each tested: 지원하지 않는 형식입니다 (JPEG, PNG,
+   WebP, GIF, PDF, CSV, TXT, MD만 올릴 수 있습니다) · 파일이 너무 큽니다
+   (최대 10MB) · PDF가 너무 깁니다 (최대 30쪽) · 암호가 걸린 PDF는 읽을 수
+   없습니다 · 한 번에 5개까지 올릴 수 있습니다 · 첨부 공간이 가득 찼습니다
+   (지난 대화를 지우면 공간이 생깁니다) · 지원금이 부족합니다 (with the
+   estimate) · and the existing Claude error set for a provider rejection.
+7. **Screens.** A 📎 button and drag-and-drop on the composer; chips with
+   name, size and ✕; an uploading state; image thumbnails in the member's
+   bubble; PDFs and tables as a chip that downloads the stored copy.
+   Members not participating this quarter can still read and download
+   what they attached.
+
+**Charged:** the wallet, by the token, with the cache split above. Uploading
+and storing cost nothing in won (the VM disk is the limit, not money).
+The 파일 요약 welcome card now opens the attach dialog.
+
+**Tests:** each format accepted by its bytes and refused under a renamed
+extension; size, page-count, count and quota limits refused with the
+exact Korean message and **nothing stored**; images re-encoded under
+1,568 px with EXIF gone; a CP949 CSV decoded; the estimate equals the
+pre-check's figure; a turn with an attachment charges the mock's
+reported tokens; cache reads and writes priced at their multipliers;
+another member's attachment is 404; deleting a conversation removes the
+bytes; an attachment is never sent as a Files API id.
+
+**Risks:** cost — files are resent each turn (caching and the visible
+estimate are the mitigation; a later option drops a file from the context
+after N turns, with a notice). VM disk and memory — Pillow on a 1 GB VM
+handles one 12 MP image at a time (decode with a pixel cap, process
+uploads one by one). Malicious files — nothing but Pillow and pypdf ever
+opens a file, both under size limits, and nothing is executed. Personal
+data — members may upload documents with personal information: the attach
+dialog says files are sent to Anthropic for the reply and kept until the
+conversation is deleted.
+
 ## feat-spend-feedback — full spec (merged 2026-10-14)
 
 Branch `feat-spend-feedback`. M1. Added by the owner on 2026-10-14
