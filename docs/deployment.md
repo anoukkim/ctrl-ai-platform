@@ -785,21 +785,29 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 
 ---
 
-### 예시 앱 세 개를 CtrlAIApps에 올리기 (example-apps)
+### 쇼케이스 앱 세 개를 CtrlAIApps에 올리기 (feat-showcase-apps)
 
-동아리 출석 체크 · 오늘의 할 일 + 집중 타이머 · AI 상식 퀴즈를 **관리자의
-이름으로** 게시합니다. AI를 부르지 않고 지원금도 쓰지 않습니다. 두 번
-실행해도 이미 있는 앱은 그대로 둡니다(감사 기록은 새로 올린 것이 있을
-때만 남습니다).
+영수증 가계부 · 여행 일정 메이커 · 문서 챗봇 메이커(모두 **데모** — AI 결과는
+미리 만든 것이고 화면에 그렇게 표시됨)를 **관리자의 이름으로** 게시합니다.
+AI를 부르지 않고 지원금도 쓰지 않습니다.
 
 ```bash
 cd ~/ctrl-ai-platform
-dc exec api python -m app.db.import_example_apps <관리자 아이디>
+dc exec api python -m app.db.import_example_apps <관리자 아이디> --replace
 ```
 
-`게시함: …` 세 줄이 나오면 https://ctrlai.my/ctrlaistore 에 보입니다.
-내리려면 Builder에서 그 프로젝트의 **게시 취소**, 또는 Admin › Content의
-**게시 내리기**.
+- `--replace`는 먼저 예전 예시 앱 세 개(동아리 출석 체크 · 오늘의 할 일 +
+  집중 타이머 · AI 상식 퀴즈 — 그 관리자의 것만)를 **게시 취소하고 지웁니다**.
+  지운 것은 Admin › Deleted Items에서 되살릴 수 있습니다. 예전 앱을 올린 적이
+  없으면 내릴 것 없이 새 앱만 올립니다.
+- 두 번 실행해도 바뀌는 것이 없습니다(이미 있는 앱은 그대로, 감사 기록은 무언가
+  바뀌었을 때만 — "예시 앱 교체", "예시 앱 게시").
+- 출력: `예전 예시 내림 (휴지통으로): …`, `게시함: …`. 그러면
+  https://ctrlai.my/ctrlaistore 에 보입니다.
+- 각 앱 폴더(`backend/examples/apps/<앱>/`)의 `SPEC.md`가 원래 기획(서버 ·
+  실제 AI가 붙은 버전)입니다.
+
+내리려면 Builder에서 그 프로젝트의 **게시 취소**.
 
 ## 13. 나중에 키울 때 (지금은 하지 않음) 💳
 

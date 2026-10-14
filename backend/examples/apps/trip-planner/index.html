@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>여행 일정 메이커 · 데모</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">✈</span>
+      <div>
+        <h1>여행 일정 메이커</h1>
+        <span class="badge demoAll">데모 데이터</span>
+      </div>
+    </div>
+    <div class="topActions">
+      <button type="button" id="new-trip" class="ghost">새 일정 만들기</button>
+      <button type="button" id="reset" class="ghost">데모 초기화</button>
+    </div>
+  </header>
+  <main id="main" class="main" tabindex="-1"></main>
+  <footer class="foot">
+    장소 정보는 데모용 예시예요 — 운영 시간·가격은 실제와 다를 수 있어요. 일정은 이 기기의 브라우저에만 저장돼요.
+  </footer>
+  <div id="status" class="visually-hidden" role="status" aria-live="polite"></div>
+  <script src="js/places.js"></script>
+  <script src="js/planner.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

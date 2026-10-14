@@ -1,0 +1,254 @@
+/* 여행 일정 메이커 — 밤하늘 남색 + 산호색 "탑승권". 시간은 고정폭, 지도가 주인공. */
+:root {
+  --bg: #0a0f1f;
+  --panel: #111a33;
+  --panel2: #18234a;
+  --line: #26345f;
+  --text: #eef2ff;
+  --muted: #9aa8cf;
+  --coral: #ff7a59;
+  --coral-ink: #2b0d04;
+  --sky: #7aa7ff;
+  --mint: #5fe0c0;
+  --radius: 18px;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(122, 167, 255, 0.18), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(255, 122, 89, 0.12), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+[hidden] { display: none !important; }
+
+/* ---- 머리 */
+.top {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  max-width: 1240px; margin: 0 auto; padding: 22px 24px 8px;
+}
+.brand { display: flex; gap: 12px; align-items: center; }
+.logo {
+  display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%;
+  background: var(--coral); color: var(--coral-ink); font-size: 1.4rem; transform: rotate(-20deg);
+}
+h1 { margin: 0; font-size: 1.45rem; letter-spacing: -0.03em; font-weight: 800; }
+.topActions { display: flex; gap: 8px; }
+.main { max-width: 1240px; margin: 0 auto; padding: 8px 24px 40px; outline: none; }
+.foot { max-width: 1240px; margin: 0 auto; padding: 0 24px 32px; color: var(--muted); font-size: 12px; }
+
+.badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.demoAll { background: rgba(255, 122, 89, 0.16); color: var(--coral); }
+.demo {
+  display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  color: var(--sky); border: 1px dashed rgba(122, 167, 255, 0.6); background: rgba(122, 167, 255, 0.08);
+}
+.eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.card h3 { margin: 0 0 10px; font-size: 1rem; }
+
+.primary {
+  background: var(--coral); color: var(--coral-ink); border: 0; border-radius: 999px; padding: 10px 20px;
+  font-weight: 800; cursor: pointer;
+}
+.primary:hover { filter: brightness(1.08); }
+.ghost { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.ghost:hover { border-color: var(--sky); }
+.ghost.danger { border-color: var(--coral); color: var(--coral); }
+.ghost:disabled { opacity: 0.5; cursor: default; }
+.link { background: none; border: 0; padding: 0; color: var(--sky); text-decoration: underline; cursor: pointer; }
+input, select {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; min-width: 0;
+}
+
+/* ---- 입력 화면 */
+.formCard { max-width: 760px; margin: 12px auto; padding: 28px; }
+.formCard h2 { font-size: 2rem; margin: 4px 0 18px; letter-spacing: -0.03em; }
+fieldset { border: 0; padding: 0; margin: 0 0 18px; }
+legend { font-weight: 700; margin-bottom: 8px; }
+.cities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cityCard {
+  position: relative; display: grid; justify-items: center; gap: 4px; padding: 16px 10px;
+  border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); cursor: pointer;
+}
+.cityCard input { position: absolute; opacity: 0; }
+.cityCard:has(input:checked) { border-color: var(--coral); box-shadow: 0 0 0 1px var(--coral) inset; }
+.cityCard:has(input:focus-visible) { outline: 2px solid var(--coral); outline-offset: 2px; }
+.cityCard b { font-size: 1.15rem; }
+.cityCard small { color: var(--muted); }
+.mini { width: 64px; height: 64px; }
+.mini path { fill: rgba(122, 167, 255, 0.25); stroke: var(--sky); stroke-width: 1.4; }
+.cityCard:has(input:checked) .mini path { fill: rgba(255, 122, 89, 0.25); stroke: var(--coral); }
+.formRow { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 14px; margin-bottom: 18px; }
+.formRow label, .field { display: grid; gap: 6px; font-weight: 700; }
+.formRow small { color: var(--muted); font-weight: 400; font-family: var(--mono); }
+.stepper { display: flex; align-items: center; gap: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.stepper button { width: 36px; height: 34px; border: 0; border-radius: 9px; background: var(--panel); cursor: pointer; font-size: 1.1rem; }
+.stepper output { flex: 1; text-align: center; font-weight: 400; }
+.prefs { display: flex; flex-wrap: wrap; gap: 8px; }
+.prefs legend { width: 100%; }
+.chip input { position: absolute; opacity: 0; }
+.chip span { display: inline-block; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); cursor: pointer; }
+.chip input:checked + span { background: var(--coral); color: var(--coral-ink); border-color: var(--coral); font-weight: 700; }
+.chip input:focus-visible + span { outline: 2px solid var(--coral); outline-offset: 2px; }
+.error { color: var(--coral); min-height: 1.2em; margin: 0 0 8px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* ---- 탑승권 요약 */
+.sharedBanner {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  padding: 12px 16px; margin: 8px 0 14px; border-radius: 14px; background: rgba(122, 167, 255, 0.12); border: 1px solid var(--sky);
+}
+.bannerActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pass {
+  display: grid; grid-template-columns: auto 1fr minmax(240px, 0.8fr); gap: 0; margin: 8px 0 12px;
+  background: linear-gradient(120deg, #1a2550, #141d3d); border: 1px solid var(--line); border-radius: 22px; overflow: hidden;
+}
+.pass > * { padding: 16px 20px; }
+.passCity { display: flex; gap: 12px; align-items: center; background: rgba(255, 122, 89, 0.1); }
+.passCity b { font-size: 2rem; letter-spacing: -0.04em; line-height: 1.1; }
+.passCity .mini path { fill: rgba(255, 122, 89, 0.25); stroke: var(--coral); }
+.passFacts { display: grid; grid-template-columns: repeat(4, auto); gap: 6px 22px; margin: 0; align-content: center; }
+.passFacts dt { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+.passFacts dd { margin: 0; font-weight: 700; }
+.passBudget { border-left: 2px dashed var(--line); display: grid; gap: 6px; align-content: center; }
+.passBudget p { margin: 0; }
+.passBudget b { font-family: var(--mono); font-size: 1.1rem; }
+.progress { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.progress span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--mint), var(--sky)); }
+.progress.over span { background: var(--coral); }
+.passBudget small { color: var(--muted); }
+
+.plannerLine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; font-size: 13px; }
+.mode { padding: 2px 10px; border-radius: 999px; background: var(--panel2); }
+.note { color: var(--muted); }
+
+.dayTabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+.dayTabs button {
+  padding: 8px 18px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; white-space: nowrap;
+  font-weight: 700; color: var(--muted);
+}
+.dayTabs button[aria-selected="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* ---- 일정 + 지도 */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 18px; align-items: start; }
+.sideCol { display: grid; gap: 16px; position: sticky; top: 12px; }
+.dayHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.dayHead h2 { margin: 0; font-size: 1.6rem; letter-spacing: -0.03em; }
+.dayHead p { margin: 0; font-size: 13px; }
+.stops { list-style: none; padding: 0; margin: 0; }
+.stop { position: relative; }
+.stop.dragging { opacity: 0.4; }
+.stop.over .stopCard { border-color: var(--coral); }
+.leg {
+  margin: 0 0 0 26px; padding: 8px 0 8px 22px; border-left: 2px dotted var(--line);
+  font-size: 12px; color: var(--muted); font-family: var(--mono);
+}
+.stopCard {
+  display: grid; grid-template-columns: auto 64px 1fr auto; gap: 12px; align-items: start;
+  padding: 12px; border-radius: 14px; background: var(--panel2); border: 1px solid transparent; cursor: grab;
+}
+.num {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--coral); color: var(--coral-ink); font-weight: 900; font-size: 13px;
+}
+.time { display: grid; font-family: var(--mono); }
+.time b { font-size: 1rem; }
+.time small { color: var(--muted); }
+.body p { margin: 0; }
+.name { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pref { font-size: 12px; color: var(--muted); }
+.tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: rgba(95, 224, 192, 0.15); color: var(--mint); }
+.note { color: var(--muted); font-size: 13px; }
+.body small { color: var(--muted); font-size: 12px; }
+.ctl { display: flex; gap: 4px; }
+.ctl button {
+  width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+}
+.ctl button:disabled { opacity: 0.35; cursor: default; }
+.ctl button:last-child:hover { border-color: var(--coral); color: var(--coral); }
+
+.dayTools { margin-top: 14px; }
+.addRow { display: flex; gap: 8px; flex-wrap: wrap; }
+.addRow select { flex: 1 1 200px; }
+.nl { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.nl label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nlRow { display: flex; gap: 8px; }
+.nlRow input { flex: 1; }
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipBtn { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+.chipBtn:hover { border-color: var(--coral); color: var(--coral); }
+.msg { margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
+.msg.ok { background: rgba(95, 224, 192, 0.12); }
+.msg.wait { background: rgba(255, 122, 89, 0.12); }
+
+.mapCard { padding: 10px; }
+.map { width: 100%; height: auto; display: block; border-radius: 12px; }
+.map .sea { fill: #0b1a33; }
+.map .gridlines line { stroke: rgba(122, 167, 255, 0.07); }
+.map .land { fill: #1b2a52; stroke: #36508f; stroke-width: 1.5; }
+.map .river { fill: none; stroke: #1f4f86; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.map .route { fill: none; stroke: var(--coral); stroke-width: 3; stroke-dasharray: 8 6; stroke-linejoin: round; }
+.map .ghost { fill: rgba(154, 168, 207, 0.35); }
+.map .marker circle { fill: var(--coral); stroke: var(--bg); stroke-width: 3; }
+.map .num { fill: var(--coral-ink); font-size: 13px; font-weight: 900; text-anchor: middle; }
+.map .label { fill: var(--text); font-size: 13px; font-weight: 700; paint-order: stroke; stroke: #0b1a33; stroke-width: 4px; }
+.map .scale line { stroke: var(--text); stroke-width: 2; }
+.map .scale text, .map .north text, .map .waterLabel { fill: var(--muted); font-size: 11px; }
+.map .north path { fill: var(--text); }
+.mapCard p { margin: 8px 6px 2px; }
+
+.budgetWrap { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; }
+.donut { width: 150px; height: 150px; }
+.donutSmall { fill: var(--muted); font-size: 11px; }
+.donutBig { fill: var(--text); font-size: 14px; font-weight: 800; font-family: var(--mono); }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.legend li { display: flex; gap: 8px; align-items: center; }
+.legend b { margin-left: auto; font-family: var(--mono); font-weight: 600; }
+.swatch { width: 10px; height: 10px; border-radius: 50%; }
+.tier { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.shareRow { display: flex; gap: 8px; margin-top: 10px; }
+.shareRow input { flex: 1; font-family: var(--mono); font-size: 12px; }
+.shareCard .link { margin-top: 8px; font-size: 13px; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sideCol { position: static; }
+  .pass { grid-template-columns: 1fr; }
+  .passBudget { border-left: 0; border-top: 2px dashed var(--line); }
+  .passFacts { grid-template-columns: repeat(2, auto); }
+}
+@media (max-width: 560px) {
+  .top { padding: 14px 14px 4px; }
+  .main { padding: 8px 14px 32px; }
+  .foot { padding: 0 14px 24px; }
+  h1 { font-size: 1.15rem; }
+  .logo { width: 38px; height: 38px; font-size: 1.1rem; }
+  .topActions .ghost { padding: 6px 10px; font-size: 13px; }
+  .formCard { padding: 18px; }
+  .formCard h2 { font-size: 1.5rem; }
+  .cities { gap: 8px; }
+  .mini { width: 48px; height: 48px; }
+  .formRow { grid-template-columns: 1fr 1fr; }
+  .formRow label:last-child { grid-column: 1 / -1; }
+  .stopCard { grid-template-columns: auto 1fr auto; gap: 8px 10px; }
+  .time { grid-column: 2; grid-row: 1; display: flex; gap: 6px; align-items: baseline; align-self: center; }
+  .ctl { grid-column: 3; grid-row: 1; }
+  .body { grid-column: 1 / -1; grid-row: 2; }
+  .budgetWrap { grid-template-columns: 1fr; justify-items: center; }
+  .legend { width: 100%; }
+  .passCity b { font-size: 1.6rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

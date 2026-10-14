@@ -1,0 +1,530 @@
+// 영수증 가계부 — 화면. 데이터는 이 기기의 브라우저(localStorage)에만 저장됩니다.
+
+(function () {
+  const L = window.LEDGER;
+  // 앱 주소(폴더)마다 따로 저장해요 — 같은 주소(apps.ctrlai.my)의 다른 앱과 섞이지 않게.
+  const KEY = `receipt-ledger-v1:${location.pathname.replace(/[^/]*$/, "")}`;
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const esc = L.esc;
+  const won = L.won;
+  // CtrlAIApps 미리보기처럼 다른 화면 안에 들어 있으면 파일 내려받기가 막혀요.
+  let framed = false;
+  try { framed = window.top !== window.self; } catch (e) { framed = true; }
+  const FRAMED_NOTE = framed
+    ? `<p class="muted small">이 창은 미리보기라 파일 내려받기가 막혀 있어요. CtrlAIApps의 '앱 실행'으로 새 탭에서 열면 돼요.</p>`
+    : "";
+
+  // ---------------------------------------------------------------- 저장
+  function freshState() {
+    return { transactions: L.seedTransactions(), budget: { ...L.DEFAULT_BUDGET } };
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (error) {
+      /* 저장소를 못 쓰면 데모 데이터로 시작합니다 */
+    }
+    return freshState();
+  }
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (error) {
+      /* 저장소가 막혀 있어도 화면은 계속 씁니다 */
+    }
+  }
+  let state = load();
+
+  // ---------------------------------------------------------------- 도움
+  const monthOf = (date) => date.slice(0, 7);
+  const currentMonth = () => L.dateFor(0, 1).slice(0, 7);
+  const offsetOf = (month) => {
+    const [y, m] = month.split("-").map(Number);
+    const now = new Date();
+    return (y - now.getFullYear()) * 12 + (m - 1 - now.getMonth());
+  };
+  const monthLabel = (month) => `${Number(month.slice(0, 4))}년 ${Number(month.slice(5, 7))}월`;
+  const prevMonth = (month) => {
+    const [y, m] = month.split("-").map(Number);
+    const d = new Date(y, m - 2, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  const byCategory = (rows) => {
+    const sums = Object.fromEntries(L.CATEGORIES.map((c) => [c, 0]));
+    for (const row of rows) sums[row.category] = (sums[row.category] || 0) + row.total;
+    return sums;
+  };
+  const inMonth = (month) => state.transactions.filter((t) => monthOf(t.date) === month);
+  const months = () => {
+    const set = new Set(state.transactions.map((t) => monthOf(t.date)));
+    set.add(currentMonth());
+    return [...set].sort().reverse();
+  };
+
+  let view = "dashboard";
+  let dashMonth = currentMonth();
+  let filters = { q: "", month: "all", category: "all" };
+  let draft = null; // 영수증 추가 중인 내용
+
+  // 두 번 눌러야 실행되는 버튼(확인 대화상자 대신).
+  function armed(button, label, run) {
+    if (button.dataset.armed === "1") {
+      run();
+      return;
+    }
+    const original = button.textContent;
+    button.dataset.armed = "1";
+    button.textContent = label;
+    button.classList.add("danger");
+    setTimeout(() => {
+      button.dataset.armed = "";
+      button.textContent = original;
+      button.classList.remove("danger");
+    }, 3000);
+  }
+
+  // ---------------------------------------------------------------- 탭
+  function go(next) {
+    view = next;
+    for (const tab of document.querySelectorAll("[data-view]")) {
+      tab.setAttribute("aria-selected", String(tab.dataset.view === view));
+    }
+    render();
+    $("#main").focus();
+  }
+
+  function render() {
+    const main = $("#main");
+    if (view === "dashboard") main.innerHTML = dashboardHtml();
+    else if (view === "list") main.innerHTML = listHtml();
+    else if (view === "add") main.innerHTML = addHtml();
+    else main.innerHTML = budgetHtml();
+    bind();
+  }
+
+  // ---------------------------------------------------------------- 대시보드
+  function dashboardHtml() {
+    const rows = inMonth(dashMonth);
+    const prevRows = inMonth(prevMonth(dashMonth));
+    const sums = byCategory(rows);
+    const prevSums = byCategory(prevRows);
+    const total = rows.reduce((s, r) => s + r.total, 0);
+    const prevTotal = prevRows.reduce((s, r) => s + r.total, 0);
+    const [y, m] = dashMonth.split("-").map(Number);
+    const days = new Date(y, m, 0).getDate();
+    const daily = Array.from({ length: days }, () => 0);
+    for (const r of rows) daily[Number(r.date.slice(8, 10)) - 1] += r.total;
+
+    const parts = L.CATEGORIES.map((c) => ({ label: c, value: sums[c], color: L.CATEGORY_COLORS[c] }));
+    const legend = parts
+      .filter((p) => p.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .map((p) => `<li><span class="swatch" style="background:${p.color}"></span>${p.label}<b>${won(p.value)}</b></li>`)
+      .join("");
+    const diff = (now, before) => {
+      if (!before) return `<span class="flat">비교할 전월 내역 없음</span>`;
+      const pct = Math.round(((now - before) / before) * 100);
+      const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+      return `<span class="${cls}">${pct > 0 ? "▲" : pct < 0 ? "▼" : "–"} ${Math.abs(pct)}%</span>`;
+    };
+    const topChange = L.CATEGORIES.map((c) => ({ c, d: sums[c] - prevSums[c] })).sort((a, b) => b.d - a.d)[0];
+
+    return `
+      <div class="toolbar">
+        <label class="month">달 <select id="dash-month">${months()
+          .map((mo) => `<option value="${mo}" ${mo === dashMonth ? "selected" : ""}>${monthLabel(mo)}</option>`)
+          .join("")}</select></label>
+      </div>
+      <section class="cards">
+        <article class="card stat"><h3>이번 달 지출</h3><p class="big">${won(total)}</p><p>전월 대비 ${diff(total, prevTotal)}</p></article>
+        <article class="card stat"><h3>가장 많이 늘어난 곳</h3><p class="big">${topChange && topChange.d > 0 ? topChange.c : "없음"}</p><p>${topChange && topChange.d > 0 ? `+${won(topChange.d)}` : "전월보다 늘어난 카테고리가 없어요"}</p></article>
+        <article class="card stat"><h3>기록한 영수증</h3><p class="big">${rows.length}건</p><p>하루 평균 ${won(total / Math.max(1, offsetOf(dashMonth) === 0 ? new Date().getDate() : days))}</p></article>
+      </section>
+      ${patternHtml(dashMonth, sums)}
+      <section class="grid2">
+        <article class="card"><h3>카테고리별</h3><div class="donutWrap">${L.donut(parts, won(total), `${rows.length}건`)}<ul class="legend">${legend || "<li>아직 내역이 없어요</li>"}</ul></div></article>
+        <article class="card"><h3>일별 지출</h3>${L.lineChart(daily, `${monthLabel(dashMonth)} 일별 지출 그래프`, dashMonth === currentMonth() ? new Date().getDate() : days)}</article>
+      </section>
+      <section class="card"><h3>예산 사용</h3>${budgetBars(sums)}</section>`;
+  }
+
+  function patternHtml(month, sums) {
+    const note = L.PATTERN_NOTES[String(offsetOf(month))];
+    if (!note) {
+      return `<section class="card pattern"><h3>이번 달 소비 패턴 <span class="demo">데모 · AI 연결 전</span></h3><p class="muted">이 달의 분석은 AI 연결 후 Claude가 써 줘요.</p></section>`;
+    }
+    const fill = (text) => text.replace(/\{(.+?)\}/g, (_, c) => (sums[c] || 0).toLocaleString("ko-KR"));
+    return `<section class="card pattern">
+      <h3>이번 달 소비 패턴 <span class="demo">데모 · AI 연결 전</span></h3>
+      <p class="headline">${esc(note.headline)}</p>
+      <ul>${note.points.map((p) => `<li>${esc(fill(p))}</li>`).join("")}</ul>
+      <p class="tip">💡 ${esc(note.tip)}</p>
+      <p class="muted small">미리 써 둔 예시 분석이에요. AI 연결 후에는 Claude가 실제 내역을 보고 써 줘요.</p>
+    </section>`;
+  }
+
+  function budgetBars(sums) {
+    return `<ul class="bars">${L.CATEGORIES.map((c) => {
+      const budget = state.budget[c] || 0;
+      const used = sums[c] || 0;
+      const pct = budget ? Math.round((used / budget) * 100) : 0;
+      const badge = pct >= 100 ? `<span class="badge warn">경고</span>` : pct >= 80 ? `<span class="badge caution">주의</span>` : "";
+      return `<li><span class="barLabel">${c} ${badge}</span><span class="bar" role="progressbar" aria-label="${c} 예산 사용" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.min(100, pct)}%;background:${L.CATEGORY_COLORS[c]}"></span></span><span class="barNum">${won(used)} / ${won(budget)} <b>${pct}%</b></span></li>`;
+    }).join("")}</ul>`;
+  }
+
+  // ---------------------------------------------------------------- 내역
+  function filtered() {
+    const q = filters.q.trim().toLowerCase();
+    return state.transactions.filter(
+      (t) =>
+        (filters.month === "all" || monthOf(t.date) === filters.month) &&
+        (filters.category === "all" || t.category === filters.category) &&
+        (!q || t.shop.toLowerCase().includes(q) || t.items.some((i) => i.name.toLowerCase().includes(q))),
+    );
+  }
+
+  function listHtml() {
+    const rows = filtered();
+    const sum = rows.reduce((s, r) => s + r.total, 0);
+    return `
+      <div class="toolbar wrap">
+        <input id="q" type="search" placeholder="상호나 품목으로 찾기" value="${esc(filters.q)}" aria-label="내역 검색">
+        <select id="f-month" aria-label="달"><option value="all">모든 달</option>${months()
+          .map((mo) => `<option value="${mo}" ${filters.month === mo ? "selected" : ""}>${monthLabel(mo)}</option>`)
+          .join("")}</select>
+        <select id="f-cat" aria-label="카테고리"><option value="all">모든 카테고리</option>${L.CATEGORIES.map(
+          (c) => `<option ${filters.category === c ? "selected" : ""}>${c}</option>`,
+        ).join("")}</select>
+        <button id="csv" class="ghost" type="button">CSV 내려받기</button>
+      </div>
+      ${FRAMED_NOTE}
+      <p class="muted">${rows.length}건 · 합계 ${won(sum)}</p>
+      <ul class="rows">${rows
+        .map(
+          (t) => `<li><button type="button" class="row" data-open="${t.id}">
+            <span class="dotc" style="background:${L.CATEGORY_COLORS[t.category]}"></span>
+            <span class="rowMain"><b>${esc(t.shop)}</b><small>${t.date} · ${t.category}</small></span>
+            <span class="rowAmt">${won(t.total)}</span></button></li>`,
+        )
+        .join("") || `<li class="muted">조건에 맞는 내역이 없어요.</li>`}</ul>
+      <div id="detail"></div>`;
+  }
+
+  function detailHtml(t) {
+    const image = t.sampleId ? `<img class="receiptImg" src="${L.receiptDataUrl(t.sampleId)}" alt="${esc(t.shop)} 샘플 영수증">` : "";
+    return `<div class="scrim" data-close-detail></div><section class="card detail" role="dialog" aria-modal="true" aria-label="내역 자세히">
+      <div class="detailHead"><h3>${esc(t.shop)}</h3><button type="button" class="ghost" id="close-detail">닫기</button></div>
+      <div class="detailBody">${image}<div>
+        <p class="muted">${t.date}${t.source === "sample" ? ` · <span class="demo">데모 · AI 연결 전</span> 미리 만든 추출 결과` : ""}</p>
+        <table class="items"><tbody>${t.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${won(i.amount)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><th>합계</th><th>${won(t.total)}</th></tr></tfoot></table>
+        <label>카테고리 <select id="detail-cat">${L.CATEGORIES.map((c) => `<option ${c === t.category ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+        <button type="button" class="ghost" id="delete-tx">이 내역 지우기</button>
+      </div></div></section>`;
+  }
+
+  function exportCsv() {
+    const rows = filtered();
+    const quote = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [["날짜", "상호", "카테고리", "품목", "합계"].map(quote).join(",")];
+    for (const t of rows) {
+      lines.push([t.date, t.shop, t.category, t.items.map((i) => `${i.name} ${i.amount}`).join(" / "), t.total].map(quote).join(","));
+    }
+    // 엑셀이 한글을 바로 읽도록 맨 앞에 BOM을 붙입니다.
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `가계부-${filters.month === "all" ? "전체" : filters.month}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+
+  // ---------------------------------------------------------------- 영수증 추가
+  function addHtml() {
+    if (draft && draft.stage === "review") return reviewHtml();
+    if (draft && draft.stage === "reading") {
+      return `<section class="card center"><img class="receiptImg" src="${draft.image}" alt="올린 영수증"><p class="reading" role="status">영수증을 읽는 중…</p></section>`;
+    }
+    return `
+      <section class="card">
+        <h3>영수증 올리기</h3>
+        <label class="drop" id="drop" tabindex="0">
+          <input id="file" type="file" accept="image/*" hidden>
+          <span class="dropIcon" aria-hidden="true">🧾</span>
+          <b>영수증 사진을 여기에 끌어다 놓거나 눌러서 고르세요</b>
+          <small>데모에서는 아래 샘플 영수증을 쓰면 미리 만든 추출 결과가 나와요. 다른 사진은 직접 입력하는 빈 양식이 열려요.</small>
+        </label>
+      </section>
+      <section class="card">
+        <h3>샘플 영수증 12장 <span class="demo">데모 데이터</span></h3>
+        <ul class="samples">${L.SAMPLES.map(
+          (s) => `<li><button type="button" class="sample" data-sample="${s.id}"><img src="${L.receiptDataUrl(s.id)}" alt="${esc(s.shop)} 샘플 영수증"><span>${esc(s.shop)}</span></button>
+            <a class="dl" href="${L.receiptDataUrl(s.id)}" download="sample-${s.id}.svg">내려받기</a></li>`,
+        ).join("")}</ul>
+        ${FRAMED_NOTE}
+      </section>`;
+  }
+
+  function startReading(image, sampleId) {
+    draft = { stage: "reading", image };
+    render();
+    setTimeout(() => {
+      const result = sampleId ? L.extractionFor(sampleId) : null;
+      draft = {
+        stage: "review",
+        image,
+        fromSample: Boolean(result),
+        sampleId: result ? result.sampleId : null,
+        shop: result ? result.shop : "",
+        date: result ? result.date : L.dateFor(0, new Date().getDate()),
+        items: result ? result.items.map((i) => ({ ...i })) : [{ name: "", amount: 0 }],
+        total: result ? result.total : 0,
+        category: result ? result.category : "기타",
+      };
+      render();
+    }, 900);
+  }
+
+  function reviewHtml() {
+    const d = draft;
+    const note = d.fromSample
+      ? `<p class="notice"><span class="demo">데모 · AI 연결 전</span> 미리 만든 추출 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
+      : `<p class="notice">AI 연결 후 자동 추출돼요. 지금은 직접 입력해 주세요.</p>`;
+    return `<section class="card review">
+      <div class="reviewGrid">
+        <img class="receiptImg" src="${d.image}" alt="올린 영수증">
+        <form id="review-form">
+          ${note}
+          <label>상호 <input id="r-shop" required value="${esc(d.shop)}"></label>
+          <label>날짜 <input id="r-date" type="date" required value="${d.date}"></label>
+          <fieldset><legend>품목별 금액</legend>
+            <ul class="itemRows">${d.items
+              .map(
+                (i, idx) => `<li><input aria-label="품목 ${idx + 1} 이름" data-item-name="${idx}" value="${esc(i.name)}" placeholder="품목">
+                <input aria-label="품목 ${idx + 1} 금액" data-item-amount="${idx}" type="number" min="0" step="100" value="${i.amount}">
+                <button type="button" class="ghost" data-remove-item="${idx}" aria-label="품목 ${idx + 1} 빼기">✕</button></li>`,
+              )
+              .join("")}</ul>
+            <button type="button" class="ghost" id="add-item">+ 품목 추가</button>
+          </fieldset>
+          <label>합계 <input id="r-total" type="number" min="0" step="10" value="${d.total}"></label>
+          <label>카테고리 ${d.fromSample ? `<span class="demo">데모 · 자동 분류</span>` : ""} <select id="r-cat">${L.CATEGORIES.map(
+            (c) => `<option ${c === d.category ? "selected" : ""}>${c}</option>`,
+          ).join("")}</select></label>
+          <div class="actions"><button type="submit" class="primary">저장</button><button type="button" class="ghost" id="cancel-add">취소</button></div>
+        </form>
+      </div></section>`;
+  }
+
+  function readDraftFromForm() {
+    draft.shop = $("#r-shop").value;
+    draft.date = $("#r-date").value;
+    draft.category = $("#r-cat").value;
+    draft.total = Number($("#r-total").value) || 0;
+    draft.items = [...document.querySelectorAll("[data-item-name]")].map((input) => ({
+      name: input.value,
+      amount: Number($(`[data-item-amount="${input.dataset.itemName}"]`).value) || 0,
+    }));
+  }
+
+  // ---------------------------------------------------------------- 예산
+  function budgetHtml() {
+    const sums = byCategory(inMonth(currentMonth()));
+    return `<section class="card">
+      <h3>카테고리별 한 달 예산</h3>
+      <p class="muted">80%를 넘으면 <span class="badge caution">주의</span>, 100%를 넘으면 <span class="badge warn">경고</span>가 붙어요.</p>
+      <form id="budget-form" class="budgetForm">${L.CATEGORIES.map(
+        (c) => `<label><span>${c}</span><input type="number" min="0" step="1000" data-budget="${c}" value="${state.budget[c] || 0}"><small>이번 달 ${won(sums[c] || 0)}</small></label>`,
+      ).join("")}
+      <div class="actions"><button type="submit" class="primary">예산 저장</button></div></form>
+    </section>
+    <section class="card"><h3>이번 달 예산 사용</h3>${budgetBars(sums)}</section>`;
+  }
+
+  // ---------------------------------------------------------------- 이벤트
+  function bind() {
+    const on = (sel, ev, fn) => {
+      const el = $(sel);
+      if (el) el.addEventListener(ev, fn);
+    };
+    on("#dash-month", "change", (e) => {
+      dashMonth = e.target.value;
+      render();
+    });
+    // 내역
+    on("#q", "input", (e) => {
+      filters.q = e.target.value;
+      const pos = e.target.selectionStart;
+      render();
+      const q = $("#q");
+      q.focus();
+      q.setSelectionRange(pos, pos);
+    });
+    on("#f-month", "change", (e) => {
+      filters.month = e.target.value;
+      render();
+    });
+    on("#f-cat", "change", (e) => {
+      filters.category = e.target.value;
+      render();
+    });
+    on("#csv", "click", exportCsv);
+    for (const button of document.querySelectorAll("[data-open]")) {
+      button.addEventListener("click", () => {
+        const t = state.transactions.find((x) => x.id === button.dataset.open);
+        $("#detail").innerHTML = detailHtml(t);
+        const close = () => {
+          $("#detail").innerHTML = "";
+          button.focus();
+        };
+        $("#close-detail").focus();
+        on("#close-detail", "click", close);
+        on("[data-close-detail]", "click", close);
+        $("#detail").addEventListener("keydown", (e) => e.key === "Escape" && close(), { once: true });
+        on("#detail-cat", "change", (e) => {
+          t.category = e.target.value;
+          save();
+          render();
+        });
+        on("#delete-tx", "click", (e) =>
+          armed(e.target, "정말 지울까요? 한 번 더 누르세요", () => {
+            state.transactions = state.transactions.filter((x) => x.id !== t.id);
+            save();
+            render();
+          }),
+        );
+      });
+    }
+    // 영수증 추가
+    const drop = $("#drop");
+    if (drop) {
+      const file = $("#file");
+      drop.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          file.click();
+        }
+      });
+      drop.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        drop.classList.add("over");
+      });
+      drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+      drop.addEventListener("drop", (e) => {
+        e.preventDefault();
+        drop.classList.remove("over");
+        if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+      });
+      file.addEventListener("change", () => file.files[0] && readFile(file.files[0]));
+    }
+    for (const button of document.querySelectorAll("[data-sample]")) {
+      button.addEventListener("click", () => startReading(L.receiptDataUrl(button.dataset.sample), button.dataset.sample));
+    }
+    const form = $("#review-form");
+    if (form) {
+      form.addEventListener("input", (e) => {
+        if (e.target.matches("[data-item-amount]")) {
+          readDraftFromForm();
+          draft.total = draft.items.reduce((s, i) => s + i.amount, 0);
+          $("#r-total").value = draft.total;
+        }
+      });
+      on("#add-item", "click", () => {
+        readDraftFromForm();
+        draft.items.push({ name: "", amount: 0 });
+        render();
+      });
+      for (const b of document.querySelectorAll("[data-remove-item]")) {
+        b.addEventListener("click", () => {
+          readDraftFromForm();
+          draft.items.splice(Number(b.dataset.removeItem), 1);
+          if (!draft.items.length) draft.items.push({ name: "", amount: 0 });
+          draft.total = draft.items.reduce((s, i) => s + i.amount, 0);
+          render();
+        });
+      }
+      on("#cancel-add", "click", () => {
+        draft = null;
+        render();
+      });
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        readDraftFromForm();
+        state.transactions.unshift({
+          id: `user-${Date.now()}`,
+          shop: draft.shop.trim() || "상호 없음",
+          date: draft.date,
+          items: draft.items.filter((i) => i.name || i.amount),
+          total: draft.total,
+          category: draft.category,
+          source: draft.fromSample ? "sample" : "user",
+          sampleId: draft.sampleId,
+        });
+        save();
+        draft = null;
+        filters = { q: "", month: "all", category: "all" };
+        toast("저장했어요");
+        go("list");
+      });
+    }
+    // 예산
+    const budgetForm = $("#budget-form");
+    if (budgetForm) {
+      budgetForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        for (const input of document.querySelectorAll("[data-budget]")) state.budget[input.dataset.budget] = Number(input.value) || 0;
+        save();
+        toast("예산을 저장했어요");
+        render();
+      });
+    }
+  }
+
+  function readFile(file) {
+    if (!file.type.startsWith("image/")) {
+      toast("이미지 파일만 올릴 수 있어요");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result);
+      // 내려받은 샘플 SVG를 다시 올리면 어떤 샘플인지 알아봅니다.
+      let sampleId = null;
+      if (file.type === "image/svg+xml") {
+        const text = new TextDecoder().decode(Uint8Array.from(atob(url.split(",")[1] || ""), (c) => c.charCodeAt(0)));
+        const match = text.match(/data-sample-id="(r\d\d)"/);
+        sampleId = match ? match[1] : null;
+      }
+      startReading(url, sampleId);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function toast(text) {
+    const box = $("#toast");
+    box.textContent = text;
+    box.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => box.classList.remove("show"), 2200);
+  }
+
+  // ---------------------------------------------------------------- 시작
+  for (const tab of document.querySelectorAll("[data-view]")) {
+    tab.addEventListener("click", () => go(tab.dataset.view));
+  }
+  $("#reset").addEventListener("click", (e) =>
+    armed(e.target, "다시 누르면 처음으로", () => {
+      state = freshState();
+      save();
+      draft = null;
+      dashMonth = currentMonth();
+      toast("데모 데이터로 되돌렸어요");
+      go("dashboard");
+    }),
+  );
+  render();
+})();
