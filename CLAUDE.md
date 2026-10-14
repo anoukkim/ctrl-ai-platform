@@ -275,7 +275,7 @@ what to build next is always [`docs/BACKLOG.md`](docs/BACKLOG.md) › Next.
 | ----- | ------- | ----- |
 | 0–1c | Shell, auth, quarters, ledger, audit | done |
 | 2 | Chat (mock Claude by default) | done |
-| 3 | Builder MVP (Claude writes project files) | groundwork done; `builder-static-runtime` absorbs it |
+| 3 | Builder MVP (Claude writes project files) | done — `builder-static-runtime` (static apps on `apps.ctrlai.my`) |
 | 4 | GitHub integration (GitHub App, per member) | not started |
 | 5 | CtrlAIApps (publish, listings, comments) | not started |
 | 6 | Video Generator (real Higgsfield adapter) | mock done |

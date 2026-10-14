@@ -5,6 +5,98 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## builder-static-runtime — full spec (merged 2026-10-14)
+
+After the beta · M2 · branch `feat-builder-static-runtime`. Effort:
+**L–XL** (2–3 weeks, in two halves). Added 2026-10-07. **Absorbs the
+Builder MVP [3]** of the phase plan (`docs/archive/phases.md`).
+
+**Half 1 — generation (Phase 3).** Claude writes and edits the project's
+files: "만들어 줘" creates `index.html`, `style.css`, `app.js` (static
+only — HTML, CSS, browser JS); "버튼 색을 바꿔 줘" edits them. Through the
+existing `BuilderProject` / `BuilderProjectFile` models and the
+workspace's file tree and editor. Claude returns whole files through one
+tool, `write_file`, with `strict: true`; the backend checks names (the
+storage key rules), sizes (≤ 200 KB a file, ≤ 30 files, ≤ 2 MB a
+project) and types (text only). Every generation is a saved version the
+member can go back to. Charged to the wallet by the token; a generation may
+write up to 16,000 output tokens, so the worst-case pre-check (≈ 230원 on
+Sonnet) is shown before the member presses 만들기.
+
+**Half 2 — the static runtime.** The preview pane and, later, the
+CtrlAIApps launch button serve a project's files from **a separate
+origin**:
+
+- **Origin: `apps.ctrlai.my` — owner decision 2026-10-14** (CLAUDE.md
+  §2; no separate domain is bought). The spec had recommended a separate
+  registrable domain, because a subdomain is *same-site* with
+  `ctrlai.my`: `SameSite` cookies are sent on requests from it, and a
+  cookie set with `Domain=ctrlai.my` would reach it. The owner chose
+  `apps.ctrlai.my` with the spec's stated conditions, each now a test:
+  CTRL+AI's session cookie stays **host-only** (no `Domain` attribute);
+  every state-changing route requires a **JSON body**, which a
+  cross-origin page cannot send without a CORS preflight; and the API
+  **refuses CORS** from `apps.ctrlai.my`. The Gabia A record
+  `apps.ctrlai.my → 34.47.78.228` is the owner's; if it does not resolve
+  yet at deploy time, the main site must be unaffected.
+- **One path per app** to start (`/<app-slug>/`), served by Caddy from a
+  read-only volume the backend writes when the member presses 미리보기
+  갱신 or 게시. Apps share that origin, so one app can read another's
+  `localStorage`: acceptable for a club beta and written down; one
+  subdomain per app (wildcard certificate, DNS challenge) is the later
+  step.
+- **Headers on every response:** `Content-Security-Policy: default-src
+  'self'; script-src 'self' 'unsafe-inline'; style-src 'self'
+  'unsafe-inline'; img-src 'self' data:; connect-src 'self';
+  frame-ancestors https://ctrlai.my` (only CTRL+AI may frame it),
+  `X-Content-Type-Options: nosniff`, and never a `Set-Cookie`.
+- **The workspace preview** frames that origin with `sandbox="allow-scripts
+  allow-forms"`.
+- **Nothing runs on the backend.** Static files execute in visitors'
+  browsers only; server code (Python, Node) is refused when written. This
+  is the line the phase plan (`docs/archive/phases.md`) draws before the **Secure App
+  Runtime**, which stays *Later*.
+- **Storage:** 2 MB per project; all apps together ≤ 2 GB of the VM disk
+  (a setting), checked before writing.
+
+**Charged:** the wallet for generation (tokens). Hosting costs nothing per app
+(`apps.ctrlai.my` is a subdomain of the club's existing domain).
+
+**Tests:** generated files land as `BuilderProjectFile` rows within the
+limits; a server-side file type is refused; the static origin's responses
+carry the headers above and no `Set-Cookie`; a project's path serves only
+that project; the preview frame's sandbox list is exact; a deleted
+project stops being served (the `deleted_at` rule, CLAUDE.md section 10).
+
+**Risks:** runtime security (separate site, CSP, no cookies, no server
+code). A member app used for phishing under the club's name (a report
+button on CtrlAIApps; an admin can unpublish from Content). Cost —
+generations are the most expensive calls in the product, so the
+pre-check figure is shown before each one. VM disk (the caps above).
+
+**As built (2026-10-14).** Both halves in one branch. Generation is
+`POST /api/builder/projects/{id}/generate` (estimate at
+`…/generate-estimate`); the real adapter sends one `strict` `write_file`
+tool with `tool_choice` auto and acknowledges each round of calls with a
+tool result, at most 4 rounds sharing the 16,000-token budget, every
+round's usage added up. File rules in `services/builder_files.py`
+(depth ≤ 3; server and build code refused by name, unpaid, club cost
+recorded). Versions in `builder_project_versions` (last 30; 되돌리기 is
+free and a new version; starter and Builder로 보내기 write one too; a
+pre-existing project gets "처음 상태" before its first change). The runtime
+writes after every change (and on 미리보기 갱신) through a hidden staging
+folder swapped into place, with an in-memory `localStorage` stand-in
+injected into each page — the preview frame has no `allow-same-origin`, so
+storage would otherwise throw (the old srcdoc preview gets the same
+stand-in). The owner's three conditions are enforced and tested:
+`JsonOnlyMiddleware` (415 for a POST with a missing or simple type; the
+frontend sends `{}` for bodiless POSTs), and startup refuses
+`SESSION_COOKIE_DOMAIN` or the apps origin in `CORS_ALLOW_ORIGINS` on a
+deployed server. Migration `b8d4f2a6c1e9`. Local stand-in: `python -m
+app.dev_apps_server`. The Caddy block was checked in a local `caddy:2`
+container (headers, 404 for `/`, hidden folders and dotfiles, 405 for
+POST).
+
 ## chat-thinking-view — full spec (merged 2026-10-14)
 
 Branch `feat-chat-thinking-view`. Added by the owner on 2026-10-13. Saved

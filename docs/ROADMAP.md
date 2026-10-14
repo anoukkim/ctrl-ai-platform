@@ -44,9 +44,8 @@ Draft / 게시됨 status).
 
 **M2 Real creation** — members make real videos and real projects.
 ⬜ real Higgsfield adapter [6] · ⬜ builder-python (after builder-static-runtime) ·
-⬜ builder-static-runtime (the Builder
-MVP [3] plus static member apps on `apps.ctrlai.my` — owner decision
-2026-10-14; in Next) ·
+✅ builder-static-runtime (the Builder
+MVP [3] plus static member apps on `apps.ctrlai.my`; merged 2026-10-14) ·
 ⬜ chat-plus-tools (web search, web fetch, code execution in Chat —
 **moved into Next on 2026-10-14**, mock tools only, after token-guard and
 live-cost-display) ·
