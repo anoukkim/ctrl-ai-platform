@@ -34,7 +34,8 @@ export const UNKNOWN_SITE: SiteInfo = {
   is_development: false,
   is_beta: false,
   data_location_notice: "",
-  top_ups_enabled: true,
+  // personal-topup-off: 기본은 꺼짐 — /api/site가 켜져 있다고 말할 때만 켭니다.
+  top_ups_enabled: false,
   google_login: false,
   test_mode: { chat: false, builder: false, video: false, community: false },
 };

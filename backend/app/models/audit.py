@@ -49,6 +49,8 @@ class AuditAction:
     ALLOCATION_ADJUSTED = "allocation.adjusted"
     TOPUP_CONFIRMED = "topup.confirmed"
     TOPUP_REJECTED = "topup.rejected"
+    # The usage simulator (removed 2026-10-14, admin-and-nav-cleanup); kept
+    # so its old audit rows still read.
     USAGE_SIMULATED = "usage.simulated"
     # A project or video an admin removed, or put back. A member deleting
     # their own work is not an admin change and is not logged here; an
@@ -70,6 +72,8 @@ class AuditAction:
     # for the same reason: they decide what every later chat reply costs.
     CLAUDE_PRICE_UPDATED = "claude_price.updated"
     EXCHANGE_RATE_SET = "exchange_rate.set"
+    # token-guard: the per-reply cap, the warning threshold, the daily cap.
+    CHAT_LIMITS_SET = "chat_limits.set"
     # Invite codes (invite-only-signup): who may create accounts.
     INVITE_CREATED = "invite.created"
     INVITE_DEACTIVATED = "invite.deactivated"
@@ -79,11 +83,23 @@ class AuditAction:
     ADMIN_BY_GOOGLE = "account.admin_by_google"
     # A member linked Google to their account: a new way in.
     GOOGLE_LINKED = "account.google_linked"
+    # member-password-login: the other ways in or out of an account.
+    GOOGLE_UNLINKED = "account.google_unlinked"
+    PASSWORD_SET = "account.password_set"
+    PASSWORD_CHANGED = "account.password_changed"
+    PASSWORD_REMOVED = "account.password_removed"
     # The chat model catalogue (chat-model-choice). Prices, who may pick a
     # model, and which one is the default all move what members spend.
     # `CLAUDE_PRICE_UPDATED` above stays for the rows written before it.
     CHAT_MODEL_CREATED = "chat_model.created"
     CHAT_MODEL_UPDATED = "chat_model.updated"
+    # The operator's password reset from the server shell (set_password).
+    PASSWORD_SET_CLI = "account.password_set_cli"
+    # cost-clarity: the club's credit purchases (append-only), closing a
+    # quarter, and last quarter's unspent wallet carried into the next.
+    CREDIT_PURCHASE_RECORDED = "credit.purchase_recorded"
+    QUARTER_CLOSED = "quarter.closed"
+    ALLOCATION_CARRIED_OVER = "allocation.carried_over"
 
 
 #: What each action is called on the Admin screen.
@@ -108,13 +124,22 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.VIDEO_MODEL_UPDATED: "영상 모델 설정 변경",
     AuditAction.CLAUDE_PRICE_UPDATED: "Claude 요금 변경",
     AuditAction.EXCHANGE_RATE_SET: "환율 변경",
+    AuditAction.CHAT_LIMITS_SET: "채팅 한도 변경",
     AuditAction.INVITE_CREATED: "초대 코드 생성",
     AuditAction.INVITE_DEACTIVATED: "초대 코드 사용 중지",
     AuditAction.INVITE_REACTIVATED: "초대 코드 다시 사용",
     AuditAction.ADMIN_BY_GOOGLE: "Google 계정으로 관리자 가입",
     AuditAction.GOOGLE_LINKED: "Google 로그인 연결",
-    AuditAction.CHAT_MODEL_CREATED: "Claude 모델 추가",
-    AuditAction.CHAT_MODEL_UPDATED: "Claude 모델 변경",
+    AuditAction.GOOGLE_UNLINKED: "Google 로그인 연결 해제",
+    AuditAction.PASSWORD_SET: "비밀번호 로그인 추가",
+    AuditAction.PASSWORD_CHANGED: "비밀번호 변경",
+    AuditAction.PASSWORD_REMOVED: "비밀번호 로그인 삭제",
+    AuditAction.CHAT_MODEL_CREATED: "AI 모델 추가",
+    AuditAction.CHAT_MODEL_UPDATED: "AI 모델 변경",
+    AuditAction.PASSWORD_SET_CLI: "서버에서 비밀번호 재설정",
+    AuditAction.CREDIT_PURCHASE_RECORDED: "크레딧 구매 기록",
+    AuditAction.QUARTER_CLOSED: "분기 마감",
+    AuditAction.ALLOCATION_CARRIED_OVER: "지원금 이월",
 }
 
 

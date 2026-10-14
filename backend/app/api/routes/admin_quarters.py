@@ -10,7 +10,7 @@ by hiding a button in the frontend.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import require_admin
@@ -28,20 +28,17 @@ from app.models import (
     Quarter,
     QuarterAllocation,
     QuarterApplication,
+    QuarterStatus,
     TopUpStatus,
     User,
+    WalletAdjustment,
 )
-from app.services import audit
+from app.services import accounting, audit
 from app.services import quarter_budget as quarter_budget_service
-from app.services import usage as usage_service
 from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
 from app.services.wallet import get_or_create_balance
-from app.models.usage import spending_group
-from app.schemas.usage import SimulateUsageRequest, UsageEventRead
 from app.schemas.quarter import (
-    AllocationAdjust,
-    AllocationRead,
     ApplicationRead,
     AuditLogRead,
     MemberWithMembership,
@@ -55,6 +52,7 @@ from app.schemas.quarter import (
     QuarterUpdate,
     TopUpConfirm,
     TopUpRead,
+    date_problem,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -81,7 +79,8 @@ def create_quarter(
     _: User = Depends(require_admin),
 ) -> Quarter:
     if db.scalar(select(Quarter).where(Quarter.code == payload.code)) is not None:
-        raise HTTPException(status_code=409, detail="이미 있는 분기 코드입니다.")
+        raise HTTPException(status_code=409, detail=f"{payload.code} 분기가 이미 있습니다.")
+    _refuse_overlap(db, payload.starts_at, payload.ends_at)
 
     quarter = Quarter(
         code=payload.code,
@@ -116,6 +115,26 @@ def create_quarter(
     return quarter
 
 
+def _refuse_overlap(db: Session, starts_at, ends_at, ignore_id: int | None = None) -> None:
+    """Quarters never overlap (fix-quarter-form-autofill): one date belongs
+    to one quarter, or wallets and reports would disagree about it."""
+    clash = db.scalar(
+        select(Quarter)
+        .where(Quarter.starts_at <= ends_at, Quarter.ends_at >= starts_at)
+        .where(Quarter.id != (ignore_id if ignore_id is not None else -1))
+        .order_by(Quarter.starts_at)
+        .limit(1)
+    )
+    if clash is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"기간이 {clash.display_name}({clash.starts_at.isoformat()} – "
+                f"{clash.ends_at.isoformat()})와 겹칩니다. 분기 기간은 겹칠 수 없습니다."
+            ),
+        )
+
+
 @router.patch("/quarters/{quarter_id}", response_model=QuarterRead, summary="Update a quarter")
 def update_quarter(
     quarter_id: int,
@@ -128,6 +147,34 @@ def update_quarter(
         raise HTTPException(status_code=404, detail="분기를 찾을 수 없습니다.")
 
     changes = payload.model_dump(exclude_unset=True)
+    # 분기 마감 is its own action (cost-clarity): it freezes every wallet
+    # and records 회수 and carry-over. Setting the status by hand would
+    # skip all of that, and a closed quarter never reopens — its frozen
+    # wallets must not move again.
+    if quarter.status is QuarterStatus.CLOSED or quarter.closed_at is not None:
+        if "status" in changes and changes["status"] is not QuarterStatus.CLOSED:
+            raise HTTPException(
+                status_code=409, detail="마감한 분기는 다시 열 수 없습니다."
+            )
+    elif changes.get("status") is QuarterStatus.CLOSED:
+        raise HTTPException(
+            status_code=400,
+            detail="분기는 Admin › Quarters의 '분기 마감'으로만 마감합니다 — 지갑을 멈추고 회수를 기록합니다.",
+        )
+    # The same date rules as creating, on the dates the quarter would end
+    # up with — never trust the form (fix-quarter-form-autofill).
+    after = {
+        field: changes.get(field, getattr(quarter, field))
+        for field in ("starts_at", "ends_at", "application_opens_at", "application_closes_at")
+    }
+    problem = date_problem(
+        after["starts_at"], after["ends_at"],
+        after["application_opens_at"], after["application_closes_at"],
+    )
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
+    if "starts_at" in changes or "ends_at" in changes:
+        _refuse_overlap(db, after["starts_at"], after["ends_at"], ignore_id=quarter.id)
     before = {field: getattr(quarter, field) for field in changes}
     for field, value in changes.items():
         setattr(quarter, field, value)
@@ -249,7 +296,15 @@ def review_application(
     approved_at = datetime.now(timezone.utc)
 
     allocation.application_id = application.id
-    allocation.budget_krw = application.requested_budget_krw
+    # The quarter's amount, plus whatever adjustments this wallet already
+    # carries (a re-approval must not wipe an admin's earlier +/−, which
+    # are rows, never overwritten — cost-clarity).
+    earlier = db.scalar(
+        select(func.coalesce(func.sum(WalletAdjustment.amount_krw), 0)).where(
+            WalletAdjustment.allocation_id == allocation.id
+        )
+    ) if allocation.id is not None else 0
+    allocation.budget_krw = application.requested_budget_krw + int(earlier or 0)
     allocation.approved_at = approved_at
     allocation.approved_by = admin.id
     # Provider prices as they stood at approval. Kept so a member's quota
@@ -257,6 +312,10 @@ def review_application(
     allocation.pricing_snapshot = {"captured_at": approved_at.isoformat()}
 
     db.add(allocation)
+    db.flush()
+    # 분기 마감's carry-over (cost-clarity): part of last quarter's unspent
+    # wallet, if the closing admin chose to carry any, lands here once.
+    carried = accounting.apply_carry_over(db, admin=admin, allocation=allocation)
 
     # Approving is what makes a member a participant in the quarter. The
     # budget alone is not enough: `require_active_member` reads the
@@ -276,7 +335,7 @@ def review_application(
             f"{applicant.display_name if applicant else application.user_id}의 참여 신청을 승인하고 "
             f"동아리 지원 {application.requested_budget_krw:,}원을 배정했습니다."
         ),
-        detail={"budget_krw": application.requested_budget_krw},
+        detail={"budget_krw": application.requested_budget_krw, "carried_in_krw": carried},
     )
 
     db.commit()
@@ -312,7 +371,7 @@ def confirm_top_up(
     """
     if payload.confirm and not settings.top_ups_enabled:
         raise HTTPException(
-            status_code=403, detail="베타 기간에는 개인 충전을 확인할 수 없습니다."
+            status_code=403, detail="지금은 개인 충전을 확인할 수 없습니다."
         )
     top_up = db.get(PersonalTopUp, top_up_id)
     if top_up is None:
@@ -544,62 +603,6 @@ def set_member_role(
     )
 
 
-@router.put(
-    "/quarters/{quarter_id}/allocations/{user_id}",
-    response_model=AllocationRead,
-    summary="Adjust a member's approved allocation (KRW)",
-)
-def adjust_allocation(
-    quarter_id: int,
-    user_id: int,
-    payload: AllocationAdjust,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-) -> QuarterAllocation:
-    """Change what a member's wallet holds this quarter, in KRW.
-
-    The budget may be lowered below what has already been spent — the
-    remaining figure clamps at zero rather than going negative — but that
-    is a deliberate act and it is logged.
-    """
-    allocation = db.scalar(
-        select(QuarterAllocation).where(
-            QuarterAllocation.user_id == user_id,
-            QuarterAllocation.quarter_id == quarter_id,
-        )
-    )
-    if allocation is None:
-        raise HTTPException(
-            status_code=404,
-            detail="승인된 지원금이 없습니다. 먼저 참여 신청을 승인해 주세요.",
-        )
-
-    member = db.get(User, user_id)
-    before_krw = allocation.budget_krw
-    allocation.budget_krw = payload.budget_krw
-
-    audit.record(
-        db,
-        actor=admin,
-        action=AuditAction.ALLOCATION_ADJUSTED,
-        target_type="allocation",
-        target_id=allocation.id,
-        target_label=member.username if member else str(user_id),
-        summary=(
-            f"{member.display_name if member else user_id}의 동아리 지원을 "
-            f"{before_krw:,}원에서 {payload.budget_krw:,}원으로 조정했습니다."
-        ),
-        detail={
-            "before": {"budget_krw": before_krw},
-            "after": {"budget_krw": payload.budget_krw},
-            "note": payload.note,
-        },
-    )
-    db.commit()
-    db.refresh(allocation)
-    return allocation
-
-
 @router.get(
     "/quarters/{quarter_id}/budget",
     response_model=QuarterBudgetRead,
@@ -609,13 +612,14 @@ def read_quarter_budget(
     quarter_id: int,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
 ) -> QuarterBudgetRead:
     """Admin › Budget. Read-only: the per-provider totals are what the 팀장
     reads before buying the next round of credit from each provider."""
     quarter = db.get(Quarter, quarter_id)
     if quarter is None:
         raise HTTPException(status_code=404, detail="분기를 찾을 수 없습니다.")
-    return quarter_budget_service.quarter_budget(db, quarter)
+    return quarter_budget_service.quarter_budget(db, quarter, settings)
 
 
 @router.get("/audit", response_model=list[AuditLogRead], summary="Audit log (read-only)")
@@ -635,76 +639,3 @@ def read_audit_log(
         )
         for row in audit.recent(db)
     ]
-
-
-@router.post(
-    "/simulate-usage",
-    response_model=UsageEventRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Development only: record a charge through the real budget service",
-)
-def simulate_usage(
-    payload: SimulateUsageRequest,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-    settings: Settings = Depends(get_settings),
-) -> UsageEventRead:
-    """Spend a member's budget without calling a provider.
-
-    This exists so the Usage screen and the audit log can be exercised
-    before any provider is connected (Phases 2 and 6). It deliberately
-    goes through the same `charge()` the real providers will use — a
-    shortcut that wrote its own ledger row would prove nothing about the
-    code that matters.
-
-    **Returns 404 outside development**, not 403: in a deployed
-    environment this endpoint should not appear to exist at all. 404 is
-    also what FastAPI returns for an unknown path, so the response is
-    indistinguishable from the route being absent.
-    """
-    if not settings.is_development:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-
-    target = db.get(User, payload.user_id) if payload.user_id else admin
-    if target is None:
-        raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
-
-    try:
-        result = usage_service.charge(
-            db,
-            user=target,
-            amount_krw=payload.amount_krw,
-            provider=payload.provider,
-            feature=payload.feature.value if payload.feature else None,
-            model_id=payload.model_id,
-        )
-    except usage_service.NoQuarterError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-    except usage_service.InsufficientBudgetError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    # Logged like any other admin action: this moves someone's money.
-    audit.record(
-        db,
-        actor=admin,
-        action=AuditAction.USAGE_SIMULATED,
-        target_type="user",
-        target_id=target.id,
-        target_label=target.username,
-        summary=(
-            f"{target.display_name}의 지원금에서 {payload.amount_krw:,}원을 "
-            f"시뮬레이션으로 사용했습니다({payload.provider})."
-        ),
-        detail={
-            "provider": payload.provider,
-            "feature": payload.feature.value if payload.feature else None,
-            "funding_source": result.funding_source.value,
-        },
-    )
-    db.commit()
-
-    return UsageEventRead(
-        **UsageEventRead.model_validate(result.event).model_dump(exclude={"label", "group"}),
-        group=spending_group(result.event.feature),
-        label="시뮬레이션",
-    )

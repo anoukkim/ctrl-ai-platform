@@ -200,11 +200,6 @@ def test_dev_flag_follows_the_environment(client: TestClient, monkeypatch) -> No
     app.dependency_overrides[get_settings] = lambda: Settings(app_env="production")
     try:
         assert client.get("/api/admin/dashboard").json()["is_development"] is False
-        # And the simulator it guards really is gone.
-        simulated = client.post(
-            "/api/admin/simulate-usage", json={"amount_krw": 1000}
-        )
-        assert simulated.status_code == 404
     finally:
         del app.dependency_overrides[get_settings]
 
@@ -315,11 +310,11 @@ def test_member_detail_collects_that_members_audit_trail(
         == 200
     )
     assert (
-        client.put(
-            f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}",
-            json={"budget_krw": 60_000},
+        client.post(
+            f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}/adjustments",
+            json={"amount_krw": -20_000, "reason": "조정"},
         ).status_code
-        == 200
+        == 201
     )
     # A change to somebody else, which must not appear.
     assert (

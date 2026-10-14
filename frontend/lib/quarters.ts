@@ -10,6 +10,7 @@
  * 제공자 가격이 바뀌어도 이미 승인된 예산이 흔들리면 안 되기 때문입니다.
  */
 
+import type { MoneySplit } from "@/lib/money";
 import { request } from "./http";
 
 export type QuarterStatus = "draft" | "application_open" | "active" | "closed";
@@ -27,7 +28,7 @@ export const QUARTER_STATUS_LABEL: Record<QuarterStatus, string> = {
   draft: "준비 중",
   application_open: "신청 접수 중",
   active: "진행 중",
-  closed: "종료",
+  closed: "마감",
 };
 
 export const QUARTER_STATUS_BADGE: Record<QuarterStatus, string> = {
@@ -287,10 +288,11 @@ export const FUNDING_LABEL: Record<FundingSource, string> = {
 };
 
 /** 지갑 사용 내역의 묶음 — 정보일 뿐, 따로 정해진 한도는 없습니다. */
-export type SpendingGroup = "chat" | "video" | "other";
+export type SpendingGroup = "chat" | "build" | "video" | "other";
 
 export const SPENDING_LABEL: Record<SpendingGroup, string> = {
   chat: "채팅",
+  build: "빌더",
   video: "영상",
   other: "기타",
 };
@@ -338,6 +340,8 @@ export interface UsageEvent {
   group: SpendingGroup;
   /** 어디에서 썼는지, 회원이 알아보는 이름으로. */
   label: string;
+  /** 같은 차감을 항목별로(cost-clarity). */
+  split?: MoneySplit | null;
 }
 
 export interface WalletUsage {
@@ -366,10 +370,32 @@ export interface MyUsage {
   membership_status: MembershipStatus | null;
   /** 이번 분기에 승인된 지갑이 없으면 null. */
   wallet: WalletUsage | null;
-  /** 채팅 / 영상 / 기타 — 합하면 wallet.consumed_krw. */
+  /** 채팅 / 빌더 / 영상 / 기타 — 합하면 wallet.consumed_krw. */
   breakdown: SpendingLine[];
   personal: PersonalUsage | null;
   events: UsageEvent[];
+  /** 대화별·날짜별 합계와 이번 분기 캐시 절약(cost-clarity). 분기가 없으면 null. */
+  money?: MemberMoney | null;
+}
+
+export interface ConversationMoney {
+  /** 지운 대화면 null — 돈의 기록은 남습니다. */
+  conversation_id: number | null;
+  title: string;
+  last_at: string;
+  split: MoneySplit;
+}
+
+export interface DayMoney {
+  /** KST 날짜, YYYY-MM-DD. */
+  day: string;
+  split: MoneySplit;
+}
+
+export interface MemberMoney {
+  quarter: MoneySplit;
+  by_conversation: ConversationMoney[];
+  by_day: DayMoney[];
 }
 
 export function getMyUsage(): Promise<MyUsage> {
@@ -405,29 +431,36 @@ export function setMemberRole(
   });
 }
 
+/** 지갑 조정 한 줄(cost-clarity) — 덮어쓰지 않고 행으로 남습니다. */
+export interface WalletAdjustment {
+  id: number;
+  quarter_id: number;
+  quarter_name: string;
+  amount_krw: number;
+  /** "adjust"(관리자 조정) | "carry_over"(지난 분기에서 이월). */
+  kind: string;
+  reason: string;
+  budget_before_krw: number;
+  budget_after_krw: number;
+  created_by_username: string;
+  created_at: string;
+}
+
+/** 한 회원의 지갑을 +/− 원만큼, 사유와 함께. */
 export function adjustAllocation(
   quarterId: number,
   userId: number,
-  budgetKrw: number,
-  note = "",
-): Promise<QuarterAllocation> {
-  return request<QuarterAllocation>(`/admin/quarters/${quarterId}/allocations/${userId}`, {
-    method: "PUT",
-    body: JSON.stringify({ budget_krw: budgetKrw, note }),
-  });
+  amountKrw: number,
+  reason: string,
+): Promise<WalletAdjustment> {
+  return request<WalletAdjustment>(
+    `/admin/quarters/${quarterId}/allocations/${userId}/adjustments`,
+    { method: "POST", body: JSON.stringify({ amount_krw: amountKrw, reason }) },
+  );
 }
 
-/** 개발 환경에서만 동작합니다. 배포 환경에서는 404를 돌려줍니다. */
-export function simulateUsage(input: {
-  user_id?: number;
-  amount_krw: number;
-  provider?: string;
-  feature?: string;
-}): Promise<UsageEvent> {
-  return request<UsageEvent>("/admin/simulate-usage", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+export function getAdjustments(userId: number): Promise<WalletAdjustment[]> {
+  return request<WalletAdjustment[]>(`/admin/members/${userId}/adjustments`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -477,6 +510,11 @@ export interface QuarterBudget {
   total_remaining_krw: number;
   providers: ProviderSpend[];
   total_charged_krw: number;
+  /** 이번 달(KST) Anthropic에 쓴 달러 — provider_cost의 합 (PART F). */
+  anthropic_month_usd: number;
+  /** ANTHROPIC_MONTHLY_BUDGET_USD. null이면 막대를 그리지 않습니다. */
+  anthropic_month_budget_usd: number | null;
+  anthropic_month: string;
 }
 
 export function getQuarterBudget(quarterId: number): Promise<QuarterBudget> {

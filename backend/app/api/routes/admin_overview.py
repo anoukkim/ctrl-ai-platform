@@ -55,6 +55,7 @@ from app.schemas.quarter import (
     TopUpRead,
 )
 from app.services import admin_stats, audit, providers
+from app.services import attachments as attachments_service
 from app.services.withdrawal import latest_withdrawal
 from app.services.quarters import current_quarter
 
@@ -105,8 +106,23 @@ def _failing_providers(db: Session, settings: Settings) -> list[str]:
         # Only if the failure is the most recent thing that happened.
         if row.last_success_at is not None and row.last_success_at >= row.last_error_at:
             continue
-        failing.append(entry["name"])
+        # Say WHY, so an out-of-credit key reads differently from a dead
+        # network (audit-caching-and-distribution): the admin's next step
+        # depends on it.
+        reason = _ERROR_LABEL.get(row.last_error_kind or "", "")
+        name = entry["name"]
+        failing.append(f"{name} — {reason}" if reason else name)
     return failing
+
+
+#: Korean labels for the error kinds an admin can act on.
+_ERROR_LABEL = {
+    "auth": "키가 잘못되었거나 만료",
+    "credit": "크레딧 소진",
+    "rate_limited": "요청이 너무 많음",
+    "timeout": "응답 지연",
+    "unavailable": "연결 불가",
+}
 
 
 @router.get("/dashboard", response_model=AdminDashboard, summary="Admin dashboard figures")
@@ -201,6 +217,8 @@ def read_dashboard(
         recent_audit=_audit_rows(audit.recent(db, limit=10)),
         is_development=settings.is_development,
         failing_providers=_failing_providers(db, settings),
+        attachment_bytes=attachments_service.total_bytes(db),
+        attachment_limit_bytes=settings.chat_attachment_total_limit_gb * 1024 * attachments_service.MB,
     )
 
 

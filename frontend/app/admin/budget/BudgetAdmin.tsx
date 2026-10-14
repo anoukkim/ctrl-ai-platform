@@ -10,20 +10,38 @@
  * 제공자마다 얼마를 썼나"입니다. 이 화면이 그 숫자와, 회원마다 남은
  * 지갑을 보여 줍니다.
  *
- * 읽기 전용입니다. 분기의 1인 지원금은 Quarters에서, 한 회원의 지갑은
- * 회원 상세에서 바꿉니다 — 둘 다 감사 기록에 남습니다.
+ * 분기의 1인 지원금은 Quarters에서, 한 회원의 지갑은 회원 상세에서
+ * 바꿉니다 — 둘 다 감사 기록에 남습니다.
+ *
+ * cost-clarity (2026-10-14) — "돈이 어디로 갔는지"를 한 화면에:
+ *   동아리 크레딧   제공자별 구매 기록(덧붙이기만), 사용, 남은 크레딧(추정)
+ *   지급 vs 사용    이번 분기에 준 지갑, 실제 차감, 남은 돈(마감하면 회수)
+ *   회원별          지급, 채팅/빌더/영상/기타, 캐시로 아낀 금액
+ *   캐시            모델별·날짜별 적중률과 아낀 금액
+ *   CSV            회원별, 날짜별, 구매, 캐시 (Excel용 UTF-8 BOM)
+ *   대조            우리 장부 vs Anthropic 비용 보고서(선택, 기본 목업)
  */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { useSite } from "@/app/components/SiteProvider";
+import {
+  exportUrl,
+  formatUsd,
+  getCredit,
+  getQuarterMoney,
+  type CreditOverview,
+  type MemberMoneyRow,
+  type QuarterMoney,
+} from "@/lib/accounting";
 import { describeError } from "@/lib/http";
+import { formatWonPart } from "@/lib/money";
 import {
   MEMBERSHIP_LABEL,
   QUARTER_STATUS_LABEL,
   formatKrw,
   getQuarterBudget,
-  type MemberWallet,
   type ProviderSpend,
   type QuarterBudget,
 } from "@/lib/quarters";
@@ -31,6 +49,9 @@ import {
 import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
 import StatCards from "../components/StatCards";
+import CachePanel from "./CachePanel";
+import CreditPanel from "./CreditPanel";
+import ReconcilePanel from "./ReconcilePanel";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
@@ -44,7 +65,30 @@ function percent(share: number | null): string {
   return share === null ? "–" : `${Math.round(share * 100)}%`;
 }
 
-function nativeUnits(line: ProviderSpend): string {
+
+/** 이번 달 Anthropic 지출이 월 예산의 몇 %인지 (막대와 경고가 같이 쓴다). */
+function monthShare(budget: QuarterBudget): number {
+  if (!budget.anthropic_month_budget_usd) return 0;
+  return Math.min(100, Math.round((budget.anthropic_month_usd / budget.anthropic_month_budget_usd) * 100));
+}
+
+/**
+ * 사용량, 한 줄에 한 가지. 표의 칸은 줄바꿈하지 않으므로, 토큰과 캐시를
+ * 한 줄로 이으면 1280px에서 표가 상자보다 넓어졌습니다(fix-ui-polish-admin).
+ */
+function NativeUnits({ line }: { line: ProviderSpend }) {
+  const parts = nativeUnitParts(line);
+  if (parts.length === 0) return <>–</>;
+  return (
+    <span className={styles.stackCell}>
+      {parts.map((part) => (
+        <span key={part}>{part}</span>
+      ))}
+    </span>
+  );
+}
+
+function nativeUnitParts(line: ProviderSpend): string[] {
   const parts: string[] = [];
   if (line.input_tokens || line.output_tokens) {
     parts.push(
@@ -61,7 +105,7 @@ function nativeUnits(line: ProviderSpend): string {
     if (unit === "tokens" && parts.length > 0) continue;
     parts.push(`${amount.toLocaleString("ko-KR")} ${UNIT_LABEL[unit] ?? unit}`);
   }
-  return parts.join(" / ") || "–";
+  return parts;
 }
 
 function providerCost(line: ProviderSpend): string {
@@ -95,7 +139,7 @@ const PROVIDER_COLUMNS: Column<ProviderSpend>[] = [
       line.share_of_wallets_krw === null ? "–" : formatKrw(line.share_of_wallets_krw),
   },
   { key: "cost", header: "제공자 청구액", numeric: true, render: providerCost },
-  { key: "units", header: "사용량", render: nativeUnits },
+  { key: "units", header: "사용량", render: (line) => <NativeUnits line={line} /> },
   {
     key: "events",
     header: "건수",
@@ -105,20 +149,26 @@ const PROVIDER_COLUMNS: Column<ProviderSpend>[] = [
 ];
 
 export default function BudgetAdmin() {
+  const site = useSite();
   const { selected } = useAdminQuarter();
   const quarterId = selected?.id ?? null;
-  const [loaded, setLoaded] = useState<{ quarterId: number; budget: QuarterBudget } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<{
+    quarterId: number;
+    budget: QuarterBudget;
+    money: QuarterMoney;
+    credit: CreditOverview;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((value) => value + 1), []);
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
     if (quarterId === null) return;
     let cancelled = false;
-    getQuarterBudget(quarterId)
-      .then((budget) => {
-        if (!cancelled) setLoaded({ quarterId, budget });
+    Promise.all([getQuarterBudget(quarterId), getQuarterMoney(quarterId), getCredit(quarterId)])
+      .then(([budget, money, credit]) => {
+        if (!cancelled) setLoaded({ quarterId, budget, money, credit });
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(describeError(caught));
@@ -126,9 +176,10 @@ export default function BudgetAdmin() {
     return () => {
       cancelled = true;
     };
-  }, [quarterId]);
+  }, [quarterId, version]);
 
-  const budget = loaded !== null && loaded.quarterId === quarterId ? loaded.budget : null;
+  const current = loaded !== null && loaded.quarterId === quarterId ? loaded : null;
+  const budget = current?.budget ?? null;
 
   if (selected === null) {
     return (
@@ -164,30 +215,63 @@ export default function BudgetAdmin() {
     );
   }
 
-  const walletColumns: Column<MemberWallet>[] = [
+  const money = current!.money;
+  const credit = current!.credit;
+  const closed = money.closed_at !== null;
+  const memberColumns: Column<MemberMoneyRow>[] = [
     {
       key: "member",
       header: "회원",
-      render: (wallet) => (
+      render: (row) => (
         <span className={styles.memberName}>
-          {wallet.display_name}
-          <span className={styles.memberHandle}>@{wallet.username}</span>
+          {row.display_name}
+          <span className={styles.memberHandle}>@{row.username}</span>
         </span>
       ),
     },
     {
       key: "status",
       header: "참여",
-      render: (wallet) =>
-        wallet.membership_status ? MEMBERSHIP_LABEL[wallet.membership_status] : "기록 없음",
+      render: (row) =>
+        row.membership_status
+          ? MEMBERSHIP_LABEL[row.membership_status as keyof typeof MEMBERSHIP_LABEL] ??
+            row.membership_status
+          : "기록 없음",
     },
-    { key: "budget", header: "배정", numeric: true, render: (w) => formatKrw(w.budget_krw) },
-    { key: "used", header: "사용", numeric: true, render: (w) => formatKrw(w.consumed_krw) },
+    {
+      key: "granted",
+      header: "지급",
+      numeric: true,
+      render: (row) => (
+        <span className={styles.stackCell}>
+          <span>{formatKrw(row.granted_krw)}</span>
+          {row.adjusted_krw !== 0 && (
+            <span className="small dim">조정 {row.adjusted_krw > 0 ? "+" : ""}{formatKrw(row.adjusted_krw)}</span>
+          )}
+          {row.carried_in_krw > 0 && (
+            <span className="small dim">이월 +{formatKrw(row.carried_in_krw)}</span>
+          )}
+        </span>
+      ),
+    },
+    { key: "chat", header: "채팅", numeric: true, render: (row) => formatKrw(row.chat_krw) },
+    { key: "build", header: "빌더", numeric: true, render: (row) => formatKrw(row.build_krw) },
+    { key: "video", header: "영상", numeric: true, render: (row) => formatKrw(row.video_krw) },
+    { key: "other", header: "기타", numeric: true, render: (row) => formatKrw(row.other_krw) },
     {
       key: "remaining",
-      header: "남음",
+      header: closed ? "회수" : "남음",
       numeric: true,
-      render: (w) => formatKrw(w.remaining_krw),
+      render: (row) =>
+        closed
+          ? `${formatKrw(row.reclaimed_krw ?? 0)}${row.carry_over_krw ? ` (이월 ${formatKrw(row.carry_over_krw)})` : ""}`
+          : formatKrw(row.remaining_krw),
+    },
+    {
+      key: "saved",
+      header: "캐시로 아낀 금액",
+      numeric: true,
+      render: (row) => (row.cache_saved_krw > 0 ? `약 ${formatWonPart(row.cache_saved_krw)}` : "–"),
     },
   ];
 
@@ -213,13 +297,77 @@ export default function BudgetAdmin() {
         ]}
       />
 
+      {budget.anthropic_month_budget_usd !== null && budget.anthropic_month_budget_usd > 0 && (
+        <section aria-labelledby="budget-month" className="card" style={{ marginBottom: "1rem" }}>
+          {/* PART F: 이번 달 Anthropic 지출을 .env의
+              ANTHROPIC_MONTHLY_BUDGET_USD와 비교합니다. 실제 차단은
+              Anthropic Console의 월 한도가 하고, 이 막대는 그 전에
+              알아차리기 위한 것입니다. */}
+          <h2 className="section-title" id="budget-month">
+            이번 달 Anthropic 지출 ({budget.anthropic_month} · KST 기준 — Console의 월 한도와는 시간대가 다를 수 있습니다)
+            <span className={styles.sectionNote}>Console 월 한도에 닿기 전에 보는 막대</span>
+          </h2>
+          <div
+            className="meter"
+            role="img"
+            aria-label={`월 예산 ${budget.anthropic_month_budget_usd}달러 중 ${monthShare(budget)}% 사용`}
+          >
+            <div className="meter-fill" style={{ width: `${monthShare(budget)}%` }} />
+          </div>
+          <p className={monthShare(budget) >= 80 ? "notice" : "small muted"} style={{ marginTop: "0.5rem" }}>
+            ${budget.anthropic_month_usd.toFixed(2)} / ${budget.anthropic_month_budget_usd}
+            {monthShare(budget) >= 80
+              ? " — 월 예산의 80%를 넘었습니다. Console 한도에 닿으면 Chat이 멈추니, 예산을 올리거나 사용을 줄여 주세요."
+              : ""}
+          </p>
+        </section>
+      )}
+
+      <section aria-labelledby="budget-granted" data-testid="granted-vs-used">
+        <h2 className="section-title" id="budget-granted">
+          지급 vs 사용
+          <span className={styles.sectionNote}>
+            {closed ? `마감됨 · 남은 돈은 회수, 그중 ${money.carry_over_percent}%는 다음 분기로 이월` : "이번 분기 동아리 지원"}
+          </span>
+        </h2>
+        <StatCards
+          cards={[
+            { key: "granted", label: "지급한 지갑", value: formatKrw(money.granted_krw) },
+            { key: "charged", label: "실제 차감", value: formatKrw(money.charged_krw) },
+            {
+              key: "unspent",
+              label: closed ? "회수" : "아직 안 쓴 돈",
+              value: formatKrw(money.unspent_krw),
+            },
+            {
+              key: "saved",
+              label: "캐시로 아낀 금액",
+              value: `약 ${formatWonPart(money.cache_saved_krw)}`,
+            },
+          ]}
+        />
+        {Number(money.absorbed_usd) > 0 && (
+          <p className="small dim">
+            이번 분기 회원에게 청구하지 않은 실패한 호출(동아리 부담): {formatUsd(money.absorbed_usd)}
+          </p>
+        )}
+      </section>
+
+      <CreditPanel credit={credit} onChanged={reload} />
+
       <section aria-labelledby="budget-providers">
         <h2 className="section-title" id="budget-providers">
           제공자별 사용액
           <span className={styles.sectionNote}>다음 크레딧 구매를 정할 때 보는 숫자</span>
         </h2>
         <AdminTable
-          columns={PROVIDER_COLUMNS}
+          columns={
+            // The 지원금 / 개인 split only means something while top-ups are
+            // on or someone actually spent personal money (personal-topup-off).
+            site.top_ups_enabled || budget.providers.some((line) => line.personal_krw > 0)
+              ? PROVIDER_COLUMNS
+              : PROVIDER_COLUMNS.filter((column) => column.key !== "split")
+          }
           rows={budget.providers}
           rowKey={(line) => line.provider}
           empty="이 분기에는 아직 사용 기록이 없습니다."
@@ -229,25 +377,39 @@ export default function BudgetAdmin() {
           회원의 지갑은 하나지만 크레딧은 제공자마다 따로 사고, 한 번 산 크레딧은 옮길 수
           없습니다. &ldquo;지원금 총액을 이 비중으로&rdquo;는 지금까지의 사용 비율대로 지원금
           총액({formatKrw(budget.total_budget_krw)})을 나눈 참고값입니다. 제공자 청구액은
-          제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다. 개인 잔액에서 나간
-          사용도 같은 크레딧을 쓰므로 함께 셉니다.
+          제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다.
+          {/* 개인 충전이 꺼져 있는 동안(personal-topup-off)은 말하지 않습니다. */}
+          {site.top_ups_enabled && " 개인 잔액에서 나간 사용도 같은 크레딧을 쓰므로 함께 셉니다."}
         </p>
       </section>
 
-      <section aria-labelledby="budget-wallets">
-        <h2 className="section-title" id="budget-wallets">
-          회원별 지갑
+      <section aria-labelledby="budget-members">
+        <h2 className="section-title" id="budget-members">
+          회원별
           <span className={styles.sectionNote}>많이 쓴 순서 · 조정은 회원 상세에서</span>
         </h2>
         <AdminTable
-          columns={walletColumns}
-          rows={budget.wallets}
-          rowKey={(wallet) => wallet.user_id}
-          rowHref={(wallet) => withQuarter(`/admin/members/${wallet.user_id}`, selected.id)}
+          columns={memberColumns}
+          rows={money.members}
+          rowKey={(row) => row.user_id}
+          rowHref={(row) => withQuarter(`/admin/members/${row.user_id}`, selected.id)}
           empty="이 분기에 승인된 지갑이 없습니다. 참여 신청을 승인하면 생깁니다."
-          caption="회원별 지갑"
+          caption="회원별 지급과 사용"
         />
+        <div className={styles.actionRow}>
+          <a className="btn btn-sm" href={exportUrl.members(selected.id)} download>
+            회원별 CSV
+          </a>
+          <a className="btn btn-sm" href={exportUrl.daily(selected.id)} download>
+            날짜별 CSV
+          </a>
+        </div>
+        <p className="small dim">CSV는 Excel에서 바로 열리도록 UTF-8(BOM)으로 저장됩니다.</p>
       </section>
+
+      <CachePanel />
+
+      <ReconcilePanel reportProvider={credit.report_provider} />
     </div>
   );
 }

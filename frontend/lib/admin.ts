@@ -262,7 +262,7 @@ export function formatWhenOrNever(iso: string | null): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Claude 모델 목록 (Admin › Claude Models)                             */
+/* AI 모델 목록 (Admin › AI Models)                                     */
 /* ------------------------------------------------------------------ */
 
 /** 누가 고를 수 있는가. */
@@ -293,6 +293,27 @@ export interface AdminChatModel {
   estimated_reply_krw: number | null;
   estimate_basis?: "recent" | "formula";
   estimate_samples?: number;
+  /** "Anthropic (Claude)". */
+  provider_label?: string;
+  /** false: 연결 준비 중 — 공개도 기본도 될 수 없습니다(백엔드가 막습니다). */
+  provider_ready?: boolean;
+  /** 서버 도구(chat-plus-tools): 이 모델에 열어 둔 것과 검색 1회 요금($). */
+  tools_web_search: boolean;
+  tools_web_fetch: boolean;
+  tools_code_execution: boolean;
+  web_search_usd_per_call: string;
+}
+
+/** 제공자 한 곳. 화면에 보이는 순서대로 옵니다 — Anthropic이 먼저. */
+export interface ChatProvider {
+  id: string;
+  label: string;
+  /** 연결(어댑터)이 있는지. false면 "연결 준비 중". */
+  ready: boolean;
+}
+
+export function listChatProviders(): Promise<ChatProvider[]> {
+  return request<ChatProvider[]>("/admin/chat-models/providers");
 }
 
 export interface ChatModelChanges {
@@ -304,9 +325,14 @@ export interface ChatModelChanges {
   visibility?: ChatModelVisibility;
   sort_order?: number;
   is_default?: true;
+  tools_web_search?: boolean;
+  tools_web_fetch?: boolean;
+  tools_code_execution?: boolean;
+  web_search_usd_per_call?: string;
 }
 
 export interface NewChatModel {
+  provider: string;
   model_id: string;
   label: string;
   description: string;
@@ -314,7 +340,7 @@ export interface NewChatModel {
   output_usd_per_mtok: string;
 }
 
-/** Admin › Claude Models › 비용 보정 — 모델별 어림값과 실제 답장. */
+/** Admin › AI Models › 비용 보정 — 모델별 어림값과 실제 답장. */
 export interface ModelCalibration {
   model_id: string;
   label: string;
@@ -329,6 +355,22 @@ export interface ModelCalibration {
   median_reply_krw: number | null;
   formula_reply_krw: number | null;
   cache_hit_rate: number | null;
+}
+
+/** 캐시 절약 (PART F): 모델·일(KST)별 캐시 활동. */
+export interface ModelCacheDay {
+  model_id: string;
+  label: string;
+  day: string;
+  replies: number;
+  cache_hit_replies: number;
+  read_tokens: number;
+  /** 오늘 카탈로그 요금 기준의 어림 — 화면에도 그렇게 적습니다. */
+  saved_krw: number;
+}
+
+export function getChatCacheStats(): Promise<ModelCacheDay[]> {
+  return request<ModelCacheDay[]>("/admin/chat-models/cache-stats");
 }
 
 export function getChatCalibration(): Promise<ModelCalibration[]> {
@@ -350,7 +392,7 @@ export function updateChatModel(id: number, changes: ChatModelChanges): Promise<
 export function createChatModel(input: NewChatModel): Promise<AdminChatModel> {
   return request<AdminChatModel>("/admin/chat-models", {
     method: "POST",
-    body: JSON.stringify({ provider: "anthropic", ...input }),
+    body: JSON.stringify(input),
   });
 }
 
@@ -383,6 +425,31 @@ export interface ClaudeSettings {
   cache_ttl: string | null;
   exchange_rate: ExchangeRate | null;
   rate_history: ExchangeRate[];
+  /** token-guard의 세 한도. 0은 그 한도를 끈 것입니다. */
+  chat_limits: ChatLimits;
+}
+
+/** 답장 1회 비용 한도, 긴 대화 경고 기준, 하루 한도 (token-guard). */
+export interface ChatLimits {
+  reply_cap_krw: number;
+  long_history_tokens: number;
+  daily_cap_krw: number;
+  /** 서버 프로세스마다, AI 호출을 한 번에 몇 개까지 (PART F). */
+  provider_concurrency: number;
+  /** 웹 페이지 읽기: 한 답장의 횟수와 페이지당 토큰 (tool-cap-defaults). */
+  web_fetch_max_uses: number;
+  web_fetch_max_content_tokens: number;
+  set_at: string | null;
+  set_by_username: string;
+}
+
+export interface ChatLimitsWrite {
+  reply_cap_krw: number;
+  long_history_tokens: number;
+  daily_cap_krw: number;
+  provider_concurrency: number;
+  web_fetch_max_uses: number;
+  web_fetch_max_content_tokens: number;
 }
 
 export function getClaudeSettings(): Promise<ClaudeSettings> {
@@ -393,5 +460,12 @@ export function setExchangeRate(krwPerUsd: string): Promise<ClaudeSettings> {
   return request<ClaudeSettings>("/admin/claude-pricing/exchange-rate", {
     method: "POST",
     body: JSON.stringify({ krw_per_usd: krwPerUsd }),
+  });
+}
+
+export function setChatLimits(limits: ChatLimitsWrite): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>("/admin/claude-pricing/chat-limits", {
+    method: "POST",
+    body: JSON.stringify(limits),
   });
 }

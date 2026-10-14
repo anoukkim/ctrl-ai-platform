@@ -294,11 +294,12 @@ def test_each_reply_records_model_tokens_dollars_rate_and_won(
     assert event.exchange_rate_krw == 1400
 
     # The mock is priced as Sonnet 5.5: $2 in, $10 out per million, cache
-    # writes 1.25x input, cache reads $0.20.
+    # writes 1.25x input, cache reads $0.10 (a twentieth of input —
+    # audit-caching-and-distribution fixed the seeded 0.20).
     usd = (
         Decimal(event.input_tokens) * 2
         + Decimal(event.cache_write_tokens) * Decimal("2.5")
-        + Decimal(event.cache_read_tokens) * Decimal("0.2")
+        + Decimal(event.cache_read_tokens) * Decimal("0.1")
         + Decimal(event.output_tokens) * 10
     ) / 1_000_000
     assert event.provider_cost == usd.quantize(Decimal("0.000001"))
@@ -322,7 +323,7 @@ def test_anthropic_model_no_longer_decides_while_the_catalogue_has_rows(
     usd = (
         Decimal(event.input_tokens) * 2
         + Decimal(event.cache_write_tokens or 0) * Decimal("2.5")
-        + Decimal(event.cache_read_tokens or 0) * Decimal("0.2")
+        + Decimal(event.cache_read_tokens or 0) * Decimal("0.1")
         + Decimal(event.output_tokens) * 10
     ) / 1_000_000
     assert event.charged_krw == math.ceil(usd * 1400)
@@ -776,7 +777,7 @@ def test_the_real_adapter_streams_and_charges_the_reported_tokens(
 def test_the_real_adapter_charges_cache_writes_and_reads_at_their_own_prices(
     client: TestClient, db_session: Session, budgeted, real_claude
 ) -> None:
-    """Uncached input $2, cache write $2.50 (1.25x), cache read $0.20,
+    """Uncached input $2, cache write $2.50 (1.25x), cache read $0.10,
     output $10 per million — not every prompt token at the input price."""
     real_claude.cache = (2_000, 30_000)
     conversation = new_conversation(client)
@@ -788,7 +789,7 @@ def test_the_real_adapter_charges_cache_writes_and_reads_at_their_own_prices(
     )
     assert event.provider_units == 120 + 2_000 + 30_000 + 15
     usd = (
-        Decimal(120 * 2) + Decimal(2_000) * Decimal("2.5") + Decimal(30_000) * Decimal("0.2")
+        Decimal(120 * 2) + Decimal(2_000) * Decimal("2.5") + Decimal(30_000) * Decimal("0.1")
         + Decimal(15 * 10)
     ) / 1_000_000
     assert event.provider_cost == usd.quantize(Decimal("0.000001"))
@@ -1066,3 +1067,39 @@ def test_a_marker_split_anywhere_is_still_hidden() -> None:
         marker = chat_service.MarkerFilter()
         shown = marker.feed(reply[:cut]) + marker.feed(reply[cut:]) + marker.finish()
         assert shown == "좋아요!\n", cut
+
+
+# ------------------------------------------- byte-identical cached prefix
+
+
+def test_two_consecutive_turns_share_a_byte_identical_cached_prefix(
+    client: TestClient, db_session: Session, budgeted, real_claude
+) -> None:
+    """The docs' invalidation rule in reverse (audit-caching, 2026-10-14).
+
+    One changed byte before a breakpoint and every later request misses
+    the cache (https://platform.claude.com/docs/en/docs/build-with-claude/prompt-caching).
+    So turn 2's request must carry turn 1's system block and messages
+    *unchanged* — growth only at the end. Asserted on the raw request
+    bodies the SDK produced, with json.dumps as the byte-level witness.
+    """
+    conversation = new_conversation(client)
+    send(client, conversation, "첫 질문입니다")
+    send(client, conversation, "둘째 질문입니다")
+
+    first, second = (json.loads(request.content) for request in real_claude.requests[-2:])
+
+    assert second["system"] == first["system"]
+    assert second["model"] == first["model"]
+    assert second.get("tools") == first.get("tools")
+    assert second.get("thinking") == first.get("thinking")
+    assert second.get("output_config") == first.get("output_config")
+    assert len(second["messages"]) > len(first["messages"])
+    assert second["messages"][: len(first["messages"])] == first["messages"]
+
+    def dumps(value) -> str:
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+    # Byte-identical once serialised the same way — what the cache compares.
+    assert dumps(second["messages"][: len(first["messages"])]) == dumps(first["messages"])
+    assert dumps(second["system"]) == dumps(first["system"])

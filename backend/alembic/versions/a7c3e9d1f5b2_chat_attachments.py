@@ -5,7 +5,7 @@ columns the spec's point 5 asked for came with `prompt-caching`, so this
 migration only adds the table.
 
 Revision ID: a7c3e9d1f5b2
-Revises: f2c8a6d4e1b3
+Revises: e5b8d3f1a2c4 (re-parented 2026-10-14 when the paused branch was resumed; it was written on f2c8a6d4e1b3)
 Create Date: 2026-10-14
 
 """
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a7c3e9d1f5b2"
-down_revision: str | None = "f2c8a6d4e1b3"
+down_revision: str | None = "e5b8d3f1a2c4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

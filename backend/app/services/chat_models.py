@@ -1,7 +1,7 @@
 """The chat model catalogue: which model a reply uses, and who may pick it.
 
 The catalogue lives in the database (`ChatModel`), seeded by the migration
-and edited in Admin › Claude Models. Three rules, all enforced here rather
+and edited in Admin › AI Models. Three rules, all enforced here rather
 than in the browser:
 
 * **Who may pick what.** `members` models are open to everyone; `admin`
@@ -33,9 +33,48 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.models import ChatModel, ChatModelVisibility, Conversation, User, UserRole
 
-#: The only provider with an adapter today.
 ANTHROPIC = "anthropic"
-KNOWN_PROVIDERS = (ANTHROPIC,)
+DEEPSEEK = "deepseek"
+
+
+@dataclass(frozen=True)
+class ProviderInfo:
+    """A provider the catalogue may hold rows for (admin-and-nav-cleanup).
+
+    `ready` means an adapter exists. A provider that is not ready is listed
+    in Admin › AI Models as 연결 준비 중: its rows can be kept and priced,
+    but never opened to anyone or made the default — `check_open` refuses.
+    """
+
+    id: str
+    label: str
+    ready: bool
+
+
+#: In the order Admin › AI Models shows them: Anthropic first.
+PROVIDERS: dict[str, ProviderInfo] = {
+    ANTHROPIC: ProviderInfo(ANTHROPIC, "Anthropic (Claude)", ready=True),
+    # docs/research/deepseek-research.md: never DeepSeek's own API (servers
+    # in China); the open model through US hosts only. The adapter belongs
+    # to more-chat-providers; until then the row is listed, closed.
+    DEEPSEEK: ProviderInfo(DEEPSEEK, "DeepSeek (미국 호스팅)", ready=False),
+}
+#: The providers with an adapter today.
+KNOWN_PROVIDERS = tuple(key for key, info in PROVIDERS.items() if info.ready)
+NOT_READY = "연결 준비 중인 제공자의 모델은 공개하거나 기본으로 정할 수 없습니다."
+
+
+def provider_info(provider: str) -> ProviderInfo:
+    """The provider's entry; an unknown one is shown as not ready."""
+    return PROVIDERS.get(provider) or ProviderInfo(provider, provider, ready=False)
+
+
+def check_open(provider: str, visibility: ChatModelVisibility, default: bool = False) -> None:
+    """Refuse opening or defaulting a model whose provider has no adapter."""
+    if provider_info(provider).ready:
+        return
+    if visibility is not ChatModelVisibility.DISABLED or default:
+        raise ModelChoiceError(NOT_READY)
 
 #: The mock has no price of its own. With an empty catalogue and no
 #: `ANTHROPIC_MODEL`, it is priced as this — the agreed default
@@ -83,7 +122,12 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
         visibility=ChatModelVisibility.MEMBERS,
         is_default=True,
         sort_order=20,
-        cache_read_usd_per_mtok=Decimal("0.20"),
+        # Sonnet 5.5 also reads its cache at a twentieth of input ($0.10),
+        # not a tenth. The first seed said 0.20 — members were charged
+        # cache reads at twice the list price until migration f7c3a9e1d5b2
+        # (audit-caching-and-distribution, 2026-10-14, citing
+        # https://platform.claude.com/docs/en/docs/build-with-claude/prompt-caching).
+        cache_read_usd_per_mtok=Decimal("0.10"),
     ),
     CatalogueSeed(
         model_id="claude-opus-5-5",
@@ -96,6 +140,26 @@ DEFAULT_CATALOGUE: list[CatalogueSeed] = [
         sort_order=30,
         # Opus 5.5 reads its cache at a twentieth of input, not a tenth.
         cache_read_usd_per_mtok=Decimal("0.20"),
+    ),
+]
+
+#: Rows for providers that are not connected yet (admin-and-nav-cleanup):
+#: listed in Admin, closed. Seeded with the defaults and by migration
+#: c4d8e2a6f1b9. Prices from docs/research/deepseek-research.md
+#: (2026-10-08): V4.1 Flash at a US host, 0.30 / 1.20 $/MTok, cache read
+#: 0.006 (Together and Fireworks both list it).
+PENDING_CATALOGUE: list[CatalogueSeed] = [
+    CatalogueSeed(
+        model_id="deepseek/deepseek-v4.1-flash",
+        label="DeepSeek V4.1 Flash",
+        description="아주 저렴한 모델. 미국 서버에서만 쓸 예정이며 아직 연결되지 않았습니다.",
+        input_usd_per_mtok=Decimal("0.30"),
+        output_usd_per_mtok=Decimal("1.20"),
+        visibility=ChatModelVisibility.DISABLED,
+        is_default=False,
+        sort_order=100,
+        provider=DEEPSEEK,
+        cache_read_usd_per_mtok=Decimal("0.006"),
     ),
 ]
 
@@ -132,6 +196,13 @@ class ChosenModel:
     row_id: int | None = None
     #: None means a tenth of the input price.
     cache_read_usd_per_mtok: Decimal | None = None
+    # Server tools the admin opened on this model (chat-plus-tools). The
+    # empty-catalogue fallback has none — a tool needs a catalogue row.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    #: $ per web search; only meaningful while `tools_web_search` is on.
+    web_search_usd_per_call: Decimal = Decimal("0.01")
 
     @classmethod
     def of(cls, row: ChatModel) -> ChosenModel:
@@ -147,6 +218,10 @@ class ChosenModel:
                 if row.cache_read_usd_per_mtok is not None
                 else None
             ),
+            tools_web_search=row.tools_web_search,
+            tools_web_fetch=row.tools_web_fetch,
+            tools_code_execution=row.tools_code_execution,
+            web_search_usd_per_call=Decimal(row.web_search_usd_per_call),
         )
 
 
@@ -158,7 +233,7 @@ def seed_defaults(db: Session) -> None:
     """
     if db.scalar(select(ChatModel.id).limit(1)) is not None:
         return
-    for seed in DEFAULT_CATALOGUE:
+    for seed in [*DEFAULT_CATALOGUE, *PENDING_CATALOGUE]:
         db.add(
             ChatModel(
                 provider=seed.provider,

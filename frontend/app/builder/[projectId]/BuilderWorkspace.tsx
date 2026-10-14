@@ -42,6 +42,7 @@ import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import WalletCheck from "@/app/components/WalletCheck";
 import TestModeNotice from "@/app/components/TestModeNotice";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
+import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import PreviewPane from "./PreviewPane";
@@ -130,6 +131,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [starterError, setStarterError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const { refresh: refreshWallet } = useMyQuarter();
+  const { reportCharge } = useSpendFeedback();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -184,13 +186,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setSummary(result.summary);
         setMode("preview");
         void refreshWallet();
+        reportCharge({ chargedKrw: result.charged_krw, label: "빌더 · 앱 만들기" });
       } catch (error) {
         setStarterError(describeError(error));
       } finally {
         setStarting(false);
       }
     },
-    [projectId, refreshWallet],
+    [projectId, refreshWallet, reportCharge],
   );
 
   // 전환 메뉴에 쓸 목록. 실패해도 작업 공간은 그대로 쓸 수 있어야 하므로

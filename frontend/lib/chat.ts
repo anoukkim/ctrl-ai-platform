@@ -23,6 +23,19 @@ export interface Conversation {
   last_message_at: string;
   /** 다음 답장이 쓸 모델(`ChatModelOption.id`). null이면 기본 모델. */
   chat_model_id: number | null;
+  /** 서버 도구 토글(chat-plus-tools). 모델이 허용할 때만 실제로 쓰입니다. */
+  use_web_search?: boolean;
+  use_web_fetch?: boolean;
+  use_code_execution?: boolean;
+}
+
+/** 서버 도구 한 가지. */
+export type ToolKind = "web_search" | "web_fetch" | "code_execution";
+
+/** 답장이 인용한 출처 하나 — 번호 달린 링크로 보여 줍니다. */
+export interface ReplySource {
+  title: string;
+  url: string;
 }
 
 export type ChatRole = "user" | "assistant";
@@ -38,11 +51,79 @@ export interface ChatMessage {
   action_title: string;
   /** 답장을 쓴 모델의 ID (예: "claude-haiku-4-5"). 내 메시지는 null. */
   model_id: string | null;
+  /** 답장이 1회 비용 한도에 닿아 멈췄다면 그 한도(원). 아니면 null. */
+  capped_krw?: number | null;
+  /** 답장의 영수증 — 장부의 숫자. 대화를 다시 열어도 그대로 옵니다. */
+  receipt?: ReplyReceipt | null;
+  /** 웹 검색이 인용한 출처(chat-plus-tools). 도구를 안 썼으면 null. */
+  sources?: ReplySource[] | null;
   created_at: string;
+}
+
+/** 답장 하나가 실제로 쓴 토큰. 캐시 칸은 캐시가 꺼져 있으면 null입니다. */
+export interface ReplyUsage extends ReplyWonSplit {
+  input_tokens: number;
+  output_tokens: number;
+  cache_write_tokens: number | null;
+  cache_read_tokens: number | null;
+  /** 청구된 웹 검색 횟수와 그 요금(원). 0이면 검색 줄이 없습니다. */
+  web_search_count?: number;
+  tool_fee_krw?: number;
+}
+
+/** 답장 아래 영수증(live-cost-display). 합계는 장부가 차감한 금액입니다. */
+export interface ReplyReceipt extends ReplyUsage {
+  charged_krw: number;
+}
+
+/**
+ * 같은 답장을 원 단위 항목으로 나눈 값(cost-clarity). 반올림 전 값이라
+ * 더하면 합계보다 1원 안쪽으로 작을 수 있습니다. 예전 서버라면 없습니다.
+ */
+export interface ReplyWonSplit {
+  input_krw?: number | null;
+  cache_write_krw?: number | null;
+  cache_read_krw?: number | null;
+  output_krw?: number | null;
+  tool_krw?: number | null;
+  /** 캐시로 읽은 부분을 그냥 입력으로 보냈다면 더 들었을 금액. */
+  cache_saved_krw?: number | null;
+  /** 옛 답장이라 지금 요금표로 다시 계산한 값. */
+  split_estimated?: boolean;
+}
+
+/**
+ * 흐르는 답장 옆 "약 N원"의 재료(live-cost-display). `start` 이벤트로
+ * 옵니다: 입력 쪽 비용(원, 미리 계산됨)과 출력 1,000토큰당 가격(원).
+ */
+export interface StreamEstimate {
+  base_krw: number;
+  won_per_1k_output: number;
+}
+
+/**
+ * 지금까지 흘러온 글로 어림한 비용(원). 백엔드의 어림과 같은 규칙 —
+ * 글자 하나를 토큰 하나로 — 이라 실제보다 약간 후합니다. 화면은 반드시
+ * 약을 붙여 보여 줍니다; 정산은 영수증(장부)이 합니다.
+ */
+export function runningEstimateKrw(estimate: StreamEstimate, streamedChars: number): number {
+  return Math.max(
+    1,
+    Math.ceil(estimate.base_krw + (streamedChars * estimate.won_per_1k_output) / 1000),
+  );
+}
+
+/** 대화가 길어졌을 때의 안내(token-guard). 짧은 대화에는 null입니다. */
+export interface LongHistory {
+  /** 시스템 프롬프트를 뺀, 답장마다 함께 보내는 입력 토큰 어림값. */
+  history_tokens: number;
+  /** 그 입력이 답장 1회에 더하는 금액(원) — 새 대화로 아끼는 금액. */
+  extra_krw: number;
 }
 
 export interface ConversationDetail extends Conversation {
   messages: ChatMessage[];
+  long_history?: LongHistory | null;
 }
 
 /** 입력창 옆 모델 고르기의 한 줄. 회원이 고를 수 있는 것만 옵니다. */
@@ -59,12 +140,21 @@ export interface ChatModelOption {
   /** "recent" — 최근 실제 답장의 중앙값(비용 보정), "formula" — 공식 어림값. */
   estimate_basis?: "recent" | "formula";
   estimate_samples?: number;
+  /** 관리자가 이 모델에 열어 둔 서버 도구(chat-plus-tools). */
+  tools_web_search?: boolean;
+  tools_web_fetch?: boolean;
+  tools_code_execution?: boolean;
+  /** 웹 검색 1회 요금(원). 환율이 없으면 null. */
+  web_search_krw_per_call?: number | null;
 }
 
 export interface ChatInfo {
   is_mock: boolean;
   rate_limit_per_minute: number;
   max_message_length: number;
+  /** 웹 페이지 읽기의 현재 한도 — 토글 안내문이 그대로 보여 줍니다. */
+  web_fetch_max_uses: number;
+  web_fetch_max_content_tokens: number;
   models: ChatModelOption[];
   /** 새 대화가 쓰는 모델. 모델 목록이 비었을 때만 null. */
   default_model_id: number | null;
@@ -120,6 +210,24 @@ export function modelLabel(info: ChatInfo | null, modelId: string | null): strin
   return info.models.find((model) => model.model_id === modelId)?.label ?? "";
 }
 
+/** 도구 토글(chat-plus-tools). 모델이 허용하지 않으면 백엔드가 400으로 거절합니다. */
+export function setConversationTool(
+  id: number,
+  tool: ToolKind,
+  enabled: boolean,
+): Promise<Conversation> {
+  const field =
+    tool === "web_search"
+      ? "use_web_search"
+      : tool === "web_fetch"
+        ? "use_web_fetch"
+        : "use_code_execution";
+  return request<Conversation>(`/chat/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ [field]: enabled }),
+  });
+}
+
 export function renameConversation(id: number, title: string): Promise<Conversation> {
   return request<Conversation>(`/chat/conversations/${id}`, {
     method: "PATCH",
@@ -133,13 +241,40 @@ export function deleteConversation(id: number): Promise<void> {
 
 /** 답장이 끝난 모양. 오류도 예외가 아니라 결과로 돌려줍니다. */
 export type StreamOutcome =
-  | { kind: "done"; message: ChatMessage | null; chargedKrw: number }
+  | {
+      kind: "done";
+      message: ChatMessage | null;
+      chargedKrw: number;
+      longHistory?: LongHistory | null;
+      /** 답장이 실제로 쓴 토큰(장부). 아무것도 쓰지 않았으면 null. */
+      usage?: ReplyUsage | null;
+      /** 차감 직후 남은 동아리 지원(원). 차감이 없었으면 null. */
+      walletRemainingKrw?: number | null;
+    }
+  /** 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이 확실합니다. */
   | { kind: "error"; detail: string }
+  /**
+   * 우리 쪽에서 스트림이 끊겼습니다(연결 손실, 끝나지 않은 응답).
+   * 백엔드의 produce 작업은 계속 돌아 그때까지 만든 답장을 저장하고 쓴
+   * 만큼 차감하므로, **청구가 없었다고 말하면 안 됩니다** — 중지와 같이
+   * 다룹니다.
+   */
+  | { kind: "disconnected"; detail: string }
   | { kind: "stopped" };
 
 export interface StreamHandlers {
-  onStart?: (userMessage: ChatMessage) => void;
+  onStart?: (userMessage: ChatMessage, estimate: StreamEstimate | null) => void;
   onDelta?: (text: string) => void;
+  /**
+   * 서버 도구가 돌기 시작했거나 끝났을 때 — "검색 중…" 줄의 재료.
+   * 끝난 사용은 방금 더해진 비용(원)을 함께 들고 와서, 흐르는 약 N원이
+   * 그 순간 눈에 띄게 뜁니다. 정산은 영수증(장부)이 합니다.
+   */
+  onTool?: (
+    kind: ToolKind,
+    status: "running" | "done" | "error",
+    addedKrw?: number,
+  ) => void;
 }
 
 /**
@@ -197,10 +332,19 @@ export async function sendMessage(
     }
     if (!name || !data) return;
     const payload = JSON.parse(data);
-    if (name === "start") handlers.onStart?.(payload.user_message);
+    if (name === "start") handlers.onStart?.(payload.user_message, payload.estimate ?? null);
     else if (name === "delta") handlers.onDelta?.(payload.text);
+    else if (name === "tool")
+      handlers.onTool?.(payload.kind, payload.status, payload.added_krw ?? 0);
     else if (name === "done")
-      outcome = { kind: "done", message: payload.message, chargedKrw: payload.charged_krw };
+      outcome = {
+        kind: "done",
+        message: payload.message,
+        chargedKrw: payload.charged_krw,
+        longHistory: payload.long_history ?? null,
+        usage: payload.usage ?? null,
+        walletRemainingKrw: payload.wallet_remaining_krw ?? null,
+      };
     else if (name === "error") outcome = { kind: "error", detail: payload.detail };
   };
 
@@ -218,14 +362,13 @@ export async function sendMessage(
     }
   } catch {
     if (signal.aborted) return { kind: "stopped" };
-    return { kind: "error", detail: "답장을 받는 중에 연결이 끊어졌습니다. 다시 보내 주세요." };
+    // 서버가 아니라 연결이 실패했습니다 — 차감이 있었을 수 있습니다.
+    return { kind: "disconnected", detail: "답장을 받는 중에 연결이 끊어졌습니다." };
   }
 
   if (buffer.trim()) handle(buffer);
   if (signal.aborted) return { kind: "stopped" };
-  return (
-    outcome ?? { kind: "error", detail: "답장이 끝까지 오지 않았습니다. 다시 보내 주세요." }
-  );
+  return outcome ?? { kind: "disconnected", detail: "답장이 끝까지 오지 않았습니다." };
 }
 
 /** 액션 단추가 여는 주소. 회원이 한 말을 아이디어로 그대로 들고 갑니다. */

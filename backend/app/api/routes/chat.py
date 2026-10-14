@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from decimal import ROUND_CEILING, Decimal
 from collections.abc import AsyncIterator
 
 import urllib.parse
@@ -67,19 +68,32 @@ from app.schemas.chat import (
     ConversationDetail,
     ConversationRead,
     ConversationUpdate,
+    LongHistoryRead,
+    ReplyReceipt,
 )
 from app.services import attachments as attachments_service
 from app.services import chat as chat_service
-from app.services import chat_models, pricing
+from app.services import chat_limits, chat_tools, provider_limiter
+from app.services import accounting, chat_models, pricing
 from app.services import usage as usage_service
 from app.services.storage import get_storage
 from app.services.claude_provider import (
     ClaudeError,
     StreamEnd,
     TextDelta,
+    ToolSources,
+    ToolStatus,
     UsageUpdate,
     get_claude_provider,
 )
+
+#: Content types a browser may send cross-origin without a preflight.
+SIMPLE_CONTENT_TYPES = {
+    "",
+    "text/plain",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+}
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -97,6 +111,32 @@ def _model_error(error: chat_models.ModelChoiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=str(error))
 
 
+def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
+    """Each reply's ledger figures, by usage-event id (live-cost-display).
+
+    One query for the whole conversation. A reply whose event is gone —
+    or that never had one (a refusal) — simply has no receipt.
+    """
+    event_ids = [m.usage_event_id for m in messages if m.usage_event_id is not None]
+    if not event_ids:
+        return {}
+    rows = db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids)))
+    prices = accounting.catalogue_prices(db)
+    return {
+        row.id: ReplyReceipt(
+            input_tokens=row.input_tokens or 0,
+            output_tokens=row.output_tokens or 0,
+            cache_write_tokens=row.cache_write_tokens,
+            cache_read_tokens=row.cache_read_tokens,
+            web_search_count=row.web_search_count or 0,
+            tool_fee_krw=row.tool_fee_krw or 0,
+            charged_krw=row.charged_krw,
+            **accounting.receipt_fields(row, prices),
+        )
+        for row in rows
+    }
+
+
 @router.get(
     "/info", response_model=ChatInfo, summary="How replies are made, and the models to pick from"
 )
@@ -107,10 +147,13 @@ def chat_info(
 ) -> ChatInfo:
     rate = pricing.current_rate(db)
     default = chat_models.default_row(db)
+    limits = chat_limits.current(db)
     return ChatInfo(
         is_mock=settings.provider_is_mock("claude"),
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
         max_message_length=MAX_MESSAGE_LENGTH,
+        web_fetch_max_uses=limits.web_fetch_max_uses,
+        web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
         models=[_option(db, row, default, rate) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
     )
@@ -118,6 +161,13 @@ def chat_info(
 
 def _option(db: Session, row, default, rate) -> ChatModelOption:
     estimate = pricing.reply_estimate(db, chat_models.ChosenModel.of(row), rate)
+    search_krw = None
+    if rate is not None:
+        search_krw = int(
+            (Decimal(row.web_search_usd_per_call) * Decimal(rate.krw_per_unit)).to_integral_value(
+                rounding=ROUND_CEILING
+            )
+        )
     return ChatModelOption(
         id=row.id,
         model_id=row.model_id,
@@ -128,6 +178,10 @@ def _option(db: Session, row, default, rate) -> ChatModelOption:
         estimated_reply_krw=estimate.krw,
         estimate_basis=estimate.basis,
         estimate_samples=estimate.samples,
+        tools_web_search=row.tools_web_search,
+        tools_web_fetch=row.tools_web_fetch,
+        tools_code_execution=row.tools_code_execution,
+        web_search_krw_per_call=search_krw,
     )
 
 
@@ -169,14 +223,36 @@ def read_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> ConversationDetail:
     conversation = _owned(db, user, conversation_id)
+    messages = chat_service.messages_of(db, conversation)
+    # The composer's long-history warning (token-guard). A model or price
+    # problem never breaks reading a conversation — the warning just stays
+    # away, and sending will say what is wrong.
+    long_history = None
+    try:
+        model = chat_models.for_conversation(db, settings, user, conversation)
+        long_history = chat_service.long_history_info(db, settings, messages, model)
+    except (chat_models.ModelChoiceError, pricing.PricingError):
+        long_history = None
+    receipts = _receipts_for(db, messages)
     return ConversationDetail(
         **ConversationRead.model_validate(conversation).model_dump(),
         messages=[
-            ChatMessageRead.model_validate(message)
-            for message in chat_service.messages_of(db, conversation)
+            ChatMessageRead.model_validate(message).model_copy(
+                update={"receipt": receipts.get(message.usage_event_id)}
+            )
+            for message in messages
         ],
+        long_history=(
+            LongHistoryRead(
+                history_tokens=long_history.history_tokens,
+                extra_krw=long_history.extra_krw,
+            )
+            if long_history
+            else None
+        ),
     )
 
 
@@ -186,10 +262,20 @@ def update_conversation(
     payload: ConversationUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
 ) -> Conversation:
-    """Rename, or change the model later replies use. Earlier replies keep theirs."""
+    """Rename, change the model, or flip a tool toggle. Later replies only."""
     conversation = _owned(db, user, conversation_id)
-    if payload.title is None and payload.chat_model_id is None:
+    toggles = {
+        "use_web_search": payload.use_web_search,
+        "use_web_fetch": payload.use_web_fetch,
+        "use_code_execution": payload.use_code_execution,
+    }
+    if (
+        payload.title is None
+        and payload.chat_model_id is None
+        and all(value is None for value in toggles.values())
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="바꿀 내용을 보내 주세요."
         )
@@ -207,6 +293,28 @@ def update_conversation(
             ).id
         except chat_models.ModelChoiceError as error:
             raise _model_error(error) from error
+    if any(value is not None for value in toggles.values()):
+        # Turning a tool ON needs the conversation's model to allow it —
+        # otherwise the toggle would promise something no reply delivers.
+        # Turning one OFF is always allowed.
+        try:
+            model = chat_models.for_conversation(db, settings, user, conversation)
+        except chat_models.ModelChoiceError as error:
+            raise _model_error(error) from error
+        allowed = {
+            "use_web_search": model.tools_web_search,
+            "use_web_fetch": model.tools_web_fetch,
+            "use_code_execution": model.tools_code_execution,
+        }
+        for field, value in toggles.items():
+            if value is None:
+                continue
+            if value and not allowed[field]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="이 모델에서는 쓸 수 없는 도구입니다. 모델을 바꾸거나 도구를 꺼 주세요.",
+                )
+            setattr(conversation, field, value)
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -298,6 +406,16 @@ async def upload_attachment(
     refused without being held in memory. Checked completely — kind, size,
     pages, count, quotas — before anything is stored.
     """
+    # A page on another origin — a member app on apps.ctrlai.my is
+    # same-site — may send a "simple" request (text/plain, a form type or
+    # no type at all) without a CORS preflight. Requiring a non-simple
+    # type forces that preflight, which the API refuses (CLAUDE.md §2).
+    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if content_type in SIMPLE_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="파일은 application/octet-stream 형식으로 보내 주세요.",
+        )
     conversation = _owned(db, user, conversation_id)
     largest = max(
         settings.chat_attachment_image_max_mb,
@@ -514,6 +632,11 @@ def send_message(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
         ) from error
 
+    # PART F: the club has one key; one process keeps at most this many
+    # provider calls in flight. Read here, while the request's session is
+    # open; checked just before the stream starts.
+    concurrency_limit = chat_limits.current(db).provider_concurrency
+
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
     stop = asyncio.Event()
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
@@ -529,6 +652,14 @@ def send_message(
         """
         state = chat_service.TurnState()
         marker = chat_service.MarkerFilter()
+        # A slot under the process-wide provider limit, waited for off the
+        # event loop. Refused: a BUSY error — the provider was never
+        # called, nothing is charged, and the status board is not marked.
+        if not await run_in_threadpool(provider_limiter.acquire, concurrency_limit):
+            state.error = ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
+            result = await run_in_threadpool(_finish, session_factory, settings, turn, state)
+            queue.put_nowait(("end", result))
+            return
         try:
             async for event in provider.stream_chat(turn.request):
                 if isinstance(event, TextDelta):
@@ -541,6 +672,35 @@ def send_message(
                     state.output_tokens = event.output_tokens
                     state.cache_write_tokens = event.cache_write_tokens
                     state.cache_read_tokens = event.cache_read_tokens
+                    state.web_search_count = event.web_search_count
+                    state.web_fetch_count = event.web_fetch_count
+                elif isinstance(event, ToolStatus):
+                    # 검색 중… / 페이지 읽는 중… / 코드 실행 중… — the
+                    # screen's line while a server tool runs. A finished
+                    # use carries what it just added in won, so the
+                    # running 약 N원 jumps the moment it lands (the
+                    # ledger's receipt still settles the real figure).
+                    added = 0
+                    if event.status == "done" and (event.result_tokens or event.searches):
+                        added = turn.price.krw(event.result_tokens, 0) + (
+                            chat_tools.search_fee_krw(
+                                turn.price, turn.web_search_usd_per_call, event.searches
+                            )
+                        )
+                    queue.put_nowait(
+                        (
+                            "tool",
+                            {
+                                "kind": event.kind,
+                                "status": event.status,
+                                "added_krw": added,
+                            },
+                        )
+                    )
+                elif isinstance(event, ToolSources):
+                    state.sources = [
+                        {"title": title, "url": url} for title, url in event.sources
+                    ]
                 elif isinstance(event, StreamEnd):
                     state.stop_reason = event.stop_reason
                 # 중지 closes the connection. Checked between pieces, so
@@ -553,6 +713,8 @@ def send_message(
             state.error = error
         except Exception as error:  # noqa: BLE001 — anything else is still a failed call
             state.error = ClaudeError(ProviderErrorKind.UNKNOWN, type(error).__name__)
+        finally:
+            provider_limiter.release()
 
         result = await run_in_threadpool(_finish, session_factory, settings, turn, state)
         if result.error is None:
@@ -570,11 +732,26 @@ def send_message(
         _RUNNING.add(task)
         task.add_done_callback(_RUNNING.discard)
         try:
-            yield _sse("start", {"user_message": _message_json(turn.user_message)})
+            yield _sse(
+                "start",
+                {
+                    "user_message": _message_json(turn.user_message),
+                    # The running-cost estimate's two halves
+                    # (live-cost-display); the screen adds 글자 수 × rate
+                    # and labels the sum 약.
+                    "estimate": {
+                        "base_krw": turn.estimate_base_krw,
+                        "won_per_1k_output": turn.won_per_1k_output,
+                    },
+                },
+            )
             while True:
                 kind, payload = await queue.get()
                 if kind == "delta":
                     yield _sse("delta", {"text": payload})
+                    continue
+                if kind == "tool":
+                    yield _sse("tool", payload)  # type: ignore[arg-type]
                     continue
                 result: chat_service.TurnResult = payload  # type: ignore[assignment]
                 if result.error is not None:
@@ -585,6 +762,36 @@ def send_message(
                         {
                             "message": _message_json(result.message) if result.message else None,
                             "charged_krw": result.charged_krw,
+                            # The receipt's split and the wallet after the
+                            # charge (live-cost-display) — the ledger's
+                            # figures, never the estimate's.
+                            "usage": (
+                                {
+                                    "input_tokens": result.usage.input_tokens,
+                                    "output_tokens": result.usage.output_tokens,
+                                    "cache_write_tokens": result.usage.cache_write_tokens,
+                                    "cache_read_tokens": result.usage.cache_read_tokens,
+                                    # chat-plus-tools: the receipt's 검색 line.
+                                    "web_search_count": result.usage.web_search_count,
+                                    "tool_fee_krw": result.usage.tool_fee_krw,
+                                    # cost-clarity: the same reply by part,
+                                    # in won, from the ledger row.
+                                    **(result.usage.split or {}),
+                                }
+                                if result.usage
+                                else None
+                            ),
+                            "wallet_remaining_krw": result.wallet_remaining_krw,
+                            # token-guard: the composer's warning, fresh
+                            # after this reply, without refetching.
+                            "long_history": (
+                                {
+                                    "history_tokens": result.long_history.history_tokens,
+                                    "extra_krw": result.long_history.extra_krw,
+                                }
+                                if result.long_history
+                                else None
+                            ),
                         },
                     )
                 return

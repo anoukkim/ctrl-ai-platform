@@ -21,7 +21,7 @@ Two decisions worth knowing:
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -74,6 +74,14 @@ class Conversation(TimestampMixin, Base):
         ForeignKey("chat_models.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Anthropic server tools (chat-plus-tools), chosen per conversation —
+    # not per message, because changing the tool list breaks the prompt
+    # cache. A tool is only *sent* when the conversation's model also
+    # allows it; these flags survive a model switch unchanged.
+    use_web_search: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    use_web_fetch: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    use_code_execution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="conversation",
         # Deleted by the ORM rather than left to ON DELETE CASCADE, so the
@@ -119,6 +127,14 @@ class ChatMessage(Base):
     model_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Set when the reply stopped at the per-reply cost cap (token-guard):
+    #: the cap in force, in won, so the screen can say why — after a
+    #: reload too. Null for every other ending, including the global
+    #: output limit.
+    capped_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Web-search sources the reply cited (chat-plus-tools):
+    #: [{"title": str, "url": str}, ...]. Null when no tool ran.
+    sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
     usage_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("usage_events.id", ondelete="SET NULL"), nullable=True
     )

@@ -18,6 +18,7 @@ from app.core.security import UNUSABLE_PASSWORD_HASH, hash_password
 from app.services.quarters import current_quarter, set_membership
 from app.db.session import SessionLocal, engine
 from app.models import (
+    ConnectedAccount,
     InviteCode,
     AccountStatus,
     MembershipStatus,
@@ -302,8 +303,93 @@ def seed_dev_invite(db: Session) -> str:
     return DEV_INVITE_CODE
 
 
+#: member-password-login: one development account for each way in, so the
+#: sign-in screens can be tried locally. The Google ones are matched by the
+#: mock consent screen's `sub` field (Google is linked by `sub`, never by
+#: email). Development only, like everything in this script.
+DEV_MEMBER_PASSWORD = "memberpassword"
+DEV_SIGN_IN_ACCOUNTS: list[dict] = [
+    {
+        "username": "pw_member",
+        "email": "pw_member@example.com",
+        "display_name": "비밀번호 회원",
+        "password": True,
+        "google_sub": None,
+    },
+    {
+        "username": "google_member",
+        "email": "google_member@example.com",
+        "display_name": "Google 회원",
+        "password": False,
+        "google_sub": "mock-sub-google-member",
+    },
+    {
+        "username": "both_member",
+        "email": "both_member@example.com",
+        "display_name": "둘 다 회원",
+        "password": True,
+        "google_sub": "mock-sub-both-member",
+    },
+]
+#: A single-use code nobody has used, to try signing up with.
+DEV_UNUSED_INVITE_CODE = "DEV-TRY-ONCE"
+
+
+def seed_sign_in_accounts(db: Session) -> list[User]:
+    """The three member accounts above, and the unused code. Idempotent:
+    an existing account (by username or email) is left as it is."""
+    made: list[User] = []
+    for spec in DEV_SIGN_IN_ACCOUNTS:
+        existing = db.scalar(
+            select(User).where((User.username == spec["username"]) | (User.email == spec["email"]))
+        )
+        if existing is not None:
+            made.append(existing)
+            continue
+        user = User(
+            username=spec["username"],
+            email=spec["email"],
+            password_hash=(
+                hash_password(DEV_MEMBER_PASSWORD) if spec["password"] else UNUSABLE_PASSWORD_HASH
+            ),
+            display_name=spec["display_name"],
+            role=UserRole.MEMBER,
+            account_status=AccountStatus.ACTIVE,
+        )
+        db.add(user)
+        db.flush()
+        if spec["google_sub"] and db.scalar(
+            select(ConnectedAccount.id).where(
+                ConnectedAccount.provider == "google",
+                ConnectedAccount.provider_account_id == spec["google_sub"],
+            )
+        ) is None:
+            db.add(
+                ConnectedAccount(
+                    user_id=user.id,
+                    provider="google",
+                    provider_account_id=spec["google_sub"],
+                    email=spec["email"],
+                    scopes="openid email profile",
+                )
+            )
+        made.append(user)
+    if db.scalar(select(InviteCode.id).where(InviteCode.code == DEV_UNUSED_INVITE_CODE)) is None:
+        db.add(
+            InviteCode(code=DEV_UNUSED_INVITE_CODE, label="개발용 (한 번)", max_uses=1, is_active=True)
+        )
+    db.commit()
+    return made
+
+
 def main() -> None:
     settings = get_settings()
+    if settings.deployed:
+        # The production compose sets DEPLOYED=true. Even with APP_ENV
+        # mis-set to development there, the dev seed (an admin with a
+        # known password) must never reach a deployed database
+        # (fix-beta-blockers 5). Use `python -m app.db.bootstrap` there.
+        raise SystemExit("Refusing to run: this is a deployed server (DEPLOYED=true).")
     if not settings.is_development:
         # Seeding an admin account into a real environment must never be
         # automatic.
@@ -335,6 +421,7 @@ def main() -> None:
             seed_wallet(db, admin)
         models = seed_video_models(db)
         invite = seed_dev_invite(db)
+        members = seed_sign_in_accounts(db)
 
     print(f"Development user: {user.username} / {user.email} (role={user.role.value})")
     if admin is None:
@@ -344,6 +431,9 @@ def main() -> None:
     print(f"Quarters:         {quarters} created")
     print(f"Video models:     {models} created")
     print(f"Invite code:      {invite} (development only - sign up at /signup)")
+    print(f"Unused code:      {DEV_UNUSED_INVITE_CODE} (one sign-up)")
+    for member in members:
+        print(f"Member:           {member.username} (password {DEV_MEMBER_PASSWORD} where it has one)")
     print(f"Quarter support:  {settings.quarterly_subsidy_limit_krw:,} KRW wallet per member per quarter")
 
 

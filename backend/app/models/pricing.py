@@ -84,8 +84,71 @@ class ChatModel(TimestampMixin, Base):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    # Anthropic server tools (chat-plus-tools): which this model may use.
+    # Off until an admin opens one; a member still has to turn it on per
+    # conversation. Mock-only until Phase 9 — no real API is ever called.
+    tools_web_search: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    tools_web_fetch: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    tools_code_execution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: $ per web search ($10 per 1,000). A catalogue value, admin-editable.
+    web_search_usd_per_call: Mapped[Decimal] = mapped_column(
+        Numeric(10, 6), default=Decimal("0.01"), nullable=False
+    )
+
     def __repr__(self) -> str:
         return f"<ChatModel {self.provider}/{self.model_id} {self.visibility.value}>"
+
+
+class ChatLimits(Base):
+    """The three spending guards (token-guard): a new row per change.
+
+    Like `ExchangeRate`, the history is the table itself and the row in
+    force is the newest one. With no row at all the code's defaults apply
+    (`services/chat_limits.py`), so the table needs no seed.
+
+    * `reply_cap_krw` — one reply may cost at most this, enforced
+      **before** the call through `max_tokens`. 0 turns the cap off.
+    * `long_history_tokens` — the input estimate at which the composer
+      warns that a long conversation is getting expensive. 0 turns the
+      warning off.
+    * `daily_cap_krw` — the most one member may spend per KST day across
+      every paid feature. 0 turns it off (the default).
+    """
+
+    __tablename__ = "chat_limits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reply_cap_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    long_history_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    daily_cap_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Outgoing provider calls allowed at once, per server process
+    #: (audit-caching-and-distribution). Guards the club key against one
+    #: member starting many streams; never 0 — that would stop Chat.
+    provider_concurrency: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="3"
+    )
+    #: 웹 페이지 읽기 (tool-cap-defaults, owner 2026-10-14 morning):
+    #: fetches per reply and tokens per fetched page. Inside the
+    #: per-reply cap's reserve, so smaller values fit a smaller cap.
+    #: Never 0 — the member's toggle is how the tool turns off.
+    web_fetch_max_uses: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="1"
+    )
+    web_fetch_max_content_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="10000"
+    )
+    set_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ChatLimits reply={self.reply_cap_krw} "
+            f"history={self.long_history_tokens} daily={self.daily_cap_krw}>"
+        )
 
 
 class ExchangeRate(Base):

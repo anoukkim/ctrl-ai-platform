@@ -41,18 +41,18 @@ principles.
 
 | Area                  | State                                                                            |
 | --------------------- | -------------------------------------------------------------------------------- |
-| Navigation & shell    | Built — sidebar with quarterly participation status; menu button on narrow screens |
-| Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
+| Navigation & shell    | Built — sidebar (230px; Create · Explore · Manage (admins) · Account, collapsible to an icon rail) with quarterly participation status; menu button on narrow screens |
+| Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, live 약 N원 + ledger receipts, per-reply/daily cost caps, tool toggles (웹 검색·페이지 읽기·코드 실행, mock), 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
-| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged to Video in KRW |
+| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
-| Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/영상/기타 breakdown, personal balance, ledger |
+| Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/빌더/영상/기타 breakdown, 대화별 / 날짜별 totals split into 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구, this quarter's 캐시로 아낀 금액, and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
 | Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
 | Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
-| Authentication        | **Built** — register, login, logout; Argon2 hashes; HttpOnly session cookie       |
+| Authentication        | **Built** — Google or username/password for every member (both allowed, at least one kept); invite code to sign up; Argon2 hashes; HttpOnly session cookie |
 | Claude                | Real adapter built behind `CLAUDE_PROVIDER` (mock by default); not yet run with a real key |
 | Higgsfield            | Mock provider behind `VIDEO_PROVIDER`; real adapter not built                     |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
@@ -69,7 +69,9 @@ disabled, so the shell is never mistaken for working functionality.
 | Route                 | Screen          | Notes                                        |
 | --------------------- | --------------- | -------------------------------------------- |
 | `/login`              | 로그인          | Korean sign-in; logged-out visitors land here |
-| `/signup`             | 회원가입        | Korean sign-up                                |
+| `/signup`             | 회원가입        | Korean sign-up; consent to the two documents below is required (privacy-and-terms) |
+| `/privacy`            | 개인정보 처리방침 | Korean privacy policy; logged out too          |
+| `/terms`              | 이용약관        | Korean terms of use; logged out too            |
 | `/`                   | Chat            | Default landing page (requires sign-in)      |
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
@@ -77,22 +79,20 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaistore/[slug]` | App detail      | Hero, 앱 실행, tabs; same comments as CtrlAITube |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
-| `/usage`              | Usage           | The one 동아리 지원 wallet and personal balance, in KRW |
+| `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
-| `/issues`             | Report Issue    | Bug reports and ideas, via GitHub Issues     |
 | `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
 | `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
 | `/admin/applications` | Applications    | Approve or reject, with stat cards and tabs  |
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
-| `/admin/topups`       | Top-ups         | Confirm personal top-up deposits             |
-| `/admin/budget`       | Budget          | Every wallet in a quarter, and spend by provider (what to buy) |
+| `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
+| `/admin/budget`       | Budget          | Every wallet in a quarter, spend by provider (what to buy), and the ANTHROPIC_MONTHLY_BUDGET_USD month bar |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
-| `/admin/claude-models` | Claude Models  | Chat models, their prices, who may pick them, the default |
+| `/admin/ai-models`    | AI Models       | Chat models by provider, their prices, who may pick them, the default (`/admin/claude-models` redirects) |
 | `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
-| `/admin/system`       | System          | Server health and external service status    |
-| `/admin/dev`          | Dev Tools       | Usage simulator; development only            |
+| `/admin/system`       | System          | Server health, external services, 환율 and 채팅 한도 (editable), read-only 서버 설정 (.env) — the default model lives in AI Models |
 
 `/admin/content` exists in the code but is hidden from the navigation until
 Phases 5/8 fill it — a menu item that always leads to an empty screen is in
@@ -111,7 +111,7 @@ the code keep their existing `ctrl-ai` / `ctrlai` spellings: renaming them
 would break remotes and connection strings for a change nobody can see.
 
 Product names (Chat, Project Builder, Video Generator, CtrlAIApps,
-CtrlAITube, Usage, Profile, Report Issue, Admin) are unchanged, as are all
+CtrlAITube, Usage, Profile, Admin) are unchanged, as are all
 routes.
 
 Backend endpoints: `GET /api/health`, `GET /api/users`, and `GET /docs` for the
@@ -190,6 +190,37 @@ rewrites prompt text, never generates video, and is charged to the member's
 wallet by the token, exactly like a Chat reply (below), recorded as Claude
 spend.
 
+## Signing in (member-password-login)
+
+Every member may sign in with **Google로 계속하기** or with **username and
+password**, or keep both. `/login` shows the Google button with the
+username/password form below it (the form alone where Google sign-in is
+off); `/login/password` redirects there. Sign-up is with Google (then a
+setup screen: username, name, invite code) or with username + email +
+password + invite code. An invite code is required either way.
+
+**Profile › 로그인 방법** lists both methods:
+
+- **Google 계정** — 연결하기 (linked by Google's `sub`, never by email) or
+  연결 끊기. Unlinking asks for the password and is refused while the
+  password is not set.
+- **아이디와 비밀번호** — 만들기 for a Google member (8 characters or more,
+  typed twice), 바꾸기 (current password), 없애기 (current password;
+  refused while Google is not linked, or while Google sign-in is switched
+  off on the server).
+
+Adding a way in — a first password, or linking Google — needs a sign-in
+less than 10 minutes old (there is no password to ask for), so a browser
+left open is not enough (where the browser is still signed in to Google
+itself, signing in again is easy — the rule protects where Google's own
+session has ended). Every change, linking Google included, signs out the
+member's other browsers. The backend keeps one method at all times, with the account row
+locked while it checks. Wrong current passwords — here and in withdrawal —
+count towards the sign-in attempt limit. Sign-up compares emails without
+case. Each change is in the audit log (비밀번호 로그인 추가,
+비밀번호 변경, 비밀번호 로그인 삭제, Google 로그인 연결 해제). Withdrawal
+asks for the password when there is one, the username otherwise.
+
 ## Chat
 
 Chat is the opening screen and a real conversation with Claude, behind
@@ -227,23 +258,65 @@ Chat is the opening screen and a real conversation with Claude, behind
   1.25 × input price + cache reads × the cache-read price + output × output
   price in dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
   records the model, both token counts, the dollar cost and the rate. Prices
-  are edited with the models in Admin › Claude Models, the rate in Admin ›
+  are edited with the models in Admin › AI Models, the rate in Admin ›
   System; both are audited.
+- **Live cost and the receipt** (live-cost-display). While a reply
+  streams, 약 N원 ticks up beside it (an estimate, updated a few times a
+  second). When it ends, the bubble shows the **ledger's** receipt — 입력 /
+  출력 / 캐시 읽기 (/ 검색 N회 M원) / 합계 — and the sidebar wallet updates
+  without a reload. A stopped or cap-stopped reply settles the same way; a
+  server-reported failure says 청구되지 않았어요 (and only that case — a
+  dropped connection still charges for what streamed, like 중지).
+- **The per-reply cap and the daily cap** (token-guard). Admin › System ›
+  **채팅 한도** sets a per-reply cost cap, a long-conversation warning
+  threshold and an optional daily cap per member (0 = off), all audited.
+  The cap is enforced **before** the call: it buys a `max_tokens` budget
+  after the estimated input cost, so a capped reply simply stops, is saved
+  and charged its real usage, and tells the member to send '계속해 줘'. If
+  the input alone reaches the cap, the message is refused free with a 새
+  대화 suggestion and the saving. The daily cap counts every paid feature
+  per KST day and refuses before anything is spent.
+- **Tools in Chat** (chat-plus-tools — **mock only** until Phase 9: no
+  real API call, no real fee). 웹 검색, 웹 페이지 읽기 and 코드 실행 as
+  Anthropic server tools. An admin opens each tool per model in Admin ›
+  AI Models; the member switches it on per conversation next to the model
+  picker, and sees the cost first (search ≈ 14원 each plus result tokens).
+  Both switches must be on or the tool is not sent. Each enabled tool's
+  worst case — its fee plus its result tokens — is reserved **inside** the
+  per-reply cap; a tool the cap cannot cover is refused in Korean, naming
+  it. 검색 중… / 페이지 읽는 중… / 코드 실행 중… shows while a tool runs;
+  sources appear as numbered domain links (http/https only); code runs
+  only on Anthropic's side, never ours.
+- **One club key, guarded** (audit-caching-and-distribution). Every call
+  uses the club's one Anthropic key through the backend; a member's limit
+  is their wallet. Five guards keep one member from draining the club:
+  the per-minute message limit, the per-reply cap, the daily cap, the
+  wallet pre-check and a **global concurrency limit** on outgoing provider
+  calls (Admin › System, audited; over it the member sees "지금 요청이
+  많아요" and nothing is charged). Out of credit shows Korean, charges
+  nothing and raises a named alert on the Admin dashboard;
+  `ANTHROPIC_MONTHLY_BUDGET_USD` draws a month bar in Admin › Budget with
+  an 80% warning. Details: [`api-distribution.md`](api-distribution.md).
 - **Prompt caching** (prompt-caching). Every request marks the system
   prompt and the conversation so far as cacheable, so each reply re-reads
-  the earlier turns at about a tenth of the input price (Opus 5.5 a
-  twentieth). Long conversations are trimmed in steps — half the history
+  the earlier turns at a fraction of the input price (Sonnet 5.5 and
+  Opus 5.5 a twentieth, Haiku 4.5 a tenth — the catalogue's cache-read
+  column). Long conversations are trimmed in steps — half the history
   limit at a time — so the cached start of the conversation stays the same
-  for many turns. The check before a call still prices the whole input as a
-  cache write, the dearest case. Admin › Budget shows how much of Claude's
-  input came from the cache; `CHAT_PROMPT_CACHE` / `CHAT_CACHE_TTL` switch
-  it.
+  for many turns; a test pins that two consecutive turns send a
+  byte-identical prefix. The check before a call still prices the whole
+  input as a cache write, the dearest case. Haiku 4.5 only caches once the
+  prefix passes 4,096 tokens (Anthropic's minimum), so short Haiku
+  conversations run uncached — documented, accepted. Admin › Budget shows
+  the cache share per provider, and Admin › AI Models › 비용 보정 › 캐시
+  절약 shows hits and won saved per model and day;
+  `CHAT_PROMPT_CACHE` / `CHAT_CACHE_TTL` switch it.
 - **Cost calibration** (cost-calibration). Each Chat usage event keeps
   the input estimate made before the call. Once a model has 10 real
   replies, "답장 1회 약 N원" becomes the median of its recent replies
   (labelled 최근 실제 기준) and the pre-check prices input at the observed
   ratio × 1.2 — never above one token per character, output still the full
-  maximum. Admin › Claude Models › 비용 보정 shows estimate vs reality per
+  maximum. Admin › AI Models › 비용 보정 shows estimate vs reality per
   model.
 - **Choosing a model** (chat-model-choice). Next to the composer, per
   conversation: each model shows its Korean label, a one-line description
@@ -265,10 +338,15 @@ Chat is the opening screen and a real conversation with Claude, behind
 The interface is **Korean-first, with an English menu**.
 
 **The navigation is English throughout** — the group headings (Create,
-Explore, Account), the item names (Chat, Project Builder, Video Generator,
-CtrlAIApps, CtrlAITube, Usage, Profile, Report Issue, Admin) and the Admin
-section names (Dashboard, Members, Applications, Quarters, Top-ups, Video
-Models, Audit Log, System, Dev Tools). A screen's own heading matches its
+Explore, Manage, Account — in that order; Manage only for admins, holding
+the expanding Admin item, with a 관리자 badge beside the admin's name at
+the bottom; owner decision 2026-10-14), the item names (Chat, Project Builder, Video Generator,
+CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and the Admin section
+names (Dashboard, Members, Applications, Quarters, Budget, Video
+Models, AI Models, Feedback, Deleted Items, Audit Log, System; Top-ups is
+hidden while personal top-ups are off — `personal-topup-off`). Feedback
+has no menu item for members: the 의견 보내기 button in the sidebar footer
+is the one way to send a note (admin-and-nav-cleanup, 2026-10-14). A screen's own heading matches its
 menu name, so the two never disagree.
 
 External service names (Claude, Higgsfield, GitHub, YouTube) and technical
@@ -291,10 +369,13 @@ directly in the page that shows them.
 
 ## Design
 
-A single dark theme, inspired by developer tools rather than a generic
-dashboard. Every colour is a token in `frontend/app/globals.css`; no component
-hard-codes one. There is deliberately no light theme, so the prototype looks the
-same for everyone reviewing it.
+**Two themes — dark (default) and light** (ui-polish, 2026-10-07). The
+choice lives in `localStorage` (`ctrlai-theme`), is applied before paint
+by an inline head script, and toggles from the ☀/☾ button in the sidebar
+footer. Every colour is a token in `frontend/app/globals.css`; no
+component hard-codes one, which is what makes the second theme a token
+swap rather than a redesign. Type is self-hosted Pretendard Variable.
+Under `prefers-reduced-motion` nothing moves (ui-friendly-motion).
 
 Shared classes (`.card`, `.btn`, `.badge`, `.field`, `.meter`, `.table`) also
 live in `globals.css`. Anything used by one screen only lives in that screen's
@@ -330,11 +411,48 @@ at creation into `subsidy_limit_krw` and keeps its own, edited in Admin ›
 Quarters as **1인 지원금** and audited. Approving an application copies the
 quarter's amount into the wallet, so changing a quarter's amount later never
 moves a wallet that already exists; an admin adjusts one member's wallet in
-Members › member detail (audited).
+Members › member detail — **+/− with a required reason, recorded as an
+adjustment row, never an overwrite** (cost-clarity), and refused below what
+is already spent.
+
+**분기 마감** (Admin › Quarters, cost-clarity): freezes every wallet of the
+quarter (nothing is charged to it again), records each member's unspent
+money as **회수**, and — at the carry-over % the admin chooses (default 0) —
+adds that share to the member's next approved wallet, once. Nothing is
+deleted; a closed quarter does not reopen. **신청 마감** is different: it
+stops new applications and makes the quarter *active*; wallets keep
+working.
 
 What the money went on is information, not a limit: Usage shows the wallet
-("이번 분기 지원금 80,000원 중 52,300원 남음") and a 채팅 / 영상 / 기타
-breakdown. Every usage event still records the **provider, feature, model
+("이번 분기 지원금 80,000원 중 52,300원 남음") and a 채팅 / 빌더 / 영상 /
+기타 breakdown.
+
+**Where the money went** (cost-clarity, 2026-10-14). Every reply's receipt
+shows 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계 in won, plus
+"캐시로 아낀 금액 약 N원" and an ⓘ with two plain sentences about caching
+(`frontend/lib/money.ts` › `CACHE_EXPLAINER`). The parts are unrounded; the
+total is their sum rounded up once per reply. Usage repeats the same split
+per conversation and per KST day, with this quarter's total saving. Admin ›
+Budget adds the club side: credit bought per provider (append-only purchase
+records), used (ledger), estimated remaining ("Anthropic 콘솔이 최종 기준"),
+지급 vs 사용, a per-member table, a caching panel, CSV exports and an
+optional reconciliation against Anthropic's cost report.
+
+**The spend moment** (feat-spend-feedback, owner add-on B, 2026-10-14).
+Whenever money leaves the wallet the member sees it happen, using only the
+`charged_krw` the backend returned for that action (chat reply, Builder
+generation, video, prompt help) — never an estimate; a failed or free call
+shows nothing. The sidebar balance counts down (~0.6 s) with a floating
+"-12원" and a brief pulse; a toast bottom-right (top on phones) says
+"12원을 사용했어요! 남은 지원금 79,988원" with what it was for, merges
+charges within 3 s ("3번 · 합계 36원"), disappears after 3 s and opens
+Usage when clicked. Milestones — 첫 사용, 25 / 50 / 75 % used, 잔액
+10,000원 이하 (a calm warning), 잔액 0 — appear **once per member per
+quarter**, recorded server-side (`spend_milestones`); a charge that crosses
+several shows only the highest. Profile › 알림 › **사용 알림 표시** turns it
+off (default on); the device's reduced-motion setting drops the count-down
+and the chip and keeps the toast. Nothing takes focus or blocks input;
+screen readers hear one polite line per toast. Every usage event still records the **provider, feature, model
 and native units** (tokens, seconds), so Admin › Budget can total each
 quarter's spend **by provider** — the figure the club leader reads before
 buying the next round of credit from Anthropic and from Higgsfield. The club
@@ -393,10 +511,10 @@ its own screen needs:
 | CtrlAITube | title, description, creator | creator, sort |
 | Admin — Members | name, username | role, account status, membership status, sort |
 | Admin — Applications | member name, username | status tabs + stat cards |
-| Admin — Top-ups | member name, username | top-up status |
+| Admin — Top-ups (hidden while top-ups are off) | member name, username | top-up status |
 | Admin — Audit Log | summary, admin, action, target | action |
 | Admin — Video Models | model name, provider, model id | — |
-| Admin — Claude Models | label, provider, model id | — |
+| Admin — AI Models | label, provider, model id | — |
 
 Filtering currently happens in the browser, because the data is small and
 each screen already holds its list. `SearchBar` only lifts the query out, so
@@ -416,7 +534,9 @@ rules are the same either way:
   yet — `budget-by-provider` adds one);
 - a remaining 개인 충전 balance, or a top-up request nobody has reviewed,
   marks the withdrawal **환불 대기**; an admin records the refund with
-  **환불 완료 기록**;
+  **환불 완료 기록** (with personal top-ups off — `personal-topup-off` —
+  nobody can acquire a new balance, so this shows only for money that
+  already existed);
 - published work stays up labelled 탈퇴 회원, or is unpublished if the
   member chose that;
 - usage history is untouched, so quarter reports still add up.
@@ -435,3 +555,81 @@ It is run from outside the server — by hand or from cron locally, by Cloud
 Scheduler in Phase 9 — and is safe to run again. A withdrawal still
 waiting for its refund is skipped and listed: an account is not finalised
 while money is owed. The audit log is left as written; it is append-only.
+
+## Direction — the product areas ahead
+
+Moved here from `CLAUDE.md` sections 3–8 and 12 (docs-cleanup,
+2026-10-14). Direction, not status: the backlog decides when each part is
+built. The flows every area serves:
+
+`Chat/Idea → Builder → Claude-assisted project → GitHub → Publish → CtrlAIApps`
+`Chat/Idea → Video Generator → Claude assists prompt → Higgsfield generates → library → YouTube → CtrlAITube`
+
+### Chat as the router
+
+Chat is both a general Claude chat and a natural-language way into the
+features — members must never need to know feature names. "가계부 앱
+만들어 줘" offers Project Builder; "도쿄 밤거리 15초 쇼츠" offers Video
+Generator; "크레딧 얼마 남았어?" shows the wallet; "지난 분기에 만든 앱"
+routes to Profile. Simple explicit routing (the action markers Phase 2
+built) stays enough — no complex agent router.
+
+### Project Builder
+
+Long-term: `prompt → project files → preview → edit → GitHub → publish`,
+with a browser editor (file tree, tabs, preview, build output, Claude
+panel — Monaco later). Claude works through a controlled backend coding
+workflow, never a raw provider key in the browser. **Arbitrary member
+code never runs on the main backend**; live execution needs the later
+isolated runtime (builder-static-runtime and after). Per-member GitHub
+arrives as a **GitHub App** with fine-grained repository permissions —
+members are never asked for personal access tokens, and GitHub is
+optional for using CTRL+AI.
+
+### CtrlAIApps (route `/ctrlaistore`)
+
+The community surface for published apps (Phase 5). Publishing creates a
+listing separate from the private project. Browse/search, app detail
+(name, screenshots, description, developer with membership status,
+launch button, GitHub link only if the developer made it public), simple
+reactions (Like / Useful / Interesting), threaded comments. Published
+apps stay visible when their developer is no longer participating —
+attribution is never erased, a former member shows as 탈퇴 회원.
+**Every listing query filters the project's `deleted_at`** — deleting is
+soft, and work a member removed must not survive on the one screen they
+cannot control.
+
+### Video Generator
+
+Claude (scripts/prompt help) and Higgsfield (generation) stay separate
+responsibilities behind their providers. Model-driven settings come from
+the `VideoModel` catalogue (admin allowlist, enforced in the backend).
+Later: model selector growth, templates, image-to-video, other providers
+behind the same `VideoGenerationProvider` seam.
+
+### YouTube (Phase 7)
+
+Per-member Google OAuth by **incremental authorization** — sign-in asks
+only `openid email profile`; the upload scope is asked for later, from
+Profile › YouTube 연결. Upload with title/description/privacy, store the
+returned video id, embed it. Until Google's audit passes, API uploads are
+restricted to private — public publishing is a deployment/compliance
+step, not a code step. Client secret and refresh tokens never reach the
+browser.
+
+### CtrlAITube (Phase 8)
+
+The community feed embeds YouTube videos (CTRL+AI stores the video id,
+never the file). **Entries can be created from a pasted YouTube URL**, so
+Phase 8 does not depend on Phase 7. CTRL+AI reactions and comments live
+in CTRL+AI PostgreSQL, deliberately separate from YouTube comments (an
+optionally shown, clearly labelled YouTube-comments section is fine —
+never mixed). The same `deleted_at` listing rule as CtrlAIApps.
+
+### Admin, eventually
+
+Beyond what exists (members, quarters, applications, wallets, budget by
+provider, catalogues, feedback, deleted items, audit log): content
+moderation — hide an app or video, moderate comments, disable a member's
+publishing. Admin can choose what simplified units members see; the club
+buys credit per provider, so Budget stays the purchase evidence.

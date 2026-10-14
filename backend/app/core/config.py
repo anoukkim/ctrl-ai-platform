@@ -75,6 +75,21 @@ class Settings(BaseSettings):
     # "deployed": no dev tools, no dev seed, no API docs. Beta adds the
     # banner and turns off personal top-ups (prep-beta-launch).
     app_env: str = "development"
+    # 개인 충전. Off everywhere until the owner decides real money may
+    # move (personal-topup-off, 2026-10-14); the tables and routes stay,
+    # refusing with a Korean message. personal-topup-ui turns it back on.
+    personal_topup_enabled: bool = False
+    # Admin > Budget shows the month's Anthropic spend (USD, summed from
+    # provider_cost) against this figure, warning at 80%. Empty = no bar.
+    # Informational only — the real stop is the Console's own monthly
+    # limit (audit-caching-and-distribution).
+    anthropic_monthly_budget_usd: str = ""
+    # Reconciliation (cost-clarity): an Anthropic **Admin** API key lets
+    # Admin > Budget compare our recorded cost with Anthropic's own cost
+    # report. Optional and never required; the mock answers with our own
+    # ledger. Only read when ANTHROPIC_ADMIN_PROVIDER=anthropic.
+    anthropic_admin_provider: str = "mock"
+    anthropic_admin_api_key: str = ""
     backend_port: int = 8000
     frontend_port: int = 3000
 
@@ -160,7 +175,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     # Only the fallback when the chat model catalogue is empty
     # (chat-model-choice). Members pick the model per conversation from the
-    # catalogue in Admin › Claude Models; with any row there, this decides
+    # catalogue in Admin › AI Models; with any row there, this decides
     # nothing — so it is not required to start.
     anthropic_model: str = ""
     hf_credentials: str = ""
@@ -278,12 +293,30 @@ class Settings(BaseSettings):
         return self.app_env.strip().lower() == "beta"
 
     @property
-    def top_ups_enabled(self) -> bool:
-        """Whether members may ask to add personal money.
+    def monthly_budget_usd(self) -> "Decimal | None":
+        """ANTHROPIC_MONTHLY_BUDGET_USD as a number, or None when unset."""
+        from decimal import Decimal, InvalidOperation
 
-        Off in the beta: no real money moves while the site is a test.
+        raw = self.anthropic_monthly_budget_usd.strip()
+        if not raw:
+            return None
+        try:
+            value = Decimal(raw)
+        except InvalidOperation:
+            return None
+        return value if value > 0 else None
+
+    @property
+    def top_ups_enabled(self) -> bool:
+        """Whether members may add or spend personal money.
+
+        An explicit setting, **off by default in every environment**
+        (personal-topup-off, owner 2026-10-14): members see only the
+        동아리 지원 wallet until the owner turns this on
+        (personal-topup-ui). The beta forces it off besides — no real
+        money moves while the site is a test.
         """
-        return not self.is_beta
+        return self.personal_topup_enabled and not self.is_beta
 
     @property
     def cookie_domain(self) -> str | None:
@@ -362,6 +395,11 @@ class Settings(BaseSettings):
                 missing.append("CLAUDE_PROVIDER (mock 또는 anthropic)")
             if not self.anthropic_api_key.strip():
                 missing.append("ANTHROPIC_API_KEY")
+        admin_report = self.anthropic_admin_provider.strip().lower()
+        if admin_report not in {"mock", "anthropic"}:
+            missing.append("ANTHROPIC_ADMIN_PROVIDER (mock 또는 anthropic)")
+        elif admin_report == "anthropic" and not self.anthropic_admin_api_key.strip():
+            missing.append("ANTHROPIC_ADMIN_API_KEY")
         google = self.google_login_provider.strip().lower()
         if google not in {"mock", "google"}:
             missing.append("GOOGLE_LOGIN_PROVIDER (mock 또는 google)")

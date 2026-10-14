@@ -181,10 +181,39 @@ def provider_spend(
     return sorted(result, key=lambda line: line.charged_krw, reverse=True)
 
 
-def quarter_budget(db: Session, quarter: Quarter) -> QuarterBudgetRead:
+def anthropic_month_usd(db: Session) -> tuple[str, float]:
+    """This KST month's Anthropic spend in dollars, from `provider_cost`.
+
+    The month is the **KST calendar month** — the Console's own monthly
+    limit runs on its own clock (believed UTC), so near a month boundary
+    the two can disagree by hours; the screen says (KST)
+    (audit-caching-and-distribution). provider_cost is what Anthropic
+    billed; charged_krw (what moved wallets) deliberately stays out.
+    """
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+
+    kst = timezone(timedelta(hours=9))
+    now_kst = datetime.now(timezone.utc).astimezone(kst)
+    month_start = now_kst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    total = db.scalar(
+        select(func.coalesce(func.sum(UsageEvent.provider_cost), 0)).where(
+            UsageEvent.provider == "claude",
+            UsageEvent.provider_currency == "USD",
+            UsageEvent.created_at >= month_start.astimezone(timezone.utc),
+        )
+    )
+    return now_kst.strftime("%Y-%m"), float(Decimal(total or 0))
+
+
+def quarter_budget(db: Session, quarter: Quarter, settings=None) -> QuarterBudgetRead:
+    from app.core.config import get_settings
+
     wallets = member_wallets(db, quarter)
     total_budget = sum(wallet.budget_krw for wallet in wallets)
     providers = provider_spend(db, quarter, total_budget)
+    month, month_usd = anthropic_month_usd(db)
+    budget = (settings or get_settings()).monthly_budget_usd
     return QuarterBudgetRead(
         quarter=QuarterRead.model_validate(quarter),
         member_budget_krw=quarter.subsidy_limit_krw,
@@ -194,4 +223,7 @@ def quarter_budget(db: Session, quarter: Quarter) -> QuarterBudgetRead:
         total_remaining_krw=sum(wallet.remaining_krw for wallet in wallets),
         providers=providers,
         total_charged_krw=sum(line.charged_krw for line in providers),
+        anthropic_month_usd=month_usd,
+        anthropic_month_budget_usd=float(budget) if budget is not None else None,
+        anthropic_month=month,
     )

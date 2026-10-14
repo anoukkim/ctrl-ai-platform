@@ -1,15 +1,13 @@
 # Ctrl AI — Architecture Notes
 
-Longer-term architecture: what the platform is expected to look like once it
-is deployed, and the rules that hold while it is built.
+How the platform is put together: the request flow, the guard on every
+endpoint, the provider boundary and the data model are **built and
+current**; the *Target infrastructure* section below is direction for
+after the beta. For screens and product rules see
+[`product.md`](product.md); for the standing rules and working method see
+[`CLAUDE.md`](../CLAUDE.md), which wins wherever the two disagree.
 
-**Nothing in this document is built yet.** It is direction, not status. For
-what exists today see [`product.md`](product.md); for the product
-definition and the phase plan see [`CLAUDE.md`](../CLAUDE.md), which wins
-wherever the two disagree.
-
-These notes were rescued from an earlier draft of the README and corrected
-to match the current product definition. The main corrections: Ctrl AI calls
+Three long-standing corrections worth keeping in mind: Ctrl AI calls
 **hosted provider APIs** (Claude, Higgsfield) rather than running its own
 GPU models; videos live on **YouTube** rather than being served by Ctrl AI;
 and money is denominated in **KRW**, not in per-provider units.
@@ -77,6 +75,10 @@ the same commit that adds it.
 | `GET /api/auth/me` | `get_current_user` | |
 | `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
 | `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
+| `GET /api/account/sign-in` | `get_current_user` | Profile › 로그인 방법: password set? Google linked? |
+| `PUT /api/account/password` | `get_current_user` | **Deliberately open** — set a first password, or change it (current password re-checked, under the sign-in limit) |
+| `POST /api/account/password/remove` | `get_current_user` | **Deliberately open** — only while Google is linked; row locked; current password re-checked |
+| `POST /api/account/google/unlink` | `get_current_user` | **Deliberately open** — only while a password is set; row locked; that password re-checked |
 | `GET /api/chat/info` | `get_current_user` | Mock or real, and the rate limit |
 | `GET /api/chat/conversations` | `get_current_user` | Reading your own conversations — works while inactive |
 | `GET /api/chat/conversations/{id}` | `get_current_user` | Reading your own conversation |
@@ -114,8 +116,8 @@ the same commit that adds it.
 | `POST /api/quarters/{id}/apply` | `get_current_user` | **Deliberately open** — see below |
 | `POST /api/quarters/applications/{id}/cancel` | `get_current_user` | Same |
 | `GET /api/quarters/me/wallet` | `get_current_user` | Own money |
-| `PATCH /api/quarters/me/wallet` | `get_current_user` | Own money, no community budget touched |
-| `POST /api/quarters/me/top-ups` | `get_current_user` | Own money; refused in `APP_ENV=beta` |
+| `PATCH /api/quarters/me/wallet` | `get_current_user` | Own money; switching spending **on** is refused while `PERSONAL_TOPUP_ENABLED` is off (personal-topup-off) |
+| `POST /api/quarters/me/top-ups` | `get_current_user` | Own money; refused while `PERSONAL_TOPUP_ENABLED` is off (default everywhere; the beta forces it off) |
 | `GET /api/quarters/me/top-ups` | `get_current_user` | Own money |
 | `GET /api/usage/me` | `get_current_user` | Reading your own ledger |
 | `GET /api/users` | `require_admin` | |
@@ -145,14 +147,14 @@ the same commit that adds it.
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/quarters-with-stats` | `require_admin` | Read-only; every quarter with its figures |
 | `GET /api/admin/claude-pricing` | `require_admin` | Claude prices, exchange rate, chat limits |
-| `GET /api/admin/chat-models` | `require_admin` | The Claude model catalogue |
+| `GET /api/admin/chat-models` | `require_admin` | The AI model catalogue (Admin › AI Models) |
+| `GET /api/admin/chat-models/providers` | `require_admin` | Providers in display order; `ready` false = 연결 준비 중, its models stay closed |
 | `POST /api/admin/chat-models` | `require_admin` | Audited |
 | `PATCH /api/admin/chat-models/{id}` | `require_admin` | Audited (prices incl. cache-read price) |
 | `GET /api/admin/chat-models/calibration` | `require_admin` | Cost calibration: estimates vs real replies, read-only |
 | `POST /api/admin/claude-pricing/exchange-rate` | `require_admin` | A new rate row; history kept; audited |
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |
-| `POST /api/admin/simulate-usage` | `require_admin` | 404 outside development |
 | `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
 | `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
 | `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |
@@ -176,17 +178,12 @@ Two entries that look like exceptions and are not:
   behind participating in it. It spends nothing, and the password is
   asked for again.
 
-### Not yet in the table
+### Adding a route
 
-Chat has no backend route — the replies are chosen in the browser, and
-Phase 2 builds the real one. The Claude panels in Project Builder and
-Video Generator are the same. **Each must be created with
-`require_active_member` already on it**, not have it added later: a rule
-applied after the fact is a rule that was missing for every release
-before it.
-
-The browser also hides and disables these controls, which is a courtesy
-and nothing more.
+**A new route is created with its guard already on it**, not guarded
+later: a rule applied after the fact is a rule that was missing for every
+release before it. The browser also hides and disables the matching
+controls, which is a courtesy and nothing more.
 
 ### This table is tested
 
@@ -202,8 +199,9 @@ endpoint as an inactive, unenrolled, active and admin member.
 
 Every external provider sits behind an interface with a **mock
 implementation selected by an environment variable**, mock by default
-(`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `GITHUB_PROVIDER`, `YOUTUBE_PROVIDER`).
-See section 20 of `CLAUDE.md`.
+(`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `GITHUB_PROVIDER`,
+`YOUTUBE_PROVIDER`, and `GOOGLE_LOGIN_PROVIDER` for Google sign-in). See
+the provider rule in `CLAUDE.md`.
 
 This is what makes it possible to build every phase locally with no API keys
 and no domain, and it is why going live is a configuration change rather
@@ -302,16 +300,72 @@ Large files do not belong in PostgreSQL.
 Ctrl AI. CtrlAITube embeds YouTube and keeps its own comment thread in
 PostgreSQL, deliberately separate from YouTube's comments.
 
-## Database tables
+## Core data model
 
-The tables that matter are specified in section 14 of `CLAUDE.md` — `User`,
-`Quarter`, `QuarterApplication`, `QuarterAllocation`, `PersonalBalance`,
-`PersonalTopUp`, `UsageEvent`, `Project`, `App`, `Video`, their reaction and
-comment tables, and `ConnectedAccount`. That section is authoritative; this
-document does not duplicate it.
+Moved here from `CLAUDE.md` section 14 (docs-cleanup, 2026-10-14); this
+is now the authoritative statement of direction. It is direction, not a
+promise to implement everything at once — the real schema is whatever
+Alembic has migrated (`backend/app/models/`).
 
-Alembic owns the schema. `create_all` is not used, and a production database
-is migrated, never re-created.
+- **User** — id, username, email, password_hash (Argon2id, or the
+  unusable sentinel for Google-only accounts), display_name, avatar_url,
+  account_status (`active` / `inactive` / `former`), role (`admin` /
+  `member` — the only two), invite_code_id, timestamps.
+- **Quarter** — code ("2026-Q1"), display_name, starts_at/ends_at,
+  application_opens_at/closes_at, status (`draft` / `application_open` /
+  `active` / `closed`), **subsidy_limit_krw** (copied per quarter at
+  creation; changing the default never moves an existing quarter).
+- **QuarterApplication** — one live application per member per quarter;
+  requested_budget_krw (the quarter's amount when applying), status
+  (`draft` / `submitted` / `approved` / `rejected` / `cancelled`),
+  review fields.
+- **QuarterMembership** — one row per member per quarter; **a missing
+  row means "not participating"**. Answers a different question from
+  `User.account_status` and must not be conflated with it.
+- **QuarterAllocation** — the one 동아리 지원 wallet: budget_krw,
+  consumed_krw, pricing_snapshot (provider prices captured at approval),
+  approval fields.
+- **PersonalBalance / PersonalTopUp** — kept, feature off
+  (`personal-topup-off`, 2026-10-14): balance_krw, consumed_krw,
+  overage_enabled (ignored entirely while `PERSONAL_TOPUP_ENABLED` is
+  false); top-ups carry status (`requested` / `confirmed` / `rejected` /
+  `cancelled`) and settlement fields.
+- **UsageEvent** — the ledger row written with every charge in one
+  transaction: user, quarter, funding_source (`community` / `personal`),
+  provider, feature (`chat` / `build` / `video_prompt` / `video_generate`
+  / `video_edit` / `video_extend`), model_id, provider_units /
+  provider_unit, provider_cost / provider_currency (what the provider
+  charged) **separate from** charged_krw (what moved a budget), token and
+  cache-token counts, exchange rate, and nullable links to the
+  conversation / project / video version that caused it (`ON DELETE SET
+  NULL`, so history survives deletes).
+- **Project (BuilderProject) / BuilderProjectFile** — owner, name,
+  description, status (`draft` / `building` / `ready` / `published`),
+  github_repo, preview_url, **deleted_at** (soft delete — every member
+  listing filters on it).
+- **App** (Phase 5) — the published, community-facing object: project_id,
+  owner, slug, thumbnail, launch_url, published_at. A project is the
+  private working object; an app is the published listing. Listings must
+  filter the underlying project's `deleted_at`.
+- **Video (VideoProject / VideoVersion) / VideoModel** — owner, prompt,
+  provider job id, `asset_storage_key` (served through the storage
+  interface, never a provider URL), youtube_video_id (Phase 7/8), status,
+  per-version settings validated against the model's capabilities,
+  **deleted_at** (soft delete, same rule).
+- **Reactions / Comments** (Phases 5 and 8) — per app and per video, with
+  `parent_comment_id` for threads; CTRL+AI comments stay separate from
+  YouTube comments.
+- **ConnectedAccount** — provider (`google`, later `github`),
+  provider_account_id (Google's stable `sub` — accounts are linked by it,
+  never by email), encrypted credential reference.
+- **Supporting tables that exist today** — user_sessions (server-side
+  sessions), invite_codes + signup_attempts + login_attempts, chat
+  conversations/messages, chat_models (the AI Models catalogue),
+  exchange_rates, feedback, account_withdrawals, oauth_states /
+  pending_google_signups, audit_log (append-only).
+
+Alembic owns the schema. `create_all` is not used, and a production
+database is migrated, never re-created.
 
 ---
 

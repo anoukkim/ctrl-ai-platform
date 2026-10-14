@@ -10,12 +10,17 @@ import { costLabel } from "@/app/components/ChatModelPicker";
 import type { ChatModelOption } from "@/lib/chat";
 
 const getChatCalibration = vi.fn();
+const getChatCacheStats = vi.fn();
 vi.mock("@/lib/admin", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/admin")>();
-  return { ...actual, getChatCalibration: () => getChatCalibration() };
+  return {
+    ...actual,
+    getChatCalibration: () => getChatCalibration(),
+    getChatCacheStats: () => getChatCacheStats(),
+  };
 });
 
-const { default: CalibrationPanel } = await import("@/app/admin/claude-models/CalibrationPanel");
+const { default: CalibrationPanel } = await import("@/app/admin/ai-models/CalibrationPanel");
 
 const SONNET: ChatModelOption = {
   id: 2,
@@ -58,11 +63,28 @@ describe("Admin › 비용 보정", () => {
         cache_hit_rate: 0.75,
       },
     ]);
+    getChatCacheStats.mockResolvedValue([
+      {
+        model_id: "claude-sonnet-5-5",
+        label: "균형 잡힌 답변 (Sonnet 5.5)",
+        day: "2026-10-14",
+        replies: 4,
+        cache_hit_replies: 2,
+        read_tokens: 12_000,
+        saved_krw: 32,
+      },
+    ]);
     render(<CalibrationPanel />);
 
     expect(await screen.findByText("1,000 → 600")).toBeTruthy();
     expect(screen.getByText("×0.72")).toBeTruthy();
     expect(screen.getByText("75%")).toBeTruthy();
     expect(screen.getByText(/보정 중/)).toBeTruthy();
+
+    // 캐시 절약 (PART F): 일별 적중률과 아낀 돈.
+    expect(await screen.findByText("캐시 절약")).toBeTruthy();
+    expect(screen.getByText("12,000 토큰")).toBeTruthy();
+    expect(screen.getByText("32원")).toBeTruthy();
+    expect(screen.getByText("50%")).toBeTruthy();
   });
 });

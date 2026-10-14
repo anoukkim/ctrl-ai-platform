@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     account,
     admin,
+    admin_accounting,
     admin_chat_models,
     admin_claude,
     admin_invites,
@@ -23,6 +24,7 @@ from app.api.routes import (
     google_auth,
     health,
     quarters,
+    sign_in_methods,
     site,
     usage,
     users,
@@ -35,6 +37,7 @@ api_router.include_router(site.router)
 api_router.include_router(auth.router)
 api_router.include_router(google_auth.router)
 api_router.include_router(account.router)
+api_router.include_router(sign_in_methods.router)
 api_router.include_router(users.router)
 api_router.include_router(builder.router)
 api_router.include_router(chat.router)
@@ -46,6 +49,7 @@ api_router.include_router(admin_claude.router)
 api_router.include_router(admin_chat_models.router)
 api_router.include_router(admin_invites.router)
 api_router.include_router(admin_quarters.router)
+api_router.include_router(admin_accounting.router)
 api_router.include_router(admin_overview.router)
 api_router.include_router(admin_work.router)
 api_router.include_router(admin_withdrawals.router)

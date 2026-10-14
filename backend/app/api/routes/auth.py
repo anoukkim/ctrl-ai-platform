@@ -12,7 +12,7 @@ Error messages are Korean, because members read them.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,7 @@ def _as_current_user(user: User) -> CurrentUser:
         account_status=user.account_status,
         is_admin=user.role is UserRole.ADMIN,
         has_password=user.password_hash != UNUSABLE_PASSWORD_HASH,
+        spend_notifications=user.spend_notifications,
     )
 
 
@@ -73,6 +74,11 @@ def _start_session(db: Session, response: Response, user: User, settings: Settin
     )
 
 
+#: privacy-and-terms: shown when the consent box was not ticked. The
+#: Google completion route uses the same sentence.
+TERMS_REQUIRED = "개인정보 처리방침과 이용약관에 동의해야 가입할 수 있습니다."
+
+
 @router.post(
     "/register",
     response_model=CurrentUser,
@@ -101,6 +107,12 @@ def register(
        a moment earlier, the claim changes nothing and this signup gets
        the same "unusable" message.
     """
+    # Consent first: a pure payload check that reveals nothing, costs
+    # nothing and must hold on every path (privacy-and-terms). The
+    # browser disables the button, but the backend is the rule.
+    if not payload.terms_accepted:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=TERMS_REQUIRED)
+
     address = rate_limit.client_address(request, settings)
     if rate_limit.blocked(db, address, settings):
         raise HTTPException(
@@ -120,8 +132,13 @@ def register(
     if invite is None:
         raise refuse_code(invites.CODE_UNUSABLE)
 
+    # The email compared without case: Victim@gmail.com and victim@gmail.com
+    # are one mailbox, and Google sign-up compares them the same way.
     taken = db.scalar(
-        select(User).where((User.username == payload.username) | (User.email == payload.email))
+        select(User).where(
+            (User.username == payload.username)
+            | (func.lower(User.email) == payload.email.strip().lower())
+        )
     )
     if taken is not None:
         # Which field collided is safe to say: both are visible to anyone
@@ -144,6 +161,7 @@ def register(
         role=UserRole.MEMBER,
         account_status=AccountStatus.ACTIVE,
         invite_code_id=invite.id,
+        terms_accepted_at=datetime.now(timezone.utc),
     )
     db.add(user)
     try:
@@ -170,8 +188,8 @@ def login(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> CurrentUser:
-    # Limited per address and per username: password sign-in is the admin's
-    # emergency door now that members use Google (google-login).
+    # Limited per address and per username. Every member may sign in by
+    # password as well as with Google (member-password-login, 2026-10-14).
     address = rate_limit.client_address(request, settings)
     if rate_limit.login_blocked(db, address, payload.username, settings):
         raise HTTPException(

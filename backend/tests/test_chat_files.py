@@ -264,8 +264,10 @@ def test_the_estimate_is_the_precheck_figure(
 
     def spy(*args, **kwargs):
         messages, estimated = real(*args, **kwargs)
-        seen["estimated"] = estimated
-        seen["messages"] = messages
+        # The first call is the pre-check; the long-history warning after
+        # the reply calls it again (token-guard).
+        seen.setdefault("estimated", estimated)
+        seen.setdefault("messages", messages)
         return messages, estimated
 
     monkeypatch.setattr(chat_service, "build_context", spy)
@@ -450,3 +452,49 @@ def test_the_mock_bills_attachments_with_the_estimate_formulas() -> None:
     assert attachments_service.block_tokens(image_block) == 2 * 1
     assert attachments_service.block_tokens(pdf_block) == 3 * attachments_service.PDF_TOKENS_PER_PAGE
     assert attachments_service.block_tokens(text_block) == 3
+
+
+def test_files_in_the_window_count_toward_the_long_history_warning(
+    client: TestClient, conversation: int, db_session: Session, storage_settings, monkeypatch
+) -> None:
+    """A conversation carrying a PDF is "long" by its pages, not only its text."""
+    from dataclasses import replace
+
+    from app.models import Conversation
+    from app.services import chat_limits, chat_models
+
+    pdf_upload = upload(client, conversation, "report.pdf", pdf(2)).json()
+    assert send(client, conversation, "요약해 줘", [pdf_upload["attachment"]["id"]]).status_code == 200
+
+    real = chat_limits.current
+    monkeypatch.setattr(chat_limits, "current", lambda db: replace(real(db), long_history_tokens=1))
+    chat = db_session.get(Conversation, conversation)
+    history = chat_service.messages_of(db_session, chat)
+    model = chat_models.default_model(db_session, storage_settings)
+    warning = chat_service.long_history_info(db_session, storage_settings, history, model)
+
+    text_only = sum(
+        chat_service.estimate_tokens(m.content) + chat_service._MESSAGE_OVERHEAD for m in history
+    )
+    assert warning is not None
+    assert warning.history_tokens >= 2 * attachments_service.PDF_TOKENS_PER_PAGE
+    assert warning.history_tokens > text_only
+
+
+@pytest.mark.parametrize(
+    "content_type", ["text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x", None]
+)
+def test_an_upload_a_page_could_send_without_a_preflight_is_refused(
+    client: TestClient, conversation: int, db_session: Session, content_type
+) -> None:
+    """A member app on apps.ctrlai.my is same-site: a "simple" cross-origin
+    POST would carry the session cookie with no CORS preflight (CLAUDE.md §2)."""
+    headers = {"content-type": content_type} if content_type else {}
+    response = client.post(
+        f"/api/chat/conversations/{conversation}/attachments",
+        params={"name": "note.txt"},
+        content=b"hello",
+        headers=headers,
+    )
+    assert response.status_code == 415
+    assert db_session.query(ChatAttachment).count() == 0

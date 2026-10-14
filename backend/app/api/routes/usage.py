@@ -9,10 +9,12 @@ showing figures from four different moments.
 from datetime import date
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
     BuilderProject,
@@ -29,13 +31,20 @@ from app.schemas.usage import (
     UsageEventRead,
     WalletUsage,
 )
+from app.schemas.accounting import (
+    ConversationMoneyRead,
+    DayMoneyRead,
+    MemberMoneyRead,
+    SplitRead,
+)
+from app.services import accounting, milestones
 from app.services.quarters import current_quarter, membership_for
 from app.services.usage import personal_balance, recent_events, spending_breakdown
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
 #: The wallet card's breakdown, in the order it is shown.
-SPENDING_LABEL = {"chat": "채팅", "video": "영상", "other": "기타"}
+SPENDING_LABEL = {"chat": "채팅", "build": "빌더", "video": "영상", "other": "기타"}
 
 
 #: What a video charge was for, when the event says. The prompt helper is
@@ -74,6 +83,7 @@ def _label_for(db: Session, event) -> str:
 def read_my_usage(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> MyUsage:
     quarter = current_quarter(db)
     balance = personal_balance(db, user.id)
@@ -106,14 +116,38 @@ def read_my_usage(
                 for group, label in SPENDING_LABEL.items()
             ]
 
+    prices = accounting.catalogue_prices(db)
     events = [
         UsageEventRead(
-            **UsageEventRead.model_validate(event).model_dump(exclude={"label", "group"}),
+            **UsageEventRead.model_validate(event).model_dump(
+                exclude={"label", "group", "split"}
+            ),
             group=spending_group(event.feature),
             label=_label_for(db, event),
+            split=SplitRead(**accounting.split_of(event, prices).as_dict()),
         )
         for event in recent_events(db, user.id)
     ]
+
+    money: MemberMoneyRead | None = None
+    if quarter is not None:
+        totals = accounting.member_money(db, user.id, quarter.id)
+        money = MemberMoneyRead(
+            quarter=SplitRead(**totals.quarter.as_dict()),
+            by_conversation=[
+                ConversationMoneyRead(
+                    conversation_id=total.conversation_id,
+                    title=total.title,
+                    last_at=total.last_at,
+                    split=SplitRead(**total.split.as_dict()),
+                )
+                for total in totals.by_conversation[:50]
+            ],
+            by_day=[
+                DayMoneyRead(day=total.day, split=SplitRead(**total.split.as_dict()))
+                for total in totals.by_day[:31]
+            ],
+        )
 
     return MyUsage(
         quarter_code=quarter.code if quarter else None,
@@ -122,11 +156,64 @@ def read_my_usage(
         membership_status=membership_status,
         wallet=wallet,
         breakdown=breakdown,
+        # personal-topup-off: not shown to members while 개인 충전 is off.
         personal=PersonalUsage(
             balance_krw=balance.balance_krw,
             consumed_krw=balance.consumed_krw,
             remaining_krw=max(0, balance.balance_krw - balance.consumed_krw),
             overage_enabled=balance.overage_enabled,
-        ),
+        )
+        if settings.top_ups_enabled
+        else None,
         events=events,
+        money=money,
+    )
+
+
+
+# ------------------------------------------- milestones (spend feedback)
+
+
+class MilestoneRequest(BaseModel):
+    """Empty on purpose. A JSON body is still required, as on every
+    state-changing route: a page on another origin cannot send one without
+    a CORS preflight the API refuses (CLAUDE.md §2)."""
+
+
+class MilestoneClaim(BaseModel):
+    #: The highest milestone newly reached by this claim, or None.
+    #: "first" | "used_25" | "used_50" | "used_75" | "low" | "empty".
+    milestone: str | None
+    budget_krw: int
+    consumed_krw: int
+    remaining_krw: int
+    percent_used: int
+
+
+@router.post(
+    "/me/milestones",
+    response_model=MilestoneClaim | None,
+    summary="Record and return the newest spend milestone",
+)
+def claim_milestone(
+    _payload: MilestoneRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> MilestoneClaim | None:
+    """Called by the screen after a charge (feat-spend-feedback).
+
+    Reads the wallet as `usage.charge()` left it — never a figure from the
+    browser — records every milestone newly crossed, and returns the
+    highest one, so each shows once per quarter on any device. Spends
+    nothing. None without a current quarter or wallet.
+    """
+    claim = milestones.claim(db, user)
+    if claim is None:
+        return None
+    return MilestoneClaim(
+        milestone=claim.milestone,
+        budget_krw=claim.budget_krw,
+        consumed_krw=claim.consumed_krw,
+        remaining_krw=claim.remaining_krw,
+        percent_used=claim.percent_used,
     )

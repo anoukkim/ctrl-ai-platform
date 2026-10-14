@@ -7,7 +7,9 @@
   flex: 0 0 340px;
 }
 
-.promptArea {
+/* Compound with the global `.field` so the radius and font win whatever
+   order the stylesheets load in. */
+.promptArea:global(.field) {
   width: 100%;
   min-height: 7.5rem;
   resize: vertical;

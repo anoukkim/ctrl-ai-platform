@@ -261,6 +261,8 @@ export type VideoVersionKind = "generate" | "edit" | "extend";
 
 export interface VideoVersion {
   id: number;
+  /** 이 버전을 만든 요청이 지갑에서 뺀 금액 — 생성·수정·이어서 응답에만(feat-spend-feedback). */
+  charged_krw?: number | null;
   label: string;
   provider: string;
   model_id: string;

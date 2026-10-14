@@ -1,4 +1,4 @@
-"""Admin › Claude Models (the chat model catalogue) and Admin › System
+"""Admin › AI Models (the chat model catalogue) and Admin › System
 (the exchange rate and the chat limits)."""
 
 from datetime import datetime
@@ -10,7 +10,7 @@ from app.models.pricing import ChatModelVisibility
 
 
 class ChatModelAdminRead(BaseModel):
-    """One catalogue row, as Admin › Claude Models shows it."""
+    """One catalogue row, as Admin › AI Models shows it."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,10 +27,26 @@ class ChatModelAdminRead(BaseModel):
     is_default: bool
     sort_order: int
     updated_at: datetime
+    #: "Anthropic (Claude)"; and False while the provider has no adapter
+    #: (연결 준비 중) — such a row stays closed.
+    provider_label: str = ""
+    provider_ready: bool = True
     #: The same "답장 1회 약 N원" members see in the picker.
     estimated_reply_krw: int | None = None
     estimate_basis: str = "formula"
     estimate_samples: int = 0
+    # Server tools (chat-plus-tools): which this model may use, and the
+    # $ one web search costs. Off until an admin opens one.
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    web_search_usd_per_call: Decimal = Decimal("0.01")
+
+
+class ChatProviderRead(BaseModel):
+    id: str
+    label: str
+    ready: bool
 
 
 class ChatModelCreate(BaseModel):
@@ -49,6 +65,12 @@ class ChatModelCreate(BaseModel):
     #: New models start closed: an admin opens one on purpose.
     visibility: ChatModelVisibility = ChatModelVisibility.DISABLED
     sort_order: int = Field(default=100, ge=0, le=10000)
+    tools_web_search: bool = False
+    tools_web_fetch: bool = False
+    tools_code_execution: bool = False
+    #: $ per web search. The bound catches a typo ($10, the per-1,000
+    #: price, typed per call), not any real price.
+    web_search_usd_per_call: Decimal = Field(default=Decimal("0.01"), ge=0, le=1, decimal_places=6)
 
 
 class ChatModelUpdate(BaseModel):
@@ -65,6 +87,12 @@ class ChatModelUpdate(BaseModel):
     visibility: ChatModelVisibility | None = None
     sort_order: int | None = Field(default=None, ge=0, le=10000)
     is_default: bool | None = None
+    tools_web_search: bool | None = None
+    tools_web_fetch: bool | None = None
+    tools_code_execution: bool | None = None
+    web_search_usd_per_call: Decimal | None = Field(
+        default=None, ge=0, le=1, decimal_places=6
+    )
 
 
 class ExchangeRateRead(BaseModel):
@@ -76,6 +104,32 @@ class ExchangeRateRead(BaseModel):
 
 class ExchangeRateWrite(BaseModel):
     krw_per_usd: Decimal = Field(ge=100, le=10000, decimal_places=2)
+
+
+class ChatLimitsRead(BaseModel):
+    """The three spending guards (token-guard). 0 = that guard is off."""
+
+    reply_cap_krw: int
+    long_history_tokens: int
+    daily_cap_krw: int
+    provider_concurrency: int
+    web_fetch_max_uses: int
+    web_fetch_max_content_tokens: int
+    set_at: datetime | None = None
+    set_by_username: str = ""
+
+
+class ChatLimitsWrite(BaseModel):
+    """Bounds catch typos (a cap in dollars, a threshold in characters)."""
+
+    reply_cap_krw: int = Field(ge=0, le=100_000)
+    long_history_tokens: int = Field(ge=0, le=1_000_000)
+    daily_cap_krw: int = Field(ge=0, le=10_000_000)
+    #: Never 0: that would stop every provider call outright.
+    provider_concurrency: int = Field(ge=1, le=50)
+    #: 웹 페이지 읽기 — never 0: the member's toggle is how it turns off.
+    web_fetch_max_uses: int = Field(ge=1, le=5)
+    web_fetch_max_content_tokens: int = Field(ge=1_000, le=100_000)
 
 
 class ClaudeSettingsRead(BaseModel):
@@ -98,10 +152,26 @@ class ClaudeSettingsRead(BaseModel):
     cache_ttl: str | None = "5m"
     exchange_rate: ExchangeRateRead | None
     rate_history: list[ExchangeRateRead]
+    #: token-guard: the per-reply cap, the warning threshold, the daily cap.
+    chat_limits: ChatLimitsRead
+
+
+class ModelCacheDayRead(BaseModel):
+    """Admin › AI Models › 비용 보정 › 캐시 절약: one model, one KST day."""
+
+    model_id: str
+    label: str
+    day: str
+    replies: int
+    cache_hit_replies: int
+    read_tokens: int
+    #: At today's catalogue prices and each event's own rate — an
+    #: approximation, said so on the screen.
+    saved_krw: int
 
 
 class ModelCalibrationRead(BaseModel):
-    """Admin › Claude Models › 비용 보정: estimate vs reality, per model."""
+    """Admin › AI Models › 비용 보정: estimate vs reality, per model."""
 
     model_id: str
     label: str

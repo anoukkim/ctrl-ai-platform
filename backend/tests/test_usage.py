@@ -21,10 +21,16 @@ from app.models import (
     QuarterStatus,
     UsageEvent,
 )
+from app.core.config import Settings
 from app.services import usage as usage_service
 from app.services.quarters import set_membership
 from app.services.wallet import get_or_create_balance
 from tests.conftest import DEV_PASSWORD
+
+#: Personal money is off by default (personal-topup-off, 2026-10-14). The
+#: opted-in rules below are about the kept machinery, so they run with the
+#: switch on; test_personal_topup_off.py proves the default.
+TOPUPS_ON = Settings(app_env="development", personal_topup_enabled=True)
 
 
 @pytest.fixture
@@ -179,6 +185,7 @@ def test_personal_money_is_not_touched_unless_the_member_opted_in(
     with pytest.raises(usage_service.InsufficientBudgetError) as caught:
         usage_service.charge(
             db_session, user=dev_user, amount_krw=120_000, provider="higgsfield",
+            settings=TOPUPS_ON,
         )
 
     assert "개인 사용을 켜" in str(caught.value)
@@ -196,6 +203,7 @@ def test_personal_money_is_used_once_opted_in(
 
     result = usage_service.charge(
         db_session, user=dev_user, amount_krw=120_000, provider="higgsfield",
+        settings=TOPUPS_ON,
     )
 
     assert result.funding_source is FundingSource.PERSONAL
@@ -216,7 +224,8 @@ def test_the_wallet_is_spent_before_personal_money(
     db_session.commit()
 
     result = usage_service.charge(
-        db_session, user=dev_user, amount_krw=40_000, provider="claude", feature="chat"
+        db_session, user=dev_user, amount_krw=40_000, provider="claude", feature="chat",
+        settings=TOPUPS_ON,
     )
 
     assert result.funding_source is FundingSource.COMMUNITY
@@ -278,13 +287,16 @@ def test_usage_me_breaks_the_wallet_down_by_chat_video_and_other(
     balance.balance_krw, balance.overage_enabled = 500_000, True
     db_session.commit()
     usage_service.charge(
-        db_session, user=dev_user, amount_krw=200_000, provider="claude", feature="chat"
+        db_session, user=dev_user, amount_krw=200_000, provider="claude", feature="chat",
+        settings=TOPUPS_ON,
     )
 
     body = client.get("/api/usage/me").json()
 
     assert [(line["group"], line["label"], line["consumed_krw"]) for line in body["breakdown"]] == [
         ("chat", "채팅", 3_000),
+        # cost-clarity: 빌더 has its own line (nothing built here).
+        ("build", "빌더", 0),
         ("video", "영상", 3_800),
         ("other", "기타", 700),
     ]
@@ -300,55 +312,12 @@ def test_usage_me_is_empty_but_valid_without_an_allocation(
     assert body["wallet"] is None
     assert body["breakdown"] == []
     assert body["events"] == []
-    assert body["personal"]["remaining_krw"] == 0
+    # personal-topup-off: members are not shown a personal balance at all.
+    assert body["personal"] is None
 
 
 def test_usage_me_requires_signing_in(anon_client: TestClient) -> None:
     assert anon_client.get("/api/usage/me").status_code == 401
-
-
-# ------------------------------------------------------------ simulate
-
-
-def test_simulate_usage_charges_through_the_real_service(
-    client: TestClient, dev_user, funded, db_session: Session
-) -> None:
-    response = client.post(
-        "/api/admin/simulate-usage",
-        json={"amount_krw": 5_000, "provider": "claude", "feature": "chat"},
-    )
-
-    assert response.status_code == 201
-    allocation = db_session.query(QuarterAllocation).one()
-    assert allocation.consumed_krw == 5_000
-    assert db_session.query(UsageEvent).count() == 1
-
-
-def test_simulate_usage_is_absent_outside_development(
-    client: TestClient, dev_user, funded, monkeypatch
-) -> None:
-    """404, not 403 — in a deployed environment the route should look absent."""
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    monkeypatch.setattr(settings, "app_env", "production")
-
-    response = client.post(
-        "/api/admin/simulate-usage",
-        json={"amount_krw": 5_000, "provider": "claude"},
-    )
-
-    assert response.status_code == 404
-
-
-def test_simulate_usage_rejects_a_member(other_client: TestClient, funded) -> None:
-    assert (
-        other_client.post(
-            "/api/admin/simulate-usage",
-            json={"amount_krw": 1_000, "provider": "claude"},
-        ).status_code
-        == 403
-    )
 
 
 # --------------------------------------------------------------- audit
@@ -407,18 +376,18 @@ def test_the_audit_view_is_readable_by_admins_only(
 def test_adjusting_a_wallet_is_logged(
     client: TestClient, dev_user, funded, db_session: Session
 ) -> None:
-    response = client.put(
-        f"/api/admin/quarters/{funded.id}/allocations/{dev_user.id}",
-        json={"budget_krw": 60_000, "note": "조정"},
+    response = client.post(
+        f"/api/admin/quarters/{funded.id}/allocations/{dev_user.id}/adjustments",
+        json={"amount_krw": -40_000, "reason": "조정"},
     )
 
-    assert response.status_code == 200
-    assert response.json()["remaining_krw"] == 60_000
+    assert response.status_code == 201
+    assert response.json()["budget_after_krw"] == 60_000
     allocation = db_session.query(QuarterAllocation).one()
     assert allocation.budget_krw == 60_000
 
     logged = db_session.query(AuditLog).filter_by(action="allocation.adjusted").one()
-    assert "100,000원에서 60,000원" in logged.summary
+    assert "100,000원 → 60,000원" in logged.summary
     assert logged.detail["before"] == {"budget_krw": 100_000}
     assert logged.detail["after"] == {"budget_krw": 60_000}
 
@@ -430,9 +399,9 @@ def test_a_rolled_back_change_leaves_no_audit_row(
     before = db_session.query(AuditLog).count()
 
     # No allocation exists for a member who never applied.
-    response = client.put(
-        f"/api/admin/quarters/{funded.id}/allocations/99999",
-        json={"budget_krw": 1},
+    response = client.post(
+        f"/api/admin/quarters/{funded.id}/allocations/99999/adjustments",
+        json={"amount_krw": 1, "reason": "없는 회원"},
     )
 
     assert response.status_code == 404

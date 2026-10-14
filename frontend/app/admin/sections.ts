@@ -24,7 +24,6 @@ import {
   Stamp,
   Users,
   Wallet,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -82,11 +81,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: FileText,
   },
   {
+    // personal-topup-off(2026-10-14): 개인 충전을 받지 않는 동안 숨깁니다.
+    // 백엔드 경로는 남아서 거절하고, personal-topup-ui가 이 줄을 지우면
+    // 다시 보입니다.
     key: "topups",
     href: "/admin/topups",
     label: "Top-ups",
     description: "회원이 올린 개인 충전 신청의 입금을 확인합니다.",
     Icon: Wallet,
+    hidden: true,
   },
   {
     // single-wallet이 켰습니다. 회원마다 지갑은 하나지만 동아리는 제공자별로
@@ -106,14 +109,18 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
   {
     // chat-model-choice. Video Models와 같은 모양이라 바로 옆에 둡니다.
-    key: "claude-models",
-    href: "/admin/claude-models",
-    label: "Claude Models",
-    description: "회원이 Chat에서 고를 수 있는 Claude 모델과 요금을 정합니다.",
+    // admin-and-nav-cleanup(2026-10-14)에서 Claude Models → AI Models:
+    // 제공자별로 묶고, 연결 전인 제공자(DeepSeek)도 목록에 둡니다.
+    // 예전 주소 /admin/claude-models는 이리로 넘어옵니다.
+    key: "ai-models",
+    href: "/admin/ai-models",
+    label: "AI Models",
+    description: "회원이 Chat에서 고를 수 있는 AI 모델과 요금을 제공자별로 정합니다.",
     Icon: Bot,
   },
   {
-    // prep-beta-launch. 회원이 "의견 보내기"로 남긴 글. Report Issue(GitHub)와
+    // prep-beta-launch. 회원이 "의견 보내기"로 남긴 글. 회원이 의견을 남기는
+    // 유일한 길입니다(admin-and-nav-cleanup에서 Report Issue를 없앴습니다).
     // 달리 공개되지 않고 운영진만 읽습니다.
     key: "feedback",
     href: "/admin/feedback",
@@ -152,14 +159,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "System",
     description: "백엔드, 데이터베이스, 외부 서비스 상태를 확인합니다.",
     Icon: Server,
-  },
-  {
-    key: "dev",
-    href: "/admin/dev",
-    label: "Dev Tools",
-    description: "제공자 없이 예산을 써 보는 사용량 시뮬레이터입니다.",
-    Icon: Wrench,
-    developmentOnly: true,
   },
 ];
 

@@ -83,6 +83,17 @@ class Quarter(TimestampMixin, Base):
     #: move a wallet that was already approved.
     subsidy_limit_krw: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    #: 분기 마감 (cost-clarity): what share of each member's unspent
+    #: wallet carries into their next approved wallet. 0 by default —
+    #: unspent money goes back to the club (회수). Set at close.
+    carry_over_percent: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     applications: Mapped[list["QuarterApplication"]] = relationship(back_populates="quarter")
 
     @property
@@ -179,6 +190,19 @@ class QuarterAllocation(TimestampMixin, Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # 분기 마감 (cost-clarity). Set once when the quarter is closed; a
+    # frozen wallet is never charged again. Nothing is deleted.
+    #: When the wallet was frozen.
+    frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: What was left at close — shown as 회수 (back to the club).
+    reclaimed_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The part of it that carries into the member's next wallet.
+    carry_over_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: The wallet the carry-over was added to, once it has been.
+    carried_into_id: Mapped[int | None] = mapped_column(
+        ForeignKey("quarter_allocations.id", ondelete="SET NULL"), nullable=True
     )
 
     @property

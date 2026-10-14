@@ -8,7 +8,7 @@
  *   - 회원가입 화면에 정보가 저장되는 곳이 나온다(서버 .env의 문구).
  *   - 의견 보내기는 적은 글과 지금 화면을 백엔드에 보내고 고맙다고 말한다.
  *   - Usage는 베타에서 개인 충전을 받지 않는다고 말한다.
- *   - Admin 메뉴에 Feedback이 있고, Dev Tools는 개발 환경에서만 보인다.
+ *   - Admin 메뉴에 Feedback이 있고, Dev Tools는 없다.
  *
  * 무엇을 붙일지는 백엔드가 정합니다(`/api/site` — backend
  * tests/test_beta_launch.py가 그 답을 증명합니다). 여기서는 화면이 그 답을
@@ -218,29 +218,31 @@ describe("Usage", () => {
     events: [],
   };
 
-  test("베타에서는 개인 충전을 받지 않는다고 말한다", async () => {
-    fetchSite.mockResolvedValue(site());
-    getMyUsage.mockResolvedValue(usage);
+  test("개인 충전이 꺼져 있으면 개인 잔액 구역이 통째로 없다", async () => {
+    // personal-topup-off (2026-10-14): 기본값. 회원이 보는 돈은 동아리
+    // 지원 하나입니다.
+    fetchSite.mockResolvedValue(site({ top_ups_enabled: false }));
+    getMyUsage.mockResolvedValue({ ...usage, personal: null });
     render(withSite(<UsageView />));
 
-    expect((await screen.findByTestId("top-ups-off")).textContent).toContain("개인 충전");
+    expect(await screen.findByText("동아리 지원")).toBeTruthy();
+    expect(screen.queryByText("개인 잔액")).toBeNull();
+    expect(screen.queryByText(/개인 충전/)).toBeNull();
   });
 
-  test("베타가 아니면 그 문장이 없다", async () => {
+  test("개인 충전이 켜져 있으면 개인 잔액 구역이 보인다", async () => {
     fetchSite.mockResolvedValue(site({ is_beta: false, top_ups_enabled: true }));
     getMyUsage.mockResolvedValue(usage);
     render(withSite(<UsageView />));
 
     expect(await screen.findByText("개인 잔액")).toBeTruthy();
     await waitFor(() => expect(fetchSite).toHaveBeenCalled());
-    expect(screen.queryByTestId("top-ups-off")).toBeNull();
   });
 });
 
 describe("Admin 메뉴", () => {
-  test("Feedback이 있고, Dev Tools는 개발 환경에서만 보인다", () => {
+  test("Feedback이 있고, Dev Tools는 없다", () => {
     expect(visibleSections(false).map((s) => s.key)).toContain("feedback");
-    expect(visibleSections(false).map((s) => s.key)).not.toContain("dev");
-    expect(visibleSections(true).map((s) => s.key)).toContain("dev");
+    expect(visibleSections(true).map((s) => s.key)).not.toContain("dev");
   });
 });

@@ -437,6 +437,120 @@
   font-size: var(--fs-meta);
 }
 
+/* 흐르는 답장 옆의 "약 N원" (live-cost-display). 숫자가 바뀌어도 줄이
+   흔들리지 않도록 숫자 폭을 고정합니다. */
+.liveCost {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 끝난 답장 아래 영수증 — 장부의 숫자. */
+.receipt {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 캐시로 아낀 금액과 ⓘ (cost-clarity). */
+.cacheSaved {
+  margin-top: 0.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.infoButton {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 0.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.infoButton:hover,
+.infoButton:focus-visible {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.cacheExplain {
+  margin-top: 0.3rem;
+  max-width: 46rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* 서버 도구가 돌고 있을 때 — 검색 중… (chat-plus-tools). */
+.toolStatus {
+  margin-top: 0.3rem;
+  padding: 0 0.2rem;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
+/* 답장이 인용한 출처 — 번호 달린 도메인 링크. */
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.7rem;
+  margin: 0.35rem 0 0;
+  padding: 0 0.2rem;
+  list-style: none;
+  font-size: var(--fs-meta);
+}
+
+.sources a {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sources a:hover {
+  color: var(--text);
+}
+
+/* 입력창 옆 도구 토글(chat-plus-tools). 모델 고르기와 같은 줄. */
+.toolChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.toolChip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.toolChip:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.toolChip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.toolChipOn {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+
 .errorNote {
   margin: 0.4rem 0 0.45rem;
   padding: 0.55rem 0.8rem;
@@ -446,6 +560,35 @@
   color: var(--error-text);
   font-size: var(--fs-count);
   line-height: 1.5;
+}
+
+/* 대화가 길어졌다는 안내(token-guard) — 오류가 아니라 절약 제안이므로
+   오류 색이 아니라 보통의 카드 색을 씁니다. */
+.longHistoryNote {
+  margin: 0.4rem 0 0.45rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+  color: var(--muted);
+  font-size: var(--fs-count);
+  line-height: 1.5;
+}
+
+.longHistoryNew {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.longHistoryNew:disabled {
+  color: var(--dim);
+  cursor: default;
+  text-decoration: none;
 }
 
 /* 액션 단추 — "Project Builder에서 예시 앱 만들기 →" */

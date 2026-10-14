@@ -52,6 +52,35 @@ vi.mock("@/lib/quarters", async (importOriginal) => {
   };
 });
 
+// cost-clarity: Budget also reads the club's credit and the per-member table.
+vi.mock("@/lib/accounting", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/accounting")>();
+  return {
+    ...actual,
+    getCredit: vi.fn().mockResolvedValue({ providers: [], purchases: [], report_provider: "mock" }),
+    getQuarterMoney: vi.fn().mockResolvedValue({
+      quarter_id: 7,
+      quarter_name: "2026 Q4",
+      closed_at: null,
+      carry_over_percent: 0,
+      granted_krw: 80_000,
+      charged_krw: 27_700,
+      unspent_krw: 52_300,
+      cache_saved_krw: 120.5,
+      absorbed_usd: "0.00",
+      members: [
+        {
+          user_id: 2, username: "yuri", display_name: "김유리", membership_status: "active",
+          granted_krw: 80_000, consumed_krw: 27_700, remaining_krw: 52_300, chat_krw: 12_700,
+          build_krw: 0, video_krw: 15_000, other_krw: 0, cache_saved_krw: 120.5, adjusted_krw: 0,
+          carried_in_krw: 0, frozen: false, reclaimed_krw: null, carry_over_krw: null,
+        },
+      ],
+    }),
+    getCachePanel: vi.fn().mockResolvedValue([]),
+  };
+});
+
 vi.mock("@/app/admin/AdminQuarterProvider", () => ({
   useAdminQuarter: () => ({
     quarters: [QUARTER],
@@ -110,7 +139,9 @@ describe("참여 신청", () => {
     expect(applyForQuarter).toHaveBeenCalledWith(QUARTER.id);
   });
 
-  test("승인되면 지갑 하나와 쓰는 순서를 보여 준다", async () => {
+  test("승인되면 지갑 하나를 보여 주고, 개인 충전이 꺼져 있으면 쓰는-순서 문장은 없다", async () => {
+    // personal-topup-off (2026-10-14): 기본값에서는 개인 사용 스위치를
+    // 소개하지 않습니다 — 백엔드가 403으로 막는 스위치입니다.
     getMyQuarter.mockResolvedValue(
       myQuarter({
         participation: "활동 회원",
@@ -127,7 +158,8 @@ describe("참여 신청", () => {
     render(<QuarterParticipation />);
 
     expect(await screen.findByText("이번 분기 지원금 80,000원 중 52,300원 남음")).toBeTruthy();
-    expect(screen.getByText(/동아리 지원금을 먼저 씁니다/)).toBeTruthy();
+    expect(screen.getByText(/모든 기능이 이 지원금 하나에서 차감됩니다/)).toBeTruthy();
+    expect(screen.queryByText(/동아리 지원금을 먼저 씁니다/)).toBeNull();
   });
 });
 
@@ -171,8 +203,11 @@ describe("Usage", () => {
     // Build/Video 두 카드는 더 이상 없다.
     expect(screen.queryByText("Build")).toBeNull();
     expect(screen.queryByText("Video")).toBeNull();
-    // 쓰는 순서를 말한다.
-    expect(screen.getByText(/동아리 지원금을 먼저 씁니다/)).toBeTruthy();
+    // 개인 충전이 꺼져 있는 동안(personal-topup-off, 기본값) 쓰는-순서
+    // 문장은 개인 잔액 구역과 함께 보이지 않습니다 — 켜진 화면은
+    // beta-launch.test.tsx가 봅니다.
+    expect(screen.queryByText(/동아리 지원금을 먼저 씁니다/)).toBeNull();
+    expect(screen.queryByText("개인 잔액")).toBeNull();
   });
 
   test("승인된 지갑이 없으면 그렇게 말한다", async () => {
@@ -219,6 +254,9 @@ describe("Admin › Budget", () => {
   const budget: QuarterBudget = {
     quarter: QUARTER,
     member_budget_krw: 80_000,
+    anthropic_month_usd: 0,
+    anthropic_month_budget_usd: null,
+    anthropic_month: "2026-10",
     wallets: [
       {
         user_id: 2,

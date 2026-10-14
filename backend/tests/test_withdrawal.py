@@ -465,10 +465,10 @@ def test_restore_keeps_an_adjustment_made_during_the_grace_period(
 ) -> None:
     """Released money is added back, not overwritten over a later decision."""
     withdraw(other_client)
-    admin_client.put(
-        f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}",
-        json={"budget_krw": 5_000},
-    )
+    assert admin_client.post(
+        f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}/adjustments",
+        json={"amount_krw": 5_000, "reason": "유예 기간 중 조정"},
+    ).status_code == 201
 
     admin_client.post(f"/api/admin/members/{other_user.id}/withdrawal/restore")
 

@@ -29,11 +29,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models import BuilderProject, BuilderProjectFile, UsageFeature, User
+from app.models import BuilderProject, BuilderProjectFile, ProviderErrorKind, UsageFeature, User
 from app.services import chat_models, pricing, providers
+from app.services import chat_limits, provider_limiter
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     STARTER_SYSTEM,
+    ClaudeError,
     ClaudeProvider,
     starter_request_text,
 )
@@ -155,20 +157,34 @@ def create_starter(
         db,
         user=user,
         amount_krw=price.krw(_input_estimate(project.name, idea), settings.builder_max_output_tokens),
+        settings=settings,
     )
 
+    # PART F: a slot under the process-wide provider limit; refused free.
+    if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
+        raise ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
     try:
         app = provider.generate_starter_app(
             project.name, idea, model.model_id, settings.builder_max_output_tokens
         )
     except Exception as error:
-        from app.services.claude_provider import ClaudeError
-
         if isinstance(error, ClaudeError):
             providers.record_failure(db, "claude", error.kind, error.detail)
+            _record_absorbed(db, user, project, model.model_id, price, error.usage)
             db.commit()
         raise
-    files = check_files(app.files)
+    finally:
+        provider_limiter.release()
+    try:
+        files = check_files(app.files)
+    except StarterError:
+        # The provider was paid for files we cannot use: the member is not
+        # charged, the club's cost is still recorded (cost-clarity).
+        _record_absorbed(
+            db, user, project, model.model_id, price, (app.input_tokens, app.output_tokens)
+        )
+        db.commit()
+        raise
 
     amount = price.krw(app.input_tokens, app.output_tokens)
     result = usage_service.charge(
@@ -184,9 +200,11 @@ def create_starter(
         input_tokens=app.input_tokens,
         output_tokens=app.output_tokens,
         exchange_rate_krw=price.usd_krw,
+        cost=price.split(app.input_tokens, app.output_tokens),
         builder_project_id=project.id,
         commit=False,
         cap_to_available=True,
+        settings=settings,
     )
     rows = [BuilderProjectFile(project_id=project.id, path=path, content=content) for path, content in files]
     db.add_all(rows)
@@ -197,3 +215,34 @@ def create_starter(
     for row in rows:
         db.refresh(row)
     return StarterResult(files=rows, summary=app.summary, charged_krw=result.event.charged_krw)
+
+
+def _record_absorbed(
+    db: Session,
+    user: User,
+    project: BuilderProject,
+    model_id: str,
+    price: pricing.Price,
+    usage: tuple[int, int] | None,
+) -> None:
+    """The club's cost of a generation nobody is charged for (cost-clarity).
+
+    Only when the provider reported usage — a call refused before it ran
+    (network, 529, our own limiter) cost nothing and records nothing.
+    """
+    if not usage or not any(usage):
+        return
+    input_tokens, output_tokens = usage
+    usage_service.record_absorbed(
+        db,
+        user=user,
+        provider="claude",
+        feature=UsageFeature.BUILD.value,
+        model_id=model_id,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost=price.split(input_tokens, output_tokens),
+        exchange_rate_krw=price.usd_krw,
+        builder_project_id=project.id,
+        commit=False,
+    )

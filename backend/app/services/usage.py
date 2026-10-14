@@ -55,6 +55,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.models import (
     FundingSource,
     PersonalBalance,
@@ -63,6 +64,8 @@ from app.models import (
     User,
 )
 from app.models.usage import spending_group
+from app.services import chat_limits
+from app.services.pricing import CostSplit
 from app.services.quarters import current_quarter
 from app.services.wallet import get_or_create_balance
 
@@ -86,7 +89,26 @@ class ChargeResult:
     personal_remaining_krw: int
 
 
-def ensure_affordable(db: Session, *, user: User, amount_krw: int) -> None:
+def _personal_allowed(settings: Settings | None) -> bool:
+    """Whether personal money may be spent at all.
+
+    personal-topup-off (owner, 2026-10-14): with `PERSONAL_TOPUP_ENABLED`
+    off — the default — a member's earlier overage opt-in is ignored and
+    no personal money moves, even where a balance exists. The rows are
+    kept for personal-topup-ui.
+    """
+    return (settings or get_settings()).top_ups_enabled
+
+
+#: The refusal when only the wallet may pay. The longer sentence telling
+#: the member to switch on 개인 사용 is shown only while that switch does
+#: anything.
+WALLET_SHORT = "이번 분기 지원금이 부족합니다."
+
+
+def ensure_affordable(
+    db: Session, *, user: User, amount_krw: int, settings: Settings | None = None
+) -> None:
     """Raise exactly what `charge()` would, without locking or changing anything.
 
     For use before a provider call. It reads without `FOR UPDATE`, so a
@@ -95,6 +117,19 @@ def ensure_affordable(db: Session, *, user: User, amount_krw: int) -> None:
     quarter = current_quarter(db)
     if quarter is None:
         raise NoQuarterError("지금은 진행 중인 분기가 없습니다.")
+
+    # The daily cap (token-guard), before any pot is consulted: it is a
+    # guard on the member's day, not on where the money comes from.
+    # Checked only here — `charge()` settles work the club has already
+    # paid for, and refusing there would lose a paid reply.
+    limits = chat_limits.current(db)
+    if limits.daily_cap_krw > 0:
+        spent_today = chat_limits.daily_spent_krw(db, user.id)
+        if spent_today + amount_krw > limits.daily_cap_krw:
+            raise InsufficientBudgetError(
+                f"오늘 쓸 수 있는 금액({limits.daily_cap_krw:,}원)을 넘습니다. "
+                f"오늘 {spent_today:,}원을 썼습니다. 내일 다시 이용해 주세요."
+            )
 
     allocation = db.scalar(
         select(QuarterAllocation).where(
@@ -105,6 +140,8 @@ def ensure_affordable(db: Session, *, user: User, amount_krw: int) -> None:
     if allocation is not None and amount_krw <= allocation.remaining_krw:
         return
 
+    if not _personal_allowed(settings):
+        raise InsufficientBudgetError(WALLET_SHORT)
     balance = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == user.id))
     if balance is not None and balance.overage_enabled:
         if amount_krw <= max(0, balance.balance_krw - balance.consumed_krw):
@@ -137,8 +174,13 @@ def charge(
     estimated_input_tokens: int | None = None,
     exchange_rate_krw: Decimal | None = None,
     conversation_id: int | None = None,
+    web_search_count: int | None = None,
+    web_fetch_count: int | None = None,
+    tool_fee_krw: int | None = None,
+    cost: CostSplit | None = None,
     commit: bool = True,
     cap_to_available: bool = False,
+    settings: Settings | None = None,
 ) -> ChargeResult:
     """Deduct `amount_krw` and record the matching usage event.
 
@@ -189,13 +231,24 @@ def charge(
 
     personal_remaining = max(0, balance.balance_krw - balance.consumed_krw)
 
+    # The member's opt-in counts only while personal money may move at
+    # all (personal-topup-off, 2026-10-14).
+    overage = balance.overage_enabled and _personal_allowed(settings)
+
     # Community first, then personal only if the member opted in.
+    if allocation is not None and allocation.frozen_at is not None:
+        # 분기 마감 (cost-clarity): a closed quarter's wallet never moves
+        # again. `current_quarter` already skips closed quarters; this is
+        # the guarantee under the lock.
+        allocation = None
+        community_remaining = 0
+
     if allocation is not None and amount_krw <= community_remaining:
         funding_source = FundingSource.COMMUNITY
         allocation.consumed_krw += amount_krw
         community_remaining -= amount_krw
 
-    elif balance.overage_enabled and amount_krw <= personal_remaining:
+    elif overage and amount_krw <= personal_remaining:
         funding_source = FundingSource.PERSONAL
         balance.consumed_krw += amount_krw
         personal_remaining -= amount_krw
@@ -203,7 +256,7 @@ def charge(
     elif cap_to_available:
         # Never split across pots (see the module note): take what is left
         # of the one that would have paid.
-        if balance.overage_enabled and personal_remaining > community_remaining:
+        if overage and personal_remaining > community_remaining:
             funding_source = FundingSource.PERSONAL
             amount_krw = personal_remaining
             balance.consumed_krw += amount_krw
@@ -216,6 +269,8 @@ def charge(
             community_remaining = 0
 
     else:
+        if not _personal_allowed(settings):
+            raise InsufficientBudgetError(WALLET_SHORT)
         if not balance.overage_enabled:
             raise InsufficientBudgetError(
                 "이번 분기 지원금이 부족합니다. 개인 잔액을 쓰려면 Usage에서 개인 사용을 켜 주세요."
@@ -242,8 +297,12 @@ def charge(
         cache_write_tokens=cache_write_tokens,
         cache_read_tokens=cache_read_tokens,
         estimated_input_tokens=estimated_input_tokens,
+        web_search_count=web_search_count,
+        web_fetch_count=web_fetch_count,
+        tool_fee_krw=tool_fee_krw,
         exchange_rate_krw=exchange_rate_krw,
         conversation_id=conversation_id,
+        **(cost.ledger_fields() if cost is not None else {}),
     )
     db.add(event)
 
@@ -262,12 +321,67 @@ def charge(
     )
 
 
+def record_absorbed(
+    db: Session,
+    *,
+    user: User,
+    provider: str,
+    feature: str,
+    model_id: str | None,
+    input_tokens: int,
+    output_tokens: int,
+    cost: CostSplit,
+    exchange_rate_krw: Decimal | None,
+    builder_project_id: int | None = None,
+    commit: bool = True,
+) -> UsageEvent:
+    """Record a call the club paid for but nobody was charged (cost-clarity).
+
+    A Builder generation that came back cut off, refused or unusable has
+    already been billed by the provider; the member is not charged (a
+    failed call is free — Phase 2's rule), but the club's money still
+    went, and Admin › Budget's 사용 must match the provider's bill. The
+    row carries `charged_krw=0` and `club_absorbed=True`; no wallet is
+    touched, so it needs no lock.
+    """
+    quarter = current_quarter(db)
+    event = UsageEvent(
+        user_id=user.id,
+        quarter_id=quarter.id if quarter else None,
+        funding_source=FundingSource.COMMUNITY,
+        provider=provider,
+        feature=feature,
+        model_id=model_id,
+        provider_units=input_tokens + output_tokens,
+        provider_unit="tokens",
+        provider_cost=cost.total.quantize(Decimal("0.000001")),
+        provider_currency="USD",
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        exchange_rate_krw=exchange_rate_krw,
+        charged_krw=0,
+        club_absorbed=True,
+        builder_project_id=builder_project_id,
+        **cost.ledger_fields(),
+    )
+    db.add(event)
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+    return event
+
+
 def recent_events(db: Session, user_id: int, limit: int = 20) -> list[UsageEvent]:
-    """The member's most recent charges, newest first."""
+    """The member's most recent charges, newest first.
+
+    A club-absorbed row moved no money of theirs, so it is not a charge
+    and is left out.
+    """
     return list(
         db.scalars(
             select(UsageEvent)
-            .where(UsageEvent.user_id == user_id)
+            .where(UsageEvent.user_id == user_id, UsageEvent.club_absorbed.is_(False))
             .order_by(UsageEvent.created_at.desc(), UsageEvent.id.desc())
             .limit(limit)
         )
@@ -281,13 +395,13 @@ def personal_balance(db: Session, user_id: int) -> PersonalBalance:
 
 
 def spending_breakdown(db: Session, user_id: int, quarter_id: int) -> dict[str, int]:
-    """What the member's wallet went on this quarter: chat, video, other.
+    """What the member's wallet went on this quarter: chat, build, video, other.
 
     Information only — it does not limit anything. Counts wallet money
     (`FundingSource.COMMUNITY`) so the three figures add up to what the
     wallet card says was used; personal money has its own card.
     """
-    totals = {"chat": 0, "video": 0, "other": 0}
+    totals = {"chat": 0, "build": 0, "video": 0, "other": 0}
     rows = db.execute(
         select(UsageEvent.feature, func.coalesce(func.sum(UsageEvent.charged_krw), 0))
         .where(

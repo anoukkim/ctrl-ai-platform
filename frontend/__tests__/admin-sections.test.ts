@@ -10,8 +10,8 @@
  *
  *   1. 기능이 없는 구역(`hidden`)은 **어디에도 보이지 않는다**. 이전에는
  *      "준비 중" 배지를 달아 보여 줬고, 누를 때마다 빈 화면이 나왔습니다.
- *   2. Dev Tools는 개발 환경에서만 보인다. 가리는 것은 편의일 뿐이고,
- *      실제 차단은 백엔드가 404로 합니다 — 그쪽은 백엔드 테스트가 봅니다.
+ *   2. 개발 환경과 배포 환경의 메뉴가 같다. Dev Tools는 없앴습니다
+ *      (admin-and-nav-cleanup, 2026-10-14).
  *   3. 구역 이름은 모두 영어다. 메뉴가 한 언어로 읽혀야 합니다.
  *
  * 경로는 남아 있어야 합니다. 숨긴 구역을 만드는 작업이 `hidden: true` 한
@@ -44,12 +44,23 @@ describe("Admin 구역 목록", () => {
     expect(content?.hidden).toBe(true);
   });
 
-  test("Dev Tools는 개발 환경에서만 보인다", () => {
-    expect(visibleSections(true).map((s) => s.key)).toContain("dev");
-    expect(visibleSections(false).map((s) => s.key)).not.toContain("dev");
+  test("Dev Tools는 없다 — 개발 환경에서도", () => {
+    expect(visibleSections(true).map((s) => s.key)).toEqual(
+      visibleSections(false).map((s) => s.key),
+    );
+    expect(ADMIN_SECTIONS.map((s) => s.key)).not.toContain("dev");
   });
 
-  test("보이는 구역은 열두 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("Top-ups는 개인 충전을 받지 않는 동안 보이지 않지만 정의는 남아 있다", () => {
+    // personal-topup-off (2026-10-14). personal-topup-ui가 hidden 한 줄만
+    // 지우면 다시 보입니다.
+    const topups = ADMIN_SECTIONS.find((section) => section.key === "topups");
+
+    expect(topups?.href).toBe("/admin/topups");
+    expect(topups?.hidden).toBe(true);
+  });
+
+  test("보이는 구역은 열한 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -57,10 +68,9 @@ describe("Admin 구역 목록", () => {
       "members",
       "applications",
       "quarters",
-      "topups",
       "budget",
       "video-models",
-      "claude-models",
+      "ai-models",
       "feedback",
       "deleted",
       "audit",
@@ -113,7 +123,7 @@ describe("지금 보고 있는 구역", () => {
     expect(activeSection("/admin/applications")?.key).toBe("applications");
     expect(activeSection("/admin/quarters")?.key).toBe("quarters");
     expect(activeSection("/admin/deleted")?.key).toBe("deleted");
-    expect(activeSection("/admin/claude-models")?.key).toBe("claude-models");
+    expect(activeSection("/admin/ai-models")?.key).toBe("ai-models");
   });
 
   test("Admin 밖의 경로는 어느 구역도 아니다", () => {

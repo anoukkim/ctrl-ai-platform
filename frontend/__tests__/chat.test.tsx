@@ -63,7 +63,15 @@ describe("sendMessage", () => {
     );
 
     expect(pieces.join("")).toBe("안녕하세요!");
-    expect(outcome).toEqual({ kind: "done", message: SAVED_REPLY, chargedKrw: 3 });
+    expect(outcome).toEqual({
+      kind: "done",
+      message: SAVED_REPLY,
+      chargedKrw: 3,
+      longHistory: null,
+      // live-cost-display: 옛 이벤트에는 없던 칸 — 없으면 null로 읽습니다.
+      usage: null,
+      walletRemainingKrw: null,
+    });
   });
 
   test("an error event is a result, not a throw", async () => {
@@ -188,6 +196,8 @@ describe("ChatWorkspace", () => {
       is_mock: true,
       rate_limit_per_minute: 10,
       max_message_length: 8000,
+      web_fetch_max_uses: 1,
+      web_fetch_max_content_tokens: 10_000,
       models: [HAIKU, SONNET],
       default_model_id: SONNET.id,
     });

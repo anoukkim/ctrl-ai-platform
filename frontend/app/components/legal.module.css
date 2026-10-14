@@ -1,0 +1,102 @@
+/* 개인정보 처리방침·이용약관 공용 문서 틀 (privacy-and-terms). */
+
+.screen {
+  min-height: 100dvh;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  padding: 2.5rem 1rem 4rem;
+}
+
+.doc {
+  width: 100%;
+  max-width: 42rem;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.75;
+}
+
+.head {
+  margin-bottom: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  text-decoration: none;
+  width: fit-content;
+}
+
+.title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.effective {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+/* 문서 본문 — 제목/문단/목록. 조문 번호는 h2에 직접 적습니다. */
+.doc h2 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 1.8rem 0 0.5rem;
+}
+
+.doc p {
+  margin: 0.5rem 0;
+  color: var(--text-muted);
+}
+
+.doc ul {
+  margin: 0.5rem 0;
+  padding-left: 1.2rem;
+  color: var(--text-muted);
+}
+
+.doc li {
+  margin: 0.3rem 0;
+}
+
+.doc strong {
+  color: var(--text);
+}
+
+.lead {
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+}
+
+.foot {
+  margin-top: 2.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.footLink {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footLink:hover {
+  color: var(--text);
+}

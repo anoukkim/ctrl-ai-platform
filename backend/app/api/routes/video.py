@@ -57,6 +57,7 @@ from app.services import (
     video_assets,
     video_catalog,
 )
+from app.services import chat_limits, provider_limiter
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     PROMPT_HELP_SYSTEM,
@@ -307,12 +308,12 @@ def _produce(
     feature: UsageFeature,
     charged_seconds: int,
     version: VideoVersion,
-) -> VideoVersion:
+) -> VideoVersionRead:
     """Run one paid video operation and record it. See the note above."""
     try:
         amount = video_catalog.cost_krw(model, version.resolution or "", charged_seconds)
         # Refused here, nothing has been spent: the provider is not called.
-        usage_service.ensure_affordable(db, user=user, amount_krw=amount)
+        usage_service.ensure_affordable(db, user=user, amount_krw=amount, settings=config)
         result = call(get_video_provider(config))
     except (
         usage_service.InsufficientBudgetError,
@@ -332,7 +333,7 @@ def _produce(
     )
 
     try:
-        usage_service.charge(
+        charged = usage_service.charge(
             db,
             user=user,
             amount_krw=amount,
@@ -345,6 +346,7 @@ def _produce(
             video_project_id=project.id,
             video_version_id=version.id,
             commit=False,
+            settings=config,
         )
     except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
         # Lost a race with another charge after the pre-check. The version
@@ -356,7 +358,11 @@ def _produce(
     db.commit()
     db.refresh(version)
     db.refresh(project)
-    return version
+    # The ledger's figure for this one response (feat-spend-feedback) —
+    # built as the response model, never written onto the row.
+    return VideoVersionRead.model_validate(version).model_copy(
+        update={"charged_krw": charged.event.charged_krw}
+    )
 
 
 def _source_version(project: VideoProject, version_id: int) -> VideoVersion:
@@ -687,7 +693,13 @@ def prompt_help(
             db,
             user=user,
             amount_krw=price.krw(estimated_input, max_output),
+            settings=config,
         )
+        # PART F: a slot under the process-wide provider limit; refused
+        # free, and never written to the status board — the provider was
+        # not called.
+        if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
+            raise ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
         try:
             answer = provider.rewrite_video_prompt(
                 payload.prompt, payload.request, model.model_id
@@ -696,24 +708,37 @@ def prompt_help(
             providers.record_failure(db, "claude", error.kind, error.detail)
             db.commit()
             raise
+        finally:
+            provider_limiter.release()
+        # Every input kind the provider reported is priced — the helper
+        # sends no cache marker today, but if the API ever reports cache
+        # tokens they must be charged, not dropped (cost-clarity audit).
+        tokens = (
+            answer.input_tokens,
+            answer.output_tokens,
+            answer.cache_write_tokens,
+            answer.cache_read_tokens,
+        )
         result = usage_service.charge(
             db,
             user=user,
-            amount_krw=price.krw(answer.input_tokens, answer.output_tokens),
+            amount_krw=price.krw(*tokens),
             provider="claude",
             feature=UsageFeature.VIDEO_PROMPT.value,
             model_id=model.model_id,
-            provider_units=answer.input_tokens + answer.output_tokens,
+            provider_units=sum(tokens),
             provider_unit="tokens",
-            provider_cost=price.usd(answer.input_tokens, answer.output_tokens).quantize(
-                Decimal("0.000001")
-            ),
+            provider_cost=price.usd(*tokens).quantize(Decimal("0.000001")),
             input_tokens=answer.input_tokens,
             output_tokens=answer.output_tokens,
+            cache_write_tokens=answer.cache_write_tokens or None,
+            cache_read_tokens=answer.cache_read_tokens or None,
+            cost=price.split(*tokens),
             exchange_rate_krw=price.usd_krw,
             video_project_id=project.id,
             commit=False,
             cap_to_available=True,
+            settings=config,
         )
         providers.record_success(
             db, "claude", "프롬프트 도움" + (" (mock)" if is_mock else "")

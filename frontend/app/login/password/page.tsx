@@ -1,19 +1,12 @@
-import type { Metadata } from "next";
-
-import LoginForm from "../LoginForm";
-
-export const metadata: Metadata = {
-  title: "관리자 로그인 — CTRL+AI",
-  // 메뉴 어디에도 걸지 않는 주소입니다. 검색에도 남기지 않습니다.
-  robots: { index: false, follow: false },
-};
+import { redirect } from "next/navigation";
 
 /**
- * 관리자 비상 로그인(google-login).
+ * 예전 관리자 비상 로그인 주소.
  *
- * 회원은 Google로 들어옵니다. 아이디·비밀번호는 Google 연결이 막혔을 때
- * 관리자가 쓰는 길로만 남고, 어떤 화면에서도 이 주소로 연결하지 않습니다.
+ * member-password-login(2026-10-14)부터 아이디·비밀번호 칸은 `/login`에
+ * Google 단추와 함께 있습니다. 이 주소로 저장해 둔 사람을 위해 남겨 두고
+ * `/login`으로 보냅니다.
  */
 export default function PasswordLoginPage() {
-  return <LoginForm mode="password" />;
+  redirect("/login");
 }

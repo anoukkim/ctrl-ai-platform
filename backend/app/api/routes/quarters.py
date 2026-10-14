@@ -41,8 +41,9 @@ from app.services.wallet import get_or_create_balance
 
 router = APIRouter(prefix="/quarters", tags=["quarters"])
 
-#: Why personal money cannot be added or switched on (the beta).
-TOP_UPS_OFF = "베타 기간에는 개인 충전을 쓸 수 없습니다. 동아리 지원금으로 이용해 주세요."
+#: Why personal money cannot be added or switched on. Off by default in
+#: every environment (personal-topup-off, 2026-10-14), not only the beta.
+TOP_UPS_OFF = "지금은 개인 충전을 쓸 수 없습니다. 동아리 지원금으로 이용해 주세요."
 
 #: Application states that block a second application for the same quarter.
 LIVE_APPLICATION_STATES = {ApplicationStatus.SUBMITTED, ApplicationStatus.APPROVED}
@@ -90,6 +91,7 @@ def read_current_quarter(
 def read_my_quarter(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> MyQuarterStatus:
     quarter = current_quarter(db)
     application = allocation = None
@@ -118,7 +120,9 @@ def read_my_quarter(
         quarter=QuarterRead.model_validate(quarter) if quarter else None,
         application=ApplicationRead.model_validate(application) if application else None,
         allocation=allocation,  # type: ignore[arg-type]
-        personal=_wallet(db, user),  # type: ignore[arg-type]
+        # personal-topup-off: while 개인 충전 is off, members see only the
+        # 동아리 지원 wallet — the balance row stays in the database.
+        personal=_wallet(db, user) if settings.top_ups_enabled else None,  # type: ignore[arg-type]
         participation=_describe_participation(quarter, application, allocation),
         days_remaining=days_remaining,
         membership_status=membership.status if membership else None,

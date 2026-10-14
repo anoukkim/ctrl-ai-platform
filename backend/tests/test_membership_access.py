@@ -338,6 +338,13 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # behind participating.
     ("GET", "/api/account/withdrawal"): "get_current_user",
     ("POST", "/api/account/withdrawal"): "get_current_user",
+    # member-password-login: Profile › 로그인 방법. Your own way in — never
+    # behind participation, or a member sitting a quarter out could not
+    # sign in safely.
+    ("GET", "/api/account/sign-in"): "get_current_user",
+    ("PUT", "/api/account/password"): "get_current_user",
+    ("POST", "/api/account/password/remove"): "get_current_user",
+    ("POST", "/api/account/google/unlink"): "get_current_user",
     # Chat — reads open (past conversations stay readable while inactive),
     # writes gated. Sending is the call that spends the Build budget.
     ("GET", "/api/chat/info"): "get_current_user",
@@ -390,6 +397,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/quarters/me/top-ups"): "get_current_user",
     ("GET", "/api/quarters/me/top-ups"): "get_current_user",
     ("GET", "/api/usage/me"): "get_current_user",
+    # feat-spend-feedback: spends nothing; open to any signed-in member.
+    ("POST", "/api/usage/me/milestones"): "get_current_user",
+    ("GET", "/api/account/preferences"): "get_current_user",
+    ("PATCH", "/api/account/preferences"): "get_current_user",
     # Admin — role, not participation.
     ("GET", "/api/users"): "require_admin",
     ("GET", "/api/admin/quarters"): "require_admin",
@@ -399,7 +410,21 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/applications/{application_id}/review"): "require_admin",
     ("GET", "/api/admin/quarters/{quarter_id}/members"): "require_admin",
     ("PUT", "/api/admin/quarters/{quarter_id}/members/{user_id}"): "require_admin",
-    ("PUT", "/api/admin/quarters/{quarter_id}/allocations/{user_id}"): "require_admin",
+    # cost-clarity: a wallet moves by audited adjustment rows, never an
+    # overwrite; the club's credit, exports, close and reconciliation.
+    ("POST", "/api/admin/quarters/{quarter_id}/allocations/{user_id}/adjustments"): "require_admin",
+    ("GET", "/api/admin/members/{user_id}/adjustments"): "require_admin",
+    ("GET", "/api/admin/credit"): "require_admin",
+    ("POST", "/api/admin/credit/purchases"): "require_admin",
+    ("GET", "/api/admin/quarters/{quarter_id}/money"): "require_admin",
+    ("GET", "/api/admin/cache-panel"): "require_admin",
+    ("GET", "/api/admin/export/members.csv"): "require_admin",
+    ("GET", "/api/admin/export/daily.csv"): "require_admin",
+    ("GET", "/api/admin/export/purchases.csv"): "require_admin",
+    ("GET", "/api/admin/export/caching.csv"): "require_admin",
+    ("GET", "/api/admin/quarters/{quarter_id}/close-preview"): "require_admin",
+    ("POST", "/api/admin/quarters/{quarter_id}/close"): "require_admin",
+    ("GET", "/api/admin/reconcile"): "require_admin",
     ("GET", "/api/admin/quarters/{quarter_id}/budget"): "require_admin",
     ("PUT", "/api/admin/members/{user_id}/role"): "require_admin",
     ("GET", "/api/admin/top-ups"): "require_admin",
@@ -418,7 +443,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
+    ("GET", "/api/admin/chat-models/providers"): "require_admin",
     ("GET", "/api/admin/chat-models/calibration"): "require_admin",
+    ("GET", "/api/admin/chat-models/cache-stats"): "require_admin",
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/invites"): "require_admin",
     ("POST", "/api/admin/invites"): "require_admin",
@@ -426,9 +453,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/invites/{invite_id}/reactivate"): "require_admin",
     ("PATCH", "/api/admin/chat-models/{chat_model_id}"): "require_admin",
     ("POST", "/api/admin/claude-pricing/exchange-rate"): "require_admin",
+    # token-guard: the chat limits, edited like the rate.
+    ("POST", "/api/admin/claude-pricing/chat-limits"): "require_admin",
     ("GET", "/api/admin/providers"): "require_admin",
     ("POST", "/api/admin/providers/{provider}/check"): "require_admin",
-    ("POST", "/api/admin/simulate-usage"): "require_admin",
     # Deleted work. Admin-only and deliberately *not* participation-gated:
     # moderating is not creating, so an admin who did not join this
     # quarter can still restore a member's project.
@@ -532,9 +560,20 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # Leaving. Spends nothing, and must work for a member who is not
         # participating this quarter. The password is checked again.
         ("POST", "/api/account/withdrawal"),
+        # Your own sign-in methods (member-password-login). Spend nothing,
+        # must work while not participating; the current password is
+        # checked again and one method always remains.
+        ("PUT", "/api/account/password"),
+        ("POST", "/api/account/password/remove"),
+        ("POST", "/api/account/google/unlink"),
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),
+        # Spend feedback (feat-spend-feedback): recording which milestone
+        # card was shown, and the member's own notification switch. Both
+        # spend nothing and must work while not participating.
+        ("POST", "/api/usage/me/milestones"),
+        ("PATCH", "/api/account/preferences"),
     }
 
     offenders = [

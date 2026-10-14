@@ -64,7 +64,8 @@ def test_site_in_development_shows_no_banner_and_no_labels(anon_client: TestClie
 
     assert body["is_development"] is True
     assert body["is_beta"] is False
-    assert body["top_ups_enabled"] is True
+    # Off by default in every environment (personal-topup-off, 2026-10-14).
+    assert body["top_ups_enabled"] is False
     # Everything is a mock locally and everyone knows it — no labels.
     assert body["test_mode"] == {
         "chat": False,
@@ -118,23 +119,36 @@ def test_site_needs_no_sign_in(anon_client: TestClient) -> None:
 # ----------------------------------------------------------------- top-ups off
 
 
-def test_top_ups_are_refused_in_beta(client: TestClient, as_env, db_session: Session) -> None:
-    as_env(app_env="beta")
+def test_top_ups_are_refused_in_beta_even_when_switched_on(
+    client: TestClient, as_env, db_session: Session
+) -> None:
+    as_env(app_env="beta", personal_topup_enabled=True)
 
     response = client.post("/api/quarters/me/top-ups", json={"amount_krw": 10_000})
 
     assert response.status_code == 403
-    assert "베타" in response.json()["detail"]
+    assert "개인 충전" in response.json()["detail"]
     assert db_session.scalar(select(PersonalTopUp)) is None
 
 
-def test_top_ups_still_work_in_development(client: TestClient) -> None:
+def test_top_ups_are_refused_by_default_everywhere(
+    client: TestClient, db_session: Session
+) -> None:
+    """personal-topup-off (2026-10-14): off until the owner turns it on."""
+    response = client.post("/api/quarters/me/top-ups", json={"amount_krw": 10_000})
+    assert response.status_code == 403
+    assert "개인 충전" in response.json()["detail"]
+    assert db_session.scalar(select(PersonalTopUp)) is None
+
+
+def test_top_ups_work_in_development_when_switched_on(client: TestClient, as_env) -> None:
+    as_env(app_env="development", personal_topup_enabled=True)
     response = client.post("/api/quarters/me/top-ups", json={"amount_krw": 10_000})
     assert response.status_code == 201, response.text
 
 
 def test_personal_spending_cannot_be_switched_on_in_beta(client: TestClient, as_env) -> None:
-    as_env(app_env="beta")
+    as_env(app_env="beta", personal_topup_enabled=True)
 
     on = client.patch("/api/quarters/me/wallet", json={"overage_enabled": True})
     assert on.status_code == 403
@@ -169,11 +183,6 @@ def test_admin_cannot_confirm_a_top_up_in_beta(
 # ------------------------------------------------------- dev tools unavailable
 
 
-def test_simulator_is_gone_in_beta(client: TestClient, as_env) -> None:
-    as_env(app_env="beta")
-    assert client.post("/api/admin/simulate-usage", json={"amount_krw": 1000}).status_code == 404
-
-
 def test_dashboard_tells_the_frontend_to_hide_dev_tools_in_beta(
     client: TestClient, as_env
 ) -> None:
@@ -189,6 +198,18 @@ def test_dev_seed_refuses_outside_development(monkeypatch) -> None:
         with pytest.raises(SystemExit) as stopped:
             init_db.main()
         assert "Refusing to run" in str(stopped.value)
+
+
+def test_dev_seed_refuses_on_a_deployed_server_even_in_development(monkeypatch) -> None:
+    """DEPLOYED=true (the production compose) outranks a mis-set APP_ENV."""
+    from app.db import init_db
+
+    monkeypatch.setattr(
+        init_db, "get_settings", lambda: Settings(app_env="development", deployed=True)
+    )
+    with pytest.raises(SystemExit) as stopped:
+        init_db.main()
+    assert "deployed" in str(stopped.value)
 
 
 def test_reset_script_refuses_anything_but_a_local_development_database() -> None:
@@ -211,6 +232,8 @@ def test_reset_script_refuses_anything_but_a_local_development_database() -> Non
         is not None
     )
     assert refusal(app_env="development", database_url="sqlite://") is not None
+    # DEPLOYED=true (the production compose) outranks a mis-set APP_ENV.
+    assert refusal(app_env="development", deployed=True) is not None
     assert (
         refusal(
             app_env="development",

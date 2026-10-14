@@ -22,6 +22,7 @@ GOOD_SIGNUP = {
     "password": "a-good-password",
     "display_name": "새 회원",
     "invite_code": INVITE_CODE,
+    "terms_accepted": True,
 }
 
 

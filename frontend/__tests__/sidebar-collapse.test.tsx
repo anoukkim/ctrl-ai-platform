@@ -6,18 +6,20 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+// The signed-in user; a test switches it to a member.
+const who = vi.hoisted(() => ({
+  user: {
+    id: 1,
+    username: "dev",
+    display_name: "Ctrl AI Developer",
+    is_admin: true,
+  },
+}));
+
 vi.mock("@/app/components/CurrentUserProvider", () => ({
   isPublicPath: () => false,
   useCurrentUser: () => ({
-    state: {
-      phase: "authenticated",
-      user: {
-        id: 1,
-        username: "dev",
-        display_name: "Ctrl AI Developer",
-        is_admin: true,
-      },
-    },
+    state: { phase: "authenticated", user: who.user },
     signOut: vi.fn(),
   }),
   default: ({ children }: { children: React.ReactNode }) => children,
@@ -53,12 +55,65 @@ const NAV_NAMES = [
   "CtrlAITube",
   "Usage",
   "Profile",
-  "Report Issue",
 ];
+
+const ADMIN = { ...who.user };
+const MEMBER = { id: 2, username: "pw_member", display_name: "회원", is_admin: false };
+
+/** The group headings in the order they appear. */
+function groupHeadings(): string[] {
+  return ["Create", "Explore", "Manage", "Account"].filter((name) => screen.queryByText(name));
+}
+
+describe("sidebar groups (owner decision 2026-10-14)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("an admin sees Create, Explore, Manage, Account in that order, Admin under Manage", async () => {
+    who.user = ADMIN;
+    const { container } = await renderShell();
+
+    const order = ["Create", "Explore", "Manage", "Account"].map((name) =>
+      container.innerHTML.indexOf(`>${name}<`),
+    );
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+
+    const manage = screen.getByText("Manage").parentElement as HTMLElement;
+    expect(manage.textContent).toContain("Admin");
+    expect(screen.getByText("관리자")).toBeTruthy();
+  });
+
+  test("a member never sees Manage, Admin or the 관리자 badge", async () => {
+    who.user = MEMBER;
+    await renderShell();
+
+    expect(groupHeadings()).toEqual(["Create", "Explore", "Account"]);
+    expect(screen.queryByText("Admin")).toBeNull();
+    expect(screen.queryByText("관리자")).toBeNull();
+    who.user = ADMIN;
+  });
+
+  test("Usage and Profile are ordinary items with an icon and a label, like Chat", async () => {
+    who.user = ADMIN;
+    await renderShell();
+
+    // The same base item class as Chat — not a separate compact style.
+    const base = (name: string) => screen.getByRole("link", { name }).className.split(" ")[0];
+    for (const name of ["Chat", "Usage", "Profile"]) {
+      const link = screen.getByRole("link", { name });
+      expect(link.querySelector("svg")).toBeTruthy();
+      expect(link.textContent).toBe(name);
+      expect(base(name)).toBe(base("CtrlAITube"));
+    }
+  });
+});
 
 describe("collapsible sidebar", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    who.user = ADMIN;
   });
 
   test("starts expanded, with no tooltips needed", async () => {
@@ -114,5 +169,15 @@ describe("collapsible sidebar", () => {
     expect(screen.getByRole("button", { name: "사이드바 펼치기" })).toBeTruthy();
     getItem.mockRestore();
     setItem.mockRestore();
+  });
+
+  test("the footer links the privacy policy and terms (privacy-and-terms)", async () => {
+    await renderShell();
+    expect(screen.getByRole("link", { name: "개인정보" }).getAttribute("href")).toBe("/privacy");
+    expect(screen.getByRole("link", { name: "약관" }).getAttribute("href")).toBe("/terms");
+
+    // The collapsed rail has no room for them; they come back on expand.
+    fireEvent.click(screen.getByRole("button", { name: "사이드바 접기" }));
+    expect(screen.queryByRole("link", { name: "개인정보" })).toBeNull();
   });
 });

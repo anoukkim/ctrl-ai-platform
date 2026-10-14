@@ -291,3 +291,80 @@ def test_the_applicant_handle_is_the_real_username(
 
     assert row["username"] == "testmember2"
     assert row["username"] != member.email.split("@")[0]
+
+
+# ------------------------------------- fix-quarter-form-autofill (2026-10-14)
+
+
+def _detail(response) -> str:
+    """The Korean sentence, whether the schema (422) or the route refused."""
+    detail = response.json()["detail"]
+    return detail if isinstance(detail, str) else " ".join(item["msg"] for item in detail)
+
+
+@pytest.mark.parametrize("code", ["2027Q2", "27-Q2", "2027-Q5", "2027-Q0", "2027-H1", "Q2-2027", ""])
+def test_a_code_that_is_not_yyyy_qn_is_refused_in_korean(client: TestClient, code: str) -> None:
+    response = client.post("/api/admin/quarters", json={**GOOD, "code": code})
+    assert response.status_code == 422
+    if code:
+        assert "2026-Q4 꼴로 입력해 주세요" in _detail(response)
+
+
+def test_a_lower_case_code_is_normalised(client: TestClient) -> None:
+    response = client.post("/api/admin/quarters", json={**GOOD, "code": " 2027-q2 "})
+    assert response.status_code == 201, response.text
+    assert response.json()["code"] == "2027-Q2"
+
+
+def test_a_duplicate_code_is_refused_in_korean(client: TestClient) -> None:
+    assert client.post("/api/admin/quarters", json=GOOD).status_code == 201
+    again = client.post(
+        "/api/admin/quarters",
+        json={**GOOD, "starts_at": "2030-04-01", "ends_at": "2030-06-30",
+              "application_opens_at": None, "application_closes_at": None},
+    )
+    assert again.status_code == 409
+    assert "2027-Q2 분기가 이미 있습니다" in again.json()["detail"]
+
+
+def test_an_overlapping_range_is_refused_in_korean(client: TestClient, db_session: Session) -> None:
+    assert client.post("/api/admin/quarters", json=GOOD).status_code == 201
+    overlap = client.post(
+        "/api/admin/quarters",
+        json={**GOOD, "code": "2027-Q3", "starts_at": "2027-06-15", "ends_at": "2027-09-30",
+              "application_opens_at": None, "application_closes_at": None},
+    )
+    assert overlap.status_code == 409
+    assert "겹칩니다" in overlap.json()["detail"] and "2027 Q2" in overlap.json()["detail"]
+    # Touching end to start is not an overlap.
+    nxt = client.post(
+        "/api/admin/quarters",
+        json={**GOOD, "code": "2027-Q3", "display_name": "2027 Q3", "starts_at": "2027-07-01",
+              "ends_at": "2027-09-30", "application_opens_at": None, "application_closes_at": None},
+    )
+    assert nxt.status_code == 201, nxt.text
+
+
+def test_editing_a_quarter_obeys_the_same_rules(client: TestClient) -> None:
+    first = client.post("/api/admin/quarters", json=GOOD).json()
+    second = client.post(
+        "/api/admin/quarters",
+        json={**GOOD, "code": "2027-Q3", "display_name": "2027 Q3", "starts_at": "2027-07-01",
+              "ends_at": "2027-09-30", "application_opens_at": None, "application_closes_at": None},
+    ).json()
+
+    backwards = client.patch(f"/api/admin/quarters/{first['id']}", json={"ends_at": "2027-03-01"})
+    assert backwards.status_code == 400 and "종료일은 시작일보다 뒤" in backwards.json()["detail"]
+
+    late_close = client.patch(
+        f"/api/admin/quarters/{first['id']}", json={"application_closes_at": "2027-07-15"}
+    )
+    assert late_close.status_code == 400 and "분기 종료일보다 뒤일 수 없습니다" in late_close.json()["detail"]
+
+    into_next = client.patch(f"/api/admin/quarters/{second['id']}", json={"starts_at": "2027-06-01"})
+    assert into_next.status_code == 409 and "겹칩니다" in into_next.json()["detail"]
+
+    # Its own dates do not count as an overlap.
+    assert client.patch(
+        f"/api/admin/quarters/{first['id']}", json={"display_name": "2027 2분기"}
+    ).status_code == 200

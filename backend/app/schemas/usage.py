@@ -6,9 +6,11 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.usage import FundingSource, UsageFeature
+from app.schemas.accounting import MemberMoneyRead, SplitRead
 
-#: The wallet card's breakdown: 채팅 / 영상 / 기타.
-SpendingGroup = Literal["chat", "video", "other"]
+#: The wallet card's breakdown: 채팅 / 빌더 / 영상 / 기타 (cost-clarity
+#: gave 빌더 its own line).
+SpendingGroup = Literal["chat", "build", "video", "other"]
 
 
 class UsageEventRead(BaseModel):
@@ -29,6 +31,9 @@ class UsageEventRead(BaseModel):
     #: Where the charge came from, already resolved to a name the member
     #: recognises, so the table does not have to join projects itself.
     label: str = ""
+    #: The charge by part, in won (cost-clarity) — the same split as the
+    #: reply receipt. None only if it could not be worked out.
+    split: SplitRead | None = None
 
 
 class WalletUsage(BaseModel):
@@ -63,17 +68,11 @@ class MyUsage(BaseModel):
     membership_status: str | None
     #: None when the member has no approved wallet this quarter.
     wallet: WalletUsage | None = None
-    #: 채팅 / 영상 / 기타, in that order, adding up to `wallet.consumed_krw`.
+    #: 채팅 / 빌더 / 영상 / 기타, in that order, adding up to
+    #: `wallet.consumed_krw`.
     breakdown: list[SpendingLine] = Field(default_factory=list)
     personal: PersonalUsage | None = None
     events: list[UsageEventRead] = Field(default_factory=list)
-
-
-class SimulateUsageRequest(BaseModel):
-    """Development-only: pretend a provider charged someone."""
-
-    user_id: int | None = None
-    amount_krw: int = Field(ge=0, le=1_000_000)
-    provider: str = Field(default="claude", max_length=50)
-    feature: UsageFeature | None = None
-    model_id: str | None = Field(default=None, max_length=120)
+    #: 대화별 / 날짜별 totals and this quarter's cache saving (cost-clarity).
+    #: None with no current quarter.
+    money: MemberMoneyRead | None = None

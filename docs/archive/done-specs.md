@@ -5,6 +5,77 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## feat-spend-feedback — full spec (merged 2026-10-14)
+
+Branch `feat-spend-feedback`. M1. Added by the owner on 2026-10-14
+(add-on B; merge and deploy pre-approved). Saved as written:
+
+> Goal: whenever money comes off the member's 동아리 지원 wallet, they see it happen — friendly and a little playful, never annoying.
+> 1. Source of truth: the charged_krw the backend returns for that action (chat `done` event, Builder generation, video, tools, files). Never a client-side estimate. No charge (failed/free call) → no animation.
+> 2. Sidebar wallet (the Usage item / balance in the sidebar):
+>    - the number counts down from old to new balance (~600 ms, eased)
+>    - a small "-12원" chip floats up and fades next to it
+>    - a brief colour pulse on the balance
+> 3. Toast (bottom-right; top on mobile), Korean, short, e.g.:
+>    - "12원을 사용했어요! 남은 지원금 79,988원"
+>    - include what it was for when known: "채팅 · Sonnet", "빌더 · 앱 만들기", "영상 생성"
+>    - several charges within 3 s are merged into one toast ("3번 · 합계 36원")
+>    - auto-dismiss after 3 s, click → /usage
+> 4. Game-like milestones (each shown once per quarter, stored server-side per member + quarter so it survives devices):
+>    - 첫 사용: "첫 작품을 시작했어요 🎉"
+>    - 25% / 50% / 75% of the wallet used: a slightly bigger card with a progress ring and the remaining amount
+>    - 잔액 10,000원 이하: a calm warning (not celebratory), with a link to Usage
+>    - 잔액 0: the existing Korean refusal message stays the authority; the card just points to it
+> 5. Settings: Profile › 알림 → "사용 알림 표시" on/off (default on) and "움직임 줄이기" follows prefers-reduced-motion automatically (no count-up, no floating chip; toast only). Stored per user.
+> 6. Never blocks input, never steals focus, screen readers get one polite aria-live line per toast. Light and dark themes.
+> 7. Tests: animation fires only on a real charge; merge-within-3s; milestones fire once per quarter at the right thresholds (incl. a charge that jumps over two thresholds → only the higher one); setting off → no toast; reduced motion path.
+> 8. Add a short note to docs/product.md (Usage section).
+
+## fix-quarter-form-autofill — full spec (merged 2026-10-14)
+
+Branch `fix-quarter-form-autofill`. M1. Added by the owner on 2026-10-14
+(add-on A; merge and deploy pre-approved). Saved as written:
+
+> Admin › Quarters › 새 분기 만들기:
+> 1. 분기 코드 must match YYYY-Qn (n = 1–4); show a Korean error otherwise ("2026-Q4 꼴로 입력해 주세요"). Backend validates too.
+> 2. When a valid code is typed, auto-fill:
+>    - 화면에 보일 이름 → "2026 Q4"
+>    - 분기 시작일 → first day of the quarter (Q4 → 2026-10-01)
+>    - 분기 종료일 → last day of the quarter (Q4 → 2026-12-31)
+>    - 신청 시작일 → today if today is before the quarter ends, else the quarter start
+>    - 신청 마감일 → 분기 시작일 + 30 days (still editable)
+>    Auto-filled values stay editable. A field the admin has edited by hand is not overwritten when the code changes again.
+> 3. Date pickers enforce order with min/max:
+>    - 분기 종료일 ≥ 분기 시작일
+>    - 신청 마감일 ≥ 신청 시작일 (or ≥ 분기 시작일 when 신청 시작일 is empty); earlier dates are not pickable
+>    - Backend refuses the same violations with Korean messages (never trust the form).
+> 4. Duplicate code or a date range overlapping an existing quarter → Korean error from the backend.
+> 5. Tests: code parsing for Q1–Q4 incl. month ends (2028-Q1 ends 03-31), autofill, hand-edited field not overwritten, min/max on pickers, backend refusals.
+
+## cost-clarity — full spec (merged 2026-10-14)
+
+Branch `feat-cost-clarity`. M1/M4. Added by the owner on 2026-10-14
+(evening) as item 1 — "was club-accounting, plus caching made visible".
+Goal, in the owner's words: *I (owner) and every member can see exactly
+where money went, including what caching saved.* Saved as written:
+
+> a) Accuracy audit first: every charge path through usage.charge(); per-event round-up; provider_cost vs charged_krw; cache write/read prices per model (incl. Haiku 4.5's 4,096-token minimum — a prompt below it is never billed as a cache read); web search/fetch/code-execution costs; failed/cut-off calls. Findings → docs/progress/audit-accounting.md; fix real bugs with tests.
+> b) Members — receipt under each reply: 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계, plus "캐시로 아낀 금액 약 N원" (what the cached part would have cost uncached). A ⓘ explaining caching in two plain Korean sentences. Usage page: per-conversation and per-day totals with the same split, and "이번 분기 캐시로 아낀 금액".
+> c) Admin › Budget:
+>    - 동아리 크레딧 card per provider (Anthropic first): 구매 기록 (date, USD, KRW actually paid, memo; append-only + audit), 사용 (USD provider_cost and KRW), 남은 크레딧 (추정, "Anthropic 콘솔이 최종 기준").
+>    - 지급 vs 사용: wallets granted this quarter, charged_krw total, unspent.
+>    - Caching panel: per model per day — cache hit rate, tokens read/written, KRW saved.
+>    - Per-member table: granted, spent by 채팅/빌더/영상/기타, cache saved.
+> d) Admin › Members: adjust one member's current wallet (+/− KRW, required reason) as an audited adjustment row, never an overwrite.
+> e) Quarter close: "분기 마감" → wallets frozen, unspent shown per member as 회수; per-quarter carry-over % (default 0) applied at next approval. Audited; nothing deleted.
+> f) CSV exports (UTF-8 with BOM): per-member per-quarter, per-day, purchases, caching.
+> g) Optional reconciliation: ANTHROPIC_ADMIN_API_KEY (in .env.example, empty, never required) + ANTHROPIC_ADMIN_PROVIDER=mock (default) → button compares our provider_cost to Anthropic's cost_report for a date range. Mock only in tests.
+> h) docs/api-distribution.md: Korean section "비용 확인하는 법" (owner) and a short member-facing explanation reused in the ⓘ.
+
+**Relation to budget-by-provider** (*After the prototype*): this item
+delivers its purchase records and the per-provider balance; pools, the
+reserve and purchase planning stay there, still waiting on the owner.
+
 ## admin-restructure — full spec (merged 2026-10-01)
 
 Branch `ui-admin-restructure`, merged. Saved exactly as written by the
@@ -173,6 +244,25 @@ developer.
 
 ## ui-tube-watch — full spec (merged 2026-10-02)
 
+### Two things worth carrying forward
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Two things from ui-tube-watch worth carrying forward:
+
+- **The breakpoint is a container query, not a media query.** Measuring
+  the *screen* is wrong on this page: at 1280px the sidebar and padding
+  leave only ~990px of content, so a `@media (min-width: 64rem)` rule is
+  true on a screen where the two columns do not actually fit the way the
+  spec describes. `.frame` carries `container-type: inline-size` and the
+  rule is `@container (min-width: 54rem)`. Any later screen that splits
+  into columns inside the main content area has the same problem.
+- **`lib/aspect.ts` now holds the ratio constants.** Video Generator's
+  `VideoSettings.tsx` re-exports them so its imports did not change. The
+  watch page needed the same ratio→CSS map, and a second copy is the kind
+  that drifts.
+
+
 Branch `ui-tube-watch`, merged. Added 2026-10-01. Saved exactly as written
 by the developer.
 
@@ -254,6 +344,17 @@ would have caught:
 ---
 
 ## ui-apps-detail — full spec
+
+### The shared comment section
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+**The comment section is now shared code.** `ui-apps-detail` lifted
+reactions, tabs and the whole comment column out of CtrlAITube's
+`WatchPanel.tsx` into `app/components/CommentSection.tsx`. Any later
+screen that needs comments uses that, and a change to it changes both
+community screens — which is the point.
+
 
 Branch `ui-apps-detail`. Added 2026-10-02 at the top of **Next**. Saved
 exactly as written by the developer.
@@ -444,6 +545,21 @@ queries against its own viewport. Worth remembering: **measure
 
 ## project-video-management — full spec (merged 2026-10-07)
 
+### Shared components later changes go through
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+**Three components are now shared between Project Builder and Video
+Generator**, which is where a later change should go rather than into
+one product: `app/components/WorkspaceTitle.tsx` (the workspace title,
+its ▾ menu, inline rename), `app/components/LibraryCard.tsx` (the list
+card and its ⋯ menu), and `app/components/ConfirmDialog.tsx`, which moved
+out of `app/admin/components/` and is now the only confirmation window in
+the product — a member deleting a project and an admin closing an account
+ask the same question and should not ask it in two different sets of
+words.
+
+
 Branch `feat-project-video-management`, merged. Saved exactly as written
 by the developer, and kept for reference.
 
@@ -533,6 +649,47 @@ reserve is only where it goes next, and that is a line
 ---
 
 ## video-higgsfield-only — full spec (merged 2026-10-07)
+
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **video-higgsfield-only** (merged 2026-10-07) that later
+items inherit:
+
+- **Seed prices are placeholders** — Kling 3.0 Pro 720p 700원/s, 1080p
+  1,000원/s; Seedance 2.0 480p 300원/s, 720p 500원/s; Wan 3.0 720p 400원/s.
+  `prices_are_examples` marks them, Admin shows 예시, and saving a model
+  clears it.
+- **Edit and extend use the same per-second rate** — edit: source length
+  × price at the source resolution; extend: added length × that price.
+- **The prompt helper is a minimal mock Claude provider** with a flat
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` (default 10원) from Build, feature tag
+  `video_prompt`. Phase 2 extends `app/services/claude_provider.py` and
+  replaces the flat amount with token pricing.
+
+- **A chosen final version makes a Draft or Generating project Ready**,
+  and clearing it returns Ready to Draft; Published and Archived are left
+  alone. `VideoProject.apply_final_version_rule` runs on every update.
+
+Two things Phase 2 inherits from it:
+
+- **`UsageEvent.feature` and `video_version_id` already exist.** Phase 2
+  adds its token, USD and rate columns next to them.
+- **`usage.ensure_affordable()` and `charge(commit=False)`** exist so a
+  provider is never called for a member who cannot pay, and a row created
+  by the call lands in the same transaction as the charge.
+
+Two decisions from **account-withdrawal** (merged 2026-10-07) that later
+items inherit:
+
+- **The scheduled job is a CLI, not an in-process scheduler** —
+  `python -m app.jobs.anonymise_withdrawn` (with `--dry-run`), run by hand
+  or cron now and by Cloud Scheduler in Phase 9. No new dependency.
+  `app/jobs/` is where later jobs go; each must be idempotent.
+- **Anonymisation leaves the audit log untouched.** It stays strictly
+  append-only; the anonymisation row itself carries no personal data.
+
 
 Branch `feat-video-higgsfield-only`. Saved exactly as written by the developer.
 
@@ -685,6 +842,51 @@ description of the access rule. Saved exactly as written by the developer.
 
 ## Phase 2 — Chat — full spec (merged 2026-10-07)
 
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **Phase 2 — Chat** (merged 2026-10-07) that later items
+inherit — owner-approved defaults, with two changes by the owner:
+
+- **Model: `ANTHROPIC_MODEL=claude-sonnet-5-5`** — the owner chose Sonnet
+  over Opus because the club starts on a small budget. Opus 5.5 and Haiku
+  4.5 are in the price table, so switching is a `.env` change only.
+  *Superseded by `chat-model-choice`: the model is chosen per conversation
+  from a catalogue (Sonnet 5.5 the default); `ANTHROPIC_MODEL` is only the
+  fallback for an empty catalogue.*
+- **Thinking: off where the model allows it, otherwise low effort**, as a
+  setting either way (`CHAT_THINKING=off`, `CHAT_EFFORT=low`). Sonnet 5.5
+  turns it off with `thinking: between_tools`; Opus 5.5 cannot turn it off
+  and runs adaptive at low effort; Haiku 4.5 gets neither field.
+- Max output 4,096 tokens; history up to 16,000 estimated tokens, oldest
+  dropped first; 10 messages per member per minute, counted from saved
+  messages; USD→KRW 1,400 to start.
+- **Prices and the rate are admin-editable** (Admin › System, audited).
+  Seeded: Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Haiku 4.5 $1/$5 per million
+  input/output tokens. The rate keeps its history as rows.
+- **KRW is rounded up**, minimum 1원 for any call that used a token.
+- **Budget check before the call uses the worst case**; if a concurrent
+  charge wins the race anyway, the charge takes what is left and still
+  records the full dollar cost (`charge(cap_to_available=True)`).
+- **A stopped reply is saved and charged for the tokens used**; only an
+  error is free. A refusal is saved and charged.
+- **Inactive members can read** their conversations; sending, creating,
+  renaming and deleting need participation.
+- **Deleting a conversation is a real delete**; its usage events stay with
+  `conversation_id` set to NULL.
+- **The video prompt helper is priced by the token too**;
+  `VIDEO_PROMPT_HELP_CHARGE_KRW` is gone.
+- **Settings are `CHAT_*`, not `CLAUDE_*`** — Claude Code sets
+  `CLAUDE_EFFORT` in its terminals and a backend started from one would
+  pick it up.
+
+**Anthropic credit (owner, 2026-10-07).** The club starts with a small
+prepaid Anthropic credit — the free sign-up credit if there is one,
+otherwise about $5–10 — with **auto-reload OFF** and a **monthly spend
+limit** set in the Anthropic Console. Recorded in `docs/deployment.md`.
+
+
 Branch `phase-2-chat`. Added 2026-10-01, replacing the one-line entry that
 pointed at `CLAUDE.md` section 20. Saved exactly as written by the
 developer.
@@ -737,6 +939,26 @@ with the developer present — CLAUDE.md section 21 rule 5. Points 1–9 and
 every test above run on the mock provider with no key.
 
 ## ui-polish — final UI pass (merged 2026-10-07)
+
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **ui-polish** (merged 2026-10-07) that later items inherit:
+
+- **Two themes, dark by default.** Every colour, size and spacing is a
+  token in `globals.css`; the light block redefines only the colours. A
+  screen that writes a raw value will not follow the theme.
+- **Pretendard Variable 1.3.9** comes from the npm package `pretendard`
+  (dynamic subset, imported in `app/layout.tsx`).
+- **`PageHeader`** (`app/components/PageHeader.tsx`) is the one list-page
+  header: eyebrow, title, subtitle, action, divider. New list screens use it.
+- **Project status as members see it:** only "작성 중" (was "Draft" until ui-friendly-motion) and "게시됨", with
+  "생성 중…" while building or generating (`projectBadge()` in
+  `lib/projects.ts`). There is no archived status (migration `7c1d5e93a4b2`).
+- **The sidebar collapses** to an icon rail, remembered per browser
+  (`ctrlai.sidebar-collapsed`).
+
 
 Raised 2026-10-07 and built on `ui-polish`, which also holds the earlier
 design-handoff pass (light/dark themes, variant B shape, the restyle of
@@ -802,6 +1024,31 @@ the "최종본 선택됨" meta line. The libraries' filters are exactly
 (`?status=all|draft|published`).
 
 ## chat-model-choice — full spec (merged 2026-10-07)
+
+### Decisions later items inherit
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+Decisions from **chat-model-choice** (merged 2026-10-07) that later items
+inherit:
+
+- **Chat models are a catalogue, `chat_models`** (provider + model,
+  Korean label and description, prices, `members` / `admin` / `disabled`,
+  one default that must stay open to members), edited in Admin › Claude
+  Models and audited (`chat_model.created`, `chat_model.updated`). It
+  replaced `claude_model_prices` (migration `b2f7e4c81d36`). Another
+  provider is a new adapter plus rows — `services/chat_models.py`
+  (`require_adapter`) is the seam.
+- **The model is per conversation** (`conversations.chat_model_id`, NULL =
+  the default). Each reply and usage event records the model that wrote
+  it — **the chosen model's id under the mock too**, no longer `"mock"`.
+- **The video prompt helper uses the default model.**
+- **`ANTHROPIC_MODEL` is only the fallback for an empty catalogue**, priced
+  at the list prices in `chat_models.DEFAULT_CATALOGUE`; it is no longer
+  required at startup.
+- **"답장 1회 약 N원"** is 3,000 input + 800 output tokens
+  (`pricing.TYPICAL_*`); Haiku 10원, Sonnet 20원, Opus 40원 at 1,400원/$.
+
 
 Branch `feat-chat-model-choice`. Added 2026-10-07. Saved exactly as
 written by the developer.
@@ -1430,6 +1677,12 @@ Notes for the build, not changes to the request:
   still rate-limited, and member accounts created by Google have no
   usable password (`UNUSABLE_PASSWORD_HASH`). Existing password members
   link Google from Profile before the password form disappears for them.
+  **Superseded 2026-10-14 by `member-password-login`:** the password form
+  is back on `/login` for every member, under the Google button;
+  `/login/password` redirects there; a Google member can set a password
+  and either method can be removed from Profile › 로그인 방법 while the
+  other remains. Google-created accounts still start with no usable
+  password.
 - **Google verification:** openid/email/profile are non-sensitive scopes,
   so sign-in works for everyone without Google's app review once the
   consent screen is in production; the YouTube upload scope is the one
@@ -1516,3 +1769,382 @@ says "does not render Markdown" (backend unit test).
 
 **Risks:** XSS through Markdown — no raw HTML and a link allow-list,
 both tested. Bundle size (two packages) on the Chat page only.
+
+---
+
+### member-password-login — full spec (merged 2026-10-14)
+
+Branch `feat-member-password-login`. M1. Added by the owner on
+2026-10-14. **Changes CLAUDE.md section 11:** members can sign in with
+Google OR with username and password — both, for everyone. Password
+login is no longer admin-only. The owner's words, verbatim:
+
+> - Login page: "Google로 계속하기" and, below it, the username/password
+>   form, both visible. Keep /login/password working (redirect to /login
+>   is fine).
+> - Sign-up: choose Google, or username + email + password. An invite
+>   code is required either way, as today.
+> - Profile › 로그인 방법: a Google member can set a password (then can
+>   also sign in by username); a password member can link Google.
+>   Unlinking or removing one is allowed only while another sign-in method
+>   remains, so nobody locks themselves out.
+> - Keep every existing rule: Argon2id, the database-backed attempt
+>   limits, link Google by sub never by email, ADMIN_EMAIL promotion only
+>   at creation with email_verified, withdrawal works for both kinds of
+>   account.
+> - Update CLAUDE.md section 11, the google-login notes in done-specs,
+>   docs/product.md and the dev seed.
+
+**For this item only — wait for the owner's check before merging.**
+After steps 1–6 of the run's loop pass: start a preview of the branch
+(separate ports, the practice database, mock providers, a fresh dev
+seed with an admin with a password only, a member with Google only, a
+member with a password only, a member with both, and an unused invite
+code); check every flow with Playwright in both themes and at 390 px;
+give the owner a Korean click-through checklist (URL, accounts and how
+each signs in, the invite code, each flow, what must be refused — wrong
+password, sign-up without a code, removing the last sign-in method, a
+Google account whose email matches someone else's account — and what is
+mock); push the branch, mark it "waiting for owner check" in the run
+log, and merge only on the owner's OK, with `--no-ff`, resolving
+conflicts with what merged meanwhile, then re-run step 4 on main and
+stop the preview. A reported problem is fixed on the same branch, steps
+4–6 re-run, the preview refreshed and only the changed checks given.
+
+## deepseek-research — full spec (merged 2026-10-14)
+
+Branch `docs-deepseek`. Research only — nothing is built. Added
+2026-10-08 at position 3; can run any time. Its findings go to
+`docs/research/` and into **more-chat-providers** (*After the beta*).
+Saved exactly as written by the developer.
+
+> ITEM 3 — research only (branch docs-deepseek), can run any time
+> Can we add DeepSeek to the chat model catalogue? Using current docs, report: DeepSeek's own API (pricing, OpenAI-compatible API, streaming, file/image input, where data is stored and the privacy terms, billing and receipts for Concur), and alternatives that host DeepSeek models elsewhere (via OpenRouter with a provider/region choice, or US-hosted providers), with price differences. Recommend whether and how, noting that our company may restrict sending data to servers in China. Write it into docs/research/ and add a "more-chat-providers" note in BACKLOG. Don't build.
+
+Findings (2026-10-08): [`../research/deepseek-research.md`](../research/deepseek-research.md);
+summary under **more-chat-providers** in [`../BACKLOG.md`](../BACKLOG.md).
+Merged with the owner's approval on 2026-10-14, into
+`feat-admin-and-nav-cleanup` (`30de894`), which also seeded the closed
+catalogue row (연결 준비 중) from the research's prices.
+
+### admin-and-nav-cleanup — full spec (merged 2026-10-14)
+
+Branch `feat-admin-and-nav-cleanup`. M1. Added by the owner on
+2026-10-14, to be built at once with the run's loop and pre-approval.
+The owner's words, verbatim:
+
+> 1. Remove Report Issue from the menu and remove the /issues page
+>    (redirect /issues to Chat). The 의견 보내기 button in the sidebar
+>    footer stays as the one way to send feedback. Update
+>    anonymous-feedback-board's spec to match: no menu item and no
+>    /issues; its member board is a page reached from a "다른 의견 보기"
+>    link inside the 의견 보내기 dialog. Update CLAUDE.md sections 1 and
+>    15, docs/product.md and sections.ts.
+> 2. Remove Dev Tools from Admin (menu, page, tab). Keep the backend
+>    simulate-usage route only if tests still need it; otherwise remove it
+>    too. Keep python -m app.db.reset_dev.
+> 3. Fix the Claude Models table: in the 공개 범위 column the badge, the
+>    select and the "기본으로" button overlap. One control per cell,
+>    nothing overlapping, at 1280px and at 390px (table scrolls inside its
+>    own box), both themes.
+> 4. Rename the Admin section "Claude Models" to "AI Models" (route can
+>    stay or redirect). Group the catalogue by provider with a heading per
+>    provider: Anthropic (Claude) first. "+ 모델 추가" asks for the
+>    provider first. A provider with no adapter yet is listed as "연결 준비
+>    중", and its models cannot be made visible to members or default
+>    (enforced in the backend, with a test).
+> 5. DeepSeek: merge the docs-deepseek research branch (docs only, owner
+>    approves). Add DeepSeek as a provider entry marked "연결 준비 중" with
+>    the model the research recommends, prices from the research,
+>    visibility disabled. Do not write a real DeepSeek adapter and do not
+>    call any DeepSeek API; the adapter stays in more-chat-providers.
+> 6. Update the section list in CLAUDE.md section 15 and every test that
+>    counts Admin sections.
+
+## fix-beta-blockers — full spec (merged 2026-10-14)
+
+PART A1 of the owner's overnight batch of 2026-10-14 (merge pre-approved
+when clean). The owner's words, verbatim:
+
+> A1. fix-beta-blockers
+> 1. Profile shows mock apps for the hard-coded user "yurikim" to every member. Show only the signed-in member's own data, with an empty state; remove that mock path.
+> 2. Remove docs/index.html and docs/.nojekyll (the old ui-polish prototype, 3 MB). Write in the run log how I turn off GitHub Pages; do not change settings yourself.
+> 3. Three backend test files write GIFs into the real backend/var/storage. Every test uses a temporary storage dir; add a guard test that fails if any test writes there.
+> 4. httpx2 is imported at runtime but only in requirements-dev.txt. Move it to requirements.txt; add a test that imports the anthropic adapter with runtime requirements only.
+> 5. Dev-only scripts (init_db seed, reset_dev) must refuse to run in the production image; confirm and test.
+
+Checklist and decisions: [`progress-2026-10-13/fix-beta-blockers.md`](progress-2026-10-13/fix-beta-blockers.md).
+
+## personal-topup-off — full spec (merged 2026-10-14)
+
+PART A2 of the owner's overnight batch of 2026-10-14 (merge pre-approved
+when clean). The owner's words, verbatim:
+
+> A2. personal-topup-off — Owner decision 2026-10-14: personal top-ups (개인 충전) are not offered. Update CLAUDE.md sections 1, 9, 12 and 14 and docs/product.md.
+> - Remove every member-facing trace: the 개인 잔액 block on Usage and the sidebar, overage opt-in, any top-up button or copy, and 개인 충전 wording in the wallet card. Members see only the 동아리 지원 wallet.
+> - Hide Admin › Top-ups from the menu and sections.ts. The backend top-up and personal-spend routes refuse with a Korean message in every environment, behind one setting PERSONAL_TOPUP_ENABLED=false (default false, in .env.example). Keep tables and code; no migration that drops data.
+> - charge() never uses personal money while the setting is off; test it.
+> - Withdrawal: drop the 환불 대기 path from the member screen while top-ups are off; keep the backend logic for any existing balance.
+> - Add a backlog item personal-topup-ui (after the beta).
+
+Checklist and decisions (including why the 환불 대기 copy stays for money
+that already existed):
+[`progress-2026-10-13/personal-topup-off.md`](progress-2026-10-13/personal-topup-off.md).
+
+## token-guard — full spec (merged 2026-10-14)
+
+Branch `feat-token-guard`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> token-guard: a per-reply cost cap (admin setting, default about 100원) that stops the reply and charges only what was used, with a Korean notice; a warning when a conversation's history is long, suggesting a new conversation, with the estimated saving; an optional daily cap per member. Stopping a reply already exists — keep its rule (stopped replies are saved and charged for tokens used).
+
+**Depends on:** `single-wallet`, `prompt-caching`, `cost-calibration`
+(all merged).
+
+1. **Per-reply cap, an admin setting** (Admin › System, audited like the
+   exchange rate; default **100원**). Enforced **before** the call rather
+   than by cutting the stream: from the calibrated input estimate and the
+   model's prices, the backend works out how many output tokens the rest
+   of the cap buys and sends that as `max_tokens` (never above
+   `CHAT_MAX_OUTPUT_TOKENS`). The API then stops at the cap itself and
+   reports real usage, so the charge is exact, with no estimate of an
+   aborted stream. Thinking tokens count toward `max_tokens` and are
+   billed as output, so the cap covers them too.
+2. **The notice.** A reply that ends with `stop_reason: "max_tokens"`
+   because of the cap is saved and charged for what was used (the
+   existing stop rule) and shows: "답장이 1회 비용 한도(100원)에 닿아
+   여기서 멈췄어요. 이어서 받으려면 '계속해 줘'라고 보내 주세요." A
+   member's own 중지 keeps today's behaviour.
+3. **If the input alone is over the cap** (a very long history on an
+   expensive model): refuse before calling, charge nothing, and show the
+   suggestion from point 4.
+4. **Long-history warning.** When the calibrated input estimate passes a
+   threshold (admin setting, default 8,000 tokens, half of
+   `CHAT_CONTEXT_TOKENS`), a note above the composer: "대화가 길어져
+   답장마다 약 N원이 더 들어요. 새 대화로 시작하면 약 M원 아낄 수
+   있어요." N and M come from the same price functions as the pre-check,
+   at the cache-read price where the history is cached
+   (`prompt-caching`), so the saving is not overstated. A 새 대화 button
+   sits beside it.
+5. **Optional daily cap per member** (admin setting, 0 = off). Counted
+   from today's `UsageEvent` rows (KST day) and checked with the wallet
+   pre-check; refused with a Korean message before anything is spent.
+   Applies to every paid feature, not only Chat.
+6. **Tests:** `max_tokens` derived from the cap and the input estimate;
+   a capped reply is saved, charged its real usage and carries the
+   notice; input over the cap is refused with no charge and no provider
+   call; the warning and its figures; the daily cap counts across
+   features and resets at KST midnight; the settings are audited.
+
+
+**Owner decision — 2026-10-14 (morning, tool-cap-defaults):** the default
+per-reply cap rises **100원 → 200원** — the strict cap stayed (result
+tokens reserved inside it), and at 100원 웹 페이지 읽기 could never fit.
+The default lives in `chat_limits.DEFAULTS` only; the table is never
+seeded, so no data moved.
+
+## live-cost-display — full spec (merged 2026-10-14)
+
+Branch `feat-live-cost-display`. Added by the owner on 2026-10-13. Saved
+exactly as written:
+
+> live-cost-display (after cost-calibration): while a reply streams, show the running cost in won next to it; after it ends, a small receipt (input, output, cache read, won) and the wallet card in the sidebar updates at once. The ledger stays the single source of truth; the live figure is an estimate settled by the real usage.
+
+**Depends on:** `cost-calibration` (merged); `token-guard` (the same
+running estimate drives its cap); best after `chat-plus-rendering`,
+which reworks the same reply bubble.
+
+1. **While streaming:** beside the reply, "약 N원", updating as text
+   arrives: the calibrated input estimate plus the output so far
+   (`estimate_tokens` of the streamed text), priced for the model.
+   Always labelled as an estimate (약). Updated at most a few times a
+   second.
+2. **When it ends:** the `done` event carries the real usage the ledger
+   recorded (input, output, cache write and cache read tokens, and
+   `charged_krw`), and the bubble shows a small receipt: 입력 / 출력 /
+   캐시 읽기 / 합계 N원. The figure shown is the **ledger's**, never the
+   estimate; if they differ, the receipt simply replaces the estimate.
+3. **The sidebar wallet card updates at once** (a `MyQuarterProvider`
+   refresh, or the remaining balance carried in the `done` event), and
+   the Usage page shows the same row.
+4. **A stopped or capped reply** gets the same receipt; a failed call
+   shows "청구되지 않았어요".
+5. **Tests:** the running figure never shows without 약; the receipt's
+   numbers equal the usage event's; the wallet card changes without a
+   reload; a failed call shows no charge.
+
+## chat-plus-tools — full spec (merged 2026-10-14)
+
+Next (item 7) · M2 · branch `feat-chat-plus-tools`. Effort: **M**
+(3–5 days). Added 2026-10-07; **moved into Next by the owner on
+2026-10-14** as part of the overnight batch, with these rules, which win
+over the points below where they differ:
+
+> - Mock tools only: plausible search results, page text and code output; no real API call, no real search fee.
+> - Each tool is switched on per catalogue model by an admin and per conversation by the member, off by default. Turning one on shows its extra cost first (search ≈ 14원 each plus result tokens).
+> - token-guard's per-reply cap includes tool fees and result tokens; the live cost and receipt show them; usage events record server_tool_use and the fees.
+> - "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool runs; sources shown under the reply as links.
+> - Code execution runs only on Anthropic's side; nothing runs on our server.
+> - List in docs/deployment.md what changes when CLAUDE_PROVIDER=anthropic (real fees).
+> - Depends on token-guard and live-cost-display; if either is not merged yet, build it after them.
+
+1. **Three Anthropic server tools**, each switched on per catalogue model
+   by an admin (new catalogue columns), and per conversation by the
+   member with a toggle next to the model picker — per conversation, not
+   per message, because changing the tool list breaks the prompt cache:
+   - **웹 검색** — `web_search_20260209` on Sonnet 5.5 and Opus 5.5;
+     `web_search_20250305` on Haiku 4.5 (no dynamic filtering there).
+     `max_uses` 3, `user_location` Korea. **$10 per 1,000 searches (≈ 14원
+     each) plus the result tokens**, which stay in the history and are
+     billed again on later turns.
+   - **웹 페이지 읽기** — `web_fetch_20260209`; only URLs already in the
+     conversation. No fee beyond tokens, so `max_content_tokens` 20,000
+     and `max_uses` 2 — one fetched 500 KB PDF would otherwise be about
+     125k tokens (≈ 350원 on Sonnet).
+   - **코드 실행** — `code_execution_20260521`; free when web search or
+     fetch `_20260209` is in the request, otherwise inside the
+     organisation's 1,550 free container-hours a month (then $0.05 an
+     hour, 5-minute minimum). Files it creates come back through the
+     Files API; the backend copies them into the storage interface at once
+     and serves them as chat attachments. **File ids from a member are
+     never accepted** — they are workspace-wide.
+2. **The ledger.** `UsageEvent` records the response's `server_tool_use`
+   counts (searches, fetches). KRW = tokens as now + searches × the
+   per-search price (a catalogue value, `web_search_usd_per_call`, seeded
+   $0.01) × the rate. The worst-case pre-check adds `max_uses` × the
+   search price and the fetch cap.
+3. **Screens.** "검색 중… / 페이지 읽는 중… / 코드 실행 중…" while a tool
+   runs; sources under the reply as numbered links showing their domain
+   (web search answers carry citations); code output — text, an image, a
+   file — as an attachment chip. The picker's estimate gains "+ 검색 1회당
+   약 14원".
+
+**Charged:** the wallet, by the token plus per search. A typical question with
+two searches: ≈ 50원 Haiku / 73원 Sonnet / 118원 Opus (research doc; the
+result-token size is an estimate this item measures).
+
+**Tests:** a tool is sent only when both the model and the conversation
+allow it; Haiku gets the basic search version; searches are charged at
+the catalogue price; the pre-check includes `max_uses`; a member-supplied
+file id is refused; a tool error (HTTP 200 with an error block) shows
+Korean and charges only tokens; mock replies cover search, fetch and code
+output.
+
+**Risks:** cost — the per-search fee and re-billed results (caps, the
+visible estimate). Untrusted web content in the context (prompt
+injection): there are no client tools, so a page can only steer the
+text, and links in replies show their domain. The member's query goes to
+the search provider (said in the toggle's tooltip). Code execution is not
+ZDR-eligible and runs on Anthropic's servers, never ours.
+
+**Owner decision — 2026-10-14 (morning, tool-cap-defaults):** 웹 페이지
+읽기 is bounded to **1회 per reply × 10,000토큰 per page** by default,
+and both figures became admin settings in Admin › System › 채팅 한도
+(audited, carried on each request to the adapter and the mock). With the
+cap at its new 200원 default, 웹 검색 and 페이지 읽기 fit on every
+member-visible model — pinned by a catalogue-iterating test; a cap below
+a tool's worst case still refuses with the Korean notice.
+
+## audit-caching-and-distribution — full spec (merged 2026-10-14)
+
+PART F of the owner's 2026-10-14 addendum (merge pre-approved when clean;
+"include in the PART E deploy if it finishes before it, otherwise list it
+as 'deploy next'" — it finished after, so it deploys next). The owner's
+words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
+2026-10-14) and the built details in
+[`progress-2026-10-13/audit-caching.md`](progress-2026-10-13/audit-caching.md) and
+[`progress-2026-10-13/audit-caching-and-distribution.md`](progress-2026-10-13/audit-caching-and-distribution.md);
+the member/admin-facing result is [`../api-distribution.md`](../api-distribution.md).
+
+**Owner decision — 2026-10-14 (morning):** the Sonnet 5.5 cache-read
+over-charge ($0.20 instead of the documented $0.10) is **not
+compensated** — every charge made at the wrong price was mock or
+development data; no member's real money moved. The ledger keeps the
+recorded figures as history.
+
+## Queue history — how Next was reordered (2026-10-01 → 2026-10-13)
+
+*(Moved from BACKLOG › Now on 2026-10-14, docs-cleanup; text unchanged.)*
+
+**Earlier working order (2026-10-07)** — superseded by the owner's order
+of 2026-10-13 at the top of **Next**.
+
+The **Next** order was rewritten again on 2026-10-01, and this is the
+final order. **Phase 2 — Chat** moves from last place to 2 and
+**prep-beta-launch** to 3: the goal is an invite-only beta on a real
+domain whose one working AI feature is Claude chat, with everything else
+labelled as test mode. Both specs were replaced wholesale, and
+`video-higgsfield-only`'s Length slider section was replaced by
+model-driven settings.
+
+Two consequences of Phase 2 moving first are recorded in its spec: it now
+owns the `UsageEvent` migration that `budget-by-provider` and
+`usage-analytics` were each going to add, and it charges the `build`
+category because the Claude/Higgsfield rename comes later.
+
+**invite-only-signup** was then inserted at position 2 on 2026-10-01,
+between Phase 2 and `prep-beta-launch`. It takes the invite codes out of
+`prep-beta-launch`'s beta list and makes the code required in every
+environment: the repository is public, so the site address will be, and an
+invite code is what keeps the community members-only.
+
+**Then, later the same day, the queue was reordered again.** The three
+launch items moved to the end and the six build-out items came first.
+`ui-tube-watch` and `ui-apps-detail` were built under that order and
+merged on 2026-10-02.
+
+**The queue was reordered once more on 2026-10-02, and that is the order
+now in force.** `budget-by-provider` and `usage-analytics` left **Next**
+entirely for a new section, **After the prototype (needs discussion)** —
+the cost model behind them is still being decided, and an item whose
+shape is unsettled should not sit at the head of a queue blocking four
+items that are ready. Everything below them moved up, so **Next** now
+started at `project-video-management` and ended, as before, with the
+three launch items.
+
+**The numbered list under "Next" is the authority on order** — the
+numbers written into the spec sections are a snapshot and go stale at
+every reorder.
+
+Deferring those two undid the dependencies that had been written on the
+assumption they came first. Four notes were rewritten to match:
+
+- **Phase 2 — Chat charges the existing Build (Claude) budget** through
+  the current budget service, rather than the renamed per-provider
+  structures. It still records every field the two deferred items will
+  need, so neither of them has to backfill.
+- **`account-withdrawal` releases the member's remaining allocation**
+  for the quarter instead of returning it to a club reserve. There is no
+  reserve until `budget-by-provider` builds one; the release is written
+  to the audit log, and connecting it to the reserve is that item's work.
+- **`video-higgsfield-only` charges the existing Video budget**, again
+  through the current budget service, and records the per-event fields.
+- **`budget-by-provider` no longer owns the `UsageEvent` migration.**
+  Phase 2 adds the columns it needs when it writes them; the deferred
+  item extends that shape rather than introducing it.
+
+**Working order set by the developer (2026-10-08)** — complete:
+single-wallet and `ui-friendly-motion` merged 2026-10-13,
+`deepseek-research` merged 2026-10-14 (owner approved, with
+admin-and-nav-cleanup).
+
+
+## privacy-and-terms — full spec (merged 2026-10-14)
+
+Branch `feat-privacy-and-terms`. M1, top of Next. Added by the owner on
+2026-10-14. **The owner reviews the text before it ships.** Saved exactly
+as written:
+
+> privacy-and-terms: 개인정보 처리방침 and 이용약관 pages in Korean for a club (collected data — Google email/name, username, chats, files, usage; why; retention; withdrawal and anonymisation after 30 days; stored in Google Cloud Seoul; contact ctrlai.platform@gmail.com). Consent checkbox at sign-up (Google and password); links on the sign-up screen and sidebar footer. Before members are invited; I must review the text.
+
+**Built (2026-10-14):** `/privacy` and `/terms` (Korean, logged-out,
+시행일 2026-10-14 · v1), consent checkbox on both sign-up paths enforced
+server-side before any invite use (`users.terms_accepted_at`, migration
+`b9e6a3d1f4c7`; existing members stay NULL — re-consent is the owner's
+call), 개인정보 · 약관 links in the sidebar footer. Two review rounds
+checked every sentence against the code (backups: the newest 7 kept by
+hand, no day-based retention; attempt rows pruned on the next attempt;
+deletes need an active quarter; community screens in future tense).
+**운영진 검토 필요** — the owner reads the final text before inviting
+members. Open: no member password-reset tool exists (약관 §3 says "운영진에게
+알려 주세요").
