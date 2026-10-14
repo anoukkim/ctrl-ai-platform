@@ -25,6 +25,13 @@ class BuilderProjectCreate(BuilderProjectBase):
     """
 
 
+class BuilderProjectFromChat(BuilderProjectBase):
+    """Builder로 보내기 (chat-plus-artifacts): a chat reply's HTML block
+    becomes a new project's `index.html`. No Claude call, no charge."""
+
+    html: str = Field(min_length=1)
+
+
 class BuilderProjectUpdate(BaseModel):
     """Every field optional: this is a PATCH."""
 

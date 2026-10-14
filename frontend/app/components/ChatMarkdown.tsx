@@ -29,6 +29,11 @@ import { memo, useEffect, useId, useRef, useState, type ReactNode } from "react"
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import ArtifactPreview, {
+  ArtifactContext,
+  isPreviewLanguage,
+  type ArtifactContextValue,
+} from "./ArtifactPreview";
 import styles from "./ChatMarkdown.module.css";
 
 /** 링크로 남겨 두는 주소의 시작. 대소문자는 가리지 않습니다. 같은 답장 안의
@@ -218,7 +223,7 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
     timer.current = setTimeout(() => setState("idle"), 2000);
   };
 
-  return (
+  const block = (
     <div className={styles.codeBlock}>
       <div className={styles.codeHead}>
         <span className={styles.codeLanguage}>{language || "코드"}</span>
@@ -236,6 +241,14 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
       <pre className={styles.pre}>{children}</pre>
     </div>
   );
+  // html·svg 블록은 미리보기 카드가 감쌉니다(chat-plus-artifacts). 코드는
+  // 그 카드의 "코드 보기"로 나옵니다. 끝나지 않은 답장이나 미리보기
+  // 사정을 모르는 화면에서는 그냥 코드입니다.
+  const lang = language.toLowerCase();
+  if (isPreviewLanguage(lang)) {
+    return <ArtifactPreview code={text} language={lang} codeView={block} />;
+  }
+  return block;
 }
 
 const COMPONENTS: Components = {
@@ -274,32 +287,36 @@ const REMARK_PLUGINS: Options["remarkPlugins"] = [[remarkGfm, { singleTilde: fal
 
 interface ChatMarkdownProps {
   text: string;
+  /** 미리보기에 필요한 답장의 사정(chat-plus-artifacts). 없으면 코드만. */
+  artifacts?: ArtifactContextValue;
   /** 답장이 아직 오는 중이면 true. 반쯤 온 코드와 표를 다듬습니다. */
   streaming?: boolean;
   /** 마지막 글자 바로 뒤에 붙일 것 — 답장을 쓰는 중임을 알리는 깜빡이. */
   tail?: ReactNode;
 }
 
-function ChatMarkdown({ text, streaming = false, tail }: ChatMarkdownProps) {
+function ChatMarkdown({ text, streaming = false, tail, artifacts }: ChatMarkdownProps) {
   // 각주 id가 한 대화의 답장끼리 겹치지 않도록 답장마다 다른 머리말을 씁니다.
   const prefix = `${useId().replace(/[^a-zA-Z0-9]/g, "")}-`;
   return (
-    <div className={`${styles.markdown} ${tail ? styles.withTail : ""}`}>
-      <ReactMarkdown
-        remarkPlugins={REMARK_PLUGINS}
-        remarkRehypeOptions={{
-          clobberPrefix: prefix,
-          footnoteLabel: "각주",
-          footnoteBackLabel: "본문으로 돌아가기",
-        }}
-        rehypePlugins={[[prefixFootnoteLabel, prefix]]}
-        urlTransform={safeUrl}
-        components={COMPONENTS}
-      >
-        {streaming ? prepareStreaming(text) : text}
-      </ReactMarkdown>
-      {tail}
-    </div>
+    <ArtifactContext.Provider value={artifacts ?? null}>
+      <div className={`${styles.markdown} ${tail ? styles.withTail : ""}`}>
+        <ReactMarkdown
+          remarkPlugins={REMARK_PLUGINS}
+          remarkRehypeOptions={{
+            clobberPrefix: prefix,
+            footnoteLabel: "각주",
+            footnoteBackLabel: "본문으로 돌아가기",
+          }}
+          rehypePlugins={[[prefixFootnoteLabel, prefix]]}
+          urlTransform={safeUrl}
+          components={COMPONENTS}
+        >
+          {streaming ? prepareStreaming(text) : text}
+        </ReactMarkdown>
+        {tail}
+      </div>
+    </ArtifactContext.Provider>
   );
 }
 

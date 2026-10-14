@@ -232,6 +232,22 @@ Chat is the opening screen and a real conversation with Claude, behind
   so it does not go to Deleted Items — but the money it spent stays in Usage.
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
+- **Previews** (chat-plus-artifacts): a finished reply's fenced `html` or
+  `svg` block becomes a **미리보기** card — 코드 보기, 다운로드
+  (`ctrlai-<conversation>-<reply>.html|svg`, built by the page, not the
+  frame) and, for HTML, **Builder로 보내기** (a new project whose
+  `index.html` is the block; free; participating members only). The
+  preview runs only after **미리보기 열기**, in an `<iframe srcdoc>` with
+  `sandbox="allow-scripts"` and nothing else — an opaque origin with no
+  access to CTRL+AI's cookies, storage or `/api` — and the srcdoc starts
+  with a CSP that allows no network; SVG is never put into the page
+  itself. A label over the frame says not to type passwords there. Blocks
+  over 200 KB show code only; a block cut off by the reply's length says
+  "계속"이라고 보내 주세요. Claude is told to write one self-contained
+  block (inline CSS/JS, inline SVG charts, no external files).
+  `CHAT_MAX_OUTPUT_TOKENS` stays 4,096 — raising it to 8,192 for longer
+  pages is the owner's decision (it roughly doubles the worst-case
+  pre-check).
 - **Files** (chat-plus-files): 📎 or drag-and-drop attaches up to 5 files
   to a message — JPEG/PNG/WebP/GIF (10 MB; re-encoded to a 1,568 px long
   edge with EXIF/GPS removed), PDF (10 MB, 30 pages, not encrypted), CSV
