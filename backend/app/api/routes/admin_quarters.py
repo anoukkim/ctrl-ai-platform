@@ -10,7 +10,7 @@ by hiding a button in the frontend.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import require_admin
@@ -28,17 +28,17 @@ from app.models import (
     Quarter,
     QuarterAllocation,
     QuarterApplication,
+    QuarterStatus,
     TopUpStatus,
     User,
+    WalletAdjustment,
 )
-from app.services import audit
+from app.services import accounting, audit
 from app.services import quarter_budget as quarter_budget_service
 from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
 from app.services.wallet import get_or_create_balance
 from app.schemas.quarter import (
-    AllocationAdjust,
-    AllocationRead,
     ApplicationRead,
     AuditLogRead,
     MemberWithMembership,
@@ -125,6 +125,20 @@ def update_quarter(
         raise HTTPException(status_code=404, detail="분기를 찾을 수 없습니다.")
 
     changes = payload.model_dump(exclude_unset=True)
+    # 분기 마감 is its own action (cost-clarity): it freezes every wallet
+    # and records 회수 and carry-over. Setting the status by hand would
+    # skip all of that, and a closed quarter never reopens — its frozen
+    # wallets must not move again.
+    if quarter.status is QuarterStatus.CLOSED or quarter.closed_at is not None:
+        if "status" in changes and changes["status"] is not QuarterStatus.CLOSED:
+            raise HTTPException(
+                status_code=409, detail="마감한 분기는 다시 열 수 없습니다."
+            )
+    elif changes.get("status") is QuarterStatus.CLOSED:
+        raise HTTPException(
+            status_code=400,
+            detail="분기는 Admin › Quarters의 '분기 마감'으로만 마감합니다 — 지갑을 멈추고 회수를 기록합니다.",
+        )
     before = {field: getattr(quarter, field) for field in changes}
     for field, value in changes.items():
         setattr(quarter, field, value)
@@ -246,7 +260,15 @@ def review_application(
     approved_at = datetime.now(timezone.utc)
 
     allocation.application_id = application.id
-    allocation.budget_krw = application.requested_budget_krw
+    # The quarter's amount, plus whatever adjustments this wallet already
+    # carries (a re-approval must not wipe an admin's earlier +/−, which
+    # are rows, never overwritten — cost-clarity).
+    earlier = db.scalar(
+        select(func.coalesce(func.sum(WalletAdjustment.amount_krw), 0)).where(
+            WalletAdjustment.allocation_id == allocation.id
+        )
+    ) if allocation.id is not None else 0
+    allocation.budget_krw = application.requested_budget_krw + int(earlier or 0)
     allocation.approved_at = approved_at
     allocation.approved_by = admin.id
     # Provider prices as they stood at approval. Kept so a member's quota
@@ -254,6 +276,10 @@ def review_application(
     allocation.pricing_snapshot = {"captured_at": approved_at.isoformat()}
 
     db.add(allocation)
+    db.flush()
+    # 분기 마감's carry-over (cost-clarity): part of last quarter's unspent
+    # wallet, if the closing admin chose to carry any, lands here once.
+    carried = accounting.apply_carry_over(db, admin=admin, allocation=allocation)
 
     # Approving is what makes a member a participant in the quarter. The
     # budget alone is not enough: `require_active_member` reads the
@@ -273,7 +299,7 @@ def review_application(
             f"{applicant.display_name if applicant else application.user_id}의 참여 신청을 승인하고 "
             f"동아리 지원 {application.requested_budget_krw:,}원을 배정했습니다."
         ),
-        detail={"budget_krw": application.requested_budget_krw},
+        detail={"budget_krw": application.requested_budget_krw, "carried_in_krw": carried},
     )
 
     db.commit()
@@ -539,62 +565,6 @@ def set_member_role(
         account_status=member.account_status,
         membership_status=membership.status if membership else None,
     )
-
-
-@router.put(
-    "/quarters/{quarter_id}/allocations/{user_id}",
-    response_model=AllocationRead,
-    summary="Adjust a member's approved allocation (KRW)",
-)
-def adjust_allocation(
-    quarter_id: int,
-    user_id: int,
-    payload: AllocationAdjust,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-) -> QuarterAllocation:
-    """Change what a member's wallet holds this quarter, in KRW.
-
-    The budget may be lowered below what has already been spent — the
-    remaining figure clamps at zero rather than going negative — but that
-    is a deliberate act and it is logged.
-    """
-    allocation = db.scalar(
-        select(QuarterAllocation).where(
-            QuarterAllocation.user_id == user_id,
-            QuarterAllocation.quarter_id == quarter_id,
-        )
-    )
-    if allocation is None:
-        raise HTTPException(
-            status_code=404,
-            detail="승인된 지원금이 없습니다. 먼저 참여 신청을 승인해 주세요.",
-        )
-
-    member = db.get(User, user_id)
-    before_krw = allocation.budget_krw
-    allocation.budget_krw = payload.budget_krw
-
-    audit.record(
-        db,
-        actor=admin,
-        action=AuditAction.ALLOCATION_ADJUSTED,
-        target_type="allocation",
-        target_id=allocation.id,
-        target_label=member.username if member else str(user_id),
-        summary=(
-            f"{member.display_name if member else user_id}의 동아리 지원을 "
-            f"{before_krw:,}원에서 {payload.budget_krw:,}원으로 조정했습니다."
-        ),
-        detail={
-            "before": {"budget_krw": before_krw},
-            "after": {"budget_krw": payload.budget_krw},
-            "note": payload.note,
-        },
-    )
-    db.commit()
-    db.refresh(allocation)
-    return allocation
 
 
 @router.get(

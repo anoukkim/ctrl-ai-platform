@@ -295,6 +295,8 @@ def test_usage_me_breaks_the_wallet_down_by_chat_video_and_other(
 
     assert [(line["group"], line["label"], line["consumed_krw"]) for line in body["breakdown"]] == [
         ("chat", "채팅", 3_000),
+        # cost-clarity: 빌더 has its own line (nothing built here).
+        ("build", "빌더", 0),
         ("video", "영상", 3_800),
         ("other", "기타", 700),
     ]
@@ -374,18 +376,18 @@ def test_the_audit_view_is_readable_by_admins_only(
 def test_adjusting_a_wallet_is_logged(
     client: TestClient, dev_user, funded, db_session: Session
 ) -> None:
-    response = client.put(
-        f"/api/admin/quarters/{funded.id}/allocations/{dev_user.id}",
-        json={"budget_krw": 60_000, "note": "조정"},
+    response = client.post(
+        f"/api/admin/quarters/{funded.id}/allocations/{dev_user.id}/adjustments",
+        json={"amount_krw": -40_000, "reason": "조정"},
     )
 
-    assert response.status_code == 200
-    assert response.json()["remaining_krw"] == 60_000
+    assert response.status_code == 201
+    assert response.json()["budget_after_krw"] == 60_000
     allocation = db_session.query(QuarterAllocation).one()
     assert allocation.budget_krw == 60_000
 
     logged = db_session.query(AuditLog).filter_by(action="allocation.adjusted").one()
-    assert "100,000원에서 60,000원" in logged.summary
+    assert "100,000원 → 60,000원" in logged.summary
     assert logged.detail["before"] == {"budget_krw": 100_000}
     assert logged.detail["after"] == {"budget_krw": 60_000}
 
@@ -397,9 +399,9 @@ def test_a_rolled_back_change_leaves_no_audit_row(
     before = db_session.query(AuditLog).count()
 
     # No allocation exists for a member who never applied.
-    response = client.put(
-        f"/api/admin/quarters/{funded.id}/allocations/99999",
-        json={"budget_krw": 1},
+    response = client.post(
+        f"/api/admin/quarters/{funded.id}/allocations/99999/adjustments",
+        json={"amount_krw": 1, "reason": "없는 회원"},
     )
 
     assert response.status_code == 404

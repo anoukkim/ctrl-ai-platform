@@ -62,6 +62,18 @@ class ReplyReceipt(BaseModel):
     web_search_count: int = 0
     tool_fee_krw: int = 0
     charged_krw: int
+    # The same reply in won, by part (cost-clarity): unrounded, so they
+    # may add up to a little less than `charged_krw`, which is rounded up
+    # once. `cache_saved_krw` is what the cache reads would have cost as
+    # plain input, minus what they did. None on a receipt with no split.
+    input_krw: float | None = None
+    cache_write_krw: float | None = None
+    cache_read_krw: float | None = None
+    output_krw: float | None = None
+    tool_krw: float | None = None
+    cache_saved_krw: float | None = None
+    #: The split was re-priced from today's catalogue (an old reply).
+    split_estimated: bool = False
 
 
 class ChatMessageRead(BaseModel):

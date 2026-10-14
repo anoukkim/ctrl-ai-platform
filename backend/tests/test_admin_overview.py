@@ -310,11 +310,11 @@ def test_member_detail_collects_that_members_audit_trail(
         == 200
     )
     assert (
-        client.put(
-            f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}",
-            json={"budget_krw": 60_000},
+        client.post(
+            f"/api/admin/quarters/{quarter.id}/allocations/{other_user.id}/adjustments",
+            json={"amount_krw": -20_000, "reason": "조정"},
         ).status_code
-        == 200
+        == 201
     )
     # A change to somebody else, which must not appear.
     assert (
