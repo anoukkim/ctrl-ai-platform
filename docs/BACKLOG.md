@@ -76,15 +76,66 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
+   "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
+   apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
+   per-app database, files later). **Starts after H1, H2 and H4 of
+   RUN-2026-10-15 are deployed.** P1–P4 pre-approved to merge and deploy
+   one at a time; P5 branch + tests + WAIT. Supersedes H3 (app-ai-bridge).
+   Spec below, saved verbatim.
+
+2. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-2. **builder-python** · M2 · branch `feat-builder-python`
+3. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
+
+---
+
+## app-platform — full spec
+
+Added by the owner on 2026-10-15. Saved verbatim:
+
+APP-PLATFORM — "CTRL+AI 기능 상자" for member apps (owner decisions 2026-10-15). Supersedes H3 (app-ai-bridge spec). Start after H1, H2, H4 are deployed.
+PRE-APPROVAL: merge + deploy for P1, P2, P3, P4 below, one at a time, same PART E rules (backup → update.sh → verify → roll back + STOP on failure). P5 = branch + tests + WAIT. Never call the real Claude API in tests; never touch .env, DNS, cloud resources or repo settings.
+
+OWNER DECISIONS (record in CLAUDE.md §2 "Member app platform" and docs/architecture.md):
+1. Who pays for AI inside an app: the VISITOR, from their own 동아리 지원 wallet, through usage.charge() (feature "app_ai", with app project id). Visitor must be an active member this quarter (require_active_member). Creator-pays is a later option, not now.
+2. Non-members / signed-out visitors: can open apps and read PUBLIC app data only. AI, writes, files, ctrlai.user → require sign-in; show "CTRL+AI 회원만 쓸 수 있어요" + 로그인 button.
+3. Addresses stay path-based (apps.ctrlai.my/<slug>/) for the beta. Isolation comes from a trusted shell + sandboxed iframe (below), not subdomains. Per-app subdomains = later item `app-subdomains` in BACKLOG (note: may need DNS moved to a provider Caddy can do DNS-01 with).
+
+ARCHITECTURE (P1)
+- apps.ctrlai.my/<slug>/ now serves OUR trusted shell page (from the backend/static, not member files). The shell embeds the member app in an <iframe sandbox="allow-scripts allow-forms allow-popups allow-modals?"> WITHOUT allow-same-origin (opaque origin), loading the member files from apps.ctrlai.my/<slug>/_app/… served with `Content-Security-Policy: sandbox allow-scripts allow-forms …` as well (defence in depth), CSP default-src 'self', connect-src 'none' for member files, never Set-Cookie. Decide allow-modals: keep alert/confirm blocked (consistent with Builder).
+- The member app talks only to the shell via postMessage through the SDK (/_ctrlai/sdk.js, served to the app). The shell accepts messages ONLY where event.source === its own iframe's contentWindow; it knows its slug from its own URL; it makes all API calls same-origin to apps.ctrlai.my/_ctrlai/* (Caddy → api router `app_runtime`), with an app-scoped HttpOnly cookie `ctrlai_app_<slug>` (Path=/_ctrlai/, SameSite=Strict, Secure, host-only) + a required custom header. Member code (opaque origin) can never send those cookies or reach /_ctrlai/* with credentials — add browser tests (Playwright on the built stack) proving: app A cannot call /_ctrlai with credentials; app A cannot impersonate B via postMessage to B's shell; a page opening B's shell in a popup cannot drive it.
+- The main site's rules stay: ctrlai.my session cookie host-only, no CORS on the main API, JSON bodies only. The /_ctrlai/* routes are a separate router with their own guard and never accept the main session cookie.
+- ctrlai.storage.get/set/remove: per-app, per-visitor key-value kept by the shell in the shell origin's localStorage under a slug-prefixed key (works signed-out; ≤ 1 MB per app). Migrate the existing example/showcase apps and the Builder generation guide from localStorage to ctrlai.storage. Existing published apps keep working (shim: inject a localStorage-like object into the sandbox via the SDK, best-effort, documented).
+- Builder preview uses the same shell in a "미리보기" mode.
+
+P2 — sign-in, consent, ctrlai.user, ctrlai.ai
+- Sign-in: SDK ctrlai.login() → shell opens top-level ctrlai.my/apps/connect?app=<slug> → if signed in on ctrlai.my, a consent screen: app name, owner display name, what it may do ("Claude 사용 · 1회 약 N원 (최대 200원) · 내 지원금에서 차감", "이 앱에 데이터 저장"), [허용] [거절] → one-time code (60 s, single use) → back to apps.ctrlai.my/<slug>/_ctrlai/callback → shell exchanges it for the app cookie. Consent rows (user, project, scopes, granted_at, revoked_at) + audit. Profile › "연결된 앱" lists and revokes.
+- ctrlai.user → { displayName, appUserId } (appUserId = stable per-app pseudonymous id; never email/username/balance).
+- ctrlai.ai.ask({ prompt, system?, images?, json?: schema, model?: "fast"|"smart", maxTokens? }) and ctrlai.ai.stream(...) (chunks via postMessage). Server: admin-allowed models only (map fast→Haiku, smart→Sonnet via the catalogue), wallet pre-check, the 200원 per-call cap, a per-visitor daily cap for app AI (new chat_limits setting, default 2,000원/day, audited, 0 = off), per-app rate limit, json schema validation with one automatic retry, our short safety preamble before the app's system prompt, images ≤ 5 MB. Every call = one UsageEvent (user, quarter, provider, app project id) and appears on Usage as "앱 · <앱 이름> · N원" and in the spend toast.
+- First AI use in an app shows the consent if not granted. Kill switch: Admin can disable the SDK for an app (immediate 403 with a Korean message in the app).
+
+P3 — ctrlai.db
+- Collections per app, two kinds: "private" (each signed-in visitor sees only their own items) and "shared" (everyone can read, signed-in members can write). Items JSON ≤ 4 KB, per app ≤ 5 MB / 2,000 items, per visitor ≤ 30 writes/min. Owner of an item can update/delete it; app owner can delete any shared item; admin can hide/delete. Report button helper in the SDK (ctrlai.db.report) → admin queue. Public read for signed-out visitors on shared collections only.
+- Queries: list(collection, { where: simple equality, orderBy: createdAt|field, limit ≤ 100, cursor }), get, save, update, remove, count. No raw SQL, no cross-app access, every query filters deleted projects/apps (CLAUDE.md §10 deleted_at rule).
+- Alembic migration; tests for isolation between apps and between visitors, quotas, deleted app → 404.
+
+P4 — make it usable
+- Builder's generation/editing prompt knows the SDK (short reference + examples) and uses it when an idea needs AI, shared data or "who is this"; the Builder start screen offers 4 templates: AI 챗봇, 투표·설문, 랭킹 게임, 동아리 게시판 (each small, distinct look, uses the SDK correctly).
+- Switch the 3 showcase apps (H2) to LIVE mode when the visitor is signed in (receipt image → ctrlai.ai with JSON schema; itinerary JSON with schema + retry, still restricted to the seeded places; document Q&A = in-browser BM25 → ctrlai.ai answer with sources, "문서에서 찾을 수 없어요" when unsupported), with a toggle back to 데모 데이터. Keep their honest badges ("실제 AI · 1회 약 N원" vs "데모").
+- Builder preview: SDK works for the creator as the visitor (charged to the creator, labelled "미리보기 사용 · 내 지원금").
+- Admin › Apps (unhide the Content section or add one, defined in sections.ts): per app — owner, published version, AI calls / won today and this quarter, consents, data size, reports; buttons: SDK 정지/재개, 공유 데이터 숨기기. All audited.
+- docs/product.md "앱 기능 상자" for members (Korean, plain) + a member-facing help page /help/apps with SDK examples.
+
+P5 — ctrlai.files (branch + WAIT): images/files per app on the VM disk with caps (5 MB each, 100 MB per app, 2 GB total setting), served from apps.ctrlai.my/<slug>/_files/… with nosniff and safe content types; plan for Cloud Storage later.
+
+Everything Korean for members, light/dark, 390px. Progress in docs/progress/RUN-2026-10-15.md with "now on". Final report in Korean: per phase commit + backup, what I must test (with exact steps and test sentences), known risks, and the branch you are on.
 
 ---
 
