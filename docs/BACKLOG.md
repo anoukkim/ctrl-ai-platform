@@ -76,30 +76,25 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
-   The first slice of Phase 5: 게시 from a Builder project to a
-   CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
-   every mock listing removed. Spec below.
-
-2. **example-apps** · M3 · branch `feat-example-apps`
+1. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-3. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+2. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-4. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+3. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+4. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-6. **builder-python** · M2 · branch `feat-builder-python`
+5. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
@@ -416,18 +411,6 @@ Branch `chore-monitoring`. M1 · 💳 if any. Added by the owner on
 → **fix-quarter-form-autofill — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-quarter-form-autofill--full-spec-merged-2026-10-14).
 
 → **feat-spend-feedback — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#feat-spend-feedback--full-spec-merged-2026-10-14).
-
-## ctrlaiapps-publish — full spec
-
-Branch `feat-ctrlaiapps-publish`. M3 — the first slice of Phase 5. Added
-by the owner on 2026-10-14. Saved as written:
-
-> - 게시 from a Builder project → a CtrlAIApps listing (title, Korean description, thumbnail/screenshot optional, author display name) opening apps.ctrlai.my/<slug>/. 게시 취소 by owner; admin can unpublish (audited).
-> - REMOVE all mock/sample listings from CtrlAIApps (frontend and backend). An empty store shows a friendly Korean empty state.
-> - Every listing query filters deleted_at (CLAUDE.md §10). Report button on a listing → admin sees it.
-> - Report which other screens still show mock data (e.g. CtrlAITube) — list only, do not remove.
-
-**Depends on:** `builder-static-runtime` (the served origin).
 
 ## example-apps — full spec
 

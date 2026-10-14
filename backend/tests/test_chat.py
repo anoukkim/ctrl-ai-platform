@@ -596,7 +596,11 @@ def _history(*pairs: tuple[str, str]) -> list[ChatMessage]:
 
 
 def test_the_oldest_messages_are_dropped_first_and_the_first_kept_is_the_member() -> None:
-    settings = Settings(chat_context_tokens=3000)
+    # Room for about 1,300 tokens of conversation on top of the system
+    # prompt, whatever the prompt's length (it grew with fix-real-web-search
+    # and ctrlaiapps-publish).
+    room = chat_service.estimate_tokens(chat_service.CHAT_SYSTEM_PROMPT) + 1300
+    settings = Settings(chat_context_tokens=room)
     history = _history(
         ("user", "가" * 600),
         ("assistant", "나" * 600),
@@ -609,7 +613,7 @@ def test_the_oldest_messages_are_dropped_first_and_the_first_kept_is_the_member(
     assert messages[0]["role"] == "user"
     assert messages[-1] == {"role": "user", "content": "마지막 질문"}
     assert "가" * 600 not in [m["content"] for m in messages]
-    assert estimate <= 3000
+    assert estimate <= room
 
 
 def test_refusals_and_empty_replies_are_left_out_of_the_context() -> None:

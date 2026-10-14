@@ -5,6 +5,43 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## ctrlaiapps-publish — full spec (merged 2026-10-14)
+
+Branch `feat-ctrlaiapps-publish`. M3 — the first slice of Phase 5. Added
+by the owner on 2026-10-14. Saved as written:
+
+> - 게시 from a Builder project → a CtrlAIApps listing (title, Korean description, thumbnail/screenshot optional, author display name) opening apps.ctrlai.my/<slug>/. 게시 취소 by owner; admin can unpublish (audited).
+> - REMOVE all mock/sample listings from CtrlAIApps (frontend and backend). An empty store shows a friendly Korean empty state.
+> - Every listing query filters deleted_at (CLAUDE.md §10). Report button on a listing → admin sees it.
+> - Report which other screens still show mock data (e.g. CtrlAITube) — list only, do not remove.
+
+**Depends on:** `builder-static-runtime` (the served origin).
+
+**Add-on F (owner, 2026-10-14 late evening), folded in.**
+
+> F1. Edit → version → publish → keep updating (the Video Generator feel): each "이거 추가해 줘 / 이거 바꿔 줘" creates a new version with its request as the title; cost pre-check shown before each. 버전 저장: name/pin a version; 되돌리기 creates a new version. Published version is separate from the draft: CtrlAIApps and apps.ctrlai.my/<slug>/ serve the PUBLISHED version only; the header shows "게시됨 v3 · 작업 중 v5"; "업데이트 게시" (confirm old → new); 게시 취소 keeps all versions. Listing shows "v5 · 3일 전 업데이트" and an optional 업데이트 메모. Preview toggle 작업 중 버전 / 게시된 버전. Tests: publish v3, edit to v5 → public still v3; 업데이트 게시 → v5; rollback; deleted stops serving.
+> F2. Apps must not all look the same: the generation prompt chooses a fitting visual style (local font stacks only), an optional 스타일 choice at 만들기 (깔끔한 · 귀여운 · 레트로 · 다크 · 신문 · 게임 or free text; default 아이디어에 맞게), "디자인 바꿔 줘" restyles without breaking behaviour; the example apps (item 7) each look clearly different.
+> F3. Be honest about what an app can do: on the Builder start screen and before 게시 — browser-only, data stays on the visitor's device, no shared/multi-user apps yet; Claude says the same and suggests the closest thing.
+
+**As built.** Two folders per project: `draft_slug` (working copy, the
+Builder's preview, never listed) and `app_slug` (the published version
+only). `builder_projects.published_version_id` / `published_at` /
+`publish_note`; `builder_project_versions.label` / `pinned` (pinned and
+published versions are never pruned); `app_reports`; migration
+`d6a1f3c8e2b5` (an old "published" row without a version goes back to
+ready). Routes: `POST …/publish`, `POST …/unpublish`
+(`get_current_user` — taking your own app down works while inactive),
+`PATCH …/versions/{n}`, `GET /api/apps`, `GET /api/apps/{slug}`,
+`POST /api/apps/{slug}/report`, `GET/POST /api/admin/apps…`. Deleting a
+project (member or admin) unpublishes it and removes both folders; a
+withdrawal with "unpublish" removes the public folder and a restore
+writes the same version back. Admin › Content became visible (twelve
+sections). F2: `EDIT_SYSTEM` / `STARTER_SYSTEM` ask for a look that fits
+(local font stacks, contrast), keep ids/classes/behaviour on a redesign;
+`style` rides on the generate request; the mock varies its accent by
+style word. F3: the Builder start screen, the publish dialog, the app
+detail page and both system prompts state the limits.
+
 ## builder-static-runtime — full spec (merged 2026-10-14)
 
 After the beta · M2 · branch `feat-builder-static-runtime`. Effort:
