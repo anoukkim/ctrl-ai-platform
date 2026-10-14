@@ -14,7 +14,7 @@
  * 미리보기 프레임 안에서 돌아갑니다. GitHub 연동은 다음 단계입니다.
  */
 
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft, Lock, Pin, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -31,7 +31,13 @@ import {
   deleteBuilderProject,
   appUrl,
   describeError,
+  APP_LIMITS_NOTE,
+  STYLE_CHOICES,
   generateProject,
+  labelVersion,
+  publicUrl,
+  publishProject,
+  unpublishProject,
   getBuilderProject,
   getGenerateEstimate,
   getStarterEstimate,
@@ -57,6 +63,7 @@ import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import PreviewPane from "./PreviewPane";
+import PublishDialog, { type PublishValues } from "./PublishDialog";
 import styles from "./workspace.module.css";
 import Skeleton from "@/app/components/Skeleton";
 import { useToast } from "@/app/components/ToastProvider";
@@ -162,6 +169,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [versions, setVersions] = useState<BuilderVersion[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  // ctrlaiapps-publish
+  const [style, setStyle] = useState("");
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [previewWhich, setPreviewWhich] = useState<"draft" | "published">("draft");
+  const [labelling, setLabelling] = useState<number | null>(null);
+  const [labelDraft, setLabelDraft] = useState("");
 
   // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
   // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
@@ -255,7 +270,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     setGenerateError(null);
     setThread((list) => [...list, { role: "member", text }]);
     try {
-      const result = await generateProject(projectId, text);
+      const result = await generateProject(projectId, text, style);
       setAsk("");
       setFiles(result.files);
       setState({ phase: "ready", project: result.project });
@@ -270,7 +285,70 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [ask, projectId, mode, refreshWallet, reportCharge]);
+  }, [ask, projectId, mode, refreshWallet, reportCharge, style]);
+
+  // 게시 / 업데이트 게시 (ctrlaiapps-publish). 무료 — 고른 버전을 올릴 뿐.
+  const publish = useCallback(
+    async (values: PublishValues) => {
+      setPublishing(true);
+      setPublishError(null);
+      try {
+        const updated = await publishProject(projectId, {
+          name: values.name,
+          description: values.description,
+          note: values.note,
+        });
+        setState({ phase: "ready", project: updated });
+        setPublishOpen(false);
+        listVersions(projectId).then(setVersions).catch(() => undefined);
+        toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
+      } catch (error) {
+        setPublishError(describeError(error));
+      } finally {
+        setPublishing(false);
+      }
+    },
+    [projectId, toast],
+  );
+
+  const askToUnpublish = useCallback(() => {
+    setDeleteError(null);
+    setConfirm({
+      title: "게시 취소",
+      effect:
+        "CtrlAIApps 목록과 앱 주소에서 내려요. 만든 파일과 버전 기록은 모두 남고, 언제든 다시 게시할 수 있어요.",
+      confirmLabel: "게시 취소",
+      danger: true,
+      onConfirm: async () => {
+        setDeleting(true);
+        try {
+          const updated = await unpublishProject(projectId);
+          setState({ phase: "ready", project: updated });
+          setPreviewWhich("draft");
+          listVersions(projectId).then(setVersions).catch(() => undefined);
+          setConfirm(null);
+          toast.show("게시를 취소했어요.");
+        } catch (error) {
+          setDeleteError(describeError(error));
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  }, [projectId, toast]);
+
+  // 버전 저장: 이름 붙이기 / 고정하기.
+  const saveVersionLabel = useCallback(
+    async (version: BuilderVersion, change: { label?: string; pinned?: boolean }) => {
+      try {
+        const updated = await labelVersion(projectId, version.number, change);
+        setVersions((list) => list.map((item) => (item.number === updated.number ? updated : item)));
+      } catch (error) {
+        toast.show(describeError(error));
+      }
+    },
+    [projectId, toast],
+  );
 
   // 확인 창은 스스로 닫히지 않습니다. 성공하면 닫고, 실패하면 창 안에 이유를.
   const restore = useCallback(
@@ -412,7 +490,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const idea = starterIdea ?? project.description;
   const showCode = mode === "code" || mode === "split";
   const showPreview = mode === "preview" || mode === "split";
-  const liveUrl = appUrl(project, appsBase);
+  const draftUrl = appUrl(project, appsBase);
+  const publishedUrl = publicUrl(project, appsBase);
+  const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
+  const latestVersion = versions.length > 0 ? versions[0].number : null;
 
   return (
     <div className={ws.shell}>
@@ -451,6 +532,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
+        {(project.published_version_number || latestVersion) && (
+          <span className="badge badge-muted" data-testid="version-status">
+            {[
+              project.published_version_number ? `게시됨 v${project.published_version_number}` : null,
+              latestVersion ? `작업 중 v${latestVersion}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
         <TestModeNotice area="builder" />
         <span className="badge badge-muted">
           {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
@@ -461,14 +552,43 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           <button className="btn btn-sm" type="button" disabled title="Phase 5에서 제공됩니다">
             GitHub에 저장
           </button>
-          <button
-            className="btn btn-sm btn-primary"
-            type="button"
-            disabled
-            title="Phase 5에서 제공됩니다"
-          >
-            CtrlAIApps에 게시
-          </button>
+          {project.published_version_number ? (
+            <>
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={askToUnpublish}
+                title="CtrlAIApps에서 내립니다. 버전은 모두 남아요."
+              >
+                게시 취소
+              </button>
+              <button
+                className="btn btn-sm btn-primary"
+                type="button"
+                onClick={() => {
+                  setPublishError(null);
+                  setPublishOpen(true);
+                }}
+                disabled={!mayCreate || empty}
+                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+              >
+                업데이트 게시
+              </button>
+            </>
+          ) : (
+            <button
+              className="btn btn-sm btn-primary"
+              type="button"
+              onClick={() => {
+                setPublishError(null);
+                setPublishOpen(true);
+              }}
+              disabled={!mayCreate || empty || files === null}
+              title={empty ? "앱을 먼저 만들어 주세요" : mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+            >
+              CtrlAIApps에 게시
+            </button>
+          )}
         </span>
       </div>
 
@@ -580,6 +700,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   )}
                 </div>
                 {mayCreate && estimate && <WalletCheck costKrw={estimate.worst_case_krw} />}
+                <p className={styles.limitsNote} data-testid="app-limits">
+                  {APP_LIMITS_NOTE}
+                </p>
                 {starterError && (
                   <p className={styles.starterError} role="alert">
                     {starterError}
@@ -606,6 +729,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
             {!empty && showPreview && (
               <div className={styles.previewSide}>
+                {publishedUrl && (
+                  <div className={styles.previewWhich} role="group" aria-label="미리볼 버전">
+                    {(
+                      [
+                        ["draft", `작업 중 버전${latestVersion ? ` (v${latestVersion})` : ""}`],
+                        ["published", `게시된 버전 (v${project.published_version_number})`],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`${styles.modeTab} ${previewWhich === value ? styles.modeTabActive : ""}`}
+                        aria-pressed={previewWhich === value}
+                        onClick={() => setPreviewWhich(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <PreviewPane
                   files={fileMap}
                   entry={ENTRY_FILE}
@@ -613,7 +756,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   runtimeAvailable={Boolean(appsBase) && mayCreate}
                   onRefreshRuntime={() => void refreshRuntime()}
                   refreshing={refreshing}
-                  stamp={project.app_runtime_at ?? null}
+                  stamp={
+                    previewWhich === "published" && publishedUrl
+                      ? (project.published_at ?? null)
+                      : (project.app_runtime_at ?? null)
+                  }
                 />
                 {runtimeError && (
                   <p className={styles.starterError} role="alert">
@@ -675,11 +822,65 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                       <li className={styles.versionRow} key={version.number}>
                         <span className={styles.versionNumber}>v{version.number}</span>
                         <span className={styles.versionNote} title={version.note}>
+                          {version.label ? (
+                            <strong className={styles.versionLabel}>{version.label}</strong>
+                          ) : null}
                           {version.note || "변경"}
                           <span className={styles.versionMeta}>
                             {relativeTime(version.created_at)} · 파일 {version.file_count}개
+                            {version.published ? " · 게시됨" : ""}
                           </span>
                         </span>
+                        <button
+                          className={`${styles.versionIcon} ${version.pinned ? styles.versionIconOn : ""}`}
+                          type="button"
+                          aria-pressed={Boolean(version.pinned)}
+                          aria-label={`v${version.number} ${version.pinned ? "고정 풀기" : "고정하기"}`}
+                          title={version.pinned ? "고정됨 — 30개를 넘어도 지워지지 않아요" : "고정하기"}
+                          onClick={() => void saveVersionLabel(version, { pinned: !version.pinned })}
+                          disabled={!mayCreate}
+                        >
+                          <Pin size={13} aria-hidden="true" />
+                        </button>
+                        <button
+                          className={styles.versionIcon}
+                          type="button"
+                          aria-label={`v${version.number} 이름 붙이기`}
+                          title="이름 붙이기"
+                          onClick={() => {
+                            setLabelling(version.number);
+                            setLabelDraft(version.label ?? "");
+                          }}
+                          disabled={!mayCreate}
+                        >
+                          <Tag size={13} aria-hidden="true" />
+                        </button>
+                        {labelling === version.number && (
+                          <form
+                            className={styles.labelForm}
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void saveVersionLabel(version, { label: labelDraft });
+                              setLabelling(null);
+                            }}
+                          >
+                            <input
+                              className="field"
+                              aria-label={`v${version.number}에 붙일 이름`}
+                              placeholder="예: 메모 기능 추가"
+                              maxLength={80}
+                              value={labelDraft}
+                              autoFocus
+                              onChange={(event) => setLabelDraft(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Escape") setLabelling(null);
+                              }}
+                            />
+                            <button className="btn btn-sm" type="submit">
+                              저장
+                            </button>
+                          </form>
+                        )}
                         {index === 0 ? (
                           <span className="badge badge-muted">지금</span>
                         ) : (
@@ -700,6 +901,38 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               )}
             </div>
             <div className={ws.chatComposer}>
+              {empty && (
+                <div className={styles.styleRow}>
+                  <label htmlFor="builder-style">스타일</label>
+                  <select
+                    id="builder-style"
+                    className="field"
+                    value={STYLE_CHOICES.includes(style as (typeof STYLE_CHOICES)[number]) || style === "" ? style : "__custom"}
+                    onChange={(event) =>
+                      setStyle(event.target.value === "__custom" ? " " : event.target.value)
+                    }
+                    disabled={!mayCreate || generating}
+                  >
+                    <option value="">아이디어에 맞게</option>
+                    {STYLE_CHOICES.map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                    <option value="__custom">직접 적기</option>
+                  </select>
+                  {style !== "" && !STYLE_CHOICES.includes(style as (typeof STYLE_CHOICES)[number]) && (
+                    <input
+                      className="field"
+                      aria-label="원하는 스타일 직접 적기"
+                      placeholder="예: 파스텔 톤의 다이어리 느낌"
+                      maxLength={100}
+                      value={style.trimStart()}
+                      onChange={(event) => setStyle(event.target.value || " ")}
+                    />
+                  )}
+                </div>
+              )}
               <label className="sr-only" htmlFor="builder-ask">
                 Claude에게 만들거나 고쳐 달라고 하기
               </label>
@@ -753,6 +986,22 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           </div>
         </aside>
       </div>
+
+      {publishOpen && (
+        <PublishDialog
+          publishedVersion={project.published_version_number ?? null}
+          nextVersion={latestVersion}
+          initial={{
+            name: project.name,
+            description: project.description,
+            note: "",
+          }}
+          busy={publishing}
+          error={publishError}
+          onClose={() => setPublishOpen(false)}
+          onConfirm={(values) => void publish(values)}
+        />
+      )}
 
       <ConfirmDialog
         busy={deleting}

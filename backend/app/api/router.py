@@ -10,6 +10,7 @@ from app.api.routes import (
     account,
     admin,
     admin_accounting,
+    admin_apps,
     admin_chat_models,
     admin_claude,
     admin_invites,
@@ -17,6 +18,7 @@ from app.api.routes import (
     admin_quarters,
     admin_withdrawals,
     admin_work,
+    apps,
     auth,
     builder,
     chat,
@@ -40,6 +42,7 @@ api_router.include_router(account.router)
 api_router.include_router(sign_in_methods.router)
 api_router.include_router(users.router)
 api_router.include_router(builder.router)
+api_router.include_router(apps.router)
 api_router.include_router(chat.router)
 api_router.include_router(video.router)
 api_router.include_router(quarters.router)
@@ -52,5 +55,6 @@ api_router.include_router(admin_quarters.router)
 api_router.include_router(admin_accounting.router)
 api_router.include_router(admin_overview.router)
 api_router.include_router(admin_work.router)
+api_router.include_router(admin_apps.router)
 api_router.include_router(admin_withdrawals.router)
 api_router.include_router(feedback.router)

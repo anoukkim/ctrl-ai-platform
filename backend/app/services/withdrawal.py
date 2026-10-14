@@ -319,8 +319,14 @@ def withdraw(
     # 4. Published work.
     if published_work is PublishedWorkChoice.UNPUBLISH:
         apps, videos = _published(db, member.id)
+        from app.core.config import get_settings
+        from app.services import app_runtime
+
         for app in apps:
             app.status = BuilderProjectStatus.READY
+            # Off its address too (ctrlaiapps-publish). The published
+            # version stays chosen, so a restore puts the same one back.
+            app_runtime.remove_public(get_settings(), app)
             reversal["unpublished"].append({"kind": "builder", "id": app.id})
         for video in videos:
             video.status = VideoProjectStatus.READY
@@ -453,6 +459,17 @@ def restore(
         project = db.get(model, item["id"])
         if project is not None and project.status is ready and project.deleted_at is None:
             project.status = published
+            if isinstance(project, BuilderProject) and project.published_version is not None:
+                from app.core.config import get_settings
+                from app.services import app_runtime
+
+                files = {str(p): str(c) for p, c in project.published_version.files}
+                try:
+                    app_runtime.write_public(db, get_settings(), project, files)
+                except app_runtime.AppRuntimeError:
+                    # Listed again; the address comes back with the next
+                    # 업데이트 게시 if the runtime is off right now.
+                    pass
 
     balance = db.scalar(select(PersonalBalance).where(PersonalBalance.user_id == member.id))
     if balance is not None:

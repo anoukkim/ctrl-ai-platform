@@ -49,9 +49,11 @@ class EditEstimate:
     max_output_tokens: int
 
 
-def _input_estimate(project: BuilderProject, files: dict[str, str], request: str) -> int:
+def _input_estimate(
+    project: BuilderProject, files: dict[str, str], request: str, style: str = ""
+) -> int:
     return pricing.estimate_tokens(
-        EDIT_SYSTEM + edit_request_text(project.name, sorted(files.items()), request)
+        EDIT_SYSTEM + edit_request_text(project.name, sorted(files.items()), request, style)
     )
 
 
@@ -88,6 +90,7 @@ def generate(
     project: BuilderProject,
     request: str,
     is_mock: bool,
+    style: str = "",
 ) -> EditResult:
     """Ask, check, charge, store, snapshot. Raises `StarterError`,
     `ClaudeError`, `usage.InsufficientBudgetError`, `usage.NoQuarterError`
@@ -106,7 +109,7 @@ def generate(
         db,
         user=user,
         amount_krw=price.krw(
-            _input_estimate(project, files, request), settings.builder_max_output_tokens
+            _input_estimate(project, files, request, style), settings.builder_max_output_tokens
         ),
         settings=settings,
     )
@@ -120,6 +123,7 @@ def generate(
             request,
             model.model_id,
             settings.builder_max_output_tokens,
+            style.strip()[:100],
         )
     except Exception as error:
         if isinstance(error, ClaudeError):

@@ -21,10 +21,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
+from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import AuditAction, BuilderProject, User, VideoProject
 from app.schemas.work import DeletedItemRead, WorkKind
-from app.services import audit
+from app.services import app_publish, app_runtime, audit
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -152,6 +153,7 @@ def delete_item(
     item_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
 ) -> None:
     """Delete someone else's work. Soft, like the member's own delete.
 
@@ -168,6 +170,11 @@ def delete_item(
 
     owner = db.get(User, item.owner_user_id)
     item.deleted_at = datetime.now(timezone.utc)
+    if isinstance(item, BuilderProject):
+        # Off CtrlAIApps and off apps.ctrlai.my, like the member's delete.
+        if item.published_version_id is not None:
+            app_publish.unpublish(db, settings, item)
+        app_runtime.remove(settings, item)
 
     audit.record(
         db,

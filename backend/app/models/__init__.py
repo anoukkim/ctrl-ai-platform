@@ -19,6 +19,7 @@ from app.models.chat import (
 )
 from app.models.feedback import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, Feedback
 from app.models.builder import (
+    AppReport,
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectStatus,
@@ -84,6 +85,7 @@ __all__ = [
     "PublishedWorkChoice",
     "RefundStatus",
     "ApplicationStatus",
+    "AppReport",
     "BuilderProject",
     "BuilderProjectFile",
     "BuilderProjectStatus",

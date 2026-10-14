@@ -1,15 +1,13 @@
 /**
- * CtrlAIStore — 회원들이 만든 앱을 모아 보는 곳.
+ * CtrlAIApps — 회원들이 만든 앱을 모아 보는 곳 (ctrlaiapps-publish).
  *
  * Project Builder의 프로젝트는 혼자 작업하는 공간이고, 여기에 올라온
- * 앱은 커뮤니티에 공개된 결과물입니다.
+ * 앱은 만든 사람이 고른 "게시된 버전"입니다.
  */
 
 import type { Metadata } from "next";
-import { MOCK_APPS } from "@/lib/mock-data";
 
 import PageHeader from "@/app/components/PageHeader";
-import TestModeNotice from "@/app/components/TestModeNotice";
 
 import AppGrid from "./AppGrid";
 
@@ -23,19 +21,12 @@ export default function CtrlAIStorePage() {
       <PageHeader
         eyebrow="Explore"
         title="CtrlAIApps"
-        titleAddon={
-          <>
-            <span className="badge badge-mock">준비 중</span>
-            <TestModeNotice area="community" />
-          </>
-        }
         subtitle={
           <>
-            회원들이 Project Builder로 만들어 게시한 앱입니다. 만든 사람이 이번 분기에
-            참여하지 않더라도 앱은 그대로 남아 있습니다.
+            회원들이 Project Builder로 만들어 게시한 앱입니다. 앱은 방문한 사람의 브라우저에서만
+            돌아가고, 저장한 내용은 그 사람 기기에만 남아요.
           </>
         }
-        actions={<span className="badge badge-muted">{MOCK_APPS.length}개</span>}
       />
 
       <AppGrid />

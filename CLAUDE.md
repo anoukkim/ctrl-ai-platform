@@ -91,12 +91,12 @@ area carries a small **관리자** badge. Admin pages keep the breadcrumb
 "Admin › …". Admin is a single expanding item (its open/closed state is
 remembered) whose sections are defined **once**, in
 `frontend/app/admin/sections.ts`, which the sidebar, tabs, breadcrumbs,
-dashboard cards and each section's own heading all read. Eleven sections
+dashboard cards and each section's own heading all read. Twelve sections
 are visible (Dashboard, Members, Applications, Quarters, Budget, Video
-Models, AI Models, Feedback, Deleted Items, Audit Log, System); a section
-whose feature has not landed — Content (Phases 5/8), Top-ups
-(`personal-topup-off`) — stays in the code with its route and a `hidden`
-flag.
+Models, AI Models, Feedback, Deleted Items, Audit Log, Content, System —
+Content since `ctrlaiapps-publish`: published apps and 신고); a section
+whose feature has not landed — Top-ups (`personal-topup-off`) — stays in
+the code with its route and a `hidden` flag.
 
 **AI Models** (`/admin/ai-models`; `/admin/claude-models` redirects)
 groups the chat catalogue by provider, Anthropic (Claude) first. A
@@ -277,7 +277,7 @@ what to build next is always [`docs/BACKLOG.md`](docs/BACKLOG.md) › Next.
 | 2 | Chat (mock Claude by default) | done |
 | 3 | Builder MVP (Claude writes project files) | done — `builder-static-runtime` (static apps on `apps.ctrlai.my`) |
 | 4 | GitHub integration (GitHub App, per member) | not started |
-| 5 | CtrlAIApps (publish, listings, comments) | not started |
+| 5 | CtrlAIApps (publish, listings, comments) | first slice done — `ctrlaiapps-publish` (게시 of a chosen version, 신고, admin unpublish); comments and reactions not started |
 | 6 | Video Generator (real Higgsfield adapter) | mock done |
 | 7 | YouTube (per-member OAuth upload) | not started |
 | 8 | CtrlAITube (feed from pasted YouTube URLs; **does not depend on 7**) | not started |

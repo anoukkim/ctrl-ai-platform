@@ -52,8 +52,8 @@ live-cost-display) ·
 ⬜ image-generation (waits on the budget-by-provider decision).
 
 **M3 Sharing** — work leaves CTRL+AI and comes back as community posts.
-⬜ GitHub [4] · ⬜ CtrlAIApps [5] (first slice: ctrlaiapps-publish and
-example-apps, in Next) · ⬜ signup-google-first (after the beta) · ⬜ YouTube [7] · ⬜ CtrlAITube [8] ·
+⬜ GitHub [4] · ◐ CtrlAIApps [5] (first slice: ctrlaiapps-publish merged
+2026-10-14; example-apps in Next; comments and reactions later) · ⬜ signup-google-first (after the beta) · ⬜ YouTube [7] · ⬜ CtrlAITube [8] ·
 ⬜ more-chat-providers (optional; Gemini, Grok, DeepSeek or an aggregator —
 decided with budget-by-provider; `deepseek-research` reports on DeepSeek).
 

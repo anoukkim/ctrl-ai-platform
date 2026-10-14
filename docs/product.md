@@ -659,11 +659,20 @@ optional for using CTRL+AI.
 
 ### CtrlAIApps (route `/ctrlaistore`)
 
-The community surface for published apps (Phase 5). Publishing creates a
-listing separate from the private project. Browse/search, app detail
-(name, screenshots, description, developer with membership status,
-launch button, GitHub link only if the developer made it public), simple
-reactions (Like / Useful / Interesting), threaded comments. Published
+The community surface for published apps (Phase 5). **Built so far
+(`ctrlaiapps-publish`, 2026-10-14):** 게시 from the Builder publishes the
+project's newest *version*; CtrlAIApps lists it (name, short Korean
+description, author, "v5 · 3일 전 업데이트", optional 업데이트 메모) and
+`apps.ctrlai.my/<app-slug>/` serves exactly that version. The member keeps
+editing the working copy — previewed from its own unlisted folder — and
+nothing public changes until **업데이트 게시** (the dialog shows v3 → v5).
+**게시 취소** takes it down and keeps every version. The detail page has
+**앱 실행** (new tab), the same app live in a sandboxed frame, an honest
+note on what an app can do, and **신고**. Admin › Content lists open
+reports and published apps; **게시 내리기** (with a reason) is audited and
+closes the app's reports; closing a report without taking the app down is
+audited too. No mock listings remain. Later: screenshots, reactions (Like /
+Useful / Interesting), threaded comments, GitHub link. Published
 apps stay visible when their developer is no longer participating —
 attribution is never erased, a former member shows as 탈퇴 회원.
 **Every listing query filters the project's `deleted_at`** — deleting is

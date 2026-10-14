@@ -41,6 +41,10 @@ class AuditAction:
     """
 
     MEMBERSHIP_SET = "membership.set"
+    #: ctrlaiapps-publish: an admin took a member's app off CtrlAIApps, or
+    #: closed a report without doing so.
+    APP_UNPUBLISHED = "app.unpublished"
+    APP_REPORT_RESOLVED = "app_report.resolved"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -105,6 +109,8 @@ class AuditAction:
 #: What each action is called on the Admin screen.
 AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.MEMBERSHIP_SET: "참여 상태 변경",
+    AuditAction.APP_UNPUBLISHED: "앱 게시 내림",
+    AuditAction.APP_REPORT_RESOLVED: "앱 신고 처리",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",

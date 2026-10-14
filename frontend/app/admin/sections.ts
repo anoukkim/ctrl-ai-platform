@@ -145,13 +145,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: ScrollText,
   },
   {
-    // Phase 5(앱)와 Phase 8(영상)이 켭니다.
+    // ctrlaiapps-publish(2026-10-14)가 켰습니다 — 게시된 앱과 신고.
+    // 영상(Phase 8)은 나중에 같은 화면에 들어옵니다.
     key: "content",
     href: "/admin/content",
     label: "Content",
-    description: "게시된 앱과 영상, 댓글을 정리합니다.",
+    description: "게시된 앱과 신고를 확인하고, 필요하면 게시를 내립니다.",
     Icon: FileText,
-    hidden: true,
   },
   {
     key: "system",

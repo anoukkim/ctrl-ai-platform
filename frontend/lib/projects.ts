@@ -42,8 +42,15 @@ export interface BuilderProject {
   github_repo: string | null;
   /** 앱 주소의 폴더 이름(apps.ctrlai.my/<app_slug>/) — builder-static-runtime. */
   app_slug?: string | null;
-  /** 그 주소에 파일을 마지막으로 올린 때. 없으면 아직 올라간 적이 없습니다. */
+  /** 작업 중 파일을 미리보기 주소에 마지막으로 올린 때. */
   app_runtime_at?: string | null;
+  /** 작업 중 버전의 미리보기 폴더(ctrlaiapps-publish). 공개되지 않습니다. */
+  draft_slug?: string | null;
+  /** "게시됨 v3" — 게시된 버전 번호. 게시 전이면 null. */
+  published_version_number?: number | null;
+  published_at?: string | null;
+  /** 업데이트 메모. */
+  publish_note?: string;
   created_at: string;
   updated_at: string;
 }
@@ -203,6 +210,11 @@ export interface BuilderVersion {
   created_at: string;
   file_count: number;
   total_bytes: number;
+  /** 버전 저장: 회원이 붙인 이름과 고정(30개를 넘어도 지워지지 않음). */
+  label?: string;
+  pinned?: boolean;
+  /** CtrlAIApps에 게시된 버전. */
+  published?: boolean;
 }
 
 export interface GenerateResult {
@@ -215,11 +227,18 @@ export interface GenerateResult {
   project: BuilderProject;
 }
 
+/** 만들기 화면의 스타일 고르기 (ctrlaiapps-publish F2). 빈 값 = 아이디어에 맞게. */
+export const STYLE_CHOICES = ["깔끔한", "귀여운", "레트로", "다크", "신문", "게임"] as const;
+
 /** 말로 만들기 / 고치기. 지원금에서 차감되고, 새 버전으로 저장됩니다. */
-export function generateProject(id: number | string, requestText: string): Promise<GenerateResult> {
+export function generateProject(
+  id: number | string,
+  requestText: string,
+  style = "",
+): Promise<GenerateResult> {
   return request<GenerateResult>(`/builder/projects/${id}/generate`, {
     method: "POST",
-    body: JSON.stringify({ request: requestText }),
+    body: JSON.stringify({ request: requestText, style }),
     timeoutMs: GENERATION_TIMEOUT_MS,
   });
 }
@@ -246,11 +265,52 @@ export function refreshAppRuntime(id: number | string): Promise<BuilderProject> 
   return request<BuilderProject>(`/builder/projects/${id}/runtime`, { method: "POST" });
 }
 
-/** 프로젝트의 앱 주소. 앱 서버가 꺼져 있거나 아직 올린 적이 없으면 null. */
+/** 작업 중 버전의 미리보기 주소. 앱 서버가 꺼져 있거나 아직 올린 적이 없으면 null. */
 export function appUrl(project: BuilderProject, base: string | null | undefined): string | null {
-  if (!base || !project.app_slug || !project.app_runtime_at) return null;
+  if (!base || !project.draft_slug || !project.app_runtime_at) return null;
+  return `${base.replace(/\/+$/, "")}/${project.draft_slug}/`;
+}
+
+/** 게시된 버전의 주소(CtrlAIApps가 여는 곳). 게시 전이면 null. */
+export function publicUrl(project: BuilderProject, base: string | null | undefined): string | null {
+  if (!base || !project.app_slug || !project.published_version_number) return null;
   return `${base.replace(/\/+$/, "")}/${project.app_slug}/`;
 }
+
+export interface PublishInput {
+  name?: string;
+  description: string;
+  note?: string;
+}
+
+/** 게시 / 업데이트 게시: 지금 버전이 CtrlAIApps에 올라갑니다. 무료입니다. */
+export function publishProject(id: number | string, input: PublishInput): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/publish`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** 게시 취소: CtrlAIApps와 앱 주소에서 내립니다. 버전은 모두 남습니다. */
+export function unpublishProject(id: number | string): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/unpublish`, { method: "POST" });
+}
+
+/** 버전 저장: 이름 붙이기, 고정하기. */
+export function labelVersion(
+  id: number | string,
+  number: number,
+  change: { label?: string; pinned?: boolean },
+): Promise<BuilderVersion> {
+  return request<BuilderVersion>(`/builder/projects/${id}/versions/${number}`, {
+    method: "PATCH",
+    body: JSON.stringify(change),
+  });
+}
+
+/** 만든 앱이 할 수 있는 일, 솔직하게 (ctrlaiapps-publish F3). */
+export const APP_LIMITS_NOTE =
+  "만든 앱은 방문한 사람의 브라우저에서 돌아가요. 저장한 내용은 그 사람 기기에만 남고, 다른 사람과 공유되지 않아요. 로그인·게시판처럼 여러 사람이 같이 쓰는 앱은 아직 만들 수 없어요.";
 
 export function updateBuilderProject(
   id: number | string,

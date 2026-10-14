@@ -28,20 +28,20 @@ import {
 } from "@/app/admin/sections";
 
 describe("Admin 구역 목록", () => {
-  test("Content는 메뉴에 보이지 않고, Budget은 보인다", () => {
+  test("Content와 Budget이 메뉴에 보인다", () => {
     const visible = visibleSections(true).map((section) => section.key);
 
-    // single-wallet이 Budget을 켰습니다 — 지갑과 제공자별 사용액.
+    // single-wallet이 Budget을, ctrlaiapps-publish가 Content를 켰습니다.
     expect(visible).toContain("budget");
-    expect(visible).not.toContain("content");
+    expect(visible).toContain("content");
   });
 
   test("숨긴 구역도 경로와 정의는 남아 있다", () => {
-    // Phase 5/8이 한 줄만 지우면 켤 수 있도록.
-    const content = ADMIN_SECTIONS.find((section) => section.key === "content");
+    // personal-topup-off가 숨긴 Top-ups — 한 줄만 지우면 다시 켤 수 있도록.
+    const topups = ADMIN_SECTIONS.find((section) => section.key === "topups");
 
-    expect(content?.href).toBe("/admin/content");
-    expect(content?.hidden).toBe(true);
+    expect(topups?.href).toBe("/admin/topups");
+    expect(topups?.hidden).toBe(true);
   });
 
   test("Dev Tools는 없다 — 개발 환경에서도", () => {
@@ -60,7 +60,7 @@ describe("Admin 구역 목록", () => {
     expect(topups?.hidden).toBe(true);
   });
 
-  test("보이는 구역은 열한 개이고, Applications가 Quarters보다 앞이다", () => {
+  test("보이는 구역은 열두 개이고, Applications가 Quarters보다 앞이다", () => {
     const visible = visibleSections(false).map((section) => section.key);
 
     expect(visible).toEqual([
@@ -74,6 +74,7 @@ describe("Admin 구역 목록", () => {
       "feedback",
       "deleted",
       "audit",
+      "content",
       "system",
     ]);
     // Deleted Items는 Audit Log 바로 앞입니다 — 둘 다 지난 일을
