@@ -76,16 +76,12 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
-   Uptime check and error alerts; the owner does the console steps. Spec
-   below.
-
-2. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+1. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-3. **builder-python** · M2 · branch `feat-builder-python`
+2. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
@@ -370,13 +366,6 @@ Rules all three follow:
 → **admin-and-nav-cleanup — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#admin-and-nav-cleanup--full-spec-merged-2026-10-14).
 
 → **privacy-and-terms — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#privacy-and-terms--full-spec-merged-2026-10-14).
-
-### monitoring — full spec
-
-Branch `chore-monitoring`. M1 · 💳 if any. Added by the owner on
-2026-10-14. Saved exactly as written:
-
-> monitoring: uptime check on https://ctrlai.my and error alerts to ctrlai.platform@gmail.com, cheapest option; 💳 if any; I do the console steps.
 
 → **chat-plus-files — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-files--full-spec-merged-2026-10-14).
 

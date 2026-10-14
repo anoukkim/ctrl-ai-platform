@@ -381,6 +381,75 @@ crontab -e
 
 ---
 
+## 6-1. 모니터링 — 사이트가 멈추거나 오류가 나면 메일로 (monitoring)
+
+두 가지를 Google Cloud Monitoring으로 겁니다. 알림은
+**ctrlai.platform@gmail.com** 으로 옵니다.
+
+| 무엇 | 어떻게 | 비용 |
+| --- | --- | --- |
+| **사이트가 살아 있는지** | 업타임 체크가 5분마다 `https://ctrlai.my/api/health`를 열어 데이터베이스까지 `ok`인지 봅니다 | 업타임 체크는 프로젝트당 월 100만 번까지 무료(5분마다면 월 약 5만 번) |
+| **서버 오류** | 서버의 `deploy/error-watch.sh`가 5분마다 api·web 로그에서 오류를 세어, 있으면 Cloud Logging에 한 줄(`ctrlai-app-errors`)을 남기고, 알림 정책이 그 줄을 보면 메일을 보냅니다 | 로그는 월 50 GiB까지 무료(이 기록은 몇 KB). 💳 **알림 조건은 2026년 5월부터 조건 하나에 월 약 $0.10** — 두 개면 월 약 $0.20(300원 안팎) |
+
+> 더 싼 방법은 없습니다: 메일을 보내는 무료 수단 중 이 서버에서 키 없이
+> 쓸 수 있는 것이 Cloud Monitoring 하나입니다(VM이 이미 로그·모니터링 쓰기
+> 권한을 갖고 있습니다). 알림 조건 요금이 싫으면 업타임 체크 하나만 남기고
+> 오류 알림은 빼도 됩니다.
+
+**1. 알림 받을 메일** (콘솔 › Monitoring › 알림(Alerting) › 알림 채널 수정
+(Edit notification channels))
+
+- **이메일 › 새로 추가**: `ctrlai.platform@gmail.com`, 표시 이름 `CTRL+AI 운영`.
+
+**2. 업타임 체크** (Monitoring › 업타임 체크 › 업타임 체크 만들기)
+
+1. 프로토콜 **HTTPS**, 리소스 유형 **URL**, 호스트 이름 `ctrlai.my`, 경로
+   `/api/health`.
+2. 확인 빈도 **5분**.
+3. 응답 확인: **콘텐츠 일치(Content matching) 사용** → 응답 콘텐츠에
+   `"database":{"status":"ok"` 가 **포함**.
+4. 알림: **알림 정책 만들기**를 켜고, 알림 채널에 1번의 메일. 이름
+   `CTRL+AI 사이트 다운`.
+5. **테스트**를 눌러 성공인지 본 뒤 만들기.
+
+**3. 오류 알림** (서버 쪽은 이미 들어 있습니다 — cron 한 줄과 콘솔 설정)
+
+서버에서(`ctrlai_platform`으로):
+
+```bash
+crontab -e
+```
+
+맨 아래에 한 줄을 더 붙입니다(5분마다):
+
+```cron
+*/5 * * * * $HOME/ctrl-ai-platform/deploy/error-watch.sh >> $HOME/ctrlai-errors.log 2>&1
+```
+
+콘솔에서 (Logging › 로그 탐색기):
+
+1. 쿼리에 아래를 붙여 넣고 **실행**:
+
+   ```text
+   logName="projects/<프로젝트ID>/logs/ctrlai-app-errors"
+   ```
+
+   (`<프로젝트ID>`는 콘솔 위쪽 프로젝트 선택에 보이는 ID.) 처음에는 결과가
+   없어도 됩니다.
+2. 서버에서 `~/ctrl-ai-platform/deploy/error-watch.sh --test` → 로그 탐색기에서
+   다시 **실행**하면 "테스트: 오류 알림이…" 한 줄이 보입니다.
+3. 그 화면에서 **작업(Actions) › 로그 알림 만들기(Create log alert)**:
+   이름 `CTRL+AI 서버 오류`, 알림 사이 최소 시간 **30분**(같은 문제로 메일이
+   쏟아지지 않게), 알림 채널은 1번의 메일 → 저장.
+4. `error-watch.sh --test`를 한 번 더 돌려 **몇 분 안에 메일이 오는지** 확인합니다.
+
+**메일이 오면:** 사이트 다운이면 `dc ps`와 12단계(문제가 생겼을 때). 오류
+메일이면 그 시각 전후의 로그를 봅니다: `dc logs --since 30m api | tail -100`.
+메일에는 오류의 첫 줄만 들어 있습니다(회원 정보가 담길 수 있는 전체 내용은
+보내지 않습니다).
+
+---
+
 ## 7. 진짜 Claude 켜기 💳
 
 지금까지 Chat은 목업(가짜 답)입니다. 진짜 Claude로 바꾸면 **답 하나마다 돈이

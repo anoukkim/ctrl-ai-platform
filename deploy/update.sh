@@ -37,6 +37,17 @@ if [ "$caddyfile_changed" = true ]; then
   echo "   Caddyfile가 바뀌어 caddy를 다시 만듭니다"
   "${compose[@]}" up -d --force-recreate caddy
 fi
+# compose can leave a container on the old image when `latest` moved to a
+# new image id with the same content (seen 2026-10-14 with an unchanged
+# frontend). Make sure api and web run exactly the image just pulled.
+for service in api web; do
+  want=$(docker image inspect --format '{{.Id}}' "$("${compose[@]}" config --images | grep -- "-$service:" | head -n 1)" 2>/dev/null || true)
+  have=$(docker inspect --format '{{.Image}}' "$("${compose[@]}" ps -q "$service")" 2>/dev/null || true)
+  if [ -n "$want" ] && [ "$want" != "$have" ]; then
+    echo "   $service가 새 이미지로 바뀌지 않아 다시 만듭니다"
+    "${compose[@]}" up -d --force-recreate "$service"
+  fi
+done
 docker image prune -f > /dev/null
 
 "${compose[@]}" ps
