@@ -23,6 +23,16 @@ from app.models import QuarterAllocation, UsageEvent
 from app.services.chat_models import default_model
 from app.services.pricing import price_for
 from tests.test_chat import events_of, new_conversation, send
+from app.services.accounting import receipt_fields
+
+TOKEN_KEYS = (
+    "input_tokens", "output_tokens", "cache_write_tokens", "cache_read_tokens",
+    "web_search_count", "tool_fee_krw",
+)
+SPLIT_KEYS = (
+    "input_krw", "cache_write_krw", "cache_read_krw", "output_krw", "tool_krw",
+    "cache_saved_krw", "split_estimated",
+)
 
 
 @pytest.fixture
@@ -64,7 +74,7 @@ def test_the_done_event_reports_the_ledgers_figures(
 
     event = db_session.scalars(select(UsageEvent)).one()
     assert done["charged_krw"] == event.charged_krw
-    assert done["usage"] == {
+    assert {key: done["usage"][key] for key in TOKEN_KEYS} == {
         "input_tokens": event.input_tokens,
         "output_tokens": event.output_tokens,
         "cache_write_tokens": event.cache_write_tokens,
@@ -73,6 +83,8 @@ def test_the_done_event_reports_the_ledgers_figures(
         "web_search_count": 0,
         "tool_fee_krw": 0,
     }
+    # cost-clarity: the same reply in won, by part, from the ledger row.
+    assert {key: done["usage"][key] for key in SPLIT_KEYS} == receipt_fields(event)
 
     db_session.refresh(budgeted)
     assert done["wallet_remaining_krw"] == budgeted.remaining_krw
@@ -99,6 +111,8 @@ def test_reading_the_conversation_attaches_each_replys_receipt(
         "web_search_count": 0,
         "tool_fee_krw": 0,
         "charged_krw": event.charged_krw,
+        # cost-clarity: the won split, identical on reload.
+        **receipt_fields(event),
     }
 
 

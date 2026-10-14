@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     # Informational only — the real stop is the Console's own monthly
     # limit (audit-caching-and-distribution).
     anthropic_monthly_budget_usd: str = ""
+    # Reconciliation (cost-clarity): an Anthropic **Admin** API key lets
+    # Admin > Budget compare our recorded cost with Anthropic's own cost
+    # report. Optional and never required; the mock answers with our own
+    # ledger. Only read when ANTHROPIC_ADMIN_PROVIDER=anthropic.
+    anthropic_admin_provider: str = "mock"
+    anthropic_admin_api_key: str = ""
     backend_port: int = 8000
     frontend_port: int = 3000
 
@@ -372,6 +378,11 @@ class Settings(BaseSettings):
                 missing.append("CLAUDE_PROVIDER (mock 또는 anthropic)")
             if not self.anthropic_api_key.strip():
                 missing.append("ANTHROPIC_API_KEY")
+        admin_report = self.anthropic_admin_provider.strip().lower()
+        if admin_report not in {"mock", "anthropic"}:
+            missing.append("ANTHROPIC_ADMIN_PROVIDER (mock 또는 anthropic)")
+        elif admin_report == "anthropic" and not self.anthropic_admin_api_key.strip():
+            missing.append("ANTHROPIC_ADMIN_API_KEY")
         google = self.google_login_provider.strip().lower()
         if google not in {"mock", "google"}:
             missing.append("GOOGLE_LOGIN_PROVIDER (mock 또는 google)")

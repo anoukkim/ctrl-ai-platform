@@ -86,11 +86,17 @@ MEMBER_MESSAGE: dict[str, str] = {
 class ClaudeError(Exception):
     """A Claude call that failed. `str(error)` is the member's Korean message."""
 
-    def __init__(self, kind: str, detail: str = "") -> None:
+    def __init__(
+        self, kind: str, detail: str = "", usage: tuple[int, int] | None = None
+    ) -> None:
         self.kind = kind
         #: For the Admin status board: an HTTP status and error type, never
         #: a request body and never the key.
         self.detail = detail
+        #: (input, output) tokens the provider billed before the call was
+        #: judged a failure — a cut-off or unusable answer (cost-clarity).
+        #: None when the call cost nothing.
+        self.usage = usage
         super().__init__(MEMBER_MESSAGE.get(kind, MEMBER_MESSAGE[ProviderErrorKind.UNKNOWN]))
 
 
@@ -221,6 +227,18 @@ def web_search_tool_type(model: str) -> str:
     return "web_search_20250305" if "haiku" in model else "web_search_20260209"
 
 
+def web_fetch_tool_type(model: str) -> str:
+    """Which web-fetch tool version a model takes.
+
+    Dynamic filtering (`web_fetch_20260209` and later) needs a Claude 4.6+
+    model; Haiku 4.5 takes the basic `web_fetch_20250910`
+    (platform.claude.com/docs/en/agents-and-tools/tool-use/web-fetch-tool,
+    checked 2026-10-14 — the cost-clarity audit found Haiku was being sent
+    the 20260209 version).
+    """
+    return "web_fetch_20250910" if "haiku" in model else "web_fetch_20260209"
+
+
 def server_tool_params(
     tools: tuple[str, ...],
     model: str,
@@ -253,7 +271,7 @@ def server_tool_params(
         elif kind == "web_fetch":
             blocks.append(
                 {
-                    "type": "web_fetch_20260209",
+                    "type": web_fetch_tool_type(model),
                     "name": "web_fetch",
                     "max_uses": fetch_max_uses,
                     "max_content_tokens": fetch_max_content_tokens,
@@ -1301,16 +1319,21 @@ class AnthropicClaudeProvider:
         except anthropic.APIError as error:
             raise classify(error) from None
 
+        # What the provider billed, carried on a failure so the club's cost
+        # is still recorded (cost-clarity) — the member is not charged.
+        billed = (message.usage.input_tokens or 0, message.usage.output_tokens or 0)
         if message.stop_reason in ("max_tokens", "refusal"):
             # A cut-off JSON or a refusal has no app in it.
-            raise ClaudeError(ProviderErrorKind.UNKNOWN, f"starter {message.stop_reason}")
+            raise ClaudeError(
+                ProviderErrorKind.UNKNOWN, f"starter {message.stop_reason}", usage=billed
+            )
         text = next((block.text for block in message.content if block.type == "text"), "")
         try:
             data = json.loads(text)
             files = [(str(item["path"]), str(item["content"])) for item in data["files"]]
             summary = str(data.get("summary", ""))
         except (ValueError, KeyError, TypeError):
-            raise ClaudeError(ProviderErrorKind.UNKNOWN, "starter json") from None
+            raise ClaudeError(ProviderErrorKind.UNKNOWN, "starter json", usage=billed) from None
         return StarterApp(
             summary=summary,
             files=files,

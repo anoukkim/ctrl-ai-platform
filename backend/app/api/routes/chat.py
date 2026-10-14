@@ -60,7 +60,7 @@ from app.schemas.chat import (
 )
 from app.services import chat as chat_service
 from app.services import chat_limits, chat_tools, provider_limiter
-from app.services import chat_models, pricing
+from app.services import accounting, chat_models, pricing
 from app.services import usage as usage_service
 from app.services.claude_provider import (
     ClaudeError,
@@ -98,6 +98,7 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
     if not event_ids:
         return {}
     rows = db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids)))
+    prices = accounting.catalogue_prices(db)
     return {
         row.id: ReplyReceipt(
             input_tokens=row.input_tokens or 0,
@@ -107,6 +108,7 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
             web_search_count=row.web_search_count or 0,
             tool_fee_krw=row.tool_fee_krw or 0,
             charged_krw=row.charged_krw,
+            **accounting.receipt_fields(row, prices),
         )
         for row in rows
     }
@@ -532,6 +534,9 @@ def send_message(
                                     # chat-plus-tools: the receipt's 검색 line.
                                     "web_search_count": result.usage.web_search_count,
                                     "tool_fee_krw": result.usage.tool_fee_krw,
+                                    # cost-clarity: the same reply by part,
+                                    # in won, from the ledger row.
+                                    **(result.usage.split or {}),
                                 }
                                 if result.usage
                                 else None

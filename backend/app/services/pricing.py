@@ -54,6 +54,52 @@ CACHE_WRITE_MULTIPLIER = {"5m": Decimal("1.25"), "1h": Decimal("2")}
 DEFAULT_CACHE_READ_RATIO = Decimal("0.1")
 
 
+@dataclass(frozen=True)
+class CostSplit:
+    """One call's dollar cost, split by what it paid for (cost-clarity).
+
+    The parts add up to the call's `provider_cost` (each is stored rounded
+    to the sixth decimal, so to within that). `cache_saved` is not a
+    part of the cost: it is what the cache-read tokens would have cost as
+    plain input, minus what they did cost — the member's "캐시로 아낀
+    금액". It does not net off the write premium (the write's own line
+    shows that), so a reply that only wrote the cache shows no saving.
+    """
+
+    input: Decimal
+    cache_write: Decimal
+    cache_read: Decimal
+    output: Decimal
+    tools: Decimal = Decimal(0)
+    cache_saved: Decimal = Decimal(0)
+
+    @property
+    def total(self) -> Decimal:
+        return self.input + self.cache_write + self.cache_read + self.output + self.tools
+
+    def with_tools(self, tools_usd: Decimal) -> "CostSplit":
+        return CostSplit(
+            input=self.input,
+            cache_write=self.cache_write,
+            cache_read=self.cache_read,
+            output=self.output,
+            tools=tools_usd,
+            cache_saved=self.cache_saved,
+        )
+
+    def ledger_fields(self) -> dict[str, Decimal]:
+        """The `UsageEvent` columns, rounded like `provider_cost`."""
+        q = Decimal("0.000001")
+        return {
+            "input_cost_usd": self.input.quantize(q),
+            "cache_write_cost_usd": self.cache_write.quantize(q),
+            "cache_read_cost_usd": self.cache_read.quantize(q),
+            "output_cost_usd": self.output.quantize(q),
+            "tool_cost_usd": self.tools.quantize(q),
+            "cache_saved_usd": self.cache_saved.quantize(q),
+        }
+
+
 class PricingError(Exception):
     """No price for the model, or no exchange rate. Korean message.
 
@@ -85,6 +131,26 @@ class Price:
         if self.cache_read_usd_per_mtok is not None:
             return self.cache_read_usd_per_mtok
         return self.input_usd_per_mtok * DEFAULT_CACHE_READ_RATIO
+
+    def split(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        cache_write_tokens: int = 0,
+        cache_read_tokens: int = 0,
+    ) -> CostSplit:
+        """The dollar cost by part; `usd()` is its total."""
+        return CostSplit(
+            input=Decimal(input_tokens) * self.input_usd_per_mtok / MILLION,
+            cache_write=Decimal(cache_write_tokens) * self.cache_write_usd_per_mtok / MILLION,
+            cache_read=Decimal(cache_read_tokens) * self.cache_read_price / MILLION,
+            output=Decimal(output_tokens) * self.output_usd_per_mtok / MILLION,
+            cache_saved=(
+                Decimal(cache_read_tokens)
+                * (self.input_usd_per_mtok - self.cache_read_price)
+                / MILLION
+            ),
+        )
 
     def usd(
         self,

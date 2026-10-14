@@ -30,13 +30,20 @@ from app.schemas.usage import (
     UsageEventRead,
     WalletUsage,
 )
+from app.schemas.accounting import (
+    ConversationMoneyRead,
+    DayMoneyRead,
+    MemberMoneyRead,
+    SplitRead,
+)
+from app.services import accounting
 from app.services.quarters import current_quarter, membership_for
 from app.services.usage import personal_balance, recent_events, spending_breakdown
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
 #: The wallet card's breakdown, in the order it is shown.
-SPENDING_LABEL = {"chat": "채팅", "video": "영상", "other": "기타"}
+SPENDING_LABEL = {"chat": "채팅", "build": "빌더", "video": "영상", "other": "기타"}
 
 
 #: What a video charge was for, when the event says. The prompt helper is
@@ -108,14 +115,38 @@ def read_my_usage(
                 for group, label in SPENDING_LABEL.items()
             ]
 
+    prices = accounting.catalogue_prices(db)
     events = [
         UsageEventRead(
-            **UsageEventRead.model_validate(event).model_dump(exclude={"label", "group"}),
+            **UsageEventRead.model_validate(event).model_dump(
+                exclude={"label", "group", "split"}
+            ),
             group=spending_group(event.feature),
             label=_label_for(db, event),
+            split=SplitRead(**accounting.split_of(event, prices).as_dict()),
         )
         for event in recent_events(db, user.id)
     ]
+
+    money: MemberMoneyRead | None = None
+    if quarter is not None:
+        totals = accounting.member_money(db, user.id, quarter.id)
+        money = MemberMoneyRead(
+            quarter=SplitRead(**totals.quarter.as_dict()),
+            by_conversation=[
+                ConversationMoneyRead(
+                    conversation_id=total.conversation_id,
+                    title=total.title,
+                    last_at=total.last_at,
+                    split=SplitRead(**total.split.as_dict()),
+                )
+                for total in totals.by_conversation[:50]
+            ],
+            by_day=[
+                DayMoneyRead(day=total.day, split=SplitRead(**total.split.as_dict()))
+                for total in totals.by_day[:31]
+            ],
+        )
 
     return MyUsage(
         quarter_code=quarter.code if quarter else None,
@@ -134,4 +165,5 @@ def read_my_usage(
         if settings.top_ups_enabled
         else None,
         events=events,
+        money=money,
     )

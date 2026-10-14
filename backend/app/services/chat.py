@@ -47,7 +47,7 @@ from app.models import (
     UsageFeature,
     User,
 )
-from app.services import calibration, chat_limits, chat_tools, pricing, providers
+from app.services import accounting, calibration, chat_limits, chat_tools, pricing, providers
 from app.services import usage as usage_service
 from app.services import chat_models as chat_models_service
 from app.services.chat_models import ChosenModel
@@ -574,6 +574,9 @@ class ReplyUsage:
     #: when no tool ran — the receipt then shows no 검색 line.
     web_search_count: int = 0
     tool_fee_krw: int = 0
+    #: The receipt's won split (cost-clarity), from the ledger row:
+    #: `accounting.receipt_fields`.
+    split: dict | None = None
 
 
 @dataclass
@@ -667,6 +670,7 @@ def finish_turn(
 
     charged = 0
     event_id: int | None = None
+    split: dict | None = None
     wallet_remaining: int | None = None
     # The tool fee (chat-plus-tools): billed searches at the catalogue's
     # per-search price. Exact, not an estimate — the provider reported the
@@ -701,12 +705,16 @@ def finish_turn(
                 web_search_count=state.web_search_count or None,
                 web_fetch_count=state.web_fetch_count or None,
                 tool_fee_krw=tool_fee or None,
+                cost=turn.price.split(input_tokens, output_tokens, written, read).with_tools(
+                    Decimal(state.web_search_count) * turn.web_search_usd_per_call
+                ),
                 commit=False,
                 cap_to_available=True,
                 settings=settings,
             )
             charged = result.event.charged_krw
             event_id = result.event.id
+            split = accounting.receipt_fields(result.event)
             # The sidebar shows the 동아리 지원 wallet, so only a
             # community-funded charge may carry a figure for it: after a
             # personal-funded one (top-ups on) the screen must refetch,
@@ -772,6 +780,7 @@ def finish_turn(
             cache_read_tokens=read if cached else None,
             web_search_count=state.web_search_count,
             tool_fee_krw=tool_fee,
+            split=split,
         )
     return TurnResult(
         message=message,

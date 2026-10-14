@@ -23,7 +23,7 @@ spent where, and forecast each provider's purchase from it.
 import enum
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -55,11 +55,14 @@ class UsageFeature(str, enum.Enum):
 
 
 #: How a member's spending is broken down on their wallet card: 채팅 /
-#: 영상 / 기타. Information only — all three come out of the same wallet.
+#: 빌더 / 영상 / 기타. Information only — all three come out of the same wallet.
 #: The video prompt helper is Claude, but the member was making a video,
 #: so it counts as 영상.
 SPENDING_GROUP: dict[str, str] = {
     UsageFeature.CHAT.value: "chat",
+    # 빌더 got its own line with cost-clarity (2026-10-14): the owner's
+    # breakdown is 채팅 / 빌더 / 영상 / 기타.
+    UsageFeature.BUILD.value: "build",
     UsageFeature.VIDEO_PROMPT.value: "video",
     UsageFeature.VIDEO_GENERATE.value: "video",
     UsageFeature.VIDEO_EDIT.value: "video",
@@ -68,7 +71,7 @@ SPENDING_GROUP: dict[str, str] = {
 
 
 def spending_group(feature: str | None) -> str:
-    """`chat`, `video` or `other` for a `UsageEvent.feature` value."""
+    """`chat`, `build`, `video` or `other` for a `UsageEvent.feature` value."""
     return SPENDING_GROUP.get(feature or "", "other")
 
 
@@ -135,6 +138,29 @@ class UsageEvent(TimestampMixin, Base):
 
     #: What Ctrl AI deducted from a budget.
     charged_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    #: The dollar cost split by what it paid for (cost-clarity), at the
+    #: prices in force when the charge was made: uncached input, cache
+    #: writes, cache reads, output, and tool fees. They add up to
+    #: `provider_cost`. `cache_saved_usd` is what the cache reads would
+    #: have cost as plain input, minus what they did cost — the member's
+    #: "캐시로 아낀 금액". Null on rows from before the split, and on
+    #: anything not priced by the token (video).
+    input_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    cache_write_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    cache_read_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    output_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    tool_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    cache_saved_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+
+    #: The club paid the provider for this call but no member was charged
+    #: (cost-clarity): a Builder generation cut off or unusable after the
+    #: provider had already billed it. `charged_krw` is 0; `provider_cost`
+    #: is what the club spent, so Admin › Budget's 사용 matches the
+    #: provider's bill. Never shown to members as a charge.
+    club_absorbed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
     #: Whichever project the action belonged to, when it belonged to one.
     builder_project_id: Mapped[int | None] = mapped_column(
