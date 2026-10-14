@@ -5,6 +5,27 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## monitoring — full spec (merged 2026-10-14)
+
+Branch `chore-monitoring`. M1 · 💳 if any. Added by the owner on
+2026-10-14. Saved exactly as written:
+
+> monitoring: uptime check on https://ctrlai.my and error alerts to ctrlai.platform@gmail.com, cheapest option; 💳 if any; I do the console steps.
+
+**As built.** Cloud Monitoring, the only email path on this VM without
+a new key (its scopes already include `logging.write` and
+`monitoring.write`, checked 2026-10-14). Uptime: a 5-minute HTTPS check of
+`/api/health` with content match `"database":{"status":"ok"` — down or
+database lost both alert (1M executions/month free). Errors:
+`deploy/error-watch.sh` (cron every 5 minutes) scans the api and web logs
+since its last run for tracebacks, `ERROR:` lines, 5xx access-log lines
+and Next.js errors, and writes one `ctrlai-app-errors` entry with the
+count and the first line of up to three (200 characters each); a log
+alert on that log name sends the email, at most every 30 minutes.
+`--test` writes a test entry. Cost: alert conditions about $0.10 each per
+month from May 2026 (two conditions ≈ $0.20). The owner's console steps
+are in `docs/deployment.md` › 6-1.
+
 ## offsite-backups — full spec (merged 2026-10-14)
 
 Branch `chore-offsite-backups`. M1 · 💳. Added by the owner on
