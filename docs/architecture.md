@@ -86,6 +86,11 @@ the same commit that adds it.
 | `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
 | `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
 | `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet |
+| `POST /api/chat/conversations/{id}/attachments` | **`require_active_member`** | Attach a file to the next message (bytes as the body, `?name=`); checked, then stored |
+| `DELETE /api/chat/attachments/{id}` | **`require_active_member`** | ✕ on a file not sent yet |
+| `GET /api/chat/attachments/{id}/file` | `get_current_user` | The member's own stored copy — works while not taking part |
+| `GET /api/chat/conversations/{id}/attachments/estimate` | `get_current_user` | What the waiting files add to a reply |
+| `GET /api/chat/conversations/{id}/attachments/pending` | `get_current_user` | Files uploaded, not sent yet |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |

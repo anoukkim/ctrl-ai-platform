@@ -22,3 +22,8 @@ anthropic>=1.11,<2.0
 # (fix-beta-blockers 4). The SDK above also depends on it, but a direct
 # import deserves a direct pin.
 httpx2>=2.0,<3.0
+# Chat attachments (chat-plus-files): images are re-encoded (and their
+# EXIF dropped) with Pillow; PDFs are opened with pypdf to count pages and
+# refuse encrypted ones. Nothing else ever opens a member's file.
+pillow>=12,<13
+pypdf>=6,<7

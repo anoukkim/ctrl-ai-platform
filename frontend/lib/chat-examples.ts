@@ -18,6 +18,8 @@ export interface ChatExample {
   prompt: string;
   /** 화면이 lucide 아이콘으로 바꿉니다. 데이터 파일에는 이름만 둡니다. */
   icon: "table" | "file" | "chart" | "page";
+  /** true면 카드를 누를 때 파일 고르기 창도 엽니다(chat-plus-files). */
+  opensFilePicker?: boolean;
 }
 
 export const CHAT_EXAMPLES: ChatExample[] = [
@@ -28,11 +30,12 @@ export const CHAT_EXAMPLES: ChatExample[] = [
     icon: "table",
   },
   {
-    // chat-plus-files가 들어오면 파일 첨부 창을 엽니다. 지금은 글을 붙여 넣습니다.
+    // chat-plus-files: 카드를 누르면 파일 고르기 창이 열립니다.
     title: "파일 요약",
-    description: "긴 글을 붙여 넣으면 핵심만 짧게 줄여 줍니다.",
-    prompt: "아래 글을 세 줄로 요약해 줘:\n",
+    description: "PDF·사진·CSV·글 파일을 올리면 핵심만 짧게 줄여 줍니다.",
+    prompt: "이 파일을 세 줄로 요약해 줘",
     icon: "file",
+    opensFilePicker: true,
   },
   {
     // chat-plus-artifacts가 들어오기 전까지는 표와 한 줄 해석으로 답합니다.

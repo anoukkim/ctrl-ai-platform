@@ -354,6 +354,13 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("PATCH", "/api/chat/conversations/{conversation_id}"): "require_active_member",
     ("DELETE", "/api/chat/conversations/{conversation_id}"): "require_active_member",
     ("POST", "/api/chat/conversations/{conversation_id}/messages"): "require_active_member",
+    # chat-plus-files: attaching is part of sending; reading and
+    # downloading your own files works while not taking part.
+    ("POST", "/api/chat/conversations/{conversation_id}/attachments"): "require_active_member",
+    ("DELETE", "/api/chat/attachments/{attachment_id}"): "require_active_member",
+    ("GET", "/api/chat/attachments/{attachment_id}/file"): "get_current_user",
+    ("GET", "/api/chat/conversations/{conversation_id}/attachments/estimate"): "get_current_user",
+    ("GET", "/api/chat/conversations/{conversation_id}/attachments/pending"): "get_current_user",
     # Builder — reads open, writes gated.
     ("GET", "/api/builder/projects"): "get_current_user",
     ("GET", "/api/builder/projects/{project_id}"): "get_current_user",

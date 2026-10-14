@@ -40,6 +40,8 @@ import {
   Table2,
   Trash2,
   type LucideIcon,
+  Paperclip,
+  Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -74,6 +76,20 @@ import {
 import { describeError } from "@/lib/http";
 import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
 import { CACHE_EXPLAINER, ROUND_UP_NOTE, formatWonPart } from "@/lib/money";
+import {
+  ACCEPT,
+  FILE_PRIVACY_NOTE,
+  MAX_FILES,
+  attachmentUrl,
+  deleteAttachment,
+  formatSize,
+  getAttachmentEstimate,
+  getPendingAttachments,
+  precheck,
+  uploadAttachment,
+  type AttachmentEstimate,
+  type ChatAttachment,
+} from "@/lib/chat-files";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
@@ -134,6 +150,8 @@ interface ViewMessage {
   receipt?: ReplyReceipt | null;
   /** 웹 검색이 인용한 출처(chat-plus-tools). */
   sources?: ReplySource[] | null;
+  /** 붙인 파일(chat-plus-files) — 내 메시지에만. */
+  attachments?: ChatAttachment[];
   /** 오고 있는 답장 옆의 어림값(원). 끝나면 영수증이 대신합니다. */
   estimateKrw?: number | null;
   /** 답장이 아직 오고 있습니다. */
@@ -154,6 +172,7 @@ function toView(message: ChatMessage): ViewMessage {
     cappedKrw: message.capped_krw ?? null,
     receipt: message.receipt ?? null,
     sources: message.sources ?? null,
+    attachments: message.attachments ?? [],
   };
 }
 
@@ -333,6 +352,14 @@ export default function ChatWorkspace() {
   const [toolStatus, setToolStatus] = useState<{ kind: ToolKind; status: string } | null>(null);
   /** 스트림 전에 거절된 이유 — 입력창 바로 위에 보여 줍니다. */
   const [sendError, setSendError] = useState<string | null>(null);
+  // 첨부 파일(chat-plus-files): 이 대화에 올려 두고 아직 보내지 않은 것,
+  // 올리는 중인 이름, 예상 비용, 마지막 거절 사유.
+  const [pendingFiles, setPendingFiles] = useState<ChatAttachment[]>([]);
+  const [uploadingNames, setUploadingNames] = useState<string[]>([]);
+  const [fileEstimate, setFileEstimate] = useState<AttachmentEstimate | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   /** 좁은 화면에서 대화 목록을 펼쳤는지. */
   const [listOpen, setListOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<number | null>(null);
@@ -434,6 +461,18 @@ export default function ChatWorkspace() {
     setSendError(null);
     setActiveId(id);
     setLoadingConversation(true);
+    // 그 대화에 올려 두고 아직 보내지 않은 파일(chat-plus-files).
+    setPendingFiles([]);
+    setFileEstimate(null);
+    setFileError(null);
+    getPendingAttachments(id)
+      .then((rows) => {
+        setPendingFiles(rows);
+        if (rows.length > 0) {
+          getAttachmentEstimate(id).then(setFileEstimate).catch(() => setFileEstimate(null));
+        }
+      })
+      .catch(() => setPendingFiles([]));
     try {
       const detail = await getConversation(id);
       setMessages(detail.messages.map(toView));
@@ -461,6 +500,9 @@ export default function ChatWorkspace() {
     setSendError(null);
     setLongHistory(null);
     setToolFlags({ web_search: false, web_fetch: false, code_execution: false });
+    setPendingFiles([]);
+    setFileEstimate(null);
+    setFileError(null);
     textareaRef.current?.focus();
   }, []);
 
@@ -570,28 +612,91 @@ export default function ChatWorkspace() {
     [refreshQuarter, reportCharge],
   );
 
+  /** 대화가 아직 없으면 만듭니다 — 첫 메시지와 첫 첨부가 같은 길을 씁니다. */
+  const ensureConversation = useCallback(async (): Promise<number | null> => {
+    if (activeId !== null) return activeId;
+    try {
+      const created = await createConversation(chosenModelId);
+      setActiveId(created.id);
+      setChosenModelId(created.chat_model_id);
+      setConversations((rows) => [created, ...rows]);
+      return created.id;
+    } catch (error) {
+      setSendError(describeError(error));
+      return null;
+    }
+  }, [activeId, chosenModelId]);
+
+  /**
+   * 파일을 하나씩 올립니다(chat-plus-files). 서버가 바이트로 형식을 보고,
+   * 크기·쪽수·개수·공간을 확인한 뒤에만 저장합니다. 거절되면 그 한국어
+   * 문장을 입력창 위에 보여 주고, 나머지 파일은 계속 올립니다.
+   */
+  const addFiles = useCallback(
+    async (files: File[]) => {
+      if (!mayCreate || files.length === 0) return;
+      setFileError(null);
+      const room = MAX_FILES - pendingFiles.length - uploadingNames.length;
+      if (files.length > room) {
+        setFileError("한 번에 5개까지 올릴 수 있습니다.");
+        files = files.slice(0, Math.max(0, room));
+        if (files.length === 0) return;
+      }
+      const conversationId = await ensureConversation();
+      if (conversationId === null) return;
+      for (const file of files) {
+        const refused = precheck(file);
+        if (refused) {
+          setFileError(`${file.name}: ${refused}`);
+          continue;
+        }
+        setUploadingNames((names) => [...names, file.name]);
+        try {
+          const uploaded = await uploadAttachment(conversationId, file);
+          setPendingFiles((rows) => [...rows, uploaded.attachment]);
+          setFileEstimate(uploaded.estimate);
+        } catch (error) {
+          setFileError(`${file.name}: ${describeError(error)}`);
+        } finally {
+          setUploadingNames((names) => {
+            const at = names.indexOf(file.name);
+            return at < 0 ? names : [...names.slice(0, at), ...names.slice(at + 1)];
+          });
+        }
+      }
+    },
+    [ensureConversation, mayCreate, pendingFiles.length, uploadingNames.length],
+  );
+
+  const removeFile = useCallback(
+    async (attachment: ChatAttachment) => {
+      try {
+        await deleteAttachment(attachment.id);
+        setPendingFiles((rows) => rows.filter((row) => row.id !== attachment.id));
+        if (activeId !== null) {
+          getAttachmentEstimate(activeId).then(setFileEstimate).catch(() => setFileEstimate(null));
+        }
+      } catch (error) {
+        setFileError(describeError(error));
+      }
+    },
+    [activeId],
+  );
+
   const send = useCallback(async () => {
-    if (!mayCreate || streaming) return;
+    if (!mayCreate || streaming || uploadingNames.length > 0) return;
     const text = draft.trim();
-    if (!text) return;
+    const files = pendingFiles;
+    if (!text && files.length === 0) return;
 
     setSendError(null);
     setStreaming(true);
 
     // 처음 보내는 메시지라면 대화부터 만듭니다.
-    let conversationId = activeId;
+    const conversationId = await ensureConversation();
     if (conversationId === null) {
-      try {
-        const created = await createConversation(chosenModelId);
-        conversationId = created.id;
-        setActiveId(created.id);
-        setChosenModelId(created.chat_model_id);
-        setConversations((rows) => [created, ...rows]);
-      } catch (error) {
-        setSendError(describeError(error));
-        setStreaming(false);
-        return;
-      }
+      setStreaming(false);
+      return;
     }
 
     const stamp = Date.now();
@@ -608,6 +713,7 @@ export default function ChatWorkspace() {
         action: null,
         actionTitle: "",
         modelId: null,
+        attachments: files,
       },
       {
         key: replyKey,
@@ -654,6 +760,11 @@ export default function ChatWorkspace() {
         {
           onStart: (saved, startEstimate) => {
             savedUserId = saved.id;
+            // 저장된 메시지가 파일을 가져갔습니다 — 입력창의 칩을 비웁니다.
+            if (files.length > 0) {
+              setPendingFiles([]);
+              setFileEstimate(null);
+            }
             estimate = startEstimate;
             paintEstimate();
           },
@@ -676,6 +787,7 @@ export default function ChatWorkspace() {
           },
         },
         controller.signal,
+        files.map((file) => file.id),
       );
 
       if (outcome.kind === "done") {
@@ -730,11 +842,12 @@ export default function ChatWorkspace() {
       void refreshList();
     }
   }, [
-    activeId,
     applyWalletRemaining,
-    chosenModelId,
     draft,
+    ensureConversation,
     mayCreate,
+    pendingFiles,
+    uploadingNames.length,
     refreshList,
     refreshQuarter,
     reportCharge,
@@ -987,7 +1100,11 @@ export default function ChatWorkspace() {
                         type="button"
                         className={`${styles.shortcut} ${styles[EXAMPLE_TONE[example.icon]] ?? ""}`}
                         key={example.title}
-                        onClick={() => fillExample(example)}
+                        onClick={() => {
+                          fillExample(example);
+                          // 파일 요약: 파일 고르기 창도 엽니다(chat-plus-files).
+                          if (example.opensFilePicker) fileInputRef.current?.click();
+                        }}
                         disabled={!mayCreate}
                         title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                       >
@@ -1013,6 +1130,9 @@ export default function ChatWorkspace() {
                     <span className={styles.messageRole}>
                       {message.role === "user" ? "나" : "CTRL+AI"}
                     </span>
+                    {(message.attachments?.length ?? 0) > 0 && (
+                      <MessageFiles files={message.attachments ?? []} />
+                    )}
                     {(message.content || message.streaming) && (
                       <div className={styles.bubble}>
                         {message.role === "assistant" && message.content ? (
@@ -1110,7 +1230,21 @@ export default function ChatWorkspace() {
         </div>
 
         {/* 입력창은 바닥에 고정됩니다. */}
-        <div className={styles.composerArea}>
+        <div
+          className={`${styles.composerArea} ${dragging ? styles.composerDragging : ""}`}
+          onDragOver={(event) => {
+            if (!mayCreate || !event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(event) => {
+            if (!mayCreate) return;
+            event.preventDefault();
+            setDragging(false);
+            void addFiles(Array.from(event.dataTransfer.files));
+          }}
+        >
           <div className={styles.composerInner}>
             <NotParticipatingBanner />
             {/* 배포된 사이트에서 Claude가 아직 목업이면 — 답이 진짜 AI의
@@ -1181,10 +1315,80 @@ export default function ChatWorkspace() {
                 )}
               </div>
             )}
+            {fileError !== null && (
+              <p className={styles.errorNote} role="alert" data-testid="file-error">
+                {fileError}
+              </p>
+            )}
+            {(pendingFiles.length > 0 || uploadingNames.length > 0) && (
+              <div className={styles.fileTray} data-testid="file-tray">
+                <ul className={styles.fileChips}>
+                  {pendingFiles.map((file) => (
+                    <li className={styles.fileChip} key={file.id}>
+                      <FileIcon kind={file.kind} />
+                      <span className={styles.fileName} title={file.name}>
+                        {file.name}
+                      </span>
+                      <span className={styles.fileSize}>{formatSize(file.size)}</span>
+                      <button
+                        type="button"
+                        className={styles.fileRemove}
+                        aria-label={`${file.name} 빼기`}
+                        disabled={streaming}
+                        onClick={() => void removeFile(file)}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                  {uploadingNames.map((name, index) => (
+                    <li className={`${styles.fileChip} ${styles.fileUploading}`} key={`up-${index}-${name}`}>
+                      <span className={styles.fileName}>{name}</span>
+                      <span className={styles.fileSize} role="status">
+                        올리는 중…
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {fileEstimate !== null && fileEstimate.tokens > 0 && (
+                  <p className={styles.fileEstimate} data-testid="file-estimate">
+                    {fileEstimate.with_files_krw !== null &&
+                      `첨부 포함 답장 1회 약 ${formatKrw(fileEstimate.with_files_krw)}. `}
+                    {fileEstimate.each_later_krw !== null &&
+                      fileEstimate.each_later_krw > 0 &&
+                      `이 대화에서 이어지는 답장마다 약 ${formatKrw(fileEstimate.each_later_krw)}씩 더 듭니다.`}
+                  </p>
+                )}
+                <p className={styles.filePrivacy}>{FILE_PRIVACY_NOTE}</p>
+              </div>
+            )}
             <label className="sr-only" htmlFor={inputId}>
               CTRL+AI에게 보낼 메시지
             </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPT}
+              multiple
+              hidden
+              data-testid="file-input"
+              onChange={(event) => {
+                const picked = Array.from(event.target.files ?? []);
+                event.target.value = "";
+                void addFiles(picked);
+              }}
+            />
             <div className={styles.composer}>
+              <button
+                type="button"
+                className={styles.attach}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!mayCreate || streaming}
+                aria-label="파일 첨부 (사진, PDF, CSV, 텍스트)"
+                title="파일 첨부 — 사진, PDF, CSV, 텍스트 (최대 5개)"
+              >
+                <Paperclip size={17} aria-hidden="true" />
+              </button>
               <textarea
                 className={styles.input}
                 id={inputId}
@@ -1223,7 +1427,11 @@ export default function ChatWorkspace() {
                   className={styles.send}
                   type="button"
                   onClick={() => void send()}
-                  disabled={!mayCreate || !draft.trim()}
+                  disabled={
+                    !mayCreate ||
+                    uploadingNames.length > 0 ||
+                    (!draft.trim() && pendingFiles.length === 0)
+                  }
                   title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                   aria-label={mayCreate ? "보내기" : "이번 분기에는 보낼 수 없습니다"}
                 >
@@ -1247,5 +1455,51 @@ export default function ChatWorkspace() {
         error={confirmError}
       />
     </div>
+  );
+}
+
+/** 첨부 종류의 아이콘. */
+function FileIcon({ kind }: { kind: ChatAttachment["kind"] }) {
+  const Icon = kind === "image" ? ImageIcon : kind === "csv" ? Table2 : FileText;
+  return <Icon size={14} aria-hidden="true" />;
+}
+
+/**
+ * 메시지에 붙은 파일(chat-plus-files): 사진은 작은 미리보기, PDF·표·글은
+ * 내려받는 칩. 저장된 사본을 엽니다 — 자기 파일만 열리고, 이번 분기에
+ * 참여하지 않아도 내려받을 수 있습니다.
+ */
+function MessageFiles({ files }: { files: ChatAttachment[] }) {
+  return (
+    <ul className={styles.messageFiles} data-testid="message-files">
+      {files.map((file) =>
+        file.kind === "image" ? (
+          <li key={file.id}>
+            <a href={attachmentUrl(file.id)} target="_blank" rel="noopener noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element -- 저장된 사본, 크기 고정 */}
+              <img
+                className={styles.messageThumb}
+                src={attachmentUrl(file.id)}
+                alt={file.name}
+                width={file.width ?? undefined}
+                height={file.height ?? undefined}
+                loading="lazy"
+              />
+            </a>
+          </li>
+        ) : (
+          <li key={file.id}>
+            <a className={styles.fileChip} href={attachmentUrl(file.id)} download={file.name}>
+              <FileIcon kind={file.kind} />
+              <span className={styles.fileName}>{file.name}</span>
+              <span className={styles.fileSize}>
+                {file.page_count ? `${file.page_count}쪽 · ` : ""}
+                {formatSize(file.size)}
+              </span>
+            </a>
+          </li>
+        ),
+      )}
+    </ul>
   );
 }

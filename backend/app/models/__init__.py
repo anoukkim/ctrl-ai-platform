@@ -8,7 +8,15 @@ imported here is invisible to both.
 from app.models.accounting import AdjustmentKind, CreditPurchase, WalletAdjustment
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
 from app.models.connected_account import ConnectedAccount, OAuthState, PendingGoogleSignup
-from app.models.chat import ChatAction, ChatMessage, ChatMessageStatus, ChatRole, Conversation
+from app.models.chat import (
+    AttachmentKind,
+    ChatAction,
+    ChatAttachment,
+    ChatMessage,
+    ChatMessageStatus,
+    ChatRole,
+    Conversation,
+)
 from app.models.feedback import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, Feedback
 from app.models.builder import BuilderProject, BuilderProjectFile, BuilderProjectStatus
 from app.models.provider import (
@@ -55,6 +63,8 @@ __all__ = [
     "WalletAdjustment",
     "ChatAction",
     "ChatMessage",
+    "ChatAttachment",
+    "AttachmentKind",
     "ChatMessageStatus",
     "ChatRole",
     "ChatModel",

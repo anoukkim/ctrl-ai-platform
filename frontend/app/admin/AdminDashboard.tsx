@@ -321,7 +321,7 @@ function SectionCard({
       text:
         figures.failing_providers.length > 0
           ? `${figures.failing_providers.join(", ")} 연결 문제`
-          : "서버와 외부 서비스 상태",
+          : attachmentLine(figures) ?? "서버와 외부 서비스 상태",
       pending: figures.failing_providers.length,
     },
   };
@@ -355,4 +355,15 @@ function SectionCard({
       </span>
     </Link>
   );
+}
+
+/** "첨부 파일 120MB / 5GB" — 서버 디스크의 채팅 첨부(chat-plus-files). */
+function attachmentLine(figures: AdminDashboard): string | null {
+  const used = figures.attachment_bytes;
+  const limit = figures.attachment_limit_bytes;
+  if (used === undefined || !limit) return null;
+  const mb = (bytes: number) => Math.round(bytes / (1024 * 1024));
+  const gb = Math.round(limit / (1024 * 1024 * 1024));
+  const share = used / limit;
+  return `첨부 파일 ${mb(used)}MB / ${gb}GB${share >= 0.8 ? " — 거의 찼습니다" : ""}`;
 }

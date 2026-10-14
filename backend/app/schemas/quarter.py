@@ -413,6 +413,10 @@ class AdminDashboard(BaseModel):
     #: 제공자는 절대 들어가지 않습니다 — 부른 적이 없으니 실패할 수도
     #: 없습니다.
     failing_providers: list[str] = Field(default_factory=list)
+    #: Chat attachments on this server's disk, and the setting that stops
+    #: uploads (chat-plus-files, CHAT_ATTACHMENT_TOTAL_LIMIT_GB).
+    attachment_bytes: int = 0
+    attachment_limit_bytes: int = 0
 
 
 class MemberQuarterHistory(BaseModel):

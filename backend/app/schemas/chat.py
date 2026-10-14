@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.chat import ChatAction, ChatMessageStatus, ChatRole
+from app.models.chat import AttachmentKind, ChatAction, ChatMessageStatus, ChatRole
 
 #: The longest single message a member may send, in characters. Well
 #: inside the context limit, so one message never crowds out the history.
@@ -76,6 +76,41 @@ class ReplyReceipt(BaseModel):
     split_estimated: bool = False
 
 
+class AttachmentRead(BaseModel):
+    """A file attached to a message (chat-plus-files). Never its bytes."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: int
+    kind: AttachmentKind
+    name: str = Field(validation_alias="original_name")
+    size: int = Field(validation_alias="stored_size")
+    media_type: str
+    page_count: int | None = None
+    width: int | None = None
+    height: int | None = None
+    #: The figure the composer's estimate and the budget pre-check use.
+    estimated_tokens: int
+    #: None until the message carrying it is sent.
+    message_id: int | None = None
+
+
+class AttachmentEstimate(BaseModel):
+    """What the files waiting in the composer add, for the conversation's model."""
+
+    #: Estimated input tokens of the files not yet sent.
+    tokens: int
+    #: "첨부 포함 답장 1회 약 N원" — the usual reply plus the files. None without a rate.
+    with_files_krw: int | None
+    #: "이어지는 답장마다 약 M원씩 더" — the files resent with each later reply.
+    each_later_krw: int | None
+
+
+class AttachmentUploaded(BaseModel):
+    attachment: AttachmentRead
+    estimate: AttachmentEstimate
+
+
 class ChatMessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -97,6 +132,7 @@ class ChatMessageRead(BaseModel):
     #: reply streams, the receipt arrives on the `done` event instead.
     receipt: ReplyReceipt | None = None
     created_at: datetime
+    attachments: list[AttachmentRead] = []
 
 
 class LongHistoryRead(BaseModel):
@@ -122,13 +158,16 @@ class SourceRead(BaseModel):
 
 
 class ChatMessageCreate(BaseModel):
-    #: `extra="forbid"`: a member can send text and nothing else. In
-    #: particular no file or container ids — Anthropic file ids are
-    #: workspace-wide, so accepting one would open other members' files
-    #: (chat-plus-tools).
+    #: `extra="forbid"`: a member can send text and their own uploaded
+    #: attachments, nothing else. In particular no file or container ids —
+    #: Anthropic file ids are workspace-wide, so accepting one would open
+    #: other members' files (chat-plus-tools).
     model_config = ConfigDict(extra="forbid")
 
-    content: str = Field(min_length=1, max_length=MAX_MESSAGE_LENGTH)
+    #: May be empty when files are attached; the route says so if both are.
+    content: str = Field(default="", max_length=MAX_MESSAGE_LENGTH)
+    #: Files uploaded to this conversation and not sent yet (chat-plus-files).
+    attachment_ids: list[int] = Field(default_factory=list, max_length=5)
 
 
 class ChatModelOption(BaseModel):

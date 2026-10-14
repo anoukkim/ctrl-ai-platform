@@ -276,7 +276,9 @@ describe("기능 둘러보기", () => {
     }
     expect(screen.queryByRole("link", { name: /CtrlAITube 보기/ })).toBeNull();
     expect(CHAT_EXAMPLES[0].prompt).toBe("서울 여행 2박 3일 일정을 표로 정리해 줘");
-    expect(CHAT_EXAMPLES[1].prompt).toBe("아래 글을 세 줄로 요약해 줘:\n");
+    // chat-plus-files: the card opens the file picker and asks for a summary.
+    expect(CHAT_EXAMPLES[1].prompt).toBe("이 파일을 세 줄로 요약해 줘");
+    expect(CHAT_EXAMPLES[1].opensFilePicker).toBe(true);
     expect(CHAT_EXAMPLES[3].prompt).toBe("동아리 소개 한 장짜리 웹페이지를 만들어 줘");
   });
 

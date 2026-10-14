@@ -28,6 +28,7 @@ club has already paid for — those tokens; only a *failure* is free.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -38,6 +39,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.models import (
     ChatAction,
+    ChatAttachment,
     ChatMessage,
     ChatMessageStatus,
     ChatRole,
@@ -47,6 +49,7 @@ from app.models import (
     UsageFeature,
     User,
 )
+from app.services import attachments as attachments_service
 from app.services import accounting, calibration, chat_limits, chat_tools, pricing, providers
 from app.services import usage as usage_service
 from app.services import chat_models as chat_models_service
@@ -194,9 +197,20 @@ def messages_of(db: Session, conversation: Conversation) -> list[ChatMessage]:
 # ------------------------------------------------------------- context
 
 
+#: Reads an attachment's stored bytes. Passed in so this module stays free
+#: of storage and the tests can hand in bytes directly.
+AttachmentLoader = Callable[[ChatAttachment], bytes]
+
+
 def build_context(
-    history: list[ChatMessage], new_text: str, settings: Settings
-) -> tuple[list[dict[str, str]], int]:
+    history: list[ChatMessage],
+    new_text: str,
+    settings: Settings,
+    *,
+    attachments: dict[int, list[ChatAttachment]] | None = None,
+    new_attachments: list[ChatAttachment] | None = None,
+    load: AttachmentLoader | None = None,
+) -> tuple[list[dict], int]:
     """The messages to send, newest kept, and their estimated input tokens.
 
     * Empty replies and refusals are left out — they carry nothing to
@@ -213,22 +227,37 @@ def build_context(
       whole cached prefix, so a long conversation would pay a cache write
       for everything on every reply. With steps, the start stays put for
       many turns and only moves when the history outgrows the limit.
+    * **Attachments** (chat-plus-files) travel with their message as
+      content blocks, before its text, every turn while the message is in
+      the window — which is why the composer shows what each later reply
+      costs. They are counted apart from the text: the text keeps its
+      `CHAT_CONTEXT_TOKENS` window, and the files in the window may add up
+      to `CHAT_ATTACHMENT_CONTEXT_TOKENS`; past that, the oldest messages
+      (and their files) drop out first. Their estimate is the stored
+      `estimated_tokens` — the figure the browser showed.
     """
-    turns: list[tuple[str, str]] = []
+    attachments = attachments or {}
+    # (role, text, files) per turn.
+    turns: list[tuple[str, str, list[ChatAttachment]]] = []
     for message in history:
-        if not message.content.strip():
+        files = attachments.get(message.id, [])
+        if not message.content.strip() and not files:
             continue
         if message.role is ChatRole.ASSISTANT and message.status is ChatMessageStatus.REFUSED:
             continue
-        turns.append((message.role.value, message.content))
-    turns.append((ChatRole.USER.value, new_text))
+        turns.append((message.role.value, message.content, files))
+    turns.append((ChatRole.USER.value, new_text, list(new_attachments or [])))
 
-    merged: list[dict[str, str]] = []
-    for role, text in turns:
+    merged: list[dict] = []  # {"role", "texts": [...], "files": [...]}
+    for role, text, files in turns:
         if merged and merged[-1]["role"] == role:
-            merged[-1]["content"] += "\n\n" + text
+            merged[-1]["texts"].append(text)
+            merged[-1]["files"].extend(files)
         else:
-            merged.append({"role": role, "content": text})
+            merged.append({"role": role, "texts": [text], "files": list(files)})
+
+    def joined(entry: dict) -> str:
+        return "\n\n".join(text for text in entry["texts"] if text)
 
     budget = settings.chat_context_tokens - estimate_tokens(CHAT_SYSTEM_PROMPT)
     new_cost = estimate_tokens(new_text) + _MESSAGE_OVERHEAD
@@ -239,10 +268,22 @@ def build_context(
         )
     # An unanswered earlier message joined to this one may not fit; the
     # new message alone always does.
-    if estimate_tokens(merged[-1]["content"]) + _MESSAGE_OVERHEAD > budget:
-        merged[-1] = {"role": ChatRole.USER.value, "content": new_text}
+    if estimate_tokens(joined(merged[-1])) + _MESSAGE_OVERHEAD > budget:
+        merged[-1] = {
+            "role": ChatRole.USER.value,
+            "texts": [new_text],
+            "files": list(new_attachments or []),
+        }
 
-    costs = [estimate_tokens(message["content"]) + _MESSAGE_OVERHEAD for message in merged]
+    file_budget = settings.chat_attachment_context_tokens
+    file_costs = [sum(row.estimated_tokens for row in entry["files"]) for entry in merged]
+    if file_costs[-1] > file_budget:
+        raise ChatRefusal(
+            "이 메시지에 붙인 파일이 한 번에 보내기에 너무 깁니다. 몇 개는 다음 메시지로 나누어 보내 주세요.",
+            status_code=400,
+        )
+
+    costs = [estimate_tokens(joined(entry)) + _MESSAGE_OVERHEAD for entry in merged]
     start = _stable_start(merged, costs, budget)
     if start is None:
         # The newest exchange alone is longer than one step: keep the
@@ -253,8 +294,27 @@ def build_context(
             total += costs[start]
     while start < len(merged) - 1 and merged[start]["role"] != ChatRole.USER.value:
         start += 1
+    # The files in the window must fit too; older messages go first.
+    while start < len(merged) - 1 and sum(file_costs[start:]) > file_budget:
+        start += 1
+        while start < len(merged) - 1 and merged[start]["role"] != ChatRole.USER.value:
+            start += 1
 
-    return merged[start:], sum(costs[start:]) + estimate_tokens(CHAT_SYSTEM_PROMPT)
+    messages: list[dict] = []
+    for entry in merged[start:]:
+        text = joined(entry)
+        if not entry["files"]:
+            messages.append({"role": entry["role"], "content": text})
+            continue
+        if load is None:
+            raise RuntimeError("attachments need a loader")
+        blocks = [attachments_service.content_block(row, load(row)) for row in entry["files"]]
+        if text:
+            blocks.append({"type": "text", "text": text})
+        messages.append({"role": entry["role"], "content": blocks})
+
+    estimated = sum(costs[start:]) + sum(file_costs[start:]) + estimate_tokens(CHAT_SYSTEM_PROMPT)
+    return messages, estimated
 
 
 # ----------------------------------------------- the long-history warning
@@ -286,8 +346,23 @@ def long_history_info(
     limits = chat_limits.current(db)
     if limits.long_history_tokens <= 0 or not history:
         return None
+    # Files in the window are resent with every reply too (chat-plus-files),
+    # so they count toward "long" — by their stored estimate; the bytes are
+    # not needed to count, hence the empty loader.
+    files: dict[int, list[ChatAttachment]] = {}
+    for row in db.scalars(
+        select(ChatAttachment)
+        .where(
+            ChatAttachment.conversation_id == history[0].conversation_id,
+            ChatAttachment.message_id.is_not(None),
+        )
+        .order_by(ChatAttachment.id)
+    ):
+        files.setdefault(row.message_id, []).append(row)
     try:
-        _, estimated_input = build_context(history, "", settings)
+        _, estimated_input = build_context(
+            history, "", settings, attachments=files, load=lambda _row: b""
+        )
     except ChatRefusal:  # pragma: no cover — "" never exceeds the budget
         return None
     measured = calibration.for_model(db, model.model_id)
@@ -313,7 +388,7 @@ _TRIM_STEPS = 2
 
 
 def _stable_start(
-    merged: list[dict[str, str]], costs: list[int], budget: int
+    merged: list[dict], costs: list[int], budget: int
 ) -> int | None:
     """Where the history sent should start, or None if no step fits.
 
@@ -427,22 +502,35 @@ def prepare_turn(
     text: str,
     model: ChosenModel,
     is_mock: bool = False,
+    attachment_ids: list[int] | None = None,
+    load: AttachmentLoader | None = None,
 ) -> PreparedTurn:
     """Every check that can refuse a message, then the message saved.
 
     Raises `ChatRefusal`, `usage.InsufficientBudgetError`,
     `usage.NoQuarterError` or `pricing.PricingError`. None of them has
     spent anything.
+
+    `attachment_ids` must be this member's files uploaded to this
+    conversation and not sent yet; they become the message's files.
     """
     text = text.strip()
-    if not text:
+    new_files = _pending_files(db, user, conversation, attachment_ids or [], settings)
+    if not text and not new_files:
         raise ChatRefusal("메시지를 입력해 주세요.", status_code=400)
 
     check_rate_limit(db, user, settings)
     price = pricing.price_for(db, model, cache_ttl=settings.cache_ttl)
 
     history = messages_of(db, conversation)
-    messages, estimated_input = build_context(history, text, settings)
+    messages, estimated_input = build_context(
+        history,
+        text,
+        settings,
+        attachments=files_by_message(db, conversation),
+        new_attachments=new_files,
+        load=load,
+    )
 
     # The input estimate, calibrated against this model's recent real
     # replies (never above the one-token-per-character figure); the output
@@ -526,8 +614,13 @@ def prepare_turn(
     )
     db.add(message)
     if not conversation.title:
-        conversation.title = short_title(text, TITLE_LENGTH)
+        conversation.title = short_title(
+            text or ", ".join(row.original_name for row in new_files), TITLE_LENGTH
+        )
     conversation.last_message_at = now
+    db.flush()
+    for row in new_files:
+        row.message_id = message.id
     db.commit()
     db.refresh(message)
 
@@ -555,6 +648,46 @@ def prepare_turn(
         tools=tools,
         web_search_usd_per_call=model.web_search_usd_per_call,
     )
+
+
+def files_by_message(db: Session, conversation: Conversation) -> dict[int, list[ChatAttachment]]:
+    """The conversation's sent files, by message."""
+    grouped: dict[int, list[ChatAttachment]] = {}
+    for row in db.scalars(
+        select(ChatAttachment)
+        .where(
+            ChatAttachment.conversation_id == conversation.id,
+            ChatAttachment.message_id.is_not(None),
+        )
+        .order_by(ChatAttachment.id)
+    ):
+        grouped.setdefault(row.message_id, []).append(row)
+    return grouped
+
+
+def _pending_files(
+    db: Session, user: User, conversation: Conversation, ids: list[int], settings: Settings
+) -> list[ChatAttachment]:
+    """The files named by `ids`: this member's, this conversation's, unsent."""
+    if not ids:
+        return []
+    if len(set(ids)) > settings.chat_attachments_per_message:
+        raise ChatRefusal("한 번에 5개까지 올릴 수 있습니다.", status_code=400)
+    rows = list(
+        db.scalars(
+            select(ChatAttachment)
+            .where(
+                ChatAttachment.id.in_(set(ids)),
+                ChatAttachment.user_id == user.id,
+                ChatAttachment.conversation_id == conversation.id,
+                ChatAttachment.message_id.is_(None),
+            )
+            .order_by(ChatAttachment.id)
+        )
+    )
+    if len(rows) != len(set(ids)):
+        raise ChatRefusal("첨부한 파일을 찾을 수 없습니다. 다시 올려 주세요.", status_code=400)
+    return rows
 
 
 @dataclass(frozen=True)
