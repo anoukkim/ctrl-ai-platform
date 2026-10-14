@@ -33,6 +33,7 @@ import RowMenu from "../components/RowMenu";
 import { QuarterBadge } from "../components/StatusBadge";
 import { sectionLabel } from "../sections";
 
+import CloseQuarterDialog from "./CloseQuarterDialog";
 import QuarterForm from "./QuarterForm";
 
 import styles from "../admin.module.css";
@@ -48,6 +49,8 @@ export default function QuarterAdmin() {
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  // 분기 마감 창(cost-clarity) — 열려 있으면 그 분기.
+  const [closing, setClosing] = useState<QuarterWithStats | null>(null);
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
@@ -218,7 +221,7 @@ export default function QuarterAdmin() {
                 },
                 {
                   label: quarter.status === "application_open" ? "신청 마감" : "신청 열기",
-                  disabled: busy,
+                  disabled: busy || quarter.status === "closed",
                   onSelect: () =>
                     setConfirm({
                       title:
@@ -227,24 +230,34 @@ export default function QuarterAdmin() {
                           : `${quarter.display_name} 신청 열기`,
                       effect:
                         quarter.status === "application_open"
-                          ? "회원이 더 이상 이 분기에 신청할 수 없습니다. 이미 올라온 신청은 그대로 남아 심사할 수 있습니다."
+                          ? "회원이 더 이상 이 분기에 신청할 수 없습니다. 분기는 진행 중으로 바뀌고, 승인된 지갑은 그대로 씁니다. 이미 올라온 신청은 남아 심사할 수 있습니다."
                           : "회원이 Profile에서 이 분기에 신청할 수 있게 됩니다. 신청 한 번이 1인 지원금 하나를 받습니다.",
                       confirmLabel:
                         quarter.status === "application_open" ? "신청 마감" : "신청 열기",
                       onConfirm: () =>
                         run(
                           quarter.status === "application_open"
-                            ? `${quarter.display_name}의 신청을 마감했습니다.`
+                            ? `${quarter.display_name}의 신청을 마감했습니다. 분기는 진행 중입니다.`
                             : `${quarter.display_name}의 신청을 열었습니다.`,
                           () =>
                             updateQuarter(quarter.id, {
+                              // 신청 마감 = 진행 중. "closed"는 분기 마감
+                              // 전용입니다(cost-clarity) — 예전에는 여기서
+                              // closed로 바꿔 모든 지갑이 멈췄습니다.
                               status:
                                 quarter.status === "application_open"
-                                  ? "closed"
+                                  ? "active"
                                   : "application_open",
                             }),
                         ),
                     }),
+                },
+                {
+                  label: "분기 마감…",
+                  disabled:
+                    busy || quarter.status === "closed" || quarter.status === "draft",
+                  danger: true,
+                  onSelect: () => setClosing(quarter),
                 },
               ]}
             />
@@ -257,6 +270,21 @@ export default function QuarterAdmin() {
           썼더라도 한 명으로 셉니다. 사용률은 실제 사용자 ÷ 참여 회원입니다.
         </p>
       </section>
+
+      {closing !== null && (
+        <CloseQuarterDialog
+          quarterId={closing.id}
+          quarterName={closing.display_name}
+          onClose={() => setClosing(null)}
+          onClosed={(preview) => {
+            setClosing(null);
+            void run(
+              `${preview.quarter_name}를 마감했습니다. 회수 ${formatKrw(preview.reclaimed_krw)}, 그중 이월 ${formatKrw(preview.carry_over_krw)}.`,
+              async () => undefined,
+            );
+          }}
+        />
+      )}
 
       <section aria-labelledby="quarter-new">
         <h2 className="section-title" id="quarter-new">

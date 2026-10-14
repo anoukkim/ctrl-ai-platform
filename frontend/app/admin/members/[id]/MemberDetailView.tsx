@@ -25,6 +25,8 @@ import { describeError } from "@/lib/http";
 import {
   MEMBERSHIP_LABEL,
   adjustAllocation,
+  getAdjustments,
+  type WalletAdjustment,
   formatDate,
   formatKrw,
   setMemberRole,
@@ -60,6 +62,8 @@ export default function MemberDetailView({ userId }: { userId: number }) {
   const [result, setResult] = useState<Result | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
+  // 조정 기록 표를 다시 읽게 하는 번호(cost-clarity).
+  const [adjustVersion, setAdjustVersion] = useState(0);
 
   useBreadcrumbTail(member?.display_name ?? null);
 
@@ -368,29 +372,31 @@ export default function MemberDetailView({ userId }: { userId: number }) {
           member={member}
           quarterName={selected.display_name}
           row={currentRow}
-          onAdjust={(budgetKrw) =>
+          onAdjust={(amountKrw, reason) =>
             setConfirm({
               title: `지원금 조정 — ${member.display_name}`,
-              effect: `${selected.display_name}의 동아리 지원을 ${formatKrw(
-                budgetKrw,
-              )}으로 바꿉니다. 이미 쓴 금액은 그대로 남고, 남은 금액이 달라집니다.`,
+              effect: [
+                `${selected.display_name}의 동아리 지원을 ${amountKrw > 0 ? "+" : "−"}${formatKrw(
+                  Math.abs(amountKrw),
+                )} 조정합니다 (${formatKrw(currentRow?.allocation?.budget_krw ?? 0)} → ${formatKrw(
+                  (currentRow?.allocation?.budget_krw ?? 0) + amountKrw,
+                )}).`,
+                `사유: ${reason}`,
+                "덮어쓰지 않고 조정 기록 한 줄로 남으며, 감사 기록에도 남습니다.",
+              ],
               confirmLabel: "지원금 조정",
-              danger: true,
+              danger: amountKrw < 0,
               onConfirm: () =>
-                run(
-                  `${member.display_name}의 지원금을 조정했습니다.`,
-                  () =>
-                    adjustAllocation(
-                      selected.id,
-                      member.user_id,
-                      budgetKrw,
-                      "회원 상세 화면에서 조정",
-                    ),
-                ),
+                run(`${member.display_name}의 지원금을 조정했습니다.`, async () => {
+                  await adjustAllocation(selected.id, member.user_id, amountKrw, reason);
+                  setAdjustVersion((value) => value + 1);
+                }),
             })
           }
         />
       )}
+
+      <AdjustmentHistory userId={member.user_id} version={adjustVersion} />
 
       {/* ---------- 분기 이력 ---------- */}
       <section aria-labelledby="member-history">
@@ -525,10 +531,10 @@ export default function MemberDetailView({ userId }: { userId: number }) {
 }
 
 /**
- * 지원금 조정 — 원 단위, 지갑 하나.
+ * 지원금 — 이번 분기 지갑과 조정 (cost-clarity).
  *
- * 처음 값은 지금 배정된 금액입니다. 빈 칸에서 시작하면 실수로 0원을
- * 저장하기 쉽습니다.
+ * 조정은 덮어쓰기가 아니라 +/− 금액과 사유 한 줄입니다. 이미 쓴 돈보다 적게
+ * 줄일 수는 없고(백엔드가 거절), 마감한 분기의 지갑은 바꿀 수 없습니다.
  */
 function AllocationSection({
   member,
@@ -541,18 +547,18 @@ function AllocationSection({
   row: MemberDetail["quarters"][number] | null;
   quarterName: string;
   busy: boolean;
-  onAdjust: (budgetKrw: number) => void;
+  onAdjust: (amountKrw: number, reason: string) => void;
 }) {
   const allocation = row?.allocation ?? null;
-  const [budget, setBudget] = useState("");
+  const [amount, setAmount] = useState("");
+  const [sign, setSign] = useState<1 | -1>(1);
+  const [reason, setReason] = useState("");
   const [open, setOpen] = useState(false);
 
-  const budgetKrw = Number(budget.replaceAll(",", "")) || 0;
-
-  function start() {
-    setBudget(String(allocation?.budget_krw ?? 0));
-    setOpen(true);
-  }
+  const amountKrw = Number(amount.replaceAll(",", "")) || 0;
+  const maxDown = allocation ? allocation.budget_krw - allocation.consumed_krw : 0;
+  const tooLow = sign === -1 && amountKrw > maxDown;
+  const valid = amountKrw > 0 && reason.trim() !== "" && !tooLow;
 
   return (
     <section aria-labelledby="member-allocation">
@@ -610,7 +616,7 @@ function AllocationSection({
             className="btn btn-sm"
             type="button"
             disabled={busy || allocation === null}
-            onClick={start}
+            onClick={() => setOpen(true)}
             title={
               allocation === null ? "먼저 참여 신청을 승인해야 조정할 수 있습니다" : undefined
             }
@@ -619,34 +625,72 @@ function AllocationSection({
           </button>
         </div>
       ) : (
-        <div className={`card ${styles.allocationForm}`}>
+        <div className={`card ${styles.allocationForm}`} data-testid="adjust-form">
           <p className="small muted">
-            {member.display_name}의 {quarterName} 지원금을 원 단위로 정합니다.
+            {member.display_name}의 {quarterName} 지원금을 원 단위로 더하거나 뺍니다. 기록은
+            덮어쓰지 않고 한 줄씩 쌓입니다.
           </p>
+          <div className={styles.segmentedControl} role="group" aria-label="더하기 또는 빼기">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={sign === 1}
+              onClick={() => setSign(1)}
+            >
+              + 더하기
+            </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={sign === -1}
+              onClick={() => setSign(-1)}
+            >
+              − 빼기
+            </button>
+          </div>
           <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel} htmlFor="allocation-budget">
-              동아리 지원 (원)
+            <label className={styles.fieldLabel} htmlFor="allocation-amount">
+              금액 (원)
             </label>
             <input
               className="field"
-              id="allocation-budget"
+              id="allocation-amount"
               inputMode="numeric"
-              value={budget}
-              onChange={(event) => setBudget(event.target.value)}
+              placeholder="10000"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
             />
           </div>
-          <p className="small dim">
-            채팅, 영상 등 모든 기능이 이 금액 하나에서 차감됩니다. 이미 쓴{" "}
-            {formatKrw(allocation?.consumed_krw ?? 0)}은 그대로 남습니다.
-          </p>
+          <div className={styles.fieldRow}>
+            <label className={styles.fieldLabel} htmlFor="allocation-reason">
+              사유 (필수)
+            </label>
+            <input
+              className="field"
+              id="allocation-reason"
+              placeholder="예: 발표 준비로 추가 지원"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </div>
+          {tooLow ? (
+            <p className={styles.fieldError} role="alert">
+              이미 쓴 금액보다 적게 줄일 수 없습니다. 최대 {formatKrw(maxDown)}까지 뺄 수 있습니다.
+            </p>
+          ) : (
+            <p className="small dim">
+              채팅, 빌더, 영상 등 모든 기능이 이 지갑 하나에서 차감됩니다. 이미 쓴{" "}
+              {formatKrw(allocation?.consumed_krw ?? 0)}은 그대로 남습니다.
+            </p>
+          )}
           <div className={styles.actionRow}>
             <button
               className="btn btn-primary btn-sm"
               type="button"
-              disabled={busy}
-              onClick={() => onAdjust(budgetKrw)}
+              disabled={busy || !valid}
+              onClick={() => onAdjust(sign * amountKrw, reason.trim())}
             >
-              저장
+              조정하기
             </button>
             <button
               className="btn btn-sm"
@@ -659,6 +703,63 @@ function AllocationSection({
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+/** 이 회원의 지갑 조정 기록 — 관리자 조정과 이월, 새것부터. */
+function AdjustmentHistory({ userId, version }: { userId: number; version: number }) {
+  const [rows, setRows] = useState<WalletAdjustment[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAdjustments(userId)
+      .then((loaded) => {
+        if (!cancelled) setRows(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, version]);
+
+  if (rows === null || rows.length === 0) return null;
+  return (
+    <section aria-labelledby="member-adjustments">
+      <h2 className="section-title" id="member-adjustments">
+        지원금 조정 기록
+        <span className={styles.sectionNote}>덮어쓰지 않고 쌓입니다 · 감사 기록에도 남음</span>
+      </h2>
+      <AdminTable
+        columns={[
+          { key: "when", header: "날짜", render: (row) => row.created_at.slice(0, 10).replaceAll("-", ".") },
+          { key: "quarter", header: "분기", render: (row) => row.quarter_name },
+          {
+            key: "amount",
+            header: "금액",
+            numeric: true,
+            render: (row) => `${row.amount_krw > 0 ? "+" : "−"}${formatKrw(Math.abs(row.amount_krw))}`,
+          },
+          {
+            key: "after",
+            header: "조정 후",
+            numeric: true,
+            render: (row) => formatKrw(row.budget_after_krw),
+          },
+          {
+            key: "reason",
+            header: "사유",
+            render: (row) => (row.kind === "carry_over" ? `이월 — ${row.reason}` : row.reason),
+          },
+          { key: "by", header: "한 사람", render: (row) => `@${row.created_by_username || "–"}` },
+        ]}
+        rows={rows}
+        rowKey={(row) => row.id}
+        empty="조정 기록이 없습니다."
+        caption="지원금 조정 기록"
+      />
     </section>
   );
 }

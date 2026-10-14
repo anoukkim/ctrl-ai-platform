@@ -61,7 +61,7 @@ export interface ChatMessage {
 }
 
 /** 답장 하나가 실제로 쓴 토큰. 캐시 칸은 캐시가 꺼져 있으면 null입니다. */
-export interface ReplyUsage {
+export interface ReplyUsage extends ReplyWonSplit {
   input_tokens: number;
   output_tokens: number;
   cache_write_tokens: number | null;
@@ -74,6 +74,22 @@ export interface ReplyUsage {
 /** 답장 아래 영수증(live-cost-display). 합계는 장부가 차감한 금액입니다. */
 export interface ReplyReceipt extends ReplyUsage {
   charged_krw: number;
+}
+
+/**
+ * 같은 답장을 원 단위 항목으로 나눈 값(cost-clarity). 반올림 전 값이라
+ * 더하면 합계보다 1원 안쪽으로 작을 수 있습니다. 예전 서버라면 없습니다.
+ */
+export interface ReplyWonSplit {
+  input_krw?: number | null;
+  cache_write_krw?: number | null;
+  cache_read_krw?: number | null;
+  output_krw?: number | null;
+  tool_krw?: number | null;
+  /** 캐시로 읽은 부분을 그냥 입력으로 보냈다면 더 들었을 금액. */
+  cache_saved_krw?: number | null;
+  /** 옛 답장이라 지금 요금표로 다시 계산한 값. */
+  split_estimated?: boolean;
 }
 
 /**

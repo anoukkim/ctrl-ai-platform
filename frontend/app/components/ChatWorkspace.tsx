@@ -73,6 +73,7 @@ import {
 } from "@/lib/chat";
 import { describeError } from "@/lib/http";
 import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
+import { CACHE_EXPLAINER, ROUND_UP_NOTE, formatWonPart } from "@/lib/money";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
@@ -155,11 +156,31 @@ function toView(message: ChatMessage): ViewMessage {
 }
 
 /**
- * 영수증 한 줄. 입력은 새로 처리한 토큰(캐시 쓰기 포함), 캐시 읽기는
- * 캐시가 켜져 있던 답장에만 보입니다. 합계는 장부가 차감한 금액 —
- * 어림값이 아닙니다.
+ * 영수증 한 줄(cost-clarity): 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 /
+ * 합계를 원으로. 캐시 칸은 캐시가 켜져 있던 답장에만, 도구는 쓴 답장에만
+ * 보입니다. 항목은 반올림 전 값이고, 합계는 장부가 차감한 금액(올림) —
+ * 어림값이 아닙니다. 원 단위 항목이 없는 옛 응답이면 토큰 수로 보여 줍니다.
  */
 export function receiptLine(receipt: ReplyReceipt): string {
+  if (receipt.input_krw == null) return receiptTokenLine(receipt);
+  const parts = [`입력 ${formatWonPart(receipt.input_krw)}`];
+  if (receipt.cache_write_tokens !== null) {
+    parts.push(`캐시 쓰기 ${formatWonPart(receipt.cache_write_krw ?? 0)}`);
+  }
+  if (receipt.cache_read_tokens !== null) {
+    parts.push(`캐시 읽기 ${formatWonPart(receipt.cache_read_krw ?? 0)}`);
+  }
+  parts.push(`출력 ${formatWonPart(receipt.output_krw ?? 0)}`);
+  if ((receipt.tool_krw ?? 0) > 0 || (receipt.web_search_count ?? 0) > 0) {
+    const searches = receipt.web_search_count ? ` (검색 ${receipt.web_search_count}회)` : "";
+    parts.push(`도구 ${formatWonPart(receipt.tool_krw ?? receipt.tool_fee_krw ?? 0)}${searches}`);
+  }
+  parts.push(`합계 ${formatKrw(receipt.charged_krw)}`);
+  return parts.join(" · ");
+}
+
+/** 같은 답장을 토큰 수로 — 영수증에 마우스를 올리면 보입니다. */
+export function receiptTokenLine(receipt: ReplyReceipt): string {
   const parts = [
     `입력 ${(receipt.input_tokens + (receipt.cache_write_tokens ?? 0)).toLocaleString()}토큰`,
     `출력 ${receipt.output_tokens.toLocaleString()}토큰`,
@@ -174,6 +195,41 @@ export function receiptLine(receipt: ReplyReceipt): string {
   }
   parts.push(`합계 ${formatKrw(receipt.charged_krw)}`);
   return parts.join(" · ");
+}
+
+/** 영수증 + 캐시로 아낀 금액 + ⓘ (캐시가 켜져 있던 답장에만). */
+function ReceiptView({ receipt }: { receipt: ReplyReceipt }) {
+  const [explain, setExplain] = useState(false);
+  const explainId = useId();
+  const cached = receipt.cache_read_tokens !== null && receipt.cache_saved_krw != null;
+  return (
+    <div className={styles.receipt} data-testid="receipt-block">
+      <p data-testid="receipt" title={receiptTokenLine(receipt)}>
+        {receiptLine(receipt)}
+        {receipt.split_estimated ? " (어림값)" : ""}
+      </p>
+      {cached && (
+        <p className={styles.cacheSaved} data-testid="cache-saved">
+          캐시로 아낀 금액 약 {formatWonPart(receipt.cache_saved_krw ?? 0)}
+          <button
+            type="button"
+            className={styles.infoButton}
+            aria-label="캐시가 무엇인가요?"
+            aria-expanded={explain}
+            aria-controls={explainId}
+            onClick={() => setExplain((open) => !open)}
+          >
+            ⓘ
+          </button>
+        </p>
+      )}
+      {cached && explain && (
+        <p className={styles.cacheExplain} id={explainId} data-testid="cache-explain">
+          {CACHE_EXPLAINER} {ROUND_UP_NOTE}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** 출처 링크에 보여 줄 도메인. 주소가 이상하면 주소 그대로. */
@@ -1003,9 +1059,7 @@ export default function ChatWorkspace() {
                         </ol>
                       )}
                     {message.role === "assistant" && !message.streaming && message.receipt && (
-                      <p className={styles.receipt} data-testid="receipt">
-                        {receiptLine(message.receipt)}
-                      </p>
+                      <ReceiptView receipt={message.receipt} />
                     )}
                     {message.role === "assistant" &&
                       !message.streaming &&

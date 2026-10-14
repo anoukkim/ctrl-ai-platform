@@ -52,6 +52,35 @@ vi.mock("@/lib/quarters", async (importOriginal) => {
   };
 });
 
+// cost-clarity: Budget also reads the club's credit and the per-member table.
+vi.mock("@/lib/accounting", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/accounting")>();
+  return {
+    ...actual,
+    getCredit: vi.fn().mockResolvedValue({ providers: [], purchases: [], report_provider: "mock" }),
+    getQuarterMoney: vi.fn().mockResolvedValue({
+      quarter_id: 7,
+      quarter_name: "2026 Q4",
+      closed_at: null,
+      carry_over_percent: 0,
+      granted_krw: 80_000,
+      charged_krw: 27_700,
+      unspent_krw: 52_300,
+      cache_saved_krw: 120.5,
+      absorbed_usd: "0.00",
+      members: [
+        {
+          user_id: 2, username: "yuri", display_name: "김유리", membership_status: "active",
+          granted_krw: 80_000, consumed_krw: 27_700, remaining_krw: 52_300, chat_krw: 12_700,
+          build_krw: 0, video_krw: 15_000, other_krw: 0, cache_saved_krw: 120.5, adjusted_krw: 0,
+          carried_in_krw: 0, frozen: false, reclaimed_krw: null, carry_over_krw: null,
+        },
+      ],
+    }),
+    getCachePanel: vi.fn().mockResolvedValue([]),
+  };
+});
+
 vi.mock("@/app/admin/AdminQuarterProvider", () => ({
   useAdminQuarter: () => ({
     quarters: [QUARTER],
