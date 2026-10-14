@@ -441,6 +441,8 @@ export interface ChatLimits {
   provider_concurrency: number;
   /** 웹 페이지 읽기: 한 답장의 횟수와 페이지당 토큰 (tool-cap-defaults). */
   web_fetch_max_uses: number;
+  /** 웹 검색: 한 답장에 최대 몇 회 (fix-real-web-search). */
+  web_search_max_uses?: number;
   web_fetch_max_content_tokens: number;
   set_at: string | null;
   set_by_username: string;
@@ -452,6 +454,8 @@ export interface ChatLimitsWrite {
   daily_cap_krw: number;
   provider_concurrency: number;
   web_fetch_max_uses: number;
+  /** 웹 검색: 한 답장에 최대 몇 회 (fix-real-web-search). */
+  web_search_max_uses?: number;
   web_fetch_max_content_tokens: number;
 }
 

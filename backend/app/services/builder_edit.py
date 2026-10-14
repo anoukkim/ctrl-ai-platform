@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -129,6 +130,17 @@ def generate(
     finally:
         provider_limiter.release()
 
+    # Locked until the files are stored: a second generation for the same
+    # project that finished meanwhile would otherwise be silently undone.
+    db.scalar(select(BuilderProject.id).where(BuilderProject.id == project.id).with_for_update())
+    if builder_versions.current_files(db, project) != files:
+        _record_absorbed(
+            db, user, project, model.model_id, price, (edit.input_tokens, edit.output_tokens)
+        )
+        db.commit()
+        raise StarterError(
+            "그사이 다른 변경이 먼저 저장됐어요. 화면을 새로 고친 뒤 다시 요청해 주세요.", 409
+        )
     try:
         if not edit.writes:
             raise builder_files.FileRuleError(

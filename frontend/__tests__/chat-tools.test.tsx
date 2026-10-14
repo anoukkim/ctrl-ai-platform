@@ -268,8 +268,9 @@ describe("도구 토글", () => {
     release();
     const sources = await screen.findByTestId("sources");
     const links = sources.querySelectorAll("a");
-    expect(links[0].textContent).toBe("1. yna.co.kr");
-    expect(links[1].textContent).toBe("2. kosis.kr");
+    // fix-real-web-search: the page title, then the domain.
+    expect(links[0].textContent).toBe("1. 연합뉴스 · yna.co.kr");
+    expect(links[1].textContent).toMatch(/^2\. .+ · kosis\.kr$/);
     expect(links[0].getAttribute("rel")).toContain("noopener");
     expect(screen.queryByTestId("tool-status")).toBeNull();
   });

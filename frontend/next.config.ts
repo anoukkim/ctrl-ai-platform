@@ -26,6 +26,19 @@ const nextConfig: NextConfig = {
    */
   devIndicators: false,
 
+  experimental: {
+    /**
+     * `/api/*` 프록시의 대기 시간(ms). Next.js는 기본으로 **30초 동안 아무
+     * 데이터가 없으면** 프록시 요청을 끊습니다. Builder의 만들기·고치기와
+     * 예시 앱은 응답을 한 번에 받는 요청이라 Claude가 1~3분 쓰는 동안
+     * 조용하고, 그대로면 브라우저에는 "연결이 끊어졌습니다"가 뜨는데 서버는
+     * 끝까지 만들고 차감합니다(fix-real-web-search). 백엔드의 Builder 대기
+     * 시간(180초)보다 넉넉하게 둡니다. 채팅 스트림은 10초마다 keepalive를
+     * 보내므로 이 값과 상관없이 끊기지 않습니다.
+     */
+    proxyTimeout: 240_000,
+  },
+
   /**
    * `/api/*` 요청을 Next.js가 받아 FastAPI로 넘깁니다.
    *

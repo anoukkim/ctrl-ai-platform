@@ -55,12 +55,15 @@ def turn_on(client: TestClient, conversation: int, **flags) -> dict:
 # ------------------------------------------------- the request mapping
 
 
-def test_haiku_gets_the_older_search_tool_and_sonnet_the_new_one() -> None:
+def test_every_model_gets_the_basic_direct_search_tool() -> None:
+    """fix-real-web-search: `_20260209`+ search from inside code execution
+    (results arrive as JSON strings Claude parses) — the basic version is
+    used for every model."""
     haiku = server_tool_params(("web_search",), "claude-haiku-4-5", 1, 10_000)
     sonnet = server_tool_params(("web_search",), "claude-sonnet-5-5", 1, 10_000)
 
     assert haiku[0]["type"] == "web_search_20250305"
-    assert sonnet[0]["type"] == "web_search_20260209"
+    assert sonnet[0]["type"] == "web_search_20250305"
     for block in (haiku[0], sonnet[0]):
         assert block["max_uses"] == WEB_SEARCH_MAX_USES
         assert block["user_location"]["country"] == "KR"
@@ -72,7 +75,7 @@ def test_fetch_blocks_carry_the_admins_limits() -> None:
     blocks = server_tool_params(("web_fetch", "code_execution"), "claude-sonnet-5-5", 2, 8_000)
 
     assert blocks[0] == {
-        "type": "web_fetch_20260209",
+        "type": "web_fetch_20250910",
         "name": "web_fetch",
         "max_uses": 2,
         "max_content_tokens": 8_000,

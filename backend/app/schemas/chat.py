@@ -159,10 +159,12 @@ class ConversationDetail(ConversationRead):
 
 
 class SourceRead(BaseModel):
-    """One cited source — shown as a numbered link with its domain."""
+    """One source — shown as a numbered link with its page title."""
 
     title: str = ""
     url: str
+    #: The reply's text cites it (fix-real-web-search) — cited ones first.
+    cited: bool = False
 
 
 class ChatMessageCreate(BaseModel):
@@ -222,6 +224,8 @@ class ChatInfo(BaseModel):
     #: toggle dialog, so the copy never hardcodes an amount.
     web_fetch_max_uses: int
     web_fetch_max_content_tokens: int
+    #: 웹 검색: searches per reply (fix-real-web-search) — same reason.
+    web_search_max_uses: int = 5
     #: The models this member may pick, in catalogue order.
     models: list["ChatModelOption"] = []
     #: What a new conversation uses. None only with an empty catalogue.

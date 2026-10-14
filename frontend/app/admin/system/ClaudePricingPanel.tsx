@@ -54,6 +54,7 @@ export default function ClaudePricingPanel() {
     provider_concurrency: "",
     web_fetch_max_uses: "",
     web_fetch_max_content_tokens: "",
+    web_search_max_uses: "",
   });
 
   const apply = useCallback((value: ClaudeSettings) => {
@@ -66,6 +67,7 @@ export default function ClaudePricingPanel() {
       provider_concurrency: String(value.chat_limits.provider_concurrency),
       web_fetch_max_uses: String(value.chat_limits.web_fetch_max_uses),
       web_fetch_max_content_tokens: String(value.chat_limits.web_fetch_max_content_tokens),
+      web_search_max_uses: String(value.chat_limits.web_search_max_uses ?? 5),
     });
   }, []);
 
@@ -114,6 +116,7 @@ export default function ClaudePricingPanel() {
       provider_concurrency: Number(limitsDraft.provider_concurrency),
       web_fetch_max_uses: Number(limitsDraft.web_fetch_max_uses),
       web_fetch_max_content_tokens: Number(limitsDraft.web_fetch_max_content_tokens),
+      web_search_max_uses: Number(limitsDraft.web_search_max_uses),
     };
     const won = (value: number) => (value > 0 ? `${value.toLocaleString()}원` : "끔 (0)");
     ask(
@@ -125,6 +128,7 @@ export default function ClaudePricingPanel() {
           `하루 한도: ${won(next.daily_cap_krw)} — 회원마다, 모든 유료 기능 합산 (KST 기준)`,
           `동시 호출: ${next.provider_concurrency}개 — 서버 프로세스마다, AI 호출을 한 번에 이만큼만`,
           `페이지 읽기: 한 답장에 ${next.web_fetch_max_uses}회, 페이지당 ${next.web_fetch_max_content_tokens.toLocaleString()}토큰 — 1회 비용 한도가 미리 떼어 두는 양이라, 줄이면 낮은 한도에서도 쓸 수 있습니다`,
+          `웹 검색: 한 답장에 최대 ${next.web_search_max_uses}회 — 검색 요금과 결과가 1회 비용 한도 안에 미리 잡힙니다`,
           "감사 기록에 남습니다.",
         ],
         confirmLabel: "한도 바꾸기",
@@ -298,6 +302,20 @@ export default function ClaudePricingPanel() {
                   />
                 </label>
                 <label className={styles.limitField}>
+                  <span>웹 검색 (한 답장에 몇 회, 1–10)</span>
+                  <input
+                    className="field numeric"
+                    inputMode="numeric"
+                    value={limitsDraft.web_search_max_uses}
+                    onChange={(event) =>
+                      setLimitsDraft((current) => ({
+                        ...current,
+                        web_search_max_uses: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className={styles.limitField}>
                   <span>페이지당 토큰 (1,000–100,000)</span>
                   <input
                     className="field numeric"
@@ -322,9 +340,12 @@ export default function ClaudePricingPanel() {
                       limitsDraft.provider_concurrency,
                       limitsDraft.web_fetch_max_uses,
                       limitsDraft.web_fetch_max_content_tokens,
+                      limitsDraft.web_search_max_uses,
                     ].some((value) => value.trim() === "" || !Number.isInteger(Number(value))) ||
                     Number(limitsDraft.provider_concurrency) < 1 ||
                     Number(limitsDraft.web_fetch_max_uses) < 1 ||
+                    Number(limitsDraft.web_search_max_uses) < 1 ||
+                    Number(limitsDraft.web_search_max_uses) > 10 ||
                     Number(limitsDraft.web_fetch_max_content_tokens) < 1000 ||
                     (Number(limitsDraft.reply_cap_krw) === settings.chat_limits.reply_cap_krw &&
                       Number(limitsDraft.long_history_tokens) ===
@@ -335,7 +356,9 @@ export default function ClaudePricingPanel() {
                       Number(limitsDraft.web_fetch_max_uses) ===
                         settings.chat_limits.web_fetch_max_uses &&
                       Number(limitsDraft.web_fetch_max_content_tokens) ===
-                        settings.chat_limits.web_fetch_max_content_tokens)
+                        settings.chat_limits.web_fetch_max_content_tokens &&
+                      Number(limitsDraft.web_search_max_uses) ===
+                        (settings.chat_limits.web_search_max_uses ?? 5))
                   }
                   onClick={askLimits}
                 >

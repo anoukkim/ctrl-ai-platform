@@ -25,7 +25,6 @@ from decimal import ROUND_CEILING, Decimal
 
 from app.models import Conversation
 from app.services.chat_models import ChosenModel
-from app.services.claude_provider import WEB_SEARCH_MAX_USES
 from app.services.pricing import Price
 
 #: Every kind there is, in display order.
@@ -76,6 +75,7 @@ def cap_extra_krw(
     *,
     fetch_max_uses: int,
     fetch_max_content_tokens: int,
+    search_max_uses: int = 5,
 ) -> int:
     """What the per-reply cap reserves for the enabled tools: everything.
 
@@ -93,8 +93,8 @@ def cap_extra_krw(
     """
     extra = 0
     if "web_search" in tools:
-        extra += search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
-        extra += price.worst_case_krw(WEB_SEARCH_MAX_USES * SEARCH_RESULT_RESERVE_TOKENS, 0)
+        extra += search_fee_krw(price, per_call_usd, search_max_uses)
+        extra += price.worst_case_krw(search_max_uses * SEARCH_RESULT_RESERVE_TOKENS, 0)
     if "web_fetch" in tools:
         extra += price.worst_case_krw(fetch_max_uses * fetch_max_content_tokens, 0)
     if "code_execution" in tools:
@@ -109,6 +109,7 @@ def worst_case_extra_krw(
     *,
     fetch_max_uses: int,
     fetch_max_content_tokens: int,
+    search_max_uses: int = 5,
 ) -> int:
     """What the **wallet** pre-check adds on top of the token worst case.
 
@@ -122,7 +123,7 @@ def worst_case_extra_krw(
     """
     extra = 0
     if "web_search" in tools:
-        extra += search_fee_krw(price, per_call_usd, WEB_SEARCH_MAX_USES)
+        extra += search_fee_krw(price, per_call_usd, search_max_uses)
     if "web_fetch" in tools:
         extra += price.krw(fetch_max_uses * fetch_max_content_tokens, 0)
     return extra

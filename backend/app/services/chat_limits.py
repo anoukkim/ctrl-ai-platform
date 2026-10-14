@@ -49,6 +49,8 @@ class Limits:
     #: smaller values let the tool fit a smaller cap.
     web_fetch_max_uses: int
     web_fetch_max_content_tokens: int
+    #: 웹 검색 (fix-real-web-search): searches per reply (`max_uses`).
+    web_search_max_uses: int = 5
 
 
 #: In force while the table is empty. The owner set the per-reply cap to
@@ -62,6 +64,7 @@ DEFAULTS = Limits(
     provider_concurrency=3,
     web_fetch_max_uses=1,
     web_fetch_max_content_tokens=10_000,
+    web_search_max_uses=5,
 )
 
 
@@ -77,6 +80,7 @@ def current(db: Session) -> Limits:
         provider_concurrency=row.provider_concurrency,
         web_fetch_max_uses=row.web_fetch_max_uses,
         web_fetch_max_content_tokens=row.web_fetch_max_content_tokens,
+        web_search_max_uses=row.web_search_max_uses,
     )
 
 

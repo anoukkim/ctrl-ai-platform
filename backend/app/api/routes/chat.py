@@ -153,6 +153,7 @@ def chat_info(
         max_message_length=MAX_MESSAGE_LENGTH,
         web_fetch_max_uses=limits.web_fetch_max_uses,
         web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+        web_search_max_uses=limits.web_search_max_uses,
         models=[_option(db, row, default, rate) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
     )
@@ -569,6 +570,10 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
 
+#: Seconds without a reply event before the stream sends a keepalive
+#: comment. Well under the Next.js proxy's 30-second idle limit.
+KEEPALIVE_SECONDS = 10.0
+
 #: Reply tasks still running. See `send_message`.
 _RUNNING: set[asyncio.Task] = set()
 
@@ -712,7 +717,12 @@ def send_message(
                     )
                 elif isinstance(event, ToolSources):
                     state.sources = [
-                        {"title": title, "url": url} for title, url in event.sources
+                        {
+                            "title": source[0],
+                            "url": source[1],
+                            "cited": bool(source[2]) if len(source) > 2 else False,
+                        }
+                        for source in event.sources
                     ]
                 elif isinstance(event, StreamEnd):
                     state.stop_reason = event.stop_reason
@@ -759,7 +769,16 @@ def send_message(
                 },
             )
             while True:
-                kind, payload = await queue.get()
+                try:
+                    kind, payload = await asyncio.wait_for(queue.get(), KEEPALIVE_SECONDS)
+                except asyncio.TimeoutError:
+                    # Nothing from Claude for a while — a server-side search
+                    # or fetch is running. An SSE comment keeps every hop
+                    # (Caddy, the Next.js /api proxy, which drops a request
+                    # after 30 s without data) from closing the stream;
+                    # the browser's reader ignores it (fix-real-web-search).
+                    yield ": keepalive\n\n"
+                    continue
                 if kind == "delta":
                     yield _sse("delta", {"text": payload})
                     continue

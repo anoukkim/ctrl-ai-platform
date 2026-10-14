@@ -107,6 +107,7 @@ import { modelShortName } from "@/lib/spend";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
+import ReplySources from "./ReplySources";
 import EmptyState from "./EmptyState";
 
 /** 기능 둘러보기 카드의 아이콘과 아이콘 칸의 색. */
@@ -315,13 +316,7 @@ function replyNumber(key: string): number | null {
 }
 
 /** 출처 링크에 보여 줄 도메인. 주소가 이상하면 주소 그대로. */
-export function sourceDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
+export { sourceDomain } from "./ReplySources";
 
 /** 서버 도구 세 가지의 이름과, 돌고 있을 때·켜기 전에 보여 줄 문장. */
 export const TOOL_META: Record<
@@ -339,10 +334,11 @@ export function toolCostEffect(
   kind: ToolKind,
   searchKrw: number | null,
   fetchLimits?: { maxUses: number; maxTokens: number } | null,
+  searchMaxUses = 5,
 ): string[] {
   if (kind === "web_search") {
     return [
-      `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 3회).`,
+      `검색 1회당 약 ${searchKrw != null ? formatKrw(searchKrw) : "14원"}이 더 들어요 (한 답장에 최대 ${searchMaxUses}회).`,
       "검색 결과 토큰 비용까지 이 답장의 1회 비용 한도 안에서 함께 계산돼요.",
       "검색어가 검색 서비스로 전달돼요.",
     ];
@@ -1017,6 +1013,7 @@ export default function ChatWorkspace() {
           info
             ? { maxUses: info.web_fetch_max_uses, maxTokens: info.web_fetch_max_content_tokens }
             : null,
+          info?.web_search_max_uses ?? 5,
         ),
         confirmLabel: "켜기",
         onConfirm: async () => {
@@ -1308,20 +1305,7 @@ export default function ChatWorkspace() {
                     {message.role === "assistant" &&
                       !message.streaming &&
                       (message.sources?.length ?? 0) > 0 && (
-                        <ol className={styles.sources} data-testid="sources">
-                          {message.sources!.map((source, order) => (
-                            <li key={`${order}-${source.url}`}>
-                              <a
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={source.title || source.url}
-                              >
-                                {order + 1}. {sourceDomain(source.url)}
-                              </a>
-                            </li>
-                          ))}
-                        </ol>
+                        <ReplySources sources={message.sources!} />
                       )}
                     {message.role === "assistant" && !message.streaming && message.receipt && (
                       <ReceiptView receipt={message.receipt} />

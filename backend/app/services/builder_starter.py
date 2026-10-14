@@ -175,6 +175,21 @@ def create_starter(
         raise
     finally:
         provider_limiter.release()
+    # The project row, locked until this transaction ends: two 예시 앱
+    # requests for one project (a retry after the browser gave up on the
+    # first) must not both store files — the second hit the unique path
+    # constraint as a 500 on the server (2026-10-14, 12:08 UTC). The loser
+    # is refused, unpaid; the club's cost of its call is recorded.
+    db.scalar(select(BuilderProject.id).where(BuilderProject.id == project.id).with_for_update())
+    taken = db.scalar(
+        select(BuilderProjectFile.id).where(BuilderProjectFile.project_id == project.id).limit(1)
+    )
+    if taken is not None:
+        _record_absorbed(
+            db, user, project, model.model_id, price, (app.input_tokens, app.output_tokens)
+        )
+        db.commit()
+        raise StarterError("이미 예시 앱이 만들어졌어요. 화면을 새로 고쳐 확인해 주세요.", 409)
     try:
         files = check_files(app.files)
     except StarterError:

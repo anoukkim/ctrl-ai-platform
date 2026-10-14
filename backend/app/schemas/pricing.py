@@ -115,6 +115,7 @@ class ChatLimitsRead(BaseModel):
     provider_concurrency: int
     web_fetch_max_uses: int
     web_fetch_max_content_tokens: int
+    web_search_max_uses: int = 5
     set_at: datetime | None = None
     set_by_username: str = ""
 
@@ -130,6 +131,8 @@ class ChatLimitsWrite(BaseModel):
     #: 웹 페이지 읽기 — never 0: the member's toggle is how it turns off.
     web_fetch_max_uses: int = Field(ge=1, le=5)
     web_fetch_max_content_tokens: int = Field(ge=1_000, le=100_000)
+    #: 웹 검색 — searches per reply (fix-real-web-search). Never 0.
+    web_search_max_uses: int = Field(default=5, ge=1, le=10)
 
 
 class ClaudeSettingsRead(BaseModel):

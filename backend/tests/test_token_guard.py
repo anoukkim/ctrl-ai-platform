@@ -308,6 +308,7 @@ def test_the_limits_are_an_audited_admin_setting(
         "provider_concurrency": 3,
         "web_fetch_max_uses": 1,
         "web_fetch_max_content_tokens": 10_000,
+        "web_search_max_uses": 5,
         "set_at": None,
         "set_by_username": "",
     }
@@ -321,6 +322,7 @@ def test_the_limits_are_an_audited_admin_setting(
             "provider_concurrency": 3,
             "web_fetch_max_uses": 2,
             "web_fetch_max_content_tokens": 8_000,
+            "web_search_max_uses": 4,
         },
     )
     assert response.status_code == 200, response.text
@@ -336,6 +338,9 @@ def test_the_limits_are_an_audited_admin_setting(
     row = db_session.query(AuditLog).filter_by(action="chat_limits.set").one()
     assert "답장 1회 한도 300원" in row.summary
     assert "페이지 읽기 2회×8,000토큰" in row.summary
+    # fix-real-web-search: searches per reply, audited with the rest.
+    assert "웹 검색 4회" in row.summary and after["web_search_max_uses"] == 4
+    assert row.detail["before"]["web_search_max_uses"] == 5
     assert row.detail["before"]["reply_cap_krw"] == 200
     assert row.detail["before"]["web_fetch_max_uses"] == 1
 

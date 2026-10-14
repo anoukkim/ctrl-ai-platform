@@ -126,6 +126,9 @@ class ChatRequest:
     #: `chat_limits.DEFAULTS` for callers that build a request directly.
     fetch_max_uses: int = 1
     fetch_max_content_tokens: int = 10_000
+    #: 웹 검색 searches per reply (fix-real-web-search) — the admin's
+    #: 채팅 한도 setting, sent as the tool's `max_uses`.
+    search_max_uses: int = 5
     #: 생각 과정 보기 (chat-thinking-view): ask for the summarized thinking.
     show_thinking: bool = False
 
@@ -180,9 +183,10 @@ class ToolStatus:
 
 @dataclass(frozen=True)
 class ToolSources:
-    """Sources the reply cites, as (title, url) pairs — saved with it."""
+    """Sources the reply drew on — saved with it. Each is (title, url) or
+    (title, url, cited): cited ones first (`SourceList`)."""
 
-    sources: tuple[tuple[str, str], ...]
+    sources: tuple[tuple[str, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -235,33 +239,118 @@ class ProjectEdit:
 
 # ----------------------------------------------------- server tools
 
-#: The spec's caps (chat-plus-tools): searches are bounded so one reply
-#: cannot run up fees; result tokens are billed once, inside that reply —
-#: they are not persisted and never re-sent on later turns. The fetch
-#: bounds are **admin settings** since tool-cap-defaults (2026-10-14):
-#: they ride on the request (`ChatRequest.fetch_*`), not constants here.
-WEB_SEARCH_MAX_USES = 3
+#: Searches per reply when nothing else says (fix-real-web-search): the
+#: admin's 채팅 한도 setting overrides it (`ChatRequest.search_max_uses`).
+WEB_SEARCH_MAX_USES = 5
+
+#: How many times a paused tool turn (`stop_reason: "pause_turn"`) is
+#: continued before what was said so far becomes the reply.
+PAUSE_TURN_MAX_CONTINUATIONS = 3
 
 
 def web_search_tool_type(model: str) -> str:
-    """Which web-search tool version a model takes.
+    """The web-search tool version: the basic `web_search_20250305` for
+    every model (fix-real-web-search, decided 2026-10-14).
 
-    Haiku 4.5 has no dynamic filtering and takes the older version; the
-    Claude 5 family takes 20260209 (the spec, 2026-10-07).
+    `web_search_20260209` and later run the search from inside code
+    execution by default ("dynamic filtering"): Claude writes Python that
+    reads the results as JSON strings. In the owner's live tests that
+    surfaced to members as "결과가 JSON 문자열로 와서 파싱해서…", used up
+    the search budget on retries and once ended with no answer. The basic
+    version calls search directly, returns cited results, is ZDR-eligible,
+    and works on Haiku 4.5 too (platform.claude.com › web search / server
+    tools). Dynamic filtering saves tokens on search-heavy research — not
+    what a beginner's Chat needs.
     """
-    return "web_search_20250305" if "haiku" in model else "web_search_20260209"
+    return "web_search_20250305"
 
 
 def web_fetch_tool_type(model: str) -> str:
-    """Which web-fetch tool version a model takes.
+    """The basic `web_fetch_20250910`, for the same reason as search:
+    `_20260209`+ read pages through code execution by default."""
+    return "web_fetch_20250910"
 
-    Dynamic filtering (`web_fetch_20260209` and later) needs a Claude 4.6+
-    model; Haiku 4.5 takes the basic `web_fetch_20250910`
-    (platform.claude.com/docs/en/agents-and-tools/tool-use/web-fetch-tool,
-    checked 2026-10-14 — the cost-clarity audit found Haiku was being sent
-    the 20260209 version).
+
+def tool_kind(name_or_type: str) -> str:
+    """A server-tool block's name or result type as the screen's kind:
+    "web_search" | "web_fetch" | "code_execution". Code execution comes
+    as `code_execution`, `bash_code_execution` or
+    `text_editor_code_execution` (and their `*_tool_result` blocks)."""
+    value = name_or_type.lower()
+    if "web_search" in value:
+        return "web_search"
+    if "web_fetch" in value:
+        return "web_fetch"
+    if "code_execution" in value:
+        return "code_execution"
+    return value.split("_tool_result")[0] or "web_search"
+
+
+def _is_error_result(content: Any) -> bool:
+    """A server tool's result says it failed: an error object (search,
+    fetch and code execution all name their error type `*_error`)."""
+    items = content if isinstance(content, (list, tuple)) else ([content] if content is not None else [])
+    return any("error" in str(getattr(item, "type", "") or (item.get("type", "") if isinstance(item, dict) else "")) for item in items)
+
+
+class SourceList:
+    """The reply's sources: deduplicated by URL, cited first.
+
+    Search results and fetched pages are added as they arrive; a citation
+    in the text marks its source as cited (and adds it if no result
+    carried it). `ordered()` gives cited sources in the order they were
+    first cited, then the rest in the order they arrived — at most
+    `LIMIT`, so a five-search reply does not save fifty links.
     """
-    return "web_fetch_20250910" if "haiku" in model else "web_fetch_20260209"
+
+    LIMIT = 20
+
+    def __init__(self) -> None:
+        self._items: dict[str, dict[str, Any]] = {}
+        self._order = 0
+
+    def __bool__(self) -> bool:
+        return bool(self._items)
+
+    @staticmethod
+    def _key(url: str) -> str:
+        return url.split("#", 1)[0].rstrip("/")
+
+    def _add(self, url: str, title: str) -> dict[str, Any] | None:
+        url = (url or "").strip()
+        if not url.lower().startswith(("http://", "https://")):
+            return None
+        key = self._key(url)
+        item = self._items.get(key)
+        if item is None:
+            self._order += 1
+            item = {"url": url, "title": "", "seen": self._order, "cited": 0}
+            self._items[key] = item
+        if title and not item["title"]:
+            item["title"] = title.strip()
+        return item
+
+    def add_result(self, content: Any) -> None:
+        items = content if isinstance(content, (list, tuple)) else ([content] if content is not None else [])
+        for entry in items:
+            url = getattr(entry, "url", None)
+            title = getattr(entry, "title", None) or ""
+            if not title:
+                document = getattr(entry, "content", None)
+                title = getattr(document, "title", None) or ""
+            if url:
+                self._add(url, title)
+
+    def cite(self, url: str, title: str) -> None:
+        item = self._add(url, title)
+        if item is not None and not item["cited"]:
+            self._order += 1
+            item["cited"] = self._order
+
+    def ordered(self) -> tuple[tuple[str, str, bool], ...]:
+        cited = sorted((i for i in self._items.values() if i["cited"]), key=lambda i: i["cited"])
+        rest = sorted((i for i in self._items.values() if not i["cited"]), key=lambda i: i["seen"])
+        return tuple((i["title"], i["url"], bool(i["cited"])) for i in (cited + rest)[: self.LIMIT])
 
 
 def server_tool_params(
@@ -269,15 +358,11 @@ def server_tool_params(
     model: str,
     fetch_max_uses: int,
     fetch_max_content_tokens: int,
+    search_max_uses: int = WEB_SEARCH_MAX_USES,
 ) -> list[dict[str, Any]]:
-    """The request's `tools` blocks for the real API (Phase 9 turns it on).
-
-    Written now so switching CLAUDE_PROVIDER=anthropic is a configuration
-    change, exactly like every other provider seam. Only the mock
-    exercises the flows for now; no real API is called. File ids never
+    """The request's `tools` blocks for the real API. File ids never
     appear here — a member has no way to supply one, and code-execution
-    containers are not reused across requests.
-    """
+    containers are not reused across requests."""
     blocks: list[dict[str, Any]] = []
     for kind in tools:
         if kind == "web_search":
@@ -285,7 +370,7 @@ def server_tool_params(
                 {
                     "type": web_search_tool_type(model),
                     "name": "web_search",
-                    "max_uses": WEB_SEARCH_MAX_USES,
+                    "max_uses": search_max_uses,
                     "user_location": {
                         "type": "approximate",
                         "country": "KR",
@@ -346,6 +431,11 @@ a technical term is unavoidable, say in one phrase what it means.
 - Be warm and practical. Prefer one clear next step over a long list.
 - The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
 - The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript, inline SVG for charts and drawings. No external scripts, fonts, images or network requests — they will not load. For a chart, use inline SVG or a few lines of plain JavaScript on a canvas, never a chart library. Keep it short enough to finish in one reply.
+
+When a tool is available (web search, page reading, code execution):
+- Use it without announcing it — no "검색해 볼게요" or step-by-step narration.
+- After searching or reading, always answer the question with what you found and name the sources you used. If the results are thin, say what you found and what is still uncertain; never end without an answer.
+- Never describe tool internals to the member: no JSON, parsing, result formats, retries, usage limits or error codes. If a tool failed, say in one plain sentence that you could not look it up and answer from what you know.
 
 What CTRL+AI offers, to mention when it genuinely helps the member:
 - Project Builder: start an app or website project by describing it in Korean. The button below your reply makes a small, working example app from the member's idea that they can try at once and change later — say so when you offer it.
@@ -1411,6 +1501,7 @@ class AnthropicClaudeProvider:
         fetch_max_uses: int = 1,
         fetch_max_content_tokens: int = 10_000,
         show_thinking: bool = False,
+        search_max_uses: int = 5,
     ) -> dict[str, Any]:
         """The request body. With `cache_ttl`, two cache breakpoints.
 
@@ -1440,7 +1531,7 @@ class AnthropicClaudeProvider:
             # is part of the cached prefix, which is why it is chosen per
             # conversation, never per message (chat-plus-tools).
             params["tools"] = server_tool_params(
-                tools, model, fetch_max_uses, fetch_max_content_tokens
+                tools, model, fetch_max_uses, fetch_max_content_tokens, search_max_uses
             )
         if cache_ttl is not None:
             marker: dict[str, str] = {"type": "ephemeral"}
@@ -1451,6 +1542,25 @@ class AnthropicClaudeProvider:
         return params
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[StreamEvent]:
+        """Stream one reply, following the server-side tool loop to its end
+        (fix-real-web-search, platform.claude.com › server tools, checked
+        2026-10-14).
+
+        * **`pause_turn`** — the API paused a long tool turn. It is
+          continued by sending the paused assistant content back unchanged
+          with the same tools, at most `PAUSE_TURN_MAX_CONTINUATIONS` times;
+          every request's usage is added up, so the ledger sees all of it.
+        * **Every server-tool block** — `server_tool_use` (search, fetch,
+          and the code-execution names) shows a status line; each
+          `*_tool_result` ends it (an error result shows as an error); a
+          search's results and a fetched page become sources, and a
+          `citations_delta` marks a source as cited.
+        * **Text after a tool** starts a new paragraph. A reply's text
+          arrives in several blocks; consecutive text blocks (a citation
+          splits a sentence into blocks) are joined as they are, but text
+          that resumes after a tool call gets a blank line, so "찾아볼게요."
+          and the answer that follows never run together.
+        """
         import anthropic
 
         kwargs = self._client_kwargs()
@@ -1458,106 +1568,149 @@ class AnthropicClaudeProvider:
             kwargs["http_client"] = self._async_http_client
         client = anthropic.AsyncAnthropic(**kwargs)
 
-        input_tokens = 0
-        output_tokens = 0
-        written = 0
-        read = 0
-        searches = 0
-        fetches = 0
-        sources: list[tuple[str, str]] = []
+        params = self.request_params(
+            request.system,
+            request.messages,
+            request.max_tokens,
+            request.model,
+            request.cache_ttl,
+            request.tools,
+            request.fetch_max_uses,
+            request.fetch_max_content_tokens,
+            request.show_thinking,
+            request.search_max_uses,
+        )
+        messages = list(params["messages"])
+        # Totals of the requests already finished (pause_turn continuations).
+        done_in = done_out = done_written = done_read = done_searches = done_fetches = 0
+        sources = SourceList()
         stop_reason = "end_turn"
+        #: The type of the content block before the one now streaming —
+        #: kept across continuations, which resume the same turn.
+        previous_block = ""
+        #: The text sent so far ends with a newline (or nothing was sent).
+        text_ends_clean = True
+        text_sent = False
         try:
-            async with client.messages.stream(
-                **self.request_params(
-                    request.system,
-                    request.messages,
-                    request.max_tokens,
-                    request.model,
-                    request.cache_ttl,
-                    request.tools,
-                    request.fetch_max_uses,
-                    request.fetch_max_content_tokens,
-                    request.show_thinking,
-                )
-            ) as stream:
-                async for event in stream:
-                    if event.type == "message_start":
-                        usage = event.message.usage
-                        input_tokens = usage.input_tokens or 0
-                        written = getattr(usage, "cache_creation_input_tokens", None) or 0
-                        read = getattr(usage, "cache_read_input_tokens", None) or 0
-                        output_tokens = usage.output_tokens or 0
-                        yield UsageUpdate(input_tokens, output_tokens, written, read, searches, fetches)
-                    elif event.type == "content_block_delta" and event.delta.type == "text_delta":
-                        yield TextDelta(event.delta.text)
-                    elif (
-                        event.type == "content_block_delta"
-                        and event.delta.type == "thinking_delta"
-                        and getattr(event.delta, "thinking", "")
-                    ):
-                        # Summarized thinking (chat-thinking-view). Empty
-                        # under display "omitted" — nothing to show then.
-                        yield ThinkingDelta(event.delta.thinking)
-                    elif event.type == "content_block_start" and getattr(
-                        getattr(event, "content_block", None), "type", ""
-                    ).startswith("server_tool_use"):
-                        # A server tool started (chat-plus-tools). The name
-                        # is "web_search" / "web_fetch" / "code_execution".
-                        yield ToolStatus(
-                            getattr(event.content_block, "name", "web_search"), "running"
+            for _attempt in range(1 + PAUSE_TURN_MAX_CONTINUATIONS):
+                input_tokens = output_tokens = written = read = 0
+                searches = fetches = 0
+                reported_fetches: int | None = None
+                async with client.messages.stream(**params) as stream:
+                    async for event in stream:
+                        etype = event.type
+                        if etype == "message_start":
+                            usage = event.message.usage
+                            input_tokens = usage.input_tokens or 0
+                            written = getattr(usage, "cache_creation_input_tokens", None) or 0
+                            read = getattr(usage, "cache_read_input_tokens", None) or 0
+                            output_tokens = usage.output_tokens or 0
+                        elif etype == "content_block_start":
+                            block = event.content_block
+                            btype = str(getattr(block, "type", ""))
+                            if btype == "text":
+                                if text_sent and previous_block not in ("", "text") and not text_ends_clean:
+                                    yield TextDelta("\n\n")
+                                    text_ends_clean = True
+                            elif btype in ("server_tool_use", "tool_use"):
+                                yield ToolStatus(tool_kind(getattr(block, "name", "")), "running")
+                            elif btype.endswith("_tool_result"):
+                                kind = tool_kind(btype)
+                                content = getattr(block, "content", None)
+                                if _is_error_result(content):
+                                    yield ToolStatus(kind, "error")
+                                else:
+                                    if kind == "web_fetch":
+                                        fetches += 1
+                                    sources.add_result(content)
+                                    # Result tokens are unknown mid-stream for
+                                    # the real API — the final usage settles
+                                    # the ledger.
+                                    yield ToolStatus(kind, "done")
+                            previous_block = btype or previous_block
+                        elif etype == "content_block_delta":
+                            delta = event.delta
+                            dtype = getattr(delta, "type", "")
+                            if dtype == "text_delta" and delta.text:
+                                text_sent = True
+                                text_ends_clean = delta.text.endswith("\n")
+                                yield TextDelta(delta.text)
+                            elif dtype == "thinking_delta" and getattr(delta, "thinking", ""):
+                                # Summarized thinking (chat-thinking-view).
+                                # Empty under display "omitted".
+                                yield ThinkingDelta(delta.thinking)
+                            elif dtype == "citations_delta":
+                                citation = getattr(delta, "citation", None)
+                                sources.cite(
+                                    getattr(citation, "url", None) or "",
+                                    getattr(citation, "title", None) or "",
+                                )
+                        elif etype == "message_delta":
+                            usage = event.usage
+                            if usage is not None:
+                                if usage.output_tokens is not None:
+                                    output_tokens = usage.output_tokens
+                                if getattr(usage, "input_tokens", None) is not None:
+                                    input_tokens = usage.input_tokens
+                                if getattr(usage, "cache_creation_input_tokens", None) is not None:
+                                    written = usage.cache_creation_input_tokens
+                                if getattr(usage, "cache_read_input_tokens", None) is not None:
+                                    read = usage.cache_read_input_tokens
+                                server_use = getattr(usage, "server_tool_use", None)
+                                requests = getattr(server_use, "web_search_requests", None)
+                                if requests is not None:
+                                    # Billed searches only — a failed search
+                                    # is not counted and not charged.
+                                    searches = requests
+                                fetched = getattr(server_use, "web_fetch_requests", None)
+                                if fetched is not None:
+                                    reported_fetches = fetched
+                            if event.delta.stop_reason:
+                                stop_reason = event.delta.stop_reason
+                        if etype not in ("message_start", "message_delta"):
+                            continue
+                        yield UsageUpdate(
+                            done_in + input_tokens,
+                            done_out + output_tokens,
+                            done_written + written,
+                            done_read + read,
+                            done_searches + searches,
+                            done_fetches + (reported_fetches if reported_fetches is not None else fetches),
                         )
-                    elif event.type == "content_block_start" and getattr(
-                        getattr(event, "content_block", None), "type", ""
-                    ).endswith("tool_result"):
-                        block = event.content_block
-                        kind = str(getattr(block, "type", "")).split("_tool_result")[0]
-                        kind = kind or "web_search"
-                        content = getattr(block, "content", None)
-                        # web_fetch_tool_result.content is a single object;
-                        # web_search_tool_result.content is a list. An
-                        # error result carries an error content type.
-                        items = content if isinstance(content, (list, tuple)) else (
-                            [content] if content is not None else []
-                        )
-                        failed = any(
-                            "error" in str(getattr(item, "type", "")) for item in items
-                        )
-                        if failed:
-                            yield ToolStatus(kind, "error")
-                        else:
-                            if kind == "web_fetch":
-                                fetches += 1
-                            # Result tokens are unknown mid-stream for the
-                            # real API — the final usage settles the ledger;
-                            # the live figure only jumps by what is known.
-                            yield ToolStatus(kind, "done")
-                        for item in items:
-                            url = getattr(item, "url", None)
-                            if url:
-                                sources.append((getattr(item, "title", "") or url, url))
-                    elif event.type == "message_delta":
-                        usage = event.usage
-                        if usage is not None:
-                            if usage.output_tokens is not None:
-                                output_tokens = usage.output_tokens
-                            # The final counts, when the delta carries them.
-                            if getattr(usage, "input_tokens", None) is not None:
-                                input_tokens = usage.input_tokens
-                            if getattr(usage, "cache_creation_input_tokens", None) is not None:
-                                written = usage.cache_creation_input_tokens
-                            if getattr(usage, "cache_read_input_tokens", None) is not None:
-                                read = usage.cache_read_input_tokens
-                            server_use = getattr(usage, "server_tool_use", None)
-                            requests = getattr(server_use, "web_search_requests", None)
-                            if requests is not None:
-                                # Billed searches only — a failed search is
-                                # not counted by the API and not charged.
-                                searches = requests
-                        if event.delta.stop_reason:
-                            stop_reason = event.delta.stop_reason
-                        yield UsageUpdate(input_tokens, output_tokens, written, read, searches, fetches)
-                if sources:
-                    yield ToolSources(tuple(sources))
+                    final = await stream.get_final_message() if stop_reason == "pause_turn" else None
+
+                done_in += input_tokens
+                done_out += output_tokens
+                done_written += written
+                done_read += read
+                done_searches += searches
+                done_fetches += reported_fetches if reported_fetches is not None else fetches
+                if stop_reason != "pause_turn" or final is None:
+                    break
+                # Continue the paused turn: the assistant content exactly as
+                # it came (encrypted results, signatures and all), the same
+                # tools, and what is left of this reply's output budget.
+                remaining = request.max_tokens - done_out
+                if remaining < 256:
+                    stop_reason = "max_tokens"
+                    break
+                messages = messages + [
+                    {
+                        "role": "assistant",
+                        "content": [
+                            block.model_dump(mode="json", exclude_none=True)
+                            for block in final.content
+                        ],
+                    }
+                ]
+                params = {**params, "messages": messages, "max_tokens": remaining}
+            else:
+                # Still paused after every continuation allowed: what was
+                # said so far is the reply, marked like a cut-off one.
+                if stop_reason == "pause_turn":
+                    stop_reason = "max_tokens"
+            if sources:
+                yield ToolSources(sources.ordered())
         except anthropic.APIError as error:
             raise classify(error) from None
         yield StreamEnd(stop_reason)
