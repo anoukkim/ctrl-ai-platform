@@ -1,8 +1,9 @@
 """Quarter, application, allocation and wallet schemas."""
 
+import re
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.quarter import ApplicationStatus, QuarterStatus
 from app.models.user import AccountStatus, UserRole
@@ -43,23 +44,57 @@ class QuarterCreate(BaseModel):
     #: Omit to use the configured default.
     subsidy_limit_krw: int | None = Field(default=None, ge=0)
 
+    @field_validator("code")
+    @classmethod
+    def check_code(cls, value: str) -> str:
+        return normalise_code(value)
+
     @model_validator(mode="after")
     def check_dates(self) -> "QuarterCreate":
-        if self.ends_at <= self.starts_at:
-            raise ValueError("분기 종료일은 시작일보다 뒤여야 합니다.")
-
-        opens, closes = self.application_opens_at, self.application_closes_at
-        if (opens is None) != (closes is None):
-            raise ValueError("신청 기간은 시작일과 마감일을 함께 적거나 둘 다 비워야 합니다.")
-
-        if opens is not None and closes is not None:
-            if closes < opens:
-                raise ValueError("신청 마감일은 신청 시작일보다 뒤여야 합니다.")
-            # Applications may open before the quarter starts — that is the
-            # normal case — but they cannot still be open after it ends.
-            if closes > self.ends_at:
-                raise ValueError("신청 마감일은 분기 종료일보다 뒤일 수 없습니다.")
+        problem = date_problem(
+            self.starts_at,
+            self.ends_at,
+            self.application_opens_at,
+            self.application_closes_at,
+        )
+        if problem:
+            raise ValueError(problem)
         return self
+
+
+#: 분기 코드: YYYY-Qn, n = 1–4 (fix-quarter-form-autofill, owner 2026-10-14).
+QUARTER_CODE = re.compile(r"^(\d{4})-Q([1-4])$")
+CODE_MESSAGE = "분기 코드는 2026-Q4 꼴로 입력해 주세요."
+
+
+def normalise_code(value: str) -> str:
+    """"2026-q4 " → "2026-Q4"; anything else is refused in Korean."""
+    code = value.strip().upper()
+    if not QUARTER_CODE.match(code):
+        raise ValueError(CODE_MESSAGE)
+    return code
+
+
+def date_problem(
+    starts_at: date,
+    ends_at: date,
+    opens: date | None,
+    closes: date | None,
+) -> str | None:
+    """The quarter's date rules, in Korean, or None. One place for create
+    and update — never trust the form."""
+    if ends_at <= starts_at:
+        return "분기 종료일은 시작일보다 뒤여야 합니다."
+    if (opens is None) != (closes is None):
+        return "신청 기간은 시작일과 마감일을 함께 적거나 둘 다 비워야 합니다."
+    if opens is not None and closes is not None:
+        if closes < opens:
+            return "신청 마감일은 신청 시작일보다 뒤여야 합니다."
+        # Applications may open before the quarter starts — that is the
+        # normal case — but they cannot still be open after it ends.
+        if closes > ends_at:
+            return "신청 마감일은 분기 종료일보다 뒤일 수 없습니다."
+    return None
 
 
 class QuarterUpdate(BaseModel):

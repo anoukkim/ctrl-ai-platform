@@ -37,6 +37,12 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       try {
         const body = await response.json();
         if (body && typeof body.detail === "string") detail = body.detail;
+        // 422(스키마가 거절)는 목록으로 옵니다. 백엔드가 쓴 한국어 문장을
+        // 꺼내고, Pydantic이 붙이는 "Value error, "는 뗍니다.
+        else if (body && Array.isArray(body.detail) && body.detail.length > 0) {
+          const message = String(body.detail[0]?.msg ?? "").replace(/^Value error, /, "");
+          if (/[가-힣]/.test(message)) detail = message;
+        }
       } catch {
         /* 본문이 없거나 JSON이 아니면 기본 문구를 씁니다 */
       }
