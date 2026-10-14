@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 상식 퀴즈</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="stage">
+    <!-- 시작 화면 -->
+    <section id="intro" class="card">
+      <p class="tag">CTRL+AI 예시 앱 · 게임</p>
+      <h1>AI 상식 퀴즈</h1>
+      <p class="sub">10문제 · 문제마다 15초 · 빨리 맞힐수록 점수가 높아요!</p>
+      <p class="best">최고 점수 <b id="best">0</b>점</p>
+      <button id="play" class="big" type="button">게임 시작 ▶</button>
+    </section>
+
+    <!-- 문제 화면 -->
+    <section id="game" class="card" hidden>
+      <div class="hud">
+        <span id="counter">1 / 10</span>
+        <span class="score">점수 <b id="score">0</b></span>
+      </div>
+      <div class="timebar" aria-hidden="true"><div id="time"></div></div>
+      <h2 id="question"></h2>
+      <div id="choices" class="choices"></div>
+      <p id="feedback" class="feedback" aria-live="polite"></p>
+      <button id="next" class="big" type="button" hidden>다음 문제 →</button>
+    </section>
+
+    <!-- 결과 화면 -->
+    <section id="result" class="card" hidden>
+      <p class="tag">게임 끝!</p>
+      <h2 id="result-title"></h2>
+      <p class="sub" id="result-detail"></p>
+      <button id="again" class="big" type="button">다시 하기 ↻</button>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

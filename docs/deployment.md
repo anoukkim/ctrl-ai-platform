@@ -633,6 +633,22 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 
 ---
 
+### 예시 앱 세 개를 CtrlAIApps에 올리기 (example-apps)
+
+동아리 출석 체크 · 오늘의 할 일 + 집중 타이머 · AI 상식 퀴즈를 **관리자의
+이름으로** 게시합니다. AI를 부르지 않고 지원금도 쓰지 않습니다. 두 번
+실행해도 이미 있는 앱은 그대로 둡니다(감사 기록은 새로 올린 것이 있을
+때만 남습니다).
+
+```bash
+cd ~/ctrl-ai-platform
+dc exec api python -m app.db.import_example_apps <관리자 아이디>
+```
+
+`게시함: …` 세 줄이 나오면 https://ctrlai.my/ctrlaistore 에 보입니다.
+내리려면 Builder에서 그 프로젝트의 **게시 취소**, 또는 Admin › Content의
+**게시 내리기**.
+
 ## 13. 나중에 키울 때 (지금은 하지 않음) 💳
 
 같은 이미지를 그대로 쓰므로 코드를 고치지 않고 옮길 수 있습니다. 어느 쪽이든

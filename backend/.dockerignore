@@ -1,4 +1,4 @@
-# Only app/, alembic/, alembic.ini and requirements.txt go into the image.
+# Only app/, alembic/, examples/, alembic.ini and requirements.txt go into the image.
 .venv/
 venv/
 __pycache__/

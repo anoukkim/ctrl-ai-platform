@@ -45,6 +45,8 @@ class AuditAction:
     #: closed a report without doing so.
     APP_UNPUBLISHED = "app.unpublished"
     APP_REPORT_RESOLVED = "app_report.resolved"
+    #: example-apps: the server operator published the example apps.
+    EXAMPLE_APPS_IMPORTED = "example_apps.imported"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -111,6 +113,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.MEMBERSHIP_SET: "참여 상태 변경",
     AuditAction.APP_UNPUBLISHED: "앱 게시 내림",
     AuditAction.APP_REPORT_RESOLVED: "앱 신고 처리",
+    AuditAction.EXAMPLE_APPS_IMPORTED: "예시 앱 게시",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",
