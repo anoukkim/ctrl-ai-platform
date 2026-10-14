@@ -52,6 +52,12 @@ class BuilderProjectRead(BuilderProjectBase):
     #: `app_runtime_at` is empty, nothing is served yet.
     app_slug: str | None = None
     app_runtime_at: datetime | None = None
+    #: ctrlaiapps-publish: the working copy's preview folder, and what is
+    #: published — "게시됨 v3 · 작업 중 v5".
+    draft_slug: str | None = None
+    published_version_number: int | None = None
+    published_at: datetime | None = None
+    publish_note: str = ""
     created_at: datetime
     updated_at: datetime
 
@@ -95,6 +101,10 @@ class GenerateRequest(BaseModel):
     """만들기 / 고치기: what the member wants, in their words."""
 
     request: str = Field(min_length=1, max_length=2000)
+    #: 스타일 (ctrlaiapps-publish F2): a chosen look — "깔끔한", "귀여운",
+    #: "레트로", "다크", "신문", "게임" — or the member's own words. Empty =
+    #: 아이디어에 맞게.
+    style: str = Field(default="", max_length=100)
 
 
 class EditEstimateRead(BaseModel):
@@ -113,6 +123,27 @@ class VersionRead(BaseModel):
     created_at: datetime
     file_count: int
     total_bytes: int
+    #: 버전 저장 (ctrlaiapps-publish).
+    label: str = ""
+    pinned: bool = False
+    #: The version CtrlAIApps serves.
+    published: bool = False
+
+
+class VersionLabel(BaseModel):
+    """버전 저장: a name, a pin, or both. Omitted fields stay as they are."""
+
+    label: str | None = Field(default=None, max_length=80)
+    pinned: bool | None = None
+
+
+class PublishRequest(BaseModel):
+    """게시 / 업데이트 게시. The name goes through `clean_name` like a rename."""
+
+    name: str | None = None
+    description: str = Field(min_length=1, max_length=2000)
+    #: 업데이트 메모 — one optional line on the listing.
+    note: str = Field(default="", max_length=200)
 
 
 class GenerateRead(BaseModel):

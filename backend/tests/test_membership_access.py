@@ -374,6 +374,17 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/versions"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/versions/{number}/restore"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/runtime"): "require_active_member",
+    # ctrlaiapps-publish
+    ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
+    ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
+    ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
+    ("GET", "/api/apps"): "get_current_user",
+    ("GET", "/api/apps/{slug}"): "get_current_user",
+    ("POST", "/api/apps/{slug}/report"): "get_current_user",
+    ("GET", "/api/admin/apps"): "require_admin",
+    ("GET", "/api/admin/apps/reports"): "require_admin",
+    ("POST", "/api/admin/apps/{project_id}/unpublish"): "require_admin",
+    ("POST", "/api/admin/apps/reports/{report_id}/resolve"): "require_admin",
     ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # chat-plus-artifacts: Builder로 보내기 creates a project — a creation.
     ("POST", "/api/builder/projects/from-chat"): "require_active_member",
@@ -573,6 +584,11 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         ("PUT", "/api/account/password"),
         ("POST", "/api/account/password/remove"),
         ("POST", "/api/account/google/unlink"),
+        # ctrlaiapps-publish: taking your own app *down* must work after
+        # the quarter ends (like the download); reporting a harmful app is
+        # not creating anything.
+        ("POST", "/api/builder/projects/{project_id}/unpublish"),
+        ("POST", "/api/apps/{slug}/report"),
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),

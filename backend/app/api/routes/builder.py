@@ -38,13 +38,16 @@ from app.schemas.builder import (
     EditEstimateRead,
     GenerateRead,
     GenerateRequest,
+    PublishRequest,
     RestoreRead,
+    VersionLabel,
     StarterEstimateRead,
     StarterRead,
     StarterRequest,
     VersionRead,
 )
 from app.services import (
+    app_publish,
     app_runtime,
     builder_edit,
     builder_starter,
@@ -313,7 +316,10 @@ def delete_project(
     project = _owned_project(project_id, db, user)
     project.deleted_at = datetime.now(timezone.utc)
     # A deleted project stops being served at once (CLAUDE.md section 10:
-    # deleted work never resurfaces). Restoring it needs 미리보기 갱신 again.
+    # deleted work never resurfaces) and is off CtrlAIApps; restored, it
+    # comes back unpublished, to be published again on purpose.
+    if project.published_version_id is not None:
+        app_publish.unpublish(db, settings, project)
     app_runtime.remove(settings, project)
     db.commit()
 
@@ -423,18 +429,21 @@ def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -
     if "index.html" not in files:
         return
     try:
-        app_runtime.publish(db, settings, project, files)
+        app_runtime.write_draft(db, settings, project, files)
     except (app_runtime.AppRuntimeError, OSError) as error:
         logger.warning("app runtime write failed for project %s: %s", project.id, error)
 
 
-def _version_read(version: BuilderProjectVersion) -> VersionRead:
+def _version_read(version: BuilderProjectVersion, project: BuilderProject | None = None) -> VersionRead:
     return VersionRead(
         number=version.number,
         note=version.note,
         created_at=version.created_at,
         file_count=len(version.files),
         total_bytes=sum(len(str(content).encode("utf-8")) for _path, content in version.files),
+        label=version.label,
+        pinned=version.pinned,
+        published=project is not None and project.published_version_id == version.id,
     )
 
 
@@ -498,6 +507,7 @@ def generate(
             project=project,
             request=payload.request,
             is_mock=config.provider_is_mock("claude"),
+            style=payload.style,
         )
     except builder_starter.StarterError as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
@@ -518,7 +528,7 @@ def generate(
         changed=result.changed,
         summary=result.summary,
         charged_krw=result.charged_krw,
-        version=_version_read(result.version),
+        version=_version_read(result.version, project),
         project=BuilderProjectRead.model_validate(project),
     )
 
@@ -535,7 +545,9 @@ def list_versions(
 ) -> list[VersionRead]:
     """Readable while not participating, like the files themselves."""
     project = _owned_project(project_id, db, user)
-    return [_version_read(version) for version in builder_versions.list_versions(db, project)]
+    return [
+        _version_read(version, project) for version in builder_versions.list_versions(db, project)
+    ]
 
 
 @router.post(
@@ -563,7 +575,7 @@ def restore_version(
     db.refresh(version)
     return RestoreRead(
         files=_file_rows(db, project),
-        version=_version_read(version),
+        version=_version_read(version, project),
         project=BuilderProjectRead.model_validate(project),
     )
 
@@ -581,9 +593,84 @@ def refresh_runtime(
 ) -> BuilderProject:
     project = _owned_project(project_id, db, user)
     try:
-        app_runtime.publish(db, config, project, builder_versions.current_files(db, project))
+        app_runtime.write_draft(db, config, project, builder_versions.current_files(db, project))
     except app_runtime.AppRuntimeError as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+# ------------------------------------------------ ctrlaiapps-publish
+
+
+@router.patch(
+    "/projects/{project_id}/versions/{number}",
+    response_model=VersionRead,
+    summary="버전 저장: name or pin a version",
+)
+def label_version(
+    project_id: int,
+    number: int,
+    payload: VersionLabel,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> VersionRead:
+    project = _owned_project(project_id, db, user)
+    try:
+        version = builder_versions.label(
+            db, project, number, name=payload.label, pinned=payload.pinned
+        )
+    except builder_versions.VersionError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    db.refresh(version)
+    return _version_read(version, project)
+
+
+@router.post(
+    "/projects/{project_id}/publish",
+    response_model=BuilderProjectRead,
+    summary="게시 / 업데이트 게시: the newest version goes on CtrlAIApps",
+)
+def publish_project(
+    project_id: int,
+    payload: PublishRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> BuilderProject:
+    """Participating members only, like any change. Free — nothing is
+    generated. The public folder gets exactly that version's files."""
+    project = _owned_project(project_id, db, user)
+    if payload.name is not None and payload.name.strip() and payload.name.strip() != project.name:
+        project.name = _checked_name(payload.name)
+    try:
+        app_publish.publish(
+            db, config, project, description=payload.description, note=payload.note
+        )
+    except app_publish.PublishError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post(
+    "/projects/{project_id}/unpublish",
+    response_model=BuilderProjectRead,
+    summary="게시 취소: off CtrlAIApps; every version stays",
+)
+def unpublish_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    config: Settings = Depends(get_settings),
+) -> BuilderProject:
+    """`get_current_user`, not `require_active_member`: taking one's own
+    work *down* must keep working after a quarter ends, like the download."""
+    project = _owned_project(project_id, db, user)
+    app_publish.unpublish(db, config, project)
     db.commit()
     db.refresh(project)
     return project

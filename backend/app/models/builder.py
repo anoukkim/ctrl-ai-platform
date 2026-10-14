@@ -8,7 +8,7 @@ community-facing record later (Phase 5).
 import enum
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
@@ -63,14 +63,39 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     # the UI shows "GitHub 미연결".
     github_repo: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
-    # builder-static-runtime: the app's folder on apps.ctrlai.my — random,
-    # so a project's address says nothing about its owner or its id. Set
-    # the first time 미리보기 갱신 writes the files; `app_runtime_at` is
-    # when they were last written there.
+    # builder-static-runtime: the app's **public** folder on apps.ctrlai.my
+    # — random, so an address says nothing about its owner or its id.
+    # Since ctrlaiapps-publish it serves the *published* version only.
     app_slug: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    # When the working (draft) files were last written to `draft_slug`.
     app_runtime_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # ctrlaiapps-publish: the working copy's own folder, for the Builder's
+    # preview — never listed, so editing after 게시 changes nothing public.
+    draft_slug: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    # The version CtrlAIApps and `app_slug` serve; None = not published.
+    published_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "builder_project_versions.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_builder_projects_published_version",
+        ),
+        nullable=True,
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: 업데이트 메모 — one line shown on the listing (optional).
+    publish_note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+
+    published_version: Mapped["BuilderProjectVersion | None"] = relationship(
+        foreign_keys=[published_version_id], post_update=True, lazy="joined"
+    )
+
+    @property
+    def published_version_number(self) -> int | None:
+        """"게시됨 v3" — the published version's number, or None."""
+        return self.published_version.number if self.published_version is not None else None
 
     files: Mapped[list["BuilderProjectFile"]] = relationship(
         back_populates="project",
@@ -152,6 +177,37 @@ class BuilderProjectVersion(TimestampMixin, Base):
     #: What made it, in Korean: "예시 앱", "고치기: 버튼 색을…", "v3으로 되돌리기".
     note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
     files: Mapped[list] = mapped_column(JSON, nullable=False)
+    #: 버전 저장 (ctrlaiapps-publish): the member's own name for it, and a
+    #: pin. Pinned versions — and the published one — are never pruned.
+    label: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
 
     def __repr__(self) -> str:
         return f"<BuilderProjectVersion v{self.number} project={self.project_id}>"
+
+
+class AppReport(TimestampMixin, Base):
+    """신고 (ctrlaiapps-publish): a member flags a published app.
+
+    The admin sees open reports in Admin › Content and can unpublish the
+    app (audited); handling a report closes it. The reporter is kept for
+    the admin only — never shown to the app's owner.
+    """
+
+    __tablename__ = "app_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    reporter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    def __repr__(self) -> str:
+        return f"<AppReport {self.id} project={self.project_id}>"

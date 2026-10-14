@@ -415,6 +415,7 @@ class ClaudeProvider(Protocol):
         request: str,
         model: str = "",
         max_tokens: int = 16000,
+        style: str = "",
     ) -> ProjectEdit: ...
 
 
@@ -438,7 +439,7 @@ When a tool is available (web search, page reading, code execution):
 - Never describe tool internals to the member: no JSON, parsing, result formats, retries, usage limits or error codes. If a tool failed, say in one plain sentence that you could not look it up and answer from what you know.
 
 What CTRL+AI offers, to mention when it genuinely helps the member:
-- Project Builder: start an app or website project by describing it in Korean. The button below your reply makes a small, working example app from the member's idea that they can try at once and change later — say so when you offer it.
+- Project Builder: start an app or website project by describing it in Korean. The button below your reply makes a small, working example app from the member's idea that they can try at once and change later — say so when you offer it. Builder apps run only in the visitor's browser: what they save stays on that person's device and is not shared. Apps that need logins, shared boards, chats or data across people cannot be made yet — when asked for one, say so plainly and suggest the closest single-person version.
 - Video Generator: make a short video from a description.
 - CtrlAIApps: apps other members made. CtrlAITube: their videos.
 - Usage: how much of this quarter's budget is left.
@@ -484,6 +485,15 @@ localStorage if the app should remember data.
 code, so a beginner can follow it.
 - Small and complete beats big: about 300 lines in total, every button \
 works, the layout fits a phone and a laptop.
+- Give each app its own look that fits the idea and the requested style \
+(colours, type, layout, mood) — not a default white card. Fonts only from \
+local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
+monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
+- An app runs only in the visitor's browser: anything it saves stays on \
+that visitor's device (localStorage) and is never shared with others. Apps \
+that need accounts, logins, shared boards, chats or data across people \
+cannot be made yet — make the closest single-person version and say so in \
+the summary.
 
 Return JSON only: "summary" is two short Korean sentences — what the app \
 does, and one change the member could ask for next. "files" lists every \
@@ -537,6 +547,17 @@ all in this one reply. Do not call it for files that stay the same.
 - Everything the member sees is in Korean, with short Korean comments in \
 the code. The layout fits a phone and a laptop.
 - At most 30 files, 200 KB each.
+- Give each app its own look that fits the idea and the requested style \
+(colours, type, layout, mood) — not a default white card. Fonts only from \
+local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
+monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
+- An app runs only in the visitor's browser: anything it saves stays on \
+that visitor's device (localStorage) and is never shared with others. Apps \
+that need accounts, logins, shared boards, chats or data across people \
+cannot be made yet — make the closest single-person version and say so in \
+the summary.
+- When asked to change the design ("디자인 바꿔 줘"), change the look only: \
+keep every element id, every class the JavaScript uses, and all behaviour.
 
 After the tool calls, reply in Korean in one or two short sentences: what \
 you changed, and one thing the member could ask for next.
@@ -571,9 +592,13 @@ WRITE_FILE_TOOL: dict[str, Any] = {
 EDIT_MAX_ROUNDS = 4
 
 
-def edit_request_text(name: str, files: list[tuple[str, str]], request: str) -> str:
-    """The member's request, then every current file, whole."""
+def edit_request_text(
+    name: str, files: list[tuple[str, str]], request: str, style: str = ""
+) -> str:
+    """The member's request (and chosen style), then every current file, whole."""
     parts = [f"프로젝트 이름: {name.strip()}", "", "요청:", request.strip(), ""]
+    if style.strip():
+        parts += ["원하는 스타일:", style.strip(), ""]
     if files:
         parts.append("현재 파일:")
         for path, content in files:
@@ -1177,6 +1202,7 @@ class MockClaudeProvider:
         request: str,
         model: str = "",
         max_tokens: int = 16000,
+        style: str = "",
     ) -> ProjectEdit:
         """A plausible, deterministic change (builder-static-runtime).
 
@@ -1197,6 +1223,9 @@ class MockClaudeProvider:
             summary = "서버 코드를 만들어 봤어요."
         elif "index.html" not in current:
             writes = _mock_starter_files(title, request.strip())
+            accent = _mock_style_accent(style or request)
+            if accent != MOCK_ACCENT:
+                writes = [(path, content.replace(MOCK_ACCENT, accent)) for path, content in writes]
             summary = f"'{title}'의 첫 버전을 만들었어요. 다음엔 바꾸고 싶은 점을 말해 보세요."
         elif re.search(r"색|color", request, re.IGNORECASE):
             css = current.get("style.css", "")
@@ -1221,7 +1250,7 @@ class MockClaudeProvider:
             summary=summary,
             writes=writes,
             model=model or self.model_id,
-            input_tokens=estimate_tokens(EDIT_SYSTEM + edit_request_text(name, files, request)),
+            input_tokens=estimate_tokens(EDIT_SYSTEM + edit_request_text(name, files, request, style)),
             output_tokens=min(max_tokens, sum(len(content) for _, content in writes) // 3 + 60),
         )
 
@@ -1240,6 +1269,24 @@ class MockClaudeProvider:
 #: The mock starter app's button colour, and what "색을 바꿔 줘" turns it into.
 MOCK_ACCENT = "#3b6cf6"
 MOCK_ACCENT_NEW = "#e8590c"
+
+#: The mock's nod to 스타일 (ctrlaiapps-publish F2): a different accent per
+#: style word, so two mock apps made with different styles differ.
+_MOCK_STYLE_ACCENTS: tuple[tuple[str, str], ...] = (
+    ("귀여운", "#ff6fae"),
+    ("레트로", "#c0841a"),
+    ("다크", "#7c5cff"),
+    ("신문", "#222222"),
+    ("게임", "#18b45c"),
+    ("깔끔", "#3b6cf6"),
+)
+
+
+def _mock_style_accent(text: str) -> str:
+    for word, colour in _MOCK_STYLE_ACCENTS:
+        if word in text:
+            return colour
+    return MOCK_ACCENT
 
 
 def _mock_starter_files(name: str, idea: str) -> list[tuple[str, str]]:
@@ -1811,6 +1858,7 @@ class AnthropicClaudeProvider:
         request: str,
         model: str = "",
         max_tokens: int = 16000,
+        style: str = "",
     ) -> ProjectEdit:
         """Claude writes whole files through `write_file` (builder-static-runtime).
 
@@ -1831,7 +1879,7 @@ class AnthropicClaudeProvider:
         client = anthropic.Anthropic(**kwargs)
 
         messages: list[dict[str, Any]] = [
-            {"role": "user", "content": edit_request_text(name, files, request)}
+            {"role": "user", "content": edit_request_text(name, files, request, style)}
         ]
         writes: list[tuple[str, str]] = []
         texts: list[str] = []
@@ -1932,6 +1980,7 @@ class UnconfiguredClaudeProvider:
         request: str,
         model: str = "",
         max_tokens: int = 16000,
+        style: str = "",
     ) -> ProjectEdit:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 

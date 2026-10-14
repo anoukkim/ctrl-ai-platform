@@ -74,12 +74,16 @@ def snapshot(
         files=[[path, files[path]] for path in sorted(files)],
     )
     db.add(version)
-    db.execute(
-        delete(BuilderProjectVersion).where(
-            BuilderProjectVersion.project_id == project.id,
-            BuilderProjectVersion.number <= number - BuilderProjectVersion.KEEP,
-        )
+    # Pruned: everything older than the newest `KEEP` — except versions the
+    # member pinned (버전 저장) and the one CtrlAIApps serves.
+    prune = delete(BuilderProjectVersion).where(
+        BuilderProjectVersion.project_id == project.id,
+        BuilderProjectVersion.number <= number - BuilderProjectVersion.KEEP,
+        BuilderProjectVersion.pinned.is_(False),
     )
+    if project.published_version_id is not None:
+        prune = prune.where(BuilderProjectVersion.id != project.published_version_id)
+    db.execute(prune)
     db.flush()
     return version
 
@@ -102,6 +106,40 @@ def list_versions(db: Session, project: BuilderProject) -> list[BuilderProjectVe
             .order_by(BuilderProjectVersion.number.desc())
         )
     )
+
+
+def find(db: Session, project: BuilderProject, number: int) -> BuilderProjectVersion:
+    version = db.scalar(
+        select(BuilderProjectVersion).where(
+            BuilderProjectVersion.project_id == project.id,
+            BuilderProjectVersion.number == number,
+        )
+    )
+    if version is None:
+        raise VersionError("그 버전을 찾을 수 없습니다.", 404)
+    return version
+
+
+def latest(db: Session, project: BuilderProject) -> BuilderProjectVersion | None:
+    return db.scalar(
+        select(BuilderProjectVersion)
+        .where(BuilderProjectVersion.project_id == project.id)
+        .order_by(BuilderProjectVersion.number.desc())
+        .limit(1)
+    )
+
+
+def label(
+    db: Session, project: BuilderProject, number: int, *, name: str | None, pinned: bool | None
+) -> BuilderProjectVersion:
+    """버전 저장: name a version, pin it (kept past the newest 30), or both."""
+    version = find(db, project, number)
+    if name is not None:
+        version.label = " ".join(name.split())[:80]
+    if pinned is not None:
+        version.pinned = pinned
+    db.flush()
+    return version
 
 
 def restore(db: Session, project: BuilderProject, number: int) -> BuilderProjectVersion:

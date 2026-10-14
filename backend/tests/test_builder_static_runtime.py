@@ -219,11 +219,11 @@ def test_restore_removes_files_the_old_version_did_not_have(db_session: Session,
 # ------------------------------------------------------------ the runtime
 
 
-def test_a_generation_writes_the_app_to_its_own_random_folder(
+def test_a_generation_writes_the_working_copy_to_its_own_random_folder(
     client: TestClient, db_session: Session, project, budgeted, config, apps_dir
 ) -> None:
     body = generate(client, project, "앱을 만들어 줘").json()
-    slug = body["project"]["app_slug"]
+    slug = body["project"]["draft_slug"]
     assert slug and len(slug) == app_runtime.SLUG_LENGTH and str(project.id) not in slug
     assert body["project"]["app_runtime_at"]
 
@@ -250,15 +250,17 @@ def test_a_projects_folder_holds_only_that_project(
 
     db_session.refresh(one)
     db_session.refresh(two)
-    assert one.app_slug != two.app_slug
-    assert sorted(p.name for p in (apps_dir / two.app_slug).iterdir()) == ["index.html", "two.js"]
-    assert not (apps_dir / one.app_slug / "two.js").exists()
+    assert one.draft_slug != two.draft_slug
+    assert sorted(p.name for p in (apps_dir / two.draft_slug).iterdir()) == ["index.html", "two.js"]
+    assert not (apps_dir / one.draft_slug / "two.js").exists()
+    # Nothing is public until 게시 (ctrlaiapps-publish).
+    assert one.app_slug is None and two.app_slug is None
 
 
 def test_deleting_a_project_stops_serving_it(
     client: TestClient, db_session: Session, project, budgeted, config, apps_dir
 ) -> None:
-    slug = generate(client, project, "앱을 만들어 줘").json()["project"]["app_slug"]
+    slug = generate(client, project, "앱을 만들어 줘").json()["project"]["draft_slug"]
     assert (apps_dir / slug).is_dir()
 
     assert client.delete(f"/api/builder/projects/{project.id}").status_code == 204
