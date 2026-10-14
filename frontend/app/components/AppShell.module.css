@@ -219,7 +219,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
   color: var(--text-dim);
   font-size: 13px;

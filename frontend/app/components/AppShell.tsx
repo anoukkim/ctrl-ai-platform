@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
 
@@ -493,6 +493,24 @@ function AdminNavBlock({
   const totalPending = sections.reduce((sum, section) => sum + (pending[section.key] ?? 0), 0);
   const insideAdmin = pathname.startsWith("/admin");
 
+  /**
+   * 펼친 구역 목록이 길어 사이드바 높이를 넘으면(1280×860에서 약 300px),
+   * 지금 보고 있는 구역이 아래로 밀려 안 보입니다. 화면에 들어올 때 그
+   * 구역만 사이드바 안에서 보이게 굴립니다 — 페이지 자체는 움직이지 않도록
+   * 스크롤 상자의 scrollTop만 바꿉니다.
+   */
+  const subListRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (!open || collapsed) return;
+    const active = subListRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    const scroller = active?.closest<HTMLElement>(`.${styles.navScroll}`);
+    if (!active || !scroller) return;
+    const box = scroller.getBoundingClientRect();
+    const item = active.getBoundingClientRect();
+    if (item.bottom > box.bottom) scroller.scrollTop += item.bottom - box.bottom + 12;
+    else if (item.top < box.top) scroller.scrollTop -= box.top - item.top + 12;
+  }, [pathname, open, collapsed]);
+
   // 접힌 사이드바에는 하위 구역을 펼칠 자리가 없습니다. Admin은 대시보드로
   // 가는 아이콘 하나가 되고, 기다리는 수는 아이콘 위에 붙습니다.
   if (collapsed) {
@@ -541,7 +559,11 @@ function AdminNavBlock({
       </button>
 
       {open && (
-        <ul className={`${styles.navList} ${styles.navSubList}`} id="admin-subnav">
+        <ul
+          className={`${styles.navList} ${styles.navSubList}`}
+          id="admin-subnav"
+          ref={subListRef}
+        >
           {sections.map((section) => {
             // 가장 긴 경로가 이깁니다 — /admin 이 모든 구역을 먹지 않도록.
             const isActive =
