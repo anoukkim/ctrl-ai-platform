@@ -47,7 +47,7 @@ principles.
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
-| Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/영상/기타 breakdown and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
+| Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/빌더/영상/기타 breakdown, 대화별 / 날짜별 totals split into 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구, this quarter's 캐시로 아낀 금액, and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
 | Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
 | Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
 | Backend `/api/health` | Real and working                                                                  |
@@ -411,11 +411,32 @@ at creation into `subsidy_limit_krw` and keeps its own, edited in Admin ›
 Quarters as **1인 지원금** and audited. Approving an application copies the
 quarter's amount into the wallet, so changing a quarter's amount later never
 moves a wallet that already exists; an admin adjusts one member's wallet in
-Members › member detail (audited).
+Members › member detail — **+/− with a required reason, recorded as an
+adjustment row, never an overwrite** (cost-clarity), and refused below what
+is already spent.
+
+**분기 마감** (Admin › Quarters, cost-clarity): freezes every wallet of the
+quarter (nothing is charged to it again), records each member's unspent
+money as **회수**, and — at the carry-over % the admin chooses (default 0) —
+adds that share to the member's next approved wallet, once. Nothing is
+deleted; a closed quarter does not reopen. **신청 마감** is different: it
+stops new applications and makes the quarter *active*; wallets keep
+working.
 
 What the money went on is information, not a limit: Usage shows the wallet
-("이번 분기 지원금 80,000원 중 52,300원 남음") and a 채팅 / 영상 / 기타
-breakdown. Every usage event still records the **provider, feature, model
+("이번 분기 지원금 80,000원 중 52,300원 남음") and a 채팅 / 빌더 / 영상 /
+기타 breakdown.
+
+**Where the money went** (cost-clarity, 2026-10-14). Every reply's receipt
+shows 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계 in won, plus
+"캐시로 아낀 금액 약 N원" and an ⓘ with two plain sentences about caching
+(`frontend/lib/money.ts` › `CACHE_EXPLAINER`). The parts are unrounded; the
+total is their sum rounded up once per reply. Usage repeats the same split
+per conversation and per KST day, with this quarter's total saving. Admin ›
+Budget adds the club side: credit bought per provider (append-only purchase
+records), used (ledger), estimated remaining ("Anthropic 콘솔이 최종 기준"),
+지급 vs 사용, a per-member table, a caching panel, CSV exports and an
+optional reconciliation against Anthropic's cost report. Every usage event still records the **provider, feature, model
 and native units** (tokens, seconds), so Admin › Budget can total each
 quarter's spend **by provider** — the figure the club leader reads before
 buying the next round of credit from Anthropic and from Higgsfield. The club

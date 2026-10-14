@@ -110,8 +110,13 @@ soft-deleted member work.
 - **One wallet.** A member has one 동아리 지원 balance per quarter;
   every paid feature spends from it through `usage.charge()` — the only
   place money comes off a budget, in one locked transaction with its
-  `UsageEvent`. The 채팅/영상/기타 lines on Usage are information, never
-  limits.
+  `UsageEvent`. The 채팅/빌더/영상/기타 lines on Usage are information,
+  never limits.
+- **A wallet moves by rows, never by overwrite** (`cost-clarity`,
+  2026-10-14): an admin's +/− with a reason is a `WalletAdjustment`;
+  분기 마감 freezes every wallet, records 회수, and carries the chosen
+  share into the member's next approved wallet once. Club credit
+  purchases are append-only `CreditPurchase` rows. Each is audited.
 - **KRW is the financial source of truth.** Wallets are stored in won,
   never in tokens or generations: provider prices change, and an approved
   wallet must not move when they do. `provider_cost` (what the provider
