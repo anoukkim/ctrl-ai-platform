@@ -25,9 +25,12 @@
   pointer-events: none;
 }
 
-.input {
+/* `.searchWrap .input`, not `.input` alone: the global `.field` rule has the
+   same specificity and loads later, so its `padding` shorthand used to win
+   and put the placeholder under the magnifier. */
+.searchWrap .input {
   height: 38px;
-  padding-left: 2.2rem;
+  padding-left: 2.25rem;
   padding-right: 2rem;
   background: var(--panel);
   font-size: 13.5px;
@@ -70,7 +73,9 @@
   white-space: nowrap;
 }
 
-.select {
+/* Compound with the global `.field` so this wins whatever order the two
+   stylesheets load in (see `.searchWrap .input`). */
+.select:global(.field) {
   width: auto;
   height: 38px;
   padding: 0.3rem 0.6rem;

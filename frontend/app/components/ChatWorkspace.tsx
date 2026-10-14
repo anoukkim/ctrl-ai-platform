@@ -773,7 +773,7 @@ export default function ChatWorkspace() {
     ? "참여 중인 분기가 되면 다시 보낼 수 있습니다. 지난 대화는 그대로 볼 수 있습니다."
     : info?.is_mock
       ? `Enter로 보내고 Shift+Enter로 줄을 바꿉니다. ${TEST_MODE_LABEL}.`
-      : "Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 답장마다 동아리 지원(Build)에서 쓴 만큼 차감됩니다.";
+      : "Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 답장마다 동아리 지원에서 쓴 만큼 차감됩니다.";
 
   return (
     <div className={styles.layout}>

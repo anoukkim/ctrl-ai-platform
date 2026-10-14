@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useSite } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
 import {
   MEMBERSHIP_LABEL,
@@ -51,7 +52,23 @@ function monthShare(budget: QuarterBudget): number {
   return Math.min(100, Math.round((budget.anthropic_month_usd / budget.anthropic_month_budget_usd) * 100));
 }
 
-function nativeUnits(line: ProviderSpend): string {
+/**
+ * 사용량, 한 줄에 한 가지. 표의 칸은 줄바꿈하지 않으므로, 토큰과 캐시를
+ * 한 줄로 이으면 1280px에서 표가 상자보다 넓어졌습니다(fix-ui-polish-admin).
+ */
+function NativeUnits({ line }: { line: ProviderSpend }) {
+  const parts = nativeUnitParts(line);
+  if (parts.length === 0) return <>–</>;
+  return (
+    <span className={styles.stackCell}>
+      {parts.map((part) => (
+        <span key={part}>{part}</span>
+      ))}
+    </span>
+  );
+}
+
+function nativeUnitParts(line: ProviderSpend): string[] {
   const parts: string[] = [];
   if (line.input_tokens || line.output_tokens) {
     parts.push(
@@ -68,7 +85,7 @@ function nativeUnits(line: ProviderSpend): string {
     if (unit === "tokens" && parts.length > 0) continue;
     parts.push(`${amount.toLocaleString("ko-KR")} ${UNIT_LABEL[unit] ?? unit}`);
   }
-  return parts.join(" / ") || "–";
+  return parts;
 }
 
 function providerCost(line: ProviderSpend): string {
@@ -102,7 +119,7 @@ const PROVIDER_COLUMNS: Column<ProviderSpend>[] = [
       line.share_of_wallets_krw === null ? "–" : formatKrw(line.share_of_wallets_krw),
   },
   { key: "cost", header: "제공자 청구액", numeric: true, render: providerCost },
-  { key: "units", header: "사용량", render: nativeUnits },
+  { key: "units", header: "사용량", render: (line) => <NativeUnits line={line} /> },
   {
     key: "events",
     header: "건수",
@@ -112,6 +129,7 @@ const PROVIDER_COLUMNS: Column<ProviderSpend>[] = [
 ];
 
 export default function BudgetAdmin() {
+  const site = useSite();
   const { selected } = useAdminQuarter();
   const quarterId = selected?.id ?? null;
   const [loaded, setLoaded] = useState<{ quarterId: number; budget: QuarterBudget } | null>(
@@ -252,7 +270,13 @@ export default function BudgetAdmin() {
           <span className={styles.sectionNote}>다음 크레딧 구매를 정할 때 보는 숫자</span>
         </h2>
         <AdminTable
-          columns={PROVIDER_COLUMNS}
+          columns={
+            // The 지원금 / 개인 split only means something while top-ups are
+            // on or someone actually spent personal money (personal-topup-off).
+            site.top_ups_enabled || budget.providers.some((line) => line.personal_krw > 0)
+              ? PROVIDER_COLUMNS
+              : PROVIDER_COLUMNS.filter((column) => column.key !== "split")
+          }
           rows={budget.providers}
           rowKey={(line) => line.provider}
           empty="이 분기에는 아직 사용 기록이 없습니다."
@@ -262,8 +286,9 @@ export default function BudgetAdmin() {
           회원의 지갑은 하나지만 크레딧은 제공자마다 따로 사고, 한 번 산 크레딧은 옮길 수
           없습니다. &ldquo;지원금 총액을 이 비중으로&rdquo;는 지금까지의 사용 비율대로 지원금
           총액({formatKrw(budget.total_budget_krw)})을 나눈 참고값입니다. 제공자 청구액은
-          제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다. 개인 잔액에서 나간
-          사용도 같은 크레딧을 쓰므로 함께 셉니다.
+          제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다.
+          {/* 개인 충전이 꺼져 있는 동안(personal-topup-off)은 말하지 않습니다. */}
+          {site.top_ups_enabled && " 개인 잔액에서 나간 사용도 같은 크레딧을 쓰므로 함께 셉니다."}
         </p>
       </section>
 

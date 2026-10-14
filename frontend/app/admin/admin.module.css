@@ -77,8 +77,13 @@
   color: var(--text-muted);
 }
 
+/* `minmax(0, 1fr)`, not the default `auto` track: an auto track sizes to
+   its widest child's min-content, so a table (even inside its scrolling
+   .table-wrap) or a row of stat cards widened the whole page — Quarters
+   scrolled sideways at 1280px and Budget at 390px (fix-ui-polish-admin). */
 .sections {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.3rem;
 }
 
@@ -670,8 +675,12 @@ a.card:hover .cardChevron {
 }
 
 /* 한 칸에 두 줄을 넣을 때. */
+/* justify-items: start keeps a badge in the stack its own width — a grid
+   item stretches by default, which drew 승인 대기 as a bar across the whole
+   column. */
 .stackCell {
   display: grid;
+  justify-items: start;
   gap: 0.1rem;
   line-height: 1.35;
 }
@@ -792,10 +801,14 @@ a.card:hover .cardChevron {
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
 }
 
+/* min-width: 0 lets a grid item shrink below its content, and
+   overflow-wrap lets a long value (an email, a model id) break inside its
+   own column instead of running into the next one. */
 .fact {
   display: grid;
   gap: 0.25rem;
   align-content: start;
+  min-width: 0;
 }
 
 .factLabel {
@@ -804,8 +817,10 @@ a.card:hover .cardChevron {
 }
 
 .factValue {
+  min-width: 0;
   font-size: var(--fs-section);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .actionRow {
@@ -1329,6 +1344,13 @@ button.statCardActive:hover {
   padding: 0.6rem 0.2rem;
 }
 
+/* The same form standing alone as a card (초대 코드, + 모델 추가) needs
+   the card's own padding — the slim one above is for inside a table row,
+   and it used to win, leaving the fields flush with the card's edge. */
+.modelEditor:global(.card) {
+  padding: var(--card-pad-y) var(--card-pad-x);
+}
+
 .modelEditorGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -1360,7 +1382,9 @@ button.statCardActive:hover {
   color: var(--text);
 }
 
-.priceInput {
+/* Compound with the global `.field` (width: 100%) so the narrower width
+   wins whatever order the stylesheets load in. */
+.priceInput:global(.field) {
   width: 6rem;
 }
 
@@ -1388,33 +1412,35 @@ button.statCardActive:hover {
   gap: 14px;
 }
 
-.factTiles {
+/* Admin › System › 서버 설정 (.env): a compact read-only list, label on the
+   left and value on the right; one column on a phone. */
+.envList {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.45rem 1.25rem;
   margin: 0;
+  font-size: var(--fs-chip);
 }
 
-.factTiles > div {
-  display: grid;
-  gap: 0.3rem;
-  align-content: start;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
-}
-
-.factTiles dt {
+.envList dt {
   color: var(--text-dim);
-  font-size: var(--fs-meta);
 }
 
-.factTiles dd {
+.envList dd {
   margin: 0;
   color: var(--text);
-  font-family: var(--mono);
-  font-size: var(--fs-count);
-  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .envList {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+  }
+
+  .envList dd + dt {
+    margin-top: 0.5rem;
+  }
 }
 
 .pricingNote {
@@ -1430,6 +1456,12 @@ button.statCardActive:hover {
   border-top: 1px solid var(--border);
 }
 
+/* A block that opens its card needs no divider above it. */
+.rateBlock:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
 .rateLabel {
   font-size: var(--fs-section);
   font-weight: var(--fw-card-name);
@@ -1441,7 +1473,9 @@ button.statCardActive:hover {
   gap: 0.5rem;
 }
 
-.rateField {
+/* Compound with the global `.field` so the width and padding win whatever
+   order the stylesheets load in. */
+.rateField:global(.field) {
   width: var(--admin-rate-input);
   padding: 5px 9px;
 }
@@ -1475,8 +1509,23 @@ button.statCardActive:hover {
   font-weight: 700;
 }
 
+/* AI Models: one price per line inside the (non-wrapping) price cell. */
+.priceLine {
+  display: block;
+}
+
+/* Quarters: a date range on two lines. */
+.dateRange > span {
+  display: block;
+}
+
+/* AI Models: a "host/model" id may wrap at its <wbr> after the slash. */
+td.modelIdCell {
+  white-space: normal;
+}
+
 /* 공개 범위 칸의 고르는 칸: 칸 너비만큼 늘어나 옆 칸을 덮지 않게. */
-.visibilitySelect {
+.visibilitySelect:global(.field) {
   width: auto;
   min-width: 9.5rem;
 }
