@@ -98,14 +98,31 @@ def test_a_capped_reply_is_saved_charged_and_marked(
     client: TestClient, budgeted, db_session: Session, counting  # noqa: F811
 ) -> None:
     """A tiny cap turns into a tiny max_tokens; the mock stops at it."""
-    # The ~1,830-token input (mostly the system prompt), priced as a
-    # cache write, costs about 6.4원. A 7원 cap leaves ~40 output tokens —
-    # fewer than the mock's 74-character fallback reply — so the cap, not
-    # the 4,096 global limit, cuts the reply.
-    set_limits(db_session, reply=7)
+    # The cap is the input's own cost (mostly the system prompt, priced as
+    # a cache write) plus about 1.5원 — 100-odd output tokens, far fewer
+    # than the mock's ~900-character web-page reply — so the cap, not the
+    # 4,096 global limit, cuts it. Derived, so a longer system prompt
+    # (chat-plus-artifacts made it longer) cannot break the test.
+    import math
+
+    from app.core.config import Settings
+    from app.services import chat as chat_service
+    from app.services import chat_models, pricing
+
+    question = "동아리 소개 한 장짜리 웹페이지를 만들어 줘"
+    settings = Settings()
+    _, estimated = chat_service.build_context([], question, settings)
+    price = pricing.price_for(
+        db_session, chat_models.default_model(db_session, settings), cache_ttl=settings.cache_ttl
+    )
+    exact_input_won = (
+        price.split(0, 0, cache_write_tokens=estimated).total * price.usd_krw
+    )
+    cap = math.ceil(float(exact_input_won) + 1.5)
+    set_limits(db_session, reply=cap)
     conversation = new_conversation(client)
 
-    response = send(client, conversation, "안녕하세요")
+    response = send(client, conversation, question)
     assert response.status_code == 200, response.text
     events = events_of(response.text)
     done = dict(events)["done"]
@@ -113,13 +130,13 @@ def test_a_capped_reply_is_saved_charged_and_marked(
     saved = done["message"]
     assert saved is not None
     assert saved["status"] == "truncated"
-    assert saved["capped_krw"] == 7
+    assert saved["capped_krw"] == cap
     # Charged for the tokens actually used — a real usage event, priced
     # within the cap (the cap bounds the true cost by construction).
     assert done["charged_krw"] >= 1
     event = db_session.query(UsageEvent).one()
     assert event.charged_krw == done["charged_krw"]
-    assert event.charged_krw <= 7
+    assert event.charged_krw <= cap
 
     # Something genuinely arrived before the cap cut the reply off.
     assert reply_text(events)

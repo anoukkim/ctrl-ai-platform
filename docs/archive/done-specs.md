@@ -5,6 +5,80 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## chat-plus-artifacts — full spec (merged 2026-10-14)
+
+Branch `feat-chat-plus-artifacts`. M1. Effort: **M** (3–4 days). No
+migration (`builder_project_files` exists since `f3b8d41c9e27`; at most
+one Builder route to write a file).
+
+1. **What becomes a preview.** A fenced block tagged `html` or `svg` in a
+   finished reply — not while it is streaming — gets a **미리보기** card
+   under the code. The system prompt tells Claude: a web page or a chart
+   is one self-contained `html` block (inline CSS and JS, inline SVG for
+   charts, **no external scripts, fonts or images** — they would not
+   load). Charts are inline SVG or a few lines of plain JS on a canvas;
+   no chart library from a CDN.
+2. **The sandbox — non-negotiable, and tested exactly:**
+   - an `<iframe srcdoc=…>` with **`sandbox="allow-scripts"` and nothing
+     else** — never `allow-same-origin` (together with `allow-scripts` it
+     lets the frame remove its own sandbox), never `allow-forms`,
+     `allow-popups`, `allow-top-navigation`, `allow-modals` or
+     `allow-downloads`;
+   - the frame therefore has an **opaque origin**: no access to CTRL+AI's
+     cookies, storage or `/api`;
+   - **no network**: the srcdoc starts with a CSP meta tag —
+     `default-src 'none'; script-src 'unsafe-inline'; style-src
+     'unsafe-inline'; img-src data: blob:; font-src data:` — so `fetch`,
+     external images and beacons fail;
+   - **SVG is never put into the page** with `innerHTML` or
+     `dangerouslySetInnerHTML`; it goes into the same sandboxed frame (an
+     SVG can carry `<script>` and event handlers);
+   - the preview runs **only after a click on 미리보기 열기** (a runaway
+     loop in a generated page can freeze the tab; a click makes that the
+     member's choice and keeps long conversations light), and has 새로
+     고침 and 닫기;
+   - a fixed label over the frame: "Claude가 만든 미리보기입니다. 여기에
+     비밀번호나 개인 정보를 입력하지 마세요." — a generated page can draw
+     a convincing fake login form.
+
+   Blocks over **200 KB** show code only.
+3. **코드 보기** toggles the source (the `chat-plus-rendering` code block,
+   with 복사). **다운로드** saves `ctrlai-<conversation>-<n>.html` or
+   `.svg`, built as a Blob by CTRL+AI's page, not by the frame (which has
+   no download permission).
+4. **Builder로 보내기** (HTML only) creates a Project Builder project —
+   name from the conversation title, description from the member's
+   message — with the block as `index.html`, then opens it. Through the
+   Builder routes and `require_active_member`, like creating a project
+   from the library. Free (no Claude call).
+5. **Output length.** A one-page site in Korean can exceed 4,096 output
+   tokens and arrive cut off. This item proposes
+   `CHAT_MAX_OUTPUT_TOKENS=8192` — **the owner decides**, because the
+   worst-case pre-check roughly doubles (Sonnet: about 60원 → 115원 per
+   message before the real, usually far smaller, charge). A cut-off block
+   shows "답장이 길어 미리보기를 만들 수 없습니다 — \"계속\"이라고 보내
+   주세요" instead of a broken page.
+
+**Charged:** the wallet, by the token, as any reply. Previews, downloads and
+Builder로 보내기 cost nothing.
+
+**Tests:** the iframe's `sandbox` attribute is exactly `allow-scripts`;
+the srcdoc begins with the CSP above; no SVG reaches the DOM outside an
+iframe; nothing runs before 미리보기 열기; over 200 KB shows code only; a
+cut-off reply shows the notice; 다운로드 builds the right file name and
+type; Builder로 보내기 creates one project with one `index.html` and is
+refused for a member not participating; the mock's HTML and SVG replies
+produce previews.
+
+**Risks:** artifact security is the whole item — the sandbox list above
+is the mitigation, and every attribute is asserted by a test so a later
+"small fix" cannot widen it unnoticed. Phishing inside a preview (the
+label; no forms). Tab freezes (click to run). The cost of long pages (the
+output-limit decision). Nothing generated runs on the backend: the
+preview runs in the member's own browser, in a frame with no origin.
+
+---
+
 ## chat-plus-files — full spec (merged 2026-10-14)
 
 Branch `feat-chat-plus-files`. M1. Effort: **M–L** (4–6 days). One

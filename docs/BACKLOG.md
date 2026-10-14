@@ -76,43 +76,40 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
-   HTML, SVG and chart previews in a sandboxed iframe. Spec below.
-
-2. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+1. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    생각 과정 보기, per conversation, off by default, cost shown first.
    Spec below.
 
-3. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
+2. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
    Both halves: Claude writes and edits project files with restorable
    versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
    volume. **Moved into Next by the owner on 2026-10-14**, on
    `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
 
-4. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+3. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
    The first slice of Phase 5: 게시 from a Builder project to a
    CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
    every mock listing removed. Spec below.
 
-5. **example-apps** · M3 · branch `feat-example-apps`
+4. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-6. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+5. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-7. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+6. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-8. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+7. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-9. **builder-python** · M2 · branch `feat-builder-python`
+8. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime of
     item 5. Spec below.
@@ -414,79 +411,7 @@ Branch `chore-monitoring`. M1 · 💳 if any. Added by the owner on
 
 → **chat-plus-files — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-files--full-spec-merged-2026-10-14).
 
-### chat-plus-artifacts — full spec
-
-Branch `feat-chat-plus-artifacts`. M1. Effort: **M** (3–4 days). No
-migration (`builder_project_files` exists since `f3b8d41c9e27`; at most
-one Builder route to write a file).
-
-1. **What becomes a preview.** A fenced block tagged `html` or `svg` in a
-   finished reply — not while it is streaming — gets a **미리보기** card
-   under the code. The system prompt tells Claude: a web page or a chart
-   is one self-contained `html` block (inline CSS and JS, inline SVG for
-   charts, **no external scripts, fonts or images** — they would not
-   load). Charts are inline SVG or a few lines of plain JS on a canvas;
-   no chart library from a CDN.
-2. **The sandbox — non-negotiable, and tested exactly:**
-   - an `<iframe srcdoc=…>` with **`sandbox="allow-scripts"` and nothing
-     else** — never `allow-same-origin` (together with `allow-scripts` it
-     lets the frame remove its own sandbox), never `allow-forms`,
-     `allow-popups`, `allow-top-navigation`, `allow-modals` or
-     `allow-downloads`;
-   - the frame therefore has an **opaque origin**: no access to CTRL+AI's
-     cookies, storage or `/api`;
-   - **no network**: the srcdoc starts with a CSP meta tag —
-     `default-src 'none'; script-src 'unsafe-inline'; style-src
-     'unsafe-inline'; img-src data: blob:; font-src data:` — so `fetch`,
-     external images and beacons fail;
-   - **SVG is never put into the page** with `innerHTML` or
-     `dangerouslySetInnerHTML`; it goes into the same sandboxed frame (an
-     SVG can carry `<script>` and event handlers);
-   - the preview runs **only after a click on 미리보기 열기** (a runaway
-     loop in a generated page can freeze the tab; a click makes that the
-     member's choice and keeps long conversations light), and has 새로
-     고침 and 닫기;
-   - a fixed label over the frame: "Claude가 만든 미리보기입니다. 여기에
-     비밀번호나 개인 정보를 입력하지 마세요." — a generated page can draw
-     a convincing fake login form.
-
-   Blocks over **200 KB** show code only.
-3. **코드 보기** toggles the source (the `chat-plus-rendering` code block,
-   with 복사). **다운로드** saves `ctrlai-<conversation>-<n>.html` or
-   `.svg`, built as a Blob by CTRL+AI's page, not by the frame (which has
-   no download permission).
-4. **Builder로 보내기** (HTML only) creates a Project Builder project —
-   name from the conversation title, description from the member's
-   message — with the block as `index.html`, then opens it. Through the
-   Builder routes and `require_active_member`, like creating a project
-   from the library. Free (no Claude call).
-5. **Output length.** A one-page site in Korean can exceed 4,096 output
-   tokens and arrive cut off. This item proposes
-   `CHAT_MAX_OUTPUT_TOKENS=8192` — **the owner decides**, because the
-   worst-case pre-check roughly doubles (Sonnet: about 60원 → 115원 per
-   message before the real, usually far smaller, charge). A cut-off block
-   shows "답장이 길어 미리보기를 만들 수 없습니다 — \"계속\"이라고 보내
-   주세요" instead of a broken page.
-
-**Charged:** the wallet, by the token, as any reply. Previews, downloads and
-Builder로 보내기 cost nothing.
-
-**Tests:** the iframe's `sandbox` attribute is exactly `allow-scripts`;
-the srcdoc begins with the CSP above; no SVG reaches the DOM outside an
-iframe; nothing runs before 미리보기 열기; over 200 KB shows code only; a
-cut-off reply shows the notice; 다운로드 builds the right file name and
-type; Builder로 보내기 creates one project with one `index.html` and is
-refused for a member not participating; the mock's HTML and SVG replies
-produce previews.
-
-**Risks:** artifact security is the whole item — the sandbox list above
-is the mitigation, and every attribute is asserted by a test so a later
-"small fix" cannot widen it unnoticed. Phishing inside a preview (the
-label; no forms). Tab freezes (click to run). The cost of long pages (the
-output-limit decision). Nothing generated runs on the backend: the
-preview runs in the member's own browser, in a frame with no origin.
-
----
+→ **chat-plus-artifacts — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-artifacts--full-spec-merged-2026-10-14).
 
 → **prep-beta-launch — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#prep-beta-launch--full-spec-merged-2026-10-13), with its Launch data rules and **Hosting decisions — 2026-10-13**.
 
