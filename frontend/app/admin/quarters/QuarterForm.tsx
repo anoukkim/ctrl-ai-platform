@@ -11,10 +11,16 @@
  * 검사는 여기와 백엔드 양쪽에 있습니다. 여기 있는 것은 날짜를 고치러
  * 서버까지 다녀오지 않기 위해서이고, 백엔드에 있는 것은 이 화면이 유일한
  * 입구가 아니기 때문입니다. 둘 중 하나만 두면 어느 쪽이든 뚫립니다.
+ *
+ * fix-quarter-form-autofill (2026-10-14): 올바른 코드(2026-Q4)를 적으면
+ * 이름, 분기 시작·종료일, 신청 시작·마감일이 채워집니다. 채운 값은 고칠 수
+ * 있고, **손으로 고친 칸은 코드를 다시 바꿔도 덮어쓰지 않습니다.** 날짜
+ * 고르개는 min/max로 순서가 어긋난 날을 고를 수 없게 합니다.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import { CODE_ERROR, autofill, parseQuarterCode } from "@/lib/quarter-code";
 import { formatKrw } from "@/lib/quarters";
 
 import styles from "../admin.module.css";
@@ -32,8 +38,10 @@ export interface QuarterInput {
 /** 분기의 기본 1인 지원금. 백엔드 설정값(QUARTERLY_SUBSIDY_LIMIT_KRW)과 같은 숫자입니다. */
 const DEFAULT_LIMIT = 80_000;
 
-/** "2026-Q1" 또는 "2026Q1" 꼴인지. 코드로 분기를 찾는 곳이 여럿입니다. */
-const CODE_PATTERN = /^\d{4}-?Q[1-4]$/i;
+/** 코드가 이만큼 길어지면 다 적은 것으로 보고 바로 알려 줍니다(2026-Q4 = 7자). */
+const CODE_FULL_LENGTH = 7;
+
+type AutoField = "displayName" | "startsAt" | "endsAt" | "opensAt" | "closesAt";
 
 export default function QuarterForm({
   busy,
@@ -54,6 +62,40 @@ export default function QuarterForm({
   const [limit, setLimit] = useState(String(DEFAULT_LIMIT));
   /** 한 번이라도 보내려 한 뒤에만 빨간 글씨를 보여 줍니다. */
   const [attempted, setAttempted] = useState(false);
+  /** 관리자가 손으로 고친 칸 — 코드가 바뀌어도 그대로 둡니다. */
+  const touched = useRef<Set<AutoField>>(new Set());
+
+  const setters: Record<AutoField, (value: string) => void> = {
+    displayName: setDisplayName,
+    startsAt: setStartsAt,
+    endsAt: setEndsAt,
+    opensAt: setOpensAt,
+    closesAt: setClosesAt,
+  };
+
+  /** 손으로 고친 칸으로 표시하고 값을 바꿉니다. */
+  function edit(field: AutoField, value: string) {
+    touched.current.add(field);
+    setters[field](value);
+  }
+
+  /** 코드가 바뀌면, 올바른 코드일 때 손대지 않은 칸만 채웁니다. */
+  function changeCode(value: string) {
+    setCode(value);
+    const parsed = parseQuarterCode(value);
+    if (parsed === null) return;
+    const filled = autofill(parsed);
+    const values: Record<AutoField, string> = {
+      displayName: filled.display_name,
+      startsAt: filled.starts_at,
+      endsAt: filled.ends_at,
+      opensAt: filled.application_opens_at,
+      closesAt: filled.application_closes_at,
+    };
+    for (const field of Object.keys(values) as AutoField[]) {
+      if (!touched.current.has(field)) setters[field](values[field]);
+    }
+  }
 
   const limitKrw = Number(limit.replaceAll(",", ""));
 
@@ -67,8 +109,7 @@ export default function QuarterForm({
     const found: Record<string, string> = {};
 
     if (!code.trim()) found.code = "분기 코드를 적어 주세요.";
-    else if (!CODE_PATTERN.test(code.trim()))
-      found.code = "2026-Q1 꼴로 적어 주세요.";
+    else if (parseQuarterCode(code) === null) found.code = `${CODE_ERROR}.`;
 
     if (!displayName.trim()) found.displayName = "화면에 보일 이름을 적어 주세요.";
 
@@ -100,7 +141,7 @@ export default function QuarterForm({
     if (!valid) return;
 
     const input: QuarterInput = {
-      code: code.trim().toUpperCase(),
+      code: parseQuarterCode(code)?.code ?? code.trim().toUpperCase(),
       display_name: displayName.trim(),
       starts_at: startsAt,
       ends_at: endsAt,
@@ -122,6 +163,8 @@ export default function QuarterForm({
   }
 
   function errorFor(field: string): string | undefined {
+    // 코드는 다 적은 뒤라면 보내기 전에도 바로 알려 줍니다.
+    if (field === "code" && code.trim().length >= CODE_FULL_LENGTH) return errors.code;
     return attempted ? errors[field] : undefined;
   }
 
@@ -131,15 +174,15 @@ export default function QuarterForm({
         <Field
           htmlFor="quarter-code"
           label="분기 코드"
-          hint="2026-Q1 꼴. 주소와 기록에 쓰입니다."
+          hint="2026-Q4 꼴. 적으면 이름과 날짜가 채워집니다(고칠 수 있음)."
           error={errorFor("code")}
         >
           <input
             className="field"
             id="quarter-code"
             value={code}
-            placeholder="2027-Q1"
-            onChange={(event) => setCode(event.target.value)}
+            placeholder="2026-Q4"
+            onChange={(event) => changeCode(event.target.value)}
           />
         </Field>
 
@@ -148,8 +191,8 @@ export default function QuarterForm({
             className="field"
             id="quarter-name"
             value={displayName}
-            placeholder="2027 Q1"
-            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="2026 Q4"
+            onChange={(event) => edit("displayName", event.target.value)}
           />
         </Field>
 
@@ -159,7 +202,7 @@ export default function QuarterForm({
             id="quarter-starts"
             type="date"
             value={startsAt}
-            onChange={(event) => setStartsAt(event.target.value)}
+            onChange={(event) => edit("startsAt", event.target.value)}
           />
         </Field>
 
@@ -169,7 +212,8 @@ export default function QuarterForm({
             id="quarter-ends"
             type="date"
             value={endsAt}
-            onChange={(event) => setEndsAt(event.target.value)}
+            min={startsAt || undefined}
+            onChange={(event) => edit("endsAt", event.target.value)}
           />
         </Field>
 
@@ -184,7 +228,8 @@ export default function QuarterForm({
             id="quarter-opens"
             type="date"
             value={opensAt}
-            onChange={(event) => setOpensAt(event.target.value)}
+            max={endsAt || undefined}
+            onChange={(event) => edit("opensAt", event.target.value)}
           />
         </Field>
 
@@ -194,7 +239,9 @@ export default function QuarterForm({
             id="quarter-closes"
             type="date"
             value={closesAt}
-            onChange={(event) => setClosesAt(event.target.value)}
+            min={opensAt || startsAt || undefined}
+            max={endsAt || undefined}
+            onChange={(event) => edit("closesAt", event.target.value)}
           />
         </Field>
 

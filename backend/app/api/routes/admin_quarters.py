@@ -52,6 +52,7 @@ from app.schemas.quarter import (
     QuarterUpdate,
     TopUpConfirm,
     TopUpRead,
+    date_problem,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -78,7 +79,8 @@ def create_quarter(
     _: User = Depends(require_admin),
 ) -> Quarter:
     if db.scalar(select(Quarter).where(Quarter.code == payload.code)) is not None:
-        raise HTTPException(status_code=409, detail="이미 있는 분기 코드입니다.")
+        raise HTTPException(status_code=409, detail=f"{payload.code} 분기가 이미 있습니다.")
+    _refuse_overlap(db, payload.starts_at, payload.ends_at)
 
     quarter = Quarter(
         code=payload.code,
@@ -113,6 +115,26 @@ def create_quarter(
     return quarter
 
 
+def _refuse_overlap(db: Session, starts_at, ends_at, ignore_id: int | None = None) -> None:
+    """Quarters never overlap (fix-quarter-form-autofill): one date belongs
+    to one quarter, or wallets and reports would disagree about it."""
+    clash = db.scalar(
+        select(Quarter)
+        .where(Quarter.starts_at <= ends_at, Quarter.ends_at >= starts_at)
+        .where(Quarter.id != (ignore_id if ignore_id is not None else -1))
+        .order_by(Quarter.starts_at)
+        .limit(1)
+    )
+    if clash is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"기간이 {clash.display_name}({clash.starts_at.isoformat()} – "
+                f"{clash.ends_at.isoformat()})와 겹칩니다. 분기 기간은 겹칠 수 없습니다."
+            ),
+        )
+
+
 @router.patch("/quarters/{quarter_id}", response_model=QuarterRead, summary="Update a quarter")
 def update_quarter(
     quarter_id: int,
@@ -139,6 +161,20 @@ def update_quarter(
             status_code=400,
             detail="분기는 Admin › Quarters의 '분기 마감'으로만 마감합니다 — 지갑을 멈추고 회수를 기록합니다.",
         )
+    # The same date rules as creating, on the dates the quarter would end
+    # up with — never trust the form (fix-quarter-form-autofill).
+    after = {
+        field: changes.get(field, getattr(quarter, field))
+        for field in ("starts_at", "ends_at", "application_opens_at", "application_closes_at")
+    }
+    problem = date_problem(
+        after["starts_at"], after["ends_at"],
+        after["application_opens_at"], after["application_closes_at"],
+    )
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
+    if "starts_at" in changes or "ends_at" in changes:
+        _refuse_overlap(db, after["starts_at"], after["ends_at"], ignore_id=quarter.id)
     before = {field: getattr(quarter, field) for field in changes}
     for field, value in changes.items():
         setattr(quarter, field, value)
