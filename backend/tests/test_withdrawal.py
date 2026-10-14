@@ -45,6 +45,7 @@ from app.services import withdrawal as withdrawal_service
 from app.services.quarters import set_membership
 from app.services.wallet import get_or_create_balance
 from tests.conftest import DEV_PASSWORD, MEMBER_PASSWORD
+from tests.conftest import JSON_HEADERS
 
 
 # ------------------------------------------------------------ fixtures
@@ -86,7 +87,7 @@ def admin_client(other_client: TestClient, dev_user) -> Generator[TestClient, No
     Depends on `other_client` so the database override is already in
     place and the member is already signed in on the other client.
     """
-    with TestClient(app) as admin:
+    with TestClient(app, headers=JSON_HEADERS) as admin:
         response = admin.post(
             "/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD}
         )

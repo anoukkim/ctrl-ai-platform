@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.json_only import JsonOnlyMiddleware
 
 settings = get_settings()
 
@@ -45,6 +46,14 @@ app = FastAPI(
 # and the backend on http://localhost:8000 — different ports mean
 # different origins — so the allowed origins are listed explicitly.
 # Never use `allow_origins=["*"]` once authentication cookies exist.
+# Every POST must carry a non-simple Content-Type, so a page on another
+# origin — a member app on apps.ctrlai.my is same-site — cannot send one
+# without a preflight, which the CORS list below refuses (CLAUDE.md §2).
+# Added first, so it sits inside CORS.
+app.add_middleware(JsonOnlyMiddleware)
+
+# apps.ctrlai.my must never be in this list: `Settings.startup_problems`
+# refuses to start if it is.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

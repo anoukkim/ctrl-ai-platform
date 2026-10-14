@@ -228,7 +228,7 @@ def test_the_real_adapter_asks_for_structured_files_and_charges_the_tokens(
     assert response.status_code == 201, response.text
     body = json.loads(real_claude.requests[0].content)
     assert body["output_config"]["format"]["type"] == "json_schema"
-    assert body["max_tokens"] == 8000
+    assert body["max_tokens"] == 16000
     assert "cache_control" not in body, "one-off requests are not cached"
     assert "starter web apps" in body["system"]
 

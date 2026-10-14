@@ -31,4 +31,8 @@ class SiteInfo(BaseModel):
     top_ups_enabled: bool
     #: "Google로 계속하기" is offered (google-login).
     google_login: bool
+    #: builder-static-runtime: where member apps are served
+    #: (`https://apps.ctrlai.my`), or None while the runtime is off and the
+    #: preview runs the files inside the page.
+    apps_base_url: str | None = None
     test_mode: TestMode

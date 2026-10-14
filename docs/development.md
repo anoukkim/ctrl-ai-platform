@@ -176,6 +176,12 @@ keep running and print logs.
 
 Then open **http://localhost:3000**, which lands on **Chat**.
 
+**Member apps (optional).** Project Builder's preview runs inside the page
+unless the apps origin is on. To see it as on the server, run a fourth
+process in `backend/` — `.\.venv\Scripts\python.exe -m app.dev_apps_server`
+(http://localhost:8300, the same headers as Caddy's `apps.` block) — and
+start the backend with `APPS_BASE_URL=http://localhost:8300` in `.env`.
+
 Only one `next dev` may run at a time. If a previous one is still running,
 Next.js says so and prints the command to stop it; two dev servers sharing the
 same `.next` folder cause confusing build errors.

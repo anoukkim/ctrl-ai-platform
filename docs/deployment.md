@@ -100,6 +100,11 @@ ctrlai-server (Google Cloud, 서울)
 | --- | --- | --- |
 | `@` | A | `34.47.78.228` |
 | `www` | CNAME | `ctrlai.my` |
+| `apps` | A | `34.47.78.228` |
+
+`apps`는 회원이 만든 앱이 도는 주소(`apps.ctrlai.my`, builder-static-runtime)
+입니다. 이 레코드가 아직 없으면 Caddy가 그 인증서만 받지 못하고 계속 다시
+시도할 뿐, `ctrlai.my`는 그대로 돌아갑니다.
 
 전 세계에 퍼지는 데 몇 분에서 몇 시간이 걸리므로 **가장 먼저** 해 두세요.
 `api` 레코드는 만들지 않습니다 — 브라우저는 `ctrlai.my` 하나하고만 이야기합니다.
@@ -109,9 +114,10 @@ ctrlai-server (Google Cloud, 서울)
 ```powershell
 nslookup ctrlai.my 8.8.8.8
 nslookup www.ctrlai.my 8.8.8.8
+nslookup apps.ctrlai.my 8.8.8.8
 ```
 
-두 결과 모두 `34.47.78.228`이 보이면 됩니다.
+세 결과 모두 `34.47.78.228`이 보이면 됩니다.
 
 ---
 
@@ -558,6 +564,11 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 - [ ] `ls -l ~/ctrl-ai-platform/.env`가 `-rw-------`
 - [ ] `git -C ~/ctrl-ai-platform status`에 `.env`가 보이지 않음(무시되는 파일)
 - [ ] 방화벽은 80, 443, SSH뿐. `dc ps`에서 `db`에 `0.0.0.0:5432` 같은 표시 없음
+- [ ] `.env`의 `SESSION_COOKIE_DOMAIN=`은 비어 있고, `CORS_ALLOW_ORIGINS`에
+      `apps.`가 없음 — 회원 앱(`apps.ctrlai.my`)은 같은 사이트라서 둘 중 하나만
+      어긋나도 로그인 쿠키에 닿을 수 있습니다(서버가 시작을 거부합니다)
+- [ ] `curl -sI https://apps.ctrlai.my/` 가 404이고 `content-security-policy`에
+      `frame-ancestors https://ctrlai.my`, `set-cookie`는 없음
 - [ ] Anthropic: 자동 충전 OFF, 월 한도 설정
 - [ ] Google Cloud 예산 알림 설정
 - [ ] 로컬 데이터베이스를 서버로 복사한 적 없음

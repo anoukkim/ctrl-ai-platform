@@ -11,23 +11,40 @@ import { API_BASE_URL, ApiError } from "./api";
  *  보이지 않도록 끊습니다. */
 export const REQUEST_TIMEOUT_MS = 8000;
 
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export interface RequestOptions extends RequestInit {
+  /** 이 요청만의 대기 시간(ms). Claude가 파일을 쓰는 요청처럼 오래 걸리는 것만. */
+  timeoutMs?: number;
+}
+
+/**
+ * 본문 없는 POST에도 `{}`를 JSON으로 보냅니다 (builder-static-runtime).
+ *
+ * 회원 앱이 도는 apps.ctrlai.my는 ctrlai.my와 같은 사이트라서, 그 페이지가
+ * 형식 없는 POST를 보내면 브라우저가 사전 확인(preflight) 없이 보냅니다.
+ * 그래서 백엔드는 JSON이 아닌 POST를 모두 거절합니다(415, CLAUDE.md §2).
+ */
+export async function request<T>(path: string, init?: RequestOptions): Promise<T> {
+  const { timeoutMs, ...options } = init ?? {};
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs ?? REQUEST_TIMEOUT_MS);
+
+  const method = (options.method ?? "GET").toUpperCase();
+  const body = options.body ?? (method === "POST" ? "{}" : undefined);
 
   try {
     const response = await fetch(`${API_BASE_URL}/api${path}`, {
-      ...init,
+      ...options,
+      body,
       signal: controller.signal,
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        ...(init?.body ? { "Content-Type": "application/json" } : {}),
-        ...init?.headers,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
       },
     });
 

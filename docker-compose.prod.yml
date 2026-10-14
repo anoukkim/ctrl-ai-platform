@@ -3,6 +3,7 @@
 # Four services on one VM:
 #
 #   caddy  80/443, HTTPS from Let's Encrypt     — the only published ports
+#          (ctrlai.my, and member apps on apps.ctrlai.my from `apps_data`)
 #   web    Next.js (standalone)                 — pages + /api/* rewrite
 #   api    FastAPI                              — reads the server's .env
 #   db     PostgreSQL 16                        — NO published port
@@ -42,6 +43,8 @@ services:
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
+      # Member apps, read-only: Caddy only serves them (builder-static-runtime).
+      - apps_data:/srv/apps:ro
       - caddy_config:/config
     depends_on:
       - web
@@ -72,8 +75,13 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ctrlai}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-ctrlai}
       SESSION_COOKIE_SECURE: "true"
       STORAGE_DIR: /app/var/storage
+      # builder-static-runtime: 미리보기 갱신 writes each app's files here;
+      # Caddy serves the same volume read-only on apps.<domain>.
+      APPS_DIR: /app/var/apps
+      APPS_BASE_URL: https://apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
     volumes:
       - api_storage:/app/var/storage
+      - apps_data:/app/var/apps
     depends_on:
       db:
         condition: service_healthy
@@ -121,5 +129,6 @@ services:
 volumes:
   pgdata:
   api_storage:
+  apps_data:
   caddy_data:
   caddy_config:

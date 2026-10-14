@@ -369,6 +369,11 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("DELETE", "/api/builder/projects/{project_id}"): "require_active_member",
     ("GET", "/api/builder/projects/{project_id}/files"): "get_current_user",
     ("GET", "/api/builder/starter-estimate"): "get_current_user",
+    ("GET", "/api/builder/projects/{project_id}/generate-estimate"): "get_current_user",
+    ("POST", "/api/builder/projects/{project_id}/generate"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/versions"): "get_current_user",
+    ("POST", "/api/builder/projects/{project_id}/versions/{number}/restore"): "require_active_member",
+    ("POST", "/api/builder/projects/{project_id}/runtime"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # chat-plus-artifacts: Builder로 보내기 creates a project — a creation.
     ("POST", "/api/builder/projects/from-chat"): "require_active_member",

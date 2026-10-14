@@ -134,11 +134,31 @@ worst case shown first) and stores the files in the same transaction. A
 failed or cut-off generation is free. The preview runs `index.html` with
 its CSS and JS inlined in an `<iframe srcdoc sandbox="allow-scripts">`
 behind a CSP that blocks all network — never on the backend. Files are
-read-only for now; changing them by talking to Claude is the next step.
+read-only in the editor; Claude changes them (below).
 
-**Project Builder** — selecting a file changes the editor contents. Nothing
-generates or runs code: that is Phase 3, and member code will never execute on
-the CTRL+AI backend.
+**Project Builder — 만들기 / 고치기** (builder-static-runtime). In the
+workspace's Claude panel the member writes what to make or change ("버튼
+색을 바꿔 줘") and presses **만들기** (empty project) or **고치기**; the
+estimate and worst case (≈ 230원 on Sonnet, the whole 16,000-token output
+budget) show first, with the wallet check. Claude writes whole files
+through one `write_file` tool; the backend checks every write — static
+text only (HTML/CSS/JS/JSON/SVG/MD/TXT), ≤ 200 KB a file, ≤ 30 files,
+≤ 2 MB a project, clean paths at most three deep — and **refuses server or
+build code** (`.py`, `.php`, `.sh`, `.ts` …): the member is not charged,
+the club's cost is recorded. Every change is a **version** (버전 기록, the
+last 30); **되돌리기** to any of them is free and is itself a new version.
+
+**The apps origin** (builder-static-runtime). After each change the
+backend writes the project's files to `apps.ctrlai.my/<app-slug>/` (a
+random slug; **미리보기 갱신** writes them again by hand), and the preview
+frames that address with `sandbox="allow-scripts allow-forms"`; 새 창에서
+열기 opens it on its own. Caddy serves it read-only with a CSP (only
+CTRL+AI may frame it; an app loads only its own files), nosniff, no
+Referer and no cookies. A deleted project stops being served at once.
+Apps share the origin, so one app can read another's `localStorage` —
+accepted for the club beta; one subdomain per app is the later step. With
+the runtime off (local development without `dev_apps_server`), the
+preview runs the files inside the page as before.
 
 **코드 다운로드 (ZIP)** works today, in the project's ▾ menu and in each
 library card's ⋯ menu. The archive holds the project's files in their folder

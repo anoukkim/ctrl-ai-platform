@@ -26,6 +26,7 @@ from app.models import ChatAttachment, UsageEvent
 from app.services import attachments as attachments_service
 from app.services import chat as chat_service
 from app.services.storage import get_storage
+from tests.conftest import JSON_HEADERS
 
 
 @pytest.fixture
@@ -384,7 +385,7 @@ def other_client_after(db_session: Session, other_user):
     from tests.conftest import MEMBER_PASSWORD
 
     def make() -> TestClient:
-        other = TestClient(app)
+        other = TestClient(app, headers=JSON_HEADERS)
         assert other.post(
             "/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD}
         ).status_code == 200
@@ -490,12 +491,17 @@ def test_an_upload_a_page_could_send_without_a_preflight_is_refused(
     """A member app on apps.ctrlai.my is same-site: a "simple" cross-origin
     POST would carry the session cookie with no CORS preflight (CLAUDE.md §2)."""
     headers = {"content-type": content_type} if content_type else {}
-    response = client.post(
-        f"/api/chat/conversations/{conversation}/attachments",
-        params={"name": "note.txt"},
-        content=b"hello",
-        headers=headers,
-    )
+    default = client.headers.pop("content-type", None)
+    try:
+        response = client.post(
+            f"/api/chat/conversations/{conversation}/attachments",
+            params={"name": "note.txt"},
+            content=b"hello",
+            headers=headers,
+        )
+    finally:
+        if default is not None:
+            client.headers["content-type"] = default
     assert response.status_code == 415
     assert db_session.query(ChatAttachment).count() == 0
 

@@ -76,39 +76,33 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
-   Both halves: Claude writes and edits project files with restorable
-   versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
-   volume. **Moved into Next by the owner on 2026-10-14**, on
-   `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
-
-2. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+1. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
    The first slice of Phase 5: 게시 from a Builder project to a
    CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
    every mock listing removed. Spec below.
 
-3. **example-apps** · M3 · branch `feat-example-apps`
+2. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-4. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+3. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-5. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+4. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-6. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-7. **builder-python** · M2 · branch `feat-builder-python`
+6. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
-    in the visitor's browser through Pyodide, on the static runtime of
-    item 5. Spec below.
+    in the visitor's browser through Pyodide, on the static runtime
+    (builder-static-runtime, merged). Spec below.
 
 ---
 
@@ -825,75 +819,6 @@ it yearly).
 → **Archived specs** moved to [`archive/done-specs.md`](archive/done-specs.md#archived-specs).
 
 → **chat-plus-tools — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-tools--full-spec-merged-2026-10-14).
-
-## builder-static-runtime — full spec
-
-After the beta · M2 · branch `feat-builder-static-runtime`. Effort:
-**L–XL** (2–3 weeks, in two halves). Added 2026-10-07. **Absorbs the
-Builder MVP [3]** of the phase plan (`docs/archive/phases.md`).
-
-**Half 1 — generation (Phase 3).** Claude writes and edits the project's
-files: "만들어 줘" creates `index.html`, `style.css`, `app.js` (static
-only — HTML, CSS, browser JS); "버튼 색을 바꿔 줘" edits them. Through the
-existing `BuilderProject` / `BuilderProjectFile` models and the
-workspace's file tree and editor. Claude returns whole files through one
-tool, `write_file`, with `strict: true`; the backend checks names (the
-storage key rules), sizes (≤ 200 KB a file, ≤ 30 files, ≤ 2 MB a
-project) and types (text only). Every generation is a saved version the
-member can go back to. Charged to the wallet by the token; a generation may
-write up to 16,000 output tokens, so the worst-case pre-check (≈ 230원 on
-Sonnet) is shown before the member presses 만들기.
-
-**Half 2 — the static runtime.** The preview pane and, later, the
-CtrlAIApps launch button serve a project's files from **a separate
-origin**:
-
-- **Origin: `apps.ctrlai.my` — owner decision 2026-10-14** (CLAUDE.md
-  §2; no separate domain is bought). The spec had recommended a separate
-  registrable domain, because a subdomain is *same-site* with
-  `ctrlai.my`: `SameSite` cookies are sent on requests from it, and a
-  cookie set with `Domain=ctrlai.my` would reach it. The owner chose
-  `apps.ctrlai.my` with the spec's stated conditions, each now a test:
-  CTRL+AI's session cookie stays **host-only** (no `Domain` attribute);
-  every state-changing route requires a **JSON body**, which a
-  cross-origin page cannot send without a CORS preflight; and the API
-  **refuses CORS** from `apps.ctrlai.my`. The Gabia A record
-  `apps.ctrlai.my → 34.47.78.228` is the owner's; if it does not resolve
-  yet at deploy time, the main site must be unaffected.
-- **One path per app** to start (`/<app-slug>/`), served by Caddy from a
-  read-only volume the backend writes when the member presses 미리보기
-  갱신 or 게시. Apps share that origin, so one app can read another's
-  `localStorage`: acceptable for a club beta and written down; one
-  subdomain per app (wildcard certificate, DNS challenge) is the later
-  step.
-- **Headers on every response:** `Content-Security-Policy: default-src
-  'self'; script-src 'self' 'unsafe-inline'; style-src 'self'
-  'unsafe-inline'; img-src 'self' data:; connect-src 'self';
-  frame-ancestors https://ctrlai.my` (only CTRL+AI may frame it),
-  `X-Content-Type-Options: nosniff`, and never a `Set-Cookie`.
-- **The workspace preview** frames that origin with `sandbox="allow-scripts
-  allow-forms"`.
-- **Nothing runs on the backend.** Static files execute in visitors'
-  browsers only; server code (Python, Node) is refused when written. This
-  is the line the phase plan (`docs/archive/phases.md`) draws before the **Secure App
-  Runtime**, which stays *Later*.
-- **Storage:** 2 MB per project; all apps together ≤ 2 GB of the VM disk
-  (a setting), checked before writing.
-
-**Charged:** the wallet for generation (tokens). Hosting costs nothing per app
-(`apps.ctrlai.my` is a subdomain of the club's existing domain).
-
-**Tests:** generated files land as `BuilderProjectFile` rows within the
-limits; a server-side file type is refused; the static origin's responses
-carry the headers above and no `Set-Cookie`; a project's path serves only
-that project; the preview frame's sandbox list is exact; a deleted
-project stops being served (the `deleted_at` rule, CLAUDE.md section 10).
-
-**Risks:** runtime security (separate site, CSP, no cookies, no server
-code). A member app used for phishing under the club's name (a report
-button on CtrlAIApps; an admin can unpublish from Content). Cost —
-generations are the most expensive calls in the product, so the
-pre-check figure is shown before each one. VM disk (the caps above).
 
 ## image-generation — full spec
 

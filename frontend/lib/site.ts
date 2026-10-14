@@ -20,6 +20,11 @@ export interface SiteInfo {
   top_ups_enabled: boolean;
   /** "Google로 계속하기"를 보여 줄지 (google-login). */
   google_login: boolean;
+  /**
+   * 회원 앱이 도는 주소(https://apps.ctrlai.my) — builder-static-runtime.
+   * 없으면(null) 미리보기는 파일을 이 페이지 안에서 바로 돌립니다.
+   */
+  apps_base_url?: string | null;
   test_mode: Record<TestModeArea, boolean>;
 }
 
@@ -37,6 +42,7 @@ export const UNKNOWN_SITE: SiteInfo = {
   // personal-topup-off: 기본은 꺼짐 — /api/site가 켜져 있다고 말할 때만 켭니다.
   top_ups_enabled: false,
   google_login: false,
+  apps_base_url: null,
   test_mode: { chat: false, builder: false, video: false, community: false },
 };
 

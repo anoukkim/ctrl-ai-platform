@@ -18,11 +18,36 @@
 
 export const PREVIEW_SANDBOX = "allow-scripts";
 
+/**
+ * 앱 주소(apps.ctrlai.my)의 앱을 띄우는 프레임의 sandbox (builder-static-runtime).
+ * 다른 출처라도 `allow-same-origin`은 주지 않습니다 — 프레임은 여전히 불투명한
+ * 출처로 돌고, 폼 제출만 더 허락합니다. 테스트가 정확한 값을 확인합니다.
+ */
+export const RUNTIME_SANDBOX = "allow-scripts allow-forms";
+
+/**
+ * 샌드박스 프레임에서는 `localStorage`가 오류를 냅니다(불투명한 출처). 앱이
+ * 그 때문에 멈추지 않도록, 그럴 때만 메모리 저장소로 바꿔 줍니다. 백엔드가
+ * 앱 주소에 쓰는 HTML에도 같은 것이 들어갑니다(`app_runtime.STORAGE_SHIM`).
+ */
+export const STORAGE_SHIM =
+  "<script>(function(){try{window.localStorage.getItem('_');return}catch(e){}" +
+  "function m(){var d={};return{getItem:function(k){k=String(k);" +
+  "return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null}," +
+  "setItem:function(k,v){d[String(k)]=String(v)},removeItem:function(k){delete d[String(k)]}," +
+  "clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null}," +
+  "get length(){return Object.keys(d).length}}}" +
+  "try{Object.defineProperty(window,'localStorage',{value:m(),configurable:true});" +
+  "Object.defineProperty(window,'sessionStorage',{value:m(),configurable:true})}catch(e){}" +
+  "})();</script>";
+
 export const PREVIEW_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
   "img-src data: blob:; font-src data:; media-src data: blob:";
 
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
+/** CSP 바로 뒤, 앱의 어떤 스크립트보다 먼저. */
+const HEAD_START = CSP_META + STORAGE_SHIM;
 
 /** `href="./style.css"` → `style.css`. 프로젝트 밖을 가리키면 null. */
 function localPath(ref: string): string | null {
@@ -70,11 +95,11 @@ export function buildSrcdoc(files: Record<string, string>, entry = "index.html")
   // CSP는 무엇보다 먼저 와야 합니다. <head>가 있으면 그 바로 뒤에,
   // 없으면 맨 앞에(doctype 뒤에) 둡니다.
   if (/<head\b[^>]*>/i.test(doc)) {
-    doc = doc.replace(/<head\b[^>]*>/i, (head) => `${head}${CSP_META}`);
+    doc = doc.replace(/<head\b[^>]*>/i, (head) => `${head}${HEAD_START}`);
   } else if (/^\s*<!doctype[^>]*>/i.test(doc)) {
-    doc = doc.replace(/^\s*<!doctype[^>]*>/i, (doctype) => `${doctype}${CSP_META}`);
+    doc = doc.replace(/^\s*<!doctype[^>]*>/i, (doctype) => `${doctype}${HEAD_START}`);
   } else {
-    doc = CSP_META + doc;
+    doc = HEAD_START + doc;
   }
   return doc;
 }
