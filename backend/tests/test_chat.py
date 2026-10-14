@@ -947,7 +947,9 @@ def test_the_system_prompt_says_markdown_is_rendered() -> None:
     assert "renders Markdown" in CHAT_SYSTEM_PROMPT
     assert "table" in CHAT_SYSTEM_PROMPT and "fenced block" in CHAT_SYSTEM_PROMPT
     assert "Korean" in CHAT_SYSTEM_PROMPT
-    assert "cannot draw charts" in CHAT_SYSTEM_PROMPT
+    # chat-plus-artifacts: html/svg blocks are previewed; charts are inline SVG.
+    assert "preview one fenced `html` or `svg` block" in CHAT_SYSTEM_PROMPT
+    assert "never a chart library" in CHAT_SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize(

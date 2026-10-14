@@ -38,16 +38,16 @@ export const CHAT_EXAMPLES: ChatExample[] = [
     opensFilePicker: true,
   },
   {
-    // chat-plus-artifacts가 들어오기 전까지는 표와 한 줄 해석으로 답합니다.
+    // chat-plus-artifacts: 표와 한 줄 해석, 그리고 미리보기로 그린 차트.
     title: "차트 그리기",
-    description: "숫자를 표로 정리하고 무엇을 뜻하는지 한 줄로 알려 줍니다.",
+    description: "숫자를 차트로 그려 바로 보여 주고, 무엇을 뜻하는지 알려 줍니다.",
     prompt: "우리 동아리 회원 수가 분기마다 12명, 18명, 25명, 31명이야. 차트로 보여 줘",
     icon: "chart",
   },
   {
-    // chat-plus-artifacts가 들어오기 전까지는 코드로 답합니다.
+    // chat-plus-artifacts: 미리보기로 바로 보고, Builder로 보낼 수 있습니다.
     title: "웹페이지 만들기",
-    description: "한 장짜리 웹페이지 코드를 써 줍니다.",
+    description: "한 장짜리 웹페이지를 만들어 바로 미리 보여 줍니다.",
     prompt: "동아리 소개 한 장짜리 웹페이지를 만들어 줘",
     icon: "page",
   },

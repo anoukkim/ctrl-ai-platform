@@ -13,6 +13,21 @@ import { describeError, request } from "./http";
 
 export { describeError };
 
+/**
+ * Builder로 보내기(chat-plus-artifacts): 채팅 답장의 HTML 블록을 index.html로
+ * 가진 새 프로젝트. Claude를 부르지 않으니 무료입니다.
+ */
+export function createProjectFromChat(input: {
+  name: string;
+  description: string;
+  html: string;
+}): Promise<BuilderProject> {
+  return request<BuilderProject>("/builder/projects/from-chat", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Project Builder                                                     */
 /* ------------------------------------------------------------------ */

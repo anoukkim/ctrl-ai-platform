@@ -253,6 +253,24 @@ function ReceiptView({ receipt }: { receipt: ReplyReceipt }) {
   );
 }
 
+/**
+ * 잘린 답장의 마지막 코드 블록 — 닫는 ``` 없이 끝났으면 그 내용
+ * (chat-plus-artifacts). 그 블록은 깨진 페이지 대신 "계속"을 안내합니다.
+ */
+export function cutOffBlock(message: ViewMessage): string | null {
+  if (message.status !== "truncated" && message.status !== "stopped") return null;
+  const lines = message.content.split("\n");
+  const fences = lines.flatMap((line, at) => (/^\s*(```|~~~)/.test(line) ? [at] : []));
+  if (fences.length % 2 === 0) return null;
+  return lines.slice(fences[fences.length - 1] + 1).join("\n");
+}
+
+/** "m42" → 42: 다운로드 파일 이름의 번호. 저장 전 답장은 null. */
+function replyNumber(key: string): number | null {
+  const match = /^m(\d+)$/.exec(key);
+  return match ? Number(match[1]) : null;
+}
+
 /** 출처 링크에 보여 줄 도메인. 주소가 이상하면 주소 그대로. */
 export function sourceDomain(url: string): string {
   try {
@@ -1139,6 +1157,19 @@ export default function ChatWorkspace() {
                           <ChatMarkdown
                             text={message.content}
                             streaming={message.streaming}
+                            artifacts={{
+                              streaming: Boolean(message.streaming),
+                              cutOffCode: cutOffBlock(message),
+                              conversationId: activeId,
+                              replyNumber: replyNumber(message.key),
+                              conversationTitle:
+                                conversations.find((row) => row.id === activeId)?.title ?? "",
+                              memberMessage:
+                                index > 0 && messages[index - 1].role === "user"
+                                  ? messages[index - 1].content
+                                  : "",
+                              mayCreate,
+                            }}
                             tail={
                               message.streaming ? (
                                 <span className={styles.caret} aria-label="답장을 쓰는 중" />

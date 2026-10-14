@@ -370,6 +370,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/files"): "get_current_user",
     ("GET", "/api/builder/starter-estimate"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
+    # chat-plus-artifacts: Builder로 보내기 creates a project — a creation.
+    ("POST", "/api/builder/projects/from-chat"): "require_active_member",
     # Video — same shape; generating spends budget.
     ("GET", "/api/video/models"): "get_current_user",
     ("GET", "/api/video/projects"): "get_current_user",

@@ -229,7 +229,12 @@ def _history(count: int, size: int) -> list[ChatMessage]:
 
 
 def test_trimming_moves_the_start_in_steps_not_every_turn() -> None:
-    settings = Settings(chat_context_tokens=6_000)
+    from app.services.claude_provider import CHAT_SYSTEM_PROMPT
+    from app.services.pricing import estimate_tokens
+
+    # About 4,200 tokens of history room, whatever the system prompt's
+    # length (it grew with chat-plus-artifacts).
+    settings = Settings(chat_context_tokens=estimate_tokens(CHAT_SYSTEM_PROMPT) + 4_200)
     starts = []
     for turns in range(2, 80, 2):
         messages, estimated = chat_service.build_context(_history(turns, 300), "새 질문", settings)

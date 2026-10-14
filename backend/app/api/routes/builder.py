@@ -21,6 +21,7 @@ from app.db.session import get_db
 from app.models import BuilderProject, BuilderProjectFile, BuilderProjectStatus, User
 from app.schemas.builder import (
     BuilderProjectCreate,
+    BuilderProjectFromChat,
     BuilderProjectRead,
     BuilderProjectUpdate,
 )
@@ -123,6 +124,47 @@ def create_project(
         description=payload.description,
     )
     db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+#: The largest HTML block Chat previews (chat-plus-artifacts); a bigger one
+#: shows as code only, so it is never offered to the Builder either.
+FROM_CHAT_MAX_BYTES = 200_000
+
+
+@router.post(
+    "/projects/from-chat",
+    response_model=BuilderProjectRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Builder로 보내기: a project whose index.html is a chat reply's HTML block",
+)
+def create_project_from_chat(
+    payload: BuilderProjectFromChat,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> BuilderProject:
+    """The one Builder route that writes a file from the browser
+    (chat-plus-artifacts). Free — nothing is generated; the member's own
+    reply is copied. `require_active_member` like creating a project."""
+    if len(payload.html.encode("utf-8")) > FROM_CHAT_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="페이지가 너무 커서(200KB 초과) Builder로 보낼 수 없습니다.",
+        )
+    try:
+        name = clean_name(payload.name)
+    except InvalidNameError:
+        name = "채팅에서 만든 페이지"
+    project = BuilderProject(
+        owner_user_id=user.id,
+        name=name,
+        description=payload.description.strip()[:2000],
+    )
+    db.add(project)
+    db.flush()
+    db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
     db.commit()
     db.refresh(project)
     return project
