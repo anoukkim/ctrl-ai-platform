@@ -44,6 +44,12 @@ vi.mock("@/app/components/MyQuarterProvider", () => ({
 }));
 vi.mock("@/app/components/NotParticipatingBanner", () => ({ default: () => null }));
 
+// feat-spend-feedback: the "썼어요" moment is fed the ledger's figure only.
+const spend = vi.hoisted(() => ({ reportCharge: vi.fn() }));
+vi.mock("@/app/components/SpendFeedbackProvider", () => ({
+  useSpendFeedback: () => ({ reportCharge: spend.reportCharge, lastSpend: null, enabled: true }),
+}));
+
 const CONVERSATION = {
   id: 7,
   title: "비용 보기",
@@ -83,6 +89,7 @@ beforeEach(() => {
   for (const fn of Object.values(chatApi)) fn.mockReset();
   quarter.refresh.mockClear();
   quarter.applyWalletRemaining.mockClear();
+  spend.reportCharge.mockClear();
   // 반영에 성공한 것으로 — 실패하면 화면은 refresh()로 대신합니다.
   quarter.applyWalletRemaining.mockReturnValue(true);
   chatApi.getChatInfo.mockResolvedValue({
@@ -211,6 +218,10 @@ describe("흐르는 답장의 비용", () => {
       expect(quarter.applyWalletRemaining).toHaveBeenCalledWith(79_988),
     );
     expect(quarter.refresh).not.toHaveBeenCalled();
+    // The spend moment gets the ledger's figure (feat-spend-feedback).
+    expect(spend.reportCharge).toHaveBeenCalledWith(
+      expect.objectContaining({ chargedKrw: 12, remainingKrw: 79_988 }),
+    );
   });
 
   test("실패한 답장에는 청구되지 않았다고 말한다", async () => {
@@ -222,6 +233,7 @@ describe("흐르는 답장의 비용", () => {
     expect(screen.getByTestId("not-charged").textContent).toBe("이 시도는 청구되지 않았어요.");
     expect(screen.queryByTestId("receipt")).toBeNull();
     expect(quarter.applyWalletRemaining).not.toHaveBeenCalled();
+    expect(spend.reportCharge).not.toHaveBeenCalled();
   });
 
   test("반영할 지갑이 없으면 refresh로 대신한다", async () => {

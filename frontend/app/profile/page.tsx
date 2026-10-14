@@ -19,7 +19,7 @@ import EmptyState from "@/app/components/EmptyState";
 import PageHeader from "@/app/components/PageHeader";
 import { LayoutGrid } from "lucide-react";
 
-import { AccountSettings, Identity } from "./AccountIdentity";
+import { AccountSettings, Identity, NotificationSettings } from "./AccountIdentity";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
 import SignInMethodsSection from "./SignInMethodsSection";
@@ -45,6 +45,8 @@ export default function ProfilePage() {
 
       <div className={styles.columns}>
         <AccountSettings />
+
+        <NotificationSettings />
 
         <SignInMethodsSection />
 

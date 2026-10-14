@@ -83,6 +83,8 @@ import TestModeNotice from "./TestModeNotice";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
+import { useSpendFeedback } from "./SpendFeedbackProvider";
+import { modelShortName } from "@/lib/spend";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
@@ -303,6 +305,8 @@ export default function ChatWorkspace() {
   // 이벤트가 장부의 값을 들고 오면 그대로 쓰고(live-cost-display),
   // 값이 없는 길(중지, 오류)에서만 다시 읽습니다.
   const { refresh: refreshQuarter, applyWalletRemaining } = useMyQuarter();
+  // 지갑에서 돈이 빠지는 순간의 알림(feat-spend-feedback) — 장부의 금액으로만.
+  const { reportCharge } = useSpendFeedback();
 
   const [info, setInfo] = useState<ChatInfo | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -543,6 +547,11 @@ export default function ChatWorkspace() {
               setMessages((rows) =>
                 rows.map((row) => (row.key === replyKey ? toView(settled) : row)),
               );
+              // 중지·끊긴 답장도 정산된 금액이 장부에 있으면 알립니다.
+              reportCharge({
+                chargedKrw: settled.receipt?.charged_krw,
+                label: `채팅 · ${modelShortName(settled.model_id)}`,
+              });
               setLongHistory(detail.long_history ?? null);
               void refreshQuarter();
             } else if (attempt + 1 < SETTLE_DELAYS_MS.length) {
@@ -558,7 +567,7 @@ export default function ChatWorkspace() {
       }, SETTLE_DELAYS_MS[attempt]);
       settleTimersRef.current.add(timer);
     },
-    [refreshQuarter],
+    [refreshQuarter, reportCharge],
   );
 
   const send = useCallback(async () => {
@@ -684,6 +693,11 @@ export default function ChatWorkspace() {
         ) {
           void refreshQuarter();
         }
+        reportCharge({
+          chargedKrw: outcome.chargedKrw,
+          remainingKrw: outcome.walletRemainingKrw,
+          label: `채팅 · ${modelShortName(saved?.model_id)}`,
+        });
       } else if (outcome.kind === "stopped" || outcome.kind === "disconnected") {
         // 중지했거나 연결이 끊겼습니다 — 어느 쪽이든 백엔드는 그때까지
         // 만든 답장을 저장하고 쓴 만큼 차감하므로, 차감이 없었다고
@@ -723,6 +737,7 @@ export default function ChatWorkspace() {
     mayCreate,
     refreshList,
     refreshQuarter,
+    reportCharge,
     settleStopped,
     streaming,
   ]);

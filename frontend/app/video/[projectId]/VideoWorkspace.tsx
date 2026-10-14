@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "@/app/components/MyQuarterProvider";
+import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import WalletCheck from "@/app/components/WalletCheck";
 import TestModeNotice from "@/app/components/TestModeNotice";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
@@ -147,6 +148,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
   // 실제 거절은 백엔드가 합니다 — 아래 잠금은 설명일 뿐입니다.
   const mayCreate = useMayCreate();
   const { refresh: refreshQuarter } = useMyQuarter();
+  const { reportCharge } = useSpendFeedback();
   const router = useRouter();
 
   const [state, setState] = useState<State>({ phase: "loading" });
@@ -373,7 +375,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
    * 지원금이 모자란 것은 작업 공간이 깨진 것이 아니기 때문입니다.
    */
   const runPaid = useCallback(
-    async (work: () => Promise<VideoVersion>) => {
+    async (work: () => Promise<VideoVersion>, label = "영상 생성") => {
       if (!mayCreate || working) return;
       setWorking(true);
       setActionError(null);
@@ -385,13 +387,15 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
         setSelectedVersionId(version.id);
         setMode({ kind: "generate" });
         void refreshQuarter();
+        // 응답에 실린 장부의 금액(feat-spend-feedback).
+        reportCharge({ chargedKrw: version.charged_krw, label });
       } catch (error) {
         setActionError(describeError(error));
       } finally {
         setWorking(false);
       }
     },
-    [applyProject, mayCreate, projectId, refreshQuarter, working],
+    [applyProject, mayCreate, projectId, refreshQuarter, reportCharge, working],
   );
 
   const generate = useCallback(
@@ -564,10 +568,16 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 error={actionError}
                 lockedReason={lockedReason}
                 onEdit={(instruction) =>
-                  void runPaid(() => editVideoVersion(projectId, actionSource.id, instruction))
+                  void runPaid(
+                    () => editVideoVersion(projectId, actionSource.id, instruction),
+                    "영상 수정",
+                  )
                 }
                 onExtend={(seconds) =>
-                  void runPaid(() => extendVideoVersion(projectId, actionSource.id, seconds))
+                  void runPaid(
+                    () => extendVideoVersion(projectId, actionSource.id, seconds),
+                    "이어서 만들기",
+                  )
                 }
                 onCancel={() => {
                   setActionError(null);
@@ -881,7 +891,10 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
           prompt={prompt}
           mayCreate={mayCreate}
           onApply={setPrompt}
-          onCharged={() => void refreshQuarter()}
+          onCharged={(amount) => {
+            void refreshQuarter();
+            reportCharge({ chargedKrw: amount, label: "영상 · 프롬프트 도움" });
+          }}
         />
       </div>
 

@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -101,6 +101,12 @@ class User(TimestampMixin, Base):
     #: deliberately not forced here.
     terms_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    #: Profile › 알림 › 사용 알림 표시 (feat-spend-feedback): the toast,
+    #: the floating "-N원" and the milestone cards after a charge. On by
+    #: default; the balance itself always updates.
+    spend_notifications: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true(), nullable=False
     )
 
     @property

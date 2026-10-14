@@ -26,6 +26,8 @@ export interface CurrentUser {
   is_admin: boolean;
   /** Google로 만든 계정은 비밀번호가 없습니다 — 탈퇴 확인은 아이디로 합니다. */
   has_password: boolean;
+  /** Profile › 알림 › 사용 알림 표시(feat-spend-feedback). 예전 서버면 없습니다. */
+  spend_notifications?: boolean;
 }
 
 export interface SignupInput {

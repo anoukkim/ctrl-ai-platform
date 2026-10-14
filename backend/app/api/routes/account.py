@@ -6,6 +6,7 @@ not be locked behind participating in it.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -88,3 +89,34 @@ def withdraw(
         path="/",
     )
     return WithdrawalRead.of(row)
+
+
+# --------------------------------------------- preferences (spend feedback)
+
+
+class PreferencesRead(BaseModel):
+    #: Profile › 알림 › 사용 알림 표시 (feat-spend-feedback): the toast,
+    #: the floating "-N원" and the milestone cards after a charge.
+    spend_notifications: bool
+
+
+class PreferencesUpdate(BaseModel):
+    spend_notifications: bool
+
+
+@router.get("/preferences", response_model=PreferencesRead, summary="My notification settings")
+def read_preferences(user: User = Depends(get_current_user)) -> PreferencesRead:
+    return PreferencesRead(spend_notifications=user.spend_notifications)
+
+
+@router.patch("/preferences", response_model=PreferencesRead, summary="Change my notification settings")
+def update_preferences(
+    payload: PreferencesUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> PreferencesRead:
+    """Spends nothing and is the member's own screen, so it stays open to
+    a member who is not participating this quarter."""
+    user.spend_notifications = payload.spend_notifications
+    db.commit()
+    return PreferencesRead(spend_notifications=user.spend_notifications)

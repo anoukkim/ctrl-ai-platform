@@ -10,7 +10,11 @@
  * 씁니다. 분기 참여에 따른 규칙은 Phase 1b에서 붙습니다.
  */
 
+import { useState } from "react";
+
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
+import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
+import { describeError } from "@/lib/http";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import type { AccountStatus, UserRole } from "@/lib/auth";
 import { MEMBERSHIP_BADGE, MEMBERSHIP_LABEL } from "@/lib/quarters";
@@ -61,6 +65,61 @@ export function Identity() {
         </span>
       </div>
     </div>
+  );
+}
+
+/**
+ * Profile › 알림 (feat-spend-feedback) — 지갑에서 돈이 빠질 때의 알림을
+ * 켜고 끕니다. 움직임은 기기의 "움직임 줄이기" 설정을 따릅니다.
+ */
+export function NotificationSettings() {
+  const { enabled, setEnabled } = useSpendFeedback();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle() {
+    setBusy(true);
+    setError(null);
+    try {
+      await setEnabled(!enabled);
+    } catch (caught) {
+      setError(describeError(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card" aria-labelledby="profile-notifications">
+      <h2 className="section-title" id="profile-notifications">
+        알림
+      </h2>
+      <label className={styles.row} style={{ alignItems: "center", gap: "0.6rem" }}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          disabled={busy}
+          onChange={() => void toggle()}
+          data-testid="spend-notifications-toggle"
+        />
+        <span>
+          <strong>사용 알림 표시</strong>
+          <span className="small dim" style={{ display: "block" }}>
+            지원금에서 돈이 빠질 때 &ldquo;12원을 사용했어요!&rdquo; 알림과 사이드바의 &ldquo;-12원&rdquo;,
+            25·50·75% 같은 이정표를 보여 줍니다.
+          </span>
+        </span>
+      </label>
+      <p className="small dim" style={{ marginTop: "0.6rem" }}>
+        움직임 줄이기: 기기에서 &ldquo;동작 줄이기&rdquo;를 켜 두면 숫자가 세어 내려가지 않고
+        알림만 나옵니다.
+      </p>
+      {error && (
+        <p className="small" role="alert" style={{ color: "var(--error-text)" }}>
+          {error}
+        </p>
+      )}
+    </section>
   );
 }
 
