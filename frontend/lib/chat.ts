@@ -13,6 +13,7 @@
  * 스트림이 아니라 보통의 오류 응답으로 옵니다.
  */
 
+import type { ChatAttachment } from "./chat-files";
 import { API_BASE_URL, ApiError } from "./api";
 import { request } from "./http";
 
@@ -57,6 +58,8 @@ export interface ChatMessage {
   receipt?: ReplyReceipt | null;
   /** 웹 검색이 인용한 출처(chat-plus-tools). 도구를 안 썼으면 null. */
   sources?: ReplySource[] | null;
+  /** 이 메시지에 붙인 파일(chat-plus-files). 바이트가 아니라 정보만. */
+  attachments?: ChatAttachment[];
   created_at: string;
 }
 
@@ -291,6 +294,8 @@ export async function sendMessage(
   content: string,
   handlers: StreamHandlers,
   signal: AbortSignal,
+  /** 이 대화에 올려 두고 아직 보내지 않은 파일(chat-plus-files). */
+  attachmentIds: number[] = [],
 ): Promise<StreamOutcome> {
   let response: Response;
   try {
@@ -299,7 +304,9 @@ export async function sendMessage(
       signal,
       cache: "no-store",
       headers: { Accept: "text/event-stream", "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(
+        attachmentIds.length > 0 ? { content, attachment_ids: attachmentIds } : { content },
+      ),
     });
   } catch (error) {
     if (signal.aborted) return { kind: "stopped" };

@@ -498,3 +498,55 @@ def test_an_upload_a_page_could_send_without_a_preflight_is_refused(
     )
     assert response.status_code == 415
     assert db_session.query(ChatAttachment).count() == 0
+
+
+def test_the_real_adapter_sends_the_files_as_base64_blocks_before_the_text(
+    client: TestClient, conversation: int, db_session: Session, storage_settings, monkeypatch
+) -> None:
+    """The request the real Anthropic API would get (documented shape:
+    `image` / `document` blocks with a base64 or text `source`, placed
+    before the text) — through a fake transport; nothing leaves the
+    machine (chat-plus-files)."""
+    import httpx2 as httpx
+
+    from app.api.routes import chat as chat_route
+    from app.services.claude_provider import AnthropicClaudeProvider
+    from tests.test_chat import FakeAnthropic
+
+    ids = [
+        upload(client, conversation, "photo.png", png()).json()["attachment"]["id"],
+        upload(client, conversation, "report.pdf", pdf(1)).json()["attachment"]["id"],
+        upload(client, conversation, "scores.csv", CSV_TEXT.encode()).json()["attachment"]["id"],
+    ]
+    real = storage_settings.model_copy(
+        update={
+            "claude_provider": "anthropic",
+            "anthropic_api_key": "test-not-a-real-key",
+            "anthropic_model": "claude-sonnet-5-5",
+        }
+    )
+    app.dependency_overrides[get_settings] = lambda: real
+    fake = FakeAnthropic()
+    monkeypatch.setattr(
+        chat_route,
+        "get_claude_provider",
+        lambda _s: AnthropicClaudeProvider(
+            real, async_http_client=httpx.AsyncClient(transport=httpx.MockTransport(fake.handler))
+        ),
+    )
+    assert send(client, conversation, "세 파일을 비교해 줘", ids).status_code == 200
+
+    body = json.loads(fake.requests[0].content)
+    blocks = body["messages"][-1]["content"]
+    assert [block["type"] for block in blocks] == ["image", "document", "document", "text"]
+    image, pdf_block, csv_block, text = blocks
+    assert image["source"]["type"] == "base64" and image["source"]["media_type"].startswith("image/")
+    assert pdf_block["source"] == {
+        "type": "base64", "media_type": "application/pdf", "data": pdf_block["source"]["data"]
+    }
+    assert base64.b64decode(pdf_block["source"]["data"])[:5] == b"%PDF-"
+    assert csv_block["source"]["type"] == "text" and "이름" in csv_block["source"]["data"]
+    assert text == {"type": "text", "text": "세 파일을 비교해 줘"}
+    assert "file_id" not in fake.requests[0].content.decode()
+    # The usage the API reported is what was charged.
+    assert db_session.query(UsageEvent).count() == 1

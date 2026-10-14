@@ -232,6 +232,21 @@ Chat is the opening screen and a real conversation with Claude, behind
   so it does not go to Deleted Items — but the money it spent stays in Usage.
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
+- **Files** (chat-plus-files): 📎 or drag-and-drop attaches up to 5 files
+  to a message — JPEG/PNG/WebP/GIF (10 MB; re-encoded to a 1,568 px long
+  edge with EXIF/GPS removed), PDF (10 MB, 30 pages, not encrypted), CSV
+  and TXT/MD (1 MB; UTF-8, else CP949). The type is judged by the bytes,
+  never the extension; anything over a limit is refused in Korean, never
+  truncated. Before sending, the composer shows "첨부 포함 답장 1회 약
+  N원" and "이 대화에서 이어지는 답장마다 약 M원씩 더 듭니다" (files are
+  resent with each reply; caching keeps that cheap) and says files go to
+  Anthropic and stay until the conversation is deleted. Sent messages show
+  image thumbnails and download chips for the rest; a member who is not
+  participating can still download their own files. 200 MB per member,
+  5 GB per server (Admin › Dashboard › System shows the figure). Deleting
+  the conversation — or anonymising a withdrawn member — deletes the
+  bytes. Sent to Claude as base64 `image` / `document` blocks, never as
+  Files API ids (workspace-wide).
 - **Replies render Markdown** (chat-plus-rendering): headings, lists, bold,
   links, tables and code blocks, through `react-markdown` + `remark-gfm`
   (`ChatMarkdown`). No raw HTML — a tag in a reply shows as text; links

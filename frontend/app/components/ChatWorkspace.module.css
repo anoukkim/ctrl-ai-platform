@@ -884,3 +884,132 @@
     white-space: normal;
   }
 }
+
+/* ---------- 첨부 파일 (chat-plus-files) ---------- */
+
+.composerDragging .composer {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.attach {
+  flex: none;
+  align-self: flex-end;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.attach:hover:not(:disabled),
+.attach:focus-visible {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.attach:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fileTray {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.fileChips,
+.messageFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.messageFiles {
+  margin: 0.25rem 0 0.35rem;
+}
+
+.rowUser .messageFiles {
+  justify-content: flex-end;
+}
+
+.fileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: var(--fs-meta);
+  text-decoration: none;
+}
+
+a.fileChip:hover {
+  border-color: var(--accent);
+}
+
+.fileUploading {
+  opacity: 0.7;
+}
+
+.fileName {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fileRemove {
+  min-width: 22px;
+  min-height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.fileRemove:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.fileEstimate {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.filePrivacy {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.messageThumb {
+  display: block;
+  max-width: min(14rem, 60vw);
+  max-height: 10rem;
+  width: auto;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}

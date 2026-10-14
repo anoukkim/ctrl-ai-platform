@@ -49,6 +49,9 @@ export interface AdminDashboard {
   /** 실제 연결로 설정된 제공자 가운데 마지막 호출이 실패한 것들의 이름.
    *  비어 있으면 대시보드에 경고 카드를 띄우지 않습니다. */
   failing_providers: string[];
+  /** 서버 디스크의 채팅 첨부 파일과, 올리기를 멈추는 한도(chat-plus-files). */
+  attachment_bytes?: number;
+  attachment_limit_bytes?: number;
 }
 
 export interface MemberQuarterHistory {
