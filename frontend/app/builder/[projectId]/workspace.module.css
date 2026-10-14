@@ -387,7 +387,9 @@
   line-height: 1.55;
 }
 
-.starterIdea {
+/* Compound with the global `.field` so this wins whatever order the
+   stylesheets load in. */
+.starterIdea:global(.field) {
   width: 100%;
   resize: vertical;
 }

@@ -558,7 +558,9 @@
   flex: none;
 }
 
-.createInput {
+/* Compound with the global `.field` so this wins whatever order the
+   stylesheets load in. */
+.createInput:global(.field) {
   flex: 1 1 14rem;
   min-width: 0;
 }
