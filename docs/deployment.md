@@ -414,6 +414,12 @@ crontab -e
 
 **3. 오류 알림** (서버 쪽은 이미 들어 있습니다 — cron 한 줄과 콘솔 설정)
 
+먼저 VM이 로그를 쓸 수 있게 **역할 하나**를 줍니다(2026-10-14에 확인: 권한
+범위는 있지만 IAM 역할이 없어 `IAM_PERMISSION_DENIED`가 났습니다). 콘솔 ›
+IAM 및 관리자 › IAM › **액세스 권한 부여**: 주 구성원
+`1051698999469-compute@developer.gserviceaccount.com` (VM의 기본 서비스
+계정), 역할 **로그 작성자(Logs Writer)** → 저장. 비용은 없습니다.
+
 서버에서(`ctrlai_platform`으로):
 
 ```bash
