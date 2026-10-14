@@ -4,6 +4,7 @@ Mock Claude and a fake transport only — nothing reaches Anthropic.
 """
 
 import json
+from decimal import Decimal
 
 import httpx2 as httpx
 import pytest
@@ -172,15 +173,22 @@ class FakeMessages:
     def __init__(self, stop_reason: str = "end_turn") -> None:
         self.stop_reason = stop_reason
         self.requests: list[httpx.Request] = []
+        self.status = 200
+        self.files = [
+            {"path": "index.html", "content": "<!doctype html><title>할 일</title>"},
+            {"path": "app.js", "content": "console.log('안녕')"},
+        ]
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        if self.status != 200:
+            return httpx.Response(
+                self.status,
+                json={"type": "error", "error": {"type": "api_error", "message": "boom"}},
+            )
         payload = {
             "summary": "할 일 앱의 첫 버전이에요. 다음엔 날짜를 붙여 달라고 해 보세요.",
-            "files": [
-                {"path": "index.html", "content": "<!doctype html><title>할 일</title>"},
-                {"path": "app.js", "content": "console.log('안녕')"},
-            ],
+            "files": self.files,
         }
         return httpx.Response(
             200,
@@ -229,11 +237,49 @@ def test_the_real_adapter_asks_for_structured_files_and_charges_the_tokens(
     assert (event.input_tokens, event.output_tokens) == (900, 2_000)
 
 
-def test_a_cut_off_app_is_not_stored_and_not_charged(
-    client: TestClient, db_session: Session, project, budgeted, real_claude
+def _absorbed_only(db_session: Session, budgeted) -> UsageEvent:
+    """Nothing charged to the member; the club's cost recorded once."""
+    event = db_session.query(UsageEvent).one()
+    assert event.charged_krw == 0 and event.club_absorbed is True
+    # 900 input × $2 + 2,000 output × $10, per million tokens (Sonnet 5.5).
+    assert event.provider_cost == Decimal("0.021800")
+    assert event.input_cost_usd + event.output_cost_usd == event.provider_cost
+    db_session.refresh(budgeted)
+    assert budgeted.consumed_krw == 0
+    return event
+
+
+@pytest.mark.parametrize("stop_reason", ["max_tokens", "refusal"])
+def test_a_cut_off_or_refused_app_is_not_stored_or_charged_but_the_club_cost_is_recorded(
+    client: TestClient, db_session: Session, project, budgeted, real_claude, stop_reason
 ) -> None:
-    real_claude.stop_reason = "max_tokens"
+    """cost-clarity audit: the provider billed it, so Admin › Budget must see it."""
+    real_claude.stop_reason = stop_reason
 
     assert starter(client, project).status_code == 503
     assert db_session.query(BuilderProjectFile).count() == 0
+    _absorbed_only(db_session, budgeted)
+    # Not a charge on the member's own Usage screen.
+    assert client.get("/api/usage/me").json()["events"] == []
+
+
+def test_unusable_files_are_not_stored_or_charged_but_the_club_cost_is_recorded(
+    client: TestClient, db_session: Session, project, budgeted, real_claude
+) -> None:
+    real_claude.files = [{"path": "server.py", "content": "print('no')"}]
+
+    # The route answers a StarterError after the call with 502 (an answer
+    # Claude gave that we cannot use), as it did before cost-clarity.
+    assert starter(client, project).status_code == 502
+    assert db_session.query(BuilderProjectFile).count() == 0
+    _absorbed_only(db_session, budgeted)
+
+
+def test_a_provider_error_records_nothing(
+    client: TestClient, db_session: Session, project, budgeted, real_claude
+) -> None:
+    """A call the provider refused cost nothing: no absorbed row either."""
+    real_claude.status = 500
+
+    assert starter(client, project).status_code == 503
     assert db_session.query(UsageEvent).count() == 0

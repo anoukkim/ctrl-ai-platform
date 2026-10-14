@@ -706,20 +706,30 @@ def prompt_help(
             raise
         finally:
             provider_limiter.release()
+        # Every input kind the provider reported is priced — the helper
+        # sends no cache marker today, but if the API ever reports cache
+        # tokens they must be charged, not dropped (cost-clarity audit).
+        tokens = (
+            answer.input_tokens,
+            answer.output_tokens,
+            answer.cache_write_tokens,
+            answer.cache_read_tokens,
+        )
         result = usage_service.charge(
             db,
             user=user,
-            amount_krw=price.krw(answer.input_tokens, answer.output_tokens),
+            amount_krw=price.krw(*tokens),
             provider="claude",
             feature=UsageFeature.VIDEO_PROMPT.value,
             model_id=model.model_id,
-            provider_units=answer.input_tokens + answer.output_tokens,
+            provider_units=sum(tokens),
             provider_unit="tokens",
-            provider_cost=price.usd(answer.input_tokens, answer.output_tokens).quantize(
-                Decimal("0.000001")
-            ),
+            provider_cost=price.usd(*tokens).quantize(Decimal("0.000001")),
             input_tokens=answer.input_tokens,
             output_tokens=answer.output_tokens,
+            cache_write_tokens=answer.cache_write_tokens or None,
+            cache_read_tokens=answer.cache_read_tokens or None,
+            cost=price.split(*tokens),
             exchange_rate_krw=price.usd_krw,
             video_project_id=project.id,
             commit=False,

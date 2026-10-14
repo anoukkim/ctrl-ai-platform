@@ -93,6 +93,13 @@ class AuditAction:
     # `CLAUDE_PRICE_UPDATED` above stays for the rows written before it.
     CHAT_MODEL_CREATED = "chat_model.created"
     CHAT_MODEL_UPDATED = "chat_model.updated"
+    # The operator's password reset from the server shell (set_password).
+    PASSWORD_SET_CLI = "account.password_set_cli"
+    # cost-clarity: the club's credit purchases (append-only), closing a
+    # quarter, and last quarter's unspent wallet carried into the next.
+    CREDIT_PURCHASE_RECORDED = "credit.purchase_recorded"
+    QUARTER_CLOSED = "quarter.closed"
+    ALLOCATION_CARRIED_OVER = "allocation.carried_over"
 
 
 #: What each action is called on the Admin screen.
@@ -129,6 +136,10 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.PASSWORD_REMOVED: "비밀번호 로그인 삭제",
     AuditAction.CHAT_MODEL_CREATED: "AI 모델 추가",
     AuditAction.CHAT_MODEL_UPDATED: "AI 모델 변경",
+    AuditAction.PASSWORD_SET_CLI: "서버에서 비밀번호 재설정",
+    AuditAction.CREDIT_PURCHASE_RECORDED: "크레딧 구매 기록",
+    AuditAction.QUARTER_CLOSED: "분기 마감",
+    AuditAction.ALLOCATION_CARRIED_OVER: "지원금 이월",
 }
 
 

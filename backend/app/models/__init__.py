@@ -5,6 +5,7 @@ Alembic's autogenerate and the test fixtures read. A model that is not
 imported here is invisible to both.
 """
 
+from app.models.accounting import AdjustmentKind, CreditPurchase, WalletAdjustment
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
 from app.models.connected_account import ConnectedAccount, OAuthState, PendingGoogleSignup
 from app.models.chat import ChatAction, ChatMessage, ChatMessageStatus, ChatRole, Conversation
@@ -47,6 +48,9 @@ from app.models.withdrawal import (
 )
 
 __all__ = [
+    "AdjustmentKind",
+    "CreditPurchase",
+    "WalletAdjustment",
     "ChatAction",
     "ChatMessage",
     "ChatMessageStatus",

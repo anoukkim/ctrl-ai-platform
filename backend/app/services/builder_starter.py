@@ -170,11 +170,21 @@ def create_starter(
     except Exception as error:
         if isinstance(error, ClaudeError):
             providers.record_failure(db, "claude", error.kind, error.detail)
+            _record_absorbed(db, user, project, model.model_id, price, error.usage)
             db.commit()
         raise
     finally:
         provider_limiter.release()
-    files = check_files(app.files)
+    try:
+        files = check_files(app.files)
+    except StarterError:
+        # The provider was paid for files we cannot use: the member is not
+        # charged, the club's cost is still recorded (cost-clarity).
+        _record_absorbed(
+            db, user, project, model.model_id, price, (app.input_tokens, app.output_tokens)
+        )
+        db.commit()
+        raise
 
     amount = price.krw(app.input_tokens, app.output_tokens)
     result = usage_service.charge(
@@ -190,6 +200,7 @@ def create_starter(
         input_tokens=app.input_tokens,
         output_tokens=app.output_tokens,
         exchange_rate_krw=price.usd_krw,
+        cost=price.split(app.input_tokens, app.output_tokens),
         builder_project_id=project.id,
         commit=False,
         cap_to_available=True,
@@ -204,3 +215,34 @@ def create_starter(
     for row in rows:
         db.refresh(row)
     return StarterResult(files=rows, summary=app.summary, charged_krw=result.event.charged_krw)
+
+
+def _record_absorbed(
+    db: Session,
+    user: User,
+    project: BuilderProject,
+    model_id: str,
+    price: pricing.Price,
+    usage: tuple[int, int] | None,
+) -> None:
+    """The club's cost of a generation nobody is charged for (cost-clarity).
+
+    Only when the provider reported usage — a call refused before it ran
+    (network, 529, our own limiter) cost nothing and records nothing.
+    """
+    if not usage or not any(usage):
+        return
+    input_tokens, output_tokens = usage
+    usage_service.record_absorbed(
+        db,
+        user=user,
+        provider="claude",
+        feature=UsageFeature.BUILD.value,
+        model_id=model_id,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost=price.split(input_tokens, output_tokens),
+        exchange_rate_krw=price.usd_krw,
+        builder_project_id=project.id,
+        commit=False,
+    )
