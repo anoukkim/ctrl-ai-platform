@@ -18,16 +18,23 @@ authority on order** — each item in **Next** names its milestone.
 
 ## Now
 
-**Morning batch of 2026-10-14 in progress** — the owner's five decisions
-(merge pre-approved under the same loop; the run log is the board):
-(1) per-reply cap 200원, web fetch 1×10,000 tokens, both admin-editable;
-(2) Sonnet cache-read over-charge not compensated (mock/dev data only);
-(3) `docs-cleanup` approved — this branch; (4) continue Next in order,
-starting privacy-and-terms (**운영진 검토 필요** before members are
-invited); (5) deploy per PART E after (3) and again after
-privacy-and-terms. The overnight batch of 2026-10-14 is **complete** —
-nine merges, eight deployed (`c4be799`), PART F "deploy next";
-[`progress/RUN-2026-10-13.md`](progress/RUN-2026-10-13.md).
+**Run of 2026-10-14 (evening) — "RUN-2026-10-14b"** — the owner's batch
+after the morning deploys, with merge **and deploy** pre-approved one item
+at a time for exactly the items numbered 1–9 in **Next** below, plus the
+`set_password` CLI and the `signup-google-first` backlog entry
+(CLAUDE.md §12, "written owner instruction"). Everything after item 9:
+branch, test, report, WAIT. The board is
+[`progress/RUN-2026-10-14b.md`](progress/RUN-2026-10-14b.md).
+
+Owner answers recorded with this run (2026-10-14): the Google `.env`
+change on the server was the owner's; no re-consent for existing accounts
+(the only production account is the admin); sign-up stays as deployed for
+the beta (`signup-google-first` is specced under *After the beta*);
+members who forget a password ask the operator, who runs
+`python -m app.db.set_password <아이디>` on the server
+(`docs/deployment.md` §12); GitHub Pages, DNS and the sidebar footer are
+the owner's, not this run's; **member apps are served from
+`apps.ctrlai.my`** — no separate domain (CLAUDE.md §2).
 
 **Money wording in older notes.** Since `single-wallet` (2026-10-08)
 every paid feature spends from one 동아리 지원 wallet per member per
@@ -59,62 +66,65 @@ run after the real key goes into the server `.env`.
 **The numbered list below is the authority on order** — numbers written
 inside spec sections are snapshots and go stale at every reorder. The
 reorder history up to 2026-10-13 is archived in
-[`archive/done-specs.md`](archive/done-specs.md#queue-history--how-next-was-reordered-2026-10-01--2026-10-13);
-privacy-and-terms, offsite-backups and monitoring were put at the top by
-the owner on 2026-10-14.
+[`archive/done-specs.md`](archive/done-specs.md#queue-history--how-next-was-reordered-2026-10-01--2026-10-13).
+**Reordered by the owner on 2026-10-14 (evening)**: money clarity first,
+then the three Chat items, then the Builder runtime and the first slice
+of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
+are pre-approved to merge and deploy one at a time (see **Now**).
 
-Earlier: the developer's order of 2026-10-07 (`docs-chat-plus`) put Chat
-first — the beta's one real feature — so the `chat-plus-*` items come
-before the post-beta work, which is specced under **After the beta**.
+1. **cost-clarity** · M1/M4 · branch `feat-cost-clarity`
+   Was `club-accounting`, plus caching made visible. An accuracy audit of
+   every charge path first, then: a per-reply receipt split (입력 / 캐시
+   쓰기 / 캐시 읽기 / 출력 / 도구 / 합계, 캐시로 아낀 금액), Usage per
+   conversation and per day, Admin › Budget club credit per provider
+   (purchase records, use, estimated remaining), 지급 vs 사용, a caching
+   panel, a per-member table, audited wallet adjustments, quarter close
+   with carry-over, CSV exports, optional reconciliation against
+   Anthropic's cost report (mock by default). Spec below.
 
-1. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
-   Added by the owner on 2026-10-14. The daily `pg_dump` also copied to
-   a Cloud Storage bucket in `asia-northeast3` with a 30-day lifecycle;
-   a monthly restore test in `docs/deployment.md`. The owner creates the
-   bucket — the item lists the console steps. Spec below.
+2. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
+   Images, PDF, CSV and text attached to a message. Spec below.
 
-2. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
-   Added by the owner on 2026-10-14. An uptime check on
-   https://ctrlai.my and error alerts to the club's email, the cheapest
-   option; the owner does the console steps. Spec below.
+3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+   HTML, SVG and chart previews in a sandboxed iframe. Spec below.
 
-3. **chat-plus-files** · M1 · branch `feat-chat-plus-files`
-   Images, PDF, CSV and text attached to a message through the storage
-   interface, with limits, an estimated cost before sending and Korean
-   errors. Spec below.
+4. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+   생각 과정 보기, per conversation, off by default, cost shown first.
+   Spec below.
 
-4. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
-   HTML, SVG and chart previews in a sandboxed iframe (srcdoc,
-   `allow-scripts` only, no same-origin, no network), with 코드 보기,
-   다운로드 and Builder로 보내기. Spec below.
+5. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
+   Both halves: Claude writes and edits project files with restorable
+   versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
+   volume. **Moved into Next by the owner on 2026-10-14**, on
+   `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
 
-5. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
-   Added by the owner on 2026-10-13, revised the same day and again on
-   2026-10-14 (admin-and-nav-cleanup): **no menu item and no `/issues`**
-   — the member board is a page of its own, reached from a "다른 의견
-   보기" link inside the 의견 보내기 dialog. Members write notes there
-   and read every public note with no names; Admin can hide a note,
-   export notes as Markdown ("Claude용으로 내보내기"), and send chosen
-   public notes to GitHub as issues that Claude groups and drafts
-   ("GitHub로 보내기", `FEEDBACK_ISSUES_PROVIDER=mock|github`, never
-   automatic). **Depends on:** `prep-beta-launch` and
-   `invite-only-signup` (both merged). Spec below, with the owner's
-   revisions.
+6. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+   The first slice of Phase 5: 게시 from a Builder project to a
+   CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
+   every mock listing removed. Spec below.
 
-6. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
-   Added by the owner on 2026-10-13. A per-conversation toggle 생각 과정
-   보기: Claude's summarized thinking as numbered steps under the reply,
-   off by default, with its cost shown before it is turned on. **Depends
-   on:** `chat-model-choice` and `cost-calibration` (merged), and
-   `live-cost-display` (the receipt shows the thinking part). Spec below.
+7. **example-apps** · M3 · branch `feat-example-apps`
+   Three small Korean static example apps under `examples/apps/`, and a
+   server-only CLI that imports and publishes them for the admin. Spec
+   below.
 
-7. **builder-python** · M2 · branch `feat-builder-python`
-   Added by the owner on 2026-10-13. Small Python apps from Project
-   Builder, with a working example, running **in the visitor's browser
-   only** through Pyodide. **Depends on:** `chat-builder-starter`
-   (merged) and **`builder-static-runtime`** (M2, *After the beta*):
-   Pyodide cannot load inside today's network-blocked `srcdoc` preview,
-   so this cannot start before that item's Half 2. Spec below.
+8. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+   The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
+   creates the bucket from the console steps. Spec below.
+
+9. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+   Uptime check and error alerts; the owner does the console steps. Spec
+   below.
+
+10. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+    *Not pre-approved — branch, test, report, WAIT.* No menu item and no
+    `/issues`; the board is reached from "다른 의견 보기" inside the 의견
+    보내기 dialog. Spec below, with the owner's revisions.
+
+11. **builder-python** · M2 · branch `feat-builder-python`
+    *Not pre-approved — branch, test, report, WAIT.* Python apps running
+    in the visitor's browser through Pyodide, on the static runtime of
+    item 5. Spec below.
 
 ---
 
@@ -126,9 +136,12 @@ shipped**, and each has a milestone in [`ROADMAP.md`](ROADMAP.md). Full
 specs are at the end of this file; the research behind them is in
 [`research/chat-plus-research.md`](research/chat-plus-research.md).
 
-- **builder-static-runtime** · M2 — Phase 3's generation (Claude writes
-  the project's files) plus static member apps served from a separate,
-  sandboxed origin. Absorbs the Builder MVP [3].
+- **signup-google-first** · M3 — sign-up through Google only; the setup
+  screen asks for invite code, username, display name, password and its
+  confirmation, so every member has both sign-in methods; "비밀번호를
+  잊었어요" becomes Google sign-in → set a new password within 10 minutes.
+  Added by the owner on 2026-10-14. **Spec only — the beta keeps sign-up
+  as deployed.** Spec below.
 - **image-generation** · M2 — raster images through an
   `ImageGenerationProvider` (mock first; Gemini image models the first
   real candidate). Waits on the budget-by-provider decision.
@@ -584,6 +597,77 @@ preview runs in the member's own browser, in a frame with no origin.
 
 → **ui-apps-detail — full spec** moved to [`archive/done-specs.md`](archive/done-specs.md#ui-apps-detail--full-spec).
 
+## cost-clarity — full spec
+
+Branch `feat-cost-clarity`. M1/M4. Added by the owner on 2026-10-14
+(evening) as item 1 — "was club-accounting, plus caching made visible".
+Goal, in the owner's words: *I (owner) and every member can see exactly
+where money went, including what caching saved.* Saved as written:
+
+> a) Accuracy audit first: every charge path through usage.charge(); per-event round-up; provider_cost vs charged_krw; cache write/read prices per model (incl. Haiku 4.5's 4,096-token minimum — a prompt below it is never billed as a cache read); web search/fetch/code-execution costs; failed/cut-off calls. Findings → docs/progress/audit-accounting.md; fix real bugs with tests.
+> b) Members — receipt under each reply: 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계, plus "캐시로 아낀 금액 약 N원" (what the cached part would have cost uncached). A ⓘ explaining caching in two plain Korean sentences. Usage page: per-conversation and per-day totals with the same split, and "이번 분기 캐시로 아낀 금액".
+> c) Admin › Budget:
+>    - 동아리 크레딧 card per provider (Anthropic first): 구매 기록 (date, USD, KRW actually paid, memo; append-only + audit), 사용 (USD provider_cost and KRW), 남은 크레딧 (추정, "Anthropic 콘솔이 최종 기준").
+>    - 지급 vs 사용: wallets granted this quarter, charged_krw total, unspent.
+>    - Caching panel: per model per day — cache hit rate, tokens read/written, KRW saved.
+>    - Per-member table: granted, spent by 채팅/빌더/영상/기타, cache saved.
+> d) Admin › Members: adjust one member's current wallet (+/− KRW, required reason) as an audited adjustment row, never an overwrite.
+> e) Quarter close: "분기 마감" → wallets frozen, unspent shown per member as 회수; per-quarter carry-over % (default 0) applied at next approval. Audited; nothing deleted.
+> f) CSV exports (UTF-8 with BOM): per-member per-quarter, per-day, purchases, caching.
+> g) Optional reconciliation: ANTHROPIC_ADMIN_API_KEY (in .env.example, empty, never required) + ANTHROPIC_ADMIN_PROVIDER=mock (default) → button compares our provider_cost to Anthropic's cost_report for a date range. Mock only in tests.
+> h) docs/api-distribution.md: Korean section "비용 확인하는 법" (owner) and a short member-facing explanation reused in the ⓘ.
+
+**Relation to budget-by-provider** (*After the prototype*): this item
+delivers its purchase records and the per-provider balance; pools, the
+reserve and purchase planning stay there, still waiting on the owner.
+
+## ctrlaiapps-publish — full spec
+
+Branch `feat-ctrlaiapps-publish`. M3 — the first slice of Phase 5. Added
+by the owner on 2026-10-14. Saved as written:
+
+> - 게시 from a Builder project → a CtrlAIApps listing (title, Korean description, thumbnail/screenshot optional, author display name) opening apps.ctrlai.my/<slug>/. 게시 취소 by owner; admin can unpublish (audited).
+> - REMOVE all mock/sample listings from CtrlAIApps (frontend and backend). An empty store shows a friendly Korean empty state.
+> - Every listing query filters deleted_at (CLAUDE.md §10). Report button on a listing → admin sees it.
+> - Report which other screens still show mock data (e.g. CtrlAITube) — list only, do not remove.
+
+**Depends on:** `builder-static-runtime` (the served origin).
+
+## example-apps — full spec
+
+Branch `feat-example-apps`. M3. Added by the owner on 2026-10-14. Saved
+as written:
+
+> - Write 3 small, polished Korean static example apps yourself as files under examples/apps/ (e.g. 동아리 출석 체크, 오늘의 할 일 + 타이머, 간단한 퀴즈 게임). Plain HTML/CSS/JS, no external network, within the size caps, mobile-friendly.
+> - A server-only CLI: python -m app.db.import_example_apps <admin username> → creates Builder projects owned by that user from those files and publishes them (idempotent; second run changes nothing; audited). No API call, no wallet charge.
+> - Give me the exact docker compose command to run it on the server.
+
+**Depends on:** `builder-static-runtime` and `ctrlaiapps-publish`.
+
+## signup-google-first — full spec
+
+After the beta · M3 · branch `feat-signup-google-first`. Added by the
+owner on 2026-10-14. **Spec only: sign-up stays as deployed for the beta**
+(Google, or invite code + username + email + password). Saved as written:
+
+> sign-up through Google only, setup screen requires invite code + username + display name + password + confirm; every member has both methods; "forgot password" = Google sign-in → set new password within 10 minutes.
+
+Notes for whoever builds it:
+
+- **Linking stays by Google's `sub`** (CLAUDE.md §5), never by email; the
+  setup screen is the one `google-login` already shows after a first
+  Google sign-in, with the password and confirmation added.
+- **"Within 10 minutes"** means a short-lived, single-use grant created
+  by a fresh Google sign-in (a row with an expiry, not a cookie flag),
+  consumed by the set-password form; the existing password-change rules
+  (Argon2id, attempt limiter, sessions ended) apply.
+- **Existing username/password-only accounts** keep signing in as today
+  and are asked to link Google from Profile; nothing is migrated.
+- The operator's `set_password` CLI stays as the fallback for a member
+  without access to their Google account.
+- Update the terms' §3 sentence ("비밀번호를 잊으면 운영진에게 알려
+  주세요") when this ships.
+
 ## budget-by-provider — full spec
 
 Branch `feat-budget-by-provider`. **Rewritten on 2026-10-08 for
@@ -1016,16 +1100,18 @@ Sonnet) is shown before the member presses 만들기.
 CtrlAIApps launch button serve a project's files from **a separate
 origin**:
 
-- **A separate registrable domain, not `apps.ctrlai.my`.** A subdomain
-  is *same-site* with `ctrlai.my`: `SameSite` cookies are sent on
-  requests from it, and a cookie set with `Domain=ctrlai.my` would reach
-  it. A different domain (in the manner of `googleusercontent.com`, e.g.
-  `ctrlai-apps.net`) makes member apps cross-site to CTRL+AI. ⚠ **Buying
-  it costs money — ask the owner first.** If the owner prefers
-  `apps.ctrlai.my` anyway, the conditions are: CTRL+AI's session cookie
-  stays host-only (no `Domain` attribute), and every state-changing route
-  keeps requiring a JSON body, which a cross-origin page cannot send
-  without a CORS preflight the API refuses.
+- **Origin: `apps.ctrlai.my` — owner decision 2026-10-14** (CLAUDE.md
+  §2; no separate domain is bought). The spec had recommended a separate
+  registrable domain, because a subdomain is *same-site* with
+  `ctrlai.my`: `SameSite` cookies are sent on requests from it, and a
+  cookie set with `Domain=ctrlai.my` would reach it. The owner chose
+  `apps.ctrlai.my` with the spec's stated conditions, each now a test:
+  CTRL+AI's session cookie stays **host-only** (no `Domain` attribute);
+  every state-changing route requires a **JSON body**, which a
+  cross-origin page cannot send without a CORS preflight; and the API
+  **refuses CORS** from `apps.ctrlai.my`. The Gabia A record
+  `apps.ctrlai.my → 34.47.78.228` is the owner's; if it does not resolve
+  yet at deploy time, the main site must be unaffected.
 - **One path per app** to start (`/<app-slug>/`), served by Caddy from a
   read-only volume the backend writes when the member presses 미리보기
   갱신 or 게시. Apps share that origin, so one app can read another's
@@ -1046,8 +1132,8 @@ origin**:
 - **Storage:** 2 MB per project; all apps together ≤ 2 GB of the VM disk
   (a setting), checked before writing.
 
-**Charged:** the wallet for generation (tokens). Hosting costs nothing per app;
-the separate domain is a yearly cost for the club.
+**Charged:** the wallet for generation (tokens). Hosting costs nothing per app
+(`apps.ctrlai.my` is a subdomain of the club's existing domain).
 
 **Tests:** generated files land as `BuilderProjectFile` rows within the
 limits; a server-side file type is refused; the static origin's responses

@@ -30,10 +30,11 @@ chat, everything else labelled test mode.
 ✅ chat-plus-rendering · ✅ member-password-login ·
 ✅ admin-and-nav-cleanup (2026-10-14: Report Issue and Dev Tools gone,
 AI Models by provider) · ✅ fix-beta-blockers · ✅ personal-topup-off ·
-⬜ privacy-and-terms (owner reviews the text) · ⬜ offsite-backups 💳 ·
-⬜ monitoring 💳 · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
-⬜ anonymous-feedback-board · ⬜ token-guard · ⬜ live-cost-display ·
-⬜ chat-thinking-view · ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
+✅ privacy-and-terms (owner reviews the text) · ✅ token-guard ·
+✅ live-cost-display · ✅ chat-plus-tools · ⬜ cost-clarity (2026-10-14
+evening, first in Next) · ⬜ chat-plus-files · ⬜ chat-plus-artifacts ·
+⬜ chat-thinking-view · ⬜ offsite-backups 💳 · ⬜ monitoring 💳 ·
+⬜ anonymous-feedback-board · ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
 `ctrlai-server`, e2-medium in Seoul, on mock providers).
 The three `chat-plus-*` items joined on 2026-10-07: members have never
 used Claude, so Chat shows what it can do — tables, files, previews —
@@ -44,14 +45,16 @@ Draft / 게시됨 status).
 **M2 Real creation** — members make real videos and real projects.
 ⬜ real Higgsfield adapter [6] · ⬜ builder-python (after builder-static-runtime) ·
 ⬜ builder-static-runtime (the Builder
-MVP [3] plus static member apps on a separate, sandboxed origin) ·
+MVP [3] plus static member apps on `apps.ctrlai.my` — owner decision
+2026-10-14; in Next) ·
 ⬜ chat-plus-tools (web search, web fetch, code execution in Chat —
 **moved into Next on 2026-10-14**, mock tools only, after token-guard and
 live-cost-display) ·
 ⬜ image-generation (waits on the budget-by-provider decision).
 
 **M3 Sharing** — work leaves CTRL+AI and comes back as community posts.
-⬜ GitHub [4] · ⬜ CtrlAIApps [5] · ⬜ YouTube [7] · ⬜ CtrlAITube [8] ·
+⬜ GitHub [4] · ⬜ CtrlAIApps [5] (first slice: ctrlaiapps-publish and
+example-apps, in Next) · ⬜ signup-google-first (after the beta) · ⬜ YouTube [7] · ⬜ CtrlAITube [8] ·
 ⬜ more-chat-providers (optional; Gemini, Grok, DeepSeek or an aggregator —
 decided with budget-by-provider; `deepseek-research` reports on DeepSeek).
 

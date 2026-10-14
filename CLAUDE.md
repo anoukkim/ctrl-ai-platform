@@ -66,6 +66,7 @@ No longer up for debate:
 | Sign-in | **Google or username/password — both, for everyone** (owner, 2026-10-14, `member-password-login`). See section 5. |
 | Feedback | **No menu item** (`admin-and-nav-cleanup`, 2026-10-14). The 의견 보내기 button in the sidebar footer is the one way a member sends a note; `/issues` is gone (redirects to Chat). |
 | Club name | **CTRL+AI**, shown wherever a member reads the name. Product names and routes are unchanged. |
+| Member apps origin | **`apps.ctrlai.my`** (owner, 2026-10-14, `builder-static-runtime`) — no separate domain is bought. Because a subdomain is same-site with `ctrlai.my`, three conditions are standing rules, each held by a test: CTRL+AI's session cookie stays **host-only** (no `Domain` attribute); every state-changing API route requires a **JSON body**; the API answers **no CORS** to `apps.ctrlai.my` (or any origin). |
 
 # 3. Navigation
 

@@ -431,4 +431,25 @@ describe("중지·끊김 뒤의 정산", () => {
     expect(chatApi.getConversation).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("receipt").textContent).toContain("합계 2원");
   });
+  test("화면을 떠나면 남은 정산 조회는 취소된다", async () => {
+    vi.useFakeTimers();
+    chatApi.sendMessage.mockImplementation(
+      async (_id: number, _t: string, handlers: StreamHandlers): Promise<StreamOutcome> => {
+        handlers.onStart?.(SAVED_MINE, null);
+        handlers.onDelta?.("부분 답장");
+        return { kind: "stopped" };
+      },
+    );
+    const { default: ChatWorkspace } = await import("@/app/components/ChatWorkspace");
+    const view = render(<ChatWorkspace />);
+    await flush();
+    typeAndSend("질문");
+    await flush();
+    view.unmount();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(chatApi.getConversation).not.toHaveBeenCalled();
+  });
 });

@@ -288,6 +288,16 @@ export default function ChatWorkspace() {
   // 중지된 답장의 영수증을 뒤늦게 채울 때, 그 사이에 다른 대화로
   // 옮겨 갔으면 덮어쓰지 않도록 지금 열려 있는 대화를 기억합니다.
   const activeIdRef = useRef<number | null>(null);
+  // settleStopped의 대기 타이머 — 화면을 떠나면 모두 취소합니다. 남겨 두면
+  // 떠난 뒤에 대화를 다시 읽고 상태를 바꾸려 합니다.
+  const settleTimersRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const timers = settleTimersRef.current;
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id));
+      timers.clear();
+    };
+  }, []);
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
@@ -455,7 +465,8 @@ export default function ChatWorkspace() {
       savedUserId: number | null,
       attempt: number,
     ) {
-      window.setTimeout(() => {
+      const timer = window.setTimeout(() => {
+        settleTimersRef.current.delete(timer);
         if (activeIdRef.current !== conversationId) {
           void refreshQuarter();
           return;
@@ -489,6 +500,7 @@ export default function ChatWorkspace() {
             void refreshQuarter();
           });
       }, SETTLE_DELAYS_MS[attempt]);
+      settleTimersRef.current.add(timer);
     },
     [refreshQuarter],
   );
