@@ -337,7 +337,7 @@ describe("ChatWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
     typeAndSend("안녕");
 
-    await waitFor(() => expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id));
+    await waitFor(() => expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id, expect.anything()));
     expect(chatApi.setConversationModel).not.toHaveBeenCalled();
     // The reply names the model that wrote it.
     expect(await screen.findByText("빠른 답변 (Haiku 4.5)", { selector: "p" })).toBeTruthy();

@@ -318,6 +318,15 @@ function replyNumber(key: string): number | null {
 /** 출처 링크에 보여 줄 도메인. 주소가 이상하면 주소 그대로. */
 export { sourceDomain } from "./ReplySources";
 
+/** 화면의 도구 상태를 대화 만들기 요청의 필드로. */
+function toolFlagsToBody(flags: Record<ToolKind, boolean>) {
+  return {
+    use_web_search: flags.web_search,
+    use_web_fetch: flags.web_fetch,
+    use_code_execution: flags.code_execution,
+  };
+}
+
 /** 서버 도구 세 가지의 이름과, 돌고 있을 때·켜기 전에 보여 줄 문장. */
 export const TOOL_META: Record<
   ToolKind,
@@ -576,6 +585,12 @@ export default function ChatWorkspace() {
       setSendError(null);
       if (activeId === null) {
         setChosenModelId(model.id);
+        // 새 모델이 열어 두지 않은 도구는 내려 둡니다(fix-new-chat-tools).
+        setToolFlags((flags) => ({
+          web_search: flags.web_search && Boolean(model.tools_web_search),
+          web_fetch: flags.web_fetch && Boolean(model.tools_web_fetch),
+          code_execution: flags.code_execution && Boolean(model.tools_code_execution),
+        }));
         return;
       }
       try {
@@ -677,16 +692,26 @@ export default function ChatWorkspace() {
   const ensureConversation = useCallback(async (): Promise<number | null> => {
     if (activeId !== null) return activeId;
     try {
-      const created = await createConversation(chosenModelId);
+      // 새 대화 화면에서 미리 고른 도구도 함께(fix-new-chat-tools).
+      const created = await createConversation(chosenModelId, {
+        ...toolFlagsToBody(toolFlags),
+        show_thinking: showThinking,
+      });
       setActiveId(created.id);
       setChosenModelId(created.chat_model_id);
+      setToolFlags({
+        web_search: created.use_web_search ?? false,
+        web_fetch: created.use_web_fetch ?? false,
+        code_execution: created.use_code_execution ?? false,
+      });
+      setShowThinking(created.show_thinking ?? false);
       setConversations((rows) => [created, ...rows]);
       return created.id;
     } catch (error) {
       setSendError(describeError(error));
       return null;
     }
-  }, [activeId, chosenModelId]);
+  }, [activeId, chosenModelId, toolFlags, showThinking]);
 
   /**
    * 파일을 하나씩 올립니다(chat-plus-files). 서버가 바이트로 형식을 보고,
@@ -985,13 +1010,20 @@ export default function ChatWorkspace() {
 
   /**
    * 도구 켜고 끄기 (fix-composer-toolbar). 가격은 "도구" 판의 줄마다 켜기
-   * 전에 보이므로 따로 확인창을 띄우지 않습니다. 도구는 대화의 것이라 —
-   * 도구 목록이 바뀌면 프롬프트 캐시가 깨집니다 — 첫 메시지를 보낸 뒤부터
-   * 보입니다. 쓰기라서 참여하지 않은 회원은 백엔드가 거절합니다.
+   * 전에 보이므로 따로 확인창을 띄우지 않습니다. 도구는 대화의 것입니다
+   * (도구 목록이 바뀌면 프롬프트 캐시가 깨집니다). 새 대화 화면에서 고른
+   * 것은 첫 메시지 때 대화를 만들면서 함께 보냅니다(fix-new-chat-tools).
+   * 쓰기라서 참여하지 않은 회원은 백엔드가 거절합니다.
    */
   const setTool = useCallback(
     (kind: ToolOption, next: boolean) => {
-      if (activeId === null || streaming) return;
+      if (streaming) return;
+      if (activeId === null) {
+        // 새 대화: 첫 메시지 때 대화를 만들면서 함께 보냅니다.
+        if (kind === "thinking") setShowThinking(next);
+        else setToolFlags((flags) => ({ ...flags, [kind]: next }));
+        return;
+      }
       const run = async () => {
         if (kind === "thinking") {
           const updated = await setConversationThinking(activeId, next);
@@ -1330,7 +1362,7 @@ export default function ChatWorkspace() {
                   onChange={(model) => void chooseModel(model)}
                   disabled={!mayCreate || streaming}
                 />
-                {activeId !== null && selectedModel && (
+                {selectedModel && (
                   <ToolsMenu
                     model={selectedModel}
                     on={{ thinking: showThinking, ...toolFlags }}

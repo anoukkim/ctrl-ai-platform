@@ -3,7 +3,7 @@
  * (`backend/tests/test_chat_tools.py`).
  */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { StreamHandlers, StreamOutcome } from "@/lib/chat";
@@ -271,5 +271,77 @@ describe("도구 토글", () => {
     expect(links[1].textContent).toMatch(/^2\. .+ · kosis\.kr$/);
     expect(links[0].getAttribute("rel")).toContain("noopener");
     expect(screen.queryByTestId("tool-status")).toBeNull();
+  });
+});
+
+describe("새 대화 화면의 도구 (fix-new-chat-tools)", () => {
+  const HAIKU_NO_TOOLS = {
+    ...SONNET_WITH_SEARCH,
+    id: 3,
+    model_id: "claude-haiku-4-5",
+    label: "빠른 답변 (Haiku 4.5)",
+    is_default: false,
+    tools_web_search: false,
+  };
+
+  beforeEach(() => {
+    for (const fn of Object.values(chatApi)) fn.mockReset();
+    chatApi.getChatInfo.mockResolvedValue({
+      is_mock: true,
+      rate_limit_per_minute: 10,
+      max_message_length: 8000,
+      web_fetch_max_uses: 1,
+      web_fetch_max_content_tokens: 10_000,
+      models: [SONNET_WITH_SEARCH, HAIKU_NO_TOOLS],
+      default_model_id: SONNET_WITH_SEARCH.id,
+    });
+    chatApi.listConversations.mockResolvedValue([]);
+  });
+
+  test("첫 메시지 전에도 도구를 고르고, 대화를 만들 때 함께 보낸다", async () => {
+    chatApi.createConversation.mockResolvedValue({
+      ...CONVERSATION,
+      use_web_search: true,
+      show_thinking: true,
+    });
+    chatApi.sendMessage.mockResolvedValue({ kind: "stopped" });
+    await renderChat();
+
+    fireEvent.click(await screen.findByTestId("tools-button"));
+    fireEvent.click(screen.getByRole("switch", { name: "웹 검색" }));
+    fireEvent.click(screen.getByRole("switch", { name: "생각 과정 보기" }));
+    // 켠 것은 칩으로 남는다 — 아직 대화를 만들지 않았다.
+    expect(screen.getByRole("button", { name: "웹 검색 끄기" })).toBeTruthy();
+    expect(chatApi.createConversation).not.toHaveBeenCalled();
+    expect(chatApi.setConversationTool).not.toHaveBeenCalled();
+
+    const box = screen.getByLabelText("CTRL+AI에게 보낼 메시지");
+    fireEvent.change(box, { target: { value: "서울 인구 검색해 줘" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() =>
+      // 모델을 고르지 않았으면 기본(null) — 도구는 함께 간다.
+      expect(chatApi.createConversation).toHaveBeenCalledWith(null, {
+        use_web_search: true,
+        use_web_fetch: false,
+        use_code_execution: false,
+        show_thinking: true,
+      }),
+    );
+  });
+
+  test("모델을 바꾸면 그 모델이 열지 않은 도구는 줄도 칩도 사라진다", async () => {
+    await renderChat();
+    fireEvent.click(await screen.findByTestId("tools-button"));
+    fireEvent.click(screen.getByRole("switch", { name: "웹 검색" }));
+    expect(screen.getByRole("button", { name: "웹 검색 끄기" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /답장 방식/ }));
+    fireEvent.click(within(screen.getByRole("option", { name: /Haiku/ })).getByRole("button"));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "웹 검색 끄기" })).toBeNull());
+    // 판은 열린 채 — 새 모델의 줄만 남는다.
+    expect(screen.queryByRole("switch", { name: "웹 검색" })).toBeNull();
+    expect(screen.getByRole("switch", { name: "생각 과정 보기" })).toBeTruthy();
   });
 });

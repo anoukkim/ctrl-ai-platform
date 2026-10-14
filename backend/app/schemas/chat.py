@@ -15,6 +15,13 @@ class ConversationCreate(BaseModel):
     title: str = Field(default="", max_length=100)
     #: A catalogue model's `id`. Omitted means the default.
     chat_model_id: int | None = None
+    #: fix-new-chat-tools: what the member chose on the welcome screen,
+    #: before the first message — the same rules as PATCH (a tool the
+    #: model does not allow is refused).
+    use_web_search: bool = False
+    use_web_fetch: bool = False
+    use_code_execution: bool = False
+    show_thinking: bool = False
 
 
 class ConversationUpdate(BaseModel):
