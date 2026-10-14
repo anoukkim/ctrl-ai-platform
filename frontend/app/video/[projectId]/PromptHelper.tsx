@@ -36,7 +36,8 @@ interface Props {
   /** 고친 프롬프트를 왼쪽 입력란에 넣습니다. */
   onApply: (revised: string) => void;
   /** 차감이 일어났을 때. 사이드바의 남은 금액을 새로 받습니다. */
-  onCharged: () => void;
+  /** 차감된 금액(장부의 숫자)과 함께 불립니다. */
+  onCharged: (chargedKrw: number) => void;
 }
 
 export const HELPER_TITLE = "프롬프트 도움받기 (선택)";
@@ -68,7 +69,7 @@ export default function PromptHelper({ projectId, prompt, mayCreate, onApply, on
           revisedPrompt: answer.revised_prompt,
         },
       ]);
-      onCharged();
+      onCharged(answer.charged_krw);
     } catch (failure) {
       setError(describeError(failure));
     } finally {

@@ -76,53 +76,46 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **feat-spend-feedback** · M1 · branch `feat-spend-feedback`
-   Added by the owner on 2026-10-14 (add-on B, pre-approved). A small,
-   game-like "you spent" moment whenever money leaves the wallet: the
-   sidebar balance counts down with a floating "-N원", a merged toast,
-   once-per-quarter milestones stored server-side, a Profile › 알림 switch
-   and reduced motion. Spec below.
-
-2. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
+1. **chat-plus-files** · M1 · branch `feat-chat-plus-files` (resume)
    Images, PDF, CSV and text attached to a message. Spec below.
 
-3. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
+2. **chat-plus-artifacts** · M1 · branch `feat-chat-plus-artifacts`
    HTML, SVG and chart previews in a sandboxed iframe. Spec below.
 
-4. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
+3. **chat-thinking-view** · M1 · branch `feat-chat-thinking-view`
    생각 과정 보기, per conversation, off by default, cost shown first.
    Spec below.
 
-5. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
+4. **builder-static-runtime** · M2 · branch `feat-builder-static-runtime`
    Both halves: Claude writes and edits project files with restorable
    versions; Caddy serves `apps.ctrlai.my/<app-slug>/` from a read-only
    volume. **Moved into Next by the owner on 2026-10-14**, on
    `apps.ctrlai.my` (CLAUDE.md §2). Spec below.
 
-6. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
+5. **ctrlaiapps-publish** · M3 · branch `feat-ctrlaiapps-publish`
    The first slice of Phase 5: 게시 from a Builder project to a
    CtrlAIApps listing, 게시 취소, admin unpublish, a report button, and
    every mock listing removed. Spec below.
 
-7. **example-apps** · M3 · branch `feat-example-apps`
+6. **example-apps** · M3 · branch `feat-example-apps`
    Three small Korean static example apps under `examples/apps/`, and a
    server-only CLI that imports and publishes them for the admin. Spec
    below.
 
-8. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
+7. **offsite-backups** · M1 · branch `chore-offsite-backups` · 💳
    The daily `pg_dump` also copied to a Cloud Storage bucket; the owner
    creates the bucket from the console steps. Spec below.
 
-9. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
+8. **monitoring** · M1 · branch `chore-monitoring` · 💳 if any
    Uptime check and error alerts; the owner does the console steps. Spec
    below.
 
-10. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+9. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-11. **builder-python** · M2 · branch `feat-builder-python`
+10. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime of
     item 5. Spec below.
@@ -602,31 +595,7 @@ preview runs in the member's own browser, in a frame with no origin.
 
 → **fix-quarter-form-autofill — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#fix-quarter-form-autofill--full-spec-merged-2026-10-14).
 
-## feat-spend-feedback — full spec
-
-Branch `feat-spend-feedback`. M1. Added by the owner on 2026-10-14
-(add-on B; merge and deploy pre-approved). Saved as written:
-
-> Goal: whenever money comes off the member's 동아리 지원 wallet, they see it happen — friendly and a little playful, never annoying.
-> 1. Source of truth: the charged_krw the backend returns for that action (chat `done` event, Builder generation, video, tools, files). Never a client-side estimate. No charge (failed/free call) → no animation.
-> 2. Sidebar wallet (the Usage item / balance in the sidebar):
->    - the number counts down from old to new balance (~600 ms, eased)
->    - a small "-12원" chip floats up and fades next to it
->    - a brief colour pulse on the balance
-> 3. Toast (bottom-right; top on mobile), Korean, short, e.g.:
->    - "12원을 사용했어요! 남은 지원금 79,988원"
->    - include what it was for when known: "채팅 · Sonnet", "빌더 · 앱 만들기", "영상 생성"
->    - several charges within 3 s are merged into one toast ("3번 · 합계 36원")
->    - auto-dismiss after 3 s, click → /usage
-> 4. Game-like milestones (each shown once per quarter, stored server-side per member + quarter so it survives devices):
->    - 첫 사용: "첫 작품을 시작했어요 🎉"
->    - 25% / 50% / 75% of the wallet used: a slightly bigger card with a progress ring and the remaining amount
->    - 잔액 10,000원 이하: a calm warning (not celebratory), with a link to Usage
->    - 잔액 0: the existing Korean refusal message stays the authority; the card just points to it
-> 5. Settings: Profile › 알림 → "사용 알림 표시" on/off (default on) and "움직임 줄이기" follows prefers-reduced-motion automatically (no count-up, no floating chip; toast only). Stored per user.
-> 6. Never blocks input, never steals focus, screen readers get one polite aria-live line per toast. Light and dark themes.
-> 7. Tests: animation fires only on a real charge; merge-within-3s; milestones fire once per quarter at the right thresholds (incl. a charge that jumps over two thresholds → only the higher one); setting off → no toast; reduced motion path.
-> 8. Add a short note to docs/product.md (Usage section).
+→ **feat-spend-feedback — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#feat-spend-feedback--full-spec-merged-2026-10-14).
 
 ## ctrlaiapps-publish — full spec
 

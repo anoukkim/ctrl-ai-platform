@@ -16,9 +16,12 @@ import { useEffect, useRef, useState } from "react";
 export default function AnimatedNumber({
   value,
   format,
+  duration = 0.4,
 }: {
   value: number;
   format: (value: number) => string;
+  /** 초. 사이드바 지갑은 0.6초(feat-spend-feedback). */
+  duration?: number;
 }) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(value);
@@ -35,7 +38,7 @@ export default function AnimatedNumber({
       return;
     }
     const controls = animate(from, value, {
-      duration: 0.4,
+      duration,
       ease: "easeOut",
       onUpdate: (latest) => {
         onScreen.current = Math.round(latest);
@@ -43,7 +46,7 @@ export default function AnimatedNumber({
       },
     });
     return () => controls.stop();
-  }, [value, reduced]);
+  }, [value, reduced, duration]);
 
   return <span data-testid="animated-number">{format(shown)}</span>;
 }

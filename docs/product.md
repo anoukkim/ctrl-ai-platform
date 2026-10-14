@@ -436,7 +436,23 @@ per conversation and per KST day, with this quarter's total saving. Admin ›
 Budget adds the club side: credit bought per provider (append-only purchase
 records), used (ledger), estimated remaining ("Anthropic 콘솔이 최종 기준"),
 지급 vs 사용, a per-member table, a caching panel, CSV exports and an
-optional reconciliation against Anthropic's cost report. Every usage event still records the **provider, feature, model
+optional reconciliation against Anthropic's cost report.
+
+**The spend moment** (feat-spend-feedback, owner add-on B, 2026-10-14).
+Whenever money leaves the wallet the member sees it happen, using only the
+`charged_krw` the backend returned for that action (chat reply, Builder
+generation, video, prompt help) — never an estimate; a failed or free call
+shows nothing. The sidebar balance counts down (~0.6 s) with a floating
+"-12원" and a brief pulse; a toast bottom-right (top on phones) says
+"12원을 사용했어요! 남은 지원금 79,988원" with what it was for, merges
+charges within 3 s ("3번 · 합계 36원"), disappears after 3 s and opens
+Usage when clicked. Milestones — 첫 사용, 25 / 50 / 75 % used, 잔액
+10,000원 이하 (a calm warning), 잔액 0 — appear **once per member per
+quarter**, recorded server-side (`spend_milestones`); a charge that crosses
+several shows only the highest. Profile › 알림 › **사용 알림 표시** turns it
+off (default on); the device's reduced-motion setting drops the count-down
+and the chip and keeps the toast. Nothing takes focus or blocks input;
+screen readers hear one polite line per toast. Every usage event still records the **provider, feature, model
 and native units** (tokens, seconds), so Admin › Budget can total each
 quarter's spend **by provider** — the figure the club leader reads before
 buying the next round of credit from Anthropic and from Higgsfield. The club

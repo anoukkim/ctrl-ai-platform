@@ -692,3 +692,59 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* 지갑에서 돈이 빠지는 순간 (feat-spend-feedback). 움직임 줄이기를 켜면
+   SpendFeedbackProvider가 lastSpend를 비워 두므로 둘 다 나오지 않습니다. */
+.spendPulse {
+  position: relative;
+  border-radius: 6px;
+  animation: spendPulse 900ms ease-out;
+}
+
+@keyframes spendPulse {
+  0% {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.spendChip {
+  /* 숫자 왼쪽에 — 잔액 숫자를 가리지 않게. */
+  position: absolute;
+  right: calc(100% + 0.35rem);
+  top: 0;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: spendFloat 1200ms ease-out forwards;
+}
+
+@keyframes spendFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spendPulse,
+  .spendChip {
+    animation: none;
+  }
+}

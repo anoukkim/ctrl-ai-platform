@@ -5,6 +5,32 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## feat-spend-feedback — full spec (merged 2026-10-14)
+
+Branch `feat-spend-feedback`. M1. Added by the owner on 2026-10-14
+(add-on B; merge and deploy pre-approved). Saved as written:
+
+> Goal: whenever money comes off the member's 동아리 지원 wallet, they see it happen — friendly and a little playful, never annoying.
+> 1. Source of truth: the charged_krw the backend returns for that action (chat `done` event, Builder generation, video, tools, files). Never a client-side estimate. No charge (failed/free call) → no animation.
+> 2. Sidebar wallet (the Usage item / balance in the sidebar):
+>    - the number counts down from old to new balance (~600 ms, eased)
+>    - a small "-12원" chip floats up and fades next to it
+>    - a brief colour pulse on the balance
+> 3. Toast (bottom-right; top on mobile), Korean, short, e.g.:
+>    - "12원을 사용했어요! 남은 지원금 79,988원"
+>    - include what it was for when known: "채팅 · Sonnet", "빌더 · 앱 만들기", "영상 생성"
+>    - several charges within 3 s are merged into one toast ("3번 · 합계 36원")
+>    - auto-dismiss after 3 s, click → /usage
+> 4. Game-like milestones (each shown once per quarter, stored server-side per member + quarter so it survives devices):
+>    - 첫 사용: "첫 작품을 시작했어요 🎉"
+>    - 25% / 50% / 75% of the wallet used: a slightly bigger card with a progress ring and the remaining amount
+>    - 잔액 10,000원 이하: a calm warning (not celebratory), with a link to Usage
+>    - 잔액 0: the existing Korean refusal message stays the authority; the card just points to it
+> 5. Settings: Profile › 알림 → "사용 알림 표시" on/off (default on) and "움직임 줄이기" follows prefers-reduced-motion automatically (no count-up, no floating chip; toast only). Stored per user.
+> 6. Never blocks input, never steals focus, screen readers get one polite aria-live line per toast. Light and dark themes.
+> 7. Tests: animation fires only on a real charge; merge-within-3s; milestones fire once per quarter at the right thresholds (incl. a charge that jumps over two thresholds → only the higher one); setting off → no toast; reduced motion path.
+> 8. Add a short note to docs/product.md (Usage section).
+
 ## fix-quarter-form-autofill — full spec (merged 2026-10-14)
 
 Branch `fix-quarter-form-autofill`. M1. Added by the owner on 2026-10-14

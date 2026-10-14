@@ -58,3 +58,5 @@ class CurrentUser(BaseModel):
     #: False for an account made with Google (google-login): it has no
     #: password, so screens that re-check one ask for something else.
     has_password: bool = True
+    #: Profile › 알림 › 사용 알림 표시 (feat-spend-feedback).
+    spend_notifications: bool = True

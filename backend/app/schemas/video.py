@@ -253,6 +253,11 @@ class VideoVersionRead(BaseModel):
     source_version_id: int | None = None
     instruction: str | None = None
 
+    #: What this request took off the wallet — only on the response to
+    #: the generate / edit / extend call that charged it, so the screen
+    #: shows the ledger's figure (feat-spend-feedback). None when listed.
+    charged_krw: int | None = None
+
 
 class VideoProjectBase(BaseModel):
     # No length rule here on purpose. `app/services/work.clean_name` is the

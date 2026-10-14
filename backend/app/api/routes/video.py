@@ -308,7 +308,7 @@ def _produce(
     feature: UsageFeature,
     charged_seconds: int,
     version: VideoVersion,
-) -> VideoVersion:
+) -> VideoVersionRead:
     """Run one paid video operation and record it. See the note above."""
     try:
         amount = video_catalog.cost_krw(model, version.resolution or "", charged_seconds)
@@ -333,7 +333,7 @@ def _produce(
     )
 
     try:
-        usage_service.charge(
+        charged = usage_service.charge(
             db,
             user=user,
             amount_krw=amount,
@@ -358,7 +358,11 @@ def _produce(
     db.commit()
     db.refresh(version)
     db.refresh(project)
-    return version
+    # The ledger's figure for this one response (feat-spend-feedback) —
+    # built as the response model, never written onto the row.
+    return VideoVersionRead.model_validate(version).model_copy(
+        update={"charged_krw": charged.event.charged_krw}
+    )
 
 
 def _source_version(project: VideoProject, version_id: int) -> VideoVersion:

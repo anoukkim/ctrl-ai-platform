@@ -51,6 +51,7 @@ import Skeleton from "./Skeleton";
 import { useAdminNav } from "./AdminNavProvider";
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
 import { useMyQuarter } from "./MyQuarterProvider";
+import { useSpendFeedback } from "./SpendFeedbackProvider";
 
 import {
   MEMBERSHIP_BADGE,
@@ -608,6 +609,9 @@ function AdminNavBlock({
  */
 function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
   const { state } = useMyQuarter();
+  // 방금 빠진 금액(feat-spend-feedback) — "-12원"이 떠올랐다 사라지고 잔액이
+  // 잠깐 빛납니다. 알림을 껐거나 움직임 줄이기면 null.
+  const { lastSpend } = useSpendFeedback();
 
   if (state.phase !== "ready" || state.quarter.quarter === null) return null;
 
@@ -645,9 +649,17 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
         <div className={styles.wallet}>
           <div className={styles.meterLabel}>
             <span>동아리 지원</span>
-            <span className={styles.meterValue}>
-              {/* 채팅 답장 하나로 줄면 새 값까지 세어 내려갑니다. */}
-              <AnimatedNumber value={allocation.remaining_krw} format={formatKrw} />
+            <span
+              className={`${styles.meterValue} ${lastSpend ? styles.spendPulse : ""}`}
+              key={lastSpend ? `pulse-${lastSpend.id}` : "balance"}
+            >
+              {/* 차감되면 약 0.6초 동안 새 값까지 세어 내려갑니다. */}
+              <AnimatedNumber value={allocation.remaining_krw} format={formatKrw} duration={0.6} />
+              {lastSpend && (
+                <span className={styles.spendChip} aria-hidden="true" data-testid="spend-chip">
+                  -{formatKrw(lastSpend.amountKrw)}
+                </span>
+              )}
             </span>
           </div>
           <div

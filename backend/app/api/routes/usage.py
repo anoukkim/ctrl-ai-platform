@@ -9,6 +9,7 @@ showing figures from four different moments.
 from datetime import date
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -36,7 +37,7 @@ from app.schemas.accounting import (
     MemberMoneyRead,
     SplitRead,
 )
-from app.services import accounting
+from app.services import accounting, milestones
 from app.services.quarters import current_quarter, membership_for
 from app.services.usage import personal_balance, recent_events, spending_breakdown
 
@@ -166,4 +167,53 @@ def read_my_usage(
         else None,
         events=events,
         money=money,
+    )
+
+
+
+# ------------------------------------------- milestones (spend feedback)
+
+
+class MilestoneRequest(BaseModel):
+    """Empty on purpose. A JSON body is still required, as on every
+    state-changing route: a page on another origin cannot send one without
+    a CORS preflight the API refuses (CLAUDE.md §2)."""
+
+
+class MilestoneClaim(BaseModel):
+    #: The highest milestone newly reached by this claim, or None.
+    #: "first" | "used_25" | "used_50" | "used_75" | "low" | "empty".
+    milestone: str | None
+    budget_krw: int
+    consumed_krw: int
+    remaining_krw: int
+    percent_used: int
+
+
+@router.post(
+    "/me/milestones",
+    response_model=MilestoneClaim | None,
+    summary="Record and return the newest spend milestone",
+)
+def claim_milestone(
+    _payload: MilestoneRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> MilestoneClaim | None:
+    """Called by the screen after a charge (feat-spend-feedback).
+
+    Reads the wallet as `usage.charge()` left it — never a figure from the
+    browser — records every milestone newly crossed, and returns the
+    highest one, so each shows once per quarter on any device. Spends
+    nothing. None without a current quarter or wallet.
+    """
+    claim = milestones.claim(db, user)
+    if claim is None:
+        return None
+    return MilestoneClaim(
+        milestone=claim.milestone,
+        budget_krw=claim.budget_krw,
+        consumed_krw=claim.consumed_krw,
+        remaining_krw=claim.remaining_krw,
+        percent_used=claim.percent_used,
     )

@@ -42,6 +42,7 @@ def _as_current_user(user: User) -> CurrentUser:
         account_status=user.account_status,
         is_admin=user.role is UserRole.ADMIN,
         has_password=user.password_hash != UNUSABLE_PASSWORD_HASH,
+        spend_notifications=user.spend_notifications,
     )
 
 

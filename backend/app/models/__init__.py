@@ -26,6 +26,7 @@ from app.models.quarter import (
     QuarterStatus,
 )
 from app.models.usage import FundingSource, UsageEvent, UsageFeature
+from app.models.milestone import SpendMilestone
 from app.models.membership import MembershipStatus, QuarterMembership
 from app.models.session import UserSession
 from app.models.signup_attempt import LoginAttempt, SignupAttempt
@@ -48,6 +49,7 @@ from app.models.withdrawal import (
 )
 
 __all__ = [
+    "SpendMilestone",
     "AdjustmentKind",
     "CreditPurchase",
     "WalletAdjustment",

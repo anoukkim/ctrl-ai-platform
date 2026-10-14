@@ -390,6 +390,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/quarters/me/top-ups"): "get_current_user",
     ("GET", "/api/quarters/me/top-ups"): "get_current_user",
     ("GET", "/api/usage/me"): "get_current_user",
+    # feat-spend-feedback: spends nothing; open to any signed-in member.
+    ("POST", "/api/usage/me/milestones"): "get_current_user",
+    ("GET", "/api/account/preferences"): "get_current_user",
+    ("PATCH", "/api/account/preferences"): "get_current_user",
     # Admin — role, not participation.
     ("GET", "/api/users"): "require_admin",
     ("GET", "/api/admin/quarters"): "require_admin",
@@ -558,6 +562,11 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),
+        # Spend feedback (feat-spend-feedback): recording which milestone
+        # card was shown, and the member's own notification switch. Both
+        # spend nothing and must work while not participating.
+        ("POST", "/api/usage/me/milestones"),
+        ("PATCH", "/api/account/preferences"),
     }
 
     offenders = [

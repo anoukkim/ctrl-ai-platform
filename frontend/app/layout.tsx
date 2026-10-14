@@ -5,6 +5,7 @@ import AppShell from "@/app/components/AppShell";
 import BetaBanner from "@/app/components/BetaBanner";
 import CurrentUserProvider from "@/app/components/CurrentUserProvider";
 import MotionRoot from "@/app/components/MotionRoot";
+import SpendFeedbackProvider from "./components/SpendFeedbackProvider";
 import MyQuarterProvider from "@/app/components/MyQuarterProvider";
 import SiteProvider from "@/app/components/SiteProvider";
 import ToastProvider from "@/app/components/ToastProvider";
@@ -49,7 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   {/* 사이드바의 Admin 묶음이 쓰는 숫자. 관리자가 아니면 아무것도
                       부르지 않습니다. */}
                   <AdminNavProvider>
-                    <AppShell>{children}</AppShell>
+                    {/* 지갑에서 돈이 빠질 때의 알림(feat-spend-feedback). */}
+                    <SpendFeedbackProvider>
+                      <AppShell>{children}</AppShell>
+                    </SpendFeedbackProvider>
                   </AdminNavProvider>
                 </MyQuarterProvider>
               </ToastProvider>
