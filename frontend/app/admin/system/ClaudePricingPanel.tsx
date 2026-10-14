@@ -227,6 +227,8 @@ export default function ClaudePricingPanel() {
           <span className={styles.sectionNote}>0은 그 한도를 끕니다</span>
         </h2>
 
+        {loading}
+
         {settings !== null && (
           <div className={`card ${styles.pricingCard}`}>
             <div className={styles.rateBlock}>

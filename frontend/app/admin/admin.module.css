@@ -675,8 +675,12 @@ a.card:hover .cardChevron {
 }
 
 /* 한 칸에 두 줄을 넣을 때. */
+/* justify-items: start keeps a badge in the stack its own width — a grid
+   item stretches by default, which drew 승인 대기 as a bar across the whole
+   column. */
 .stackCell {
   display: grid;
+  justify-items: start;
   gap: 0.1rem;
   line-height: 1.35;
 }
@@ -797,10 +801,14 @@ a.card:hover .cardChevron {
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
 }
 
+/* min-width: 0 lets a grid item shrink below its content, and
+   overflow-wrap lets a long value (an email, a model id) break inside its
+   own column instead of running into the next one. */
 .fact {
   display: grid;
   gap: 0.25rem;
   align-content: start;
+  min-width: 0;
 }
 
 .factLabel {
@@ -809,8 +817,10 @@ a.card:hover .cardChevron {
 }
 
 .factValue {
+  min-width: 0;
   font-size: var(--fs-section);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .actionRow {
@@ -1463,7 +1473,9 @@ button.statCardActive:hover {
   gap: 0.5rem;
 }
 
-.rateField {
+/* Compound with the global `.field` so the width and padding win whatever
+   order the stylesheets load in. */
+.rateField:global(.field) {
   width: var(--admin-rate-input);
   padding: 5px 9px;
 }
@@ -1497,7 +1509,6 @@ button.statCardActive:hover {
   font-weight: 700;
 }
 
-/* 공개 범위 칸의 고르는 칸: 칸 너비만큼 늘어나 옆 칸을 덮지 않게. */
 /* AI Models: one price per line inside the (non-wrapping) price cell. */
 .priceLine {
   display: block;
@@ -1513,6 +1524,7 @@ td.modelIdCell {
   white-space: normal;
 }
 
+/* 공개 범위 칸의 고르는 칸: 칸 너비만큼 늘어나 옆 칸을 덮지 않게. */
 .visibilitySelect:global(.field) {
   width: auto;
   min-width: 9.5rem;
