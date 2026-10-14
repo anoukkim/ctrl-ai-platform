@@ -47,6 +47,9 @@ class AuditAction:
     APP_REPORT_RESOLVED = "app_report.resolved"
     #: example-apps: the server operator published the example apps.
     EXAMPLE_APPS_IMPORTED = "example_apps.imported"
+    #: feat-showcase-apps: `--replace` took the earlier examples down
+    #: (unpublished and soft-deleted) before publishing the new ones.
+    EXAMPLE_APPS_REPLACED = "example_apps.replaced"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -114,6 +117,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.APP_UNPUBLISHED: "앱 게시 내림",
     AuditAction.APP_REPORT_RESOLVED: "앱 신고 처리",
     AuditAction.EXAMPLE_APPS_IMPORTED: "예시 앱 게시",
+    AuditAction.EXAMPLE_APPS_REPLACED: "예시 앱 교체",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",
