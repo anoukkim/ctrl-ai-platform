@@ -21,7 +21,7 @@ Two decisions worth knowing:
 import enum
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -81,6 +81,13 @@ class Conversation(TimestampMixin, Base):
     use_web_search: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     use_web_fetch: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     use_code_execution: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: 생각 과정 보기 (chat-thinking-view): show Claude's summarized
+    #: thinking under each later reply. Off by default — it costs more on
+    #: Sonnet and Haiku. Per conversation, like the tools, because the
+    #: thinking configuration is part of the cached prompt.
+    show_thinking: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="conversation",
@@ -134,6 +141,10 @@ class ChatMessage(Base):
     capped_krw: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: Web-search sources the reply cited (chat-plus-tools):
     #: [{"title": str, "url": str}, ...]. Null when no tool ran.
+    #: Claude's summarized thinking for a reply written with 생각 과정 보기
+    #: on (chat-thinking-view). Display only — it is never sent back to
+    #: the model; history stays text (preserved-thinking rules).
+    thinking: Mapped[str | None] = mapped_column(Text, nullable=True)
     sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
     usage_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("usage_events.id", ondelete="SET NULL"), nullable=True

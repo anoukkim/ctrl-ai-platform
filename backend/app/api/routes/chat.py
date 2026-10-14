@@ -81,6 +81,7 @@ from app.services.claude_provider import (
     ClaudeError,
     StreamEnd,
     TextDelta,
+    ThinkingDelta,
     ToolSources,
     ToolStatus,
     UsageUpdate,
@@ -131,6 +132,7 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
             web_search_count=row.web_search_count or 0,
             tool_fee_krw=row.tool_fee_krw or 0,
             charged_krw=row.charged_krw,
+            thinking_shown=bool(row.thinking_shown),
             **accounting.receipt_fields(row, prices),
         )
         for row in rows
@@ -160,7 +162,9 @@ def chat_info(
 
 
 def _option(db: Session, row, default, rate) -> ChatModelOption:
-    estimate = pricing.reply_estimate(db, chat_models.ChosenModel.of(row), rate)
+    chosen = chat_models.ChosenModel.of(row)
+    estimate = pricing.reply_estimate(db, chosen, rate)
+    thinking = pricing.thinking_estimate(db, chosen, rate)
     search_krw = None
     if rate is not None:
         search_krw = int(
@@ -182,6 +186,8 @@ def _option(db: Session, row, default, rate) -> ChatModelOption:
         tools_web_fetch=row.tools_web_fetch,
         tools_code_execution=row.tools_code_execution,
         web_search_krw_per_call=search_krw,
+        thinking_extra_krw=thinking.krw,
+        thinking_basis=thinking.basis,
     )
 
 
@@ -274,6 +280,7 @@ def update_conversation(
     if (
         payload.title is None
         and payload.chat_model_id is None
+        and payload.show_thinking is None
         and all(value is None for value in toggles.values())
     ):
         raise HTTPException(
@@ -315,6 +322,10 @@ def update_conversation(
                     detail="이 모델에서는 쓸 수 없는 도구입니다. 모델을 바꾸거나 도구를 꺼 주세요.",
                 )
             setattr(conversation, field, value)
+    if payload.show_thinking is not None:
+        # Every current Claude model can show its thinking, so this needs
+        # no per-model check; what it costs is on the toggle.
+        conversation.show_thinking = payload.show_thinking
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -667,6 +678,11 @@ def send_message(
                     visible = marker.feed(event.text)
                     if visible:
                         queue.put_nowait(("delta", visible))
+                elif isinstance(event, ThinkingDelta):
+                    # 생각 과정 보기 (chat-thinking-view): shown as it comes,
+                    # saved with the reply, never sent back to Claude.
+                    state.thinking += event.text
+                    queue.put_nowait(("thinking", event.text))
                 elif isinstance(event, UsageUpdate):
                     state.input_tokens = event.input_tokens
                     state.output_tokens = event.output_tokens
@@ -753,6 +769,9 @@ def send_message(
                 if kind == "tool":
                     yield _sse("tool", payload)  # type: ignore[arg-type]
                     continue
+                if kind == "thinking":
+                    yield _sse("thinking", {"text": payload})
+                    continue
                 result: chat_service.TurnResult = payload  # type: ignore[assignment]
                 if result.error is not None:
                     yield _sse("error", {"detail": str(result.error), "kind": result.error.kind})
@@ -774,6 +793,8 @@ def send_message(
                                     # chat-plus-tools: the receipt's 검색 line.
                                     "web_search_count": result.usage.web_search_count,
                                     "tool_fee_krw": result.usage.tool_fee_krw,
+                                    # chat-thinking-view: the receipt's note.
+                                    "thinking_shown": result.usage.thinking_shown,
                                     # cost-clarity: the same reply by part,
                                     # in won, from the ledger row.
                                     **(result.usage.split or {}),

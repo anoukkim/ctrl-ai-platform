@@ -488,6 +488,9 @@ class TurnState:
     web_fetch_count: int = 0
     #: [{"title": str, "url": str}, ...] the reply cited, saved with it.
     sources: list[dict[str, str]] | None = None
+    #: Claude's summarized thinking (chat-thinking-view), saved with the
+    #: reply for display only.
+    thinking: str = ""
     stop_reason: str | None = None
     stopped: bool = False
     error: ClaudeError | None = None
@@ -637,6 +640,7 @@ def prepare_turn(
             tools=tools,
             fetch_max_uses=limits.web_fetch_max_uses,
             fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
+            show_thinking=conversation.show_thinking,
         ),
         price=price,
         model_id=model.model_id,
@@ -710,6 +714,8 @@ class ReplyUsage:
     #: The receipt's won split (cost-clarity), from the ledger row:
     #: `accounting.receipt_fields`.
     split: dict | None = None
+    #: Written with 생각 과정 보기 on (chat-thinking-view).
+    thinking_shown: bool = False
 
 
 @dataclass
@@ -837,6 +843,7 @@ def finish_turn(
                 conversation_id=conversation.id if conversation else None,
                 web_search_count=state.web_search_count or None,
                 web_fetch_count=state.web_fetch_count or None,
+                thinking_shown=True if turn.request.show_thinking else None,
                 tool_fee_krw=tool_fee or None,
                 cost=turn.price.split(input_tokens, output_tokens, written, read).with_tools(
                     Decimal(state.web_search_count) * turn.web_search_usd_per_call
@@ -879,6 +886,7 @@ def finish_turn(
                 turn.reply_cap_krw if state.stop_reason == "max_tokens" else None
             ),
             sources=_safe_sources(state.sources),
+            thinking=state.thinking.strip() or None,
             usage_event_id=event_id,
             created_at=datetime.now(timezone.utc),
         )
@@ -914,6 +922,7 @@ def finish_turn(
             web_search_count=state.web_search_count,
             tool_fee_krw=tool_fee,
             split=split,
+            thinking_shown=turn.request.show_thinking,
         )
     return TurnResult(
         message=message,
