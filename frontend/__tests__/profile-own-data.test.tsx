@@ -15,6 +15,7 @@ import { describe, expect, test, vi } from "vitest";
 vi.mock("@/app/profile/AccountIdentity", () => ({
   AccountSettings: () => null,
   Identity: () => null,
+  NotificationSettings: () => null,
 }));
 vi.mock("@/app/profile/ProjectSummary", () => ({ default: () => null }));
 vi.mock("@/app/profile/QuarterParticipation", () => ({ default: () => null }));

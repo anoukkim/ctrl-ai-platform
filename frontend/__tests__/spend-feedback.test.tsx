@@ -12,6 +12,7 @@
  */
 
 import { act, render, screen } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const spendApi = vi.hoisted(() => ({ claimMilestone: vi.fn(), setPreferences: vi.fn() }));
@@ -51,11 +52,14 @@ const { default: SpendFeedbackProvider, useSpendFeedback, toastMainText } = awai
 );
 
 type Report = Parameters<ReturnType<typeof useSpendFeedback>["reportCharge"]>[0];
-let report: (r: Report) => void = () => {};
+const handle: { report: (r: Report) => void } = { report: () => {} };
+const report = (r: Report) => handle.report(r);
 
 function Probe() {
   const api = useSpendFeedback();
-  report = api.reportCharge;
+  useEffect(() => {
+    handle.report = api.reportCharge;
+  });
   return <span data-testid="chip">{api.lastSpend ? `-${api.lastSpend.amountKrw}` : ""}</span>;
 }
 
