@@ -432,6 +432,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # project-export-handoff: what the ZIP holds — open like the download.
     ("GET", "/api/builder/projects/{project_id}/handoff"): "get_current_user",
     ("GET", "/api/video/projects/{project_id}/versions/{version_id}/download"): "get_current_user",
+    # quality-tuning Q2: staged generation. Planning and running spend;
+    # reading the unfinished one is the member's own work.
+    ("POST", "/api/builder/projects/{project_id}/plan"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/generation"): "get_current_user",
+    ("POST", "/api/builder/projects/{project_id}/generations/{generation_id}/run"): "require_active_member",
+    ("POST", "/api/builder/projects/{project_id}/generations/{generation_id}/cancel"): "require_active_member",
     # Quarters — applying must stay reachable while inactive, or the only
     # way out of being inactive is behind the door it unlocks.
     ("GET", "/api/quarters/current"): "get_current_user",
