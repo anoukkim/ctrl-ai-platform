@@ -494,6 +494,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # is a POST — and it is still admin-only, not participation-gated.
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
+    ("GET", "/api/admin/claude-pricing/builder-eval"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/chat-models/providers"): "require_admin",
     ("GET", "/api/admin/chat-models/calibration"): "require_admin",

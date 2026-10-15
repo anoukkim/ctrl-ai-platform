@@ -318,3 +318,37 @@ def test_the_real_plan_asks_for_structured_json_at_the_projects_depth(
     assert [step["path"] for step in body["plan"]] == ["index.html", "app.js"]
     event = db_session.query(UsageEvent).one()
     assert (event.input_tokens, event.output_tokens, event.depth) == (800, 120, "high")
+
+
+# ------------------------------------------------------------ 빌더 점검
+
+
+def test_the_owner_eval_runs_the_ideas_within_its_budget_and_reports(
+    client: TestClient, db_session: Session, dev_user, budgeted, config
+) -> None:
+    """The tool on the mock — the owner runs it for real on the server."""
+    from app.tools import builder_eval
+
+    report = builder_eval.evaluate(db_session, config, dev_user, ideas=2, max_krw=3000)
+    assert (report.ideas, report.succeeded) == (2, 2)
+    assert 0 < report.total_krw <= 3000
+    assert "| 용돈 기록장 | 성공 |" in report.markdown and "단어 암기 카드" in report.markdown
+    listed = client.get("/api/admin/claude-pricing/builder-eval").json()
+    assert listed[0]["markdown"] == report.markdown and listed[0]["provider"] == "mock"
+
+
+def test_the_eval_never_spends_past_its_limit(
+    db_session: Session, dev_user, budgeted, config
+) -> None:
+    from app.tools import builder_eval
+
+    report = builder_eval.evaluate(db_session, config, dev_user, ideas=3, max_krw=40)
+    assert report.total_krw <= 40
+    assert report.succeeded < 3
+    assert "점검 예산" in report.markdown
+
+
+def test_the_eval_refuses_a_member_account(db_session: Session, other_user, config, capsys) -> None:
+    from app.tools import builder_eval
+
+    assert builder_eval.main(["--ideas", "9"]) == 2

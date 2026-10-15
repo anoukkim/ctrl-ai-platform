@@ -151,8 +151,12 @@ def plan(
     request: str,
     style: str = "",
     is_mock: bool,
+    spend_limit_krw: int | None = None,
 ) -> BuilderGeneration:
     """Stage 1: the plan, charged; a newer plan replaces an open one.
+
+    `spend_limit_krw` (빌더 점검 only): refuse when the call's worst case
+    would pass it.
 
     Raises `StarterError`, `ClaudeError`, `usage.InsufficientBudgetError`,
     `usage.NoQuarterError`, `chat_models.ModelChoiceError` or
@@ -175,6 +179,8 @@ def plan(
     room = min(PLAN_MAX_TOKENS, choice.room(tokens_in))
     if room < 1_024:
         raise StarterError(builder_choice.room_refusal(choice), 400)
+    if spend_limit_krw is not None and choice.price.krw(tokens_in, room) > spend_limit_krw:
+        raise StarterError(f"점검 예산({spend_limit_krw:,}원)이 모자라 계획을 세우지 않았어요.", 402)
     usage_service.ensure_affordable(
         db, user=user, amount_krw=choice.price.krw(tokens_in, room), settings=settings
     )
@@ -286,8 +292,12 @@ def run(
     generation_id: int,
     emit: Emit,
     is_mock: bool,
+    spend_limit_krw: int | None = None,
 ) -> BuilderGeneration:
     """Stages 2 and 3, reporting each step through `emit`.
+
+    `spend_limit_krw` (빌더 점검 only): the most this run may charge; a call
+    whose worst case would pass it is not made.
 
     `emit(kind, data)`: file_start, file_done, check_start, check_done,
     done or error. Never raises for a provider or wallet problem — those
@@ -318,6 +328,12 @@ def run(
     planned_paths = {path for path, _ in plan_steps}
     builder_versions.ensure_baseline(db, project)
     db.commit()
+    spent_before = generation.charged_krw
+
+    def over_limit(worst: int) -> bool:
+        if spend_limit_krw is None:
+            return False
+        return generation.charged_krw - spent_before + worst > spend_limit_krw
 
     for path, _purpose in plan_steps:
         if path in generation.files_done:
@@ -331,6 +347,8 @@ def run(
         room = choice.room(tokens_in)
         if room < builder_choice.MIN_ROOM_TOKENS:
             return _stop(db, generation, builder_choice.room_refusal(choice), emit)
+        if over_limit(choice.price.krw(tokens_in, room)):
+            return _stop(db, generation, f"점검 예산({spend_limit_krw:,}원)에 닿아 멈췄어요.", emit)
         try:
             usage_service.ensure_affordable(
                 db, user=user, amount_krw=choice.price.krw(tokens_in, room), settings=settings
@@ -397,6 +415,8 @@ def run(
             db, user=user, amount_krw=choice.price.krw(tokens_in, max(room, 0)), settings=settings
         )
     except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError):
+        affordable = False
+    if over_limit(choice.price.krw(tokens_in, max(room, 0))):
         affordable = False
     if affordable and room >= builder_choice.MIN_ROOM_TOKENS and provider_limiter.acquire(
         chat_limits.current(db).provider_concurrency

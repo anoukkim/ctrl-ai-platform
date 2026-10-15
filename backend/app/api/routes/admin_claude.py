@@ -10,14 +10,17 @@ Admin-only, and — like every other Admin screen — not gated on
 participation: setting prices is administration, not creation.
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import AuditAction, ChatLimits, ExchangeRate, User
+from app.models import AuditAction, BuilderEvalReport, ChatLimits, ExchangeRate, User
 from app.schemas.pricing import (
     ChatLimitsRead,
     ChatLimitsWrite,
@@ -204,3 +207,46 @@ def set_chat_limits(
     )
     db.commit()
     return _settings_read(db, settings)
+
+
+# ---------------------------------------------- 빌더 점검 (quality-tuning Q2)
+
+
+class BuilderEvalRead(BaseModel):
+    id: int
+    created_at: datetime
+    provider: str
+    ideas: int
+    succeeded: int
+    total_krw: int
+    run_by_username: str
+    markdown: str
+
+
+@router.get(
+    "/builder-eval",
+    response_model=list[BuilderEvalRead],
+    summary="빌더 점검 reports, newest first (written by app.tools.builder_eval)",
+)
+def read_builder_evals(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[BuilderEvalRead]:
+    rows = db.scalars(select(BuilderEvalReport).order_by(BuilderEvalReport.id.desc()).limit(10))
+    out = []
+    for row in rows:
+        who = db.get(User, row.run_by) if row.run_by else None
+        out.append(
+            BuilderEvalRead(
+                id=row.id,
+                created_at=row.created_at,
+                provider=row.provider,
+                ideas=row.ideas,
+                succeeded=row.succeeded,
+                total_krw=row.total_krw,
+                run_by_username=who.username if who else "",
+                markdown=row.markdown,
+            )
+        )
+    return out
+
