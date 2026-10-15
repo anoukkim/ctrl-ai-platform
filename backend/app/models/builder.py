@@ -222,3 +222,68 @@ class AppReport(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<AppReport {self.id} project={self.project_id}>"
+
+
+class BuilderGeneration(TimestampMixin, Base):
+    """One 만들기 / 고치기 in stages (quality-tuning Q2).
+
+    A small plan call first lists the files to write (shown as 만들 계획);
+    then each file is written by its own call and saved the moment it is
+    done, and a last call checks the whole app and fixes what it finds.
+    `files_done` is what is already saved, so a run cut short by a timeout
+    keeps its files and 이어서 만들기 continues with the rest. Each call is
+    charged on its own (`charged_krw` adds them up); a failed call is free.
+
+    `status`: planned → running → done, or partial (some files saved, the
+    rest can be continued), failed (nothing saved), cancelled (a newer plan
+    replaced it).
+    """
+
+    __tablename__ = "builder_generations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    #: "create" (the project had no index.html) or "edit".
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    request: Mapped[str] = mapped_column(Text, nullable=False)
+    style: Mapped[str] = mapped_column(String(100), default="", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    #: [[path, purpose], …] in writing order.
+    plan: Mapped[list] = mapped_column(JSON, nullable=False)
+    files_done: Mapped[list] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False)
+    #: The self-check's one sentence, and the files it rewrote.
+    check_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    check_fixed: Mapped[list] = mapped_column(JSON, nullable=False)
+    charged_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    #: The last failure, in Korean, for the member.
+    error: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("builder_project_versions.id", ondelete="SET NULL"), nullable=True
+    )
+
+    def __repr__(self) -> str:
+        return f"<BuilderGeneration {self.id} {self.status} project={self.project_id}>"
+
+
+class BuilderEvalReport(TimestampMixin, Base):
+    """빌더 점검 (quality-tuning Q2): the owner's real-provider run of the
+    staged Builder on fixed sample ideas, as a Markdown report for Admin ›
+    System. Written only by `python -m app.tools.builder_eval`."""
+
+    __tablename__ = "builder_eval_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    ideas: Mapped[int] = mapped_column(Integer, nullable=False)
+    succeeded: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_krw: Mapped[int] = mapped_column(Integer, nullable=False)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
