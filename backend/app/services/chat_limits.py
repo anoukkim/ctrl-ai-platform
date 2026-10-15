@@ -51,6 +51,9 @@ class Limits:
     web_fetch_max_content_tokens: int
     #: 웹 검색 (fix-real-web-search): searches per reply (`max_uses`).
     web_search_max_uses: int = 5
+    #: app-platform P2: AI inside member apps, per visitor per KST day,
+    #: across every app. 0 = off.
+    app_ai_daily_cap_krw: int = 2000
 
 
 #: In force while the table is empty. The owner set the per-reply cap to
@@ -65,6 +68,7 @@ DEFAULTS = Limits(
     web_fetch_max_uses=1,
     web_fetch_max_content_tokens=10_000,
     web_search_max_uses=5,
+    app_ai_daily_cap_krw=2000,
 )
 
 
@@ -81,6 +85,7 @@ def current(db: Session) -> Limits:
         web_fetch_max_uses=row.web_fetch_max_uses,
         web_fetch_max_content_tokens=row.web_fetch_max_content_tokens,
         web_search_max_uses=row.web_search_max_uses,
+        app_ai_daily_cap_krw=row.app_ai_daily_cap_krw,
     )
 
 

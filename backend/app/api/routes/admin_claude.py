@@ -51,6 +51,7 @@ def _limits_read(db: Session) -> ChatLimitsRead:
         web_fetch_max_uses=limits.web_fetch_max_uses,
         web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
         web_search_max_uses=limits.web_search_max_uses,
+        app_ai_daily_cap_krw=limits.app_ai_daily_cap_krw,
         set_at=row.created_at if row is not None else None,
         set_by_username=who.username if who else "",
     )
@@ -144,6 +145,7 @@ def set_chat_limits(
             web_fetch_max_uses=payload.web_fetch_max_uses,
             web_fetch_max_content_tokens=payload.web_fetch_max_content_tokens,
             web_search_max_uses=payload.web_search_max_uses,
+            app_ai_daily_cap_krw=payload.app_ai_daily_cap_krw,
             set_by=admin.id,
         )
     )
@@ -164,7 +166,8 @@ def set_chat_limits(
             f"동시 호출 {payload.provider_concurrency} · "
             f"페이지 읽기 {payload.web_fetch_max_uses}회×"
             f"{payload.web_fetch_max_content_tokens:,}토큰 · "
-            f"웹 검색 {payload.web_search_max_uses}회"
+            f"웹 검색 {payload.web_search_max_uses}회 · "
+            f"앱 AI 하루 한도 {won(payload.app_ai_daily_cap_krw)}"
         ),
         detail={
             "before": {
@@ -175,6 +178,7 @@ def set_chat_limits(
                 "web_fetch_max_uses": before.web_fetch_max_uses,
                 "web_fetch_max_content_tokens": before.web_fetch_max_content_tokens,
                 "web_search_max_uses": before.web_search_max_uses,
+                "app_ai_daily_cap_krw": before.app_ai_daily_cap_krw,
             },
             "after": payload.model_dump(),
         },

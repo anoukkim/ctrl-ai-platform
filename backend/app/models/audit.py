@@ -53,6 +53,11 @@ class AuditAction:
     #: project-export-handoff: `--update` brought existing examples up to
     #: the files in the image (a new version, published).
     EXAMPLE_APPS_UPDATED = "example_apps.updated"
+    #: app-platform P2: a member allowed / disconnected an app; an admin
+    #: stopped or resumed an app's 기능 상자.
+    APP_CONSENT_GRANTED = "app_consent.granted"
+    APP_CONSENT_REVOKED = "app_consent.revoked"
+    APP_SDK_SET = "app.sdk_set"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -122,6 +127,9 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.EXAMPLE_APPS_IMPORTED: "예시 앱 게시",
     AuditAction.EXAMPLE_APPS_REPLACED: "예시 앱 교체",
     AuditAction.EXAMPLE_APPS_UPDATED: "예시 앱 업데이트",
+    AuditAction.APP_CONSENT_GRANTED: "앱 연결 허용",
+    AuditAction.APP_CONSENT_REVOKED: "앱 연결 끊기",
+    AuditAction.APP_SDK_SET: "앱 기능 상자 정지/재개",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",

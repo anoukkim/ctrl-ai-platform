@@ -142,6 +142,11 @@ class ChatLimits(Base):
     web_search_max_uses: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="5"
     )
+    #: app-platform P2: what one visitor may spend on AI inside member
+    #: apps per KST day, across every app. 0 turns it off.
+    app_ai_daily_cap_krw: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="2000"
+    )
     set_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
