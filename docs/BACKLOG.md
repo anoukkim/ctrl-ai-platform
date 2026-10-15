@@ -97,17 +97,35 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
    that outside CTRL+AI those calls need replacing — done in P1.
 
-3. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
-    *Not pre-approved — branch, test, report, WAIT.* No menu item and no
-    `/issues`; the board is reached from "다른 의견 보기" inside the 의견
-    보내기 dialog. Spec below, with the owner's revisions.
+3. **app-ai-access** · M3 · branch `feat-app-ai-access`
+    *Not pre-approved — branch, test, report, WAIT.* Owner decision
+    2026-10-16 (saved in their words below): when publishing an app that
+    uses AI, the creator chooses **데모만** or **전체 기능** (changeable
+    later); visitors switch between 데모 and 토큰 사용 any time; the
+    관리자 can turn AI off per app (today's kill switch). Comes after
+    app-platform P4.
 
-4. **builder-python** · M2 · branch `feat-builder-python`
+4. **quarter-end-apps** · M3 · branch `feat-quarter-end-apps`
+    *Not pre-approved — branch, test, report, WAIT.* Owner decision
+    2026-10-16: at 분기 마감 every app goes demo-only (AI off) and is
+    archived under its quarter; CtrlAIApps opens on this quarter with a
+    지난 분기 selector. **Chat history at quarter end is ON HOLD** — the
+    owner is asking members first (archive vs delete); do not build it.
+
+5. **feedback-screenshots** · M1 · branch `feat-feedback-screenshots`
+    *Not pre-approved — branch, test, report, WAIT.* **Replaces
+    anonymous-feedback-board** (owner, 2026-10-16: "no board — only the
+    관리자 can see it"). 의견 보내기 accepts screenshots; Admin › Feedback
+    shows them. The old board spec below is kept for history, not built.
+
+6. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
-    (builder-static-runtime, merged). Spec below.
+    (builder-static-runtime, merged). Spec below. Owner, 2026-10-16: wanted
+    — "a tetris game", "a 사주 site", made in the Builder and usable on the
+    apps origin during the quarter.
 
-5. **app-remix** · M3 · branch `feat-app-remix`
+7. **app-remix** · M3 · branch `feat-app-remix`
     *Not pre-approved — order to be set by the owner.* From H4's optional
     point 4 (project-export-handoff), split out because it is not small: on
     a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
@@ -744,6 +762,58 @@ development.
 → **project-video-management — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#project-video-management--full-spec-merged-2026-10-07).
 
 → **test-database-isolation — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#test-database-isolation--full-spec-merged-2026-10-13).
+
+## app-ai-access, quarter-end-apps, feedback-screenshots — owner's words
+
+Added by the owner on 2026-10-16 (this computer's first session after
+RUN-2026-10-15). Saved as written, then the answers to three questions:
+
+> i wanted the people to be able to 배포 their app on the server, if it
+> uses AI, after they 배포 it, using the page they can use their tokens to
+> use the app. also, if other users want to use it, they can check for
+> demo / Token Use and if they select token they use their own tokens..?
+> and the 관리자 can make it.
+>
+> so then, also for server issues, after a 분기 is finished, all apps are
+> turned off from server, only accessible for demo version. also they are
+> archived, the main 화면 is this quarter's you can select if you want to
+> see prev quarters. the chat's history are also all reset. after a
+> quarter is finished.
+>
+> anonymous-feedback-board: … no not this. no board only 관리자 can see
+> it. and also be able to put in screenshots to their feedback
+>
+> builder-python: … i want to be able to create a platform so when a
+> person is like oh i want to make a tetris game or oh i want to make a
+> site that 사주 etc i can deploy it to the server and i can access it
+> during the 분기
+
+Answers (2026-10-16):
+
+- **Who controls 데모 / 토큰 사용:** "when publishing to app, creator sees
+  like: this app uses AI. are you going to open AI features (ex. xxxx) to
+  other users? pick only demo, full features (can change later). users can
+  turn off anytime and so can 관리자."
+- **Chat history at quarter end:** on hold — "i need to ask with members
+  before". (Note for whoever builds it: CLAUDE.md §4 says work never
+  disappears; deleting chats would change that rule — archive is the
+  version that keeps it.)
+- **Order:** finish quality-tuning Q3 first, then app-platform, then these.
+
+Already true before this (so not new work): a published app is served on
+apps.ctrlai.my and listed in CtrlAIApps; AI inside an app is paid by the
+signed-in visitor from their own 동아리 지원 wallet (app-platform P2); the
+관리자 has a per-app kill switch. Member code still never runs on the
+server (CLAUDE.md §8, §10) — apps, Python ones included, run in the
+visitor's browser.
+
+Open design points for app-ai-access: how "this app uses AI" is detected
+(the published files call `ctrlai.ai`); what 데모 shows for an app that is
+not a showcase (the Builder prompt writes a demo answer for every AI call,
+P4 territory); where the visitor's switch lives (the shell, so every app
+gets it the same way).
+
+---
 
 ## anonymous-feedback-board — full spec
 
