@@ -311,6 +311,13 @@ def test_a_member_cannot_reach_admin_pages(other_client: TestClient) -> None:
 EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/"): None,
     ("GET", "/api/health"): None,
+    # app-platform P1: the apps origin's own router, outside /api. Public
+    # scripts and the shell page; /v1/* behind the app guard, never the
+    # site's session.
+    ("GET", "/_ctrlai/sdk.js"): None,
+    ("GET", "/_ctrlai/shell.js"): None,
+    ("GET", "/_ctrlai/shell/{slug}"): None,
+    ("GET", "/_ctrlai/v1/app"): "app_request",
     # The deployment as the frontend sees it (beta banner, test-mode labels,
     # the data-location notice on sign-up) — needed before signing in.
     ("GET", "/api/site"): None,

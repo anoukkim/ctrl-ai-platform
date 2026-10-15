@@ -230,7 +230,7 @@ def test_a_generation_writes_the_working_copy_to_its_own_random_folder(
     folder = apps_dir / slug
     assert sorted(p.name for p in folder.iterdir()) == ["app.js", "index.html", "style.css"]
     page = (folder / "index.html").read_text(encoding="utf-8")
-    assert page.index(app_runtime.STORAGE_SHIM) < page.index("<title>")
+    assert page.index(app_runtime.SDK_TAG) < page.index("<title>")
     assert (folder / "app.js").read_text(encoding="utf-8") == files_of(db_session, project)["app.js"]
     # Nothing left over from the swap.
     assert [p.name for p in apps_dir.iterdir()] == [slug]
@@ -290,11 +290,13 @@ def test_with_the_runtime_off_nothing_is_written(
     assert client.post(f"/api/builder/projects/{project.id}/runtime", json={}).status_code == 409
 
 
-def test_the_storage_shim_goes_first() -> None:
+def test_the_sdk_goes_first() -> None:
+    """app-platform P1: the SDK (and with it the shell-kept localStorage)
+    loads before any of the app's own scripts."""
     assert app_runtime.with_shim("a.html", "<!doctype html><html><head><title>t</title>").startswith(
-        "<!doctype html><html><head>" + app_runtime.STORAGE_SHIM
+        "<!doctype html><html><head>" + app_runtime.SDK_TAG
     )
-    assert app_runtime.with_shim("a.html", "<p>x</p>") == app_runtime.STORAGE_SHIM + "<p>x</p>"
+    assert app_runtime.with_shim("a.html", "<p>x</p>") == app_runtime.SDK_TAG + "<p>x</p>"
     assert app_runtime.with_shim("a.js", "let a") == "let a"
 
 
@@ -462,15 +464,3 @@ def test_the_api_answers_no_cors_to_the_apps_origin(anon_client: TestClient, ori
     assert "access-control-allow-origin" not in simple.headers
 
 
-def test_the_preview_and_the_runtime_use_the_same_storage_shim() -> None:
-    """`frontend/lib/static-preview.ts` repeats the shim for the in-page
-    preview; the two must not drift apart."""
-    import re
-
-    source = (Path(__file__).resolve().parents[2] / "frontend/lib/static-preview.ts").read_text(
-        encoding="utf-8"
-    )
-    start = source.index("export const STORAGE_SHIM")
-    end = source.index('</script>";', start) + len('</script>";')
-    literals = re.findall(r'"([^"]*)"', source[start:end])
-    assert "".join(literals) == app_runtime.STORAGE_SHIM

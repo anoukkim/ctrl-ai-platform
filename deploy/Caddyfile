@@ -34,41 +34,82 @@ www.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
 
-# Member apps (builder-static-runtime): apps.ctrlai.my/<app-slug>/.
+# Member apps: apps.ctrlai.my/<app-slug>/ (builder-static-runtime, and since
+# app-platform P1 the "CTRL+AI 기능 상자" shell).
 #
-# Static files only, from the `apps_data` volume, mounted read-only here;
-# the api writes it when a member presses 미리보기 갱신. Nothing runs on
-# the server — these files run in visitors' browsers. Because this host is
-# same-site with ctrlai.my, three rules elsewhere keep it apart from the
-# club's site (CLAUDE.md §2): the session cookie is host-only, every POST
-# to the API must be JSON, and the API answers no CORS to this origin.
+#   /<slug>/            OUR shell page, from the api (/_ctrlai/shell/<slug>):
+#                       it runs the app in a frame sandboxed without
+#                       allow-same-origin and is the only thing the app can
+#                       talk to (postMessage, through /_ctrlai/sdk.js).
+#   /<slug>/_app/<f>    the member's files, static from the `apps_data`
+#                       volume (read-only here; the api writes it), with a
+#                       `sandbox` CSP so they are fenced in even when opened
+#                       on their own, and no network (connect-src 'none').
+#   /_ctrlai/*          the api's app-platform router (scripts, shell,
+#                       /_ctrlai/v1/*). Never the main /api: that is only
+#                       reachable on the site itself.
+#   /<slug>, /<slug>/<f>  addresses from before the shell: redirected.
 #
-# Every response: the CSP below (only CTRL+AI may frame an app, and an app
-# may load only its own files), nosniff, no Referer, and never a cookie.
-# No directory listings; hidden names (the api's temporary folders) are
-# never served. If DNS for apps.<domain> is missing, Caddy cannot get this
-# certificate and keeps retrying — the main site is unaffected.
+# Same-site with ctrlai.my, so the rules of CLAUDE.md §2 still hold: the
+# session cookie is host-only (never sent here), every POST to the API is
+# JSON, the API answers no CORS. The texts of the two CSPs are
+# `app_shell.app_files_csp` / `shell_csp` — a test keeps them equal.
+# If DNS for apps.<domain> is missing, Caddy cannot get this certificate
+# and keeps retrying — the main site is unaffected.
 apps.{$SITE_DOMAIN} {
-	root * /srv/apps
-
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors https://{$SITE_DOMAIN}"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "no-referrer"
 		Strict-Transport-Security "max-age=31536000"
-		-Set-Cookie
 		-Server
 	}
 
-	@notRead not method GET HEAD
-	respond @notRead 405
-
-	file_server {
-		hide .*
+	@platform path /_ctrlai/*
+	handle @platform {
+		reverse_proxy api:8000
 	}
 
-	# A missing file is an error response, which the header block above
-	# does not reach: answer it here with the same policy and no body.
+	@shell path_regexp shell ^/([a-z2-9]{10})/$
+	handle @shell {
+		@notRead not method GET HEAD
+		respond @notRead 405
+		rewrite * /_ctrlai/shell/{re.shell.1}
+		reverse_proxy api:8000
+	}
+
+	@appfile path_regexp appfile ^/([a-z2-9]{10})/_app/(.+)$
+	handle @appfile {
+		@notRead not method GET HEAD
+		respond @notRead 405
+		header {
+			Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; frame-ancestors https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}"
+			-Set-Cookie
+		}
+		root * /srv/apps
+		rewrite * /{re.appfile.1}/{re.appfile.2}
+		file_server {
+			hide .*
+		}
+	}
+
+	# Inside handle blocks, which are tried in order and exclusive: a bare
+	# `redir` runs before every handle and would catch /<slug>/_app/ too.
+	@bare path_regexp bare ^/([a-z2-9]{10})$
+	handle @bare {
+		redir * /{re.bare.1}/ permanent
+	}
+
+	@oldfile path_regexp oldfile ^/([a-z2-9]{10})/(.+)$
+	handle @oldfile {
+		redir * /{re.oldfile.1}/_app/{re.oldfile.2} permanent
+	}
+
+	handle {
+		respond 404
+	}
+
+	# A missing file is an error response, which the header blocks above
+	# do not reach: answer it here with a closed policy and no body.
 	handle_errors {
 		header {
 			Content-Security-Policy "default-src 'none'; frame-ancestors https://{$SITE_DOMAIN}"
