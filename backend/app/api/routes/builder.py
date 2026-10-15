@@ -7,19 +7,24 @@ so a deleted project is invisible to its owner through every route rather
 than only the ones that remembered to check.
 """
 
+import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from urllib.parse import quote
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
 from app.db.session import get_db
 from app.models import (
+    BuilderGeneration,
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectStatus,
@@ -37,6 +42,10 @@ from app.schemas.builder import (
     BuilderFileRead,
     BuilderModelOption,
     EditEstimateRead,
+    GenerationRead,
+    GenerationRun,
+    PlanRequest,
+    PlanStep,
     GenerateRead,
     GenerateRequest,
     HandoffFile,
@@ -53,6 +62,7 @@ from app.services import (
     app_publish,
     app_runtime,
     builder_edit,
+    builder_stages,
     builder_starter,
     builder_versions,
     chat_models,
@@ -752,3 +762,240 @@ def unpublish_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+# ------------------------------------------------ quality-tuning Q2
+
+
+def _generation_read(
+    db: Session,
+    settings: Settings,
+    user: User,
+    project: BuilderProject,
+    generation: BuilderGeneration,
+) -> GenerationRead:
+    version_number = None
+    if generation.version_id is not None:
+        version = db.get(BuilderProjectVersion, generation.version_id)
+        version_number = version.number if version else None
+    estimated = max_call = None
+    if generation.status in ("planned", "partial", "failed"):
+        try:
+            estimated, max_call = builder_stages.run_estimate(db, settings, user, project, generation)
+        except (pricing.PricingError, chat_models.ModelChoiceError):
+            estimated = max_call = None
+    return GenerationRead(
+        id=generation.id,
+        kind=generation.kind,
+        request=generation.request,
+        style=generation.style,
+        summary=generation.summary,
+        plan=[PlanStep(path=step[0], purpose=step[1]) for step in generation.plan],
+        files_done=list(generation.files_done),
+        status=generation.status,
+        check_summary=generation.check_summary,
+        check_fixed=list(generation.check_fixed),
+        charged_krw=generation.charged_krw,
+        error=generation.error,
+        version_number=version_number,
+        created_at=generation.created_at,
+        estimated_krw=estimated,
+        max_call_krw=max_call,
+    )
+
+
+def _owned_generation(
+    db: Session, project: BuilderProject, generation_id: int
+) -> BuilderGeneration:
+    generation = db.get(BuilderGeneration, generation_id)
+    if generation is None or generation.project_id != project.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="찾을 수 없는 작업이에요.")
+    return generation
+
+
+@router.post(
+    "/projects/{project_id}/plan",
+    response_model=GenerationRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="만들기 / 고치기, stage 1: Claude plans the files (charged)",
+)
+def plan_generation(
+    project_id: int,
+    payload: PlanRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> GenerationRead:
+    """See `services/builder_stages.py`."""
+    project = _owned_project(project_id, db, user)
+    try:
+        generation = builder_stages.plan(
+            db,
+            config,
+            get_claude_provider(config),
+            user=user,
+            project=project,
+            request=builder_stages.brief_text(
+                payload.request, payload.who, payload.features, payload.mood
+            ),
+            style=payload.style,
+            is_mock=config.provider_is_mock("claude"),
+        )
+    except builder_starter.StarterError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except usage_service.InsufficientBudgetError as error:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(error)) from error
+    except usage_service.NoQuarterError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    except chat_models.ModelChoiceError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except (ClaudeError, pricing.PricingError) as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    return _generation_read(db, config, user, project, generation)
+
+
+@router.get(
+    "/projects/{project_id}/generation",
+    response_model=GenerationRead | None,
+    summary="The project's unfinished generation, if any",
+)
+def read_open_generation(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    config: Settings = Depends(get_settings),
+) -> GenerationRead | None:
+    project = _owned_project(project_id, db, user)
+    generation = builder_stages.open_generation(db, project)
+    return _generation_read(db, config, user, project, generation) if generation else None
+
+
+@router.post(
+    "/projects/{project_id}/generations/{generation_id}/cancel",
+    response_model=GenerationRead,
+    summary="Drop a plan or an unfinished generation (free; saved files stay)",
+)
+def cancel_generation(
+    project_id: int,
+    generation_id: int,
+    payload: GenerationRun,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> GenerationRead:
+    project = _owned_project(project_id, db, user)
+    generation = _owned_generation(db, project, generation_id)
+    if generation.status == "running":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="만드는 중에는 취소할 수 없어요.")
+    if generation.status in ("planned", "partial", "failed"):
+        generation.status = "cancelled"
+        db.commit()
+    return _generation_read(db, config, user, project, generation)
+
+
+#: Seconds without a step before the stream sends a keepalive — every hop
+#: (Caddy, the Next.js proxy) stays open while one file is being written.
+GENERATION_KEEPALIVE_SECONDS = 10.0
+
+#: Runs still going after their response ended (the member closed the tab):
+#: they finish, so every file that was paid for is saved.
+_RUNNING: set[asyncio.Task] = set()
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+
+
+@router.post(
+    "/projects/{project_id}/generations/{generation_id}/run",
+    summary="시작 / 이어서 만들기: files one by one, then a self-check (Server-Sent Events)",
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+def run_generation(
+    project_id: int,
+    generation_id: int,
+    payload: GenerationRun,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    """Each step arrives as an event — file_start, file_done, check_start,
+    check_done, then done or error. Each file is saved as soon as it is
+    written; a run cut short keeps them, and this route again continues
+    with the rest."""
+    project = _owned_project(project_id, db, user)
+    generation = _owned_generation(db, project, generation_id)
+    if generation.status in ("done", "cancelled"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="이미 끝난 작업이에요. 새로 요청해 주세요.")
+    session_factory = request.app.dependency_overrides.get(get_db, get_db)
+    provider = get_claude_provider(config)
+    is_mock = config.provider_is_mock("claude")
+    user_id = user.id
+    queue: asyncio.Queue[tuple[str, dict]] = asyncio.Queue()
+
+    def work(loop: asyncio.AbstractEventLoop) -> None:
+        def emit(kind: str, data: dict) -> None:
+            loop.call_soon_threadsafe(queue.put_nowait, (kind, data))
+
+        sessions = session_factory()
+        worker_db = next(sessions)
+        try:
+            member = worker_db.get(User, user_id)
+            try:
+                builder_stages.run(
+                    worker_db,
+                    config,
+                    provider,
+                    user=member,
+                    generation_id=generation_id,
+                    emit=emit,
+                    is_mock=is_mock,
+                )
+            except builder_starter.StarterError as error:
+                emit("error", {"detail": str(error), "partial": False, "files_done": []})
+            except Exception:  # noqa: BLE001 — the member gets a Korean sentence either way
+                logger.exception("builder generation %s failed", generation_id)
+                worker_db.rollback()
+                row = worker_db.get(BuilderGeneration, generation_id)
+                if row is not None and row.status == "running":
+                    row.status = "partial" if row.files_done else "failed"
+                    row.error = "만드는 중 문제가 생겼어요. 이어서 만들기로 다시 시도해 주세요."
+                    worker_db.commit()
+                emit(
+                    "error",
+                    {
+                        "detail": "만드는 중 문제가 생겼어요. 이어서 만들기로 다시 시도해 주세요.",
+                        "partial": bool(row and row.files_done),
+                        "files_done": list(row.files_done) if row else [],
+                    },
+                )
+            finished = worker_db.get(BuilderProject, project_id)
+            if finished is not None:
+                _refresh_runtime(worker_db, config, finished)
+                worker_db.commit()
+        finally:
+            sessions.close()
+            loop.call_soon_threadsafe(queue.put_nowait, ("end", {}))
+
+    async def relay():
+        loop = asyncio.get_running_loop()
+        task = asyncio.create_task(run_in_threadpool(work, loop))
+        _RUNNING.add(task)
+        task.add_done_callback(_RUNNING.discard)
+        while True:
+            try:
+                kind, data = await asyncio.wait_for(queue.get(), GENERATION_KEEPALIVE_SECONDS)
+            except asyncio.TimeoutError:
+                yield ": keepalive\n\n"
+                continue
+            if kind == "end":
+                break
+            yield _sse(kind, data)
+
+    return StreamingResponse(
+        relay(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+

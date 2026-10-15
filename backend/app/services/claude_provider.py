@@ -245,6 +245,20 @@ class ProjectEdit:
     output_tokens: int
 
 
+@dataclass(frozen=True)
+class ProjectPlan:
+    """만들 계획 (quality-tuning Q2): the files a generation will write, in
+    order, each with one Korean sentence on what it is for. Checked by the
+    caller before anything is written."""
+
+    summary: str
+    #: (path, purpose) in writing order.
+    files: list[tuple[str, str]]
+    model: str
+    input_tokens: int
+    output_tokens: int
+
+
 # ----------------------------------------------------- server tools
 
 #: Searches per reply when nothing else says (fix-real-web-search): the
@@ -427,6 +441,41 @@ class ClaudeProvider(Protocol):
         effort: str | None = None,
     ) -> ProjectEdit: ...
 
+    # quality-tuning Q2: generation in stages — a plan, one call per file,
+    # a self-check. Each is its own call, timed out and charged on its own.
+    def plan_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 4096,
+        style: str = "",
+        effort: str | None = None,
+    ) -> ProjectPlan: ...
+
+    def write_project_file(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        plan: list[tuple[str, str]],
+        path: str,
+        model: str = "",
+        max_tokens: int = 16000,
+        style: str = "",
+        effort: str | None = None,
+    ) -> ProjectEdit: ...
+
+    def check_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        model: str = "",
+        max_tokens: int = 16000,
+        effort: str | None = None,
+    ) -> ProjectEdit: ...
+
 
 # -------------------------------------------------------------- the prompt
 
@@ -506,8 +555,9 @@ set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
 <link rel="stylesheet" href="style.css"> and <script src="app.js"></script>.
 - Everything the member sees is in Korean. Short Korean comments in the \
 code, so a beginner can follow it.
-- Small and complete beats big: about 300 lines in total, every button \
-works, the layout fits a phone and a laptop.
+- As complete as the idea needs: usually 300–1,200 lines across the \
+files. Every button works; no placeholders, no "준비 중" stubs, no \
+lorem ipsum. The layout fits a phone and a laptop.
 - Give each app its own look that fits the idea and the requested style \
 (colours, type, layout, mood) — not a default white card. Fonts only from \
 local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
@@ -576,6 +626,9 @@ set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
 - An app that still uses localStorage directly keeps working; when you \
 touch its saving code anyway, move it to the store above.
 - Change only what the request needs. Keep everything else as it is.
+- A new app is as complete as the idea needs: usually 300–1,200 lines \
+across the files. Every button works; no placeholders, no "준비 중" \
+stubs, no lorem ipsum.
 - To create or change a file, call write_file with its path and its \
 complete new content — never a fragment or a diff. Call it once per file, \
 all in this one reply. Do not call it for files that stay the same.
@@ -642,6 +695,177 @@ def edit_request_text(
     else:
         parts.append("현재 파일: 없음 (새로 만듭니다)")
     return "\n".join(parts)
+
+
+# ------------------------------------------------- staged generation (Q2)
+
+#: The rules every staged call shares — the same as EDIT_SYSTEM's.
+_APP_RULES = """\
+- Static files only: HTML, CSS and browser JavaScript (.html .css .js \
+.json .svg .md .txt). No frameworks, no build step, no TypeScript, no \
+server code of any kind — it will be refused. index.html is the entry and \
+links its files with relative paths (<link rel="stylesheet" \
+href="style.css">, <script src="app.js"></script>).
+- No external scripts, stylesheets, fonts, images or network requests: \
+they are blocked. Use inline SVG or CSS for icons and charts.
+- To remember data, use CTRL+AI's storage (per app and per visitor, \
+about 1 MB): `await ctrlai.storage.get(key)` (null when empty), \
+`await ctrlai.storage.set(key, value)` (any JSON value), \
+`ctrlai.storage.remove(key)`. It is asynchronous: load saved data, then \
+draw the first screen. CTRL+AI adds its script itself — never add a tag \
+for it. When `window.ctrlai` is missing, fall back to localStorage, \
+exactly like this: const store = window.ctrlai && window.ctrlai.connected \
+? ctrlai.storage : { get: async (k) => JSON.parse(localStorage.getItem(k) \
+|| "null"), set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
+- Everything the member sees is in Korean, with short Korean comments in \
+the code. The layout fits a phone and a laptop.
+- As complete as the idea needs: usually 300–1,200 lines across the \
+files. Every button works; no placeholders, no "준비 중" stubs, no lorem \
+ipsum.
+- Give each app its own look that fits the idea and the requested style \
+(colours, type, layout, mood) — not a default white card. Fonts only from \
+local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
+monospace, cursive). Keep text readable (contrast).
+- Never use alert(), confirm() or prompt(): the preview blocks them. Show \
+messages on the page, and ask "정말 지울까요?" with a second tap instead.
+- An app runs only in the visitor's browser: what it saves stays on that \
+visitor's device. Apps that need accounts, shared boards or data across \
+people cannot be made yet — make the closest single-person version.
+- At most 30 files, 200 KB each.
+"""
+
+PLAN_SYSTEM = (
+    """\
+You plan a web app for CTRL+AI, a Korean club where beginners make apps \
+with AI. Most members cannot code. The member says, in Korean, what to \
+make or change; the project's current files follow. Do not write code \
+now: decide which files to create or change, in the order they should be \
+written, and say in one short Korean sentence what each one is for.
+
+- A new app needs index.html. Usually index.html, style.css and app.js; \
+more .js, .css or .json files only when the app is big enough to need \
+them (at most 12 files).
+- A change lists only the files that must change or be added — as few as \
+possible.
+- "summary" is one or two short Korean sentences: what will be built or \
+changed.
+
+The app must follow these rules:
+"""
+    + _APP_RULES
+    + """
+Return JSON only."""
+)
+
+#: The plan comes back as JSON (structured outputs).
+PLAN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "purpose": {"type": "string"},
+                },
+                "required": ["path", "purpose"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["summary", "files"],
+    "additionalProperties": False,
+}
+
+FILE_SYSTEM = (
+    """\
+You write one file of a web app for CTRL+AI, a Korean club where \
+beginners make apps with AI. The member's request, the plan (every file \
+and what it is for) and the files written so far follow. Write ONLY the \
+file named at the end: call write_file once with its path and its \
+complete content — never a fragment or a diff. The other files are \
+written in their own steps, so use exactly the ids, classes, function \
+names and paths the plan and the files so far imply, so the parts fit \
+together. When the file already exists, keep everything the request does \
+not ask to change.
+
+Rules:
+"""
+    + _APP_RULES
+    + """
+After the call, reply with one short Korean sentence about the file."""
+)
+
+CHECK_SYSTEM = (
+    """\
+You check a finished web app for CTRL+AI before the member sees it. Look \
+for: a script, stylesheet or link to a file that does not exist; \
+getElementById or querySelector for an id or class the HTML does not \
+have; a function called but never defined; JavaScript syntax errors; \
+buttons that do nothing; alert(), confirm() or prompt(); external URLs.
+
+If you find problems, fix them: call write_file with the complete \
+corrected file — only files that need a fix, at most 3. Change nothing \
+else. If everything is fine, call nothing.
+
+Rules:
+"""
+    + _APP_RULES
+    + """
+Then reply in Korean with one short sentence: what you fixed, or \
+"점검했어요 — 고칠 곳이 없어요."."""
+)
+
+#: How many files one self-check may rewrite.
+CHECK_MAX_FIXES = 3
+
+
+def file_request_text(
+    name: str,
+    files: list[tuple[str, str]],
+    request: str,
+    plan: list[tuple[str, str]],
+    path: str,
+    style: str = "",
+) -> str:
+    """The request, the plan, the files so far, and the one file to write."""
+    parts = [f"프로젝트 이름: {name.strip()}", "", "요청:", request.strip(), ""]
+    if style.strip():
+        parts += ["원하는 스타일:", style.strip(), ""]
+    parts.append("계획:")
+    parts += [f"- {item_path}: {purpose}" for item_path, purpose in plan]
+    parts.append("")
+    if files:
+        parts.append("지금까지의 파일:")
+        for file_path, content in files:
+            parts.append(f'<file path="{file_path}">\n{content}\n</file>')
+    else:
+        parts.append("지금까지의 파일: 없음")
+    parts += ["", f"지금 쓸 파일: {path}"]
+    return "\n".join(parts)
+
+
+def check_request_text(name: str, files: list[tuple[str, str]]) -> str:
+    parts = [f"프로젝트 이름: {name.strip()}", "", "파일:"]
+    for file_path, content in files:
+        parts.append(f'<file path="{file_path}">\n{content}\n</file>')
+    return "\n".join(parts)
+
+
+#: Mock only: `[mock-error-file:<path>]` in a request makes writing that
+#: file fail (a timeout), so a partial generation and 이어서 만들기 can be
+#: seen and tested with no key.
+MOCK_ERROR_FILE = re.compile(r"\[mock-error-file:([\w./-]+)\]")
+#: Mock only: a file containing this text is "fixed" by the self-check.
+MOCK_CHECK_FIX = "MOCK_CHECK_FIX"
+#: What the mock says each starter file is for.
+_MOCK_PURPOSES = {
+    "index.html": "화면의 뼈대와 글을 담아요.",
+    "style.css": "색과 글꼴, 배치를 정해요.",
+    "app.js": "버튼과 저장 같은 동작을 맡아요.",
+}
 
 
 # ------------------------------------------------------------------- mock
@@ -1329,6 +1553,97 @@ class MockClaudeProvider:
             output_tokens=min(max_tokens, sum(len(content) for _, content in writes) // 3 + 60),
         )
 
+    # ---------------------------------------- staged generation (Q2), mock
+
+    def plan_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 4096,
+        style: str = "",
+        effort: str | None = None,
+    ) -> ProjectPlan:
+        """The files the one-shot mock would write, each with a purpose."""
+        edit = self.edit_project(name, files, request, model, 16000, style)
+        planned = [(path, _MOCK_PURPOSES.get(path, "앱의 한 부분이에요.")) for path, _ in edit.writes]
+        if "index.html" not in dict(files):
+            summary = f"'{name.strip() or '내 앱'}'을(를) 파일 {len(planned)}개로 만들어요."
+        else:
+            summary = f"파일 {len(planned)}개를 바꿔요: " + ", ".join(path for path, _ in planned)
+        return ProjectPlan(
+            summary=summary,
+            files=planned,
+            model=model or self.model_id,
+            input_tokens=estimate_tokens(PLAN_SYSTEM + edit_request_text(name, files, request, style)),
+            output_tokens=40 + 30 * len(planned),
+        )
+
+    def write_project_file(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        plan: list[tuple[str, str]],
+        path: str,
+        model: str = "",
+        max_tokens: int = 16000,
+        style: str = "",
+        effort: str | None = None,
+    ) -> ProjectEdit:
+        """That file as the one-shot mock would write it.
+
+        A plan of the three starter files is a new app (the mock's edits
+        only ever plan one file); anything else is the mock's edit, run on
+        the files as they are now. `[mock-error-file:<path>]` fails here.
+        """
+        failure = MOCK_ERROR_FILE.search(request)
+        if failure and failure.group(1) == path:
+            raise ClaudeError(ProviderErrorKind.TIMEOUT, "mock file")
+        planned = {item for item, _ in plan}
+        if {"index.html", "style.css", "app.js"} <= planned:
+            title = name.strip() or "내 앱"
+            written = dict(_mock_starter_files(title, request.strip()))
+            accent = _mock_style_accent(style or request)
+            content = written.get(path, f"/* {path} */\n").replace(MOCK_ACCENT, accent)
+        else:
+            content = dict(self.edit_project(name, files, request, model, max_tokens, style).writes).get(path)
+        writes = [(path, content)] if content is not None else []
+        text = file_request_text(name, files, request, plan, path, style)
+        return ProjectEdit(
+            summary=f"{path}을(를) 썼어요.",
+            writes=writes,
+            model=model or self.model_id,
+            input_tokens=estimate_tokens(FILE_SYSTEM + text),
+            output_tokens=min(max_tokens, len(content or "") // 3 + 30),
+        )
+
+    def check_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        model: str = "",
+        max_tokens: int = 16000,
+        effort: str | None = None,
+    ) -> ProjectEdit:
+        """Nothing to fix — unless a file carries `MOCK_CHECK_FIX`."""
+        fixes = [
+            (path, content.replace(MOCK_CHECK_FIX, "fixed by check"))
+            for path, content in files
+            if MOCK_CHECK_FIX in content
+        ][:CHECK_MAX_FIXES]
+        summary = (
+            f"점검하면서 {len(fixes)}곳을 고쳤어요." if fixes else "점검했어요 — 고칠 곳이 없어요."
+        )
+        return ProjectEdit(
+            summary=summary,
+            writes=fixes,
+            model=model or self.model_id,
+            input_tokens=estimate_tokens(CHECK_SYSTEM + check_request_text(name, files)),
+            output_tokens=40 + sum(len(content) // 3 for _, content in fixes),
+        )
+
     def _rewrite(
         self, prompt: str, request: str, reply: str, revised: str | None
     ) -> PromptRewrite:
@@ -1966,17 +2281,111 @@ class AnthropicClaudeProvider:
         every round is added up — a failure carries it, so the club's cost
         is still recorded (cost-clarity).
         """
+        return self._tool_rounds(
+            EDIT_SYSTEM, edit_request_text(name, files, request, style), model, max_tokens, effort
+        )
+
+    # ------------------------------------- staged generation (Q2), real
+
+    def plan_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        model: str = "",
+        max_tokens: int = 4096,
+        style: str = "",
+        effort: str | None = None,
+    ) -> ProjectPlan:
+        """One small call, structured JSON back (`PLAN_SCHEMA`). Not cached."""
+        import json
+
+        import anthropic
+
+        client = self._builder_client()
+        params = self.request_params(
+            PLAN_SYSTEM,
+            [{"role": "user", "content": edit_request_text(name, files, request, style)}],
+            max_tokens,
+            model,
+            effort=effort,
+        )
+        output_config = dict(params.get("output_config", {}))
+        output_config["format"] = {"type": "json_schema", "schema": PLAN_SCHEMA}
+        params["output_config"] = output_config
+        try:
+            message = client.messages.create(**params)
+        except anthropic.APIError as error:
+            raise classify(error) from None
+        billed = (message.usage.input_tokens or 0, message.usage.output_tokens or 0)
+        if message.stop_reason in ("max_tokens", "refusal"):
+            raise ClaudeError(ProviderErrorKind.UNKNOWN, f"plan {message.stop_reason}", usage=billed)
+        text = next((block.text for block in message.content if block.type == "text"), "")
+        try:
+            data = json.loads(text)
+            planned = [(str(item["path"]), str(item["purpose"])) for item in data["files"]]
+            summary = str(data.get("summary", ""))
+        except (ValueError, KeyError, TypeError):
+            raise ClaudeError(ProviderErrorKind.UNKNOWN, "plan json", usage=billed) from None
+        return ProjectPlan(
+            summary=summary,
+            files=planned,
+            model=message.model or model or self.model_id,
+            input_tokens=billed[0],
+            output_tokens=billed[1],
+        )
+
+    def write_project_file(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        request: str,
+        plan: list[tuple[str, str]],
+        path: str,
+        model: str = "",
+        max_tokens: int = 16000,
+        style: str = "",
+        effort: str | None = None,
+    ) -> ProjectEdit:
+        """One file through `write_file`, with the plan and the files so far."""
+        return self._tool_rounds(
+            FILE_SYSTEM,
+            file_request_text(name, files, request, plan, path, style),
+            model,
+            max_tokens,
+            effort,
+        )
+
+    def check_project(
+        self,
+        name: str,
+        files: list[tuple[str, str]],
+        model: str = "",
+        max_tokens: int = 16000,
+        effort: str | None = None,
+    ) -> ProjectEdit:
+        """The self-check: fixes come back as `write_file` calls."""
+        return self._tool_rounds(CHECK_SYSTEM, check_request_text(name, files), model, max_tokens, effort)
+
+    def _builder_client(self):
         import anthropic
 
         kwargs = self._client_kwargs()
+        # Per call, not per whole generation (quality-tuning Q2).
         kwargs["timeout"] = self._settings.builder_timeout_seconds
         if self._http_client is not None:
             kwargs["http_client"] = self._http_client
-        client = anthropic.Anthropic(**kwargs)
+        return anthropic.Anthropic(**kwargs)
 
-        messages: list[dict[str, Any]] = [
-            {"role": "user", "content": edit_request_text(name, files, request, style)}
-        ]
+    def _tool_rounds(
+        self, system: str, user_text: str, model: str, max_tokens: int, effort: str | None
+    ) -> ProjectEdit:
+        """Rounds of `write_file` until Claude stops, the usage added up."""
+        import anthropic
+
+        client = self._builder_client()
+
+        messages: list[dict[str, Any]] = [{"role": "user", "content": user_text}]
         writes: list[tuple[str, str]] = []
         texts: list[str] = []
         input_tokens = output_tokens = 0
@@ -1987,7 +2396,7 @@ class AnthropicClaudeProvider:
                 raise ClaudeError(
                     ProviderErrorKind.UNKNOWN, "edit budget", usage=(input_tokens, output_tokens)
                 )
-            params = self.request_params(EDIT_SYSTEM, messages, remaining, model, effort=effort)
+            params = self.request_params(system, messages, remaining, model, effort=effort)
             params["tools"] = [WRITE_FILE_TOOL]
             params["tool_choice"] = {"type": "auto"}
             try:
@@ -2079,6 +2488,15 @@ class UnconfiguredClaudeProvider:
         style: str = "",
         effort: str | None = None,
     ) -> ProjectEdit:
+        raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
+
+    def plan_project(self, *args: Any, **kwargs: Any) -> ProjectPlan:
+        raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
+
+    def write_project_file(self, *args: Any, **kwargs: Any) -> ProjectEdit:
+        raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
+
+    def check_project(self, *args: Any, **kwargs: Any) -> ProjectEdit:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 
 

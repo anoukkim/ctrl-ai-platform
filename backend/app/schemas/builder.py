@@ -224,3 +224,53 @@ class HandoffRead(BaseModel):
     extra_label: str
     max_extra: int
     claude_code_first_line: str
+
+
+# ------------------------------------------------ quality-tuning Q2
+
+
+class PlanRequest(BaseModel):
+    """만들기 / 고치기, stage 1. `who`, `features` and `mood` are the guided
+    start form's answers (all optional — 건너뛰기 leaves them empty)."""
+
+    request: str = Field(min_length=1, max_length=2000)
+    style: str = Field(default="", max_length=100)
+    who: str = Field(default="", max_length=200)
+    features: str = Field(default="", max_length=600)
+    mood: str = Field(default="", max_length=200)
+
+
+class PlanStep(BaseModel):
+    path: str
+    #: One Korean sentence: what the file is for.
+    purpose: str
+
+
+class GenerationRead(BaseModel):
+    """One staged generation: its plan, how far it got, what it cost."""
+
+    id: int
+    kind: str
+    request: str
+    style: str
+    summary: str
+    plan: list[PlanStep]
+    files_done: list[str]
+    #: planned · running · partial · failed · done · cancelled
+    status: str
+    check_summary: str
+    check_fixed: list[str]
+    charged_krw: int
+    #: The last failure, in Korean. Empty when none.
+    error: str
+    version_number: int | None = None
+    created_at: datetime
+    #: "약 N원" for the rest of the run and "최대 M원" per call — shown by
+    #: 시작 and 이어서 만들기. None when the run is over.
+    estimated_krw: int | None = None
+    max_call_krw: int | None = None
+
+
+class GenerationRun(BaseModel):
+    """시작 / 이어서 만들기 — no fields; a JSON body like every write."""
+

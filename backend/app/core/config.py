@@ -251,7 +251,7 @@ class Settings(BaseSettings):
     # long to wait for it. 16,000 tokens is a whole small app rewritten
     # (≈ 230원 on Sonnet); the pre-check reserves all of it.
     builder_max_output_tokens: int = 16000
-    builder_timeout_seconds: float = 180.0
+    builder_timeout_seconds: float = 300.0
 
     # ---------- Member apps (builder-static-runtime) ----------
     # Where 미리보기 갱신 writes each project's files, one folder per app

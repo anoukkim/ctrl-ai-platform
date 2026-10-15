@@ -136,6 +136,28 @@ its CSS and JS inlined in an `<iframe srcdoc sandbox="allow-scripts">`
 behind a CSP that blocks all network — never on the backend. Files are
 read-only in the editor; Claude changes them (below).
 
+**Project Builder — 만들기 / 고치기 in stages** (quality-tuning Q2,
+2026-10-15). An empty project opens a short **start form** — 만들고 싶은 앱
+(pre-filled from the Chat idea / project description), 누가 쓰나요, 꼭 필요한
+기능 3가지, 원하는 분위기 — which can be skipped (질문 건너뛰기). **만들 계획
+세우기** is one small charged call: Claude lists the files and what each is
+for; the member sees **만들 계획** and presses **시작 · 약 N원 (호출마다 최대
+M원)**. Each file is then written by its own call (progress: "index.html
+작성 중… ✓ style.css ✓ …") and **saved the moment it is done**; a last
+**점검** call fixes broken references / ids / obvious JS errors (≤ 3 files).
+A call that fails or times out stops the run with a Korean reason; the
+files already written stay, and **이어서 만들기** writes the rest (or 처음부터
+다시). 고치기 uses the same stages (plan of the changed files only, started
+at once). Every call is charged its real usage; a failed call is free; each
+call has its own timeout (`BUILDER_TIMEOUT_SECONDS`, 300 s) and the stream
+keeps the proxies open with keepalives. The model and 생각 깊이 are the
+project's (the shared picker). The prompts ask for "as complete as the idea
+needs: usually 300–1,200 lines across the files; every button works; no
+placeholders". The one-shot 예시 앱 / `generate` routes remain in the API.
+**빌더 점검:** the owner runs `python -m app.tools.builder_eval --ideas 5
+--max-krw 3000` on the server (real provider, admin wallet, never past the
+limit); the Markdown report shows in Admin › System › 빌더 점검.
+
 **Project Builder — 만들기 / 고치기** (builder-static-runtime). In the
 workspace's Claude panel the member writes what to make or change ("버튼
 색을 바꿔 줘") and presses **만들기** (empty project) or **고치기**; the

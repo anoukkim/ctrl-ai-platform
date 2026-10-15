@@ -368,6 +368,16 @@
 
 /* ---------- 예시 앱 만들기 (빈 프로젝트) ---------- */
 
+/* 빈 프로젝트: 짧은 질문 또는 만들 계획(quality-tuning Q2). */
+.starterArea {
+  display: grid;
+  align-content: start;
+  gap: 0.8rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.2rem;
+}
+
 .starter {
   display: grid;
   align-content: start;
