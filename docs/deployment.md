@@ -805,7 +805,15 @@ dc exec api python -m app.db.import_example_apps <관리자 아이디> --replace
 - 출력: `예전 예시 내림 (휴지통으로): …`, `게시함: …`. 그러면
   https://ctrlai.my/ctrlaistore 에 보입니다.
 - 각 앱 폴더(`backend/examples/apps/<앱>/`)의 `SPEC.md`가 원래 기획(서버 ·
-  실제 AI가 붙은 버전)입니다.
+  실제 AI가 붙은 버전)이고, `README.md` · `CLAUDE.md` · `HANDOFF_PROMPT.md`는
+  회원이 **프로젝트 내려받기**로 받는 손으로 쓴 안내입니다.
+- **이미 올라간 예시 앱을 이미지의 파일로 바꾸려면** `--update`
+  (project-export-handoff): 파일이 다를 때만 새 버전("예시 앱 업데이트")을
+  만들어 게시하고, 감사 기록에 "예시 앱 업데이트"가 남습니다. 같으면 그대로.
+
+  ```bash
+  dc exec api python -m app.db.import_example_apps <관리자 아이디> --update
+  ```
 
 내리려면 Builder에서 그 프로젝트의 **게시 취소**.
 

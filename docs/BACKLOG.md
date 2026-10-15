@@ -89,7 +89,10 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    per-app database, files later). **Starts after H1, H2 and H4 of
    RUN-2026-10-15 are deployed.** P1–P4 pre-approved to merge and deploy
    one at a time; P5 branch + tests + WAIT. Supersedes H3 (app-ai-bridge).
-   Spec below, saved verbatim.
+   Spec below, saved verbatim. **When P1 lands:** update the H4 templates
+   (`services/project_handoff.py` README / CLAUDE.md, and the showcase
+   apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
+   that outside CTRL+AI those calls need replacing.
 
 3. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
@@ -100,6 +103,20 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
+
+5. **app-remix** · M3 · branch `feat-app-remix`
+    *Not pre-approved — order to be set by the owner.* From H4's optional
+    point 4 (project-export-handoff), split out because it is not small: on
+    a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
+    시작하기 허용"; other members then get "내 프로젝트로 복사" — a fresh
+    Builder project from the **published** version, credited "원작: <이름>".
+    Needs a migration (`allow_remix` on the project; `remixed_from_project_id`
+    + the credited name kept even if the original is deleted), the toggle in
+    the publish dialog, a copy route behind `require_active_member` that
+    refuses unpublished/deleted/not-allowed apps (404) and copies no
+    HISTORY or requests of the original's owner, the credit on the new
+    project and its listing, audit-free (it is a member action), and tests
+    (allowed/not allowed, deleted original, own app, inactive member).
 
 ---
 
