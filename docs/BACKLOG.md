@@ -76,7 +76,15 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
-1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
+1. **quality-tuning** (Q0–Q3) · M2 · branches `fix-chat-depth`,
+   `fix-builder-generation`, `fix-builder-layout`
+   From the first real beta feedback (2026-10-15): Q0 diagnose on the
+   server (read-only) → Q1 chat depth + one shared model/생각 깊이 picker →
+   Q2 Builder generation in stages with live progress → Q3 Builder layout.
+   **Merge + deploy pre-approved for Q1, Q2, Q3.** Comes after
+   app-platform P2 and before P3. Spec below, saved verbatim.
+
+2. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
    "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
    apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
    per-app database, files later). **Starts after H1, H2 and H4 of
@@ -89,17 +97,17 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
    that outside CTRL+AI those calls need replacing — done in P1.
 
-2. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
+3. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
     `/issues`; the board is reached from "다른 의견 보기" inside the 의견
     보내기 dialog. Spec below, with the owner's revisions.
 
-3. **builder-python** · M2 · branch `feat-builder-python`
+4. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below.
 
-4. **app-remix** · M3 · branch `feat-app-remix`
+5. **app-remix** · M3 · branch `feat-app-remix`
     *Not pre-approved — order to be set by the owner.* From H4's optional
     point 4 (project-export-handoff), split out because it is not small: on
     a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
@@ -112,6 +120,66 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     HISTORY or requests of the original's owner, the credit on the new
     project and its listing, audit-free (it is a member action), and tests
     (allowed/not allowed, deleted original, own app, inactive member).
+
+---
+
+## quality-tuning — full spec
+
+Added by the owner on 2026-10-15 (during RUN-2026-10-15). Saved verbatim:
+
+QUALITY-TUNING — from the first real beta feedback ("응답시간, 받는 토큰수 늘려주세요~ 앱이 안 만들어져요", received right after CLAUDE_PROVIDER=anthropic, before the 30 s proxy fix). Owner also finds replies a bit short, first-chat apps weak, and the Builder screen cluttered (owner screenshots of /builder/6, 2026-10-15).
+Save this spec to docs/BACKLOG.md first (commit on main, push, return to your branch). Do it right AFTER the app-platform phase you are on now is deployed, BEFORE the next phase (P4 touches Builder prompts too — merge carefully). I pre-approve merge + deploy for Q1, Q2 and Q3 (same PART E rules). Never call the real API in tests; never touch .env (new settings go to .env.example with defaults, and admin-editable values go to Admin › System, audited).
+
+Q0 — diagnose first (read-only on the server): usage events, chat_messages stop reasons and api logs since CLAUDE_PROVIDER=anthropic was set. Report in Korean: how many replies hit max_tokens / the per-reply cap / timeouts; every Builder 만들기/고치기 attempt and why each failed (proxy 30 s, BUILDER_TIMEOUT_SECONDS 180, JSON parse, max_tokens cut, file validation); average output tokens and seconds per reply on Sonnet. Use these numbers to set Q1/Q2 defaults and write them in the run log.
+
+Q1 — fix-chat-depth (with a ChatGPT-style model + effort picker)
+- Rewrite CHAT_SYSTEM_PROMPT's style rules: answer completely and with enough depth for the question — short for small talk, thorough (examples, steps, code) for how-to, comparison, study and planning questions; still beginner-friendly Korean. Remove "Prefer one clear next step over a long list"; keep tables/code/markdown rules. For html previews, allow a fuller page (remove "keep it short").
+- Model + depth picker (ONE shared component, used by Chat AND the Builder 고치기/만들기 panel): a button "<모델 이름> · <깊이>" (e.g. "Sonnet 5.5 · 보통") opening one popover (bottom sheet at 390px) with:
+  1. 모델: the catalogue models the admin opened, each with a one-line Korean description (빠른 답변 / 균형 / 최고 품질) and "1회 약 N원" at the current depth.
+  2. 생각 깊이: a 3-step slider (낮음 · 보통 · 높음; add 최고 only for models whose API supports a max level — check current Anthropic docs), a one-line Korean hint per step ("짧은 질문에 빨라요" / "대부분의 질문에 알맞아요" / "어려운 문제, 긴 글, 코드에 좋아요"), and the live price "1회 약 N원 (최대 M원)" updating as it moves.
+- Hide the slider (show "이 모델은 깊이 조절이 없어요") for models whose API has no effort parameter; never send unsupported params.
+- Each depth maps server-side to effort + max_tokens + per-call cap, separately for chat and builder. Chat defaults (justify from Q0; admin-editable per level in Admin › System, audited): 낮음 = low / 4096 / 200원, 보통 = medium / 8192 / 200원, 높음 = high / 16000 / 400원. Builder keeps its own caps (today "약 275원 · 최대 443원" — keep the same per-level structure). The client sends only model id + level name; the server decides the numbers and never trusts client values.
+- Chosen model + depth are remembered per conversation / per project, and as the member's default (Profile › 기본 모델). Works on the new-chat welcome screen too.
+- 생각 과정 보기 stays a separate toggle in 도구 (it controls showing the summary, not the depth); if a model needs thinking on for 높음, say so in the hint.
+- Other defaults (admin-editable, audited, justify from Q0): CHAT_CONTEXT_TOKENS 16000 → 64000 (caching keeps the re-read cheap — put the computed per-reply cost difference in the run log); CHAT_TIMEOUT_SECONDS 60 → 180.
+- When a reply stops at max_tokens or the cap, show "이어서 쓰기" under it (continues the same answer, charged as a new reply, price shown). Receipt keeps the "상한에 도달" note and shows model · depth. Admin › Budget can break usage down by model × depth.
+- Long replies must never be cut by the proxy: keepalive already exists — verify with a fake 4-minute stream test.
+- Tests: level→params mapping per model (chat and builder), unsupported model hides the slider and sends no effort, price estimate matches the pre-check, server ignores tampered values, defaults remembered, 이어서 쓰기. Screenshots desktop + 390px.
+
+Q2 — fix-builder-generation
+- Generation in stages with live progress instead of one giant JSON: (1) plan: Claude lists files + short purpose (small call), shown to the member as "만들 계획" with a 시작 button; (2) files written one by one (write_file tool, streamed), the panel shows "index.html 작성 중… ✓ style.css ✓ app.js …"; (3) self-check: one short call that reviews the files for broken references/IDs/obvious JS errors and fixes them once. Each finished file is saved immediately, so a timeout keeps what was done and offers "이어서 만들기". Charge actual usage per call, as today; a failed call is still free. 고치기 uses the same streaming/progress (only changed files).
+- Timeouts per call (not per whole generation): BUILDER_TIMEOUT_SECONDS 180 → 300, proxy for builder routes ≥ 600 s with keepalive; tests with a fake slow provider.
+- Ambition: replace "about 300 lines" with "as complete as the idea needs, usually 300–1,200 lines across files; every button works; no placeholders". Keep the static/no-network/size-cap rules (raise caps only if Q0 shows apps hitting them). Keep it consistent with the app-platform SDK work (ctrlai.storage etc.) if that phase is already merged.
+- Better start: before 만들기, a short guided form (or 2–3 questions from Claude in chat before it offers the Builder button): 누가 쓰나요 / 꼭 필요한 기능 3가지 / 원하는 분위기. Pre-filled from the chat idea; skippable.
+- Clear Korean errors with a retry button; never a silent failure.
+- Owner-run real evaluation (NOT in tests): `python -m app.tools.builder_eval --ideas 5 --max-krw 3000` run by me on the server, charged to my admin wallet, generating 5 fixed sample ideas and writing a Markdown report (success, seconds, won, files, self-check fixes) to Admin › System › 빌더 점검. Give me the exact command.
+
+Q3 — fix-builder-layout (owner screenshots of /builder/6, 2026-10-15)
+Header
+- Hide "GitHub 미연결" and "GitHub에 저장" until Phase 4 exists (feature flag), don't show disabled dead buttons.
+- Group 내려받기 + 내 Claude로 이어서 만들기 into one "내보내기 ▾" menu; 게시 취소 moves into a "⋯" menu (with its confirm); keep 업데이트 게시 as the single primary button.
+- When draft == published ("게시됨 v2 · 작업 중 v2"), show "게시된 버전과 같아요" and make 업데이트 게시 inactive-looking with a tooltip, not clickable for nothing.
+Tabs and preview
+- REMOVE the 나란히 view. Two tabs only: 코드 / 미리보기. Default 미리보기 when the project has files; remember the last tab per project. Remove the duplicated project title at the right end of the tab row.
+- 미리보기 uses the full middle width (the app must never wrap one Korean character per line). One compact toolbar row above it: version select (작업 중 vN / 게시된 vN), 새로 고침, 새 창에서 열기, 크게 보기 (icon buttons with tooltips; overflow into ⋯ when narrow). 미리보기 갱신 happens automatically after each 고치기 (keep a manual 새로 고침).
+- The safety note becomes one short line with an ⓘ for the full text.
+Code view
+- Soft-wrap toggle (줄 바꿈, default ON for .md/.txt, OFF for code), a 복사 button per file, and line numbers that stay aligned when wrapped.
+- .md files open rendered (headings, lists, code) with a "원문 보기" toggle — HANDOFF_PROMPT.md must be readable without horizontal scrolling.
+File list (left)
+- Collapsible: a « button hides it (remembered); when hidden a small 파일 icon button brings it back. At < 1100px it is a drawer by default.
+- Group README.md, CLAUDE.md, HANDOFF_PROMPT.md, HISTORY.md, SPEC.md under a collapsed "안내 문서" folder, separate from the app files; the header count shows app files only ("파일 6개 · 안내 문서 5개"). These docs are NOT served on apps.ctrlai.my (only app files are published) — add a test.
+Claude panel (right)
+- Collapsible with » (remembered); collapsed → a "Claude" button in the preview toolbar reopens it. At < 1100px it becomes a bottom sheet.
+- Use the shared model + 생각 깊이 picker from Q1 instead of the fixed "균형 잡힌 답변 (Sonnet 5.5)" label.
+- Show the project's edit history as a conversation: each 고치기 request (member bubble) → Claude's short summary of what changed + "v3 · 파일 2개 바뀜 · 31원" (Claude bubble) with 이 버전 보기 / 되돌리기. Replaces the mostly empty panel; the old 버전 기록 list stays as a compact "모든 버전" link.
+- Input placeholder rotates useful examples ("지도에 맛집 표시 추가해 줘", "다크 모드 버튼 만들어 줘"); Enter sends, Shift+Enter new line; price "약 N원 · 최대 M원" stays visible next to 고치기.
+Download dialog
+- Show the five 안내 문서 as a labelled group ("내 Claude용 안내 문서") above the app files, each with a one-line description on hover; remove the odd single "안내" badge on HISTORY.md.
+General
+- Screenshots before/after at 1440, 1280, 1024 and 390 px in the run log; light and dark; keyboard + screen reader for every new toggle.
+
+Final report in Korean (Q0 numbers, what changed, new defaults and their cost impact per reply, what I must test with exact sentences/ideas), then continue the app-platform phases. End with the branch you are on.
 
 ---
 
