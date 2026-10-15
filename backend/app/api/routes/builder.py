@@ -35,6 +35,7 @@ from app.schemas.builder import (
 from app.core.config import Settings, get_settings
 from app.schemas.builder import (
     BuilderFileRead,
+    BuilderModelOption,
     EditEstimateRead,
     GenerateRead,
     GenerateRequest,
@@ -150,6 +151,9 @@ def create_project(
         owner_user_id=user.id,
         name=_checked_name(payload.name),
         description=payload.description,
+        # quality-tuning Q1: a new project starts at the member's default.
+        chat_model_id=user.default_chat_model_id,
+        depth=user.default_depth,
     )
     db.add(project)
     db.commit()
@@ -230,6 +234,15 @@ def update_project(
 
     if "name" in changes:
         changes["name"] = _checked_name(changes["name"])
+    if changes.get("chat_model_id") is not None:
+        try:
+            chat_models.checked_choice(db, user, changes["chat_model_id"])
+        except chat_models.ModelChoiceError as error:
+            raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    for key in ("chat_model_id", "depth"):
+        # Clearing a choice is not offered: the picker always has one.
+        if key in changes and changes[key] is None:
+            del changes[key]
 
     for field, value in changes.items():
         setattr(project, field, value)
@@ -415,17 +428,19 @@ def list_files(
 )
 def starter_estimate(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     config: Settings = Depends(get_settings),
 ) -> StarterEstimateRead:
     try:
-        figures = builder_starter.estimate(db, config)
+        figures = builder_starter.estimate(db, config, user)
     except (pricing.PricingError, chat_models.ModelChoiceError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
     return StarterEstimateRead(
         estimated_krw=figures.estimated_krw,
         worst_case_krw=figures.worst_case_krw,
         model_label=figures.model_label,
+        depth=figures.depth,
+        max_krw=figures.max_krw,
     )
 
 
@@ -531,7 +546,7 @@ def generate_estimate(
 ) -> EditEstimateRead:
     project = _owned_project(project_id, db, user)
     try:
-        figures = builder_edit.estimate(db, config, project, request)
+        figures = builder_edit.estimate(db, config, user, project, request)
     except (pricing.PricingError, chat_models.ModelChoiceError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
     return EditEstimateRead(
@@ -539,6 +554,10 @@ def generate_estimate(
         worst_case_krw=figures.worst_case_krw,
         model_label=figures.model_label,
         max_output_tokens=figures.max_output_tokens,
+        chat_model_id=figures.chat_model_id,
+        depth=figures.depth,
+        max_krw=figures.max_krw,
+        models=[BuilderModelOption(**option) for option in figures.models],
     )
 
 

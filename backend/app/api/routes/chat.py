@@ -49,6 +49,7 @@ from app.db.session import get_db
 from app.models import (
     AttachmentKind,
     ChatAttachment,
+    ChatModel,
     ChatModelVisibility,
     Conversation,
     ProviderErrorKind,
@@ -228,7 +229,10 @@ def create_conversation(
         except chat_models.ModelChoiceError as error:
             raise _model_error(error) from error
     else:
-        default = chat_models.default_row(db)
+        # The member's own default (Profile › 기본 모델) while they may use
+        # it, else the catalogue's.
+        mine = db.get(ChatModel, user.default_chat_model_id) if user.default_chat_model_id else None
+        default = mine if mine is not None and chat_models.may_use(mine, user) else chat_models.default_row(db)
         model_id = default.id if default else None
     conversation = Conversation(
         user_id=user.id, title=payload.title.strip(), chat_model_id=model_id

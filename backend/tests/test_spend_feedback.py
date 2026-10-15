@@ -82,10 +82,10 @@ def test_the_claim_route_requires_a_json_body(client: TestClient, budgeted) -> N
 
 
 def test_the_member_switch(client: TestClient) -> None:
-    assert client.get("/api/account/preferences").json() == {"spend_notifications": True}
+    assert client.get("/api/account/preferences").json()["spend_notifications"] is True
     assert client.get("/api/auth/me").json()["spend_notifications"] is True
     changed = client.patch("/api/account/preferences", json={"spend_notifications": False})
-    assert changed.status_code == 200 and changed.json() == {"spend_notifications": False}
+    assert changed.status_code == 200 and changed.json()["spend_notifications"] is False
     assert client.get("/api/auth/me").json()["spend_notifications"] is False
 
 

@@ -71,8 +71,9 @@ def _settings_read(db: Session, settings: Settings) -> ClaudeSettingsRead:
         fallback_model=settings.anthropic_model.strip(),
         thinking=settings.chat_thinking,
         effort=settings.chat_effort,
-        max_output_tokens=settings.chat_max_output_tokens,
-        context_tokens=settings.chat_context_tokens,
+        # quality-tuning Q1: 보통's room and the admin's history budget.
+        max_output_tokens=depth_service.table(chat_limits.current(db).depth_levels, "chat")["medium"].max_tokens,
+        context_tokens=chat_limits.current(db).context_tokens,
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
         prompt_cache=settings.chat_prompt_cache,
         cache_ttl=settings.cache_ttl,

@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import BuilderProject, BuilderProjectVersion, ProviderErrorKind, UsageFeature, User
-from app.services import builder_files, builder_versions, chat_limits, chat_models, pricing
+from app.services import builder_choice, builder_files, builder_versions, chat_limits, chat_models, pricing
 from app.services import provider_limiter, providers
 from app.services import usage as usage_service
 from app.services.builder_starter import StarterError, _record_absorbed
@@ -47,6 +47,11 @@ class EditEstimate:
     worst_case_krw: int
     model_label: str
     max_output_tokens: int
+    #: quality-tuning Q1: the project's choice, and what the picker offers.
+    chat_model_id: int | None = None
+    depth: str | None = None
+    max_krw: int = 0
+    models: tuple = ()
 
 
 def _input_estimate(
@@ -58,17 +63,31 @@ def _input_estimate(
 
 
 def estimate(
-    db: Session, settings: Settings, project: BuilderProject, request: str = ""
+    db: Session, settings: Settings, user: User, project: BuilderProject, request: str = ""
 ) -> EditEstimate:
-    model = chat_models.default_model(db, settings)
-    price = pricing.price_for(db, model)
+    """At the project's model and depth; the worst case is exactly what the
+    pre-check in `generate` reserves."""
+    choice = builder_choice.choose(db, settings, user, project)
     files = builder_versions.current_files(db, project)
     tokens_in = _input_estimate(project, files, request or "x" * 120)
+    room = max(choice.room(tokens_in), 0)
+    default = chat_models.default_row(db)
     return EditEstimate(
-        estimated_krw=price.krw(tokens_in, TYPICAL_OUTPUT_TOKENS),
-        worst_case_krw=price.krw(tokens_in, settings.builder_max_output_tokens),
-        model_label=model.label,
-        max_output_tokens=settings.builder_max_output_tokens,
+        estimated_krw=min(
+            choice.price.krw(tokens_in, TYPICAL_OUTPUT_TOKENS),
+            choice.level.cap_krw or 10**9,
+        ),
+        worst_case_krw=choice.price.krw(tokens_in, room),
+        model_label=choice.model.label,
+        max_output_tokens=room,
+        chat_model_id=choice.model.row_id,
+        depth=choice.depth,
+        max_krw=choice.level.cap_krw,
+        models=tuple(
+            builder_choice.options(
+                db, user, tokens_in, TYPICAL_OUTPUT_TOKENS, default.id if default else None
+            )
+        ),
     )
 
 
@@ -101,16 +120,18 @@ def generate(
     if len(request) > MAX_REQUEST_CHARS:
         raise StarterError("요청이 너무 깁니다(2,000자까지).", 400)
 
-    model = chat_models.default_model(db, settings)
+    choice = builder_choice.choose(db, settings, user, project)
+    model, price = choice.model, choice.price
     chat_models.require_adapter(model)
-    price = pricing.price_for(db, model)
     files = builder_versions.current_files(db, project)
+    tokens_in = _input_estimate(project, files, request, style)
+    room = choice.room(tokens_in)
+    if room < builder_choice.MIN_ROOM_TOKENS:
+        raise StarterError(builder_choice.room_refusal(choice), 400)
     usage_service.ensure_affordable(
         db,
         user=user,
-        amount_krw=price.krw(
-            _input_estimate(project, files, request, style), settings.builder_max_output_tokens
-        ),
+        amount_krw=price.krw(tokens_in, room),
         settings=settings,
     )
 
@@ -122,8 +143,9 @@ def generate(
             sorted(files.items()),
             request,
             model.model_id,
-            settings.builder_max_output_tokens,
+            room,
             style.strip()[:100],
+            effort=choice.effort,
         )
     except Exception as error:
         if isinstance(error, ClaudeError):
@@ -176,6 +198,7 @@ def generate(
         exchange_rate_krw=price.usd_krw,
         cost=price.split(edit.input_tokens, edit.output_tokens),
         builder_project_id=project.id,
+        depth=choice.depth,
         commit=False,
         cap_to_available=True,
         settings=settings,

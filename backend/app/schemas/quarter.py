@@ -507,6 +507,22 @@ class ProviderSpendRead(BaseModel):
     share_of_wallets_krw: int | None = None
 
 
+class ModelDepthSpendRead(BaseModel):
+    """Claude 사용을 모델 × 기능 × 생각 깊이로 나눈 한 줄 (quality-tuning Q1).
+
+    `depth`가 None이면 깊이가 없는 모델(Haiku)이거나 Q1 이전의 기록입니다.
+    """
+
+    model_id: str
+    feature: str
+    depth: str | None = None
+    events: int
+    charged_krw: int
+    output_tokens: int = 0
+    #: 1회 평균 사용액(원).
+    average_krw: int = 0
+
+
 class QuarterBudgetRead(BaseModel):
     """Admin › Budget이 한 번에 읽는 것."""
 
@@ -526,3 +542,5 @@ class QuarterBudgetRead(BaseModel):
     anthropic_month_budget_usd: float | None = None
     #: "2026-10" — 어느 달의 합인지.
     anthropic_month: str = ""
+    #: quality-tuning Q1: Claude 사용을 모델 × 깊이로 — 깊이 기본값을 고를 때 봅니다.
+    model_depth: list[ModelDepthSpendRead] = Field(default_factory=list)

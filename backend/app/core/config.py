@@ -212,9 +212,9 @@ class Settings(BaseSettings):
     # The most conversation history sent with one message, in (estimated)
     # input tokens. The oldest messages are dropped first — at fixed cut
     # points, so the cached prefix stays the same for many turns.
-    chat_context_tokens: int = 16_000
+    chat_context_tokens: int = 64_000
     # Seconds to wait for Claude before giving up on a reply.
-    chat_timeout_seconds: float = 60.0
+    chat_timeout_seconds: float = 180.0
 
     # Chat attachments (chat-plus-files). Limits are refused, never
     # truncated: a silently cut table gives a confident wrong answer.

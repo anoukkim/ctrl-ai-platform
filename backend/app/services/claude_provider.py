@@ -413,7 +413,7 @@ class ClaudeProvider(Protocol):
     ) -> PromptRewrite: ...
 
     def generate_starter_app(
-        self, name: str, idea: str, model: str = "", max_tokens: int = 8000
+        self, name: str, idea: str, model: str = "", max_tokens: int = 8000, effort: str | None = None
     ) -> StarterApp: ...
 
     def edit_project(
@@ -424,6 +424,7 @@ class ClaudeProvider(Protocol):
         model: str = "",
         max_tokens: int = 16000,
         style: str = "",
+        effort: str | None = None,
     ) -> ProjectEdit: ...
 
 
@@ -650,6 +651,10 @@ def edit_request_text(
 #: Mock only: the real provider sends the text to Claude like any other.
 MOCK_ERROR = re.compile(r"\[mock-error:(\w+)\]")
 MOCK_REFUSAL = "[mock-refusal]"
+#: `[mock-slow:N]` — the mock says nothing for N seconds (at most 600)
+#: before replying, like a long think. quality-tuning Q1 uses it to prove a
+#: long reply survives every proxy on the way (keepalives every 10 s).
+MOCK_SLOW = re.compile(r"\[mock-slow:(\d+)\]")
 
 #: (pattern, reply, action) — checked in order. An action adds the button.
 #: chat-plus-rendering: canned replies that show what the screen renders —
@@ -1155,6 +1160,10 @@ class MockClaudeProvider:
             yield StreamEnd("refusal")
             return
 
+        slow = MOCK_SLOW.search(last)
+        if slow:
+            await asyncio.sleep(min(int(slow.group(1)), 600))
+
         for tool_event in tool_events:
             if self.delay:
                 await asyncio.sleep(self.delay)
@@ -1236,7 +1245,7 @@ class MockClaudeProvider:
         return self._rewrite(prompt, request, _PROMPT_FALLBACK, None)
 
     def generate_starter_app(
-        self, name: str, idea: str, model: str = "", max_tokens: int = 8000
+        self, name: str, idea: str, model: str = "", max_tokens: int = 8000, effort: str | None = None
     ) -> StarterApp:
         """A small, working to-do style app named after the idea.
 
@@ -1268,6 +1277,7 @@ class MockClaudeProvider:
         model: str = "",
         max_tokens: int = 16000,
         style: str = "",
+        effort: str | None = None,
     ) -> ProjectEdit:
         """A plausible, deterministic change (builder-static-runtime).
 
@@ -1883,7 +1893,7 @@ class AnthropicClaudeProvider:
 
 
     def generate_starter_app(
-        self, name: str, idea: str, model: str = "", max_tokens: int = 8000
+        self, name: str, idea: str, model: str = "", max_tokens: int = 8000, effort: str | None = None
     ) -> StarterApp:
         """One request, structured JSON back (`STARTER_SCHEMA`). Not cached:
         each request is different, so a cache write would only cost more."""
@@ -1902,6 +1912,7 @@ class AnthropicClaudeProvider:
             [{"role": "user", "content": starter_request_text(name, idea)}],
             max_tokens,
             model,
+            effort=effort,
         )
         output_config = dict(params.get("output_config", {}))
         output_config["format"] = {"type": "json_schema", "schema": STARTER_SCHEMA}
@@ -1943,6 +1954,7 @@ class AnthropicClaudeProvider:
         model: str = "",
         max_tokens: int = 16000,
         style: str = "",
+        effort: str | None = None,
     ) -> ProjectEdit:
         """Claude writes whole files through `write_file` (builder-static-runtime).
 
@@ -1975,7 +1987,7 @@ class AnthropicClaudeProvider:
                 raise ClaudeError(
                     ProviderErrorKind.UNKNOWN, "edit budget", usage=(input_tokens, output_tokens)
                 )
-            params = self.request_params(EDIT_SYSTEM, messages, remaining, model)
+            params = self.request_params(EDIT_SYSTEM, messages, remaining, model, effort=effort)
             params["tools"] = [WRITE_FILE_TOOL]
             params["tool_choice"] = {"type": "auto"}
             try:
@@ -2052,7 +2064,7 @@ class UnconfiguredClaudeProvider:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 
     def generate_starter_app(
-        self, name: str, idea: str, model: str = "", max_tokens: int = 8000
+        self, name: str, idea: str, model: str = "", max_tokens: int = 8000, effort: str | None = None
     ) -> StarterApp:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 
@@ -2065,6 +2077,7 @@ class UnconfiguredClaudeProvider:
         model: str = "",
         max_tokens: int = 16000,
         style: str = "",
+        effort: str | None = None,
     ) -> ProjectEdit:
         raise ClaudeError(ProviderErrorKind.NOT_IMPLEMENTED, "credential not configured")
 
