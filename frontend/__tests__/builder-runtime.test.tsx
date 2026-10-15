@@ -1,8 +1,8 @@
 /**
  * builder-static-runtime — 화면 쪽.
  *
- * 울타리는 정확한 값으로 확인합니다: 앱 주소 프레임의 sandbox는
- * `allow-scripts allow-forms` 그대로, 본문 없는 POST도 JSON으로 갑니다
+ * 울타리는 정확한 값으로 확인합니다: 앱 주소 프레임(셸, app-platform P1)의
+ * sandbox는 정해진 값 그대로, 본문 없는 POST도 JSON으로 갑니다
  * (apps.ctrlai.my가 같은 사이트라서 백엔드는 JSON 아닌 POST를 거절합니다).
  */
 
@@ -20,10 +20,16 @@ import {
   buildSrcdoc,
 } from "@/lib/static-preview";
 
+const RUNTIME_SANDBOX_VALUE = "allow-scripts allow-same-origin allow-forms allow-popups";
+
 describe("울타리", () => {
-  test("앱 주소 프레임의 sandbox는 allow-scripts allow-forms뿐이다", () => {
-    expect(RUNTIME_SANDBOX).toBe("allow-scripts allow-forms");
-    expect(RUNTIME_SANDBOX).not.toContain("allow-same-origin");
+  test("앱 주소 프레임(셸)의 sandbox는 정해진 값뿐이다 — 맨 위 이동·알림창은 막힌다", () => {
+    // 셸은 apps 출처의 CTRL+AI 페이지라 자기 저장소를 쓰려고 allow-same-origin이
+    // 필요합니다. 회원의 코드는 셸 안에서 allow-same-origin 없이 돕니다.
+    expect(RUNTIME_SANDBOX).toBe(RUNTIME_SANDBOX_VALUE);
+    expect(RUNTIME_SANDBOX).not.toContain("allow-top-navigation");
+    expect(RUNTIME_SANDBOX).not.toContain("allow-modals");
+    expect(RUNTIME_SANDBOX).not.toContain("allow-popups-to-escape-sandbox");
     expect(PREVIEW_SANDBOX).toBe("allow-scripts");
   });
 
@@ -147,7 +153,7 @@ describe("앱 주소 미리보기", () => {
     expect(frame.getAttribute("src")).toBe(
       `http://apps.test/k3m9qx7pwa/?v=${encodeURIComponent(PROJECT.app_runtime_at!)}`,
     );
-    expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
+    expect(frame.getAttribute("sandbox")).toBe(RUNTIME_SANDBOX_VALUE);
     expect(frame.getAttribute("srcdoc")).toBeNull();
     expect(screen.getByRole("button", { name: "미리보기 갱신" })).toBeTruthy();
   });

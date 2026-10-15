@@ -11,6 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { AppListing } from "@/lib/apps";
+import { RUNTIME_SANDBOX } from "@/lib/static-preview";
 import type { BuilderFile, BuilderProject, BuilderVersion } from "@/lib/projects";
 
 const APP: AppListing = {
@@ -143,7 +144,7 @@ describe("앱 상세", () => {
     expect(run.getAttribute("rel")).toContain("noopener");
     const frame = container.querySelector("iframe")!;
     expect(frame.getAttribute("src")).toBe(APP.app_url);
-    expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
+    expect(frame.getAttribute("sandbox")).toBe(RUNTIME_SANDBOX);
     expect(screen.getByText(/저장한 내용은 그 사람 기기에만 남고/)).toBeTruthy();
   });
 
