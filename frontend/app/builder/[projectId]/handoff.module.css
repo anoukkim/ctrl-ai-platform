@@ -238,3 +238,39 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* 내려받기: 안내 문서 묶음과 앱 파일 묶음 (quality-tuning Q3). */
+.fileGroup {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.fileGroup + .fileGroup {
+  margin-top: 0.7rem;
+}
+
+/* 안내 문서 줄: 이름은 그대로, 설명이 남는 자리를 씁니다. */
+.fileGroup .fileRow:has(.fileHint) .filePath {
+  flex: none;
+}
+
+.fileHint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 휴대폰: 설명은 줄을 눌렀을 때(title)만 — 이름과 크기가 먼저입니다. */
+@media (max-width: 30rem) {
+  .fileHint {
+    display: none;
+  }
+
+  .fileGroup .fileRow:has(.fileHint) .filePath {
+    flex: 1 1 auto;
+  }
+}
