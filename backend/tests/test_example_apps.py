@@ -173,3 +173,34 @@ def test_the_cli_refuses_bad_arguments_a_member_and_a_missing_account(
     assert cli.main(["nobody-here", "--replace"]) == 1
     assert cli.main([other_user.username, "--replace"]) == 1
     assert "관리자가 아닙니다" in capsys.readouterr().out
+
+
+def test_update_brings_existing_examples_to_the_image_s_files_as_a_published_version(
+    db_session: Session, dev_user, settings, tmp_path
+) -> None:
+    """project-export-handoff: `--update` is how the hand-written guides
+    reach examples already on the server. Without it nothing changes; with
+    it, a differing example gets one new published version, audited."""
+    import shutil
+
+    root = tmp_path / "examples"
+    shutil.copytree(cli.EXAMPLES_DIR, root)
+    cli.import_examples(db_session, dev_user, settings, root)
+    db_session.commit()
+    (root / "trip-planner" / "README.md").write_text("# 새 안내", encoding="utf-8")
+
+    plain = cli.import_examples(db_session, dev_user, settings, root)
+    assert [outcome for _, outcome in plain] == ["unchanged"] * 3
+
+    updated = cli.import_examples(db_session, dev_user, settings, root, update=True)
+    db_session.commit()
+    assert dict(updated) == {"문서 챗봇 메이커": "unchanged", "여행 일정 메이커": "updated", "영수증 가계부": "unchanged"}
+    trip = db_session.query(BuilderProject).filter_by(name="여행 일정 메이커").one()
+    assert trip.published_version_number == 2
+    assert builder_versions.current_files(db_session, trip)["README.md"] == "# 새 안내"
+    assert (Path(settings.apps_dir) / trip.app_slug / "README.md").read_text(encoding="utf-8") == "# 새 안내"
+    row = db_session.query(AuditLog).filter_by(action="example_apps.updated").one()
+    assert row.detail["updated"] == ["여행 일정 메이커"]
+
+    again = cli.import_examples(db_session, dev_user, settings, root, update=True)
+    assert [outcome for _, outcome in again] == ["unchanged"] * 3

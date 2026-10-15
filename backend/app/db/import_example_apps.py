@@ -1,10 +1,11 @@
 """Put the three showcase apps on CtrlAIApps, from the server shell.
 
-    python -m app.db.import_example_apps <관리자 아이디> [--replace]
+    python -m app.db.import_example_apps <관리자 아이디> [--replace] [--update]
 
 On the server (docs/deployment.md):
 
     docker compose -f docker-compose.prod.yml exec api python -m app.db.import_example_apps <관리자 아이디> --replace
+    docker compose -f docker-compose.prod.yml exec api python -m app.db.import_example_apps <관리자 아이디> --update
 
 Reads `examples/apps/<folder>/` (in the image next to `app/`, sub-folders
 included), and for each example creates a Builder project owned by that
@@ -17,8 +18,15 @@ ones of `example-apps`, matched by name among that admin's live
 projects): each is unpublished — off CtrlAIApps and off its address — and
 soft-deleted, so it can still be restored from Admin › Deleted Items.
 
+`--update` (project-export-handoff) brings an example that already
+exists up to the files in the image: when they differ, they become a new
+version ("예시 앱 업데이트") and that version is published — the way the
+hand-written README / CLAUDE.md / HANDOFF_PROMPT reached the server.
+Without it an existing example is never touched.
+
 **Idempotent.** An example is matched by its project name among the
-admin's live projects; one that already exists is left exactly as it is,
+admin's live projects; one that already exists is left exactly as it is
+(or, with `--update`, left alone when its files already match),
 and an earlier example already taken down is not found again, so a second
 run changes nothing. Each run that changes anything writes audit rows
 (the actor is "서버 운영자", as for `set_password`).
@@ -39,7 +47,7 @@ from app.db.session import SessionLocal
 from app.models import AuditAction, BuilderProject, User, UserRole
 from app.services import app_publish, app_runtime, audit, builder_files, builder_versions
 
-USAGE = "사용법: python -m app.db.import_example_apps <관리자 아이디> [--replace]"
+USAGE = "사용법: python -m app.db.import_example_apps <관리자 아이디> [--replace] [--update]"
 EXAMPLES_DIR = BACKEND_DIR / "examples" / "apps"
 
 
@@ -142,17 +150,36 @@ def replace_legacy(db, admin: User, settings) -> list[str]:
     return removed
 
 
+def update_example(db, settings, project: BuilderProject, example: Example, root: Path) -> bool:
+    """Make an existing example's files the image's, as a new published
+    version. False (and nothing written) when they already match."""
+    files = example_files(example, root)
+    if builder_versions.current_files(db, project) == files:
+        return False
+    builder_versions.ensure_baseline(db, project)
+    builder_versions.replace_files(db, project, files)
+    builder_versions.snapshot(db, project, "예시 앱 업데이트", files)
+    app_publish.publish(db, settings, project, description=example.description, note=example.note)
+    return True
+
+
 def import_examples(
-    db, admin: User, settings, root: Path = EXAMPLES_DIR, *, replace: bool = False
+    db, admin: User, settings, root: Path = EXAMPLES_DIR, *, replace: bool = False, update: bool = False
 ) -> list[tuple[str, str]]:
-    """(name, "imported" | "unchanged" | "removed") per example. Commits nothing."""
+    """(name, "imported" | "updated" | "unchanged" | "removed") per example. Commits nothing."""
     results: list[tuple[str, str]] = []
     if replace:
         results.extend((name, "removed") for name in replace_legacy(db, admin, settings))
     imported: list[str] = []
+    updated: list[str] = []
     for example in EXAMPLES:
-        if _live_project(db, admin, example.name) is not None:
-            results.append((example.name, "unchanged"))
+        existing = _live_project(db, admin, example.name)
+        if existing is not None:
+            if update and update_example(db, settings, existing, example, root):
+                updated.append(example.name)
+                results.append((example.name, "updated"))
+            else:
+                results.append((example.name, "unchanged"))
             continue
         files = example_files(example, root)
         project = BuilderProject(
@@ -179,11 +206,24 @@ def import_examples(
             + ", ".join(imported),
             detail={"imported": imported, "os_user": _operator()},
         )
+    if updated:
+        audit.record(
+            db,
+            actor=None,
+            action=AuditAction.EXAMPLE_APPS_UPDATED,
+            target_type="user",
+            target_id=admin.id,
+            target_label=admin.username,
+            summary=f"서버 운영자가 예시 앱 {len(updated)}개를 새 버전으로 바꿔 게시했습니다: "
+            + ", ".join(updated),
+            detail={"updated": updated, "os_user": _operator()},
+        )
     return results
 
 
 _OUTCOME = {
     "imported": "게시함",
+    "updated": "새 버전으로 게시함",
     "unchanged": "이미 있음 (그대로 둠)",
     "removed": "예전 예시 내림 (휴지통으로)",
 }
@@ -192,7 +232,7 @@ _OUTCOME = {
 def main(argv: list[str]) -> int:
     flags = [arg for arg in argv if arg.startswith("-")]
     names = [arg for arg in argv if not arg.startswith("-")]
-    if len(names) != 1 or any(flag != "--replace" for flag in flags):
+    if len(names) != 1 or any(flag not in ("--replace", "--update") for flag in flags):
         print(USAGE)
         return 2
     username = names[0].strip().lower()
@@ -206,7 +246,9 @@ def main(argv: list[str]) -> int:
             print(f"'{username}'은(는) 관리자가 아닙니다. 예시 앱은 관리자의 이름으로만 올립니다.")
             return 1
         try:
-            results = import_examples(db, admin, settings, replace="--replace" in flags)
+            results = import_examples(
+                db, admin, settings, replace="--replace" in flags, update="--update" in flags
+            )
         except (app_publish.PublishError, builder_files.FileRuleError) as error:
             db.rollback()
             print(f"게시하지 못했습니다: {error}")
