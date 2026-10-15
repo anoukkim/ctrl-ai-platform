@@ -61,6 +61,9 @@ the same commit that adds it.
 | -------- | ----- | --- |
 | `GET /api/health` | none | Must answer while the database is down |
 | `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
+| `GET /_ctrlai/sdk.js`, `GET /_ctrlai/shell.js` | none | The app platform's two scripts (apps origin only, outside `/api`) |
+| `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
+| `GET /_ctrlai/v1/app` | `app_request` | `X-CtrlAI-App` naming a live app, same-origin; never the site's session |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
@@ -377,6 +380,63 @@ Alembic has migrated (`backend/app/models/`).
 
 Alembic owns the schema. `create_all` is not used, and a production
 database is migrated, never re-created.
+
+---
+
+## Member app platform (CTRL+AI 기능 상자)
+
+Owner decisions of 2026-10-15 are in CLAUDE.md §2 ("Member app platform").
+Built in phases P1–P5 (BACKLOG › app-platform). **P1 (the shell, the SDK,
+`ctrlai.storage`)** is in place:
+
+```text
+ctrlai.my (Builder / CtrlAIApps)
+  └─ iframe  apps.ctrlai.my/<slug>/            OUR shell  (sandbox: scripts, same-origin, forms, popups)
+       └─ iframe  /<slug>/_app/index.html      the member's files (sandbox: scripts, forms, popups,
+                                               downloads — never same-origin: opaque origin)
+            loads /_ctrlai/sdk.js  ── postMessage ──▶ shell ── same-origin ──▶ /_ctrlai/v1/*
+```
+
+* **Who serves what** (`deploy/Caddyfile`, mirrored locally by
+  `backend/app/dev_apps_server.py`): `/<slug>/` → the api's
+  `/_ctrlai/shell/<slug>` (the shell page; 404 for unknown, unpublished or
+  deleted projects; a draft slug is the Builder's 미리보기 mode);
+  `/<slug>/_app/<file>` → the static file from `apps_data`, with
+  `app_shell.app_files_csp` (a `sandbox` CSP, so the files are fenced in
+  even when opened on their own; `connect-src 'none'`; framed only by the
+  shell and the site; never a cookie); `/_ctrlai/*` → the api router
+  `app/api/routes/app_platform.py`, mounted **outside `/api`** — the site
+  forwards only `/api/*`, so none of it is reachable from `ctrlai.my`;
+  `/<slug>` and `/<slug>/<file>` (old addresses) → 301 to the new ones.
+* **The shell** (`app/static/ctrlai/shell.js`) learns its slug from its
+  own address, refuses to run without its own origin (a copy opened from
+  an app inherits the sandbox), and accepts a message only when
+  `event.source` is its own app frame **and** the origin is opaque.
+* **The SDK** (`app/static/ctrlai/sdk.js`) is injected first into every
+  HTML page when the files are written (`app_runtime.SDK_TAG`; pages
+  written before P1 are rewritten by `python -m app.db.rewrite_app_runtime`).
+  It sends only to the shell's origin and defines `ctrlai.storage` and a
+  `localStorage` kept by the shell — the saved copy is handed over in
+  `window.name` at start, so old apps that read `localStorage`
+  synchronously keep working.
+* **Storage**: the shell origin's `localStorage`, key
+  `ctrlai:<slug>:l:<key>` (the app's `localStorage`) and
+  `ctrlai:<slug>:k:<key>` (`ctrlai.storage`, JSON); about 1 MB per app.
+  Per visitor, works signed out.
+* **`/_ctrlai/v1/*`** sits behind `app_request`: an `X-CtrlAI-App: <slug>`
+  header naming a live app, and `Sec-Fetch-Site: same-origin` when the
+  browser sends it. The router never reads the site's session cookie (a
+  test holds it). P2 adds the app-scoped cookie `ctrlai_app_<slug>`
+  (Path `/_ctrlai/`, `SameSite=Strict`, host-only), which the member's
+  opaque frame can never send.
+* **Proven in a real browser** (`frontend/e2e/app-platform.spec.ts`,
+  `npm run e2e`, run against the local apps server and against the real
+  Caddyfile in a container): the app's origin is opaque and its fetches
+  are blocked; its image, form and navigation requests to `/_ctrlai` carry
+  no app cookie while the shell's do; an app opening another app's shell
+  gets an inert sandboxed copy; a page that opens a shell in a popup can
+  neither feed it messages nor navigate its app frame; storage is per app
+  and survives reloads; the member's files opened directly are sandboxed.
 
 ---
 

@@ -158,6 +158,15 @@ Everything Korean for members, light/dark, 390px. Progress in docs/progress/RUN-
 
 ## After the beta (specced, not in Next)
 
+### app-subdomains
+
+Owner decision 3 of app-platform (2026-10-15): one subdomain per member
+app (`<slug>.apps.ctrlai.my`) instead of paths, so apps no longer share
+one origin. Needs a wildcard certificate, which Caddy gets only through
+a DNS-01 challenge — the DNS may have to move to a provider Caddy can
+drive (a DNS change: ask first). Until then the trusted shell + sandboxed
+frame (P1) is the isolation.
+
 Added 2026-10-07 (`docs-chat-plus`). Specced now so the beta's design
 leaves room for them; **none starts before `prep-beta-launch` has
 shipped**, and each has a milestone in [`ROADMAP.md`](ROADMAP.md). Full
