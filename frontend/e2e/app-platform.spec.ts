@@ -17,21 +17,6 @@ const API = process.env.API_ORIGIN ?? "http://localhost:8000";
 /** A page on another origin, to open a shell from. */
 const OTHER = process.env.OTHER_ORIGIN ?? "http://127.0.0.1:8000/";
 
-type Ctrlai = {
-  connected: boolean;
-  storage: {
-    get(key: string): Promise<unknown>;
-    set(key: string, value: unknown): Promise<void>;
-    remove(key: string): Promise<void>;
-  };
-};
-declare global {
-  interface Window {
-    ctrlai: Ctrlai;
-    __w: Window | null;
-  }
-}
-
 let A = "";
 let B = "";
 

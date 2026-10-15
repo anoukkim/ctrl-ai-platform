@@ -15,22 +15,6 @@ const SITE = process.env.SITE_ORIGIN ?? "http://localhost:3000";
 const USER = process.env.E2E_USER ?? "dev";
 const PASSWORD = process.env.E2E_PASSWORD ?? "devpassword";
 
-type Ctrlai = {
-  user(): Promise<{ displayName: string; appUserId: string } | null>;
-  login(): Promise<{ displayName: string; appUserId: string }>;
-  logout(): Promise<void>;
-  ai: {
-    ask(options: unknown): Promise<{ text: string; json: unknown; chargedKrw: number; model: string }>;
-    stream(options: unknown, onChunk: (text: string) => void): Promise<{ text: string; chargedKrw: number }>;
-  };
-};
-declare global {
-  interface Window {
-    ctrlai: Ctrlai;
-    __chunks: string[];
-  }
-}
-
 async function appFrame(page: Page, slug: string): Promise<Frame> {
   let frame: Frame | undefined;
   await expect
