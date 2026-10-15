@@ -81,9 +81,9 @@ export function priceText(model: PickerModel, level: DepthLevel | null | undefin
   return max > 0 ? `1회 약 ${won(estimate)} (최대 ${won(max)})` : `1회 약 ${won(estimate)}`;
 }
 
-/** 목록의 모델 줄 값: 보통 깊이 기준 "1회 약 N원". */
-export function modelCostText(model: PickerModel): string {
-  const step = levelFor(model, DEFAULT_DEPTH);
+/** 목록의 모델 줄 값: 지금 고른 깊이에서의 "1회 약 N원"(그 깊이가 없으면 보통). */
+export function modelCostText(model: PickerModel, level: DepthLevel | null = DEFAULT_DEPTH): string {
+  const step = levelFor(model, level);
   const estimate = step ? step.estimate_krw : model.estimate_krw;
   if (estimate === null) return "요금 정보 없음";
   // 비용 보정: 최근 실제 답장의 중앙값이면 그렇다고 말합니다.

@@ -336,14 +336,32 @@ Chat is the opening screen and a real conversation with Claude, behind
   without a reload. A stopped or cap-stopped reply settles the same way; a
   server-reported failure says 청구되지 않았어요 (and only that case — a
   dropped connection still charges for what streamed, like 중지).
-- **The per-reply cap and the daily cap** (token-guard). Admin › System ›
-  **채팅 한도** sets a per-reply cost cap, a long-conversation warning
-  threshold and an optional daily cap per member (0 = off), all audited.
-  The cap is enforced **before** the call: it buys a `max_tokens` budget
-  after the estimated input cost, so a capped reply simply stops, is saved
-  and charged its real usage, and tells the member to send '계속해 줘'. If
+- **Model + 생각 깊이** (quality-tuning Q1). One picker — Chat's composer
+  and welcome screen, the Builder's Claude panel, Profile › 기본 모델 — shows
+  "<모델> · <깊이>"; its popover (a bottom sheet at 390 px) lists the models
+  with a one-line description and "1회 약 N원", and a 생각 깊이 slider
+  낮음 · 보통 · 높음 (· 최고 where the API has `max`) with a hint and "1회 약
+  N원 (최대 M원)". A model without `effort` (Haiku 4.5) shows "이 모델은 깊이
+  조절이 없어요" and is never sent one. The client sends only the model id
+  and the level **name**; the server maps it, separately for chat and the
+  Builder, to effort + `max_tokens` + a per-call cap (defaults: chat 낮음
+  low/4,096/200원, 보통 medium/8,192/200원, 높음 high/16,000/400원, 최고
+  max/32,000/800원; builder 16,000/500원 at 낮음·보통, 32,000/900원 높음,
+  32,000/1,200원 최고 — Admin › System › 채팅 한도, audited). Remembered per
+  conversation, per project, and as the member's default. Sonnet 5.5 at
+  최고 thinks adaptively (the picker says so). Admin › Budget shows Claude
+  usage by model × feature × depth.
+- **The per-call cap and the daily cap** (token-guard). Admin › System ›
+  **채팅 한도** sets each depth's per-call cost cap, the chat history sent
+  with each reply (대화 기억, default 64,000 tokens), the reply timeout
+  (응답 대기, 180 s), a long-conversation warning threshold and an
+  optional daily cap per member (0 = off), all audited. The cap is
+  enforced **before** the call: it buys a `max_tokens` budget after the
+  estimated input cost, so a capped reply simply stops, is saved and
+  charged its real usage, says 상한에 도달 next to model · depth, and offers
+  **이어서 쓰기** (a new, priced reply; the price shows on the button). If
   the input alone reaches the cap, the message is refused free with a 새
-  대화 suggestion and the saving. The daily cap counts every paid feature
+  대화 / 생각 깊이를 높여 suggestion. The daily cap counts every paid feature
   per KST day and refuses before anything is spent.
 - **Tools in Chat** (chat-plus-tools — **mock only** until Phase 9: no
   real API call, no real fee). 웹 검색, 웹 페이지 읽기 and 코드 실행 as

@@ -130,7 +130,7 @@ export default function ModelDepthPicker({
                         <span className={styles.optionLabel}>{model.label}</span>
                         {model.is_default && <span className="badge badge-muted">기본</span>}
                         {model.admin_only && <span className="badge badge-warn">관리자만</span>}
-                        <span className={styles.optionCost}>{modelCostText(model)}</span>
+                        <span className={styles.optionCost}>{modelCostText(model, level)}</span>
                         {selected && <Check size={14} aria-hidden="true" className={styles.check} />}
                       </span>
                       <span className={styles.optionDescription}>{model.description}</span>
