@@ -1028,11 +1028,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 placeholder={
                   mayCreate
                     ? empty
-                      ? "예: 한 달 지출을 적는 가계부를 만들어 줘"
+                      ? "앱을 만든 뒤에 여기서 고쳐 달라고 할 수 있어요"
                       : "예: 버튼 색을 주황색으로 바꿔 줘"
                     : "이번 분기에는 사용할 수 없습니다"
                 }
-                disabled={!mayCreate || generating}
+                disabled={!mayCreate || generating || empty}
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
               <div className={styles.askActions}>
