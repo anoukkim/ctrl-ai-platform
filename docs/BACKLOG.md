@@ -82,10 +82,11 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    per-app database, files later). **Starts after H1, H2 and H4 of
    RUN-2026-10-15 are deployed.** P1–P4 pre-approved to merge and deploy
    one at a time; P5 branch + tests + WAIT. Supersedes H3 (app-ai-bridge).
-   Spec below, saved verbatim. **When P1 lands:** update the H4 templates
+   Spec below, saved verbatim. **P1 merged 2026-10-15** (shell, SDK,
+   ctrlai.storage; RUN-2026-10-15). **When P1 lands:** update the H4 templates
    (`services/project_handoff.py` README / CLAUDE.md, and the showcase
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
-   that outside CTRL+AI those calls need replacing.
+   that outside CTRL+AI those calls need replacing — done in P1.
 
 2. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
