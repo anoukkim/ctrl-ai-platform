@@ -309,6 +309,8 @@ def test_the_limits_are_an_audited_admin_setting(
         "web_fetch_max_uses": 1,
         "web_fetch_max_content_tokens": 10_000,
         "web_search_max_uses": 5,
+        # app-platform P2: AI inside member apps, per visitor per KST day.
+        "app_ai_daily_cap_krw": 2000,
         "set_at": None,
         "set_by_username": "",
     }
@@ -340,6 +342,8 @@ def test_the_limits_are_an_audited_admin_setting(
     assert "페이지 읽기 2회×8,000토큰" in row.summary
     # fix-real-web-search: searches per reply, audited with the rest.
     assert "웹 검색 4회" in row.summary and after["web_search_max_uses"] == 4
+    # Not sent: the app AI day cap keeps its default and is in the summary.
+    assert after["app_ai_daily_cap_krw"] == 2000 and "앱 AI 하루 한도 2,000원" in row.summary
     assert row.detail["before"]["web_search_max_uses"] == 5
     assert row.detail["before"]["reply_cap_krw"] == 200
     assert row.detail["before"]["web_fetch_max_uses"] == 1
