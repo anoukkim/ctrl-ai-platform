@@ -26,20 +26,16 @@ import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
   BUILDER_STATUS_LABEL,
-  createStarterApp,
   deleteBuilderProject,
   appUrl,
   describeError,
   APP_LIMITS_NOTE,
-  STYLE_CHOICES,
-  generateProject,
   labelVersion,
   publicUrl,
   publishProject,
   unpublishProject,
   getBuilderProject,
   getGenerateEstimate,
-  getStarterEstimate,
   listBuilderFiles,
   listBuilderProjects,
   listVersions,
@@ -51,7 +47,6 @@ import {
   type BuilderProject,
   type BuilderVersion,
   type GenerateEstimate,
-  type StarterEstimate,
 } from "@/lib/projects";
 import { useSite } from "@/app/components/SiteProvider";
 import { relativeTime } from "@/lib/relative-time";
@@ -62,6 +57,15 @@ import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 import ModelDepthPicker from "@/app/components/ModelDepthPicker";
+import {
+  cancelGeneration,
+  getOpenGeneration,
+  planGeneration,
+  runGeneration,
+  type Generation,
+  type PlanInput,
+} from "@/lib/generation";
+import { NO_PROGRESS, PlanCard, StartForm, type Progress } from "./StagedGeneration";
 import type { DepthLevel, PickerModel } from "@/lib/depth";
 
 import PreviewPane from "./PreviewPane";
@@ -151,11 +155,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<Mode>("preview");
   const [files, setFiles] = useState<BuilderFile[] | null>(null);
   const [filesError, setFilesError] = useState<string | null>(null);
-  const [estimate, setEstimate] = useState<StarterEstimate | null>(null);
-  const [starterIdea, setStarterIdea] = useState<string | null>(null);
-  const [starting, setStarting] = useState(false);
-  const [starterError, setStarterError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
   const { refresh: refreshWallet } = useMyQuarter();
   const { reportCharge } = useSpendFeedback();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -165,7 +164,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 말로 만들기 / 고치기 (builder-static-runtime).
   const { apps_base_url: appsBase } = useSite();
   const [ask, setAsk] = useState("");
-  const [generating, setGenerating] = useState(false);
+  // 단계별 만들기(quality-tuning Q2): 끝나지 않은 작업, 진행, 계획 중.
+  const [generation, setGeneration] = useState<Generation | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [genRunning, setGenRunning] = useState(false);
+  const [progress, setProgress] = useState<Progress>(NO_PROGRESS);
+  const generating = planning || genRunning;
+  /** 마지막으로 보낸 요청 — 실패하면 "다시 시도"가 그대로 보냅니다. */
+  const [lastInput, setLastInput] = useState<PlanInput | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateEstimate, setGenerateEstimate] = useState<GenerateEstimate | null>(null);
   const [thread, setThread] = useState<{ role: "member" | "claude"; text: string }[]>([]);
@@ -173,7 +179,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   // ctrlaiapps-publish
-  const [style, setStyle] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
   const [handoff, setHandoff] = useState<HandoffMode | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -214,9 +219,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         if (list.length > 0 && !list.some((file) => file.path === ENTRY_FILE)) {
           setActiveFile(list[0].path);
         }
-        if (list.length === 0) {
-          getStarterEstimate().then(setEstimate).catch(() => setEstimate(null));
-        }
       })
       .catch((error: unknown) => setFilesError(describeError(error)));
   }, [projectId]);
@@ -233,6 +235,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     getGenerateEstimate(projectId)
       .then(setGenerateEstimate)
       .catch(() => setGenerateEstimate(null));
+    // 중간에 멈춘 만들기가 있으면 이어서 만들기를 보여 줍니다.
+    getOpenGeneration(projectId)
+      .then(setGeneration)
+      .catch(() => setGeneration(null));
   }, [projectId, loadVersions]);
 
   /**
@@ -264,52 +270,118 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       });
   }, [projectId]);
 
-  const makeStarter = useCallback(
-    async (idea: string) => {
-      setStarting(true);
-      setStarterError(null);
+  /** 만든 뒤(또는 멈춘 뒤) 파일·버전·프로젝트·지갑을 새로 읽습니다. */
+  const reloadAfterRun = useCallback(() => {
+    listBuilderFiles(projectId)
+      .then(setFiles)
+      .catch(() => undefined);
+    loadVersions();
+    reloadProject();
+    void refreshWallet();
+    getGenerateEstimate(projectId).then(setGenerateEstimate).catch(() => undefined);
+  }, [projectId, loadVersions, reloadProject, refreshWallet]);
+
+  /**
+   * 시작 / 이어서 만들기 (quality-tuning Q2). 파일을 하나씩 쓰고, 다 쓴
+   * 파일은 바로 저장됩니다. 멈추면 이유와 이어서 만들기가 남습니다.
+   */
+  const runPlan = useCallback(
+    async (plan: Generation) => {
+      setGenRunning(true);
+      setGenerateError(null);
+      setProgress(NO_PROGRESS);
+      let spent = 0;
       try {
-        const result = await createStarterApp(projectId, idea);
-        setFiles(result.files);
-        setActiveFile(ENTRY_FILE);
-        setSummary(result.summary);
-        setMode("preview");
-        loadVersions();
-        reloadProject();
-        void refreshWallet();
-        reportCharge({ chargedKrw: result.charged_krw, label: "빌더 · 앱 만들기" });
+        const outcome = await runGeneration(projectId, plan.id, {
+          onFileStart: (path) => setProgress((current) => ({ ...current, current: path })),
+          onFileDone: (path, krw) => {
+            spent += krw;
+            setProgress((current) => ({
+              ...current,
+              current: null,
+              charged: { ...current.charged, [path]: krw },
+            }));
+          },
+          onCheckStart: () => setProgress((current) => ({ ...current, check: "running" })),
+          onCheckDone: (fixed, summary, krw) => {
+            spent += krw;
+            setProgress((current) => ({ ...current, check: "done", checkFixed: fixed, checkSummary: summary }));
+          },
+        });
+        if (outcome.kind === "done") {
+          setGeneration(null);
+          setAsk("");
+          setMode("preview");
+          const fixed = outcome.checkFixed.length > 0 ? ` 점검하면서 ${outcome.checkFixed.length}곳을 고쳤어요.` : "";
+          setThread((list) => [
+            ...list,
+            {
+              role: "claude",
+              text:
+                `${plan.summary}${fixed}\n` +
+                `v${outcome.versionNumber} · 파일 ${outcome.filesDone.length}개 · ${formatKrw(outcome.chargedKrw)}`,
+            },
+          ]);
+          reportCharge({ chargedKrw: spent, label: plan.kind === "create" ? "빌더 · 만들기" : "빌더 · 고치기" });
+        } else {
+          const label = plan.kind === "create" ? "빌더 · 만들기" : "빌더 · 고치기";
+          if (spent > 0) reportCharge({ chargedKrw: spent, label });
+          const fresh = await getOpenGeneration(projectId).catch(() => null);
+          setGeneration(
+            fresh ?? {
+              ...plan,
+              status: "partial",
+              error: outcome.detail,
+            },
+          );
+        }
       } catch (error) {
-        setStarterError(describeError(error));
+        setGenerateError(describeError(error));
+        getOpenGeneration(projectId).then(setGeneration).catch(() => undefined);
       } finally {
-        setStarting(false);
+        setGenRunning(false);
+        setProgress((current) => ({ ...current, current: null }));
+        reloadAfterRun();
       }
     },
-    [projectId, refreshWallet, reportCharge, loadVersions, reloadProject],
+    [projectId, reportCharge, reloadAfterRun],
   );
 
-  const runGenerate = useCallback(async () => {
-    const text = ask.trim();
-    if (!text) return;
-    setGenerating(true);
-    setGenerateError(null);
-    setThread((list) => [...list, { role: "member", text }]);
+  /** 계획 세우기. 고치기는 계획이 나오면 바로 시작합니다. */
+  const makePlan = useCallback(
+    async (input: PlanInput) => {
+      setPlanning(true);
+      setGenerateError(null);
+      setLastInput(input);
+      if (files !== null && files.length > 0) setThread((list) => [...list, { role: "member", text: input.request }]);
+      try {
+        const plan = await planGeneration(projectId, input);
+        setGeneration(plan);
+        void refreshWallet();
+        reportCharge({ chargedKrw: plan.charged_krw, label: "빌더 · 계획" });
+        if (plan.kind === "edit") {
+          setPlanning(false);
+          await runPlan(plan);
+        }
+      } catch (error) {
+        setGenerateError(describeError(error));
+      } finally {
+        setPlanning(false);
+      }
+    },
+    [projectId, refreshWallet, reportCharge, runPlan, files],
+  );
+
+  const dropPlan = useCallback(async () => {
+    if (!generation) return;
     try {
-      const result = await generateProject(projectId, text, style);
-      setAsk("");
-      setFiles(result.files);
-      setState({ phase: "ready", project: result.project });
-      setVersions((list) => [result.version, ...list.filter((v) => v.number !== result.version.number)]);
-      setThread((list) => [...list, { role: "claude", text: result.summary }]);
-      if (result.changed.length > 0 && mode !== "preview") setActiveFile(result.changed[0]);
-      void refreshWallet();
-      reportCharge({ chargedKrw: result.charged_krw, label: "빌더 · 고치기" });
-      getGenerateEstimate(projectId).then(setGenerateEstimate).catch(() => undefined);
-    } catch (error) {
-      setGenerateError(describeError(error));
-    } finally {
-      setGenerating(false);
+      await cancelGeneration(projectId, generation.id);
+    } catch {
+      /* 이미 끝났거나 없어졌으면 그대로 비웁니다 */
     }
-  }, [ask, projectId, mode, refreshWallet, reportCharge, style]);
+    setGeneration(null);
+    setProgress(NO_PROGRESS);
+  }, [generation, projectId]);
 
   // 게시 / 업데이트 게시 (ctrlaiapps-publish). 무료 — 고른 버전을 올릴 뿐.
   const publish = useCallback(
@@ -511,7 +583,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const code = fileMap[activeFile] ?? "";
   const lineCount = code.split("\n").length;
   const empty = files !== null && files.length === 0;
-  const idea = starterIdea ?? project.description;
   const showCode = mode === "code" || mode === "split";
   const showPreview = mode === "preview" || mode === "split";
   const draftUrl = appUrl(project, appsBase);
@@ -707,51 +778,28 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
           <div className={styles.centerBody}>
             {empty && (
-              <div className={styles.starter}>
-                <p className={styles.starterTitle}>예시 앱부터 만들어 볼까요?</p>
-                <p className={styles.starterText}>
-                  만들고 싶은 것을 적으면 Claude가 바로 실행해 볼 수 있는 작은 앱(HTML · CSS ·
-                  JavaScript)을 만들어 줍니다. 만든 뒤에는 파일을 보고, 미리보기에서 눌러 볼 수
-                  있어요.
-                </p>
-                <label className="sr-only" htmlFor="starter-idea">
-                  만들고 싶은 앱
-                </label>
-                <textarea
-                  className={`field ${styles.starterIdea}`}
-                  id="starter-idea"
-                  value={idea}
-                  maxLength={2000}
-                  rows={3}
-                  placeholder="예: 한 달 지출을 적고 항목별로 합계를 보여 주는 가계부"
-                  onChange={(event) => setStarterIdea(event.target.value)}
-                  disabled={!mayCreate || starting}
-                />
-                <div className={styles.starterActions}>
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => void makeStarter(idea)}
-                    disabled={!mayCreate || starting || !idea.trim()}
-                    title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                  >
-                    {starting ? "예시 앱을 만드는 중… (보통 30초~1분)" : "예시 앱 만들기"}
-                  </button>
-                  {estimate && (
-                    <span className={styles.starterCost}>
-                      약 {formatKrw(estimate.estimated_krw)} · 최대 {formatKrw(estimate.worst_case_krw)}
-                    </span>
-                  )}
-                </div>
-                {mayCreate && estimate && <WalletCheck costKrw={estimate.worst_case_krw} />}
+              <div className={styles.starterArea}>
+                {generation ? (
+                  <PlanCard
+                    generation={generation}
+                    running={genRunning}
+                    progress={progress}
+                    disabled={!mayCreate || generating}
+                    onStart={() => void runPlan(generation)}
+                    onCancel={() => void dropPlan()}
+                  />
+                ) : (
+                  <StartForm
+                    initialIdea={project.description}
+                    busy={planning}
+                    disabled={!mayCreate}
+                    error={generateError}
+                    onPlan={(input) => void makePlan(input)}
+                  />
+                )}
                 <p className={styles.limitsNote} data-testid="app-limits">
                   {APP_LIMITS_NOTE}
                 </p>
-                {starterError && (
-                  <p className={styles.starterError} role="alert">
-                    {starterError}
-                  </p>
-                )}
               </div>
             )}
 
@@ -845,12 +893,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
-                {summary && (
-                  <div className={`${ws.chatMessage} ${ws.chatAssistant}`}>
-                    <span className={ws.chatRole}>Claude</span>
-                    {summary}
-                  </div>
-                )}
                 {thread.map((message, index) => (
                   <div
                     className={`${ws.chatMessage} ${
@@ -862,15 +904,25 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     {message.text}
                   </div>
                 ))}
-                {generating && (
+                {planning && (
                   <p className={styles.hint} role="status">
-                    Claude가 파일을 쓰는 중이에요… (보통 30초~2분)
+                    Claude가 바꿀 계획을 세우는 중이에요…
                   </p>
                 )}
-                {!summary && thread.length === 0 && !generating && (
+                {generation && !empty && (
+                  <PlanCard
+                    generation={generation}
+                    running={genRunning}
+                    progress={progress}
+                    disabled={!mayCreate || generating}
+                    onStart={() => void runPlan(generation)}
+                    onCancel={() => void dropPlan()}
+                  />
+                )}
+                {thread.length === 0 && !generating && !generation && (
                   <p className={styles.hint}>
                     {empty
-                      ? "만들고 싶은 앱을 아래에 적거나, 가운데에서 예시 앱부터 만들어 보세요."
+                      ? "가운데에서 만들고 싶은 앱을 알려 주면 Claude가 먼저 계획을 보여 줘요."
                       : "바꾸고 싶은 점을 아래에 적으면 Claude가 파일을 고쳐요. 바뀔 때마다 버전이 남아서 언제든 되돌릴 수 있어요."}
                   </p>
                 )}
@@ -963,38 +1015,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               )}
             </div>
             <div className={ws.chatComposer}>
-              {empty && (
-                <div className={styles.styleRow}>
-                  <label htmlFor="builder-style">스타일</label>
-                  <select
-                    id="builder-style"
-                    className="field"
-                    value={STYLE_CHOICES.includes(style as (typeof STYLE_CHOICES)[number]) || style === "" ? style : "__custom"}
-                    onChange={(event) =>
-                      setStyle(event.target.value === "__custom" ? " " : event.target.value)
-                    }
-                    disabled={!mayCreate || generating}
-                  >
-                    <option value="">아이디어에 맞게</option>
-                    {STYLE_CHOICES.map((choice) => (
-                      <option key={choice} value={choice}>
-                        {choice}
-                      </option>
-                    ))}
-                    <option value="__custom">직접 적기</option>
-                  </select>
-                  {style !== "" && !STYLE_CHOICES.includes(style as (typeof STYLE_CHOICES)[number]) && (
-                    <input
-                      className="field"
-                      aria-label="원하는 스타일 직접 적기"
-                      placeholder="예: 파스텔 톤의 다이어리 느낌"
-                      maxLength={100}
-                      value={style.trimStart()}
-                      onChange={(event) => setStyle(event.target.value || " ")}
-                    />
-                  )}
-                </div>
-              )}
               <label className="sr-only" htmlFor="builder-ask">
                 Claude에게 만들거나 고쳐 달라고 하기
               </label>
@@ -1019,10 +1039,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 <button
                   className="btn btn-primary btn-sm"
                   type="button"
-                  onClick={() => void runGenerate()}
-                  disabled={!mayCreate || generating || !ask.trim()}
+                  onClick={() => void makePlan({ request: ask.trim() })}
+                  disabled={!mayCreate || generating || empty || !ask.trim()}
                 >
-                  {generating ? "만드는 중…" : empty ? "만들기" : "고치기"}
+                  {generating ? "만드는 중…" : "고치기"}
                 </button>
                 {generateEstimate && (
                   <span className={styles.starterCost}>
@@ -1034,9 +1054,19 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               {mayCreate && generateEstimate && (
                 <WalletCheck costKrw={generateEstimate.worst_case_krw} />
               )}
-              {generateError && (
+              {generateError && !empty && (
                 <p className={styles.starterError} role="alert">
-                  {generateError}
+                  {generateError}{" "}
+                  {lastInput && (
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={() => void makePlan(lastInput)}
+                      disabled={!mayCreate || generating}
+                    >
+                      다시 시도
+                    </button>
+                  )}
                 </p>
               )}
               {!mayCreate && (

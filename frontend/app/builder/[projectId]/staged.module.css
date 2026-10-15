@@ -1,0 +1,193 @@
+/* 단계별 만들기(quality-tuning Q2). 색과 크기는 globals.css의 토큰입니다. */
+
+.start,
+.plan {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.plan {
+  max-width: none;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+}
+
+.title {
+  margin: 0;
+  font-weight: var(--fw-strong);
+}
+
+.text,
+.note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+
+.note {
+  color: var(--text-dim);
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: var(--fs-count);
+}
+
+.field > span,
+.moods legend {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-strong);
+}
+
+.moods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.moods legend {
+  margin-bottom: 0.3rem;
+  padding: 0;
+}
+
+.mood {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.mood:hover:not(:disabled),
+.mood:focus-visible {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.moodOn {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-meta);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+
+.steps {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.stepIcon {
+  display: inline-flex;
+  flex: 0 0 1rem;
+  justify-content: center;
+  padding-top: 2px;
+  color: var(--text-dim);
+}
+
+.step[data-state="done"] .stepIcon {
+  color: var(--success-text, var(--accent));
+}
+
+.step[data-state="writing"] .stepIcon {
+  color: var(--accent);
+}
+
+.stepBody {
+  display: grid;
+  min-width: 0;
+  font-size: var(--fs-count);
+}
+
+.path {
+  font-family: var(--font-mono, monospace);
+  font-weight: var(--fw-strong);
+  overflow-wrap: anywhere;
+}
+
+.status {
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
+.purpose {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
+
+.live {
+  min-height: 1px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

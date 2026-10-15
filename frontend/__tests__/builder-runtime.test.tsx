@@ -94,7 +94,8 @@ const V1: BuilderVersion = {
   total_bytes: 60,
 };
 
-const generateProject = vi.fn();
+const planGeneration = vi.fn();
+const runGeneration = vi.fn();
 const restoreVersion = vi.fn();
 const listVersions = vi.fn();
 let appsBase: string | null = "http://apps.test";
@@ -107,7 +108,6 @@ vi.mock("@/lib/projects", async (importOriginal) => {
     listBuilderProjects: vi.fn().mockResolvedValue([]),
     listBuilderFiles: vi.fn().mockResolvedValue(FILES),
     listVersions: (...args: unknown[]) => listVersions(...args),
-    generateProject: (...args: unknown[]) => generateProject(...args),
     restoreVersion: (...args: unknown[]) => restoreVersion(...args),
     getGenerateEstimate: vi.fn().mockResolvedValue({
       estimated_krw: 70,
@@ -116,6 +116,17 @@ vi.mock("@/lib/projects", async (importOriginal) => {
       max_output_tokens: 16000,
     }),
     getStarterEstimate: vi.fn().mockResolvedValue({ estimated_krw: 60, worst_case_krw: 130, model_label: "Sonnet 5.5" }),
+  };
+});
+
+vi.mock("@/lib/generation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/generation")>();
+  return {
+    ...actual,
+    getOpenGeneration: vi.fn().mockResolvedValue(null),
+    planGeneration: (...args: unknown[]) => planGeneration(...args),
+    runGeneration: (...args: unknown[]) => runGeneration(...args),
+    cancelGeneration: vi.fn().mockResolvedValue({}),
   };
 });
 
@@ -172,14 +183,32 @@ describe("앱 주소 미리보기", () => {
 });
 
 describe("말로 고치기와 버전", () => {
-  test("비용을 먼저 보여 주고, 고치면 Claude의 답과 새 버전이 나온다", async () => {
-    generateProject.mockResolvedValue({
-      files: [FILES[0], { ...FILES[1], content: "button { background: #e8590c; }" }],
-      changed: ["style.css"],
-      summary: "버튼 색을 주황색으로 바꿨어요.",
-      charged_krw: 52,
-      version: { ...V1, number: 2, note: "고치기: 버튼 색을 바꿔 줘" },
-      project: PROJECT,
+  test("비용을 먼저 보여 주고, 고치면 계획 → 파일 → 점검 뒤 Claude의 답과 새 버전이 나온다", async () => {
+    planGeneration.mockResolvedValue({
+      id: 4,
+      kind: "edit",
+      request: "버튼 색을 바꿔 줘",
+      style: "",
+      summary: "버튼 색을 주황색으로 바꿔요.",
+      plan: [{ path: "style.css", purpose: "색과 배치" }],
+      files_done: [],
+      status: "planned",
+      check_summary: "",
+      check_fixed: [],
+      charged_krw: 3,
+      error: "",
+      version_number: null,
+      created_at: "2026-10-15T00:00:00Z",
+      estimated_krw: 40,
+      max_call_krw: 200,
+    });
+    runGeneration.mockImplementation(async (_project, _id, handlers) => {
+      handlers.onFileStart?.("style.css");
+      handlers.onFileDone?.("style.css", 40);
+      handlers.onCheckStart?.();
+      handlers.onCheckDone?.([], "점검했어요 — 고칠 곳이 없어요.", 9);
+      listVersions.mockResolvedValue([{ ...V1, number: 2, note: "고치기: 버튼 색을 바꿔 줘" }, V1]);
+      return { kind: "done", versionNumber: 2, chargedKrw: 52, filesDone: ["style.css"], checkFixed: [] };
     });
     const user = userEvent.setup();
     render(<BuilderWorkspace projectId="7" />);
@@ -188,10 +217,12 @@ describe("말로 고치기와 버전", () => {
     await user.type(screen.getByLabelText("Claude에게 만들거나 고쳐 달라고 하기"), "버튼 색을 바꿔 줘");
     await user.click(screen.getByRole("button", { name: "고치기" }));
 
-    expect(generateProject).toHaveBeenCalledWith("7", "버튼 색을 바꿔 줘", "");
-    expect(await screen.findByText("버튼 색을 주황색으로 바꿨어요.")).toBeTruthy();
-    expect(screen.getByText("버전 기록 (2)")).toBeTruthy();
-    expect(screen.getByText("고치기: 버튼 색을 바꿔 줘")).toBeTruthy();
+    // 고치기는 계획이 나오면 바로 시작합니다.
+    expect(planGeneration).toHaveBeenCalledWith("7", { request: "버튼 색을 바꿔 줘" });
+    expect(runGeneration).toHaveBeenCalledWith("7", 4, expect.anything());
+    expect(await screen.findByText(/버튼 색을 주황색으로 바꿔요\./)).toBeTruthy();
+    expect(screen.getByText(/v2 · 파일 1개 · 52원/)).toBeTruthy();
+    expect(await screen.findByText("버전 기록 (2)")).toBeTruthy();
   });
 
   test("되돌리기는 확인을 받고, 무료라고 알린다", async () => {
