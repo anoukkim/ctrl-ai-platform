@@ -2575,3 +2575,39 @@ deletes need an active quarter; community screens in future tense).
 **운영진 검토 필요** — the owner reads the final text before inviting
 members. Open: no member password-reset tool exists (약관 §3 says "운영진에게
 알려 주세요").
+
+---
+
+## project-export-handoff — full spec (merged 2026-10-15)
+
+Added by the owner on 2026-10-15 (H4 of RUN-2026-10-15). Saved verbatim:
+
+H4 — feat-project-export-handoff. I pre-approve merge + deploy (same PART E rules), after H1 and H2.
+
+Goal: a member can download their whole Builder project and keep developing it with their OWN Claude (claude.ai or Claude Code) without knowing anything technical. Beginner-friendly, all Korean.
+
+1. Download (Project Builder header ⋯ → "프로젝트 내려받기", and the existing ZIP button):
+   ZIP named <project-slug>-v<N>.zip containing:
+   - the project files of the chosen version (default: current draft; option: 게시된 버전)
+   - README.md (Korean): what this app is, how to open it (index.html 더블클릭 / 간단한 로컬 서버 명령 한 줄), file list with one line each, what works only in the browser (localStorage), and "다음에 해 볼 만한 것" 3 ideas
+   - CLAUDE.md: project context for Claude Code (purpose, file structure, constraints it was built under — static, no network, size caps — and that outside CTRL+AI those limits no longer apply), coding conventions used, how to run/test
+   - HANDOFF_PROMPT.md: a ready-to-paste Korean prompt for claude.ai ("첨부한 ZIP은 CTRL+AI에서 만든 내 웹앱이야. …"), with blanks the member fills ("내가 추가하고 싶은 것: ___")
+   - HISTORY.md: version list (v1… with the member's request text for each, date), so their Claude knows how it evolved
+   - SPEC.md if the project has one (e.g. the showcase apps' original full-stack spec → their Claude can build the real FastAPI/Postgres/Claude version)
+   - nothing else: no CTRL+AI internals, no tokens, no other members' data, no usage/cost data.
+
+2. "내 Claude로 이어서 만들기" panel (button next to 내려받기), a short guided sheet with two tabs:
+   - claude.ai: ① ZIP 내려받기 ② claude.ai에서 새 대화 → ZIP 첨부 ③ 아래 프롬프트 복사해서 붙여넣기 — with the prompt shown in a box + 복사 button, and an optional text field "무엇을 더 하고 싶나요?" that is inserted into the prompt live.
+   - Claude Code: ① ZIP 풀기 ② 폴더에서 `claude` 실행 ③ "CLAUDE.md 읽고 README의 다음 아이디어 1번부터 해 줘" 같은 첫 문장 예시 + 복사.
+   - One line: "CTRL+AI 밖에서 만든 변경은 자동으로 돌아오지 않아요. 다시 올리려면 파일을 Builder에 붙여 넣거나 (나중에) GitHub 연결을 쓰세요."
+   - Copy buttons show 복사됨 for 2 s; keyboard/screen-reader accessible; light/dark; 390px bottom sheet.
+
+3. Admin can preview exactly what goes into the ZIP for any example app (to check the prompts read well). The three showcase apps (H2) get hand-polished README/CLAUDE/HANDOFF/SPEC.
+
+4. Optional (if small): on a published CtrlAIApps listing, the owner can tick "다른 회원이 이 앱으로 시작하기 허용" → others get "내 프로젝트로 복사" (a fresh Builder project from the published version, credited "원작: <이름>"). If not small, add it to BACKLOG as `app-remix` instead.
+
+5. Tests: ZIP contents/paths/names, version choice, no secrets or other users' data, prompt text includes the member's extra request, file-size caps, deleted project → 404. Screenshots in the run log. Final report in Korean, ending with the branch.
+
+When app-platform P1 lands, update the H4 README/CLAUDE.md templates to mention ctrlai.storage / the SDK (and that outside CTRL+AI those calls need replacing).
+
+As built: optional point 4 (remix) was not small and became BACKLOG `app-remix`; the showcase apps' guides reach the server with `import_example_apps --update`.
