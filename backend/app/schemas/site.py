@@ -29,6 +29,8 @@ class SiteInfo(BaseModel):
     is_beta: bool
     data_location_notice: str
     top_ups_enabled: bool
+    #: GitHub in the Builder (Phase 4); off until it lands (quality-tuning Q3).
+    github_enabled: bool = False
     #: "Google로 계속하기" is offered (google-login).
     google_login: bool
     #: builder-static-runtime: where member apps are served

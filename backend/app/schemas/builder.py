@@ -173,6 +173,13 @@ class VersionRead(BaseModel):
     charged_krw: int | None = None
 
 
+class VersionFileRead(BaseModel):
+    """One file as it was in a saved version (이 버전 보기, quality-tuning Q3)."""
+
+    path: str
+    content: str
+
+
 class VersionLabel(BaseModel):
     """버전 저장: a name, a pin, or both. Omitted fields stay as they are."""
 

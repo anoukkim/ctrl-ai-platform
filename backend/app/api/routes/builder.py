@@ -56,6 +56,7 @@ from app.schemas.builder import (
     StarterEstimateRead,
     StarterRead,
     StarterRequest,
+    VersionFileRead,
     VersionRead,
 )
 from app.services import (
@@ -654,6 +655,30 @@ def list_versions(
         )
     }
     return [_version_read(version, project, made_by.get(version.id)) for version in versions]
+
+
+@router.get(
+    "/projects/{project_id}/versions/{number}/files",
+    response_model=list[VersionFileRead],
+    summary="이 버전 보기: a saved version's files, read-only",
+)
+def version_files(
+    project_id: int,
+    number: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[VersionFileRead]:
+    """Readable while not participating, like the files themselves. Free;
+    nothing changes — the Builder previews these in the page."""
+    project = _owned_project(project_id, db, user)
+    try:
+        version = builder_versions.find(db, project, number)
+    except builder_versions.VersionError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    return [
+        VersionFileRead(path=str(path), content=str(content))
+        for path, content in sorted(version.files, key=lambda pair: str(pair[0]))
+    ]
 
 
 @router.post(

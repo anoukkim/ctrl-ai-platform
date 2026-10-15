@@ -66,6 +66,8 @@ def test_site_in_development_shows_no_banner_and_no_labels(anon_client: TestClie
     assert body["is_beta"] is False
     # Off by default in every environment (personal-topup-off, 2026-10-14).
     assert body["top_ups_enabled"] is False
+    # No GitHub in the Builder until Phase 4 (quality-tuning Q3).
+    assert body["github_enabled"] is False
     # Everything is a mock locally and everyone knows it — no labels.
     assert body["test_mode"] == {
         "chat": False,
