@@ -326,7 +326,7 @@ describe("새 대화 화면의 도구 (fix-new-chat-tools)", () => {
         use_web_fetch: false,
         use_code_execution: false,
         show_thinking: true,
-      }),
+      }, null), // 깊이를 고르지 않았으면 null — 서버가 회원의 기본값을 씁니다.
     );
   });
 

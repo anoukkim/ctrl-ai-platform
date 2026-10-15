@@ -6,8 +6,9 @@
  * 관심사 하나에 구역 하나, 같은 값은 한 번만 (fix-ui-polish-admin,
  * 2026-10-14):
  *   환율            — 고칠 수 있음. 답장 한 번의 값 = 모델 토큰 요금 × 환율.
- *   채팅 한도        — 고칠 수 있음 (1회 한도, 긴 대화 경고, 하루 한도,
- *                     동시 호출, 페이지 읽기 한도).
+ *   채팅 한도        — 고칠 수 있음 (생각 깊이마다 최대 출력과 1회 한도 —
+ *                     채팅과 빌더 따로, 대화 기억, 응답 대기, 긴 대화 경고,
+ *                     하루 한도, 동시 호출, 페이지 읽기 한도).
  *   서버 설정 (.env) — 읽기 전용. `.env`의 CHAT_* 값이 정하고, 바꾸려면
  *                     서버를 다시 시작합니다 — 화면에서 바꿀 수 있게 하면
  *                     배포마다 다른 값이 숨어 있게 됩니다.
@@ -26,7 +27,10 @@ import {
   setChatLimits,
   setExchangeRate,
   type ClaudeSettings,
+  type DepthSurface,
+  type DepthTable,
 } from "@/lib/admin";
+import { DEPTH_LABEL } from "@/lib/depth";
 import { describeError } from "@/lib/http";
 
 import { sectionLabel } from "../sections";
@@ -38,6 +42,10 @@ const THINKING_LABEL: Record<string, string> = {
   off: "끔 (끌 수 있는 모델에서)",
   on: "켬",
 };
+
+const DEPTH_SURFACES: DepthSurface[] = ["chat", "builder"];
+const DEPTH_SURFACE_LABEL: Record<DepthSurface, string> = { chat: "채팅", builder: "빌더" };
+const DEPTH_LEVELS = ["low", "medium", "high", "max"] as const;
 
 export default function ClaudePricingPanel() {
   const [settings, setSettings] = useState<ClaudeSettings | null>(null);
@@ -56,7 +64,11 @@ export default function ClaudePricingPanel() {
     web_fetch_max_content_tokens: "",
     web_search_max_uses: "",
     app_ai_daily_cap_krw: "",
+    context_tokens: "",
+    timeout_seconds: "",
   });
+  /** 생각 깊이 표(quality-tuning Q1): 채팅·빌더 × 깊이마다 최대 출력과 1회 한도. */
+  const [depthDraft, setDepthDraft] = useState<Record<string, string>>({});
 
   const apply = useCallback((value: ClaudeSettings) => {
     setSettings(value);
@@ -70,7 +82,20 @@ export default function ClaudePricingPanel() {
       web_fetch_max_content_tokens: String(value.chat_limits.web_fetch_max_content_tokens),
       web_search_max_uses: String(value.chat_limits.web_search_max_uses ?? 5),
       app_ai_daily_cap_krw: String(value.chat_limits.app_ai_daily_cap_krw ?? 2000),
+      context_tokens: String(value.chat_limits.context_tokens ?? 64000),
+      timeout_seconds: String(value.chat_limits.timeout_seconds ?? 180),
     });
+    const table: Record<string, string> = {};
+    const levels = value.chat_limits.depth_levels;
+    if (levels) {
+      for (const surface of DEPTH_SURFACES) {
+        for (const level of DEPTH_LEVELS) {
+          table[`${surface}.${level}.max_tokens`] = String(levels[surface][level].max_tokens);
+          table[`${surface}.${level}.cap_krw`] = String(levels[surface][level].cap_krw);
+        }
+      }
+    }
+    setDepthDraft(table);
   }, []);
 
   useEffect(() => {
@@ -110,8 +135,40 @@ export default function ClaudePricingPanel() {
     [apply],
   );
 
+  const depthTable = (): DepthTable | undefined => {
+    if (Object.keys(depthDraft).length === 0) return undefined;
+    const out = {} as DepthTable;
+    for (const surface of DEPTH_SURFACES) {
+      out[surface] = {} as DepthTable[DepthSurface];
+      for (const level of DEPTH_LEVELS) {
+        out[surface][level] = {
+          max_tokens: Number(depthDraft[`${surface}.${level}.max_tokens`]),
+          cap_krw: Number(depthDraft[`${surface}.${level}.cap_krw`]),
+        };
+      }
+    }
+    return out;
+  };
+
+  /** 깊이 표가 서버의 값과 다른지. */
+  const depthChanged = (): boolean => {
+    const levels = settings?.chat_limits.depth_levels;
+    if (!levels) return false;
+    return DEPTH_SURFACES.some((surface) =>
+      DEPTH_LEVELS.some(
+        (level) =>
+          Number(depthDraft[`${surface}.${level}.max_tokens`]) !== levels[surface][level].max_tokens ||
+          Number(depthDraft[`${surface}.${level}.cap_krw`]) !== levels[surface][level].cap_krw,
+      ),
+    );
+  };
+
   const askLimits = () => {
+    const table = depthTable();
     const next = {
+      depth_levels: table,
+      context_tokens: Number(limitsDraft.context_tokens),
+      timeout_seconds: Number(limitsDraft.timeout_seconds),
       reply_cap_krw: Number(limitsDraft.reply_cap_krw),
       long_history_tokens: Number(limitsDraft.long_history_tokens),
       daily_cap_krw: Number(limitsDraft.daily_cap_krw),
@@ -133,6 +190,17 @@ export default function ClaudePricingPanel() {
           `페이지 읽기: 한 답장에 ${next.web_fetch_max_uses}회, 페이지당 ${next.web_fetch_max_content_tokens.toLocaleString()}토큰 — 1회 비용 한도가 미리 떼어 두는 양이라, 줄이면 낮은 한도에서도 쓸 수 있습니다`,
           `웹 검색: 한 답장에 최대 ${next.web_search_max_uses}회 — 검색 요금과 결과가 1회 비용 한도 안에 미리 잡힙니다`,
           `앱 AI 하루 한도: ${won(next.app_ai_daily_cap_krw)} — 방문자마다, 회원 앱들 안에서 쓴 AI 합산 (KST 기준)`,
+          `대화 기억: ${next.context_tokens.toLocaleString()}토큰 · 응답 대기 ${next.timeout_seconds}초`,
+          ...(table
+            ? DEPTH_SURFACES.map(
+                (surface) =>
+                  `${DEPTH_SURFACE_LABEL[surface]} 생각 깊이: ` +
+                  DEPTH_LEVELS.map(
+                    (level) =>
+                      `${DEPTH_LABEL[level]} ${table[surface][level].max_tokens.toLocaleString()}토큰/${won(table[surface][level].cap_krw)}`,
+                  ).join(" · "),
+              )
+            : []),
           "감사 기록에 남습니다.",
         ],
         confirmLabel: "한도 바꾸기",
@@ -242,13 +310,24 @@ export default function ClaudePricingPanel() {
             <div className={styles.rateBlock}>
               <div className={styles.limitsGrid} aria-labelledby="admin-chat-limits">
                 <label className={styles.limitField}>
-                  <span>답장 1회 한도 (원)</span>
+                  <span>대화 기억 (토큰, 4,000–400,000)</span>
                   <input
                     className="field numeric"
                     inputMode="numeric"
-                    value={limitsDraft.reply_cap_krw}
+                    value={limitsDraft.context_tokens}
                     onChange={(event) =>
-                      setLimitsDraft((current) => ({ ...current, reply_cap_krw: event.target.value }))
+                      setLimitsDraft((current) => ({ ...current, context_tokens: event.target.value }))
+                    }
+                  />
+                </label>
+                <label className={styles.limitField}>
+                  <span>응답 대기 (초, 30–600)</span>
+                  <input
+                    className="field numeric"
+                    inputMode="numeric"
+                    value={limitsDraft.timeout_seconds}
+                    onChange={(event) =>
+                      setLimitsDraft((current) => ({ ...current, timeout_seconds: event.target.value }))
                     }
                   />
                 </label>
@@ -352,7 +431,9 @@ export default function ClaudePricingPanel() {
                   type="button"
                   disabled={
                     [
-                      limitsDraft.reply_cap_krw,
+                      limitsDraft.context_tokens,
+                      limitsDraft.timeout_seconds,
+                      ...Object.values(depthDraft),
                       limitsDraft.long_history_tokens,
                       limitsDraft.daily_cap_krw,
                       limitsDraft.provider_concurrency,
@@ -366,7 +447,11 @@ export default function ClaudePricingPanel() {
                     Number(limitsDraft.web_search_max_uses) < 1 ||
                     Number(limitsDraft.web_search_max_uses) > 10 ||
                     Number(limitsDraft.web_fetch_max_content_tokens) < 1000 ||
-                    (Number(limitsDraft.reply_cap_krw) === settings.chat_limits.reply_cap_krw &&
+                    (!depthChanged() &&
+                      Number(limitsDraft.context_tokens) === (settings.chat_limits.context_tokens ?? 64000) &&
+                      Number(limitsDraft.timeout_seconds) === (settings.chat_limits.timeout_seconds ?? 180) &&
+                      Number(limitsDraft.app_ai_daily_cap_krw) ===
+                        (settings.chat_limits.app_ai_daily_cap_krw ?? 2000) &&
                       Number(limitsDraft.long_history_tokens) ===
                         settings.chat_limits.long_history_tokens &&
                       Number(limitsDraft.daily_cap_krw) === settings.chat_limits.daily_cap_krw &&
@@ -384,8 +469,73 @@ export default function ClaudePricingPanel() {
                   저장
                 </button>
               </div>
+              {Object.keys(depthDraft).length > 0 && (
+                <table className={styles.depthTable} data-testid="depth-table">
+                  <caption>
+                    생각 깊이 — 회원이 고른 깊이마다 최대 출력(토큰)과 1회 한도(원). 회원 화면의
+                    &ldquo;(최대 M원)&rdquo;이 이 한도입니다.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">기능</th>
+                      {DEPTH_LEVELS.map((level) => (
+                        <th scope="col" key={level}>
+                          {DEPTH_LABEL[level]}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DEPTH_SURFACES.map((surface) => (
+                      <tr key={surface}>
+                        <th scope="row">{DEPTH_SURFACE_LABEL[surface]}</th>
+                        {DEPTH_LEVELS.map((level) => (
+                          <td key={level} data-level={DEPTH_LABEL[level]}>
+                            <label className={styles.depthCell}>
+                              <span className="sr-only">
+                                {DEPTH_SURFACE_LABEL[surface]} {DEPTH_LABEL[level]} 최대 출력 토큰
+                              </span>
+                              <input
+                                className="field numeric"
+                                inputMode="numeric"
+                                value={depthDraft[`${surface}.${level}.max_tokens`] ?? ""}
+                                onChange={(event) =>
+                                  setDepthDraft((current) => ({
+                                    ...current,
+                                    [`${surface}.${level}.max_tokens`]: event.target.value,
+                                  }))
+                                }
+                              />
+                              <span aria-hidden="true">토큰</span>
+                            </label>
+                            <label className={styles.depthCell}>
+                              <span className="sr-only">
+                                {DEPTH_SURFACE_LABEL[surface]} {DEPTH_LABEL[level]} 1회 한도 원
+                              </span>
+                              <input
+                                className="field numeric"
+                                inputMode="numeric"
+                                value={depthDraft[`${surface}.${level}.cap_krw`] ?? ""}
+                                onChange={(event) =>
+                                  setDepthDraft((current) => ({
+                                    ...current,
+                                    [`${surface}.${level}.cap_krw`]: event.target.value,
+                                  }))
+                                }
+                              />
+                              <span aria-hidden="true">원</span>
+                            </label>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
               <p className={styles.pricingNote}>
-                답장이 1회 한도에 닿으면 거기서 멈추고 쓴 만큼만 차감됩니다. 긴 대화 경고는
+                답장이 그 깊이의 1회 한도에 닿으면 거기서 멈추고 쓴 만큼만 차감됩니다(회원은
+                &lsquo;이어서 쓰기&rsquo;로 이어 받을 수 있어요). 최대 출력은 1,024–64,000토큰, 1회 한도는
+                10–5,000원 사이로 정해요. 긴 대화 경고는
                 입력창 위에 &lsquo;새 대화로 시작하면 아낄 수 있어요&rsquo;를 띄웁니다. 하루 한도는 회원마다
                 모든 유료 기능을 합산해 적용됩니다 (0 = 없음).
                 {settings.chat_limits.set_at
@@ -415,10 +565,6 @@ export default function ClaudePricingPanel() {
           </h2>
           <div className="card">
             <dl className={styles.envList}>
-              <dt>답장 최대 출력</dt>
-              <dd className="numeric">{settings.max_output_tokens.toLocaleString()} 토큰</dd>
-              <dt>대화 기록 한도</dt>
-              <dd className="numeric">{settings.context_tokens.toLocaleString()} 토큰</dd>
               <dt>회원당 보내기</dt>
               <dd className="numeric">1분에 {settings.rate_limit_per_minute}개</dd>
               <dt>프롬프트 캐시</dt>
@@ -429,7 +575,7 @@ export default function ClaudePricingPanel() {
               </dd>
               <dt>생각(thinking)</dt>
               <dd>
-                {THINKING_LABEL[settings.thinking] ?? settings.thinking} · 노력 {settings.effort}
+                {THINKING_LABEL[settings.thinking] ?? settings.thinking} · 노력 {settings.effort} (생각 깊이가 없는 호출의 기본값)
               </dd>
             </dl>
           </div>

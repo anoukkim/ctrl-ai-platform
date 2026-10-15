@@ -35,6 +35,7 @@ import {
   type MemberMoneyRow,
   type QuarterMoney,
 } from "@/lib/accounting";
+import { DEPTH_LABEL, isDepth } from "@/lib/depth";
 import { describeError } from "@/lib/http";
 import { formatWonPart } from "@/lib/money";
 import {
@@ -42,6 +43,7 @@ import {
   QUARTER_STATUS_LABEL,
   formatKrw,
   getQuarterBudget,
+  type ModelDepthSpend,
   type ProviderSpend,
   type QuarterBudget,
 } from "@/lib/quarters";
@@ -115,6 +117,33 @@ function providerCost(line: ProviderSpend): string {
     .map(([currency, amount]) => (currency === "USD" ? `$${amount}` : `${amount} ${currency}`))
     .join(" + ");
 }
+
+const FEATURE_LABEL: Record<string, string> = {
+  chat: "채팅",
+  build: "빌더",
+  app_ai: "앱 AI",
+  video_prompt: "영상 프롬프트",
+};
+
+/** Claude 사용 — 모델 × 기능 × 생각 깊이(quality-tuning Q1). */
+const MODEL_DEPTH_COLUMNS: Column<ModelDepthSpend>[] = [
+  { key: "model", header: "모델", render: (line) => <strong>{line.model_id || "–"}</strong> },
+  { key: "feature", header: "기능", render: (line) => FEATURE_LABEL[line.feature] ?? line.feature },
+  {
+    key: "depth",
+    header: "생각 깊이",
+    render: (line) => (isDepth(line.depth) ? DEPTH_LABEL[line.depth] : "–"),
+  },
+  { key: "events", header: "건수", numeric: true, render: (line) => line.events.toLocaleString("ko-KR") },
+  { key: "charged", header: "사용액", numeric: true, render: (line) => formatKrw(line.charged_krw) },
+  { key: "average", header: "1회 평균", numeric: true, render: (line) => formatKrw(line.average_krw) },
+  {
+    key: "output",
+    header: "출력 토큰",
+    numeric: true,
+    render: (line) => line.output_tokens.toLocaleString("ko-KR"),
+  },
+];
 
 const PROVIDER_COLUMNS: Column<ProviderSpend>[] = [
   { key: "provider", header: "제공자", render: (line) => <strong>{line.label}</strong> },
@@ -380,6 +409,24 @@ export default function BudgetAdmin() {
           제공자가 매긴 금액이며 원화 사용액과 같은 숫자가 아닙니다.
           {/* 개인 충전이 꺼져 있는 동안(personal-topup-off)은 말하지 않습니다. */}
           {site.top_ups_enabled && " 개인 잔액에서 나간 사용도 같은 크레딧을 쓰므로 함께 셉니다."}
+        </p>
+      </section>
+
+      <section aria-labelledby="budget-model-depth">
+        <h2 className="section-title" id="budget-model-depth">
+          Claude 모델 × 생각 깊이
+          <span className={styles.sectionNote}>깊이 기본값과 한도를 정할 때 보는 숫자</span>
+        </h2>
+        <AdminTable
+          columns={MODEL_DEPTH_COLUMNS}
+          rows={budget.model_depth ?? []}
+          rowKey={(line) => `${line.model_id}|${line.feature}|${line.depth ?? ""}`}
+          empty="이 분기에는 아직 Claude 사용 기록이 없습니다."
+          caption="Claude 모델 × 생각 깊이"
+        />
+        <p className="small dim" style={{ marginTop: "0.6rem" }}>
+          생각 깊이가 &ldquo;–&rdquo;인 줄은 깊이 조절이 없는 모델(Haiku)이거나 생각 깊이가 생기기 전의
+          기록입니다.
         </p>
       </section>
 

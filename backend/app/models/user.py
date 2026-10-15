@@ -108,6 +108,12 @@ class User(TimestampMixin, Base):
     spend_notifications: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=true(), nullable=False
     )
+    #: Profile › 기본 모델 (quality-tuning Q1): what a new conversation and a
+    #: new Builder project start with. NULL: the catalogue default · 보통.
+    default_chat_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_models.id", ondelete="SET NULL"), nullable=True
+    )
+    default_depth: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     @property
     def can_sign_in(self) -> bool:

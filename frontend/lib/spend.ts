@@ -6,6 +6,7 @@
  * 잔액 0)는 회원·분기마다 한 번씩만 보이도록 백엔드가 기록합니다.
  */
 
+import type { DepthLevel } from "./depth";
 import { request } from "./http";
 
 export type MilestoneKind = "first" | "used_25" | "used_50" | "used_75" | "low" | "empty";
@@ -28,9 +29,13 @@ export function claimMilestone(): Promise<MilestoneClaim | null> {
 
 export interface Preferences {
   spend_notifications: boolean;
+  /** Profile › 기본 모델(quality-tuning Q1): 새 대화와 새 프로젝트의 시작값. */
+  default_chat_model_id?: number | null;
+  default_depth?: DepthLevel | null;
 }
 
-export function setPreferences(input: Preferences): Promise<Preferences> {
+/** 바꿀 것만 보냅니다 — 서버는 보낸 칸만 바꿉니다. */
+export function setPreferences(input: Partial<Preferences>): Promise<Preferences> {
   return request<Preferences>("/account/preferences", {
     method: "PATCH",
     body: JSON.stringify(input),

@@ -6,8 +6,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
-import { costLabel } from "@/app/components/ChatModelPicker";
-import type { ChatModelOption } from "@/lib/chat";
+import { toPickerModel, type ChatModelOption } from "@/lib/chat";
+import { modelCostText } from "@/lib/depth";
+
+const costLabel = (model: ChatModelOption) => modelCostText(toPickerModel(model));
 
 const getChatCalibration = vi.fn();
 const getChatCacheStats = vi.fn();
@@ -34,13 +36,13 @@ const SONNET: ChatModelOption = {
 
 describe("답장 1회 약 N원", () => {
   test("공식 어림값이면 그대로", () => {
-    expect(costLabel({ ...SONNET, estimate_basis: "formula" })).toBe("답장 1회 약 20원");
+    expect(costLabel({ ...SONNET, estimate_basis: "formula" })).toBe("1회 약 20원");
   });
 
   test("최근 실제 답장의 중앙값이면 그렇다고 말한다", () => {
     expect(
       costLabel({ ...SONNET, estimated_reply_krw: 7, estimate_basis: "recent", estimate_samples: 12 }),
-    ).toBe("답장 1회 약 7원 (최근 실제 기준)");
+    ).toBe("1회 약 7원 (최근 실제 기준)");
   });
 });
 

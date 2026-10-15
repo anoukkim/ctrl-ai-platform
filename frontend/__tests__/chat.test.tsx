@@ -315,13 +315,16 @@ describe("ChatWorkspace", () => {
   test("the picker starts on the default model and shows its estimated cost", async () => {
     await renderChat();
     const trigger = await screen.findByRole("button", { name: /답장 방식: 균형 잡힌 답변/ });
-    expect(trigger.textContent).toContain("답장 1회 약 20원");
+    expect(trigger.textContent).toContain("균형 잡힌 답변");
 
     fireEvent.click(trigger);
     const options = screen.getAllByRole("option");
     expect(options).toHaveLength(2);
     expect(options[0].textContent).toContain("가장 빠르고 저렴합니다.");
-    expect(options[0].textContent).toContain("답장 1회 약 10원");
+    expect(options[0].textContent).toContain("1회 약 10원");
+    // 깊이 조절이 없는 모델(이 목록의 두 모델)은 막대 대신 한 줄로 말합니다.
+    expect(screen.getByTestId("no-depth").textContent).toContain("깊이 조절이 없어요");
+    expect(screen.getByTestId("depth-price").textContent).toContain("1회 약 20원");
   });
 
   test("a model chosen before the first message creates the conversation with it", async () => {
@@ -337,7 +340,9 @@ describe("ChatWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
     typeAndSend("안녕");
 
-    await waitFor(() => expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id, expect.anything()));
+    await waitFor(() =>
+      expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id, expect.anything(), "medium"),
+    );
     expect(chatApi.setConversationModel).not.toHaveBeenCalled();
     // The reply names the model that wrote it.
     expect(await screen.findByText("빠른 답변 (Haiku 4.5)", { selector: "p" })).toBeTruthy();
@@ -358,7 +363,7 @@ describe("ChatWorkspace", () => {
       fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
     });
 
-    expect(chatApi.setConversationModel).toHaveBeenCalledWith(CONVERSATION.id, HAIKU.id);
+    expect(chatApi.setConversationModel).toHaveBeenCalledWith(CONVERSATION.id, HAIKU.id, "medium");
     expect(await screen.findByRole("button", { name: /답장 방식: 빠른 답변/ })).toBeTruthy();
   });
 

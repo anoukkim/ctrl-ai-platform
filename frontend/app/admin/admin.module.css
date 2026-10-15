@@ -1550,3 +1550,64 @@ td.modelIdCell {
   width: 11rem;
   max-width: 100%;
 }
+
+/* Admin › System › 채팅 한도의 생각 깊이 표(quality-tuning Q1). */
+.depthTable {
+  width: 100%;
+  margin-top: 0.9rem;
+  border-collapse: collapse;
+  font-size: var(--fs-count);
+}
+
+.depthTable caption {
+  margin-bottom: 0.4rem;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  text-align: left;
+}
+
+.depthTable th,
+.depthTable td {
+  padding: 4px 6px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.depthCell {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 4px;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+}
+
+.depthCell input {
+  width: 6.5rem;
+}
+
+@media (max-width: 720px) {
+  .depthTable,
+  .depthTable tbody,
+  .depthTable tr,
+  .depthTable td,
+  .depthTable th {
+    display: block;
+  }
+
+  .depthTable thead {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .depthTable td::before {
+    content: attr(data-level);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text-muted);
+    font-size: var(--fs-meta);
+    font-weight: var(--fw-strong);
+  }
+}

@@ -49,6 +49,7 @@ from app.db.session import get_db
 from app.models import (
     AttachmentKind,
     ChatAttachment,
+    ChatModel,
     ChatModelVisibility,
     Conversation,
     ProviderErrorKind,
@@ -71,6 +72,7 @@ from app.schemas.chat import (
     LongHistoryRead,
     ReplyReceipt,
 )
+from app.services import depth as depth_service
 from app.services import attachments as attachments_service
 from app.services import chat as chat_service
 from app.services import chat_limits, chat_tools, provider_limiter
@@ -147,6 +149,9 @@ def chat_info(
     rate = pricing.current_rate(db)
     default = chat_models.default_row(db)
     limits = chat_limits.current(db)
+    member_default = user.default_chat_model_id
+    if member_default is not None and not any(row.id == member_default for row in chat_models.models_for(db, user)):
+        member_default = None
     return ChatInfo(
         is_mock=settings.provider_is_mock("claude"),
         rate_limit_per_minute=settings.chat_rate_limit_per_minute,
@@ -154,12 +159,14 @@ def chat_info(
         web_fetch_max_uses=limits.web_fetch_max_uses,
         web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
         web_search_max_uses=limits.web_search_max_uses,
-        models=[_option(db, row, default, rate) for row in chat_models.models_for(db, user)],
+        models=[_option(db, row, default, rate, limits) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
+        member_default_model_id=member_default,
+        member_default_depth=user.default_depth or depth_service.DEFAULT_LEVEL,
     )
 
 
-def _option(db: Session, row, default, rate) -> ChatModelOption:
+def _option(db: Session, row, default, rate, limits=None) -> ChatModelOption:
     chosen = chat_models.ChosenModel.of(row)
     estimate = pricing.reply_estimate(db, chosen, rate)
     thinking = pricing.thinking_estimate(db, chosen, rate)
@@ -189,6 +196,13 @@ def _option(db: Session, row, default, rate) -> ChatModelOption:
         code_execution_krw_per_use=code_krw,
         thinking_extra_krw=thinking.krw,
         thinking_basis=thinking.basis,
+        levels=depth_service.options(
+            limits.depth_levels if limits else None, "chat", row.model_id, estimate.krw
+        ),
+        flat_max_krw=depth_service.table(limits.depth_levels if limits else None, "chat")[
+            depth_service.DEFAULT_LEVEL
+        ].cap_krw,
+        depth_note=depth_service.note_for(row.model_id),
     )
 
 
@@ -215,7 +229,10 @@ def create_conversation(
         except chat_models.ModelChoiceError as error:
             raise _model_error(error) from error
     else:
-        default = chat_models.default_row(db)
+        # The member's own default (Profile › 기본 모델) while they may use
+        # it, else the catalogue's.
+        mine = db.get(ChatModel, user.default_chat_model_id) if user.default_chat_model_id else None
+        default = mine if mine is not None and chat_models.may_use(mine, user) else chat_models.default_row(db)
         model_id = default.id if default else None
     conversation = Conversation(
         user_id=user.id, title=payload.title.strip(), chat_model_id=model_id
@@ -245,6 +262,9 @@ def create_conversation(
                 )
             setattr(conversation, field, value)
     conversation.show_thinking = payload.show_thinking
+    # 생각 깊이 (quality-tuning Q1): the welcome screen's choice, else the
+    # member's default. A name only — never a number.
+    conversation.depth = payload.depth or user.default_depth
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
@@ -308,6 +328,7 @@ def update_conversation(
         payload.title is None
         and payload.chat_model_id is None
         and payload.show_thinking is None
+        and payload.depth is None
         and all(value is None for value in toggles.values())
     ):
         raise HTTPException(
@@ -327,6 +348,8 @@ def update_conversation(
             ).id
         except chat_models.ModelChoiceError as error:
             raise _model_error(error) from error
+    if payload.depth is not None:
+        conversation.depth = payload.depth
     if any(value is not None for value in toggles.values()):
         # Turning a tool ON needs the conversation's model to allow it —
         # otherwise the toggle would promise something no reply delivers.

@@ -89,6 +89,13 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     #: data). The app still opens; every `/_ctrlai/v1` call is refused.
     sdk_disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sdk_disabled_reason: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    #: quality-tuning Q1: the model and 생각 깊이 this project's 만들기 /
+    #: 고치기 use, remembered from the last choice. NULL: the member's
+    #: default.
+    chat_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_models.id", ondelete="SET NULL"), nullable=True
+    )
+    depth: Mapped[str | None] = mapped_column(String(10), nullable=True)
     #: 업데이트 메모 — one line shown on the listing (optional).
     publish_note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
 

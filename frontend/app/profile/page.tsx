@@ -23,6 +23,7 @@ import { AccountSettings, Identity, NotificationSettings } from "./AccountIdenti
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
 import ConnectedAppsSection from "./ConnectedAppsSection";
+import DefaultModelSection from "./DefaultModelSection";
 import SignInMethodsSection from "./SignInMethodsSection";
 import WithdrawalSection from "./WithdrawalSection";
 import styles from "./profile.module.css";
@@ -48,6 +49,8 @@ export default function ProfilePage() {
         <AccountSettings />
 
         <NotificationSettings />
+
+        <DefaultModelSection />
 
         <SignInMethodsSection />
 

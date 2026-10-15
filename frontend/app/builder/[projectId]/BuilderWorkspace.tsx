@@ -46,6 +46,7 @@ import {
   refreshAppRuntime,
   restoreVersion,
   updateBuilderProject,
+  builderPickerModel,
   type BuilderFile,
   type BuilderProject,
   type BuilderVersion,
@@ -60,6 +61,8 @@ import TestModeNotice from "@/app/components/TestModeNotice";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
+import ModelDepthPicker from "@/app/components/ModelDepthPicker";
+import type { DepthLevel, PickerModel } from "@/lib/depth";
 
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
@@ -231,6 +234,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       .then(setGenerateEstimate)
       .catch(() => setGenerateEstimate(null));
   }, [projectId, loadVersions]);
+
+  /**
+   * Claude 판의 모델·생각 깊이(quality-tuning Q1). 프로젝트에 저장하고
+   * 값을 다시 읽습니다 — 이름만 보내고 숫자는 서버가 정합니다.
+   */
+  const chooseBuildModel = useCallback(
+    async (model: PickerModel, level: DepthLevel) => {
+      setGenerateEstimate((current) =>
+        current ? { ...current, chat_model_id: model.id, depth: level } : current,
+      );
+      try {
+        await updateBuilderProject(projectId, { chat_model_id: model.id, depth: level });
+        setGenerateEstimate(await getGenerateEstimate(projectId));
+      } catch (error) {
+        setGenerateError(describeError(error));
+        getGenerateEstimate(projectId).then(setGenerateEstimate).catch(() => undefined);
+      }
+    },
+    [projectId],
+  );
 
   // 예시 앱을 만든 뒤에는 백엔드가 앱 주소에도 올렸으므로 프로젝트를 다시 읽습니다.
   const reloadProject = useCallback(() => {
@@ -798,8 +821,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           <div className={styles.rightInner}>
             <div className={ws.paneHead}>
               <span className={ws.paneHeadTitle}>Claude</span>
-              {generateEstimate && (
-                <span className="badge badge-muted">{generateEstimate.model_label}</span>
+              {generateEstimate && (generateEstimate.models?.length ?? 0) > 0 ? (
+                <ModelDepthPicker
+                  name="빌더 모델"
+                  placement="down"
+                  align="end"
+                  models={generateEstimate.models!.map(builderPickerModel)}
+                  current={
+                    generateEstimate.models!
+                      .map(builderPickerModel)
+                      .find((model) => model.id === generateEstimate.chat_model_id) ?? null
+                  }
+                  level={generateEstimate.depth ?? "medium"}
+                  onChange={(model, level) => void chooseBuildModel(model, level)}
+                  disabled={!mayCreate || generating}
+                  footnote="금액은 이 프로젝트 크기로 어림한 값이에요. 실제로는 쓴 만큼만 차감되고, 괄호 안 금액을 넘지 않아요."
+                />
+              ) : (
+                generateEstimate && (
+                  <span className="badge badge-muted">{generateEstimate.model_label}</span>
+                )
               )}
             </div>
             <div className={ws.paneBody}>

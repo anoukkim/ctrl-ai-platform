@@ -69,12 +69,14 @@ import {
   setConversationThinking,
   setConversationTool,
   thinkingSteps,
+  toPickerModel,
   type LongHistory,
   type ReplyReceipt,
   type ReplySource,
   type ToolKind,
   type StreamEstimate,
 } from "@/lib/chat";
+import { type DepthLevel, type PickerModel, levelFor, receiptHead } from "@/lib/depth";
 import { describeError } from "@/lib/http";
 import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
 import { CACHE_EXPLAINER, ROUND_UP_NOTE, formatWonPart } from "@/lib/money";
@@ -96,7 +98,7 @@ import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
 import ChatMarkdown from "./ChatMarkdown";
-import ChatModelPicker from "./ChatModelPicker";
+import ModelDepthPicker from "./ModelDepthPicker";
 import TestModeNotice from "./TestModeNotice";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
@@ -148,6 +150,8 @@ interface ViewMessage {
   actionTitle: string;
   /** 답장을 쓴 모델의 ID. 내 메시지와 오고 있는 답장은 null. */
   modelId: string | null;
+  /** 답장을 쓴 생각 깊이(quality-tuning Q1). */
+  depth?: string | null;
   /** 1회 비용 한도에 닿아 멈춘 답장이면 그 한도(원). */
   cappedKrw?: number | null;
   /** 답장의 영수증 — 장부의 숫자(live-cost-display). */
@@ -175,6 +179,7 @@ function toView(message: ChatMessage): ViewMessage {
     action: message.action,
     actionTitle: message.action_title,
     modelId: message.model_id,
+    depth: message.depth ?? null,
     cappedKrw: message.capped_krw ?? null,
     receipt: message.receipt ?? null,
     sources: message.sources ?? null,
@@ -369,7 +374,7 @@ export function toolCostEffect(
 /** 답장 아래에 붙는 한 줄 설명. 끝까지 온 답장에는 없습니다. */
 const STATUS_NOTE: Partial<Record<ChatMessageStatus, string>> = {
   stopped: "중지됨 — 여기까지 쓴 만큼만 차감됩니다.",
-  truncated: "답장이 길어 여기서 끊겼습니다. \"계속\"이라고 보내면 이어서 씁니다.",
+  truncated: "답장이 길어 여기서 끊겼어요. 아래 '이어서 쓰기'로 이어 받을 수 있어요.",
   refused: "이 질문에는 답할 수 없어요. 다른 방식으로 물어봐 주세요.",
 };
 
@@ -378,7 +383,7 @@ export function statusNote(message: ViewMessage): string | undefined {
   if (message.status === "truncated" && message.cappedKrw) {
     return (
       `답장이 1회 비용 한도(${formatKrw(message.cappedKrw)})에 닿아 여기서 멈췄어요. ` +
-      "이어서 받으려면 '계속해 줘'라고 보내 주세요."
+      "아래 '이어서 쓰기'로 이어 받거나, 생각 깊이를 높여 다시 물어보세요."
     );
   }
   return STATUS_NOTE[message.status];
@@ -402,6 +407,8 @@ export default function ChatWorkspace() {
    * 여기 들고 있다가 첫 메시지로 대화를 만들 때 함께 보냅니다. null은 기본.
    */
   const [chosenModelId, setChosenModelId] = useState<number | null>(null);
+  /** 이 대화의 생각 깊이(quality-tuning Q1). null이면 회원의 기본값. */
+  const [chosenDepth, setChosenDepth] = useState<DepthLevel | null>(null);
   const [messages, setMessages] = useState<ViewMessage[]>([]);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [draft, setDraft] = useState("");
@@ -545,6 +552,7 @@ export default function ChatWorkspace() {
       const detail = await getConversation(id);
       setMessages(detail.messages.map(toView));
       setChosenModelId(detail.chat_model_id);
+      setChosenDepth(detail.depth ?? null);
       setLongHistory(detail.long_history ?? null);
       setToolFlags({
         web_search: detail.use_web_search ?? false,
@@ -566,6 +574,7 @@ export default function ChatWorkspace() {
     setActiveId(null);
     setMessages([]);
     setChosenModelId(null);
+    setChosenDepth(null);
     setSendError(null);
     setLongHistory(null);
     setToolFlags({ web_search: false, web_fetch: false, code_execution: false });
@@ -581,10 +590,13 @@ export default function ChatWorkspace() {
    * 함께 보냅니다. 어느 쪽이든 지난 답장은 그대로입니다.
    */
   const chooseModel = useCallback(
-    async (model: ChatModelOption) => {
+    async (picked: PickerModel, level: DepthLevel) => {
       setSendError(null);
+      const model: ChatModelOption | undefined = info?.models.find((row) => row.id === picked.id);
+      if (!model) return;
       if (activeId === null) {
         setChosenModelId(model.id);
+        setChosenDepth(level);
         // 새 모델이 열어 두지 않은 도구는 내려 둡니다(fix-new-chat-tools).
         setToolFlags((flags) => ({
           web_search: flags.web_search && Boolean(model.tools_web_search),
@@ -594,14 +606,15 @@ export default function ChatWorkspace() {
         return;
       }
       try {
-        const updated = await setConversationModel(activeId, model.id);
+        const updated = await setConversationModel(activeId, model.id, level);
         setChosenModelId(updated.chat_model_id);
+        setChosenDepth(updated.depth ?? level);
         setConversations((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
       } catch (error) {
         setSendError(describeError(error));
       }
     },
-    [activeId],
+    [activeId, info],
   );
 
   /**
@@ -693,12 +706,17 @@ export default function ChatWorkspace() {
     if (activeId !== null) return activeId;
     try {
       // 새 대화 화면에서 미리 고른 도구도 함께(fix-new-chat-tools).
-      const created = await createConversation(chosenModelId, {
-        ...toolFlagsToBody(toolFlags),
-        show_thinking: showThinking,
-      });
+      const created = await createConversation(
+        chosenModelId,
+        {
+          ...toolFlagsToBody(toolFlags),
+          show_thinking: showThinking,
+        },
+        chosenDepth,
+      );
       setActiveId(created.id);
       setChosenModelId(created.chat_model_id);
+      setChosenDepth(created.depth ?? chosenDepth);
       setToolFlags({
         web_search: created.use_web_search ?? false,
         web_fetch: created.use_web_fetch ?? false,
@@ -711,7 +729,7 @@ export default function ChatWorkspace() {
       setSendError(describeError(error));
       return null;
     }
-  }, [activeId, chosenModelId, toolFlags, showThinking]);
+  }, [activeId, chosenModelId, chosenDepth, toolFlags, showThinking]);
 
   /**
    * 파일을 하나씩 올립니다(chat-plus-files). 서버가 바이트로 형식을 보고,
@@ -769,9 +787,13 @@ export default function ChatWorkspace() {
     [activeId],
   );
 
-  const send = useCallback(async () => {
+  /**
+   * 보내기. `override`는 '이어서 쓰기'(quality-tuning Q1)가 쓰는 문장 —
+   * 입력창의 글은 그대로 둡니다. 이어 받기도 보통의 답장처럼 값이 매겨집니다.
+   */
+  const send = useCallback(async (override?: string) => {
     if (!mayCreate || streaming || uploadingNames.length > 0) return;
-    const text = draft.trim();
+    const text = (override ?? draft).trim();
     const files = pendingFiles;
     if (!text && files.length === 0) return;
 
@@ -788,7 +810,7 @@ export default function ChatWorkspace() {
     const stamp = Date.now();
     const userKey = `u${stamp}`;
     const replyKey = `r${stamp}`;
-    setDraft("");
+    if (override === undefined) setDraft("");
     setMessages((rows) => [
       ...rows,
       {
@@ -1007,6 +1029,14 @@ export default function ChatWorkspace() {
   };
 
   const selectedModel = currentModel(info, chosenModelId);
+  const pickerModels = info ? info.models.map(toPickerModel) : [];
+  const selectedPicker = selectedModel ? toPickerModel(selectedModel) : null;
+  const effectiveDepth: DepthLevel = chosenDepth ?? info?.member_default_depth ?? "medium";
+  /** 고른 모델·깊이의 "1회 약 N원" — 지갑 확인과 '이어서 쓰기'가 씁니다. */
+  const replyEstimateKrw = selectedPicker
+    ? (levelFor(selectedPicker, effectiveDepth)?.estimate_krw ?? selectedPicker.estimate_krw)
+    : null;
+  const lastIndex = messages.length - 1;
 
   /**
    * 도구 켜고 끄기 (fix-composer-toolbar). 가격은 "도구" 판의 줄마다 켜기
@@ -1284,11 +1314,35 @@ export default function ChatWorkspace() {
                     {message.role === "assistant" &&
                       !message.streaming &&
                       modelLabel(info, message.modelId) && (
-                        <p className={styles.modelNote}>{modelLabel(info, message.modelId)}</p>
+                        <p className={styles.modelNote} data-testid="reply-model">
+                          {receiptHead(modelLabel(info, message.modelId), message.depth)}
+                          {message.cappedKrw ? " · 상한에 도달" : ""}
+                        </p>
                       )}
                     {!message.streaming && statusNote(message) && (
                       <p className={styles.statusNote}>{statusNote(message)}</p>
                     )}
+                    {message.role === "assistant" &&
+                      !message.streaming &&
+                      message.status === "truncated" &&
+                      index === lastIndex &&
+                      mayCreate && (
+                        <button
+                          type="button"
+                          className={styles.continueButton}
+                          onClick={() => void send("이어서 써 줘")}
+                          disabled={streaming}
+                          data-testid="continue-reply"
+                        >
+                          이어서 쓰기
+                          {replyEstimateKrw !== null && (
+                            <span className={styles.continueCost}>
+                              {" "}
+                              · 약 {formatKrw(replyEstimateKrw)}
+                            </span>
+                          )}
+                        </button>
+                      )}
                     {message.action && !message.streaming && (
                       <Link
                         className={styles.suggestion}
@@ -1356,11 +1410,14 @@ export default function ChatWorkspace() {
             )}
             {info && info.models.length > 0 && (
               <div className={styles.composerTools}>
-                <ChatModelPicker
-                  models={info.models}
-                  current={selectedModel}
-                  onChange={(model) => void chooseModel(model)}
+                <ModelDepthPicker
+                  name="답장 방식"
+                  models={pickerModels}
+                  current={selectedPicker}
+                  level={effectiveDepth}
+                  onChange={(model, level) => void chooseModel(model, level)}
                   disabled={!mayCreate || streaming}
+                  footnote="금액은 어림값이에요. 실제로는 쓴 만큼만 차감되고, 괄호 안 금액을 넘지 않아요. 바꾸면 이 대화의 다음 답장부터 적용돼요."
                 />
                 {selectedModel && (
                   <ToolsMenu
@@ -1371,7 +1428,7 @@ export default function ChatWorkspace() {
                   />
                 )}
                 {mayCreate && (
-                  <WalletCheck costKrw={selectedModel?.estimated_reply_krw ?? null} />
+                  <WalletCheck costKrw={replyEstimateKrw} />
                 )}
               </div>
             )}

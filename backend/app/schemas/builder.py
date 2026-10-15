@@ -1,10 +1,12 @@
 """Project Builder API schemas."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.builder import BuilderProjectStatus
+from app.schemas.chat import DepthOption
 
 
 class BuilderProjectBase(BaseModel):
@@ -38,6 +40,10 @@ class BuilderProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = Field(default=None, max_length=2000)
     status: BuilderProjectStatus | None = None
+    #: quality-tuning Q1: the panel's model and 생각 깊이, remembered per
+    #: project. A level name only — the server decides every number.
+    chat_model_id: int | None = None
+    depth: Literal["low", "medium", "high", "max"] | None = None
 
 
 class BuilderProjectRead(BuilderProjectBase):
@@ -58,6 +64,9 @@ class BuilderProjectRead(BuilderProjectBase):
     published_version_number: int | None = None
     published_at: datetime | None = None
     publish_note: str = ""
+    #: quality-tuning Q1: the panel's remembered model and 생각 깊이.
+    chat_model_id: int | None = None
+    depth: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -92,6 +101,27 @@ class StarterEstimateRead(BaseModel):
     #: What the wallet must hold: the whole output budget, priced.
     worst_case_krw: int
     model_label: str
+    #: quality-tuning Q1: the depth it runs at (None: the model has none)
+    #: and that depth's per-call cap.
+    depth: str | None = None
+    max_krw: int = 0
+
+
+class BuilderModelOption(BaseModel):
+    """One model in the Builder panel's picker (quality-tuning Q1)."""
+
+    id: int
+    model_id: str
+    label: str
+    description: str
+    admin_only: bool
+    is_default: bool
+    #: "1회 약 N원" at 보통 for this project. None without a rate.
+    estimated_krw: int | None
+    levels: list[DepthOption] = []
+    #: The cap a model without depths runs under.
+    flat_max_krw: int = 0
+    depth_note: str = ""
 
 
 # ------------------------------------------------ builder-static-runtime
@@ -115,6 +145,11 @@ class EditEstimateRead(BaseModel):
     worst_case_krw: int
     model_label: str
     max_output_tokens: int
+    #: quality-tuning Q1: what this project runs at, and the picker's list.
+    chat_model_id: int | None = None
+    depth: str | None = None
+    max_krw: int = 0
+    models: list[BuilderModelOption] = []
 
 
 class VersionRead(BaseModel):

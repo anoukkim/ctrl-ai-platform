@@ -1,0 +1,251 @@
+/* 모델 + 생각 깊이 고르기(quality-tuning Q1). 색과 크기는 globals.css의 토큰입니다. */
+
+.root {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-count);
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.trigger:hover:not(:disabled),
+.trigger:focus-visible {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.triggerWarn {
+  border-color: var(--error-border);
+  color: var(--error-text);
+}
+
+.triggerLabel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+
+.triggerWarn .triggerLabel {
+  color: var(--error-text);
+}
+
+.backdrop {
+  display: none;
+}
+
+.popover {
+  position: absolute;
+  left: 0;
+  z-index: 40;
+  display: grid;
+  gap: 6px;
+  width: min(25rem, calc(100vw - 2.5rem));
+  max-height: min(34rem, calc(100vh - 6rem));
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.up {
+  bottom: calc(100% + 6px);
+}
+
+.down {
+  top: calc(100% + 6px);
+}
+
+.end {
+  right: 0;
+  left: auto;
+}
+
+.heading {
+  margin: 2px 4px 0;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-strong);
+}
+
+.list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: var(--panel-2);
+}
+
+.optionSelected {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.optionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.optionLabel {
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+}
+
+.optionCost {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
+.check {
+  color: var(--accent);
+}
+
+.optionDescription {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
+
+.depth {
+  display: grid;
+  gap: 6px;
+  padding: 8px 4px 2px;
+  border-top: 1px solid var(--border);
+}
+
+.slider {
+  width: 100%;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.stops {
+  display: grid;
+  gap: 4px;
+}
+
+.stop {
+  padding: 4px 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.stop:hover,
+.stop:focus-visible {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.stopOn {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+
+.hint,
+.noDepth {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
+
+.price {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+}
+
+.footnote {
+  margin: 0 4px;
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
+
+.popover .done {
+  display: none;
+}
+
+/* 390px 폭: 아래에서 올라오는 시트. */
+@media (max-width: 560px) {
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    display: block;
+    background: rgb(0 0 0 / 0.35);
+  }
+
+  .popover {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 82vh;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .popover .done {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+}

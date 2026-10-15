@@ -54,6 +54,12 @@ class Limits:
     #: app-platform P2: AI inside member apps, per visitor per KST day,
     #: across every app. 0 = off.
     app_ai_daily_cap_krw: int = 2000
+    #: quality-tuning Q1: max_tokens and cap per 생각 깊이 (`services/depth.py`;
+    #: None = its defaults), the history sent back per turn, and the
+    #: provider timeout in seconds.
+    depth_levels: dict | None = None
+    context_tokens: int = 64_000
+    timeout_seconds: int = 180
 
 
 #: In force while the table is empty. The owner set the per-reply cap to
@@ -69,7 +75,18 @@ DEFAULTS = Limits(
     web_fetch_max_content_tokens=10_000,
     web_search_max_uses=5,
     app_ai_daily_cap_krw=2000,
+    depth_levels=None,
+    context_tokens=64_000,
+    timeout_seconds=180,
 )
+
+
+def _legacy_levels(reply_cap_krw: int) -> dict:
+    """A row written before quality-tuning Q1 had one 답장 1회 한도: it holds
+    for every chat depth until the admin saves per-depth numbers."""
+    from app.services.depth import LEVELS
+
+    return {"chat": {name: {"cap_krw": reply_cap_krw} for name in LEVELS}}
 
 
 def current(db: Session) -> Limits:
@@ -86,6 +103,9 @@ def current(db: Session) -> Limits:
         web_fetch_max_content_tokens=row.web_fetch_max_content_tokens,
         web_search_max_uses=row.web_search_max_uses,
         app_ai_daily_cap_krw=row.app_ai_daily_cap_krw,
+        depth_levels=row.depth_levels if row.depth_levels is not None else _legacy_levels(row.reply_cap_krw),
+        context_tokens=row.context_tokens,
+        timeout_seconds=row.timeout_seconds,
     )
 
 

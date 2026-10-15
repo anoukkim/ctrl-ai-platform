@@ -349,9 +349,9 @@ def test_the_budget_check_uses_the_worst_case(
     client: TestClient, db_session: Session, budgeted, counting, config
 ) -> None:
     """Enough for a short reply is not enough: the check assumes the longest."""
-    use_settings(chat_max_output_tokens=4096)
     conversation = new_conversation(client)
-    worst = price_for(db_session, default_model(db_session, config)).krw(0, 4096)
+    # 보통's room (quality-tuning Q1: the depth decides max_tokens).
+    worst = price_for(db_session, default_model(db_session, config)).krw(0, 8192)
     budgeted.budget_krw = worst - 1
     db_session.commit()
 
@@ -467,8 +467,12 @@ def test_a_missing_price_refuses_before_calling_claude(
     assert counting.calls == 0
 
 
-def test_an_overlong_message_is_refused(client: TestClient, budgeted, config) -> None:
-    use_settings(chat_context_tokens=2000)
+def test_an_overlong_message_is_refused(client: TestClient, budgeted, config, db_session) -> None:
+    from app.models import ChatLimits
+
+    # The history budget is an admin setting since quality-tuning Q1.
+    db_session.add(ChatLimits(reply_cap_krw=200, long_history_tokens=8000, daily_cap_krw=0, context_tokens=2000))
+    db_session.commit()
     conversation = new_conversation(client)
     response = send(client, conversation, "가" * 3000)
     assert response.status_code == 400
@@ -657,8 +661,13 @@ def test_thinking_is_off_on_sonnet_low_effort_on_opus_and_absent_on_haiku() -> N
     # Opus 5.5 cannot turn thinking off: no `thinking` field, low effort.
     assert thinking_params("claude-opus-5-5", "off", "low") == {"output_config": {"effort": "low"}}
     assert thinking_params("claude-haiku-4-5", "off", "low") == {}
-    # between_tools refuses xhigh/max; anything unknown falls back to low.
-    assert thinking_params("claude-sonnet-5-5", "off", "max")["output_config"] == {"effort": "low"}
+    # between_tools refuses xhigh/max, so 최고 (quality-tuning Q1) turns
+    # adaptive thinking on; anything unknown falls back to low.
+    assert thinking_params("claude-sonnet-5-5", "off", "max") == {
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "max"},
+    }
+    assert thinking_params("claude-sonnet-5-5", "off", "huge")["output_config"] == {"effort": "low"}
 
 
 def _sse_body(
@@ -762,8 +771,9 @@ def test_the_real_adapter_streams_and_charges_the_reported_tokens(
     body = json.loads(real_claude.requests[0].content)
     assert body["model"] == "claude-sonnet-5-5"
     assert body["thinking"] == {"type": "between_tools"}
-    assert body["output_config"] == {"effort": "low"}
-    assert body["max_tokens"] == 4096
+    # 생각 깊이 보통 (quality-tuning Q1): medium effort, 8,192 tokens of room.
+    assert body["output_config"] == {"effort": "medium"}
+    assert body["max_tokens"] == 8192
     assert body["stream"] is True
     assert body["messages"] == [{"role": "user", "content": "안녕하세요"}]
     # Two cache breakpoints: the shared system prompt, and the conversation

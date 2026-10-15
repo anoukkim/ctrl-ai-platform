@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import BuilderProject, BuilderProjectFile, ProviderErrorKind, UsageFeature, User
-from app.services import builder_versions, chat_models, pricing, providers
+from app.services import builder_choice, builder_versions, chat_models, pricing, providers
 from app.services import chat_limits, provider_limiter
 from app.services import usage as usage_service
 from app.services.claude_provider import (
@@ -106,20 +106,28 @@ class StarterEstimate:
     estimated_krw: int
     worst_case_krw: int
     model_label: str
+    #: quality-tuning Q1: the depth it runs at (None: the model has none),
+    #: and its per-call cap.
+    depth: str | None = None
+    max_krw: int = 0
 
 
 def _input_estimate(name: str, idea: str) -> int:
     return pricing.estimate_tokens(STARTER_SYSTEM + starter_request_text(name, idea))
 
 
-def estimate(db: Session, settings: Settings, name: str = "", idea: str = "") -> StarterEstimate:
-    model = chat_models.default_model(db, settings)
-    price = pricing.price_for(db, model)
+def estimate(
+    db: Session, settings: Settings, user: User, name: str = "", idea: str = ""
+) -> StarterEstimate:
+    """At the member's default model and depth — a new project's."""
+    choice = builder_choice.choose(db, settings, user)
     tokens_in = _input_estimate(name or "내 앱", idea or "x" * 200)
     return StarterEstimate(
-        estimated_krw=price.krw(tokens_in, TYPICAL_OUTPUT_TOKENS),
-        worst_case_krw=price.krw(tokens_in, settings.builder_max_output_tokens),
-        model_label=model.label,
+        estimated_krw=choice.price.krw(tokens_in, TYPICAL_OUTPUT_TOKENS),
+        worst_case_krw=choice.price.krw(tokens_in, max(choice.room(tokens_in), 0)),
+        model_label=choice.model.label,
+        depth=choice.depth,
+        max_krw=choice.level.cap_krw,
     )
 
 
@@ -149,14 +157,18 @@ def create_starter(
     if existing is not None:
         raise StarterError("이미 파일이 있는 프로젝트입니다. 예시 앱은 빈 프로젝트에만 만듭니다.", 409)
 
-    model = chat_models.default_model(db, settings)
+    choice = builder_choice.choose(db, settings, user, project)
+    model, price = choice.model, choice.price
     chat_models.require_adapter(model)
-    price = pricing.price_for(db, model)
     idea = idea.strip() or project.description.strip() or project.name
+    tokens_in = _input_estimate(project.name, idea)
+    room = choice.room(tokens_in)
+    if room < builder_choice.MIN_ROOM_TOKENS:
+        raise StarterError(builder_choice.room_refusal(choice), 400)
     usage_service.ensure_affordable(
         db,
         user=user,
-        amount_krw=price.krw(_input_estimate(project.name, idea), settings.builder_max_output_tokens),
+        amount_krw=price.krw(tokens_in, room),
         settings=settings,
     )
 
@@ -164,9 +176,7 @@ def create_starter(
     if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
         raise ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
     try:
-        app = provider.generate_starter_app(
-            project.name, idea, model.model_id, settings.builder_max_output_tokens
-        )
+        app = provider.generate_starter_app(project.name, idea, model.model_id, room, effort=choice.effort)
     except Exception as error:
         if isinstance(error, ClaudeError):
             providers.record_failure(db, "claude", error.kind, error.detail)
@@ -217,6 +227,7 @@ def create_starter(
         exchange_rate_krw=price.usd_krw,
         cost=price.split(app.input_tokens, app.output_tokens),
         builder_project_id=project.id,
+        depth=choice.depth,
         commit=False,
         cap_to_available=True,
         settings=settings,

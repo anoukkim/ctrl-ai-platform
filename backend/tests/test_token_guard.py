@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.models import AuditLog, ChatLimits, ChatMessage, ChatRole, UsageEvent
 from app.models.chat import ChatMessageStatus
 from app.services import chat_limits as limits_service
+from app.services import depth as depth_service
 from app.services import usage as usage_service
 from app.services.pricing import Price
 from tests.test_chat import (
@@ -31,9 +32,21 @@ from tests.test_chat import (
 pytestmark = pytest.mark.usefixtures("config")
 
 
-def set_limits(db: Session, reply: int = 100, history: int = 8_000, daily: int = 0) -> None:
+def set_limits(
+    db: Session, reply: int = 100, history: int = 8_000, daily: int = 0, max_tokens: int | None = None
+) -> None:
+    """Every chat depth gets the cap `reply` (0 = off) and, if given, the
+    output room `max_tokens` (quality-tuning Q1: the depth decides both)."""
+    from app.services.depth import LEVELS
+
+    level = {"cap_krw": reply, **({"max_tokens": max_tokens} if max_tokens else {})}
     db.add(
-        ChatLimits(reply_cap_krw=reply, long_history_tokens=history, daily_cap_krw=daily)
+        ChatLimits(
+            reply_cap_krw=reply,
+            long_history_tokens=history,
+            daily_cap_krw=daily,
+            depth_levels={"chat": {name: dict(level) for name in LEVELS}},
+        )
     )
     db.commit()
 
@@ -146,8 +159,7 @@ def test_the_global_output_limit_is_not_reported_as_the_cap(
     client: TestClient, budgeted, db_session: Session, counting  # noqa: F811
 ) -> None:
     """A reply cut by CHAT_MAX_OUTPUT_TOKENS carries no capped_krw."""
-    set_limits(db_session, reply=0)  # cap off
-    use_settings(chat_max_output_tokens=10)
+    set_limits(db_session, reply=0, max_tokens=10)  # cap off, tiny room
     conversation = new_conversation(client)
 
     response = send(client, conversation, "안녕하세요")
@@ -311,6 +323,10 @@ def test_the_limits_are_an_audited_admin_setting(
         "web_search_max_uses": 5,
         # app-platform P2: AI inside member apps, per visitor per KST day.
         "app_ai_daily_cap_krw": 2000,
+        # quality-tuning Q1: per-depth numbers, the chat history and timeout.
+        "depth_levels": depth_service.full_table(None),
+        "context_tokens": 64_000,
+        "timeout_seconds": 180,
         "set_at": None,
         "set_by_username": "",
     }

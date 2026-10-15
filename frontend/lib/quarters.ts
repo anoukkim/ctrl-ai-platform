@@ -515,6 +515,20 @@ export interface QuarterBudget {
   /** ANTHROPIC_MONTHLY_BUDGET_USD. null이면 막대를 그리지 않습니다. */
   anthropic_month_budget_usd: number | null;
   anthropic_month: string;
+  /** Claude 사용을 모델 × 기능 × 생각 깊이로(quality-tuning Q1). 많이 쓴 순서. */
+  model_depth?: ModelDepthSpend[];
+}
+
+export interface ModelDepthSpend {
+  model_id: string;
+  /** "chat", "build", "app_ai" … */
+  feature: string;
+  /** null — 깊이가 없는 모델(Haiku)이거나 생각 깊이 이전의 기록. */
+  depth: string | null;
+  events: number;
+  charged_krw: number;
+  output_tokens: number;
+  average_krw: number;
 }
 
 export function getQuarterBudget(quarterId: number): Promise<QuarterBudget> {

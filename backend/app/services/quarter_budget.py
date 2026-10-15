@@ -26,6 +26,7 @@ from app.models import (
 )
 from app.schemas.quarter import (
     MemberWalletRead,
+    ModelDepthSpendRead,
     ProviderSpendRead,
     QuarterBudgetRead,
     QuarterRead,
@@ -206,6 +207,36 @@ def anthropic_month_usd(db: Session) -> tuple[str, float]:
     return now_kst.strftime("%Y-%m"), float(Decimal(total or 0))
 
 
+def model_depth_spend(db: Session, quarter: Quarter) -> list[ModelDepthSpendRead]:
+    """Claude's usage in the quarter by model, feature and 생각 깊이
+    (quality-tuning Q1), dearest first."""
+    rows = db.execute(
+        select(
+            UsageEvent.model_id,
+            UsageEvent.feature,
+            UsageEvent.depth,
+            func.count(UsageEvent.id),
+            func.coalesce(func.sum(UsageEvent.charged_krw), 0),
+            func.coalesce(func.sum(UsageEvent.output_tokens), 0),
+        )
+        .where(UsageEvent.quarter_id == quarter.id, UsageEvent.provider == "claude")
+        .group_by(UsageEvent.model_id, UsageEvent.feature, UsageEvent.depth)
+    ).all()
+    lines = [
+        ModelDepthSpendRead(
+            model_id=model_id or "",
+            feature=str(getattr(feature, "value", feature) or ""),
+            depth=depth,
+            events=int(events),
+            charged_krw=int(charged),
+            output_tokens=int(output),
+            average_krw=round(int(charged) / int(events)) if events else 0,
+        )
+        for model_id, feature, depth, events, charged, output in rows
+    ]
+    return sorted(lines, key=lambda line: (-line.charged_krw, line.model_id, line.depth or ""))
+
+
 def quarter_budget(db: Session, quarter: Quarter, settings=None) -> QuarterBudgetRead:
     from app.core.config import get_settings
 
@@ -226,4 +257,5 @@ def quarter_budget(db: Session, quarter: Quarter, settings=None) -> QuarterBudge
         anthropic_month_usd=month_usd,
         anthropic_month_budget_usd=float(budget) if budget is not None else None,
         anthropic_month=month,
+        model_depth=model_depth_spend(db, quarter),
     )

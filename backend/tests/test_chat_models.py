@@ -199,9 +199,10 @@ def test_the_budget_check_and_the_charge_use_the_chosen_models_price(
     haiku = model(db_session, "claude-haiku-4-5")
     conversation = client.post("/api/chat/conversations", json={"chat_model_id": haiku.id}).json()
 
-    # Sonnet's worst case (4,096 tokens out at $10) is 58원 or more;
-    # Haiku's ($5) fits in 40원. Only the chosen model's price lets this through.
-    budgeted.budget_krw = 40
+    # At 보통's room (8,192 tokens, quality-tuning Q1) Sonnet's worst case
+    # ($10) is 115원 or more; Haiku's ($5) fits in 80원. Only the chosen
+    # model's price lets this through.
+    budgeted.budget_krw = 80
     db_session.commit()
     done = events_of(send(client, conversation["id"], "안녕하세요").text)[-1][1]
 
@@ -219,7 +220,7 @@ def test_the_same_budget_refuses_the_default_model(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
     conversation = client.post("/api/chat/conversations", json={}).json()
-    budgeted.budget_krw = 40
+    budgeted.budget_krw = 80
     db_session.commit()
     assert send(client, conversation["id"], "안녕하세요").status_code == 402
 
