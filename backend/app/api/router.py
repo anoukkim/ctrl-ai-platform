@@ -18,6 +18,7 @@ from app.api.routes import (
     admin_quarters,
     admin_withdrawals,
     admin_work,
+    app_connect,
     apps,
     auth,
     builder,
@@ -58,3 +59,4 @@ api_router.include_router(admin_work.router)
 api_router.include_router(admin_apps.router)
 api_router.include_router(admin_withdrawals.router)
 api_router.include_router(feedback.router)
+api_router.include_router(app_connect.router)

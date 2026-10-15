@@ -52,6 +52,9 @@ class UsageFeature(str, enum.Enum):
     VIDEO_GENERATE = "video_generate"
     VIDEO_EDIT = "video_edit"
     VIDEO_EXTEND = "video_extend"
+    #: app-platform P2: AI inside a member app, paid by the visitor
+    #: (`builder_project_id` names the app).
+    APP_AI = "app_ai"
 
 
 #: How a member's spending is broken down on their wallet card: 채팅 /

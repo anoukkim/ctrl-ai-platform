@@ -102,7 +102,8 @@ def test_the_v1_guard(anon_client: TestClient, published: BuilderProject) -> Non
     assert cross.status_code == 403
     ok = anon_client.get(url, headers={"X-CtrlAI-App": published.app_slug, "Sec-Fetch-Site": "same-origin"})
     assert ok.status_code == 200
-    assert ok.json() == {"name": published.name, "mode": "app", "sdk": "on"}
+    body = ok.json()
+    assert (body["name"], body["mode"], body["sdk"], body["signedIn"]) == (published.name, "app", "on", False)
 
 
 def test_the_router_never_reads_the_main_session(client: TestClient, published: BuilderProject) -> None:

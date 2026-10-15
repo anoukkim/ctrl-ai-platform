@@ -6,6 +6,8 @@ app down (audited; its reports close) or close a report and keep the app
 and they may publish again.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,10 +17,10 @@ from app.api.routes.apps import listing_of
 from app.api.routes.builder import build_bundle, handoff_read
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import AppReport, BuilderProject, User, UserRole
-from app.schemas.apps import AdminAppRead, AdminReportRead, AdminResolve, AdminUnpublish
+from app.models import AppReport, AuditAction, BuilderProject, User, UserRole
+from app.schemas.apps import AdminAppRead, AdminReportRead, AdminResolve, AdminSdkSet, AdminUnpublish
 from app.schemas.builder import HandoffRead
-from app.services import app_publish, project_handoff
+from app.services import app_publish, audit, project_handoff
 
 router = APIRouter(prefix="/admin/apps", tags=["admin"])
 
@@ -39,6 +41,8 @@ def list_published(
             owner_id=row.owner_user_id,
             open_reports=counts.get(row.id, 0),
             example=_is_example(db, row),
+            sdk_enabled=row.sdk_disabled_at is None,
+            sdk_disabled_reason=row.sdk_disabled_reason,
         )
         for row in rows
     ]
@@ -142,3 +146,45 @@ def resolve_report(
     app_publish.resolve_report(db, admin, row, payload.note)
     db.commit()
     return {"detail": "신고를 처리했습니다."}
+
+
+@router.post(
+    "/{project_id}/sdk",
+    response_model=dict,
+    summary="기능 상자 정지 / 재개 for one app (audited)",
+)
+def set_sdk(
+    project_id: int,
+    payload: AdminSdkSet,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> dict:
+    """The kill switch (app-platform P2): every `/_ctrlai/v1` call of the
+    app is refused at once with a Korean message; the app itself still
+    opens. Resuming clears it. A reason is required to stop."""
+    project = db.get(BuilderProject, project_id)
+    if project is None or project.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="앱을 찾을 수 없습니다.")
+    reason = " ".join(payload.reason.split())
+    if not payload.enabled and not reason:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="멈추는 이유를 적어 주세요.")
+    if payload.enabled:
+        project.sdk_disabled_at = None
+        project.sdk_disabled_reason = ""
+        summary = f"앱 '{project.name}'의 기능 상자를 다시 켰습니다."
+    else:
+        project.sdk_disabled_at = datetime.now(timezone.utc)
+        project.sdk_disabled_reason = reason
+        summary = f"앱 '{project.name}'의 기능 상자를 멈췄습니다: {reason}"
+    audit.record(
+        db,
+        actor=admin,
+        action=AuditAction.APP_SDK_SET,
+        target_type="app",
+        target_id=project.id,
+        target_label=project.name,
+        summary=summary,
+        detail={"enabled": payload.enabled, "reason": reason},
+    )
+    db.commit()
+    return {"detail": "기능 상자를 다시 켰어요." if payload.enabled else "기능 상자를 멈췄어요.", "sdk_enabled": payload.enabled}

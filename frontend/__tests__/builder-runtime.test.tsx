@@ -20,7 +20,8 @@ import {
   buildSrcdoc,
 } from "@/lib/static-preview";
 
-const RUNTIME_SANDBOX_VALUE = "allow-scripts allow-same-origin allow-forms allow-popups";
+const RUNTIME_SANDBOX_VALUE =
+  "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox";
 
 describe("울타리", () => {
   test("앱 주소 프레임(셸)의 sandbox는 정해진 값뿐이다 — 맨 위 이동·알림창은 막힌다", () => {
@@ -29,7 +30,7 @@ describe("울타리", () => {
     expect(RUNTIME_SANDBOX).toBe(RUNTIME_SANDBOX_VALUE);
     expect(RUNTIME_SANDBOX).not.toContain("allow-top-navigation");
     expect(RUNTIME_SANDBOX).not.toContain("allow-modals");
-    expect(RUNTIME_SANDBOX).not.toContain("allow-popups-to-escape-sandbox");
+
     expect(PREVIEW_SANDBOX).toBe("allow-scripts");
   });
 

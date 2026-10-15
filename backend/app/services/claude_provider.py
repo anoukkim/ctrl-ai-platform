@@ -41,6 +41,7 @@ three parts, so the ledger is exercised exactly as it will be for real.
 from __future__ import annotations
 
 import asyncio
+import json
 import hashlib
 import re
 import time
@@ -1051,6 +1052,23 @@ def mock_thinking_tokens(model: str) -> int:
     return 0
 
 
+#: The mock's JSON switches (app-platform P2 tests).
+MOCK_BAD_JSON = "MOCK_BAD_JSON"
+MOCK_ALWAYS_BAD_JSON = "MOCK_ALWAYS_BAD_JSON"
+
+
+def _json_schema_in(system: str) -> dict | None:
+    """The schema `app_ai.system_prompt` put under its marker, if any."""
+    marker = "JSON_SCHEMA:\n"
+    if marker not in system:
+        return None
+    try:
+        value = json.loads(system.split(marker, 1)[1].strip())
+    except ValueError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
 class MockClaudeProvider:
     model_id = "mock"
 
@@ -1158,6 +1176,19 @@ class MockClaudeProvider:
                     if pattern.search(last):
                         reply, action = text, rule_action
                         break
+        # 기능 상자 JSON (app-platform P2): a schema in the system prompt
+        # gets a value that fits it — or, for the retry tests, one that
+        # does not (MOCK_BAD_JSON: the first attempt only).
+        schema = _json_schema_in(request.system)
+        if schema is not None:
+            always_bad = any(MOCK_ALWAYS_BAD_JSON in _text_of(m["content"]) for m in request.messages)
+            if always_bad or MOCK_BAD_JSON in last:
+                reply = "이건 JSON이 아니에요."
+            else:
+                from app.services.app_ai import sample_for
+
+                reply = json.dumps(sample_for(schema), ensure_ascii=False)
+            action = None
         if action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
 

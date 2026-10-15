@@ -59,6 +59,9 @@ export interface AdminApp extends AppListing {
   open_reports: number;
   /** 관리자가 올린 예시 앱 — ZIP 미리보기를 열 수 있어요. */
   example: boolean;
+  /** 기능 상자(app-platform P2)가 켜져 있는지, 멈췄다면 그 이유. */
+  sdk_enabled: boolean;
+  sdk_disabled_reason: string;
 }
 
 export interface AdminReport {

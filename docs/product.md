@@ -158,8 +158,16 @@ no cookies). The Builder preview and CtrlAIApps frame the shell; 새 창에서
 열기 opens it on its own. A deleted project stops being served at once.
 An app keeps data with **`ctrlai.storage`** (and its old `localStorage`
 keeps working): per app, per visitor, about 1 MB, signed out too — one
-app can no longer read another's. Coming in P2–P4: sign-in for apps,
-`ctrlai.ai` paid by the visitor, `ctrlai.db` (BACKLOG › app-platform).
+app can no longer read another's. **Since P2** an app can ask a visitor
+to sign in with CTRL+AI (a consent window on ctrlai.my: the app, its maker,
+"이 앱이 할 수 있는 일", "1회 약 N원 (최대 200원)", [허용] [거절]) and then
+use **`ctrlai.ai`** — Claude, paid by the **visitor** from their own 동아리
+지원, at most 200원 a call and 2,000원 a day across apps (an admin setting),
+only for members taking part this quarter. The app sees a display name and
+a per-app id, never the email, username or balance. Profile › 연결된 앱
+disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Content can
+stop an app's 기능 상자. Coming in P3–P4: `ctrlai.db`, templates, Admin ›
+Apps (BACKLOG › app-platform).
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 

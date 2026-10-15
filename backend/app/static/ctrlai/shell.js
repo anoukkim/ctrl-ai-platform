@@ -16,6 +16,13 @@
  * The app's slug comes from this page's own address, not from anything the
  * app says. Storage lives in this origin's localStorage under a key that
  * starts with the slug, about 1 MB per app.
+ *
+ * P2: sign-in, `ctrlai.user`, `ctrlai.ai`. The shell calls this origin's
+ * /_ctrlai/v1/* itself (same origin, the `X-CtrlAI-App` header, this
+ * app's own cookie, which the app frame can never send). Signing in opens
+ * the club's consent page in a new window; the callback window tells this
+ * page — accepted only from that window. Each AI charge is shown in a
+ * small note: the visitor pays from their own 동아리 지원.
  */
 (function () {
   "use strict";
@@ -113,6 +120,271 @@
     if (frame.contentWindow) frame.contentWindow.postMessage(message, "*");
   }
 
+  // ------------------------------------------------------------ P2: the server
+  var info = null; // what /_ctrlai/v1/app said last
+  var siteOrigin = "";
+
+  function api(path, options) {
+    options = options || {};
+    var init = {
+      method: options.method || "GET",
+      credentials: "same-origin",
+      headers: { "X-CtrlAI-App": slug },
+    };
+    if (options.body !== undefined) {
+      init.headers["Content-Type"] = "application/json";
+      init.body = JSON.stringify(options.body);
+    }
+    return fetch("/_ctrlai" + path, init).then(function (response) {
+      if (options.raw) return response;
+      return response.text().then(function (text) {
+        var data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (error) {
+          data = null;
+        }
+        if (!response.ok) throw failure(response.status, data && data.detail);
+        return data;
+      });
+    });
+  }
+
+  function failure(status, detail) {
+    var error = new Error(typeof detail === "string" ? detail : "요청을 처리하지 못했어요 (" + status + ").");
+    error.code = status === 401 ? "login_required" : status === 403 ? "forbidden" : status === 402 ? "budget" : status === 429 ? "rate" : "error";
+    error.status = status;
+    return error;
+  }
+
+  function refresh() {
+    return api("/v1/app").then(function (data) {
+      info = data;
+      return data;
+    });
+  }
+
+  // --------------------------------------------------- the shell's own notes
+  var note = null;
+  var banner = null;
+
+  function toast(text) {
+    if (!note) {
+      note = document.createElement("div");
+      note.id = "ctrlai-note";
+      note.setAttribute("role", "status");
+      note.style.cssText =
+        "position:fixed;right:12px;bottom:12px;z-index:2147483647;max-width:min(320px,calc(100% - 24px));" +
+        "padding:8px 12px;border-radius:10px;background:rgba(20,20,24,.92);color:#fff;" +
+        "font:13px/1.5 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3);transition:opacity .3s";
+      body.appendChild(note);
+    }
+    note.textContent = text;
+    note.style.opacity = "1";
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () {
+      note.style.opacity = "0";
+    }, 3500);
+  }
+
+  function hideBanner() {
+    if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+    banner = null;
+  }
+
+  /** "CTRL+AI 회원만 쓸 수 있어요" + 로그인 — when a window could not open by itself. */
+  function showBanner(onLogin) {
+    hideBanner();
+    banner = document.createElement("div");
+    banner.id = "ctrlai-banner";
+    banner.setAttribute("role", "dialog");
+    banner.setAttribute("aria-label", "CTRL+AI 로그인");
+    banner.style.cssText =
+      "position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:2147483647;display:flex;gap:8px;" +
+      "align-items:center;flex-wrap:wrap;max-width:calc(100% - 24px);padding:10px 12px;border-radius:12px;" +
+      "background:#fff;color:#111;border:1px solid #ddd;font:14px/1.5 system-ui,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.25)";
+    var text = document.createElement("span");
+    text.textContent = "CTRL+AI 회원만 쓸 수 있어요.";
+    var go = document.createElement("button");
+    go.type = "button";
+    go.textContent = "로그인";
+    go.style.cssText = "padding:6px 12px;border-radius:8px;border:0;background:#2563eb;color:#fff;font:inherit;cursor:pointer";
+    go.addEventListener("click", onLogin);
+    var close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "닫기";
+    close.style.cssText = "padding:6px 10px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#111;font:inherit;cursor:pointer";
+    close.addEventListener("click", function () {
+      hideBanner();
+      if (pendingLogin) pendingLogin.reject(loginError("로그인하지 않았어요."));
+    });
+    banner.appendChild(text);
+    banner.appendChild(go);
+    banner.appendChild(close);
+    body.appendChild(banner);
+    go.focus();
+  }
+
+  // ------------------------------------------------------------ P2: sign-in
+  var pendingLogin = null; // { promise, resolve, reject, window, timer }
+
+  function loginError(text) {
+    var error = new Error(text);
+    error.code = "login_required";
+    return error;
+  }
+
+  function finishLogin(ok) {
+    var pending = pendingLogin;
+    if (!pending) return;
+    pendingLogin = null;
+    clearInterval(pending.timer);
+    hideBanner();
+    if (!ok) {
+      pending.reject(loginError("로그인하지 않았어요."));
+      return;
+    }
+    refresh().then(
+      function (data) {
+        if (data.signedIn) pending.resolve(data.user);
+        else pending.reject(loginError("로그인하지 못했어요. 다시 시도해 주세요."));
+      },
+      function (error) {
+        pending.reject(error);
+      }
+    );
+  }
+
+  function openLogin(url) {
+    var popup = window.open(url, "ctrlai-login-" + slug, "width=480,height=720");
+    if (!popup) return false;
+    pendingLogin.window = popup;
+    pendingLogin.timer = setInterval(function () {
+      if (popup.closed && pendingLogin && pendingLogin.window === popup) finishLogin(false);
+    }, 600);
+    return true;
+  }
+
+  function login() {
+    if (info && info.signedIn) return Promise.resolve(info.user);
+    if (pendingLogin) return pendingLogin.promise;
+    var pending = {};
+    pending.promise = new Promise(function (resolve, reject) {
+      pending.resolve = resolve;
+      pending.reject = reject;
+    });
+    pendingLogin = pending;
+    api("/v1/login/start", { method: "POST", body: {} }).then(
+      function (data) {
+        try {
+          siteOrigin = new URL(data.connectUrl).origin;
+        } catch (error) {
+          siteOrigin = "";
+        }
+        if (!openLogin(data.connectUrl)) {
+          // Opened without the visitor's click: ask for one.
+          showBanner(function () {
+            if (pendingLogin === pending && openLogin(data.connectUrl)) hideBanner();
+          });
+        }
+      },
+      function (error) {
+        if (pendingLogin === pending) pendingLogin = null;
+        pending.reject(error);
+      }
+    );
+    return pending.promise;
+  }
+
+  // The consent page (the site) or the callback (this origin) — only from
+  // the window this page opened.
+  window.addEventListener("message", function (event) {
+    if (!pendingLogin || !pendingLogin.window || event.source !== pendingLogin.window) return;
+    if (event.origin !== location.origin && event.origin !== siteOrigin) return;
+    var data = event.data;
+    if (!data || data.ctrlai !== "login") return;
+    finishLogin(data.ok === true && event.origin === location.origin);
+  });
+
+  /** Signed in, or sign in first (the first AI use asks for consent). */
+  function signedIn() {
+    if (info && info.signedIn) return Promise.resolve(info.user);
+    return refresh().then(function (data) {
+      return data.signedIn ? data.user : login();
+    });
+  }
+
+  function charged(amount) {
+    if (amount > 0) toast("앱 AI · " + amount.toLocaleString("ko-KR") + "원 · 내 동아리 지원금에서");
+  }
+
+  function askAI(options) {
+    return signedIn().then(function () {
+      return api("/v1/ai/ask", { method: "POST", body: options }).then(
+        function (data) {
+          charged(data.chargedKrw);
+          return data;
+        },
+        function (error) {
+          if (error.status === 401) info = null;
+          throw error;
+        }
+      );
+    });
+  }
+
+  function streamAI(id, options) {
+    return signedIn().then(function () {
+      return api("/v1/ai/stream", { method: "POST", body: options, raw: true }).then(function (response) {
+        if (!response.ok) {
+          return response.text().then(function (text) {
+            var data = null;
+            try {
+              data = JSON.parse(text);
+            } catch (error) {
+              data = null;
+            }
+            throw failure(response.status, data && data.detail);
+          });
+        }
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = "";
+        var result = null;
+        function pump() {
+          return reader.read().then(function (part) {
+            if (part.value) buffer += decoder.decode(part.value, { stream: true });
+            var blocks = buffer.split("\n\n");
+            buffer = blocks.pop();
+            blocks.forEach(function (block) {
+              var name = (/^event: (.*)$/m.exec(block) || [])[1];
+              var line = (/^data: (.*)$/m.exec(block) || [])[1];
+              if (!name || !line) return;
+              var data = JSON.parse(line);
+              if (name === "delta") send({ event: "ai-chunk", id: id, text: data.text });
+              else if (name === "done") result = data;
+              else if (name === "error") {
+                charged(data.chargedKrw || 0);
+                throw failure(503, data.message);
+              }
+            });
+            if (part.done) {
+              if (!result) throw failure(503, "AI 답을 끝까지 받지 못했어요.");
+              charged(result.chargedKrw);
+              return result;
+            }
+            return pump();
+          });
+        }
+        return pump();
+      });
+    });
+  }
+
+  refresh().catch(function () {
+    info = null;
+  });
+
   function validKey(key) {
     return typeof key === "string" && key.length > 0 && key.length <= 200;
   }
@@ -159,6 +431,29 @@
         return { value: null };
       case "hello":
         return { value: { slug: slug, mode: mode, framed: window.top !== window } };
+      case "user.get":
+        return refresh().then(function (data) {
+          return { value: data.signedIn ? data.user : null };
+        });
+      case "login":
+        return login().then(function (user) {
+          return { value: user };
+        });
+      case "logout":
+        return api("/v1/logout", { method: "POST", body: {} }).then(function () {
+          info = null;
+          return { value: null };
+        });
+      case "ai.ask":
+        return askAI(message.options || {}).then(function (data) {
+          return { value: data };
+        });
+      case "ai.stream":
+        return streamAI(typeof message.id === "string" ? message.id.slice(0, 40) : "", message.options || {}).then(
+          function (data) {
+            return { value: data };
+          }
+        );
       default:
         throw new Error("알 수 없는 요청이에요: " + String(type).slice(0, 40));
     }
@@ -170,11 +465,24 @@
     var message = event.data;
     if (!message || typeof message !== "object" || message.ctrlai !== 1 || typeof message.type !== "string") return;
     var id = typeof message.id === "string" ? message.id.slice(0, 40) : null;
-    try {
-      var result = handle(message);
-      if (id && result) send({ reply: id, ok: true, value: result.value });
-    } catch (error) {
-      if (id) send({ reply: id, ok: false, error: String((error && error.message) || error) });
-    }
+    Promise.resolve()
+      .then(function () {
+        return handle(message);
+      })
+      .then(
+        function (result) {
+          if (id && result) send({ reply: id, ok: true, value: result.value });
+        },
+        function (error) {
+          if (id) {
+            send({
+              reply: id,
+              ok: false,
+              error: String((error && error.message) || error),
+              code: (error && error.code) || "error",
+            });
+          }
+        }
+      );
   });
 })();

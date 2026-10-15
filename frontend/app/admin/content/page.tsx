@@ -25,6 +25,7 @@ import {
   type AdminApp,
   type AdminReport,
 } from "@/lib/apps";
+import { setAppSdk } from "@/lib/app-platform";
 import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
 
@@ -82,6 +83,30 @@ export default function AdminContentPage() {
       reason: { label: "사유", placeholder: "예: 개인정보를 묻는 화면", required: true },
       onConfirm: (reason) => run(() => adminUnpublish(projectId, reason))(),
     });
+  };
+
+  const askSdk = (app: AdminApp) => {
+    setConfirmError(null);
+    if (app.sdk_enabled) {
+      setConfirm({
+        title: `'${app.name}' 기능 상자 멈추기`,
+        effect: [
+          "이 앱의 로그인 · AI · 데이터 요청을 바로 모두 거절합니다. 앱 화면은 그대로 열려요.",
+          "방문자에게는 '관리자가 잠시 멈췄어요'라고 보여요. 감사 기록에 남습니다.",
+        ],
+        confirmLabel: "멈추기",
+        danger: true,
+        reason: { label: "사유", placeholder: "예: AI 비용이 비정상적으로 나감", required: true },
+        onConfirm: (reason) => run(() => setAppSdk(app.id, false, reason))(),
+      });
+    } else {
+      setConfirm({
+        title: `'${app.name}' 기능 상자 다시 켜기`,
+        effect: `멈춘 이유: ${app.sdk_disabled_reason || "—"}. 다시 켜면 로그인과 AI가 바로 동작해요. 감사 기록에 남습니다.`,
+        confirmLabel: "다시 켜기",
+        onConfirm: () => run(() => setAppSdk(app.id, true))(),
+      });
+    }
   };
 
   const askResolve = (report: AdminReport) => {
@@ -197,8 +222,19 @@ export default function AdminContentPage() {
                       v{app.version_number}
                       {app.published_at ? ` · ${relativeTime(app.published_at)}` : ""}
                     </td>
-                    <td>{app.open_reports > 0 ? <span className="badge badge-warn">{app.open_reports}</span> : "—"}</td>
+                    <td>
+                      {app.open_reports > 0 ? <span className="badge badge-warn">{app.open_reports}</span> : "—"}
+                      {!app.sdk_enabled && <span className="badge badge-muted"> 기능 상자 멈춤</span>}
+                    </td>
                     <td className="actions-cell">
+                      <button
+                        className="btn btn-sm"
+                        type="button"
+                        onClick={() => askSdk(app)}
+                        title={app.sdk_enabled ? "로그인 · AI · 데이터를 멈춰요" : `멈춘 이유: ${app.sdk_disabled_reason}`}
+                      >
+                        {app.sdk_enabled ? "기능 상자 멈추기" : "기능 상자 다시 켜기"}
+                      </button>{" "}
                       {app.example && (
                         <>
                           <button

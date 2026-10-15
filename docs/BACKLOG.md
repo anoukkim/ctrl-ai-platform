@@ -83,7 +83,8 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    RUN-2026-10-15 are deployed.** P1–P4 pre-approved to merge and deploy
    one at a time; P5 branch + tests + WAIT. Supersedes H3 (app-ai-bridge).
    Spec below, saved verbatim. **P1 merged 2026-10-15** (shell, SDK,
-   ctrlai.storage; RUN-2026-10-15). **When P1 lands:** update the H4 templates
+   ctrlai.storage; RUN-2026-10-15). **P2 merged 2026-10-15** (sign-in, consent,
+   ctrlai.user, ctrlai.ai, kill switch). **When P1 lands:** update the H4 templates
    (`services/project_handoff.py` README / CLAUDE.md, and the showcase
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
    that outside CTRL+AI those calls need replacing — done in P1.

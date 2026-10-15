@@ -85,6 +85,10 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
         nullable=True,
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: app-platform P2: an admin stopped this app's 기능 상자 (sign-in, AI,
+    #: data). The app still opens; every `/_ctrlai/v1` call is refused.
+    sdk_disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sdk_disabled_reason: Mapped[str] = mapped_column(String(200), default="", nullable=False)
     #: 업데이트 메모 — one line shown on the listing (optional).
     publish_note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
 

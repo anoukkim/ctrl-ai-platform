@@ -14,7 +14,21 @@
  *   ctrlai.storage.remove(key)       → Promise<void>
  *   ctrlai.storage.keys()            → Promise<string[]>
  *   ctrlai.storage.clear()           → Promise<void>
- *   ctrlai.app()                     → Promise<{ slug, mode }>
+ *   ctrlai.app()                     → Promise<{ slug, mode, framed }>
+ *
+ * P2 — signed-in CTRL+AI members only (the first use asks them to sign in
+ * and allow the app; signed-out visitors get an error with code
+ * "login_required"):
+ *
+ *   ctrlai.user()                    → Promise<{ displayName, appUserId } | null>
+ *   ctrlai.login() / ctrlai.logout() → Promise
+ *   ctrlai.ai.ask({ prompt, system?, images?, json?, model?, maxTokens? })
+ *                                    → Promise<{ text, json, chargedKrw, model }>
+ *   ctrlai.ai.stream(options, onChunk) → Promise<{ text, chargedKrw, model }>
+ *
+ * AI is paid by the visitor from their own 동아리 지원 (at most 200원 a call).
+ * `json` is a JSON Schema; the answer comes back parsed and checked.
+ * `model` is "fast" (default) or "smart". `images` are data URLs, 5 MB each.
  *
  * Storage is per app and per visitor (this browser), about 1 MB per app,
  * and works signed out. `localStorage` keeps working too: apps written
@@ -32,6 +46,9 @@
   var shellOrigin = location.protocol + "//" + location.host;
   var NAME_PREFIX = "ctrlai-v1:";
   var TIMEOUT_MS = 10000;
+  // Signing in (a person reading a consent screen) and AI answers take
+  // longer than storage.
+  var LONG_TIMEOUT_MS = 5 * 60 * 1000;
 
   // ------------------------------------------------- localStorage, kept by the shell
   var initial = {};
@@ -124,28 +141,50 @@
       if (window.console) console.warn("[CTRL+AI] 이 앱의 저장 공간(약 1MB)이 가득 찼어요.");
       return;
     }
+    if (data.event === "ai-chunk") {
+      var streaming = waiting[data.id];
+      if (streaming && streaming.onChunk && typeof data.text === "string") {
+        try {
+          streaming.onChunk(data.text);
+        } catch (error) {
+          /* the app's own callback failed; the answer keeps coming */
+        }
+      }
+      return;
+    }
     var pending = waiting[data.reply];
     if (!pending) return;
     delete waiting[data.reply];
     clearTimeout(pending.timer);
     if (data.ok) pending.resolve(data.value);
-    else pending.reject(new Error(data.error || "CTRL+AI 기능 상자에서 오류가 났어요."));
+    else {
+      var error = new Error(data.error || "CTRL+AI 기능 상자에서 오류가 났어요.");
+      error.code = data.code || "error";
+      pending.reject(error);
+    }
   });
 
   // Outside the shell (the page opened on its own) nothing answers: keep
   // the values in this page, so the app still runs.
   var loose = {};
 
-  function ask(type, fields) {
-    if (!parentWindow) return Promise.resolve(alone(type, fields || {}));
+  function ask(type, fields, onChunk) {
+    if (!parentWindow) {
+      try {
+        return Promise.resolve(alone(type, fields || {}));
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    }
+    var long = type === "login" || type.indexOf("ai.") === 0;
     return new Promise(function (resolve, reject) {
       counter += 1;
       var id = "m" + counter;
       var timer = setTimeout(function () {
         delete waiting[id];
         reject(new Error("CTRL+AI 기능 상자와 연결되지 않았어요. 새로 고쳐 보세요."));
-      }, TIMEOUT_MS);
-      waiting[id] = { resolve: resolve, reject: reject, timer: timer };
+      }, long ? LONG_TIMEOUT_MS : TIMEOUT_MS);
+      waiting[id] = { resolve: resolve, reject: reject, timer: timer, onChunk: onChunk };
       var message = fields || {};
       message.type = type;
       message.id = id;
@@ -160,6 +199,12 @@
     if (type === "storage.keys") return Object.keys(loose);
     if (type === "storage.clear") loose = {};
     if (type === "hello") return { slug: null, mode: "alone" };
+    if (type === "user.get") return null;
+    if (type === "login" || type.indexOf("ai.") === 0) {
+      var error = new Error("CTRL+AI 안에서 열었을 때만 쓸 수 있어요.");
+      error.code = "not_in_ctrlai";
+      throw error;
+    }
     return null;
   }
 
@@ -191,13 +236,48 @@
     },
   });
 
+  function aiOptions(options) {
+    options = options || {};
+    if (typeof options === "string") options = { prompt: options };
+    var out = {
+      prompt: typeof options.prompt === "string" ? options.prompt : "",
+      system: typeof options.system === "string" ? options.system : "",
+      images: Array.isArray(options.images) ? options.images.slice(0, 4) : [],
+      model: options.model === "smart" ? "smart" : "fast",
+    };
+    if (options.json && typeof options.json === "object") out.json = options.json;
+    if (options.maxTokens) out.maxTokens = Number(options.maxTokens);
+    return out;
+  }
+
+  var ai = Object.freeze({
+    ask: function (options) {
+      return ask("ai.ask", { options: aiOptions(options) });
+    },
+    stream: function (options, onChunk) {
+      var settings = aiOptions(options);
+      delete settings.json;
+      return ask("ai.stream", { options: settings }, typeof onChunk === "function" ? onChunk : null);
+    },
+  });
+
   var api = Object.freeze({
-    version: "1",
+    version: "2",
     /** True inside CTRL+AI (the shell around the app answers). */
     connected: !!parentWindow,
     storage: storage,
+    ai: ai,
     app: function () {
       return ask("hello");
+    },
+    user: function () {
+      return ask("user.get");
+    },
+    login: function () {
+      return ask("login");
+    },
+    logout: function () {
+      return ask("logout");
     },
   });
   try {

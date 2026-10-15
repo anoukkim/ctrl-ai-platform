@@ -116,6 +116,8 @@ class ChatLimitsRead(BaseModel):
     web_fetch_max_uses: int
     web_fetch_max_content_tokens: int
     web_search_max_uses: int = 5
+    #: app-platform P2: AI inside apps, per visitor per KST day. 0 = off.
+    app_ai_daily_cap_krw: int = 2000
     set_at: datetime | None = None
     set_by_username: str = ""
 
@@ -133,6 +135,8 @@ class ChatLimitsWrite(BaseModel):
     web_fetch_max_content_tokens: int = Field(ge=1_000, le=100_000)
     #: 웹 검색 — searches per reply (fix-real-web-search). Never 0.
     web_search_max_uses: int = Field(default=5, ge=1, le=10)
+    #: app-platform P2 — 0 turns it off.
+    app_ai_daily_cap_krw: int = Field(default=2000, ge=0, le=1_000_000)
 
 
 class ClaudeSettingsRead(BaseModel):
