@@ -15,6 +15,7 @@
 
 import type { ChatAttachment } from "./chat-files";
 import { API_BASE_URL, ApiError } from "./api";
+import type { DepthLevel, DepthOption, PickerModel } from "./depth";
 import { request } from "./http";
 
 export interface Conversation {
@@ -24,6 +25,8 @@ export interface Conversation {
   last_message_at: string;
   /** 다음 답장이 쓸 모델(`ChatModelOption.id`). null이면 기본 모델. */
   chat_model_id: number | null;
+  /** 생각 깊이(quality-tuning Q1). null이면 보통. 숫자는 서버가 정합니다. */
+  depth?: DepthLevel | null;
   /** 서버 도구 토글(chat-plus-tools). 모델이 허용할 때만 실제로 쓰입니다. */
   use_web_search?: boolean;
   use_web_fetch?: boolean;
@@ -79,6 +82,8 @@ export interface ChatMessage {
   action_title: string;
   /** 답장을 쓴 모델의 ID (예: "claude-haiku-4-5"). 내 메시지는 null. */
   model_id: string | null;
+  /** 답장을 쓴 생각 깊이(quality-tuning Q1). 깊이가 없는 모델이면 null. */
+  depth?: string | null;
   /** 답장이 1회 비용 한도에 닿아 멈췄다면 그 한도(원). 아니면 null. */
   capped_krw?: number | null;
   /** 답장의 영수증 — 장부의 숫자. 대화를 다시 열어도 그대로 옵니다. */
@@ -189,6 +194,10 @@ export interface ChatModelOption {
    */
   thinking_extra_krw?: number | null;
   thinking_basis?: "recent" | "formula";
+  /** 생각 깊이 막대(quality-tuning Q1). 비어 있으면 깊이 조절이 없는 모델. */
+  levels?: DepthOption[];
+  flat_max_krw?: number;
+  depth_note?: string;
 }
 
 export interface ChatInfo {
@@ -203,6 +212,25 @@ export interface ChatInfo {
   models: ChatModelOption[];
   /** 새 대화가 쓰는 모델. 모델 목록이 비었을 때만 null. */
   default_model_id: number | null;
+  /** 회원의 기본값(Profile › 기본 모델, quality-tuning Q1). */
+  member_default_model_id?: number | null;
+  member_default_depth?: DepthLevel;
+}
+
+/** Chat의 모델 줄을 공용 고르기 창의 모양으로. */
+export function toPickerModel(model: ChatModelOption): PickerModel {
+  return {
+    id: model.id,
+    label: model.label,
+    description: model.description,
+    admin_only: model.admin_only,
+    is_default: model.is_default,
+    estimate_krw: model.estimated_reply_krw,
+    estimate_basis: model.estimate_basis,
+    levels: model.levels ?? [],
+    flat_max_krw: model.flat_max_krw ?? 0,
+    depth_note: model.depth_note ?? "",
+  };
 }
 
 export function getChatInfo(): Promise<ChatInfo> {
@@ -229,18 +257,30 @@ export interface NewConversationTools {
 export function createConversation(
   chatModelId: number | null = null,
   tools: NewConversationTools = {},
+  depth: DepthLevel | null = null,
 ): Promise<Conversation> {
   return request<Conversation>("/chat/conversations", {
     method: "POST",
-    body: JSON.stringify({ ...(chatModelId === null ? {} : { chat_model_id: chatModelId }), ...tools }),
+    body: JSON.stringify({
+      ...(chatModelId === null ? {} : { chat_model_id: chatModelId }),
+      ...(depth === null ? {} : { depth }),
+      ...tools,
+    }),
   });
 }
 
-/** 대화의 모델을 바꿉니다. 이후 답장부터 적용되고, 지난 답장은 그대로입니다. */
-export function setConversationModel(id: number, chatModelId: number): Promise<Conversation> {
+/**
+ * 대화의 모델과 생각 깊이를 바꿉니다. 이후 답장부터 적용되고, 지난 답장은
+ * 그대로입니다. 깊이는 이름만 보냅니다 — 숫자는 서버가 정합니다.
+ */
+export function setConversationModel(
+  id: number,
+  chatModelId: number,
+  depth: DepthLevel | null = null,
+): Promise<Conversation> {
   return request<Conversation>(`/chat/conversations/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ chat_model_id: chatModelId }),
+    body: JSON.stringify({ chat_model_id: chatModelId, ...(depth === null ? {} : { depth }) }),
   });
 }
 
@@ -256,7 +296,8 @@ export function currentModel(
   chosenId: number | null,
 ): ChatModelOption | null {
   if (!info) return null;
-  const id = chosenId ?? info.default_model_id;
+  // 고른 것이 없으면 회원의 기본값, 그것도 없으면 목록의 기본(quality-tuning Q1).
+  const id = chosenId ?? info.member_default_model_id ?? info.default_model_id;
   return info.models.find((model) => model.id === id) ?? null;
 }
 

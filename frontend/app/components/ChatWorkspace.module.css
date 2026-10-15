@@ -437,6 +437,36 @@
   font-size: var(--fs-meta);
 }
 
+/* 이어서 쓰기(quality-tuning Q1): 끊긴 마지막 답장 아래. 값이 매겨지는 새 답장입니다. */
+.continueButton {
+  align-self: flex-start;
+  margin-top: 0.4rem;
+  padding: 5px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+  cursor: pointer;
+}
+
+.continueButton:hover:not(:disabled),
+.continueButton:focus-visible {
+  border-color: var(--accent);
+}
+
+.continueButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.continueCost {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
 /* 흐르는 답장 옆의 "약 N원" (live-cost-display). 숫자가 바뀌어도 줄이
    흔들리지 않도록 숫자 폭을 고정합니다. */
 .liveCost {

@@ -100,7 +100,9 @@ describe("1회 비용 한도에 닿은 답장", () => {
     expect(
       await screen.findByText(/답장이 1회 비용 한도\(100원\)에 닿아 여기서 멈췄어요/),
     ).toBeTruthy();
-    expect(screen.getByText(/'계속해 줘'라고 보내 주세요/)).toBeTruthy();
+    expect(screen.getByText(/'이어서 쓰기'로 이어 받거나/)).toBeTruthy();
+    // 이어서 쓰기(quality-tuning Q1): 마지막 끊긴 답장 아래, 값이 매겨지는 새 답장.
+    expect(screen.getByTestId("continue-reply")).toBeTruthy();
   });
 
   test("전체 출력 한도로 끊긴 답장은 기존 문구를 그대로 쓴다", async () => {
@@ -113,7 +115,7 @@ describe("1회 비용 한도에 닿은 답장", () => {
     await renderChat();
     typeAndSend("아주 긴 설명을 부탁해");
 
-    expect(await screen.findByText(/답장이 길어 여기서 끊겼습니다/)).toBeTruthy();
+    expect(await screen.findByText(/답장이 길어 여기서 끊겼어요/)).toBeTruthy();
     expect(screen.queryByText(/1회 비용 한도/)).toBeNull();
   });
 });

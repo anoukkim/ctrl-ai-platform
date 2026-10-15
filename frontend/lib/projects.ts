@@ -8,6 +8,7 @@
  * 소유권은 백엔드가 정합니다. 여기서 사용자 id를 보내지 않습니다.
  */
 
+import type { DepthLevel, PickerModel } from "./depth";
 import { API_BASE_URL } from "./api";
 import { describeError, request } from "./http";
 
@@ -48,6 +49,9 @@ export interface BuilderProject {
   draft_slug?: string | null;
   /** "게시됨 v3" — 게시된 버전 번호. 게시 전이면 null. */
   published_version_number?: number | null;
+  /** Claude 판의 모델과 생각 깊이(quality-tuning Q1), 프로젝트마다 기억합니다. */
+  chat_model_id?: number | null;
+  depth?: DepthLevel | null;
   published_at?: string | null;
   /** 업데이트 메모. */
   publish_note?: string;
@@ -197,6 +201,21 @@ export function createStarterApp(id: number | string, idea = ""): Promise<Starte
 
 export interface GenerateEstimate extends StarterEstimate {
   max_output_tokens: number;
+  /** quality-tuning Q1: 이 프로젝트의 모델·깊이와 고르기 창의 목록. */
+  chat_model_id?: number | null;
+  depth?: DepthLevel | null;
+  max_krw?: number;
+  models?: BuilderModelOption[];
+}
+
+/** Builder 판 고르기 창의 모델 한 줄 — 서버가 이 프로젝트 기준으로 값을 매깁니다. */
+export interface BuilderModelOption extends Omit<PickerModel, "estimate_krw"> {
+  model_id: string;
+  estimated_krw: number | null;
+}
+
+export function builderPickerModel(model: BuilderModelOption): PickerModel {
+  return { ...model, estimate_krw: model.estimated_krw };
 }
 
 export function getGenerateEstimate(id: number | string): Promise<GenerateEstimate> {
@@ -314,7 +333,7 @@ export const APP_LIMITS_NOTE =
 
 export function updateBuilderProject(
   id: number | string,
-  changes: Partial<Pick<BuilderProject, "name" | "description" | "status">>,
+  changes: Partial<Pick<BuilderProject, "name" | "description" | "status" | "chat_model_id" | "depth">>,
 ): Promise<BuilderProject> {
   return request<BuilderProject>(`/builder/projects/${id}`, {
     method: "PATCH",

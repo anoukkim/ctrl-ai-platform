@@ -446,6 +446,11 @@ export interface ChatLimits {
   web_fetch_max_content_tokens: number;
   /** 앱 AI: 방문자 1명이 하루(KST)에 회원 앱들에서 쓸 수 있는 금액. 0이면 끔 (app-platform P2). */
   app_ai_daily_cap_krw?: number;
+  /** 생각 깊이마다의 최대 출력과 1회 한도(quality-tuning Q1). */
+  depth_levels?: DepthTable;
+  /** 답장마다 함께 보내는 대화 기록(토큰)과 응답 대기 시간(초). */
+  context_tokens?: number;
+  timeout_seconds?: number;
   set_at: string | null;
   set_by_username: string;
 }
@@ -460,7 +465,17 @@ export interface ChatLimitsWrite {
   web_search_max_uses?: number;
   web_fetch_max_content_tokens: number;
   app_ai_daily_cap_krw?: number;
+  depth_levels?: DepthTable;
+  context_tokens?: number;
+  timeout_seconds?: number;
 }
+
+/** 채팅·빌더 × 낮음·보통·높음·최고 → 최대 출력 토큰과 1회 한도(원). */
+export type DepthSurface = "chat" | "builder";
+export type DepthTable = Record<
+  DepthSurface,
+  Record<"low" | "medium" | "high" | "max", { max_tokens: number; cap_krw: number }>
+>;
 
 export function getClaudeSettings(): Promise<ClaudeSettings> {
   return request<ClaudeSettings>("/admin/claude-pricing");
