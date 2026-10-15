@@ -73,6 +73,10 @@ class Conversation(TimestampMixin, Base):
     chat_model_id: Mapped[int | None] = mapped_column(
         ForeignKey("chat_models.id", ondelete="SET NULL"), nullable=True
     )
+    #: 생각 깊이 (quality-tuning Q1): "low" | "medium" | "high" | "max", or
+    #: NULL for the default. The server turns it into effort, max_tokens and
+    #: a cap (`services/depth.py`); the client never sends numbers.
+    depth: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # Anthropic server tools (chat-plus-tools), chosen per conversation —
     # not per message, because changing the tool list breaks the prompt
@@ -132,6 +136,8 @@ class ChatMessage(Base):
     #: provider's id, e.g. "claude-haiku-4-5" — also under the mock, which
     #: is priced as the model chosen) and what it cost.
     model_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: The 생각 깊이 the reply ran at (None: the model has none).
+    depth: Mapped[str | None] = mapped_column(String(10), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: Set when the reply stopped at the per-reply cost cap (token-guard):

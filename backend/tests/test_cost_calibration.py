@@ -118,9 +118,9 @@ def test_the_pre_check_uses_the_calibrated_input_but_keeps_the_full_output(
     model = default_model(db_session, config)
     price = pricing.price_for(db_session, model, cache_ttl=config.cache_ttl)
     estimated = pricing.estimate_tokens(CHAT_SYSTEM_PROMPT) + pricing.estimate_tokens("안녕") + 4
-    old = price.worst_case_krw(estimated, config.chat_max_output_tokens)
+    old = price.worst_case_krw(estimated, 8192)
     new = price.worst_case_krw(
-        -(-estimated * 72 // 100), config.chat_max_output_tokens
+        -(-estimated * 72 // 100), 8192
     )
     assert new < old
     budgeted.budget_krw = old - 1

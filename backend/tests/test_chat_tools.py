@@ -206,7 +206,7 @@ def test_the_precheck_adds_max_uses_searches(
 
     token_worst = price.worst_case_krw(
         estimate_tokens(CHAT_SYSTEM_PROMPT) + estimate_tokens(text) + 4,
-        config.chat_max_output_tokens,
+        8192,
     )
     allocation.budget_krw = token_worst + search_fee(db_session, config, WEB_SEARCH_MAX_USES) - 1
     db_session.commit()

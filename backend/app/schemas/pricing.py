@@ -118,6 +118,11 @@ class ChatLimitsRead(BaseModel):
     web_search_max_uses: int = 5
     #: app-platform P2: AI inside apps, per visitor per KST day. 0 = off.
     app_ai_daily_cap_krw: int = 2000
+    #: quality-tuning Q1: {"chat"|"builder": {level: {max_tokens, cap_krw}}},
+    #: the history per chat turn in tokens, and the provider timeout.
+    depth_levels: dict = {}
+    context_tokens: int = 64_000
+    timeout_seconds: int = 180
     set_at: datetime | None = None
     set_by_username: str = ""
 
@@ -137,6 +142,10 @@ class ChatLimitsWrite(BaseModel):
     web_search_max_uses: int = Field(default=5, ge=1, le=10)
     #: app-platform P2 — 0 turns it off.
     app_ai_daily_cap_krw: int = Field(default=2000, ge=0, le=1_000_000)
+    #: quality-tuning Q1. Omitted: the numbers in force stay.
+    depth_levels: dict | None = None
+    context_tokens: int = Field(default=64_000, ge=4_000, le=400_000)
+    timeout_seconds: int = Field(default=180, ge=30, le=600)
 
 
 class ClaudeSettingsRead(BaseModel):

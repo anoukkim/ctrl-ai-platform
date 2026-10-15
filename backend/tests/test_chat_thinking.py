@@ -181,7 +181,7 @@ def test_the_real_adapter_asks_for_the_summary_streams_it_and_never_sends_it_bac
 
     body = json.loads(real.requests[0].content)
     assert body["thinking"] == {"type": "adaptive", "display": "summarized"}
-    assert body["output_config"] == {"effort": "low"}
+    assert body["output_config"] == {"effort": "medium"}  # 생각 깊이 보통
     # The summary streams as its own event, separate from the reply.
     assert "".join(data["text"] for name, data in events if name == "thinking") == "".join(SUMMARY)
     assert reply_text(events) == "답장입니다."

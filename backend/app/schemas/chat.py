@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.chat import AttachmentKind, ChatAction, ChatMessageStatus, ChatRole
@@ -22,6 +24,9 @@ class ConversationCreate(BaseModel):
     use_web_fetch: bool = False
     use_code_execution: bool = False
     show_thinking: bool = False
+    #: 생각 깊이 (quality-tuning Q1): a level **name** only — "low",
+    #: "medium", "high" or "max". The server decides every number.
+    depth: Literal["low", "medium", "high", "max"] | None = None
 
 
 class ConversationUpdate(BaseModel):
@@ -37,6 +42,9 @@ class ConversationUpdate(BaseModel):
     use_code_execution: bool | None = None
     #: 생각 과정 보기 (chat-thinking-view): later replies only.
     show_thinking: bool | None = None
+    #: 생각 깊이 (quality-tuning Q1): a level **name** only — "low",
+    #: "medium", "high" or "max". The server decides every number.
+    depth: Literal["low", "medium", "high", "max"] | None = None
 
 
 class ConversationRead(BaseModel):
@@ -55,6 +63,8 @@ class ConversationRead(BaseModel):
     use_code_execution: bool = False
     #: 생각 과정 보기 (chat-thinking-view).
     show_thinking: bool = False
+    #: 생각 깊이 (quality-tuning Q1). None: the member's default.
+    depth: str | None = None
 
 
 class ReplyReceipt(BaseModel):
@@ -133,8 +143,10 @@ class ChatMessageRead(BaseModel):
     status: ChatMessageStatus
     action: ChatAction | None = None
     action_title: str = ""
-    #: For a reply: the provider's model id that wrote it.
+    #: For a reply: the provider's model id that wrote it, and the 생각 깊이
+    #: it ran at (None: the model has none) — the receipt shows both.
     model_id: str | None = None
+    depth: str | None = None
     #: Set when the reply stopped at the per-reply cost cap (token-guard):
     #: the cap in force, in won. Null for every other ending.
     capped_krw: int | None = None
@@ -187,6 +199,18 @@ class ChatMessageCreate(BaseModel):
     attachment_ids: list[int] = Field(default_factory=list, max_length=5)
 
 
+class DepthOption(BaseModel):
+    """One step of the 생각 깊이 slider for one model (quality-tuning Q1)."""
+
+    level: str
+    label: str
+    hint: str
+    #: "1회 약 N원" at this depth — an estimate (None without a rate).
+    estimate_krw: int | None
+    #: "(최대 M원)" — the cap this depth runs under.
+    max_krw: int
+
+
 class ChatModelOption(BaseModel):
     """One entry in the Chat model picker."""
 
@@ -218,6 +242,13 @@ class ChatModelOption(BaseModel):
     #: (Opus thinks anyway), None without a rate. Basis as above.
     thinking_extra_krw: int | None = None
     thinking_basis: str = "formula"
+    #: 생각 깊이 steps this model offers, in order. Empty: the model has no
+    #: effort parameter — "이 모델은 깊이 조절이 없어요", and none is sent.
+    levels: list[DepthOption] = []
+    #: What runs when it has none: 보통's room and cap.
+    flat_max_krw: int | None = None
+    #: One line when a depth needs thinking on (Sonnet 5.5 at 최고).
+    depth_note: str = ""
 
 
 class ChatInfo(BaseModel):
@@ -241,3 +272,7 @@ class ChatInfo(BaseModel):
     models: list["ChatModelOption"] = []
     #: What a new conversation uses. None only with an empty catalogue.
     default_model_id: int | None = None
+    #: The member's own default (Profile › 기본 모델, quality-tuning Q1):
+    #: model and depth a new conversation starts with.
+    member_default_model_id: int | None = None
+    member_default_depth: str = "medium"

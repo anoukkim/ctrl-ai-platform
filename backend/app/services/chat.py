@@ -49,6 +49,7 @@ from app.models import (
     UsageFeature,
     User,
 )
+from app.services import depth as depth_service
 from app.services import attachments as attachments_service
 from app.services import accounting, calibration, chat_limits, chat_tools, pricing, providers
 from app.services import usage as usage_service
@@ -210,6 +211,7 @@ def build_context(
     attachments: dict[int, list[ChatAttachment]] | None = None,
     new_attachments: list[ChatAttachment] | None = None,
     load: AttachmentLoader | None = None,
+    context_tokens: int | None = None,
 ) -> tuple[list[dict], int]:
     """The messages to send, newest kept, and their estimated input tokens.
 
@@ -259,7 +261,7 @@ def build_context(
     def joined(entry: dict) -> str:
         return "\n\n".join(text for text in entry["texts"] if text)
 
-    budget = settings.chat_context_tokens - estimate_tokens(CHAT_SYSTEM_PROMPT)
+    budget = (context_tokens or settings.chat_context_tokens) - estimate_tokens(CHAT_SYSTEM_PROMPT)
     new_cost = estimate_tokens(new_text) + _MESSAGE_OVERHEAD
     if new_cost > budget:
         raise ChatRefusal(
@@ -471,6 +473,8 @@ class PreparedTurn:
     #: dollar price the fee is charged at.
     tools: tuple[str, ...] = ()
     web_search_usd_per_call: Decimal = Decimal("0.01")
+    #: 생각 깊이 the reply runs at (quality-tuning Q1); None: the model has none.
+    depth: str | None = None
 
 
 @dataclass
@@ -524,6 +528,12 @@ def prepare_turn(
 
     check_rate_limit(db, user, settings)
     price = pricing.price_for(db, model, cache_ttl=settings.cache_ttl)
+    limits = chat_limits.current(db)
+    # 생각 깊이 (quality-tuning Q1): the conversation's, else the member's
+    # default; the server turns the name into effort, room and cap.
+    level, effort = depth_service.resolve(
+        limits.depth_levels, "chat", model.model_id, conversation.depth or user.default_depth
+    )
 
     history = messages_of(db, conversation)
     messages, estimated_input = build_context(
@@ -533,6 +543,7 @@ def prepare_turn(
         attachments=files_by_message(db, conversation),
         new_attachments=new_files,
         load=load,
+        context_tokens=limits.context_tokens,
     )
 
     # The input estimate, calibrated against this model's recent real
@@ -550,7 +561,6 @@ def prepare_turn(
     # money check below, so neither the wallet nor the cap can be passed
     # by a fee the tokens did not show.
     tools = chat_tools.tools_in_force(conversation, model)
-    limits = chat_limits.current(db)
     # The wallet covers a turn's full possible cost (fees + the fetch
     # cap); the per-reply cap reserves every enabled tool's worst case —
     # fees AND result tokens (the owner's rule) — so a tooled reply's
@@ -573,11 +583,11 @@ def prepare_turn(
         search_max_uses=limits.web_search_max_uses,
     )
 
-    max_tokens = settings.chat_max_output_tokens
+    max_tokens = level.max_tokens
     reply_cap_krw: int | None = None
-    if limits.reply_cap_krw > 0:
+    if level.cap_krw > 0:
         affordable_output = chat_limits.output_budget(
-            price, limits.reply_cap_krw - cap_tool_extra, calibrated_input
+            price, level.cap_krw - cap_tool_extra, calibrated_input
         )
         if affordable_output < 1:
             # The input (and any tool worst case) alone reaches the cap:
@@ -586,18 +596,18 @@ def prepare_turn(
                 names = ", ".join(chat_tools.LABELS[kind] for kind in tools)
                 raise ChatRefusal(
                     f"켜 둔 도구({names})의 최대 비용까지 치면 1회 비용 한도"
-                    f"({limits.reply_cap_krw:,}원)에 닿아요. 도구를 끄고 보내거나, "
+                    f"({level.cap_krw:,}원)에 닿아요. 도구를 끄고 보내거나, "
                     "관리자가 1회 비용 한도를 올려야 쓸 수 있어요.",
                     status_code=400,
                 )
             raise ChatRefusal(
-                f"대화가 길어져 입력만으로 1회 비용 한도({limits.reply_cap_krw:,}원)에 "
-                "닿아요. 새 대화로 시작해 주세요.",
+                f"대화가 길어져 입력만으로 1회 비용 한도({level.cap_krw:,}원)에 "
+                "닿아요. 새 대화로 시작하거나 생각 깊이를 높여 주세요.",
                 status_code=400,
             )
         if affordable_output < max_tokens:
             max_tokens = affordable_output
-            reply_cap_krw = limits.reply_cap_krw
+            reply_cap_krw = level.cap_krw
 
     worst_case = price.worst_case_krw(calibrated_input, max_tokens) + tool_extra
     usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
@@ -644,6 +654,8 @@ def prepare_turn(
             fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
             search_max_uses=limits.web_search_max_uses,
             show_thinking=conversation.show_thinking,
+            effort=effort,
+            timeout_seconds=float(limits.timeout_seconds),
         ),
         price=price,
         model_id=model.model_id,
@@ -654,6 +666,7 @@ def prepare_turn(
         won_per_1k_output=won_per_1k_output,
         tools=tools,
         web_search_usd_per_call=model.web_search_usd_per_call,
+        depth=level.name if effort else None,
     )
 
 
@@ -830,6 +843,7 @@ def finish_turn(
                 provider="claude",
                 feature=UsageFeature.CHAT.value,
                 model_id=turn.model_id,
+                depth=turn.depth,
                 provider_units=input_tokens + output_tokens + written + read,
                 provider_unit="tokens",
                 provider_cost=(
@@ -880,6 +894,7 @@ def finish_turn(
             action=action if status is not ChatMessageStatus.REFUSED else None,
             action_title=action_title,
             model_id=turn.model_id,
+            depth=turn.depth,
             # The whole prompt, cached or not — what the reply was written from.
             input_tokens=input_tokens + written + read,
             output_tokens=output_tokens,

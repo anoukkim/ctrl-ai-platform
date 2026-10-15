@@ -132,6 +132,13 @@ class ChatRequest:
     search_max_uses: int = 5
     #: 생각 과정 보기 (chat-thinking-view): ask for the summarized thinking.
     show_thinking: bool = False
+    #: 생각 깊이 (quality-tuning Q1): the API effort the server chose for
+    #: the member's level — None for a model without effort (or a caller
+    #: that leaves it to `CHAT_EFFORT`).
+    effort: str | None = None
+    #: The provider timeout for this call (Admin › System, Q1). None: the
+    #: client's default.
+    timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -428,11 +435,16 @@ short videos with AI. Most members cannot code and have never used an API.
 
 How to answer:
 - Always answer in Korean, whatever language the member writes in.
-- Explain simply, as to a beginner. Short paragraphs, everyday words; when \
-a technical term is unavoidable, say in one phrase what it means.
-- Be warm and practical. Prefer one clear next step over a long list.
+- Answer completely, with the depth the question needs. Small talk and \
+quick facts get a short, friendly answer. How-to, comparison, study and \
+planning questions get a thorough one: the reasoning, concrete examples, \
+numbered steps the member can follow, and code where it helps — do not \
+stop at an outline or leave steps "for later".
+- Explain as to a beginner: everyday words, short paragraphs; when a \
+technical term is unavoidable, say in one phrase what it means. Be warm and \
+practical.
 - The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
-- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript, inline SVG for charts and drawings. No external scripts, fonts, images or network requests — they will not load. For a chart, use inline SVG or a few lines of plain JavaScript on a canvas, never a chart library. Keep it short enough to finish in one reply.
+- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript, inline SVG for charts and drawings. No external scripts, fonts, images or network requests — they will not load. For a chart, use inline SVG or plain JavaScript on a canvas, never a chart library. Make the page complete and polished — every button works — rather than a bare sketch.
 
 When a tool is available (web search, page reading, code execution):
 - Use it without announcing it — no "검색해 볼게요" or step-by-step narration.
@@ -1473,8 +1485,9 @@ store.get(KEY).then((saved) => {
 
 # --------------------------------------------------------------- anthropic
 
-#: Effort levels used here. `between_tools` accepts `high` or below.
-_EFFORTS = ("low", "medium", "high")
+#: Effort levels used here (생각 깊이, quality-tuning Q1). `between_tools`
+#: accepts `high` or below, so 최고 (`max`) turns adaptive thinking on.
+_EFFORTS = ("low", "medium", "high", "max")
 
 
 #: Haiku 4.5's thinking budget when 생각 과정 보기 is on (chat-thinking-view).
@@ -1530,7 +1543,7 @@ def thinking_params(
             "output_config": {"effort": effort},
         }
     if model.startswith("claude-sonnet-5-5"):
-        mode = "between_tools" if off else "adaptive"
+        mode = "between_tools" if off and effort != "max" else "adaptive"
         return {"thinking": {"type": mode}, "output_config": {"effort": effort}}
     # Opus 5.5 and anything newer: adaptive thinking is the only mode.
     return {"output_config": {"effort": effort}}
@@ -1612,8 +1625,13 @@ class AnthropicClaudeProvider:
         fetch_max_content_tokens: int = 10_000,
         show_thinking: bool = False,
         search_max_uses: int = 5,
+        effort: str | None = None,
     ) -> dict[str, Any]:
         """The request body. With `cache_ttl`, two cache breakpoints.
+
+        `effort` is the 생각 깊이 the server chose (quality-tuning Q1); None
+        keeps `CHAT_EFFORT`. A model without effort (Haiku 4.5) never gets
+        the field either way (`thinking_params`).
 
         The system prompt is the same for every conversation, so it gets
         an explicit marker of its own; the top-level `cache_control` lets
@@ -1631,7 +1649,7 @@ class AnthropicClaudeProvider:
             **thinking_params(
                 model,
                 self._settings.chat_thinking,
-                self._settings.chat_effort,
+                effort or self._settings.chat_effort,
                 show=show_thinking,
                 max_tokens=max_tokens,
             ),
@@ -1689,7 +1707,10 @@ class AnthropicClaudeProvider:
             request.fetch_max_content_tokens,
             request.show_thinking,
             request.search_max_uses,
+            request.effort,
         )
+        if request.timeout_seconds:
+            params["timeout"] = float(request.timeout_seconds)
         messages = list(params["messages"])
         # Totals of the requests already finished (pause_turn continuations).
         done_in = done_out = done_written = done_read = done_searches = done_fetches = 0

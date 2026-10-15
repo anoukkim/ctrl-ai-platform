@@ -27,6 +27,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     ForeignKey,
@@ -147,6 +148,15 @@ class ChatLimits(Base):
     app_ai_daily_cap_krw: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="2000"
     )
+    #: quality-tuning Q1: max_tokens and cap per 생각 깊이, per surface —
+    #: {"chat": {"low": {"max_tokens": …, "cap_krw": …}, …}, "builder": …}.
+    #: NULL: `depth.DEFAULTS`.
+    depth_levels: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    #: History the chat sends back each turn, in tokens (was the
+    #: CHAT_CONTEXT_TOKENS variable) and the provider timeout in seconds
+    #: (was CHAT_TIMEOUT_SECONDS) — admin settings since Q1.
+    context_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="64000")
+    timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="180")
     set_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

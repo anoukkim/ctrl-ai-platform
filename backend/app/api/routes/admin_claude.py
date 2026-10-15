@@ -10,7 +10,7 @@ Admin-only, and — like every other Admin screen — not gated on
 participation: setting prices is administration, not creation.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ from app.schemas.pricing import (
     ExchangeRateRead,
     ExchangeRateWrite,
 )
+from app.services import depth as depth_service
 from app.services import audit, chat_limits, chat_models, pricing
 
 router = APIRouter(prefix="/admin/claude-pricing", tags=["admin"])
@@ -52,6 +53,9 @@ def _limits_read(db: Session) -> ChatLimitsRead:
         web_fetch_max_content_tokens=limits.web_fetch_max_content_tokens,
         web_search_max_uses=limits.web_search_max_uses,
         app_ai_daily_cap_krw=limits.app_ai_daily_cap_krw,
+        depth_levels=depth_service.full_table(limits.depth_levels),
+        context_tokens=limits.context_tokens,
+        timeout_seconds=limits.timeout_seconds,
         set_at=row.created_at if row is not None else None,
         set_by_username=who.username if who else "",
     )
@@ -136,6 +140,12 @@ def set_chat_limits(
     table itself. 0 switches that guard off.
     """
     before = chat_limits.current(db)
+    try:
+        levels = depth_service.checked_table(
+            payload.depth_levels if payload.depth_levels is not None else depth_service.full_table(before.depth_levels)
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
     db.add(
         ChatLimits(
             reply_cap_krw=payload.reply_cap_krw,
@@ -146,6 +156,9 @@ def set_chat_limits(
             web_fetch_max_content_tokens=payload.web_fetch_max_content_tokens,
             web_search_max_uses=payload.web_search_max_uses,
             app_ai_daily_cap_krw=payload.app_ai_daily_cap_krw,
+            depth_levels=levels,
+            context_tokens=payload.context_tokens,
+            timeout_seconds=payload.timeout_seconds,
             set_by=admin.id,
         )
     )
@@ -167,7 +180,9 @@ def set_chat_limits(
             f"페이지 읽기 {payload.web_fetch_max_uses}회×"
             f"{payload.web_fetch_max_content_tokens:,}토큰 · "
             f"웹 검색 {payload.web_search_max_uses}회 · "
-            f"앱 AI 하루 한도 {won(payload.app_ai_daily_cap_krw)}"
+            f"앱 AI 하루 한도 {won(payload.app_ai_daily_cap_krw)} · "
+            f"대화 기억 {payload.context_tokens:,}토큰 · 응답 대기 {payload.timeout_seconds}초 · "
+            f"생각 깊이 {depth_service.summary(levels)}"
         ),
         detail={
             "before": {
@@ -179,6 +194,9 @@ def set_chat_limits(
                 "web_fetch_max_content_tokens": before.web_fetch_max_content_tokens,
                 "web_search_max_uses": before.web_search_max_uses,
                 "app_ai_daily_cap_krw": before.app_ai_daily_cap_krw,
+                "depth_levels": depth_service.full_table(before.depth_levels),
+                "context_tokens": before.context_tokens,
+                "timeout_seconds": before.timeout_seconds,
             },
             "after": payload.model_dump(),
         },

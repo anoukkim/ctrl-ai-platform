@@ -5,7 +5,10 @@ this quarter out still owns their account, and the way out of CTRL+AI must
 not be locked behind participating in it.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,6 +18,7 @@ from app.core.security import UNUSABLE_PASSWORD_HASH, verify_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.withdrawal import WithdrawalPreviewRead, WithdrawalRead, WithdrawRequest
+from app.services import chat_models
 from app.services import rate_limit
 from app.services import withdrawal as withdrawal_service
 
@@ -98,15 +102,32 @@ class PreferencesRead(BaseModel):
     #: Profile › 알림 › 사용 알림 표시 (feat-spend-feedback): the toast,
     #: the floating "-N원" and the milestone cards after a charge.
     spend_notifications: bool
+    #: Profile › 기본 모델 (quality-tuning Q1): what a new conversation and
+    #: a new Builder project start with. None: the catalogue default · 보통.
+    default_chat_model_id: int | None = None
+    default_depth: str | None = None
 
 
 class PreferencesUpdate(BaseModel):
-    spend_notifications: bool
+    """Each field optional; at least one."""
+
+    spend_notifications: bool | None = None
+    default_chat_model_id: int | None = None
+    #: A level name only (the server decides every number).
+    default_depth: Literal["low", "medium", "high", "max"] | None = None
 
 
-@router.get("/preferences", response_model=PreferencesRead, summary="My notification settings")
+def _preferences(user: User) -> PreferencesRead:
+    return PreferencesRead(
+        spend_notifications=user.spend_notifications,
+        default_chat_model_id=user.default_chat_model_id,
+        default_depth=user.default_depth,
+    )
+
+
+@router.get("/preferences", response_model=PreferencesRead, summary="My settings")
 def read_preferences(user: User = Depends(get_current_user)) -> PreferencesRead:
-    return PreferencesRead(spend_notifications=user.spend_notifications)
+    return _preferences(user)
 
 
 @router.patch("/preferences", response_model=PreferencesRead, summary="Change my notification settings")
@@ -116,7 +137,18 @@ def update_preferences(
     user: User = Depends(get_current_user),
 ) -> PreferencesRead:
     """Spends nothing and is the member's own screen, so it stays open to
-    a member who is not participating this quarter."""
-    user.spend_notifications = payload.spend_notifications
+    a member who is not participating this quarter. A default model must be
+    one this member may use."""
+    if payload.spend_notifications is None and payload.default_chat_model_id is None and payload.default_depth is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="바꿀 내용을 보내 주세요.")
+    if payload.spend_notifications is not None:
+        user.spend_notifications = payload.spend_notifications
+    if payload.default_chat_model_id is not None:
+        try:
+            user.default_chat_model_id = chat_models.checked_choice(db, user, payload.default_chat_model_id).id
+        except chat_models.ModelChoiceError as error:
+            raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    if payload.default_depth is not None:
+        user.default_depth = payload.default_depth
     db.commit()
-    return PreferencesRead(spend_notifications=user.spend_notifications)
+    return _preferences(user)

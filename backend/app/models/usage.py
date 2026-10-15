@@ -101,6 +101,9 @@ class UsageEvent(TimestampMixin, Base):
     feature: Mapped[str | None] = mapped_column(String(30), nullable=True)
     #: The provider's model id, when the action used one.
     model_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: The 생각 깊이 of a Claude call (quality-tuning Q1), for Admin ›
+    #: Budget's model × depth view. None before Q1 and for other providers.
+    depth: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     #: How much of the provider's own unit was used — tokens, seconds,
     #: generations. The unit is named rather than assumed.
