@@ -1,9 +1,17 @@
-// 여행 일정 메이커 — 화면. 일정은 이 기기의 브라우저(localStorage)에만 저장됩니다.
+// 여행 일정 메이커 — 화면. 일정은 이 기기에만 저장돼요(CTRL+AI 안에서는 ctrlai.storage, 밖에서는 localStorage).
 
 (function () {
   const T = window.TRIP;
-  // 앱 주소(폴더)마다 따로 저장해요 — 같은 주소(apps.ctrlai.my)의 다른 앱과 섞이지 않게.
-  const KEY = `trip-planner-v1:${location.pathname.replace(/[^/]*$/, "")}`;
+  const KEY = "trip-planner-v1";
+  // CTRL+AI 안에서는 ctrlai.storage(이 앱 · 이 방문자만의 저장 공간)에,
+  // 밖에서(내려받아 연 파일) 열면 이 브라우저의 localStorage에 저장해요.
+  const store =
+    window.ctrlai && window.ctrlai.connected
+      ? window.ctrlai.storage
+      : {
+          get: (key) => Promise.resolve().then(() => JSON.parse(localStorage.getItem(key) || "null")),
+          set: (key, value) => Promise.resolve().then(() => localStorage.setItem(key, JSON.stringify(value))),
+        };
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const esc = T.esc;
@@ -14,23 +22,13 @@
   function fresh() {
     return { trip: T.plan(T.SAMPLE_INPUT), day: 0, view: "result", form: { ...T.SAMPLE_INPUT, prefs: [...T.SAMPLE_INPUT.prefs] } };
   }
-  function load() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (saved && saved.trip && T.CITIES[saved.trip.input.city]) return saved;
-    } catch (error) {
-      /* 저장소를 못 쓰면 예시 일정으로 시작해요 */
-    }
-    return fresh();
-  }
   function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ trip: state.trip, day: state.day, view: state.view, form: state.form }));
-    } catch (error) {
+    store.set(KEY, { trip: state.trip, day: state.day, view: state.view, form: state.form }).catch(() => {
       /* 저장소가 막혀 있어도 화면은 계속 써요 */
-    }
+    });
   }
-  let state = load();
+  // 저장된 일정을 불러오기 전까지는 예시 일정(맨 아래에서 바꿔요).
+  let state = fresh();
   let undo = null; // 바로 전 일정 (되돌리기용)
   let message = null; // { text, kind }
   let shareUrl = "";
@@ -529,5 +527,13 @@
       render();
     }
   });
-  render();
+  store
+    .get(KEY)
+    .then((saved) => {
+      if (saved && saved.trip && saved.trip.input && T.CITIES[saved.trip.input.city]) state = saved;
+    })
+    .catch(() => {
+      /* 저장소를 못 쓰면 예시 일정으로 시작해요 */
+    })
+    .then(render);
 })();

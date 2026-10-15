@@ -4,8 +4,8 @@
 
 (function () {
   const B = window.BOT;
-  // 앱 주소(폴더)마다 따로 저장해요 — 같은 주소(apps.ctrlai.my)의 다른 앱과 섞이지 않게.
-  const KEY = `doc-chatbot-v1:${location.pathname.replace(/[^/]*$/, "")}`;
+  // 만들기 화면과 같은 저장 이름. 위젯은 혼자 열렸을 때만 읽어요.
+  const KEY = "doc-chatbot-v1";
   let settings = { ...B.DEFAULT_SETTINGS };
   let docs = B.SAMPLE_DOCS;
   let index = B.buildIndex(docs.flatMap(B.chunk));
@@ -13,15 +13,20 @@
   let chat = null;
 
   function fromStorage() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (saved && Array.isArray(saved.docs)) {
-        settings = { ...B.DEFAULT_SETTINGS, ...saved.settings };
-        docs = saved.docs;
-      }
-    } catch (error) {
-      /* 저장소를 못 쓰면 샘플 문서로 */
-    }
+    const read =
+      window.ctrlai && window.ctrlai.connected
+        ? window.ctrlai.storage.get(KEY)
+        : Promise.resolve().then(() => JSON.parse(localStorage.getItem(KEY) || "null"));
+    return read
+      .then((saved) => {
+        if (saved && Array.isArray(saved.docs)) {
+          settings = { ...B.DEFAULT_SETTINGS, ...saved.settings };
+          docs = saved.docs;
+        }
+      })
+      .catch(() => {
+        /* 저장소를 못 쓰면 샘플 문서로 */
+      });
   }
 
   function apply() {
@@ -53,8 +58,7 @@
     apply();
   });
 
-  if (!framed) fromStorage();
-  index = B.buildIndex(docs.flatMap(B.chunk));
   start();
   if (framed) window.parent.postMessage({ type: "bot-ready" }, "*");
+  else fromStorage().then(apply);
 })();

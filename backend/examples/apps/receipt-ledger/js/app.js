@@ -1,40 +1,47 @@
-// 영수증 가계부 — 화면. 데이터는 이 기기의 브라우저(localStorage)에만 저장됩니다.
+// 영수증 가계부 — 화면. 데이터는 이 기기에만 저장돼요(CTRL+AI 안에서는 ctrlai.storage, 밖에서는 localStorage).
 
 (function () {
   const L = window.LEDGER;
-  // 앱 주소(폴더)마다 따로 저장해요 — 같은 주소(apps.ctrlai.my)의 다른 앱과 섞이지 않게.
-  const KEY = `receipt-ledger-v1:${location.pathname.replace(/[^/]*$/, "")}`;
+  const KEY = "receipt-ledger-v1";
+  // CTRL+AI 안에서는 ctrlai.storage(이 앱 · 이 방문자만의 저장 공간)에,
+  // 밖에서(내려받아 연 파일) 열면 이 브라우저의 localStorage에 저장해요.
+  const store =
+    window.ctrlai && window.ctrlai.connected
+      ? window.ctrlai.storage
+      : {
+          get: (key) => Promise.resolve().then(() => JSON.parse(localStorage.getItem(key) || "null")),
+          set: (key, value) => Promise.resolve().then(() => localStorage.setItem(key, JSON.stringify(value))),
+        };
   const $ = (sel, root = document) => root.querySelector(sel);
   const esc = L.esc;
   const won = L.won;
   // CtrlAIApps 미리보기처럼 다른 화면 안에 들어 있으면 파일 내려받기가 막혀요.
-  let framed = false;
-  try { framed = window.top !== window.self; } catch (e) { framed = true; }
-  const FRAMED_NOTE = framed
-    ? `<p class="muted small">이 창은 미리보기라 파일 내려받기가 막혀 있어요. CtrlAIApps의 '앱 실행'으로 새 탭에서 열면 돼요.</p>`
-    : "";
+  // CTRL+AI 안에서는 앱이 늘 기능 상자(셸) 안에 있으니, 셸에게 물어봐요.
+  let FRAMED_NOTE = "";
+  function framedNote(framed) {
+    FRAMED_NOTE = framed
+      ? `<p class="muted small">이 창은 미리보기라 파일 내려받기가 막혀 있어요. CtrlAIApps의 '앱 실행'으로 새 탭에서 열면 돼요.</p>`
+      : "";
+  }
+  if (!(window.ctrlai && window.ctrlai.connected)) {
+    try {
+      framedNote(window.top !== window.self);
+    } catch (e) {
+      framedNote(true);
+    }
+  }
 
   // ---------------------------------------------------------------- 저장
   function freshState() {
     return { transactions: L.seedTransactions(), budget: { ...L.DEFAULT_BUDGET } };
   }
-  function load() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (error) {
-      /* 저장소를 못 쓰면 데모 데이터로 시작합니다 */
-    }
-    return freshState();
-  }
   function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state));
-    } catch (error) {
+    store.set(KEY, state).catch(() => {
       /* 저장소가 막혀 있어도 화면은 계속 씁니다 */
-    }
+    });
   }
-  let state = load();
+  // 저장된 것을 불러오기 전까지는 데모 데이터(맨 아래 '시작'에서 바꿔요).
+  let state = freshState();
 
   // ---------------------------------------------------------------- 도움
   const monthOf = (date) => date.slice(0, 7);
@@ -526,5 +533,17 @@
       go("dashboard");
     }),
   );
-  render();
+  Promise.all([
+    store.get(KEY),
+    window.ctrlai && window.ctrlai.connected
+      ? window.ctrlai.app().then((info) => framedNote(Boolean(info && info.framed)), () => framedNote(true))
+      : null,
+  ])
+    .then(([saved]) => {
+      if (saved && Array.isArray(saved.transactions) && saved.budget) state = saved;
+    })
+    .catch(() => {
+      /* 저장소를 못 쓰면 데모 데이터로 시작합니다 */
+    })
+    .then(render);
 })();

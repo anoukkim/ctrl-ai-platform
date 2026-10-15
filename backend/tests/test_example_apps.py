@@ -45,10 +45,15 @@ def test_each_showcase_is_a_static_korean_demo_within_the_builder_rules(example)
         assert not re.search(r"\bfetch\(|XMLHttpRequest|WebSocket|@import|sendBeacon", content), path
         # Dialogs are blocked in the sandboxed preview frame.
         assert not re.search(r"\b(alert|confirm|prompt)\(", content), path
-    # Storage can throw in a sandboxed frame: every app guards it.
+    # Storage can throw in a sandboxed frame: every app guards it (try, or
+    # inside a promise chain that catches).
     for path, content in files.items():
         if "localStorage." in content:
-            assert "try {" in content, path
+            assert "try {" in content or ".catch(" in content, path
+    # app-platform P1: inside CTRL+AI the app keeps its data with
+    # ctrlai.storage; localStorage is only the fallback outside.
+    code_js = "\n".join(c for path, c in files.items() if path.endswith(".js"))
+    assert "window.ctrlai.storage" in code_js and "window.ctrlai.connected" in code_js
 
 
 def test_each_showcase_keeps_its_original_spec() -> None:

@@ -1,9 +1,17 @@
-// 문서 챗봇 메이커 — 만들기 화면. 문서·설정·대화 기록은 이 기기의 브라우저(localStorage)에만 저장돼요.
+// 문서 챗봇 메이커 — 만들기 화면. 문서·설정·대화 기록은 이 기기에만 저장돼요(CTRL+AI 안에서는 ctrlai.storage, 밖에서는 localStorage).
 
 (function () {
   const B = window.BOT;
-  // 앱 주소(폴더)마다 따로 저장해요 — 같은 주소(apps.ctrlai.my)의 다른 앱과 섞이지 않게.
-  const KEY = `doc-chatbot-v1:${location.pathname.replace(/[^/]*$/, "")}`;
+  const KEY = "doc-chatbot-v1";
+  // CTRL+AI 안에서는 ctrlai.storage(이 앱 · 이 방문자만의 저장 공간)에,
+  // 밖에서(내려받아 연 파일) 열면 이 브라우저의 localStorage에 저장해요.
+  const store =
+    window.ctrlai && window.ctrlai.connected
+      ? window.ctrlai.storage
+      : {
+          get: (key) => Promise.resolve().then(() => JSON.parse(localStorage.getItem(key) || "null")),
+          set: (key, value) => Promise.resolve().then(() => localStorage.setItem(key, JSON.stringify(value))),
+        };
   const MAX_FILE = 200 * 1024; // 문서 하나
   const MAX_TOTAL = 800 * 1024; // 문서 전체
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -39,26 +47,15 @@
     const docs = B.SAMPLE_DOCS.map((d) => ({ ...d, sample: true }));
     return { docs, settings: { ...B.DEFAULT_SETTINGS }, logs: seedLogs(docs) };
   }
-  function load() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (saved && Array.isArray(saved.docs) && Array.isArray(saved.logs)) {
-        return { ...saved, settings: { ...B.DEFAULT_SETTINGS, ...saved.settings } };
-      }
-    } catch (error) {
-      /* 저장소를 못 쓰면 샘플로 시작해요 */
-    }
-    return fresh();
-  }
+  /** 저장했으면 true, 저장소가 막혀 있으면 false (화면은 그래도 계속 써요). */
   function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state));
-      return true;
-    } catch (error) {
-      return false;
-    }
+    return store.set(KEY, state).then(
+      () => true,
+      () => false,
+    );
   }
-  let state = load();
+  // 저장된 것을 불러오기 전까지는 샘플(맨 아래 '시작'에서 바꿔요).
+  let state = fresh();
   let index = null;
   let chunks = [];
   function reindex() {
@@ -292,9 +289,10 @@
     const doc = { id: `doc-${Date.now().toString(36)}`, name: name.slice(0, 40), text: clean };
     state.docs.push(doc);
     reindex();
-    const ok = save();
     const count = chunks.filter((c) => c.docId === doc.id).length;
-    notice(`"${doc.name}"을(를) 단락 ${count}개로 나눠 추가했어요.${ok ? "" : " (이 창에서는 저장이 막혀 있어 새로 고치면 사라져요.)"}`, "ok");
+    save().then((ok) =>
+      notice(`"${doc.name}"을(를) 단락 ${count}개로 나눠 추가했어요.${ok ? "" : " (이 창에서는 저장이 막혀 있어 새로 고치면 사라져요.)"}`, "ok"),
+    );
   }
 
   // ---------------------------------------------------------------- 설정
@@ -329,12 +327,13 @@
         welcome: String(data.get("welcome") || ""),
         notFound: String(data.get("notFound") || ""),
       };
-      const ok = save();
       $(".phone").innerHTML = `<div class="miniHead"><span class="avatar">${esc(state.settings.name.slice(0, 1))}</span><b>${esc(state.settings.name)}</b></div>
         <div class="msg bot"><div class="bubble">${esc(state.settings.welcome)}</div></div>
         <div class="msg me"><div class="bubble">아이패드 앱도 있어요?</div></div>
         <div class="msg bot"><div class="bubble">${esc(state.settings.notFound)}</div></div>`;
-      $("#saved").textContent = ok ? "저장했어요." : "이 창에서는 저장이 막혀 있어요 — 새로 고치면 처음 값으로 돌아가요.";
+      save().then((ok) => {
+        $("#saved").textContent = ok ? "저장했어요." : "이 창에서는 저장이 막혀 있어요 — 새로 고치면 처음 값으로 돌아가요.";
+      });
     });
   }
 
@@ -570,5 +569,16 @@
     }),
   );
 
-  show("chat");
+  store
+    .get(KEY)
+    .then((saved) => {
+      if (saved && Array.isArray(saved.docs) && Array.isArray(saved.logs)) {
+        state = { ...saved, settings: { ...B.DEFAULT_SETTINGS, ...saved.settings } };
+        reindex();
+      }
+    })
+    .catch(() => {
+      /* 저장소를 못 쓰면 샘플로 시작해요 */
+    })
+    .then(() => show("chat"));
 })();

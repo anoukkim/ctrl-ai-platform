@@ -223,7 +223,7 @@ def _ideas(files: dict[str, str]) -> list[str]:
         )
     else:
         ideas.append("휴대폰 화면(가로 390px)에서 더 쓰기 편하게 다듬기 — 글자 크기, 단추 크기, 한 손 조작.")
-    if _uses(files, "localStorage"):
+    if _uses(files, "localStorage", "ctrlai.storage"):
         ideas.append("저장한 내용을 파일로 내보내고 다시 불러오는 **백업** 기능 넣기 — 기기를 바꿔도 이어 쓸 수 있게.")
     else:
         ideas.append("입력한 내용이 새로 고쳐도 남도록 브라우저 저장(localStorage) 넣기.")
@@ -245,13 +245,20 @@ def readme_text(name: str, description: str, files: dict[str, str], which: Which
         f"| `{path}` | {_md_cell(own[path] if path in own and path not in files else describe(path, files[path]))} |"
         for path in listed
     )
+    sdk = (
+        "- CTRL+AI 안에서는 `ctrlai.storage`(CTRL+AI 기능 상자의 저장 공간)에 저장해요. 이 ZIP의 파일을 "
+        "직접 열면 `ctrlai`가 없어서, 코드가 대신 브라우저의 localStorage에 저장해요.\n"
+        if _uses(files, "ctrlai.")
+        else ""
+    )
     stored = (
         "## 브라우저에만 저장돼요\n\n"
-        "이 앱은 입력한 내용을 브라우저의 저장 공간(localStorage)에 넣어요. 그래서\n\n"
+        "이 앱은 입력한 내용을 이 브라우저의 저장 공간(localStorage)에 넣어요. 그래서\n\n"
         "- 같은 컴퓨터, 같은 브라우저에서만 보여요. 다른 기기나 다른 사람과는 공유되지 않아요.\n"
+        f"{sdk}"
         "- `index.html`을 더블클릭해서 열 때와 `http://localhost:8000`으로 열 때는 저장 공간이 서로 달라요.\n"
         "- CTRL+AI(apps.ctrlai.my)에서 저장한 내용은 이 ZIP에 들어 있지 않아요.\n"
-        if _uses(files, "localStorage")
+        if _uses(files, "localStorage", "ctrlai.storage")
         else "## 저장\n\n이 앱은 따로 저장하는 내용이 없어요. 새로 고치면 처음 상태로 돌아가요.\n"
     )
     ideas = "\n".join(f"{index}. {idea}" for index, idea in enumerate(_ideas(files), start=1))
@@ -291,7 +298,11 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         conventions.append(
             "스크립트는 `index.html`에서 `<script src>`로 차례대로 불러와요. 순서가 중요해요(앞 파일이 만든 것을 뒤 파일이 써요)."
         )
-    if _uses(files, "localStorage"):
+    if _uses(files, "ctrlai."):
+        conventions.append(
+            "저장은 `ctrlai.storage`(CTRL+AI 기능 상자), `window.ctrlai`가 없으면 localStorage로 — 그 분기를 지켜 주세요."
+        )
+    elif _uses(files, "localStorage"):
         conventions.append("저장은 브라우저 localStorage만 써요.")
     if not _uses(files, "alert(", "confirm(", "prompt("):
         conventions.append("알림창(alert · confirm) 대신 화면 안에서 확인을 받아요.")
@@ -316,7 +327,12 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         f"- **크기 제한**: 파일 {builder_files.MAX_FILES}개, 파일 하나 {builder_files.MAX_FILE_BYTES // 1000}KB, "
         f"전체 {builder_files.MAX_PROJECT_BYTES // 1_000_000}MB, 폴더 깊이 {builder_files.MAX_DEPTH}단계, "
         "확장자 " + " ".join(sorted(builder_files.ALLOWED_EXTENSIONS)) + ".\n\n"
-        "**CTRL+AI 밖에서는 이 제한이 더 이상 적용되지 않아요.** 서버, 데이터베이스, npm 패키지, 외부 API를 "
+        "- **CTRL+AI 기능 상자(SDK)**: CTRL+AI에서 돌 때는 `window.ctrlai`가 있어요 — "
+        "`ctrlai.storage.get/set/remove/keys/clear`(앱마다 · 방문자마다 약 1MB, 비동기). CTRL+AI가 "
+        "실행할 때 스크립트를 넣어 주므로 이 폴더에는 없어요.\n\n"
+        "**CTRL+AI 밖에서는 이 제한이 더 이상 적용되지 않아요.** 그 대신 `ctrlai.*`도 없어요 — 그런 호출은 "
+        "localStorage나 직접 만든 서버로 바꿔야 해요(지금 코드에 localStorage로 넘어가는 길이 있으면 그대로 "
+        "쓰면 돼요). 서버, 데이터베이스, npm 패키지, 외부 API를 "
         "써도 돼요. 다만 그렇게 바꾸면 CTRL+AI Builder에 다시 붙여 넣어 게시할 수는 없어요 — Builder는 위 "
         "조건의 정적 파일만 받아요. 그런 큰 변경 전에는 만든 사람에게 한 번 확인해 주세요.\n\n"
         "## 코딩 관례 (지금 코드에서 쓰는 방식)\n\n"
