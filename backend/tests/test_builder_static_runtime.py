@@ -257,6 +257,33 @@ def test_a_projects_folder_holds_only_that_project(
     assert one.app_slug is None and two.app_slug is None
 
 
+def test_guide_docs_stay_in_the_project_and_are_never_served(
+    client: TestClient, db_session: Session, project, budgeted, config, apps_dir
+) -> None:
+    """quality-tuning Q3: README / CLAUDE / HANDOFF_PROMPT / HISTORY / SPEC
+    belong to the project and its ZIP, not to the app on apps.ctrlai.my —
+    neither the working copy nor the published version. A file of the
+    same name inside a folder is the app's own and is served."""
+    files = {"index.html": "<p>앱</p>", "notes/README.md": "앱 안의 글"}
+    files.update({name: f"# {name}" for name in builder_files.GUIDE_DOCS})
+    builder_versions.replace_files(db_session, project, files)
+    db_session.commit()
+
+    assert client.post(f"/api/builder/projects/{project.id}/runtime", json={}).status_code == 200
+    db_session.refresh(project)
+    draft = apps_dir / project.draft_slug
+    assert sorted(p.name for p in draft.iterdir()) == ["index.html", "notes"]
+    assert (draft / "notes" / "README.md").is_file()
+
+    app_runtime.write_public(db_session, config, project, files)
+    public = apps_dir / project.app_slug
+    for name in builder_files.GUIDE_DOCS:
+        assert not (public / name).exists()
+    assert (public / "index.html").is_file()
+    # The project itself keeps every guide.
+    assert set(builder_files.GUIDE_DOCS) <= set(files_of(db_session, project))
+
+
 def test_deleting_a_project_stops_serving_it(
     client: TestClient, db_session: Session, project, budgeted, config, apps_dir
 ) -> None:

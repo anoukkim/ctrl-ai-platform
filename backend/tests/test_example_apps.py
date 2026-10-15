@@ -80,7 +80,9 @@ def test_the_showcases_use_sub_folders_and_the_runtime_serves_them(db_session: S
         root = Path(settings.apps_dir) / project.app_slug
         assert (root / "index.html").is_file()
         assert (root / "js" / "app.js").is_file()
-        assert (root / "SPEC.md").is_file()
+        # 안내 문서 stay in the project, never on the apps origin (Q3).
+        assert not (root / "SPEC.md").exists()
+        assert not (root / "README.md").exists()
 
 
 def test_the_cli_publishes_once_and_a_second_run_changes_nothing(db_session: Session, dev_user, settings) -> None:
@@ -203,7 +205,7 @@ def test_update_brings_existing_examples_to_the_image_s_files_as_a_published_ver
     trip = db_session.query(BuilderProject).filter_by(name="여행 일정 메이커").one()
     assert trip.published_version_number == 2
     assert builder_versions.current_files(db_session, trip)["README.md"] == "# 새 안내"
-    assert (Path(settings.apps_dir) / trip.app_slug / "README.md").read_text(encoding="utf-8") == "# 새 안내"
+    assert not (Path(settings.apps_dir) / trip.app_slug / "README.md").exists()
     row = db_session.query(AuditLog).filter_by(action="example_apps.updated").one()
     assert row.detail["updated"] == ["여행 일정 메이커"]
 
