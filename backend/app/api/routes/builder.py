@@ -8,7 +8,7 @@ than only the ones that remembered to check.
 """
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from typing import Literal
@@ -38,6 +38,8 @@ from app.schemas.builder import (
     EditEstimateRead,
     GenerateRead,
     GenerateRequest,
+    HandoffFile,
+    HandoffRead,
     PublishRequest,
     RestoreRead,
     VersionLabel,
@@ -54,6 +56,7 @@ from app.services import (
     builder_versions,
     chat_models,
     pricing,
+    project_handoff,
     project_zip,
 )
 from app.services import usage as usage_service
@@ -236,18 +239,64 @@ def update_project(
     return project
 
 
+def handoff_read(
+    db: Session, project: BuilderProject, bundle: project_handoff.Bundle, *, with_content: bool = False
+) -> HandoffRead:
+    """The ZIP described — shared by the member's panel and the admin preview."""
+    latest = builder_versions.latest(db, project)
+    return HandoffRead(
+        which=bundle.which,
+        version_number=bundle.version_number,
+        filename=bundle.filename,
+        draft_version_number=latest.number if latest is not None else 0,
+        published_version_number=project.published_version_number,
+        files=[
+            HandoffFile(
+                path=path,
+                bytes=len(content.encode("utf-8")),
+                generated=path in bundle.generated,
+                content=content if with_content else None,
+            )
+            for path, content in bundle.files.items()
+        ],
+        prompt=bundle.prompt,
+        extra_marker=project_handoff.EXTRA_MARKER,
+        extra_label=project_handoff.EXTRA_LABEL,
+        max_extra=project_handoff.MAX_EXTRA,
+        claude_code_first_line=project_handoff.CLAUDE_CODE_FIRST_LINE,
+    )
+
+
+def build_bundle(
+    db: Session, project: BuilderProject, which: project_handoff.Which, extra: str
+) -> project_handoff.Bundle:
+    """`project_handoff.bundle`, its refusals turned into HTTP answers."""
+    try:
+        return project_handoff.bundle(db, project, which, extra)
+    except project_handoff.HandoffError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except project_zip.ProjectTooLargeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=str(error)
+        ) from error
+
+
 @router.get(
     "/projects/{project_id}/download",
-    summary="Download the project's files as a ZIP",
+    summary="프로젝트 내려받기: the project as a ZIP, with README / CLAUDE.md / HANDOFF_PROMPT / HISTORY",
     response_class=Response,
     responses={200: {"content": {"application/zip": {}}, "description": "The project as a ZIP"}},
 )
 def download_project(
     project_id: int,
+    version: project_handoff.Which = Query("draft"),
+    extra: str = Query("", max_length=2000),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Response:
-    """Pack this project's files and send them back as one archive.
+    """Pack the chosen version (작업 중 by default, or 게시된 버전) with the
+    guides that let the member carry on with their own Claude
+    (`services/project_handoff.py`). `extra` fills the prompt's blank.
 
     **`get_current_user`, not `require_active_member`** — and that is the
     point of the feature. A member who did not join this quarter cannot
@@ -257,32 +306,24 @@ def download_project(
 
     A deleted project is not downloadable: `_owned_project` already
     answers 404 for it, the same answer the member gets everywhere else.
-
-    The archive is built in memory. Builder projects are small source
-    trees, and `project_zip` caps the total so one request cannot
-    allocate without bound.
+    The archive is built in memory; `project_zip` caps the total.
     """
     project = _owned_project(project_id, db, user)
-
-    rows = db.scalars(
-        select(BuilderProjectFile).where(BuilderProjectFile.project_id == project.id)
-    )
+    bundle = build_bundle(db, project, version, extra)
     try:
-        payload = project_zip.build(project.name, [(row.path, row.content) for row in rows])
-    except project_zip.ProjectTooLargeError as error:
+        payload = project_zip.pack(bundle.files)
+    except project_zip.ProjectTooLargeError as error:  # pragma: no cover — bundle checked it
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(error)
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=str(error)
         ) from error
-
-    filename = project_zip.safe_filename(project.name, date.today(), "zip")
 
     # Both forms of the name, on purpose. `filename*` carries the Korean
     # one as UTF-8 and is what every current browser reads; the plain
     # `filename` is the ASCII fallback for anything that does not, and
     # without it such a client saves the response as the route's last
     # path segment — a file called "download" with no extension.
-    disposition = f'attachment; filename="project-{project.id}.zip"; ' + (
-        f"filename*=UTF-8''{quote(filename)}"
+    disposition = f'attachment; filename="{bundle.ascii_filename}"; ' + (
+        f"filename*=UTF-8''{quote(bundle.filename)}"
     )
 
     return Response(
@@ -290,6 +331,24 @@ def download_project(
         media_type="application/zip",
         headers={"Content-Disposition": disposition},
     )
+
+
+@router.get(
+    "/projects/{project_id}/handoff",
+    response_model=HandoffRead,
+    summary="내 Claude로 이어서 만들기: what the ZIP holds, and the prompt",
+)
+def project_handoff_read(
+    project_id: int,
+    version: project_handoff.Which = Query("draft"),
+    extra: str = Query("", max_length=2000),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> HandoffRead:
+    """The file list (no contents) and the claude.ai prompt, for the panel.
+    Open to inactive members, like the download itself."""
+    project = _owned_project(project_id, db, user)
+    return handoff_read(db, project, build_bundle(db, project, version, extra))
 
 
 @router.delete(

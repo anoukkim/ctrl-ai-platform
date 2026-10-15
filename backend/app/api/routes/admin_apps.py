@@ -6,17 +6,19 @@ app down (audited; its reports close) or close a report and keep the app
 and they may publish again.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.api.routes.apps import listing_of
+from app.api.routes.builder import build_bundle, handoff_read
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import AppReport, BuilderProject, User
+from app.models import AppReport, BuilderProject, User, UserRole
 from app.schemas.apps import AdminAppRead, AdminReportRead, AdminResolve, AdminUnpublish
-from app.services import app_publish
+from app.schemas.builder import HandoffRead
+from app.services import app_publish, project_handoff
 
 router = APIRouter(prefix="/admin/apps", tags=["admin"])
 
@@ -36,9 +38,39 @@ def list_published(
             **listing_of(db, settings, row).model_dump(),
             owner_id=row.owner_user_id,
             open_reports=counts.get(row.id, 0),
+            example=_is_example(db, row),
         )
         for row in rows
     ]
+
+
+def _is_example(db: Session, project: BuilderProject) -> bool:
+    """An example app is one an admin owns (`import_example_apps`)."""
+    owner = db.get(User, project.owner_user_id)
+    return owner is not None and owner.role is UserRole.ADMIN
+
+
+@router.get(
+    "/{project_id}/handoff",
+    response_model=HandoffRead,
+    summary="ZIP 미리보기: exactly what 프로젝트 내려받기 packs, for an example app",
+)
+def preview_handoff(
+    project_id: int,
+    version: project_handoff.Which = Query("published"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> HandoffRead:
+    """Every file of the ZIP with its text, so the admin can check the
+    README / CLAUDE.md / prompt read well (project-export-handoff).
+
+    Example apps only — projects an admin owns. A member's project is not
+    readable here: its HISTORY holds their own requests, and nothing about
+    checking our templates needs them."""
+    project = db.get(BuilderProject, project_id)
+    if project is None or project.deleted_at is not None or not _is_example(db, project):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예시 앱을 찾을 수 없습니다.")
+    return handoff_read(db, project, build_bundle(db, project, version, ""), with_content=True)
 
 
 @router.get("/reports", response_model=list[AdminReportRead], summary="Open reports, oldest first")
