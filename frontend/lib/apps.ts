@@ -57,6 +57,8 @@ export function coverTint(slug: string, angle = 140): string {
 export interface AdminApp extends AppListing {
   owner_id: number;
   open_reports: number;
+  /** 관리자가 올린 예시 앱 — ZIP 미리보기를 열 수 있어요. */
+  example: boolean;
 }
 
 export interface AdminReport {

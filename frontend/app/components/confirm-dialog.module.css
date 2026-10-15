@@ -43,6 +43,27 @@
   min-width: 0;
 }
 
+/* 안내가 긴 창(project-export-handoff). 휴대폰에서는 아래에서 올라오는
+   시트 — 엄지가 닿는 자리에 단추가 오고, 길면 시트 안에서 넘깁니다. */
+.sheet {
+  max-width: 34rem;
+}
+
+@media (max-width: 37.5rem) {
+  .sheetBackdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dialog.sheet {
+    max-width: none;
+    max-height: 88dvh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: 0;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (max-width: 26rem) {
   .dialog {
     padding: 18px 16px;

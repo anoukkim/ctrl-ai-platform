@@ -332,8 +332,12 @@ export function deleteBuilderProject(id: number | string): Promise<void> {
   return request<void>(`/builder/projects/${id}`, { method: "DELETE" });
 }
 
+/** 내려받을 버전: 작업 중(기본) 또는 CtrlAIApps에 게시된 버전. */
+export type HandoffVersion = "draft" | "published";
+
 /**
- * 프로젝트의 코드를 ZIP으로 받는 주소.
+ * 프로젝트 내려받기(project-export-handoff): 고른 버전의 파일과 README ·
+ * CLAUDE.md · HANDOFF_PROMPT · HISTORY를 담은 ZIP의 주소.
  *
  * `request`를 쓰지 않습니다. 내려오는 것이 JSON이 아니고, 브라우저가
  * 파일로 저장해 주기를 바라는 응답입니다. 그래서 이 주소로 그냥
@@ -341,10 +345,69 @@ export function deleteBuilderProject(id: number | string): Promise<void> {
  * 화면은 그대로 있고 파일만 내려옵니다.
  *
  * 같은 출처이므로 세션 쿠키도 함께 갑니다. 참여하지 않는 분기에도
- * 열려 있는 길입니다 — 내가 만든 것을 꺼내 오는 일이니까요.
+ * 열려 있는 길입니다 — 내가 만든 것을 꺼내 오는 일이니까요. `extra`는
+ * 프롬프트의 "내가 추가하고 싶은 것: ___" 자리에 들어갑니다.
  */
-export function builderProjectDownloadUrl(id: number | string): string {
-  return `${API_BASE_URL}/api/builder/projects/${id}/download`;
+export function builderProjectDownloadUrl(
+  id: number | string,
+  version: HandoffVersion = "draft",
+  extra = "",
+): string {
+  const params = new URLSearchParams();
+  if (version !== "draft") params.set("version", version);
+  if (extra.trim()) params.set("extra", extra.trim());
+  const query = params.toString();
+  return `${API_BASE_URL}/api/builder/projects/${id}/download${query ? `?${query}` : ""}`;
+}
+
+export interface HandoffFile {
+  path: string;
+  bytes: number;
+  /** CTRL+AI가 써 넣는 안내 파일(README · CLAUDE.md · HANDOFF_PROMPT · HISTORY). */
+  generated: boolean;
+  /** 내용 — 관리자 미리보기에서만 옵니다. */
+  content: string | null;
+}
+
+export interface HandoffInfo {
+  which: HandoffVersion;
+  version_number: number;
+  filename: string;
+  draft_version_number: number;
+  published_version_number: number | null;
+  files: HandoffFile[];
+  prompt: string;
+  extra_marker: string;
+  extra_label: string;
+  max_extra: number;
+  claude_code_first_line: string;
+}
+
+/** ZIP에 무엇이 들어가는지와 claude.ai에 붙여 넣을 프롬프트. */
+export function getHandoff(id: number | string, version: HandoffVersion = "draft"): Promise<HandoffInfo> {
+  return request<HandoffInfo>(`/builder/projects/${id}/handoff?version=${version}`);
+}
+
+/** 관리자: 예시 앱의 ZIP에 들어가는 파일을 내용까지 그대로. */
+export function getAdminHandoffPreview(
+  projectId: number,
+  version: HandoffVersion = "published",
+): Promise<HandoffInfo> {
+  return request<HandoffInfo>(`/admin/apps/${projectId}/handoff?version=${version}`);
+}
+
+/**
+ * "무엇을 더 하고 싶나요?"를 프롬프트의 빈칸에 넣습니다 — 입력하는
+ * 대로 바로. 백엔드의 `project_handoff.fill_extra`와 같은 규칙입니다:
+ * 비어 있으면 빈칸(___)을 그대로 두고, 빈칸이 없는 프롬프트에는 끝에
+ * 한 줄을 더합니다.
+ */
+export function fillExtra(prompt: string, marker: string, label: string, extra: string): string {
+  const text = extra.split(/\s+/).filter(Boolean).join(" ");
+  if (!text) return prompt;
+  const line = `${label} ${text}`;
+  if (prompt.includes(marker)) return prompt.replace(marker, () => line);
+  return `${prompt.replace(/\n+$/, "")}\n\n${line}\n`;
 }
 
 /* ------------------------------------------------------------------ */

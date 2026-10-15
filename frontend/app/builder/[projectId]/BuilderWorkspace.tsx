@@ -26,7 +26,6 @@ import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
   BUILDER_STATUS_LABEL,
-  builderProjectDownloadUrl,
   createStarterApp,
   deleteBuilderProject,
   appUrl,
@@ -63,6 +62,7 @@ import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import PreviewPane from "./PreviewPane";
+import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
 import PublishDialog, { type PublishValues } from "./PublishDialog";
 import styles from "./workspace.module.css";
 import Skeleton from "@/app/components/Skeleton";
@@ -172,6 +172,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // ctrlaiapps-publish
   const [style, setStyle] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
+  const [handoff, setHandoff] = useState<HandoffMode | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [previewWhich, setPreviewWhich] = useState<"draft" | "published">("draft");
@@ -516,9 +517,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           // 오는 일이고, 백엔드도 같은 이유로 열어 두었습니다.
           extraActions={[
             {
-              label: "코드 다운로드 (ZIP)",
-              href: builderProjectDownloadUrl(project.id),
-              title: "프로젝트 파일을 압축 파일로 받습니다",
+              label: "프로젝트 내려받기",
+              onSelect: () => setHandoff("download"),
+              title: "앱 파일과 안내(README · CLAUDE.md · 프롬프트)를 ZIP으로 받습니다",
             },
           ]}
           onDelete={() => askToDelete(project.name)}
@@ -549,6 +550,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
         <span className={ws.topbarSpacer} />
         <span className={ws.topbarActions}>
+          {/* 내려받기는 참여 여부와 무관합니다 — 내가 만든 것을 꺼내 오는
+              일이고, 백엔드도 같은 이유로 열어 두었습니다. */}
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => setHandoff("download")}
+            disabled={files === null}
+            title="앱 파일과 안내를 ZIP으로 받습니다"
+          >
+            내려받기
+          </button>
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => setHandoff("claude")}
+            disabled={files === null}
+            title="claude.ai나 Claude Code에서 이어서 만드는 방법"
+          >
+            내 Claude로 이어서 만들기
+          </button>
           <button className="btn btn-sm" type="button" disabled title="Phase 5에서 제공됩니다">
             GitHub에 저장
           </button>
@@ -986,6 +1007,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           </div>
         </aside>
       </div>
+
+      {handoff && (
+        <HandoffSheet projectId={project.id} mode={handoff} onClose={() => setHandoff(null)} />
+      )}
 
       {publishOpen && (
         <PublishDialog

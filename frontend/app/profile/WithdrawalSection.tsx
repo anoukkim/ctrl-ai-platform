@@ -151,7 +151,7 @@ export default function WithdrawalSection() {
           </li>
           <li>
             <Link href="/builder">
-              Project Builder — 코드 다운로드 (ZIP)
+              Project Builder — 프로젝트 내려받기 (ZIP)
               {preview ? ` (프로젝트 ${preview.builder_projects}개)` : ""}
             </Link>
           </li>
