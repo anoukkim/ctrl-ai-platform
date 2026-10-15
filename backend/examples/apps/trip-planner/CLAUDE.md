@@ -47,8 +47,9 @@ SPEC.md
 
 ## 저장
 
-- localStorage 키: `trip-planner-v1:` + 현재 폴더 경로(`location.pathname`에서 파일 이름을 뺀 것). 값은 `{trip, day, view, form}` JSON.
-- `load()`·`save()`는 `try/catch`로 감싸 있어요 — 저장소가 막혀도 예시 일정으로 시작하고 화면은 계속 돼요. 도시가 `TRIP.CITIES`에 없으면 저장본을 버려요.
+- 고정 키 `KEY = "trip-planner-v1"`, 값은 `{trip, day, view, form}`.
+- **`store` 갈래**: `window.ctrlai.connected`이면 `ctrlai.storage`(CTRL+AI 안, 앱 · 방문자별 약 1MB), 아니면 `get/set`(Promise)으로 감싼 `localStorage`(파일을 직접 열 때). `ctrlai`는 CTRL+AI가 넣는 SDK라 그 안에만 있어요. **안팎 모두에서 돌게 하는 갈래이니 지우지 마세요.**
+- 비동기라 `load()`는 없어요. `fresh()`(예시 일정)로 시작해 맨 아래에서 `store.get(KEY)`가 끝나면 첫 `render()` — 도시가 `TRIP.CITIES`에 없으면 저장본을 버려요. `save()` 실패는 `.catch`로 삼켜요.
 - 공유 링크: `#share=` + `T.encode(trip)` — `{i: input, l: lodging, r: rain, c: cheap, x: relaxed, d: days}` JSON을 UTF-8 → base64url(`+`→`-`, `/`→`_`, `=` 제거). `T.decode`는 모르는 도시·장소 id를 버리고 최대 7일·하루 8곳, 인원 1~8, 예산 0~1억으로 잘라요. 해시가 있으면 보기 전용, `hashchange`에 다시 그려요.
 
 ## 만들어진 조건 (CTRL+AI 안에서)

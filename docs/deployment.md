@@ -817,6 +817,20 @@ dc exec api python -m app.db.import_example_apps <관리자 아이디> --replace
 
 내리려면 Builder에서 그 프로젝트의 **게시 취소**.
 
+### 앱 기능 상자(app-platform P1)를 처음 올린 뒤 한 번
+
+P1부터 `apps.<도메인>/<앱>/`은 CTRL+AI의 **셸** 페이지이고, 회원의 파일은
+`/<앱>/_app/…`에 있습니다(Caddyfile이 바뀌므로 `update.sh`가 caddy를 다시
+만듭니다). 그 전에 쓴 앱 파일에는 예전 저장소 대체가 들어 있으니, 배포한 뒤
+**한 번** 모든 앱 폴더를 다시 씁니다(데이터베이스는 바뀌지 않음, 두 번 해도 같음):
+
+```bash
+dc exec api python -m app.db.rewrite_app_runtime
+```
+
+출력: `게시된 앱 N개, 작업 중 사본 M개를 다시 썼습니다.` 예전 주소
+(`/<앱>/index.html`)는 새 주소로 넘어갑니다(301).
+
 ## 13. 나중에 키울 때 (지금은 하지 않음) 💳
 
 같은 이미지를 그대로 쓰므로 코드를 고치지 않고 옮길 수 있습니다. 어느 쪽이든

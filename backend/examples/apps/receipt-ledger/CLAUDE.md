@@ -49,10 +49,12 @@ SPEC.md
 
 ## 저장
 
-- `localStorage` 열쇠 하나: `` `receipt-ledger-v1:${location.pathname.replace(/[^/]*$/, "")}` `` — 앱이 있는 폴더 주소마다 따로 저장돼요. 값은 `state` 전체의 JSON이에요.
-- `load()`와 `save()`는 `try/catch`로 감싸 있어서, 저장소가 막혀 있어도(사생활 보호 창 등) 오류 없이 데모 데이터로 돌아가요. 이 방식을 유지해 주세요.
-- 처음 열 때나 `#reset`(데모 초기화)을 누르면 `freshState()`가 `seedTransactions()`와 `DEFAULT_BUDGET`으로 새 상태를 만들어요.
-- `state` 모양을 바꾸면 예전에 저장된 데이터와 안 맞을 수 있어요. 그럴 땐 열쇠의 `v1`을 `v2`로 올리거나, `load()`에서 옛 모양을 고쳐 읽게 해 주세요.
+- 고정 열쇠 `KEY = "receipt-ledger-v1"`(폴더와 무관)에 `state` 전체를 넣어요.
+- **`store` 갈래**(`app.js` 맨 위): `window.ctrlai && window.ctrlai.connected`이면 `window.ctrlai.storage`(CTRL+AI 안 — 앱 · 방문자별, 약 1MB), 아니면 같은 `get/set`(Promise)으로 감싼 `localStorage`(내려받은 파일을 직접 열 때). `ctrlai`는 CTRL+AI가 넣어 주는 SDK라 그 안에만 있어요. **이 갈래가 있어야 안팎 모두에서 돌아가니 지우지 마세요.**
+- 비동기라 `load()`는 없어요. `state`는 `freshState()`로 시작하고, 맨 아래에서 `store.get(KEY)`가 끝나면(모양이 맞으면 저장본으로) 첫 `render()`. `save()`는 `store.set(KEY, state)`, 실패는 `.catch`로 삼켜 저장소가 막혀도 화면은 돼요.
+- `#reset`(데모 초기화)은 `freshState()`(`seedTransactions()` + `DEFAULT_BUDGET`)로 되돌려요.
+- `state` 모양을 바꾸면 `KEY`의 `v1`을 `v2`로 올리거나, `store.get(KEY).then(...)`에서 옛 모양을 고쳐 읽게 해 주세요.
+- `FRAMED_NOTE`(내려받기 막힘 안내): 안에서는 `ctrlai.app()`의 `framed`, 밖에서는 `window.top !== window.self`.
 
 ## 만들어진 조건 (CTRL+AI 안에서)
 

@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.routes import app_platform
 from app.core.config import get_settings
 from app.core.json_only import JsonOnlyMiddleware
 
@@ -63,6 +64,9 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+# The apps origin's own routes (app-platform), outside /api: only Caddy's
+# apps.<domain> block reaches them; the club's site forwards /api/* only.
+app.include_router(app_platform.router)
 
 
 @app.get("/", tags=["meta"], summary="Service banner")

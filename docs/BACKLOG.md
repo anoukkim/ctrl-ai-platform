@@ -82,10 +82,11 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    per-app database, files later). **Starts after H1, H2 and H4 of
    RUN-2026-10-15 are deployed.** P1–P4 pre-approved to merge and deploy
    one at a time; P5 branch + tests + WAIT. Supersedes H3 (app-ai-bridge).
-   Spec below, saved verbatim. **When P1 lands:** update the H4 templates
+   Spec below, saved verbatim. **P1 merged 2026-10-15** (shell, SDK,
+   ctrlai.storage; RUN-2026-10-15). **When P1 lands:** update the H4 templates
    (`services/project_handoff.py` README / CLAUDE.md, and the showcase
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
-   that outside CTRL+AI those calls need replacing.
+   that outside CTRL+AI those calls need replacing — done in P1.
 
 2. **anonymous-feedback-board** · M1 · branch `feat-feedback-board`
     *Not pre-approved — branch, test, report, WAIT.* No menu item and no
@@ -157,6 +158,15 @@ Everything Korean for members, light/dark, 390px. Progress in docs/progress/RUN-
 ---
 
 ## After the beta (specced, not in Next)
+
+### app-subdomains
+
+Owner decision 3 of app-platform (2026-10-15): one subdomain per member
+app (`<slug>.apps.ctrlai.my`) instead of paths, so apps no longer share
+one origin. Needs a wildcard certificate, which Caddy gets only through
+a DNS-01 challenge — the DNS may have to move to a provider Caddy can
+drive (a DNS change: ask first). Until then the trusted shell + sandboxed
+frame (P1) is the isolation.
 
 Added 2026-10-07 (`docs-chat-plus`). Specced now so the beta's design
 leaves room for them; **none starts before `prep-beta-launch` has

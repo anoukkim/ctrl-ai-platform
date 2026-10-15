@@ -43,8 +43,11 @@ SPEC.md         원래 기획
 
 ## 저장
 
-- 키 하나: `` `doc-chatbot-v1:${location.pathname.replace(/[^/]*$/, "")}` `` — 앱 폴더마다 따로. 값은 `{ docs, settings, logs }` JSON. 기록은 500개까지(오래된 것부터 지움).
-- `load()` · `save()`는 `try/catch`로 감싸 있어요. 읽기 실패 · 형식 불일치면 `fresh()`(샘플로 시작), 쓰기 실패면 `save()`가 `false`를 돌려주고 화면에 "저장이 막혀 있어요"를 보여요.
+- 고정 키 하나 `KEY = "doc-chatbot-v1"`(폴더와 상관없어요). 값은 `{ docs, settings, logs }`. 기록은 500개까지(오래된 것부터 지움).
+- **`store` 갈래**(`app.js` 맨 위): `window.ctrlai && window.ctrlai.connected`이면 `window.ctrlai.storage`(CTRL+AI 안 — 이 앱 · 이 방문자만의 공간, 약 1MB), 아니면 같은 `get/set`(Promise)으로 감싼 `localStorage`(내려받은 파일을 직접 열 때). `ctrlai`는 CTRL+AI가 앱을 내보낼 때 SDK 스크립트를 넣어 줘서 그 안에서만 있어요. **이 갈래가 있어야 CTRL+AI 안과 밖 양쪽에서 돌아가니 지우지 마세요.** `widget.js`의 `fromStorage()`도 같은 갈래로 같은 `KEY`를 읽기만 해요.
+- 비동기라 `load()`는 없어요. `state`는 `fresh()`(샘플)로 시작하고, 맨 아래에서 `store.get(KEY)`가 끝나면(형식이 맞을 때만 저장본으로 바꾸고 `reindex()`) 첫 `show("chat")`을 해요. 읽기 실패 · 형식 불일치면 샘플 그대로예요.
+- `save()`는 `Promise<boolean>`을 돌려줘요: 저장했으면 `true`, 실패(저장소가 막힘, 1MB 초과)면 `false` → 화면에 "저장이 막혀 있어요"를 보여요. 결과가 필요한 곳은 `save().then((ok) => ...)`로 써요.
+- `state` 모양을 바꾸면 예전 저장본과 안 맞을 수 있어요. 그럴 땐 `KEY`의 `v1`을 `v2`로 올리거나(위젯의 `KEY`도 같이), `store.get(KEY).then(...)`에서 옛 모양을 고쳐 읽게 해 주세요.
 - 업로드 제한: 파일 하나 200KB(`MAX_FILE`), 문서 전체 80만 자(`MAX_TOTAL`).
 
 ## 만들어진 조건 (CTRL+AI 안에서)

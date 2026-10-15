@@ -477,8 +477,17 @@ Rules:
 .js or .css files if really needed). Plain HTML, CSS and browser \
 JavaScript — no frameworks, no build step, no server code.
 - No external scripts, stylesheets, fonts, images or network requests: the \
-preview blocks them all. Use inline SVG or CSS for icons and charts, and \
-localStorage if the app should remember data.
+preview blocks them all. Use inline SVG or CSS for icons and charts.
+- To remember data, use CTRL+AI's storage (per app and per visitor, \
+about 1 MB): `await ctrlai.storage.get(key)` (null when empty), \
+`await ctrlai.storage.set(key, value)` (any JSON value), \
+`ctrlai.storage.remove(key)`. It is asynchronous: load saved data, then \
+draw the first screen. CTRL+AI adds its script itself — never add a tag \
+for it. When `window.ctrlai` is missing (the files opened outside \
+CTRL+AI), fall back to localStorage, exactly like this: \
+const store = window.ctrlai && window.ctrlai.connected ? ctrlai.storage : \
+{ get: async (k) => JSON.parse(localStorage.getItem(k) || "null"), \
+set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
 - index.html links its files exactly like this: \
 <link rel="stylesheet" href="style.css"> and <script src="app.js"></script>.
 - Everything the member sees is in Korean. Short Korean comments in the \
@@ -491,7 +500,7 @@ local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs only in the visitor's browser: anything it saves stays on \
-that visitor's device (localStorage) and is never shared with others. Apps \
+that visitor's device (ctrlai.storage) and is never shared with others. Apps \
 that need accounts, logins, shared boards, chats or data across people \
 cannot be made yet — make the closest single-person version and say so in \
 the summary.
@@ -539,8 +548,19 @@ Rules:
 .json .svg .md .txt). No frameworks, no build step, no TypeScript, no \
 server code of any kind — it will be refused. index.html is the entry.
 - No external scripts, stylesheets, fonts, images or network requests: \
-they are blocked. Use inline SVG or CSS for icons and charts, and \
-localStorage if the app should remember data.
+they are blocked. Use inline SVG or CSS for icons and charts.
+- To remember data, use CTRL+AI's storage (per app and per visitor, \
+about 1 MB): `await ctrlai.storage.get(key)` (null when empty), \
+`await ctrlai.storage.set(key, value)` (any JSON value), \
+`ctrlai.storage.remove(key)`. It is asynchronous: load saved data, then \
+draw the first screen. CTRL+AI adds its script itself — never add a tag \
+for it. When `window.ctrlai` is missing (the files opened outside \
+CTRL+AI), fall back to localStorage, exactly like this: \
+const store = window.ctrlai && window.ctrlai.connected ? ctrlai.storage : \
+{ get: async (k) => JSON.parse(localStorage.getItem(k) || "null"), \
+set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
+- An app that still uses localStorage directly keeps working; when you \
+touch its saving code anyway, move it to the store above.
 - Change only what the request needs. Keep everything else as it is.
 - To create or change a file, call write_file with its path and its \
 complete new content — never a fragment or a diff. Call it once per file, \
@@ -554,7 +574,7 @@ local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs only in the visitor's browser: anything it saves stays on \
-that visitor's device (localStorage) and is never shared with others. Apps \
+that visitor's device (ctrlai.storage) and is never shared with others. Apps \
 that need accounts, logins, shared boards, chats or data across people \
 cannot be made yet — make the closest single-person version and say so in \
 the summary.
@@ -1348,11 +1368,18 @@ li button { background: transparent; color: #c0392b; padding: 4px 8px; }
         ),
         (
             "app.js",
-            """// 브라우저에 목록을 저장해 두는 열쇠 이름
+            """// 목록을 저장해 두는 이름
 const KEY = "starter-items";
 
-// 저장된 목록을 불러옵니다. 처음이면 빈 목록입니다.
-let items = JSON.parse(localStorage.getItem(KEY) || "[]");
+// CTRL+AI 안에서는 ctrlai.storage(이 앱 · 이 방문자만의 저장 공간)에,
+// 밖에서 파일을 열면 이 브라우저의 localStorage에 저장합니다.
+const store = window.ctrlai && window.ctrlai.connected ? ctrlai.storage : {
+  get: async (k) => JSON.parse(localStorage.getItem(k) || "null"),
+  set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+// 저장된 목록은 맨 아래에서 불러옵니다. 그 전까지는 빈 목록입니다.
+let items = [];
 
 const form = document.getElementById("add-form");
 const input = document.getElementById("new-item");
@@ -1361,7 +1388,7 @@ const count = document.getElementById("count");
 
 // 목록을 저장하고 화면을 다시 그립니다.
 function save() {
-  localStorage.setItem(KEY, JSON.stringify(items));
+  store.set(KEY, items).catch(() => {});
   render();
 }
 
@@ -1404,7 +1431,10 @@ form.addEventListener("submit", (event) => {
   save();
 });
 
-render();
+// 저장된 목록을 불러온 다음 처음 화면을 그립니다.
+store.get(KEY).then((saved) => {
+  if (Array.isArray(saved)) items = saved;
+}).catch(() => {}).then(render);
 """,
         ),
     ]

@@ -19,11 +19,16 @@
 export const PREVIEW_SANDBOX = "allow-scripts";
 
 /**
- * 앱 주소(apps.ctrlai.my)의 앱을 띄우는 프레임의 sandbox (builder-static-runtime).
- * 다른 출처라도 `allow-same-origin`은 주지 않습니다 — 프레임은 여전히 불투명한
- * 출처로 돌고, 폼 제출만 더 허락합니다. 테스트가 정확한 값을 확인합니다.
+ * 앱 주소(apps.ctrlai.my/<slug>/)를 띄우는 프레임의 sandbox (app-platform P1).
+ *
+ * 그 주소는 이제 회원의 파일이 아니라 **CTRL+AI의 셸**입니다. 셸은 자기
+ * 출처(apps.ctrlai.my)의 저장소를 써야 해서 `allow-same-origin`이 필요하고,
+ * ctrlai.my와는 다른 출처라 이 화면에 닿지 못합니다. 회원의 코드는 셸 안의
+ * 한 겹 더 깊은 프레임에서 `allow-same-origin` **없이** 돌아갑니다
+ * (`backend/app/services/app_shell.py`의 `APP_SANDBOX`). 맨 위 페이지 이동과
+ * 알림창은 여전히 막습니다. 테스트가 정확한 값을 확인합니다.
  */
-export const RUNTIME_SANDBOX = "allow-scripts allow-forms";
+export const RUNTIME_SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups";
 
 /**
  * 샌드박스 프레임에서는 `localStorage`가 오류를 냅니다(불투명한 출처). 앱이

@@ -39,21 +39,13 @@ from app.services import builder_files
 _SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
 SLUG_LENGTH = 10
 
-#: Added at the top of every HTML page written to the runtime. A preview
-#: frame is sandboxed without `allow-same-origin`, so `localStorage` throws
-#: there; this keeps an app's storage working in memory instead. Opened
-#: directly, the real storage works and this does nothing.
-STORAGE_SHIM = (
-    "<script>(function(){try{window.localStorage.getItem('_');return}catch(e){}"
-    "function m(){var d={};return{getItem:function(k){k=String(k);"
-    "return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},"
-    "setItem:function(k,v){d[String(k)]=String(v)},removeItem:function(k){delete d[String(k)]},"
-    "clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},"
-    "get length(){return Object.keys(d).length}}}"
-    "try{Object.defineProperty(window,'localStorage',{value:m(),configurable:true});"
-    "Object.defineProperty(window,'sessionStorage',{value:m(),configurable:true})}catch(e){}"
-    "})();</script>"
-)
+#: Added first thing in every HTML page written to the runtime
+#: (app-platform P1): the SDK, from this origin. It defines `ctrlai` and,
+#: since the app runs sandboxed where `localStorage` throws, a
+#: `localStorage` kept by the shell. Before P1 this was an inline
+#: in-memory shim (`STORAGE_SHIM`); pages written then are rewritten by
+#: `python -m app.db.rewrite_app_runtime`.
+SDK_TAG = '<script src="/_ctrlai/sdk.js"></script>'
 
 
 class AppRuntimeError(Exception):
@@ -119,7 +111,7 @@ def ensure_draft_slug(db: Session, project: BuilderProject) -> str:
 
 
 def with_shim(path: str, content: str) -> str:
-    """HTML pages get `STORAGE_SHIM` first thing in `<head>` (or the top)."""
+    """HTML pages get `SDK_TAG` first thing in `<head>` (or the top)."""
     if not path.lower().endswith(".html"):
         return content
     lower = content.lower()
@@ -127,13 +119,13 @@ def with_shim(path: str, content: str) -> str:
     if head != -1:
         end = content.find(">", head)
         if end != -1:
-            return content[: end + 1] + STORAGE_SHIM + content[end + 1 :]
+            return content[: end + 1] + SDK_TAG + content[end + 1 :]
     doctype = lower.find("<!doctype")
     if doctype != -1:
         end = content.find(">", doctype)
         if end != -1:
-            return content[: end + 1] + STORAGE_SHIM + content[end + 1 :]
-    return STORAGE_SHIM + content
+            return content[: end + 1] + SDK_TAG + content[end + 1 :]
+    return SDK_TAG + content
 
 
 def _folder_bytes(folder: Path) -> int:

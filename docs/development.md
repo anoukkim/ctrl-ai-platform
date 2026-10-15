@@ -179,8 +179,31 @@ Then open **http://localhost:3000**, which lands on **Chat**.
 **Member apps (optional).** Project Builder's preview runs inside the page
 unless the apps origin is on. To see it as on the server, run a fourth
 process in `backend/` — `.\.venv\Scripts\python.exe -m app.dev_apps_server`
-(http://localhost:8300, the same headers as Caddy's `apps.` block) — and
-start the backend with `APPS_BASE_URL=http://localhost:8300` in `.env`.
+(http://localhost:8300, answering as Caddy's `apps.` block: the shell at
+`/<slug>/`, the member's files at `/<slug>/_app/…`, `/_ctrlai/*` passed to
+the backend at `--api`, default http://127.0.0.1:8000) — and start the
+backend with `APPS_BASE_URL=http://localhost:8300` (in `.env`, or in the
+shell for one run).
+
+**Browser checks of the app platform (`npm run e2e`, in `frontend/`).**
+Playwright drives the installed Chrome against the running stack — the
+backend, the apps server and at least two published apps
+(`python -m app.db.import_example_apps dev`). It proves what jsdom cannot:
+the app frame's opaque origin, no app cookie on its requests, no driving
+another app's shell. `APPS_ORIGIN` points it elsewhere — e.g. the real
+`deploy/Caddyfile` in a container:
+
+```powershell
+# backend reachable from Docker: uvicorn ... --host 0.0.0.0 --port 8000
+docker run -d --name ctrlai-e2e-caddy --add-host api:host-gateway --add-host web:host-gateway `
+  -p 443:443 -p 80:80 -v "${PWD}\deploy\Caddyfile:/etc/caddy/Caddyfile:ro" `
+  -v "${PWD}\backend\var\apps:/srv/apps:ro" -e SITE_DOMAIN=localhost -e MAX_UPLOAD_MB=20 caddy:2-alpine
+cd frontend; $env:APPS_ORIGIN = "https://apps.localhost"; npm run e2e
+docker rm -f ctrlai-e2e-caddy
+```
+
+(Port 443 itself: the frame rules name `https://apps.<domain>` without a
+port.) It is not part of `npm test`.
 
 Only one `next dev` may run at a time. If a previous one is still running,
 Next.js says so and prints the command to stop it; two dev servers sharing the

@@ -148,16 +148,19 @@ build code** (`.py`, `.php`, `.sh`, `.ts` …): the member is not charged,
 the club's cost is recorded. Every change is a **version** (버전 기록, the
 last 30); **되돌리기** to any of them is free and is itself a new version.
 
-**The apps origin** (builder-static-runtime). After each change the
-backend writes the project's files to `apps.ctrlai.my/<app-slug>/` (a
-random slug; **미리보기 갱신** writes them again by hand), and the preview
-frames that address with `sandbox="allow-scripts allow-forms"`; 새 창에서
-열기 opens it on its own. Caddy serves it read-only with a CSP (only
-CTRL+AI may frame it; an app loads only its own files), nosniff, no
-Referer and no cookies. A deleted project stops being served at once.
-Apps share the origin, so one app can read another's `localStorage` —
-accepted for the club beta; one subdomain per app is the later step. With
-the runtime off (local development without `dev_apps_server`), the
+**The apps origin** (builder-static-runtime; since app-platform P1 the
+"CTRL+AI 기능 상자"). After each change the backend writes the project's
+files to the apps volume (a random slug; **미리보기 갱신** writes them
+again by hand). `apps.ctrlai.my/<app-slug>/` is CTRL+AI's own **shell**
+page; the app runs inside it in a frame with an opaque origin, from
+`/<app-slug>/_app/` (sandboxed even when opened on its own, no network,
+no cookies). The Builder preview and CtrlAIApps frame the shell; 새 창에서
+열기 opens it on its own. A deleted project stops being served at once.
+An app keeps data with **`ctrlai.storage`** (and its old `localStorage`
+keeps working): per app, per visitor, about 1 MB, signed out too — one
+app can no longer read another's. Coming in P2–P4: sign-in for apps,
+`ctrlai.ai` paid by the visitor, `ctrlai.db` (BACKLOG › app-platform).
+With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 
 **프로젝트 내려받기** (project-export-handoff, 2026-10-15) — the Builder
