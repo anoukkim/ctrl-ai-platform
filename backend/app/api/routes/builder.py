@@ -518,8 +518,17 @@ def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -
         logger.warning("app runtime write failed for project %s: %s", project.id, error)
 
 
-def _version_read(version: BuilderProjectVersion, project: BuilderProject | None = None) -> VersionRead:
+def _version_read(
+    version: BuilderProjectVersion,
+    project: BuilderProject | None = None,
+    generation: BuilderGeneration | None = None,
+) -> VersionRead:
+    made = generation is not None
     return VersionRead(
+        request=generation.request if made else "",
+        summary=generation.summary if made else "",
+        changed_count=len(set(generation.files_done) | set(generation.check_fixed)) if made else None,
+        charged_krw=generation.charged_krw if made else None,
         number=version.number,
         note=version.note,
         created_at=version.created_at,
@@ -633,9 +642,18 @@ def list_versions(
 ) -> list[VersionRead]:
     """Readable while not participating, like the files themselves."""
     project = _owned_project(project_id, db, user)
-    return [
-        _version_read(version, project) for version in builder_versions.list_versions(db, project)
-    ]
+    versions = builder_versions.list_versions(db, project)
+    # The generation that made each version, for the Claude panel's history.
+    made_by = {
+        generation.version_id: generation
+        for generation in db.scalars(
+            select(BuilderGeneration).where(
+                BuilderGeneration.version_id.in_([version.id for version in versions]),
+                BuilderGeneration.status == "done",
+            )
+        )
+    }
+    return [_version_read(version, project, made_by.get(version.id)) for version in versions]
 
 
 @router.post(

@@ -123,6 +123,31 @@ def test_a_change_writes_only_the_planned_file(
     assert MOCK_ACCENT_NEW in css and MOCK_ACCENT not in css
 
 
+def test_versions_carry_the_request_summary_and_cost_that_made_them(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    """quality-tuning Q3: the Claude panel shows the edit history as a
+    conversation — each version says what was asked, what Claude did,
+    how many files changed and what it cost. A 되돌리기 has none of that."""
+    first = plan(client, project, "할 일 앱").json()
+    run(client, project, first["id"])
+    edit = plan(client, project, "버튼 색을 바꿔 줘").json()
+    done = dict(run(client, project, edit["id"]))["done"]
+
+    versions = client.get(f"/api/builder/projects/{project.id}/versions").json()
+    latest, made = versions[0], versions[1]
+    assert latest["request"] == "버튼 색을 바꿔 줘"
+    assert latest["summary"] == edit["summary"]
+    assert latest["changed_count"] == 1
+    assert latest["charged_krw"] == done["charged_krw"] > 0
+    assert made["changed_count"] == 3
+
+    restored = client.post(f"/api/builder/projects/{project.id}/versions/{made['number']}/restore", json={})
+    assert restored.status_code == 200, restored.text
+    newest = client.get(f"/api/builder/projects/{project.id}/versions").json()[0]
+    assert newest["request"] == "" and newest["changed_count"] is None and newest["charged_krw"] is None
+
+
 class FailsOnce(MockClaudeProvider):
     """`[mock-error-file:…]` fails only the first run (then 이어서 만들기 works)."""
 
