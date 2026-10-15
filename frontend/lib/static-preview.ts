@@ -26,9 +26,13 @@ export const PREVIEW_SANDBOX = "allow-scripts";
  * ctrlai.my와는 다른 출처라 이 화면에 닿지 못합니다. 회원의 코드는 셸 안의
  * 한 겹 더 깊은 프레임에서 `allow-same-origin` **없이** 돌아갑니다
  * (`backend/app/services/app_shell.py`의 `APP_SANDBOX`). 맨 위 페이지 이동과
- * 알림창은 여전히 막습니다. 테스트가 정확한 값을 확인합니다.
+ * 알림창은 여전히 막습니다. 셸이 여는 로그인 창(P2)은 이 울타리를 물려받지
+ * 않도록 `allow-popups-to-escape-sandbox` — 셸만 창을 열 수 있고, 회원의
+ * 코드가 여는 창은 셸 안쪽 울타리를 그대로 물려받습니다. 테스트가 정확한
+ * 값을 확인합니다.
  */
-export const RUNTIME_SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups";
+export const RUNTIME_SANDBOX =
+  "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox";
 
 /**
  * 샌드박스 프레임에서는 `localStorage`가 오류를 냅니다(불투명한 출처). 앱이

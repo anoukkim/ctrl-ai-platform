@@ -55,6 +55,7 @@ export default function ClaudePricingPanel() {
     web_fetch_max_uses: "",
     web_fetch_max_content_tokens: "",
     web_search_max_uses: "",
+    app_ai_daily_cap_krw: "",
   });
 
   const apply = useCallback((value: ClaudeSettings) => {
@@ -68,6 +69,7 @@ export default function ClaudePricingPanel() {
       web_fetch_max_uses: String(value.chat_limits.web_fetch_max_uses),
       web_fetch_max_content_tokens: String(value.chat_limits.web_fetch_max_content_tokens),
       web_search_max_uses: String(value.chat_limits.web_search_max_uses ?? 5),
+      app_ai_daily_cap_krw: String(value.chat_limits.app_ai_daily_cap_krw ?? 2000),
     });
   }, []);
 
@@ -117,6 +119,7 @@ export default function ClaudePricingPanel() {
       web_fetch_max_uses: Number(limitsDraft.web_fetch_max_uses),
       web_fetch_max_content_tokens: Number(limitsDraft.web_fetch_max_content_tokens),
       web_search_max_uses: Number(limitsDraft.web_search_max_uses),
+      app_ai_daily_cap_krw: Number(limitsDraft.app_ai_daily_cap_krw),
     };
     const won = (value: number) => (value > 0 ? `${value.toLocaleString()}원` : "끔 (0)");
     ask(
@@ -129,6 +132,7 @@ export default function ClaudePricingPanel() {
           `동시 호출: ${next.provider_concurrency}개 — 서버 프로세스마다, AI 호출을 한 번에 이만큼만`,
           `페이지 읽기: 한 답장에 ${next.web_fetch_max_uses}회, 페이지당 ${next.web_fetch_max_content_tokens.toLocaleString()}토큰 — 1회 비용 한도가 미리 떼어 두는 양이라, 줄이면 낮은 한도에서도 쓸 수 있습니다`,
           `웹 검색: 한 답장에 최대 ${next.web_search_max_uses}회 — 검색 요금과 결과가 1회 비용 한도 안에 미리 잡힙니다`,
+          `앱 AI 하루 한도: ${won(next.app_ai_daily_cap_krw)} — 방문자마다, 회원 앱들 안에서 쓴 AI 합산 (KST 기준)`,
           "감사 기록에 남습니다.",
         ],
         confirmLabel: "한도 바꾸기",
@@ -316,6 +320,20 @@ export default function ClaudePricingPanel() {
                   />
                 </label>
                 <label className={styles.limitField}>
+                  <span>앱 AI 하루 한도 (원, 방문자마다, 0 = 끔)</span>
+                  <input
+                    className="field numeric"
+                    inputMode="numeric"
+                    value={limitsDraft.app_ai_daily_cap_krw}
+                    onChange={(event) =>
+                      setLimitsDraft((current) => ({
+                        ...current,
+                        app_ai_daily_cap_krw: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className={styles.limitField}>
                   <span>페이지당 토큰 (1,000–100,000)</span>
                   <input
                     className="field numeric"
@@ -341,6 +359,7 @@ export default function ClaudePricingPanel() {
                       limitsDraft.web_fetch_max_uses,
                       limitsDraft.web_fetch_max_content_tokens,
                       limitsDraft.web_search_max_uses,
+                      limitsDraft.app_ai_daily_cap_krw,
                     ].some((value) => value.trim() === "" || !Number.isInteger(Number(value))) ||
                     Number(limitsDraft.provider_concurrency) < 1 ||
                     Number(limitsDraft.web_fetch_max_uses) < 1 ||

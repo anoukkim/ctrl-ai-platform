@@ -171,6 +171,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <div className={styles.bare}>{children}</div>;
   }
 
+  // 앱 연결 화면(app-platform P2)은 작은 새 창에서 열립니다. 로그인은
+  // 필요하지만 사이드바는 두지 않습니다.
+  if (pathname.startsWith("/apps/connect") && state.phase === "authenticated") {
+    return <div className={styles.bare}>{children}</div>;
+  }
+
   // 아직 확인 중이거나 로그인하지 않았다면 본문을 그리지 않습니다.
   // 로그인하지 않은 경우의 이동은 CurrentUserProvider가 맡습니다.
   if (state.phase !== "authenticated") {

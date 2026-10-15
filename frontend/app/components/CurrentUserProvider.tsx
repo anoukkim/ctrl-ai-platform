@@ -23,6 +23,37 @@ export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname);
 }
 
+/**
+ * 로그인한 뒤 돌아갈 곳 (app-platform P2). 앱의 연결 화면처럼 로그인이
+ * 필요한 화면을 열었다가 로그인 화면으로 갔다면, 로그인(비밀번호든
+ * Google이든)을 마치고 첫 화면에 닿는 순간 그 화면으로 돌려보냅니다.
+ * 이 사이트 안의 경로만 받습니다.
+ */
+export const AFTER_LOGIN_KEY = "ctrlai-after-login";
+
+export function safeReturnPath(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
+  return value;
+}
+
+function remember(path: string): void {
+  try {
+    if (path !== "/" && safeReturnPath(path)) window.sessionStorage.setItem(AFTER_LOGIN_KEY, path);
+  } catch {
+    /* 저장이 막혀 있으면 첫 화면으로 갑니다 */
+  }
+}
+
+function takeRemembered(): string | null {
+  try {
+    const value = window.sessionStorage.getItem(AFTER_LOGIN_KEY);
+    window.sessionStorage.removeItem(AFTER_LOGIN_KEY);
+    return safeReturnPath(value);
+  } catch {
+    return null;
+  }
+}
+
 type State =
   | { phase: "loading" }
   | { phase: "authenticated"; user: CurrentUser }
@@ -80,7 +111,16 @@ export default function CurrentUserProvider({ children }: { children: React.Reac
   // 로그인하지 않았다면 로그인 화면으로.
   useEffect(() => {
     if (state.phase === "anonymous" && !isPublicPath(pathname)) {
+      remember(pathname + window.location.search);
       router.replace("/login");
+    }
+  }, [state.phase, pathname, router]);
+
+  // 로그인을 마치고 첫 화면에 왔다면, 기억해 둔 곳으로.
+  useEffect(() => {
+    if (state.phase === "authenticated" && pathname === "/") {
+      const next = takeRemembered();
+      if (next) router.replace(next);
     }
   }, [state.phase, pathname, router]);
 

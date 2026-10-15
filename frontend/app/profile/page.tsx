@@ -22,6 +22,7 @@ import { LayoutGrid } from "lucide-react";
 import { AccountSettings, Identity, NotificationSettings } from "./AccountIdentity";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
+import ConnectedAppsSection from "./ConnectedAppsSection";
 import SignInMethodsSection from "./SignInMethodsSection";
 import WithdrawalSection from "./WithdrawalSection";
 import styles from "./profile.module.css";
@@ -88,6 +89,7 @@ export default function ProfilePage() {
       </div>
 
       <div className={styles.lists}>
+        <ConnectedAppsSection />
         <ProjectSummary />
 
         {/* 앱 게시는 Phase 5에서 생깁니다. 그때까지 이 목록은 누구에게나

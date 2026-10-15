@@ -63,7 +63,12 @@ the same commit that adds it.
 | `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
 | `GET /_ctrlai/sdk.js`, `GET /_ctrlai/shell.js` | none | The app platform's two scripts (apps origin only, outside `/api`) |
 | `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
-| `GET /_ctrlai/v1/app` | `app_request` | `X-CtrlAI-App` naming a live app, same-origin; never the site's session |
+| `GET /_ctrlai/v1/app`, `POST /_ctrlai/v1/login/start`, `POST /_ctrlai/v1/logout` | `app_call` | `app_request` (`X-CtrlAI-App` naming a live app, same-origin) + who is signed in to this app — only its own `ctrlai_app_<slug>` cookie, never the site's session |
+| `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) |
+| `GET /{slug}/_ctrlai/callback`, `GET /_ctrlai/callback.js` | none | The end of signing in: a one-time code (60 s) that only the browser holding the matching state cookie can spend |
+| `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
+| `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
+| `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
@@ -387,7 +392,8 @@ database is migrated, never re-created.
 
 Owner decisions of 2026-10-15 are in CLAUDE.md §2 ("Member app platform").
 Built in phases P1–P5 (BACKLOG › app-platform). **P1 (the shell, the SDK,
-`ctrlai.storage`)** is in place:
+`ctrlai.storage`)** and **P2 (sign-in, `ctrlai.user`, `ctrlai.ai`)** are in
+place:
 
 ```text
 ctrlai.my (Builder / CtrlAIApps)
@@ -429,6 +435,36 @@ ctrlai.my (Builder / CtrlAIApps)
   test holds it). P2 adds the app-scoped cookie `ctrlai_app_<slug>`
   (Path `/_ctrlai/`, `SameSite=Strict`, host-only), which the member's
   opaque frame can never send.
+* **P2 — sign-in, `ctrlai.user`, `ctrlai.ai`.** `ctrlai.login()` (or the
+  first AI call while signed out) → the shell asks `/_ctrlai/v1/login/start`
+  (a `state`, kept in a cookie with Path `/<slug>/_ctrlai/`) and opens
+  `ctrlai.my/apps/connect?app=…&state=…` in a new window (if the browser
+  blocks it, the shell shows "CTRL+AI 회원만 쓸 수 있어요" + 로그인). The
+  consent page (site session) shows the app, its maker, what it may do and
+  "1회 약 N원 (최대 200원)"; 허용 → `POST /api/app-connect/<slug>` records
+  an `AppConsent` (audited) and a one-time `AppLoginCode` (60 s, hash
+  only) → the window goes to `apps.<domain>/<slug>/_ctrlai/callback`, which
+  spends the code only with the matching state cookie and sets
+  `ctrlai_app_<slug>` (HttpOnly, `SameSite=Strict`, Path `/_ctrlai/`,
+  host-only; an `AppSession`, hash only, 30 days); `callback.js` tells the
+  shell (same origin, only the window it opened) and closes. `ctrlai.user()`
+  is `{displayName, appUserId}` — `appUserId` is a random per-app id, never
+  the email, username or balance. Profile › 연결된 앱 revokes (audited;
+  every app session ends).
+  `ctrlai.ai.ask/stream` (`services/app_ai.py`): the signed-in visitor
+  pays from their own 동아리 지원 (`usage.charge`, feature `app_ai`,
+  `builder_project_id` = the app); they must have allowed "ai" and be an
+  active member this quarter. "fast"/"smart" map to the members' Haiku /
+  Sonnet catalogue rows; per visitor 10 and per app 60 calls a minute;
+  the per-call cap (200원) is worked out as `max_tokens` (a JSON retry
+  shares it); the visitor's app-AI day cap (`chat_limits.app_ai_daily_cap_krw`,
+  2,000원 by default, Admin › System, audited, 0 = off), then the wallet;
+  images ≤ 5 MB (4 at most), re-encoded like Chat's; our safety preamble
+  comes before the app's system prompt; a JSON Schema is checked (a safe
+  subset) with one automatic retry. One ledger row per call; Usage shows
+  "앱 · <앱 이름>", the shell shows "앱 AI · N원 · 내 동아리 지원금에서".
+  **Kill switch**: Admin › Content › 기능 상자 멈추기 (a reason, audited) —
+  every `/_ctrlai/v1` call of that app is refused at once.
 * **Proven in a real browser** (`frontend/e2e/app-platform.spec.ts`,
   `npm run e2e`, run against the local apps server and against the real
   Caddyfile in a container): the app's origin is opaque and its fetches
@@ -437,6 +473,11 @@ ctrlai.my (Builder / CtrlAIApps)
   gets an inert sandboxed copy; a page that opens a shell in a popup can
   neither feed it messages nor navigate its app frame; storage is per app
   and survives reloads; the member's files opened directly are sandboxed.
+  P2 (`frontend/e2e/app-platform-p2.spec.ts`, the local stack): an AI call
+  while signed out opens the consent window; 허용 closes it and the call
+  goes through, charged; `ctrlai.user()` has only the two fields; a stream
+  arrives in pieces; a JSON answer comes back parsed; revoking from the
+  site signs the app out.
 
 ---
 

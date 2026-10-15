@@ -444,6 +444,8 @@ export interface ChatLimits {
   /** 웹 검색: 한 답장에 최대 몇 회 (fix-real-web-search). */
   web_search_max_uses?: number;
   web_fetch_max_content_tokens: number;
+  /** 앱 AI: 방문자 1명이 하루(KST)에 회원 앱들에서 쓸 수 있는 금액. 0이면 끔 (app-platform P2). */
+  app_ai_daily_cap_krw?: number;
   set_at: string | null;
   set_by_username: string;
 }
@@ -457,6 +459,7 @@ export interface ChatLimitsWrite {
   /** 웹 검색: 한 답장에 최대 몇 회 (fix-real-web-search). */
   web_search_max_uses?: number;
   web_fetch_max_content_tokens: number;
+  app_ai_daily_cap_krw?: number;
 }
 
 export function getClaudeSettings(): Promise<ClaudeSettings> {
