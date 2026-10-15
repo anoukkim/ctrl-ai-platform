@@ -154,7 +154,7 @@ describe("Profile — 회원 탈퇴", () => {
     expect(note.textContent).toContain("먼저 작업물을 내려받아 두세요");
     const links = within(note).getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual(["/video", "/builder"]);
-    expect(note.textContent).toContain("코드 다운로드 (ZIP)");
+    expect(note.textContent).toContain("프로젝트 내려받기 (ZIP)");
   });
 
   test("개인 충전 잔액이 있으면 확인 전에 경고한다", async () => {

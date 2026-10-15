@@ -429,9 +429,9 @@ export default function BuilderLibrary() {
               badge={<ProjectStatusBadge status={project.status} />}
               extraActions={[
                 {
-                  label: "코드 다운로드 (ZIP)",
+                  label: "프로젝트 내려받기 (ZIP)",
                   href: builderProjectDownloadUrl(project.id),
-                  title: "프로젝트 파일을 압축 파일로 받습니다",
+                  title: "앱 파일과 안내(README · CLAUDE.md · 프롬프트)를 ZIP으로 받습니다",
                 },
               ]}
               href={`/builder/${project.id}`}

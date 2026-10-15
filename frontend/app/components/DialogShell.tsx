@@ -21,19 +21,22 @@ interface Props {
   onClose: () => void;
   labelledBy: string;
   describedBy?: string;
+  /** "sheet": 조금 더 넓고, 휴대폰에서는 아래에서 올라오는 시트. */
+  variant?: "sheet";
   children: React.ReactNode;
 }
 
-export default function DialogShell({ onClose, labelledBy, describedBy, children }: Props) {
+export default function DialogShell({ onClose, labelledBy, describedBy, variant, children }: Props) {
+  const sheet = variant === "sheet";
   const content = (
     <div
-      className={styles.dialogBackdrop}
+      className={`${styles.dialogBackdrop} ${sheet ? styles.sheetBackdrop : ""}`}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className={styles.dialog}
+        className={`${styles.dialog} ${sheet ? styles.sheet : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}

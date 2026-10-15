@@ -160,13 +160,20 @@ accepted for the club beta; one subdomain per app is the later step. With
 the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 
-**코드 다운로드 (ZIP)** works today, in the project's ▾ menu and in each
-library card's ⋯ menu. The archive holds the project's files in their folder
-structure plus a short Korean guide, and never a `.env`, a key, `node_modules`
-or `.git`. Project files live in `builder_project_files`, which **Phase 3 is
-what fills** — so a project made now downloads as a ZIP containing only the
-guide, and the guide says so rather than explaining how to run code that is not
-there. Downloading stays open to a member who is not participating this
+**프로젝트 내려받기** (project-export-handoff, 2026-10-15) — the Builder
+header's 내려받기 button and ▾ menu item, and each library card's ⋯ menu
+(프로젝트 내려받기 (ZIP), the draft). The member picks 작업 중 or 게시된
+버전 and gets `<slug>-v<N>.zip`: the project's files plus `README.md`,
+`CLAUDE.md`, `HANDOFF_PROMPT.md` and `HISTORY.md` written from the project's
+own name, description, files and version notes (`services/project_handoff.py`),
+and `SPEC.md` when the project has one. A project's own file of the same name
+wins — the showcase apps ship hand-written guides that way. Never a `.env`, a
+key, `node_modules`, `.git`, the owner's name, usage or cost, or anyone
+else's data. **내 Claude로 이어서 만들기** is a guided sheet with a claude.ai
+tab (① ZIP ② attach ③ paste the prompt, with "무엇을 더 하고 싶나요?" filled
+into its blank live) and a Claude Code tab (`claude`, a first sentence to
+copy). Admin › Content › ZIP 미리보기 shows an example app's ZIP file by
+file. Downloading stays open to a member who is not participating this
 quarter: their work is theirs.
 
 **다운로드** works on any finished version, and keeps working for a member who

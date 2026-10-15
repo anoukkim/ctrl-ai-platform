@@ -160,3 +160,32 @@ class RestoreRead(BaseModel):
     files: list[BuilderFileRead]
     version: VersionRead
     project: BuilderProjectRead
+
+
+class HandoffFile(BaseModel):
+    """One entry of the ZIP (project-export-handoff)."""
+
+    path: str
+    bytes: int
+    #: True for README / CLAUDE / HANDOFF_PROMPT / HISTORY written by CTRL+AI.
+    generated: bool
+    #: The text itself — only on the admin preview.
+    content: str | None = None
+
+
+class HandoffRead(BaseModel):
+    """What 프로젝트 내려받기 / 내 Claude로 이어서 만들기 will hand over."""
+
+    which: str
+    version_number: int
+    filename: str
+    draft_version_number: int
+    published_version_number: int | None
+    files: list[HandoffFile]
+    #: The claude.ai prompt, with "내가 추가하고 싶은 것: ___" (or the request filled in).
+    prompt: str
+    #: The blank the panel fills live as the member types.
+    extra_marker: str
+    extra_label: str
+    max_extra: int
+    claude_code_first_line: str

@@ -297,7 +297,7 @@ describe("메뉴가 열린 카드", () => {
   });
 });
 
-describe("코드 다운로드", () => {
+describe("프로젝트 내려받기", () => {
   test("메뉴에 ZIP 받는 링크가 있고, 그 프로젝트를 가리킨다", async () => {
     const user = userEvent.setup();
     render(<BuilderLibrary />);
@@ -306,7 +306,7 @@ describe("코드 다운로드", () => {
 
     // 단추가 아니라 링크입니다 — 실제로 주소를 받아 오는 일이고,
     // 그래야 가운데 클릭이나 "다른 이름으로 저장"도 동작합니다.
-    const link = screen.getByRole("menuitem", { name: "코드 다운로드 (ZIP)" });
+    const link = screen.getByRole("menuitem", { name: "프로젝트 내려받기 (ZIP)" });
     expect(link.tagName).toBe("A");
     expect(link.getAttribute("href")).toBe(`/api/builder/projects/${PROJECT.id}/download`);
     expect(link.hasAttribute("download")).toBe(true);
@@ -323,18 +323,18 @@ describe("코드 다운로드", () => {
 
     await openMenu(user, "가계부");
 
-    const link = screen.getByRole("menuitem", { name: "코드 다운로드 (ZIP)" });
+    const link = screen.getByRole("menuitem", { name: "프로젝트 내려받기 (ZIP)" });
     expect(link.getAttribute("href")).toBe(`/api/builder/projects/${PROJECT.id}/download`);
     expect(link.hasAttribute("disabled")).toBe(false);
   });
 
-  test("영상 프로젝트 메뉴에는 코드 다운로드가 없다", async () => {
+  test("영상 프로젝트 메뉴에는 프로젝트 내려받기가 없다", async () => {
     const user = userEvent.setup();
     render(<VideoLibrary />);
 
     await openMenu(user, "밤의 서울");
 
-    expect(screen.queryByRole("menuitem", { name: /코드 다운로드/ })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /프로젝트 내려받기/ })).toBeNull();
   });
 });
 

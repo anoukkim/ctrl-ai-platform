@@ -32,6 +32,8 @@ class AppReportCreate(BaseModel):
 class AdminAppRead(AppListing):
     owner_id: int
     open_reports: int = 0
+    #: An admin owns it (an example app): ZIP 미리보기 is offered.
+    example: bool = False
 
 
 class AdminReportRead(BaseModel):

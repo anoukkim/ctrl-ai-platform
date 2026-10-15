@@ -29,6 +29,7 @@ import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
 
 import { sectionLabel } from "../sections";
+import HandoffPreview from "./HandoffPreview";
 
 export default function AdminContentPage() {
   const toast = useToast();
@@ -38,6 +39,7 @@ export default function AdminContentPage() {
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<AdminApp | null>(null);
 
   const load = useCallback(() => {
     Promise.all([listAdminApps(), listAppReports()])
@@ -197,6 +199,18 @@ export default function AdminContentPage() {
                     </td>
                     <td>{app.open_reports > 0 ? <span className="badge badge-warn">{app.open_reports}</span> : "—"}</td>
                     <td className="actions-cell">
+                      {app.example && (
+                        <>
+                          <button
+                            className="btn btn-sm"
+                            type="button"
+                            onClick={() => setPreview(app)}
+                            title="회원이 내려받는 ZIP에 무엇이 들어가는지"
+                          >
+                            ZIP 미리보기
+                          </button>{" "}
+                        </>
+                      )}
                       <button
                         className="btn btn-sm btn-danger"
                         type="button"
@@ -212,6 +226,10 @@ export default function AdminContentPage() {
           </div>
         )}
       </section>
+
+      {preview && (
+        <HandoffPreview projectId={preview.id} name={preview.name} onClose={() => setPreview(null)} />
+      )}
 
       <ConfirmDialog
         busy={busy}

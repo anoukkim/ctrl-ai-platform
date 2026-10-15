@@ -287,7 +287,11 @@ export default function WorkspaceTitle({
                 <button
                   className={ws.switcherAction}
                   disabled={action.disabled}
-                  onClick={action.onSelect}
+                  onClick={() => {
+                    // 메뉴를 닫고 나서 — 고른 일이 창을 열면 그 창만 보이도록.
+                    setOpen(false);
+                    action.onSelect?.();
+                  }}
                   role="menuitem"
                   title={action.title}
                   type="button"
