@@ -3,7 +3,9 @@
  *
  * Runs against a live stack (see playwright.config.ts): the apps origin
  * (`APPS_ORIGIN`, the local apps server or Caddy) and the backend
- * (`API_ORIGIN`, only to find two published apps). What is proven here is
+ * (`API_ORIGIN`, only to find two published apps — or `APP_SLUGS=a,b`).
+ * Nothing here writes to the server: storage and cookies live in the
+ * test's own throwaway browser profile. What is proven here is
  * what a unit test cannot: what a real browser does with the sandbox, the
  * cookies and the messages.
  */
@@ -34,6 +36,13 @@ let A = "";
 let B = "";
 
 test.beforeAll(async () => {
+  // `APP_SLUGS=a,b` names two published apps directly (e.g. on the server,
+  // where the dev account does not exist); otherwise ask the backend.
+  const given = (process.env.APP_SLUGS ?? "").split(",").filter(Boolean);
+  if (given.length >= 2) {
+    [A, B] = given;
+    return;
+  }
   const api = await apiRequest.newContext({ baseURL: API });
   const login = await api.post("/api/auth/login", {
     data: { username: process.env.E2E_USER ?? "dev", password: process.env.E2E_PASSWORD ?? "devpassword" },
