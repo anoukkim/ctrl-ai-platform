@@ -11,18 +11,34 @@ of this is reachable from `ctrlai.my`.
   `app_request`: the slug in `X-CtrlAI-App` must be a live app, and a
   browser must say the request is same-origin. These routes **never read
   the main session cookie** — nothing here imports `get_current_user`, and
-  a test holds that (`test_app_platform.py`). Sign-in for apps comes in P2
-  with its own app-scoped cookie.
+  a test holds that (`test_app_platform.py`).
+* P2: sign-in (`/v1/login/start`, `/<slug>/_ctrlai/callback` — the one
+  route under the app's own address, `callback_router` — `/v1/logout`,
+  `/v1/user`) with the app-scoped cookie `ctrlai_app_<slug>`, read only
+  for its own app (`app_call`); `ctrlai.ai` (`/v1/ai/ask`, `/v1/ai/stream`)
+  paid by the signed-in visitor (`services/app_ai.py`).
 """
 
+import json
+from dataclasses import dataclass
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.services import app_shell
+from app.models import BuilderProject, User
+from app.services import app_ai, app_auth, app_shell, chat_limits, provider_limiter
+from app.services.claude_provider import ClaudeError, get_claude_provider
 
 router = APIRouter(prefix="/_ctrlai", tags=["app-platform"])
+#: The one route under the app's own address (P2): where signing in ends.
+#: Its path is the browser's, so the state cookie (Path `/<slug>/_ctrlai/`)
+#: reaches it and nothing else.
+callback_router = APIRouter(tags=["app-platform"])
 
 #: Scripts change only with a deploy; a browser checks again each time.
 SCRIPT_HEADERS = {"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"}
@@ -95,7 +111,305 @@ def app_request(
     return target
 
 
-@router.get("/v1/app", summary="The app the shell is running")
-def app_info(target: app_shell.ShellTarget = Depends(app_request)) -> dict:
-    """Name and mode. P2 adds the visitor's sign-in state here."""
-    return {"name": target.project.name, "mode": target.mode, "sdk": "on"}
+# ------------------------------------------------------------- P2: sign-in
+
+
+SDK_OFF = "이 앱의 기능 상자는 관리자가 잠시 멈췄어요."
+MEMBERS_ONLY = "CTRL+AI 회원만 쓸 수 있어요. 로그인해 주세요."
+
+
+@dataclass(frozen=True)
+class AppCall:
+    """A `/_ctrlai/v1` call: the app, and the signed-in visitor if any."""
+
+    target: app_shell.ShellTarget
+    visitor: app_auth.Visitor | None
+
+    @property
+    def slug(self) -> str:
+        project = self.target.project
+        return (project.draft_slug if self.target.mode == "preview" else project.app_slug) or ""
+
+
+def app_call(
+    request: Request,
+    target: app_shell.ShellTarget = Depends(app_request),
+    db: Session = Depends(get_db),
+) -> AppCall:
+    """`app_request`, plus who is signed in to **this** app (this slug's
+    own cookie) — never the site's session."""
+    bare = AppCall(target=target, visitor=None)
+    token = request.cookies.get(app_auth.cookie_name(bare.slug))
+    return AppCall(target=target, visitor=app_auth.visitor(db, target.project, token))
+
+
+def signed_in_visitor(call: AppCall = Depends(app_call)) -> AppCall:
+    """A signed-in visitor of a running app (the 기능 상자 not stopped)."""
+    if call.target.project.sdk_disabled_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SDK_OFF)
+    if call.visitor is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=MEMBERS_ONLY)
+    return call
+
+
+def _secure(settings: Settings) -> bool:
+    return (settings.apps_origin or "").startswith("https://")
+
+
+@router.get("/v1/app", summary="The app the shell is running, and who is signed in")
+def app_info(call: AppCall = Depends(app_call)) -> dict:
+    project = call.target.project
+    return {
+        "name": project.name,
+        "mode": call.target.mode,
+        "sdk": "off" if project.sdk_disabled_at is not None else "on",
+        "signedIn": call.visitor is not None,
+        "user": app_auth.profile(call.visitor) if call.visitor else None,
+        "scopes": list(call.visitor.consent.scopes) if call.visitor else [],
+        "callCapKrw": app_ai.CALL_CAP_KRW,
+    }
+
+
+@router.post("/v1/login/start", summary="Start signing in: a state, and where to consent")
+def login_start(
+    response: Response,
+    call: AppCall = Depends(app_call),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    if call.target.project.sdk_disabled_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SDK_OFF)
+    state = app_auth.new_state()
+    # Sent back only to this app's callback address — the one path the
+    # browser uses when the consent window returns.
+    response.set_cookie(
+        app_auth.state_cookie_name(call.slug),
+        state,
+        max_age=app_auth.STATE_SECONDS,
+        path=f"/{call.slug}/_ctrlai/",
+        httponly=True,
+        secure=_secure(settings),
+        samesite="strict",
+    )
+    sites = app_shell.site_origins(settings)
+    return {"connectUrl": f"{sites[0] if sites else ''}/apps/connect?app={call.slug}&state={state}"}
+
+
+CALLBACK_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; "
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+
+
+@callback_router.get("/{slug}/_ctrlai/callback", include_in_schema=False)
+def login_callback(
+    slug: str,
+    request: Request,
+    code: str = "",
+    state: str = "",
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """Where the consent window lands. Spends the one-time code, sets this
+    app's cookie, tells the shell."""
+    target = app_shell.resolve(db, slug)
+    token = None
+    if target is not None and target.project.sdk_disabled_at is None:
+        token = app_auth.exchange(
+            db, target.project, code, state, request.cookies.get(app_auth.state_cookie_name(slug), "")
+        )
+    ok = token is not None
+    message = "로그인했어요. 앱으로 돌아가요…" if ok else "로그인하지 못했어요. 앱에서 다시 시도해 주세요."
+    page = (
+        '<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>CTRL+AI 로그인</title>'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"></head>'
+        f'<body data-ok="{1 if ok else 0}" data-slug="{slug if target else ""}" '
+        'style="font:15px/1.6 system-ui,sans-serif;text-align:center;padding:3rem 1rem">'
+        f'<p id="ctrlai-callback">{message}</p>'
+        '<script src="/_ctrlai/callback.js"></script></body></html>'
+    )
+    headers = {
+        "Content-Security-Policy": CALLBACK_CSP,
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+        "Cache-Control": "no-store",
+    }
+    result = Response(content=page, media_type="text/html; charset=utf-8", headers=headers)
+    result.delete_cookie(app_auth.state_cookie_name(slug), path=f"/{slug}/_ctrlai/")
+    if ok:
+        db.commit()
+        result.set_cookie(
+            app_auth.cookie_name(slug),
+            token,
+            max_age=app_auth.SESSION_DAYS * 24 * 3600,
+            path="/_ctrlai/",
+            httponly=True,
+            secure=_secure(settings),
+            samesite="strict",
+        )
+    else:
+        db.rollback()
+    return result
+
+
+@router.get("/callback.js", include_in_schema=False)
+def callback_script() -> Response:
+    """Loaded only by the callback page, on this origin."""
+    return _script("callback.js", "same-origin")
+
+
+@router.post("/v1/logout", summary="Sign out of this app")
+def logout(
+    response: Response,
+    call: AppCall = Depends(app_call),
+    db: Session = Depends(get_db),
+) -> dict:
+    if call.visitor is not None:
+        app_auth.sign_out(db, call.visitor)
+        db.commit()
+    response.delete_cookie(app_auth.cookie_name(call.slug), path="/_ctrlai/")
+    return {"signedIn": False}
+
+
+@router.get("/v1/user", summary="ctrlai.user(): a name and a per-app id")
+def app_user(call: AppCall = Depends(signed_in_visitor)) -> dict:
+    return app_auth.profile(call.visitor)
+
+
+# --------------------------------------------------------------- P2: AI
+
+
+class AskBody(BaseModel):
+    """`ctrlai.ai.ask` / `stream` options, as the SDK sends them."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    prompt: str = Field(default="", max_length=app_ai.MAX_PROMPT_CHARS)
+    system: str = Field(default="", max_length=app_ai.MAX_SYSTEM_CHARS)
+    images: list[str] = Field(default_factory=list, max_length=app_ai.MAX_IMAGES)
+    #: A JSON Schema the reply must match (ask only). `json` in the SDK.
+    json_schema: dict | None = Field(default=None, alias="json")
+    model: str = "fast"
+    max_tokens: int | None = Field(default=None, ge=1, le=app_ai.MAX_TOKENS_LIMIT, alias="maxTokens")
+
+    def as_input(self) -> app_ai.AskInput:
+        return app_ai.AskInput(
+            prompt=self.prompt,
+            system=self.system,
+            images=self.images,
+            schema=self.json_schema,
+            model=self.model,
+            max_tokens=self.max_tokens,
+        )
+
+
+def _ai_allowed(call: AppCall) -> None:
+    if "ai" not in call.visitor.consent.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="이 앱에 AI 사용을 허용하지 않았어요.")
+
+
+BUSY = "지금 AI가 바빠요. 잠시 후 다시 해 주세요."
+
+
+@router.post("/v1/ai/ask", summary="ctrlai.ai.ask: one answer, paid by the visitor")
+async def ai_ask(
+    body: AskBody,
+    call: AppCall = Depends(signed_in_visitor),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    _ai_allowed(call)
+    limit = chat_limits.current(db).provider_concurrency
+    if not await run_in_threadpool(provider_limiter.acquire, limit):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=BUSY)
+    try:
+        result = await app_ai.ask(
+            db,
+            settings,
+            get_claude_provider(settings),
+            user=call.visitor.user,
+            project=call.target.project,
+            data=body.as_input(),
+            is_mock=settings.provider_is_mock("claude"),
+        )
+    except app_ai.AppAIError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    finally:
+        provider_limiter.release()
+    return {"text": result.text, "json": result.json, "chargedKrw": result.charged_krw, "model": result.model}
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/v1/ai/stream", summary="ctrlai.ai.stream: the answer as it is written")
+async def ai_stream(
+    body: AskBody,
+    request: Request,
+    call: AppCall = Depends(signed_in_visitor),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    """Every refusal comes before the stream (a plain HTTP error). Once it
+    runs, the cost is settled however it ends — in a session of its own,
+    as Chat does, because the request's may be gone by then."""
+    _ai_allowed(call)
+    if body.json_schema is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JSON 형식은 ask에서만 쓸 수 있어요.")
+    try:
+        prepared = app_ai.prepare(
+            db, settings, user=call.visitor.user, project=call.target.project, data=body.as_input()
+        )
+    except app_ai.AppAIError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    limit = chat_limits.current(db).provider_concurrency
+    user_id, project_id = call.visitor.user.id, call.target.project.id
+    session_factory = request.app.dependency_overrides.get(get_db, get_db)
+    provider = get_claude_provider(settings)
+    is_mock = settings.provider_is_mock("claude")
+
+    def settle(tally: app_ai.Tally | None, failure: ClaudeError | None) -> int:
+        sessions = session_factory()
+        session = next(sessions)
+        try:
+            charged = 0
+            if tally is not None and (tally.input_tokens or tally.output_tokens):
+                charged = app_ai.charge(
+                    session,
+                    settings,
+                    user=session.get(User, user_id),
+                    project=session.get(BuilderProject, project_id),
+                    prepared=prepared,
+                    input_tokens=tally.input_tokens,
+                    output_tokens=tally.output_tokens,
+                    is_mock=is_mock,
+                )
+            if failure is not None:
+                app_ai.record_failure(session, failure)
+            return charged
+        finally:
+            sessions.close()
+
+    async def events():
+        if not await run_in_threadpool(provider_limiter.acquire, limit):
+            yield _sse("error", {"message": BUSY, "chargedKrw": 0})
+            return
+        tally: app_ai.Tally | None = None
+        failure: ClaudeError | None = None
+        try:
+            async for kind, value in app_ai.run(provider, prepared):
+                if kind == "delta":
+                    yield _sse("delta", {"text": value})
+                else:
+                    tally = value
+        except ClaudeError as error:
+            failure = error
+        finally:
+            provider_limiter.release()
+        charged = await run_in_threadpool(settle, tally, failure)
+        if failure is not None:
+            yield _sse("error", {"message": str(failure), "chargedKrw": charged})
+        else:
+            yield _sse("done", {"text": tally.text if tally else "", "chargedKrw": charged, "model": prepared.label})
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})

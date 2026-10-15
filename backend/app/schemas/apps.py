@@ -34,6 +34,9 @@ class AdminAppRead(AppListing):
     open_reports: int = 0
     #: An admin owns it (an example app): ZIP 미리보기 is offered.
     example: bool = False
+    #: app-platform P2: the 기능 상자 runs (False = stopped by an admin).
+    sdk_enabled: bool = True
+    sdk_disabled_reason: str = ""
 
 
 class AdminReportRead(BaseModel):
@@ -50,6 +53,13 @@ class AdminReportRead(BaseModel):
 
 class AdminUnpublish(BaseModel):
     reason: str = Field(default="", max_length=500)
+
+
+class AdminSdkSet(BaseModel):
+    """기능 상자 정지 / 재개 (app-platform P2). A reason is required to stop."""
+
+    enabled: bool
+    reason: str = Field(default="", max_length=200)
 
 
 class AdminResolve(BaseModel):

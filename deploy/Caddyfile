@@ -48,6 +48,7 @@ www.{$SITE_DOMAIN} {
 #   /_ctrlai/*          the api's app-platform router (scripts, shell,
 #                       /_ctrlai/v1/*). Never the main /api: that is only
 #                       reachable on the site itself.
+#   /<slug>/_ctrlai/callback  where signing in to the app ends (P2): the api.
 #   /<slug>, /<slug>/<f>  addresses from before the shell: redirected.
 #
 # Same-site with ctrlai.my, so the rules of CLAUDE.md §2 still hold: the
@@ -74,6 +75,15 @@ apps.{$SITE_DOMAIN} {
 		@notRead not method GET HEAD
 		respond @notRead 405
 		rewrite * /_ctrlai/shell/{re.shell.1}
+		reverse_proxy api:8000
+	}
+
+	# P2: the end of signing in to an app — the api spends the one-time
+	# code and sets this app's cookie (Path /_ctrlai/, SameSite=Strict).
+	@callback path_regexp callback ^/([a-z2-9]{10})/_ctrlai/callback$
+	handle @callback {
+		@notRead not method GET HEAD
+		respond @notRead 405
 		reverse_proxy api:8000
 	}
 

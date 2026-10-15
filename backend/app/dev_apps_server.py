@@ -10,6 +10,7 @@ and set `APPS_BASE_URL=http://localhost:8300` for the backend. It answers
 exactly as Caddy's `apps.` block does:
 
 * `/<slug>/` — the trusted shell, from the backend (`/_ctrlai/shell/<slug>`);
+* `/<slug>/_ctrlai/callback` — the end of signing in (P2), from the backend;
 * `/<slug>/_app/<file>` — the member's file from `APPS_DIR`, read-only,
   with `app_shell.app_files_csp` (sandboxed, no network), nosniff,
   no-referrer, never a cookie, no listings, no hidden files;
@@ -36,6 +37,7 @@ from app.services import app_shell
 from app.services.app_runtime import apps_root
 
 SHELL = re.compile(r"^/([a-z2-9]{10})/$")
+CALLBACK = re.compile(r"^/([a-z2-9]{10})/_ctrlai/callback$")
 APP_FILE = re.compile(r"^/([a-z2-9]{10})/_app/(.+)$")
 BARE = re.compile(r"^/([a-z2-9]{10})$")
 OLD_FILE = re.compile(r"^/([a-z2-9]{10})/(?!_app/)(.+)$")
@@ -68,6 +70,9 @@ class AppsHandler(http.server.SimpleHTTPRequestHandler):
             return
         if match := SHELL.match(path):
             self._proxy(f"/_ctrlai/shell/{match.group(1)}")
+            return
+        if CALLBACK.match(path):
+            self._proxy(self.path)
             return
         if match := BARE.match(path):
             self._redirect(f"/{match.group(1)}/")

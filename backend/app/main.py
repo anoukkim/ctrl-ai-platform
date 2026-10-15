@@ -67,6 +67,7 @@ app.include_router(api_router)
 # The apps origin's own routes (app-platform), outside /api: only Caddy's
 # apps.<domain> block reaches them; the club's site forwards /api/* only.
 app.include_router(app_platform.router)
+app.include_router(app_platform.callback_router)
 
 
 @app.get("/", tags=["meta"], summary="Service banner")

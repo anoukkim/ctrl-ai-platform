@@ -317,7 +317,25 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/_ctrlai/sdk.js"): None,
     ("GET", "/_ctrlai/shell.js"): None,
     ("GET", "/_ctrlai/shell/{slug}"): None,
-    ("GET", "/_ctrlai/v1/app"): "app_request",
+    # app-platform P2: the apps origin. `app_call` = app_request + who is
+    # signed in to this app (its own cookie only); `signed_in_visitor` =
+    # signed in and the 기능 상자 running. The AI routes check participation
+    # themselves (app_ai.ensure_member), with the visitor's own wallet.
+    ("GET", "/_ctrlai/v1/app"): "app_call",
+    ("POST", "/_ctrlai/v1/login/start"): "app_call",
+    ("POST", "/_ctrlai/v1/logout"): "app_call",
+    ("GET", "/_ctrlai/v1/user"): "signed_in_visitor",
+    ("POST", "/_ctrlai/v1/ai/ask"): "signed_in_visitor",
+    ("POST", "/_ctrlai/v1/ai/stream"): "signed_in_visitor",
+    ("GET", "/_ctrlai/callback.js"): None,
+    # The end of signing in: the one-time code + the browser's state cookie.
+    ("GET", "/{slug}/_ctrlai/callback"): None,
+    # The site side of signing in to an app (the member's own session).
+    ("GET", "/api/app-connect/{slug}"): "get_current_user",
+    ("POST", "/api/app-connect/{slug}"): "get_current_user",
+    ("GET", "/api/me/app-consents"): "get_current_user",
+    ("POST", "/api/me/app-consents/{consent_id}/revoke"): "get_current_user",
+    ("POST", "/api/admin/apps/{project_id}/sdk"): "require_admin",
     # The deployment as the frontend sees it (beta banner, test-mode labels,
     # the data-location notice on sign-up) — needed before signing in.
     ("GET", "/api/site"): None,
@@ -607,6 +625,12 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # spend nothing and must work while not participating.
         ("POST", "/api/usage/me/milestones"),
         ("PATCH", "/api/account/preferences"),
+        # app-platform P2: allowing an app and disconnecting it spend
+        # nothing (AI inside the app is gated at the call, by
+        # participation and the visitor's wallet), and disconnecting must
+        # work for anyone.
+        ("POST", "/api/app-connect/{slug}"),
+        ("POST", "/api/me/app-consents/{consent_id}/revoke"),
     }
 
     offenders = [

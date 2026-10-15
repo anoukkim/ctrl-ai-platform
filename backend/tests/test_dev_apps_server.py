@@ -88,6 +88,7 @@ def test_member_files_are_served_sandboxed_with_no_network(served: str) -> None:
 
 def test_the_shell_and_the_platform_come_from_the_backend(served: str) -> None:
     assert fetch(f"{served}/{SLUG}/")[2] == f"/_ctrlai/shell/{SLUG}|"
+    assert fetch(f"{served}/{SLUG}/_ctrlai/callback?code=a&state=b")[2] == f"/{SLUG}/_ctrlai/callback?code=a&state=b|"
     status, _, body = fetch(f"{served}/_ctrlai/v1/app", headers={"X-CtrlAI-App": SLUG})
     assert status == 200 and body == f"/_ctrlai/v1/app|{SLUG}"
 
@@ -117,10 +118,12 @@ def test_the_caddyfile_sends_the_same_policies_and_routes() -> None:
     for line in ('X-Content-Type-Options "nosniff"', 'Referrer-Policy "no-referrer"'):
         assert line in block
     assert "rewrite * /_ctrlai/shell/{re.shell.1}" in block
+    # The callback is matched before the old-address redirect could take it.
+    assert block.index("@callback path_regexp") < block.index("@oldfile path_regexp")
     # `redir /x/ …` would read /x/ as a matcher: the target needs `*` first.
     assert "redir * /{re.bare.1}/ permanent" in block
     assert "redir * /{re.oldfile.1}/_app/{re.oldfile.2} permanent" in block
     assert "browse" not in block
     # The apps origin reaches the app-platform router only — never the site.
     assert "web:3000" not in block
-    assert block.count("reverse_proxy") == 2 and "reverse_proxy api:8000" in block
+    assert block.count("reverse_proxy") == 3 and "reverse_proxy api:8000" in block
