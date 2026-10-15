@@ -90,6 +90,15 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+/** 한 단계: 번호 동그라미 옆에 글과 단추. 좁은 화면에서도 글이 번호 아래로 내려가지 않게. */
+function Step({ children }: { children: React.ReactNode }) {
+  return (
+    <li>
+      <div className={styles.stepBody}>{children}</div>
+    </li>
+  );
+}
+
 export default function HandoffSheet({ projectId, mode, onClose }: Props) {
   const id = useId();
   const [version, setVersion] = useState<HandoffVersion>("draft");
@@ -257,11 +266,11 @@ export default function HandoffSheet({ projectId, mode, onClose }: Props) {
           {tab === "claude-ai" ? (
             <div role="tabpanel" id={`${id}-panel-claude-ai`} aria-labelledby={`${id}-tab-claude-ai`} className={styles.panel}>
               <ol className={styles.steps}>
-                <li>
+                <Step>
                   <span>ZIP 내려받기</span> {downloadLink("ZIP 내려받기")}
-                </li>
-                <li>claude.ai에서 새 대화를 열고, 내려받은 ZIP을 첨부해요.</li>
-                <li>아래 프롬프트를 복사해서 붙여 넣어요.</li>
+                </Step>
+                <Step>claude.ai에서 새 대화를 열고, 내려받은 ZIP을 첨부해요.</Step>
+                <Step>아래 프롬프트를 복사해서 붙여 넣어요.</Step>
               </ol>
               <div className={dialog.dialogField}>
                 <label className={dialog.fieldLabel} htmlFor={`${id}-extra`}>
@@ -292,17 +301,17 @@ export default function HandoffSheet({ projectId, mode, onClose }: Props) {
           ) : (
             <div role="tabpanel" id={`${id}-panel-claude-code`} aria-labelledby={`${id}-tab-claude-code`} className={styles.panel}>
               <ol className={styles.steps}>
-                <li>
+                <Step>
                   <span>ZIP을 내려받아 압축을 풀어요.</span> {downloadLink("ZIP 내려받기")}
-                </li>
-                <li>
+                </Step>
+                <Step>
                   <span>압축을 푼 폴더에서 터미널을 열고 실행해요.</span>
                   <span className={styles.inlineCopy}>
                     <code className={styles.command}>claude</code>
                     <CopyButton text="claude" label="명령어" />
                   </span>
-                </li>
-                <li>첫 문장으로 이렇게 말해 보세요.</li>
+                </Step>
+                <Step>첫 문장으로 이렇게 말해 보세요.</Step>
               </ol>
               <div className={styles.copyBox}>
                 <div className={styles.copyHead}>
