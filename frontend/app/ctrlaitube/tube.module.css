@@ -51,6 +51,21 @@
   overflow: hidden;
 }
 
+/* 실제 영상의 포스터(promo-videos). 카드 비율에 맞춰 가운데를 채웁니다. */
+.poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.official {
+  display: inline-flex;
+  gap: 0.35rem;
+  font-size: var(--fs-count);
+}
+
 .playGlyph {
   position: relative;
   z-index: 1;

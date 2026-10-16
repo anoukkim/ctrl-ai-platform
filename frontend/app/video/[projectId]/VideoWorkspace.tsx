@@ -47,6 +47,7 @@ import {
 } from "@/lib/projects";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+import { formatDuration } from "@/lib/duration";
 import {
   VERSION_KIND_LABEL,
   costLabel,
@@ -99,11 +100,6 @@ const VERSION_ARTWORK = [
 
 function artworkFor(index: number): string {
   return VERSION_ARTWORK[index % VERSION_ARTWORK.length];
-}
-
-function formatTime(seconds: number): string {
-  const whole = Math.floor(seconds);
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
 function formatClock(iso: string): string {
@@ -853,7 +849,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                         ↻
                       </button>
                       <span className={styles.time}>
-                        {formatTime(elapsed)} / {formatTime(previewSeconds)}
+                        {formatDuration(elapsed)} / {formatDuration(previewSeconds)}
                       </span>
                       <span className={styles.controlSpacer} />
                       <button

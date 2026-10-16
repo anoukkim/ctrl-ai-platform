@@ -98,6 +98,40 @@
   z-index: 1;
 }
 
+/* 진짜 영상(promo-videos): 틀을 채우고, 자막 줄(소리 켜기·크게 보기)은
+   틀 아래가 아니라 안쪽 바닥에 둡니다. */
+.playerVideo {
+  width: 100%;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 0 0 0.5rem;
+}
+
+.playerVideo video {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+}
+
+.playerVideo figcaption {
+  padding: 0 0.75rem;
+  color: var(--on-accent);
+}
+
+.playerVideo figcaption > span:first-child {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.panelHeading {
+  margin: 0;
+  padding: 0.6rem 1rem 0;
+  color: var(--text-muted);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
 .playerNote {
   margin-top: 0.5rem;
   font-size: var(--fs-chip);

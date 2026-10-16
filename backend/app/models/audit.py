@@ -60,6 +60,9 @@ class AuditAction:
     APP_SDK_SET = "app.sdk_set"
     APP_DATA_HIDDEN = "app_data.hidden"
     APP_DATA_DELETED = "app_data.deleted"
+    TUBE_COMMENT_HIDDEN = "tube_comment.hidden"
+    TUBE_COMMENT_DELETED = "tube_comment.deleted"
+    TUBE_REPORT_RESOLVED = "tube_report.resolved"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -137,6 +140,9 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.APP_SDK_SET: "앱 기능 상자 정지/재개",
     AuditAction.APP_DATA_HIDDEN: "앱 공유 데이터 숨김",
     AuditAction.APP_DATA_DELETED: "앱 공유 데이터 삭제",
+    AuditAction.TUBE_COMMENT_HIDDEN: "영상 댓글 숨김",
+    AuditAction.TUBE_COMMENT_DELETED: "영상 댓글 삭제",
+    AuditAction.TUBE_REPORT_RESOLVED: "영상 댓글 신고 처리",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",

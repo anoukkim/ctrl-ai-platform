@@ -40,6 +40,7 @@ from app.models.builder import (
     BuilderProjectStatus,
     BuilderProjectVersion,
 )
+from app.models.tube import TubeComment, TubeReaction, TubeReport, TubeVideo
 from app.models.provider import (
     PROVIDER_ERROR_LABEL,
     ProviderErrorKind,
@@ -107,6 +108,10 @@ __all__ = [
     "RefundStatus",
     "ApplicationStatus",
     "AppReport",
+    "TubeComment",
+    "TubeReaction",
+    "TubeReport",
+    "TubeVideo",
     "BuilderProject",
     "BuilderProjectFile",
     "BuilderProjectStatus",

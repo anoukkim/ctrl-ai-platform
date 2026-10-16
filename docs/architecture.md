@@ -324,7 +324,35 @@ Large files do not belong in PostgreSQL.
 
 **Corrected from the earlier draft:** published videos are not stored by
 Ctrl AI. CtrlAITube embeds YouTube and keeps its own comment thread in
-PostgreSQL, deliberately separate from YouTube's comments.
+PostgreSQL, deliberately separate from YouTube's comments. **One
+exception (`promo-videos`, 2026-10-16):** the club's own intro video is a
+static file in `frontend/public/promo/` (two H.264+AAC encodes, 5.3 MB
+16:9 and 7.5 MB 9:16, with JPG posters), served by Next.js under
+`/promo/*` with `Cache-Control: public, max-age=31536000, immutable` —
+the file names carry a version (`-v1`), so a new encode is a new name and
+the year-long cache never serves a stale file. Member videos never go
+this way.
+
+### CtrlAITube rows (`promo-videos`)
+
+`tube_videos` (slug, `kind` hosted | youtube, title, description,
+`official`, nullable creator, the hosted/poster paths per orientation,
+`youtube_video_id`, duration, `published_at`, `deleted_at`),
+`tube_reactions` (video, user, kind — unique, a toggle), `tube_comments`
+(video, author, one-level `parent_id`, body, the author's `deleted_at`,
+the admin's `hidden_at` + reason) and `tube_reports` (comment, reporter,
+reason, an excerpt kept after the comment is gone, resolved). Service
+`services/tube.py`; the official row is made on first read
+(`ensure_official`, race-safe). Every read filters `deleted_at` and
+`hidden_at` (CLAUDE.md §10). Routes `GET /api/tube/videos` and
+`/videos/{slug}` (`get_current_user`), reactions and comment
+create/edit/delete (`require_active_member`; another member's comment is
+a 404 from `own_comment`), `POST /comments/{id}/report`
+(`get_current_user`, one open report per member per comment), and
+`/api/admin/tube/*` (`require_admin`): the report queue, hide, delete
+(replies and their reports go too), resolve — each an append-only audit
+row (`tube_comment.hidden` / `.deleted`, `tube_report.resolved`).
+Migration `e5f8b2c3d7a1`.
 
 ## Core data model
 

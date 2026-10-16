@@ -32,6 +32,12 @@ vi.mock("@/lib/apps", async (importOriginal) => {
   };
 });
 
+// promo-videos: Content also lists CtrlAITube comment reports — none here.
+vi.mock("@/lib/tube", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tube")>();
+  return { ...actual, listTubeReports: () => Promise.resolve([]) };
+});
+
 vi.mock("@/app/components/ToastProvider", () => ({
   useToast: () => ({ show: vi.fn() }),
 }));

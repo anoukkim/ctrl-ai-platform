@@ -266,6 +266,8 @@ export interface Comment {
   /** 다른 회원이 누른 공감 수. 인기순 정렬의 기준이기도 합니다. */
   likes: number;
   replies?: Comment[];
+  /** 내 댓글(실제 댓글에서만 뜻이 있음, promo-videos). */
+  mine?: boolean;
 }
 
 /** 답글까지 포함한 전체 댓글 수.
