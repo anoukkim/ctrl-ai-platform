@@ -917,7 +917,12 @@ above.)
     plain sentence (P4b already replaced the pre-P3 wording with a general
     one that mentions login, AI and shared lists).
 
-11. **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
+11. **Built 2026-10-16 as `feat-auto-continue`** (owner's later direction,
+    relayed: no question first — continue automatically to the end, 중지
+    always available, "이어서 쓰는 중… 지금까지 N원", one charge per call
+    with the wallet checked each time, one 전체 한도 per depth in Admin ›
+    System, the pieces joined so the preview opens; see
+    `progress/RUN-2026-10-16.md` › AC). Original words: **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
     가겠냐고 물어보고 그냥 쭉 할 수 있게 (중단도 가능하니)"** (2026-10-16,
     after a 강아지 SVG on Opus · 보통 stopped twice at the 200원 cap) —
     when a reply stops at max_tokens or the per-reply cap, show the
