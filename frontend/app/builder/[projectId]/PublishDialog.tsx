@@ -6,13 +6,19 @@
  * 처음 게시: 이름 · CtrlAIApps에 보일 짧은 설명 · (선택) 업데이트 메모.
  * 업데이트 게시: 무엇이 무엇으로 바뀌는지(v3 → v5)를 먼저 보여 줍니다.
  * 어느 쪽이든 만든 앱이 할 수 있는 일을 솔직하게 한 번 더 말합니다(F3).
+ *
+ * publish-summary: 창이 열리면 Claude가 쓴 설명(과 업데이트 게시면 메모)을
+ * 받아 **비어 있는 칸만** 채웁니다 — 회원이 이미 적은 글은 두고, 이미
+ * 타이핑을 시작한 칸은 늦게 온 요약이 덮지 않습니다. 설명이 이미 있으면
+ * "Claude 요약으로 바꾸기"로 바꿀 수 있어요. 못 받으면 빈 칸 그대로 —
+ * 게시는 막히지 않습니다. 회원 지갑에서는 나가지 않아요.
  */
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import DialogShell from "@/app/components/DialogShell";
 import styles from "@/app/components/confirm-dialog.module.css";
-import { APP_LIMITS_NOTE } from "@/lib/projects";
+import { APP_LIMITS_NOTE, getPublishSummary, type PublishSummary } from "@/lib/projects";
 
 export interface PublishValues {
   name: string;
@@ -21,6 +27,8 @@ export interface PublishValues {
 }
 
 interface Props {
+  /** 요약을 받아 올 프로젝트. */
+  projectId: number;
   /** 지금 게시된 버전. 처음 게시면 null. */
   publishedVersion: number | null;
   /** 게시될 버전(작업 중 최신). */
@@ -32,7 +40,13 @@ interface Props {
   onConfirm: (values: PublishValues) => void;
 }
 
+type SummaryState =
+  | { phase: "loading" }
+  | { phase: "ready"; summary: PublishSummary }
+  | { phase: "failed" };
+
 export default function PublishDialog({
+  projectId,
   publishedVersion,
   nextVersion,
   initial,
@@ -42,9 +56,37 @@ export default function PublishDialog({
   onConfirm,
 }: Props) {
   const [values, setValues] = useState<PublishValues>(initial);
+  // 회원이 손댄 칸은 요약이 덮지 않습니다 — 효과의 닫힘이 아니라 ref로 읽어, 늦게 온 요약도 지켜요.
+  const touched = useRef({ description: false, note: false });
+  const [summary, setSummary] = useState<SummaryState>({ phase: "loading" });
   const id = useId();
   const update = publishedVersion !== null;
   const same = update && nextVersion === publishedVersion;
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublishSummary(projectId)
+      .then((result) => {
+        if (cancelled) return;
+        setSummary({ phase: "ready", summary: result });
+        setValues((current) => {
+          const next = { ...current };
+          // 빈 칸만 채웁니다 — 적어 둔 설명과 타이핑 중인 글은 그대로.
+          if (!touched.current.description && !current.description.trim() && result.description) next.description = result.description;
+          if (update && !touched.current.note && !current.note.trim() && result.note) next.note = result.note;
+          return next;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSummary({ phase: "failed" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, update]);
+
+  const suggested = summary.phase === "ready" ? summary.summary.description : "";
+  const canReplace = Boolean(suggested) && values.description.trim() !== "" && values.description !== suggested;
 
   return (
     <DialogShell onClose={onClose} labelledBy={`${id}-title`} describedBy={`${id}-effect`}>
@@ -65,7 +107,7 @@ export default function PublishDialog({
           </li>
         )}
         <li>{APP_LIMITS_NOTE}</li>
-        <li>비용은 들지 않고, 언제든 게시를 취소할 수 있어요. 버전 기록은 그대로 남아요.</li>
+        <li>설명은 Claude가 미리 써 줘요 (무료) — 고쳐도 돼요. 게시는 비용이 들지 않고, 언제든 취소할 수 있어요. 버전 기록은 그대로 남아요.</li>
       </ul>
 
       <div className={styles.dialogField}>
@@ -90,9 +132,30 @@ export default function PublishDialog({
           rows={3}
           maxLength={2000}
           value={values.description}
-          placeholder="예: 오늘 할 일을 적고, 끝낸 일은 눌러서 지우는 앱이에요."
-          onChange={(event) => setValues({ ...values, description: event.target.value })}
+          placeholder={summary.phase === "loading" ? "Claude가 설명을 쓰는 중…" : "예: 오늘 할 일을 적고, 끝낸 일은 눌러서 지우는 앱이에요."}
+          onChange={(event) => {
+            touched.current.description = true;
+            setValues({ ...values, description: event.target.value });
+          }}
         />
+        <p className={styles.fieldHint} data-testid="summary-state" aria-live="polite">
+          {summary.phase === "loading" && "Claude가 설명을 요약하는 중… (무료)"}
+          {summary.phase === "ready" && suggested && values.description === suggested && "Claude가 쓴 설명이에요 — 마음에 안 들면 고치세요."}
+          {summary.phase === "ready" && canReplace && (
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => {
+                touched.current.description = true;
+                setValues({ ...values, description: suggested });
+              }}
+            >
+              Claude 요약으로 바꾸기
+            </button>
+          )}
+          {summary.phase === "ready" && !suggested && "요약을 받지 못했어요 — 직접 적어 주세요."}
+          {summary.phase === "failed" && "요약을 받지 못했어요 — 직접 적어 주세요."}
+        </p>
       </div>
       <div className={styles.dialogField}>
         <label className={styles.fieldLabel} htmlFor={`${id}-note`}>
@@ -103,8 +166,11 @@ export default function PublishDialog({
           id={`${id}-note`}
           value={values.note}
           maxLength={200}
-          placeholder="예: 메모 기능을 추가했어요"
-          onChange={(event) => setValues({ ...values, note: event.target.value })}
+          placeholder={update && summary.phase === "loading" ? "Claude가 바뀐 점을 요약하는 중…" : "예: 메모 기능을 추가했어요"}
+          onChange={(event) => {
+            touched.current.note = true;
+            setValues({ ...values, note: event.target.value });
+          }}
         />
       </div>
 

@@ -1353,6 +1353,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
       {publishOpen && (
         <PublishDialog
+          projectId={project.id}
           publishedVersion={project.published_version_number ?? null}
           nextVersion={latestVersion}
           initial={{

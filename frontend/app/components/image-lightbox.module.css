@@ -1,0 +1,82 @@
+/* 사진 크게 보기 (ImageLightbox). */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  place-items: center;
+  gap: 0.6rem;
+  padding: 16px;
+  background: rgba(10, 12, 18, 0.86);
+}
+
+.image {
+  max-width: min(100%, 1400px);
+  max-height: calc(100dvh - 90px);
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  background: #fff;
+}
+
+.close,
+.nav {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+
+.close:hover,
+.nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.close {
+  top: 14px;
+  right: 14px;
+}
+
+.nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.prev {
+  left: 12px;
+}
+
+.next {
+  right: 12px;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--fs-small);
+  text-align: center;
+}
+
+.count,
+.note {
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}

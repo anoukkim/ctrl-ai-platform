@@ -1,0 +1,88 @@
+/* 의견 보내기 — 스크린샷 붙이기 (feedback-screenshots). */
+
+.dropzone {
+  border-radius: var(--radius);
+  outline: 2px dashed transparent;
+  outline-offset: 6px;
+  transition: outline-color 120ms ease;
+}
+
+.dropzone.dragging {
+  outline-color: var(--accent);
+}
+
+.attachRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shot {
+  position: relative;
+  width: 88px;
+  height: 66px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shotUploading img {
+  opacity: 0.45;
+}
+
+.shotStatus {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-small);
+  color: var(--text);
+}
+
+.shotRemove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--scrim);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shotRemove:hover:not(:disabled),
+.shotRemove:focus-visible {
+  background: var(--accent);
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}

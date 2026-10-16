@@ -38,6 +38,7 @@ from app.schemas.builder import (
     BuilderProjectRead,
     BuilderProjectUpdate,
     BuilderTemplateRead,
+    EmptyBody,
 )
 from app.core.config import Settings, get_settings
 from app.schemas.builder import (
@@ -53,6 +54,7 @@ from app.schemas.builder import (
     HandoffFile,
     HandoffRead,
     PublishRequest,
+    PublishSummaryRead,
     RestoreRead,
     VersionLabel,
     StarterEstimateRead,
@@ -70,9 +72,12 @@ from app.services import (
     builder_starter,
     builder_templates,
     builder_versions,
+    chat_limits,
     chat_models,
     pricing,
     project_handoff,
+    provider_limiter,
+    publish_summary,
     project_zip,
 )
 from app.services import usage as usage_service
@@ -843,6 +848,37 @@ def publish_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.post(
+    "/projects/{project_id}/publish-summary",
+    response_model=PublishSummaryRead,
+    summary="The 게시 dialog's pre-filled 설명 and 메모 (publish-summary)",
+)
+async def publish_summary_read(
+    project_id: int,
+    payload: EmptyBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> PublishSummaryRead:
+    """A POST with a JSON body, like every route that writes or spends
+    (CLAUDE.md §2): it may make a club-paid Claude call and keeps the
+    result on the version. Free to the member, once per working version;
+    never an error the dialog has to handle — an empty answer means
+    "write your own"."""
+    project = _owned_project(project_id, db, user)
+    hit = publish_summary.cached(db, project)
+    if hit is None:
+        # A provider slot only for a real call — a stored answer waits for nobody.
+        limit = chat_limits.current(db).provider_concurrency
+        if not await run_in_threadpool(provider_limiter.acquire, limit):
+            return PublishSummaryRead()
+        try:
+            hit = await publish_summary.summarize(db, config, get_claude_provider(config), user=user, project=project)
+        finally:
+            provider_limiter.release()
+    return PublishSummaryRead(description=hit.description, note=hit.note, cached=hit.cached, model=hit.model)
 
 
 @router.post(

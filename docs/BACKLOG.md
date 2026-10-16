@@ -122,20 +122,14 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     지난 분기 selector. **Chat history at quarter end is ON HOLD** — the
     owner is asking members first (archive vs delete); do not build it.
 
-4. **feedback-screenshots** · M1 · branch `feat-feedback-screenshots`
-    *Not pre-approved — branch, test, report, WAIT.* **Replaces
-    anonymous-feedback-board** (owner, 2026-10-16: "no board — only the
-    관리자 can see it"). 의견 보내기 accepts screenshots; Admin › Feedback
-    shows them. The old board spec below is kept for history, not built.
-
-5. **builder-python** · M2 · branch `feat-builder-python`
+4. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below. Owner, 2026-10-16: wanted
     — "a tetris game", "a 사주 site", made in the Builder and usable on the
     apps origin during the quarter.
 
-6. **app-remix** · M3 · branch `feat-app-remix`
+5. **app-remix** · M3 · branch `feat-app-remix`
     *Not pre-approved — order to be set by the owner.* From H4's optional
     point 4 (project-export-handoff), split out because it is not small: on
     a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
@@ -149,7 +143,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     project and its listing, audit-free (it is a member action), and tests
     (allowed/not allowed, deleted original, own app, inactive member).
 
-7. **owner-polish-2026-10-16** · M1 · one small branch per point
+6. **owner-polish-2026-10-16** · M1 · one small branch per point
     *Not pre-approved — branch, test, report, WAIT.* **Points 3, 8, 1, 9,
     6, 13, 14, 10 are built on `fix-owner-polish-a`** (2026-10-16, eight
     commits, pushed, awaiting the owner's approval — see
@@ -175,32 +169,9 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-8. **publish-summary** · M3 · branch `feat-publish-summary`
-    *Not pre-approved — branch, test, report, WAIT.* Owner, 2026-10-16
-    (relayed from another session, saved in their words): "지금은 매뉴얼로
-    작성하는데 설명 그리고 업데이트(일 때) 그냥 간단요약하게 쓰이게 해줘" /
-    "보일 설명은 그냥 하이쿠로 간단 요약하게". When the 게시 dialog opens,
-    Haiku reads the app's files (+ the project name) and pre-fills the
-    CtrlAIApps 설명 with a 1–2 sentence Korean summary; for 업데이트 게시 it
-    also pre-fills 업데이트 메모 with one line on what changed between the
-    published version and now (from the versions' requests and summaries).
-    Both are defaults the member can edit; "요약하는 중…" while it runs; on
-    failure the field stays empty and 게시 is never blocked. Cost: the
-    dialog promises "비용은 들지 않고", so the member's wallet is not
-    charged — 0원 to the member, recorded as club-absorbed; Haiku, a short
-    `max_tokens`; the real API never called in tests (mock). Tests: the
-    pre-fill (new / update), empty on failure, 0원 to the member + the club
-    row, the dialog's updated wording. **Two things the owner saw on the
-    way (both fixed in app-platform P4b):** the 설명 field held the last
-    고치기 request ("카카오톡처럼 보이게 해줘") — `builder_stages` /
-    `builder_edit` filled an empty description from *any* request, and a
-    template project started empty; now only a 만들기 request does. And the
-    dialog's note still said shared apps and logins cannot be made — the
-    note now says what the 기능 상자 does and points at /help/apps.
-
-9. **promo-videos** · M1 · branch `feat-promo-videos`
+7. **promo-videos** · M1 · branch `feat-promo-videos`
     *Not pre-approved — branch, test, report, WAIT. Order: after
-    publish-summary.* Owner, 2026-10-16 (relayed from another session,
+    publish-summary (merged 2026-10-16).* Owner, 2026-10-16 (relayed from another session,
     their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
     — 2번(데스크탑), 3번(모바일 영상) — 이거를 각각 가이드 마지막(화면
     임베디드, 크게 보기 가능) 그리고 ctrl tube에 그냥 기본적으로 나오는
@@ -235,10 +206,10 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     members read only; another member's comment), admin hide, 신고.
     Screenshots 1440 · 390, light and dark.
 
-10. **app-libraries** · M3 · branch `feat-app-libraries`
+8. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
     be set by the owner.* (Numbered 8 until publish-summary and promo-videos joined on
-    2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    2026-10-16; publish-summary merged the same day.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
     높인다."** Member apps have no network (CSP `connect-src 'none'`, no
     CDN), so a game or a chart today means hand-written code. Review a
     bundle of **approved libraries that CTRL+AI hosts itself** on the apps
@@ -443,6 +414,12 @@ Three things to carry into **budget-by-provider**:
 ## UI requests (collected, not started)
 
 New UI requests go here until they are folded into a UI batch.
+
+- **profile-photo** — later. Members keep the **letter avatar** for now
+  (owner, 2026-10-16: "letters okay for now", said while asking for
+  feedback-screenshots). When it comes: the same upload path as the
+  feedback screenshots (bytes checked, re-encoded, EXIF gone), one image
+  per member, shown wherever the letter is today.
 
 *(The two UI requests since UI batch 1, **admin-restructure** and
 **ui-naming**, were each large enough to get their own item and branch in
