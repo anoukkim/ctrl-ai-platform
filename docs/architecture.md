@@ -783,7 +783,7 @@ charge as before; what changed is who writes rows. `FX_PROVIDER=mock|
 frankfurter` picks a provider behind one interface (`FxProvider.fetch()
 → FxQuote(rate, as_of, source)`): the mock quotes a fixed rate with no
 network; Frankfurter reads the ECB's daily reference rate from
-`api.frankfurter.app` — free, keyless, never a paid service (the owner's
+`api.frankfurter.dev` — free, keyless, never a paid service (the owner's
 rule: stop and ask if one were needed). `fx.refresh()` runs from
 `app/jobs/refresh_fx.py` (in `deploy/daily-jobs.sh`, so once a day by
 cron — never inside a request) and from Admin › System's 지금 새로 고침:

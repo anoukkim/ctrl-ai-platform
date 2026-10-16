@@ -3,7 +3,7 @@
 The owner's words: "환율은 그냥 자동 반영하면 안됨? 왜 굳이 여기다". So the
 rate the ledger converts dollars with is fetched **once a day** from a
 free, keyless public source — the ECB's reference rates through
-Frankfurter (api.frankfurter.app) — behind a provider interface with a
+Frankfurter (api.frankfurter.dev) — behind a provider interface with a
 mock default, like every other provider (CLAUDE.md §7): `FX_PROVIDER=
 mock|frankfurter`. No paid service, ever.
 
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 #: A day-to-day move larger than this is held back, not applied.
 MAX_JUMP_PCT = Decimal("5")
 #: The free source: the ECB's daily reference rates. No key, no account.
-FRANKFURTER_URL = "https://api.frankfurter.app/latest"
+FRANKFURTER_URL = "https://api.frankfurter.dev/v1/latest"
 #: What the mock quotes — a plausible rate, the same every day, so the
 #: screens and the ledger can be exercised with no network.
 MOCK_RATE = Decimal("1385.00")
@@ -94,7 +94,7 @@ class MockFxProvider:
 
 
 class FrankfurterFxProvider:
-    """`GET https://api.frankfurter.app/latest?base=USD&symbols=KRW` →
+    """`GET https://api.frankfurter.dev/v1/latest?base=USD&symbols=KRW` →
     `{"base": "USD", "date": "2026-10-16", "rates": {"KRW": 1385.12}}`.
     `get` is injectable so the parser is tested without the network."""
 

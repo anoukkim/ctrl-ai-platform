@@ -171,7 +171,7 @@ class Settings(BaseSettings):
     github_provider: str = "mock"
     youtube_provider: str = "mock"
     #: owner-polish-3 (b): the daily USD→KRW rate. `frankfurter` is the
-    #: ECB's reference rates through api.frankfurter.app — free, no key.
+    #: ECB's reference rates through api.frankfurter.dev — free, no key.
     fx_provider: str = "mock"
 
     # The credentials themselves. An empty value is not an error while the
