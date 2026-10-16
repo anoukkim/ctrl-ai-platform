@@ -74,6 +74,10 @@ def notify(
         db.add(row)
         db.flush()
         return row
+    # Whatever the caller left pending is flushed here, outside the
+    # savepoint, so its own errors reach the caller instead of being
+    # mistaken for a duplicate notification.
+    db.flush()
     try:
         with db.begin_nested():
             db.add(row)
@@ -103,14 +107,19 @@ def app_published(db: Session, project: BuilderProject, *, update: bool) -> None
         )
 
 
-def application_reviewed(db: Session, application: QuarterApplication, *, approved: bool, note: str) -> None:
+def application_reviewed(
+    db: Session, application: QuarterApplication, *, approved: bool, note: str, budget_krw: int | None = None
+) -> None:
+    """`budget_krw` is the wallet's figure after the carry-over (the
+    caller's `allocation.budget_krw`) — money text comes from the wallet row."""
     quarter = db.get(Quarter, application.quarter_id)
     name = quarter.display_name if quarter else "이번 분기"
     if approved:
+        amount = budget_krw if budget_krw is not None else application.requested_budget_krw
         notify(
             db, application.user_id, "application",
             f"{name} 참여 신청이 승인됐어요",
-            f"지원금 {application.requested_budget_krw:,}원으로 채팅, Builder 등 모든 기능을 쓸 수 있어요.",
+            f"지원금 {amount:,}원으로 채팅, Builder 등 모든 기능을 쓸 수 있어요.",
             "/usage",
         )
     else:
@@ -161,9 +170,8 @@ def _kst_day(moment: datetime) -> date:
     return moment.astimezone(KST).date()
 
 
-def _day_label(day: date, today: date) -> str:
-    if day == today - timedelta(days=1):
-        return "어제"
+def _day_label(day: date) -> str:
+    """The date itself — a row lives 90 days, so "어제" would go stale."""
     return f"{day.month}월 {day.day}일"
 
 
@@ -192,8 +200,20 @@ def ensure_spend_summaries(db: Session, user: User, *, now: datetime | None = No
         if day >= today:
             continue  # today's charges are summarised tomorrow
         by_day.setdefault(day, []).append((feature, int(charged)))
+    # Days already summarised are skipped before any write — the common
+    # case (nothing new) is one SELECT and no failed inserts.
+    done = set(
+        db.scalars(
+            select(Notification.dedupe_key).where(
+                Notification.user_id == user.id,
+                Notification.dedupe_key.in_([f"spend:{day.isoformat()}" for day in by_day]),
+            )
+        )
+    ) if by_day else set()
     written = 0
     for day in sorted(by_day):
+        if f"spend:{day.isoformat()}" in done:
+            continue
         rows = by_day[day]
         total = sum(charged for _, charged in rows)
         counts = Counter(spending_group(feature) for feature, _ in rows)
@@ -202,7 +222,7 @@ def ensure_spend_summaries(db: Session, user: User, *, now: datetime | None = No
         )
         if notify(
             db, user.id, "spend",
-            f"{_day_label(day, today)} 지원금 {total:,}원 사용",
+            f"{_day_label(day)} 지원금 {total:,}원 사용",
             parts, "/usage",
             dedupe_key=f"spend:{day.isoformat()}",
         ):
@@ -211,6 +231,14 @@ def ensure_spend_summaries(db: Session, user: User, *, now: datetime | None = No
 
 
 # ------------------------------------------------------------ reading
+
+
+def refresh(db: Session, user: User) -> None:
+    """What every read does first: drop old rows, write the daily spend
+    summaries up to yesterday. Commits — the caller reads afterwards."""
+    prune(db, user.id)
+    ensure_spend_summaries(db, user)
+    db.commit()
 
 
 def prune(db: Session, user_id: int, *, now: datetime | None = None) -> int:

@@ -58,7 +58,7 @@ test("게시 writes a notification: the bell counts it, the panel lists it, a ro
   await bell.click();
   const dialog = page.getByRole("dialog", { name: "알림" });
   await expect(dialog).toBeVisible();
-  const row = dialog.getByRole("button", { name: `안 읽음 · '${name}' 게시 완료 — v1` });
+  const row = dialog.getByRole("button", { name: new RegExp(`안 읽음 · .*'${name}' 게시 완료 — v1`) });
   await expect(row).toBeVisible();
   await theme(page, "light");
   await page.screenshot({ path: `${SHOTS}/1440-light-bell-panel.png` });

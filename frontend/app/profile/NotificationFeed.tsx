@@ -8,13 +8,14 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { NotificationRow } from "@/app/components/NotificationBell";
 import { describeError } from "@/lib/http";
 import {
   NOTIFICATIONS_CHANGED,
   announceNotificationsChanged,
+  changedElsewhere,
   listNotifications,
   markAllRead,
   markRead,
@@ -26,22 +27,33 @@ import styles from "./profile.module.css";
 
 /** Profile에 보이는 줄 수 — 서버는 50개까지 주고, 90일 지난 것은 지웁니다. */
 export const FEED_LIMIT = 30;
+const ME = "feed";
 
 type State = { phase: "loading" } | { phase: "ready"; list: NotificationList } | { phase: "error"; message: string };
 
 export default function NotificationFeed() {
   const router = useRouter();
   const [state, setState] = useState<State>({ phase: "loading" });
+  // 늦게 온 옛 응답이 새 상태를 덮지 않도록.
+  const seq = useRef(0);
 
   const load = useCallback(() => {
+    const mine = ++seq.current;
     listNotifications()
-      .then((list) => setState({ phase: "ready", list }))
-      .catch((error: unknown) => setState({ phase: "error", message: describeError(error) }));
+      .then((list) => {
+        if (mine === seq.current) setState({ phase: "ready", list });
+      })
+      .catch((error: unknown) => {
+        if (mine === seq.current) setState({ phase: "error", message: describeError(error) });
+      });
   }, []);
 
   useEffect(() => {
     load();
-    const onChanged = () => load();
+    // 종이 읽음 처리하면 여기도 새로 — 내 신호에는 내가 이미 상태를 바꿨습니다.
+    const onChanged = (event: Event) => {
+      if (changedElsewhere(event, ME)) load();
+    };
     window.addEventListener(NOTIFICATIONS_CHANGED, onChanged);
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED, onChanged);
   }, [load]);
@@ -63,7 +75,7 @@ export default function NotificationFeed() {
               }
             : current,
         );
-        announceNotificationsChanged();
+        announceNotificationsChanged(ME);
       } catch {
         /* 가는 건 갑니다 */
       }
@@ -85,7 +97,7 @@ export default function NotificationFeed() {
             }
           : current,
       );
-      announceNotificationsChanged();
+      announceNotificationsChanged(ME);
     } catch (error) {
       setState({ phase: "error", message: describeError(error) });
     }

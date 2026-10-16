@@ -357,7 +357,6 @@ def review_application(
     allocation.budget_krw = application.requested_budget_krw + int(earlier or 0)
     allocation.approved_at = approved_at
     allocation.approved_by = admin.id
-    notifications.application_reviewed(db, application, approved=True, note=payload.admin_note or "")
     # Provider prices as they stood at approval. Kept so a member's quota
     # in tokens or generations stays consistent even if prices change.
     allocation.pricing_snapshot = {"captured_at": approved_at.isoformat()}
@@ -373,6 +372,10 @@ def review_application(
     # membership row, so without this the member would have money they
     # could not spend.
     set_membership(db, application.user_id, application.quarter_id, MembershipStatus.ACTIVE)
+    # Told after the carry-over, with the wallet's own figure — never the request's.
+    notifications.application_reviewed(
+        db, application, approved=True, note=payload.admin_note or "", budget_krw=allocation.budget_krw
+    )
 
     applicant = db.get(User, application.user_id)
     audit.record(

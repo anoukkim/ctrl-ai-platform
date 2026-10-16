@@ -160,7 +160,9 @@ def update_example(db, settings, project: BuilderProject, example: Example, root
     builder_versions.replace_files(db, project, files)
     builder_versions.snapshot(db, project, "예시 앱 업데이트", files, settings)
     # The club's own showcases run on 실제 AI for signed-in visitors (P4b).
-    app_publish.publish(db, settings, project, description=example.description, note=example.note, ai_access="full")
+    app_publish.publish(
+        db, settings, project, description=example.description, note=example.note, ai_access="full", notify=False
+    )
     return True
 
 
@@ -191,7 +193,7 @@ def import_examples(
         builder_versions.replace_files(db, project, files)
         builder_versions.snapshot(db, project, "예시 앱 가져오기", files, settings)
         app_publish.publish(
-            db, settings, project, description=example.description, note=example.note, ai_access="full"
+            db, settings, project, description=example.description, note=example.note, ai_access="full", notify=False
         )
         imported.append(example.name)
         results.append((example.name, "imported"))

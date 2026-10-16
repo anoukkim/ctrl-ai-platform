@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import User
-from app.schemas.notification import EmptyBody, NotificationList, NotificationRead, UnreadRead
+from app.schemas.builder import EmptyBody
+from app.schemas.notification import NotificationList, NotificationRead, UnreadRead
 from app.services import notifications
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -21,9 +22,7 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 def list_notifications(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> NotificationList:
     """Reading also tidies: rows older than 90 days go, and the daily
     spend summaries up to yesterday are written from the ledger."""
-    notifications.prune(db, user.id)
-    notifications.ensure_spend_summaries(db, user)
-    db.commit()
+    notifications.refresh(db, user)
     items = notifications.list_for(db, user)
     return NotificationList(
         items=[NotificationRead.model_validate(row) for row in items],
@@ -33,6 +32,9 @@ def list_notifications(db: Session = Depends(get_db), user: User = Depends(get_c
 
 @router.get("/unread", response_model=UnreadRead, summary="How many are unread (the bell)")
 def unread(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> UnreadRead:
+    """The bell polls this, so the daily summary is written here too —
+    otherwise the count could never announce it."""
+    notifications.refresh(db, user)
     return UnreadRead(unread=notifications.unread_count(db, user.id))
 
 

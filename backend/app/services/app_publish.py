@@ -58,8 +58,12 @@ def publish(
     description: str,
     note: str,
     ai_access: str | None = None,
+    notify: bool = True,
 ) -> BuilderProjectVersion:
     """게시 / 업데이트 게시: the newest version becomes the public one.
+
+    `notify=False` for the example-app importer: a deploy's own publishes
+    are not the admin's news (feat-notifications).
 
     `ai_access` (app-ai-access): "demo" or "full" — the maker's answer to
     "다른 회원에게 AI 기능을 열까요?"; None keeps what the project has
@@ -103,7 +107,8 @@ def publish(
     project.status = BuilderProjectStatus.PUBLISHED
     db.flush()
     # 게시 완료 / 업데이트 게시 완료 — the owner's own notification list.
-    notifications.app_published(db, project, update=was_published)
+    if notify:
+        notifications.app_published(db, project, update=was_published)
     return version
 
 

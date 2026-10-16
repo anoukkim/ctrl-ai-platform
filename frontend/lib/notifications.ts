@@ -49,8 +49,15 @@ export function markAllRead(): Promise<{ unread: number }> {
  */
 export const NOTIFICATIONS_CHANGED = "ctrlai:notifications-changed";
 
-export function announceNotificationsChanged(): void {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
+/** `source`는 보낸 쪽의 이름 — 자기 신호에 자기가 다시 불러오지 않도록. */
+export function announceNotificationsChanged(source: string): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED, { detail: { source } }));
+  }
+}
+
+export function changedElsewhere(event: Event, me: string): boolean {
+  return (event as CustomEvent<{ source?: string }>).detail?.source !== me;
 }
 
 /** 종류별 짧은 표시 — 아이콘 대신 글자 하나. 화면 읽기에는 숨깁니다. */

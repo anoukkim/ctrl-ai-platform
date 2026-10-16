@@ -16,11 +16,13 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   KIND_GLYPH,
   NOTIFICATIONS_CHANGED,
   announceNotificationsChanged,
+  changedElsewhere,
   listNotifications,
   markAllRead,
   markRead,
@@ -33,6 +35,7 @@ import { relativeTime } from "@/lib/relative-time";
 import styles from "./notifications.module.css";
 
 export const POLL_MS = 60_000;
+const ME = "bell";
 /** 작은 창에 보이는 줄 수 — 나머지는 Profile에서. */
 export const PANEL_LIMIT = 8;
 
@@ -49,6 +52,9 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
   const [error, setError] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const headingRef = useRef<HTMLSpanElement | null>(null);
+  // 늦게 온 옛 응답이 새 상태를 덮지 않도록 요청마다 번호를 붙입니다.
+  const seq = useRef(0);
   const titleId = useId();
 
   const refreshCount = useCallback(() => {
@@ -67,7 +73,9 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
     const onVisible = () => {
       if (document.visibilityState === "visible") refreshCount();
     };
-    const onChanged = () => refreshCount();
+    const onChanged = (event: Event) => {
+      if (changedElsewhere(event, ME)) refreshCount();
+    };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener(NOTIFICATIONS_CHANGED, onChanged);
     return () => {
@@ -80,14 +88,21 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
   const openPanel = useCallback(async () => {
     setOpen(true);
     setError(null);
+    const mine = ++seq.current;
     try {
       const got = await listNotifications();
+      if (mine !== seq.current) return;
       setList(got);
       setUnread(got.unread);
     } catch {
-      setError("알림을 불러오지 못했어요.");
+      if (mine === seq.current) setError("알림을 불러오지 못했어요.");
     }
   }, []);
+
+  // 열리면 초점이 창의 제목으로 — 화면 읽기가 새 창을 알도록.
+  useEffect(() => {
+    if (open) headingRef.current?.focus();
+  }, [open]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -128,7 +143,7 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
             : current,
         );
         setUnread((n) => Math.max(0, n - 1));
-        announceNotificationsChanged();
+        announceNotificationsChanged(ME);
       } catch {
         /* 읽음 표시가 안 돼도 가는 건 갑니다 */
       }
@@ -149,7 +164,7 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
           ? { unread: 0, items: current.items.map((item) => ({ ...item, read_at: item.read_at ?? new Date().toISOString() })) }
           : current,
       );
-      announceNotificationsChanged();
+      announceNotificationsChanged(ME);
     } catch {
       setError("모두 읽음으로 바꾸지 못했어요.");
     }
@@ -177,10 +192,13 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
           </span>
         )}
       </button>
-      {open && (
+      {open &&
+        createPortal(
         <div ref={panelRef} className={styles.panel} role="dialog" aria-labelledby={titleId}>
           <div className={styles.panelHead}>
-            <span id={titleId}>알림</span>
+            <span id={titleId} ref={headingRef} tabIndex={-1}>
+              알림
+            </span>
             <button className="btn btn-sm" type="button" onClick={() => void readAll()} disabled={unread === 0}>
               모두 읽음
             </button>
@@ -207,7 +225,8 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
               Profile에서 전체 보기
             </Link>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </span>
   );
@@ -217,14 +236,10 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
 export function NotificationRow({ row, onPick }: { row: Notification; onPick: () => void }) {
   const unread = row.read_at === null;
   return (
-    <button
-      className={styles.row}
-      type="button"
-      onClick={onPick}
-      aria-label={`${unread ? "안 읽음 · " : ""}${row.title}`}
-      data-unread={unread ? "true" : undefined}
-    >
+    <button className={styles.row} type="button" onClick={onPick} data-unread={unread ? "true" : undefined}>
       <span className={`${styles.dot} ${unread ? styles.dotUnread : ""}`} aria-hidden="true" />
+      {/* 화면 읽기에는 글로 — 점만으로는 안 읽음을 알 수 없습니다. 이름 전체(제목·설명·시각)가 읽힙니다. */}
+      {unread && <span className="sr-only">안 읽음 · </span>}
       <span className={styles.text}>
         <span className={`${styles.title} ${unread ? "" : styles.titleRead}`}>
           <span aria-hidden="true">{KIND_GLYPH[row.kind] ?? "•"} </span>

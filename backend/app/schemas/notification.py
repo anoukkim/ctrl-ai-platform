@@ -25,6 +25,3 @@ class NotificationList(BaseModel):
 class UnreadRead(BaseModel):
     unread: int
 
-
-class EmptyBody(BaseModel):
-    """A POST that needs no fields still needs a JSON body (CLAUDE.md §2)."""

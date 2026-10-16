@@ -140,6 +140,44 @@ def test_an_app_taken_down_by_the_admin_tells_the_maker_with_the_reason(
     assert rows[0]["body"] == "관리자 사유: 비밀번호를 묻는 화면" and rows[0]["link"] == f"/builder/{project.id}"
 
 
+def test_the_approval_figure_is_the_wallets_including_earlier_adjustments(
+    client: TestClient, db_session: Session, dev_user, other_user, participating
+) -> None:
+    """A re-approval keeps an admin's earlier +5,000 (a WalletAdjustment
+    row); the member is told the wallet's figure, not the request's."""
+    from app.models import QuarterAllocation, WalletAdjustment
+
+    quarter = participating
+    allocation = QuarterAllocation(user_id=other_user.id, quarter_id=quarter.id, budget_krw=80_000, consumed_krw=0)
+    db_session.add(allocation)
+    db_session.flush()
+    db_session.add(
+        WalletAdjustment(
+            allocation_id=allocation.id, user_id=other_user.id, quarter_id=quarter.id, amount_krw=5_000,
+            reason="보너스", budget_before_krw=80_000, budget_after_krw=85_000, created_by=dev_user.id,
+        )
+    )
+    application = QuarterApplication(
+        user_id=other_user.id, quarter_id=quarter.id, requested_budget_krw=80_000,
+        status=ApplicationStatus.SUBMITTED,
+    )
+    db_session.add(application)
+    db_session.commit()
+    assert client.post(f"/api/admin/applications/{application.id}/review", json={"approve": True}).status_code == 200
+    _sign_in(client, other_user.username, MEMBER_PASSWORD)
+    [row] = client.get("/api/notifications").json()["items"]
+    assert "85,000원" in row["body"]
+
+
+def test_the_example_app_importer_writes_no_notification(
+    client: TestClient, db_session: Session, dev_user, budgeted, config
+) -> None:
+    from app.db import import_example_apps
+
+    import_example_apps.import_examples(db_session, dev_user, config)
+    assert client.get("/api/notifications").json()["items"] == []
+
+
 def test_a_spend_milestone_is_also_a_notification_once_per_quarter(
     client: TestClient, db_session: Session, dev_user, budgeted
 ) -> None:
@@ -181,11 +219,16 @@ def test_yesterdays_spending_becomes_one_summary_row_written_once(
     _charge(db_session, dev_user.id, budgeted.quarter_id, "chat", 0, yesterday_noon_kst)
 
     [row] = client.get("/api/notifications").json()["items"]
-    assert row["kind"] == "spend" and row["title"] == "어제 지원금 500원 사용"
+    yesterday = yesterday_noon_kst.date()
+    assert row["kind"] == "spend" and row["title"] == f"{yesterday.month}월 {yesterday.day}일 지원금 500원 사용"
     assert row["body"] == "채팅 2회 · 빌더 1회" and row["link"] == "/usage"
-    # A second read writes nothing more (dedupe per day).
+    # A second read writes nothing more (dedupe per day); the bell's count
+    # route writes the summary too, so the badge can announce it.
     assert len(client.get("/api/notifications").json()["items"]) == 1
     assert db_session.query(Notification).filter_by(kind="spend").count() == 1
+    db_session.query(Notification).delete()
+    db_session.commit()
+    assert client.get("/api/notifications/unread").json() == {"unread": 1}
 
 
 def test_spend_summaries_follow_the_profile_switch_and_an_old_day_is_named(

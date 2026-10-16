@@ -75,6 +75,7 @@
 
 /* 한 줄: 안 읽음 점 · 글자(제목, 설명, 시각). 전체가 단추입니다. */
 .row {
+  position: relative;
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
   gap: 0.55rem;
@@ -88,10 +89,21 @@
   cursor: pointer;
 }
 
-.row:hover,
+.row:hover {
+  background: var(--panel-2);
+}
+
+/* 키보드 초점은 보여야 합니다 — 배경만 바뀌는 것으로는 부족합니다. */
 .row:focus-visible {
   background: var(--panel-2);
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.panelHead span:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .dot {

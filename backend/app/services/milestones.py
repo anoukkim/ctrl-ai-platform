@@ -90,10 +90,13 @@ def claim(db: Session, user: User) -> Claim | None:
     new = crossed(allocation.budget_krw, allocation.consumed_krw) - seen
     for kind in new:
         db.add(SpendMilestone(user_id=user.id, quarter_id=quarter.id, kind=kind))
-    # The same moments in the member's notification list (feat-notifications).
-    for kind in new:
-        notifications.milestone_crossed(db, user.id, quarter.id, kind, allocation.remaining_krw)
     try:
+        # Flushed here, so the two-tabs race surfaces as this IntegrityError
+        # and not inside the notification's own savepoint.
+        db.flush()
+        # The same moments in the member's notification list (feat-notifications).
+        for kind in new:
+            notifications.milestone_crossed(db, user.id, quarter.id, kind, allocation.remaining_krw)
         db.commit()
     except IntegrityError:
         # Two tabs claimed at once: the other recorded it and shows it.
