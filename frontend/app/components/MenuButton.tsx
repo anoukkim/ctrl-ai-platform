@@ -29,6 +29,8 @@ interface Props {
   title?: string;
   items: MenuItem[];
   align?: "start" | "end";
+  /** 메뉴가 열리는 방향 — 화면 바닥에 붙은 단추는 위로 엽니다 (owner-polish-3). */
+  placement?: "down" | "up";
   className?: string;
   disabled?: boolean;
 }
@@ -39,6 +41,7 @@ export default function MenuButton({
   title,
   items,
   align = "end",
+  placement = "down",
   className = "btn btn-sm",
   disabled = false,
 }: Props) {
@@ -137,7 +140,7 @@ export default function MenuButton({
       </button>
       {open && (
         <ul
-          className={`${styles.menu} ${align === "end" ? styles.alignEnd : ""}`}
+          className={`${styles.menu} ${align === "end" ? styles.alignEnd : ""} ${placement === "up" ? styles.placeUp : ""}`}
           id={`${id}-menu`}
           role="menu"
           aria-label={label ?? (typeof children === "string" ? children : undefined)}

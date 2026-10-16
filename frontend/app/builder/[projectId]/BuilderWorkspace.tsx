@@ -49,6 +49,7 @@ import {
   APP_LIMITS_NOTE,
   labelVersion,
   publicUrl,
+  chooseThumbnail,
   publishProject,
   setAiAccess,
   unpublishProject,
@@ -92,7 +93,11 @@ import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
 import ClaudeHistory, { particleRo } from "./ClaudeHistory";
 import CodeView from "./CodeView";
+import { blobToDataUrl, captureFrame } from "@/lib/thumbnail-capture";
+
 import HiddenCapture from "./HiddenCapture";
+import ThumbnailDialog from "./ThumbnailDialog";
+import { type CandidateKind } from "./ThumbnailPicker";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
 import PublishDialog, { type PublishValues } from "./PublishDialog";
@@ -182,6 +187,40 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [previewWhich, setPreviewWhich] = useState<"draft" | "published">("draft");
   // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
   const [captureUrl, setCaptureUrl] = useState<string | null>(null);
+  // owner-polish-3 (a2): the preview frame the 게시 dialog photographs its
+  // candidates from, and the 게시 menu's 썸네일 바꾸기.
+  const previewFrame = useRef<{ frame: HTMLIFrameElement | null; origin: string | null }>({ frame: null, origin: null });
+  const onFrameReady = useCallback((frame: HTMLIFrameElement | null, origin: string | null) => {
+    previewFrame.current = { frame, origin };
+  }, []);
+  const captureCandidate = useCallback(async (kind: CandidateKind): Promise<Blob> => {
+    const { frame, origin } = previewFrame.current;
+    if (!frame || !origin) throw new Error("미리보기가 아직 없어요.");
+    if (kind === "first") return captureFrame(frame, origin, { width: 1280, height: 800 });
+    if (kind === "scrolled") return captureFrame(frame, origin, { width: 1280, height: 800, offset: 600 });
+    if (kind === "phone") return captureFrame(frame, origin, { width: 390, height: 844 });
+    return captureFrame(frame, origin);
+  }, []);
+  const [thumbnailOpen, setThumbnailOpen] = useState(false);
+  const [thumbnailBusy, setThumbnailBusy] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+  const saveChosenThumbnail = useCallback(
+    async (image: Blob) => {
+      setThumbnailBusy(true);
+      setThumbnailError(null);
+      try {
+        const updated = await chooseThumbnail(projectId, await blobToDataUrl(image));
+        setState({ phase: "ready", project: updated });
+        setThumbnailOpen(false);
+        toast.show("썸네일을 바꿨어요.");
+      } catch (error) {
+        setThumbnailError(describeError(error));
+      } finally {
+        setThumbnailBusy(false);
+      }
+    },
+    [projectId, toast],
+  );
   const [labelling, setLabelling] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
 
@@ -474,10 +513,19 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setPublishOpen(false);
         listVersions(projectId).then(setVersions).catch(() => undefined);
         toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
-        // The published app's thumbnail: taken from the public address in a
-        // hidden frame, in this browser (owner-polish 4).
-        const publicAddress = publicUrl(updated, appsBase);
-        if (publicAddress) setCaptureUrl(`${publicAddress}?v=${encodeURIComponent(updated.published_at ?? "")}`);
+        if (values.thumbnail) {
+          // owner-polish-3 (a2): the picture the maker picked in the dialog.
+          try {
+            setState({ phase: "ready", project: await chooseThumbnail(projectId, await blobToDataUrl(values.thumbnail)) });
+          } catch {
+            /* 카드는 표지로 남고, 게시 메뉴의 썸네일 바꾸기가 있어요 */
+          }
+        } else {
+          // No pick (or no preview to pick from): taken from the public address
+          // in a hidden frame, in this browser (owner-polish 4).
+          const publicAddress = publicUrl(updated, appsBase);
+          if (publicAddress) setCaptureUrl(`${publicAddress}?v=${encodeURIComponent(updated.published_at ?? "")}`);
+        }
       } catch (error) {
         setPublishError(describeError(error));
       } finally {
@@ -894,6 +942,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     ]
                   : []),
                 {
+                  label: "썸네일 바꾸기…",
+                  hint: "미리보기에서 찍은 후보 가운데 고르거나 지금 화면을 찍어요",
+                  onSelect: () => {
+                    setThumbnailError(null);
+                    setThumbnailOpen(true);
+                  },
+                },
+                {
                   label: "게시 취소",
                   hint: "CtrlAIApps에서 내려요. 버전은 모두 남아요.",
                   danger: true,
@@ -1126,6 +1182,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   toolbarStart={versionSelect}
                   toolbarEnd={claudeOpener}
                   onCapture={mayCreate ? storeThumbnail : undefined}
+                  onFrameReady={onFrameReady}
                 />
                 {captureUrl && (
                   <HiddenCapture
@@ -1445,10 +1502,21 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             note: "",
           }}
           initialAiAccess={project.ai_access ?? "demo"}
+          captureThumbnail={captureCandidate}
           busy={publishing}
           error={publishError}
           onClose={() => setPublishOpen(false)}
           onConfirm={(values) => void publish(values)}
+        />
+      )}
+
+      {thumbnailOpen && (
+        <ThumbnailDialog
+          capture={captureCandidate}
+          busy={thumbnailBusy}
+          error={thumbnailError}
+          onClose={() => setThumbnailOpen(false)}
+          onConfirm={(image) => void saveChosenThumbnail(image)}
         />
       )}
 

@@ -51,9 +51,22 @@
   gap: 0.4rem;
 }
 
+/* 이름 옆의 종과 접기 단추 (owner-polish-3 (c2)). */
+.navBrandTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* 접기 단추는 넓은 화면에서만. 좁은 화면은 위쪽 "메뉴" 단추를 씁니다. */
 .collapseButton {
   display: none;
+}
+
+.topbarTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .menuButton {
@@ -396,13 +409,27 @@
   gap: 2px;
 }
 
+/* 계정 줄 — 누르면 작은 메뉴가 위로 열립니다 (owner-polish-3 (c2)). */
 .navUser {
   display: flex;
+  width: 100%;
   min-width: 0;
   align-items: center;
   gap: 0.55rem;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
   font-size: 13px;
   font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.navUser:hover {
+  background: var(--panel-2);
 }
 
 .navAvatar {
@@ -569,13 +596,14 @@
     margin: 0;
   }
 
-  .shellCollapsed .navActions {
+  .shellCollapsed .navBrandTools {
     flex-direction: column;
     gap: 6px;
   }
 
   .shellCollapsed .navUser {
     justify-content: center;
+    padding: 4px 0;
   }
 
   /* Chat과 작업 공간은 위의 여백을 쓰지 않습니다 — 여백은 각 화면이

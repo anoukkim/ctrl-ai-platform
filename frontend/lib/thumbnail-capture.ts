@@ -48,16 +48,25 @@ export function dataUrlToBlob(dataUrl: string): Blob {
  * 보내고, 그쪽에서 온 답만 받습니다. 셸이 없거나(앱 서버가 꺼짐) 앱이
  * 그림을 만들지 못하면 `timeoutMs` 뒤 거절합니다.
  */
+export interface CaptureOptions {
+  timeoutMs?: number;
+  /** 프레임 크기 대신 이 크기로 — 게시 창의 폰 너비 후보 (owner-polish-3 (a2)). */
+  width?: number;
+  height?: number;
+  /** 페이지를 이만큼 내려간 자리 — 게시 창의 스크롤 후보. */
+  offset?: number;
+}
+
 export function captureFrame(
   frame: HTMLIFrameElement,
   appsOrigin: string,
-  { timeoutMs = CAPTURE_TIMEOUT_MS }: { timeoutMs?: number } = {},
+  { timeoutMs = CAPTURE_TIMEOUT_MS, width: wantWidth, height: wantHeight, offset = 0 }: CaptureOptions = {},
 ): Promise<Blob> {
   const target = frame.contentWindow;
   if (!target) return Promise.reject(new Error("앱 프레임이 아직 없어요."));
   const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  const width = Math.max(1, Math.round(frame.clientWidth || 1280));
-  const height = Math.max(1, Math.round(frame.clientHeight || 800));
+  const width = Math.max(1, Math.round(wantWidth || frame.clientWidth || 1280));
+  const height = Math.max(1, Math.round(wantHeight || frame.clientHeight || 800));
 
   return new Promise<Blob>((resolve, reject) => {
     const finish = (done: () => void) => {
@@ -83,7 +92,7 @@ export function captureFrame(
     };
     const timer = setTimeout(() => finish(() => reject(new Error("썸네일을 만드는 데 너무 오래 걸려요."))), timeoutMs);
     window.addEventListener("message", onMessage);
-    target.postMessage({ ctrlai: "capture", id, width, height }, appsOrigin);
+    target.postMessage({ ctrlai: "capture", id, width, height, offset: Math.max(0, Math.round(offset)) }, appsOrigin);
   });
 }
 
@@ -95,4 +104,14 @@ export function originOf(url: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/** Blob → "data:image/png;base64,…" — the 게시 dialog's pick travels as JSON (owner-polish-3 (a2)). */
+export function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("그림을 읽지 못했어요."));
+    reader.readAsDataURL(blob);
+  });
 }

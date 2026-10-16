@@ -107,6 +107,27 @@
   padding: 0.9rem;
 }
 
+/* 표지의 큰 첫 글자 — 이름 뒤에 흐리게 (owner-polish-3). */
+.artworkInitial {
+  position: absolute;
+  right: 6%;
+  bottom: -14%;
+  font-size: 7rem;
+  line-height: 1;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  user-select: none;
+}
+
+.artworkInitial::before {
+  content: attr(data-initial);
+}
+
+.artwork {
+  overflow: hidden;
+}
+
 .artworkText {
   position: relative;
   z-index: 1;

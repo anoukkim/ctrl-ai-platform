@@ -23,12 +23,13 @@ happened. Each change is also written to the audit log.
 """
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -36,6 +37,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -181,9 +183,43 @@ class ExchangeRate(Base):
     set_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    #: owner-polish-3 (b): who wrote the row — "seed" (the migration),
+    #: "admin" (Admin › System by hand), "mock" / "frankfurter" (the daily
+    #: automatic refresh, `services/fx.py`).
+    source: Mapped[str] = mapped_column(String(20), default="admin", server_default="admin", nullable=False)
+    #: The day the provider quoted the rate for (automatic rows only).
+    fetched_for: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     def __repr__(self) -> str:
-        return f"<ExchangeRate {self.currency}={self.krw_per_unit}>"
+        return f"<ExchangeRate {self.currency}={self.krw_per_unit} ({self.source})>"
+
+
+class FxStatus(Base):
+    """owner-polish-3 (b): the automatic USD→KRW refresh — one row.
+
+    The rate in force is still the newest `exchange_rates` row; this row
+    only says whether the daily refresh is on (the admin's pin switch
+    turns it off), what the last fetch found, and why it was not applied
+    (a jump over `fx.MAX_JUMP_PCT`, or a failed fetch — the last rate
+    stays, and a charge is never blocked by any of this).
+    """
+
+    __tablename__ = "fx_status"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: False = the admin pinned a rate; the refresh fetches nothing.
+    auto_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: What the provider said last, applied or not.
+    fetched_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    fetched_for: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: "applied" | "unchanged" | "blocked" | "failed" | "" (never run).
+    outcome: Mapped[str] = mapped_column(String(12), default="", server_default="", nullable=False)
+    #: Korean, shown as the warning in Admin › System while a jump is held back.
+    note: Mapped[str] = mapped_column(String(300), default="", server_default="", nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<FxStatus auto={self.auto_enabled} {self.outcome}>"

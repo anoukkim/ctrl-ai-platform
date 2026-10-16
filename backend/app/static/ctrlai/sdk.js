@@ -184,7 +184,7 @@
       // ui-improvements thumbnails: the shell (for the club's site, the
       // maker's own Builder page) asks for a picture of this page. Drawn
       // here, in the app's own frame; nothing leaves but the PNG.
-      capture(data.width, data.height).then(
+      capture(data.width, data.height, data.offset).then(
         function (dataUrl) {
           post({ type: "capture.result", capture: String(data.id), dataUrl: dataUrl });
         },
@@ -280,15 +280,15 @@
   }
 
   /** The page as an SVG data URL: the DOM cloned with its computed styles. */
-  function snapshot(width, height) {
+  function snapshot(width, height, offset) {
     try {
-      return snapshotInner(width, height);
+      return snapshotInner(width, height, offset || 0);
     } finally {
       dropProbe();
     }
   }
 
-  function snapshotInner(width, height) {
+  function snapshotInner(width, height, offset) {
     var root = document.documentElement;
     var sources = root.querySelectorAll("*");
     if (sources.length > CAPTURE_MAX_NODES) throw new Error(TOO_BIG);
@@ -333,8 +333,10 @@
     }
     clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
     clone.style.width = width + "px";
-    clone.style.height = height + "px";
+    // A scrolled candidate: the page laid out taller, shifted up by `offset`.
+    clone.style.height = height + offset + "px";
     clone.style.overflow = "hidden";
+    if (offset > 0) clone.style.transform = "translateY(-" + offset + "px)";
     var html = new XMLSerializer().serializeToString(clone);
     if (html.length > CAPTURE_MAX_CHARS) throw new Error(TOO_BIG);
     var svg =
@@ -343,14 +345,17 @@
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
-  /** A PNG data URL of this page at the frame's size (scaled under CAPTURE_MAX_EDGE). */
-  function capture(width, height) {
+  /** A PNG data URL of this page at the frame's size (scaled under
+   *  CAPTURE_MAX_EDGE); `offset` px further down the page for the 게시
+   *  dialog's scrolled candidate (owner-polish-3 (a2)). */
+  function capture(width, height, offset) {
     return new Promise(function (resolve, reject) {
       var w = Math.max(1, Math.floor(Number(width) || document.documentElement.clientWidth || 1280));
       var h = Math.max(1, Math.floor(Number(height) || document.documentElement.clientHeight || 800));
+      var down = Math.max(0, Math.floor(Number(offset) || 0));
       var url;
       try {
-        url = snapshot(w, h);
+        url = snapshot(w, h, down);
       } catch (error) {
         reject(error);
         return;

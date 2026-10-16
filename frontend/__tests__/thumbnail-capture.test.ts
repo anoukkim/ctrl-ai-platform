@@ -53,6 +53,14 @@ describe("captureFrame", () => {
     expect(blob.size).toBeGreaterThan(50);
   });
 
+  test("게시 창의 후보: 다른 크기와 스크롤 자리를 부탁에 실어 보낸다 (owner-polish-3)", () => {
+    const { frame, posted } = frameWithWindow();
+    void captureFrame(frame, "http://apps.test", { width: 390, height: 844, offset: 600 });
+    expect(posted.mock.calls[0][0]).toMatchObject({ ctrlai: "capture", width: 390, height: 844, offset: 600 });
+    void captureFrame(frame, "http://apps.test");
+    expect(posted.mock.calls[1][0]).toMatchObject({ width: 1280, height: 800, offset: 0 });
+  });
+
   test("앱이 실패를 알리면 그 이유로 거절한다", async () => {
     const { frame, contentWindow, posted } = frameWithWindow();
     const promise = captureFrame(frame, "http://apps.test");

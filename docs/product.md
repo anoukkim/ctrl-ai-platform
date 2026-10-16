@@ -752,32 +752,47 @@ plain coloured cover with the name (CtrlAIApps) or a code icon (Builder).
 A Builder card shows a description only once the project is published;
 a request typed in Chat or the Builder never becomes a card's text.
 
-**Profile (owner-polish 2, 2026-10-16).** 알림 is a card with the
-member's **notification list** on top and the two aligned switch rows
-(사용 알림 표시, 띠링 소리) under 알림 설정; 내가 만든 앱 is a plain list —
+**Profile (owner-polish 2, 2026-10-16; owner-polish-3 (c2) took the list
+away).** 알림 설정 is a card with the two aligned switch rows (사용 알림
+표시, 띠링 소리) — the notification list itself lives only in the
+sidebar's bell ("오른쪽 알림 필요 없음"); 내가 만든 앱 is a plain list —
 name · vN · "N분 전 업데이트" · 열기 — with no pictures.
 
-**Notifications (feat-notifications, owner-polish 2: "게시가 완료됐습니다!
-사용이 차감됐습니다 etc").** A bell in the sidebar's account row carries
-the unread count; pressing it opens a small panel with the latest
-notifications, 모두 읽음, and a link to Profile › 알림, which lists them
-all (newest first, up to 50, an unread dot, read on click, 모두 읽음).
-Every row is **stored on the server and comes only from something that
-really happened**, written by the code that did it — never by the
-browser: `'앱 이름' 게시 완료 — v3` / 업데이트 게시 완료 (→ the app on
-CtrlAIApps); `2026 Q4 참여 신청이 승인됐어요` with the wallet amount (→
-Usage), or 거절 with the admin's note; the once-a-quarter spend
-milestones (첫 사용, 25 / 50 / 75 %, 잔액 10,000원 이하, 잔액 0 → Usage);
-an app taken down by an admin with the reason, or a report on it closed
-with the app kept; and **one spend summary per KST day** — "어제 지원금
-1,234원 사용 · 채팅 3회 · 빌더 1회" (→ Usage) — written from the usage
-ledger when the member next opens the list, never a row per reply (the
-toast already shows each charge as it happens) and only while 사용 알림
-표시 is on. Rows older than 90 days are removed the next time the member
-looks. The count is refreshed on open, when the tab comes back and every
-minute; nothing animates, so 동작 줄이기 has nothing to turn off. An
-admin's reply to 의견 보내기 is not a notification yet because there is
-no reply feature; it joins the list when one exists.
+**Notifications (feat-notifications, owner-polish 2; cut down and moved by
+owner-polish-3 (c)·(c2), 2026-10-16: "매번 쓸 때마다 알림 오면 너무 많잖아
+… 걍 벨 누르면 숫자는 사라지고 clear 누르면 알림 없애기").** A bell in the
+sidebar's **header**, beside the CTRL+AI name, carries the unread count;
+pressing it opens a small panel under it with the latest notifications —
+**and the number disappears as it opens** (everything is marked read).
+A row leads where the thing happened; **지우기** deletes the rows shown,
+and nothing is kept elsewhere: Profile has no list any more, only the
+알림 설정 switches. Every row is **stored on the server and comes only
+from something that really happened**, written by the code that did it —
+never by the browser — and only four kinds exist: `'앱 이름' 게시 완료 —
+v3` / 업데이트 게시 완료 (→ the app on CtrlAIApps); `2026 Q4 참여 신청이
+승인됐어요` with the wallet amount (→ Usage), or 거절 with the admin's
+note; **반응을 얻었어요** — a reaction or comment on the member's
+CtrlAITube video, or a reply to their comment, **one row per item per KST
+day** that counts up ("'내 영상'이(가) 10월 16일 반응 3개를 얻었어요 · 방금:
+댓글" — a member counts once a day whatever they press, each comment
+once; the club's own video has no maker to tell, and a ★ 즐겨찾기 on an
+app stays the visitor's private preference); and 신고 처리 — an app taken
+down by an admin with the reason, or a report on it closed with the app
+kept. No spending notifications any more (the toast and Usage say what
+was spent); older spend and milestone rows are hidden. Rows older than
+90 days are removed the next time the member looks. The count is
+refreshed on open, when the tab comes back and every minute; nothing
+animates, so 동작 줄이기 has nothing to turn off.
+
+**The sidebar's account area (owner-polish-3 (c2)).** The way common
+sites split it: the bell up in the header next to the name (its panel
+opens below, over nothing); the account row — avatar, name, 관리자 badge,
+@username — is a button that opens a small menu upward: Profile, Usage,
+밝은/어두운 화면으로, 처음 안내 다시 보기, 의견 보내기, 로그아웃; the line
+under it keeps only 개인정보 · 약관. In the collapsed rail the avatar
+alone opens the same menu and the bell keeps its badge; on a phone the
+menu lives inside the slide-down navigation. Nothing overlaps at any
+width.
 
 ## Search
 
@@ -961,3 +976,39 @@ provider, catalogues, feedback, deleted items, audit log): content
 moderation — hide an app or video, moderate comments, disable a member's
 publishing. Admin can choose what simplified units members see; the club
 buys credit per provider, so Budget stays the purchase evidence.
+
+**owner-polish-3 (2026-10-16, the owner's evening walk through production).**
+(a) **Thumbnails**: the stored picture is the **whole app screen scaled
+into 640×400** — a capture of another shape is letterboxed on the page's
+own background, never cropped to its top-left corner; the Builder's
+미리보기 photographs the app after every load of the frame (so after
+every new version) and once more a few seconds later when the first try
+failed; 게시 photographs the published app; Admin › Apps has a one-time
+**썸네일 만들기** that opens each published app without a picture in the
+admin's own browser, one at a time, and saves what the SDK drew (still
+client-side — no server renderer, which stays `thumbnail-render-worker`);
+until a picture exists the cover is the app's name on its colour with a
+large faint initial behind it (no more `</>`), on CtrlAIApps and Builder
+cards alike. A visitor's browser never uploads a thumbnail. **(a2) The
+maker chooses**: the 게시 dialog photographs three candidates from the
+미리보기 — 첫 화면, 조금 내려간 화면, 폰 너비 — and 「지금 화면으로」 adds the
+preview exactly as it is; nothing chosen means the first screen; no AI,
+no charge. Once published, **the chosen picture is the thumbnail
+everywhere** — CtrlAIApps and the Builder card both show it, and the
+automatic draft captures stop replacing it (`thumbnail_chosen_at`); the
+게시 menu's **썸네일 바꾸기…** opens the same picker later. Admin › Apps'
+썸네일 만들기 stays for apps published before this.
+(b) **The exchange rate is automatic**: Admin › System › 환율 shows
+자동 반영 (the ECB's USD→KRW through Frankfurter — free, keyless, fetched
+once a day by the server's daily job; `FX_PROVIDER=mock|frankfurter`) with
+the last check and its outcome, 지금 새로 고침, and the admin's **환율
+고정** switch; a day-to-day move over 5% is held back and shown as a
+warning in that fold instead; a rate typed in by hand pins itself (자동
+반영 off until switched back on); a failed fetch keeps the last rate and
+never blocks a charge; every change — automatic, held back, pinned — is
+in the Audit Log; only new charges use a new rate, wallets never move.
+(d) The CtrlAIApps header says what apps can do now: AI inside an app is
+paid by the signed-in active member who presses the button, a 데모 app
+calls no AI, what an app stores on CTRL+AI (게시판·투표) shows on every
+device while what it stores on the device stays in that browser — with
+자세히 → /help/apps.

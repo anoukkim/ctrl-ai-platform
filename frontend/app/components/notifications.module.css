@@ -24,9 +24,10 @@
 }
 
 .panel {
+  /* 종이 사이드바 머리에 있으니 창은 그 아래로 (owner-polish-3 (c2)). */
   position: fixed;
   left: 12px;
-  bottom: 64px;
+  top: 56px;
   z-index: 60;
   width: min(360px, calc(100vw - 24px));
   max-height: min(70vh, 520px);

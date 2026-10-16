@@ -16,12 +16,11 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.main import app
 from app.models import (
+    TubeVideo,
     ApplicationStatus,
     BuilderProject,
-    FundingSource,
     Notification,
     QuarterApplication,
-    UsageEvent,
 )
 from app.services import milestones, notifications
 from tests.conftest import DEV_PASSWORD, MEMBER_PASSWORD
@@ -178,73 +177,123 @@ def test_the_example_app_importer_writes_no_notification(
     assert client.get("/api/notifications").json()["items"] == []
 
 
-def test_a_spend_milestone_is_also_a_notification_once_per_quarter(
+def test_a_spend_milestone_writes_no_notification_any_more(
     client: TestClient, db_session: Session, dev_user, budgeted
 ) -> None:
+    """owner-polish-3 (c): the toast says it; the list keeps approvals,
+    reactions and 신고 처리 only."""
     budgeted.consumed_krw = 30_000  # 30% of 100,000
     db_session.commit()
     claim = milestones.claim(db_session, dev_user)
     assert claim is not None and claim.milestone == "used_25"
-    titles = _titles(client)
-    assert "지원금의 25%를 썼어요" in titles and "지원금을 처음 썼어요" in titles
-    # Claiming again writes nothing new.
-    milestones.claim(db_session, dev_user)
-    assert len(_titles(client)) == 2
+    assert _titles(client) == []
+    assert db_session.query(Notification).count() == 0
 
 
-# ------------------------------------------------------------ spend summaries
-
-
-def _charge(db: Session, user_id: int, quarter_id: int, feature: str, krw: int, at: datetime) -> None:
-    row = UsageEvent(
-        user_id=user_id, quarter_id=quarter_id, funding_source=FundingSource.COMMUNITY,
-        provider="claude", feature=feature, charged_krw=krw,
-    )
-    db.add(row)
-    db.flush()
-    row.created_at = at
-    db.commit()
-
-
-def test_yesterdays_spending_becomes_one_summary_row_written_once(
-    client: TestClient, db_session: Session, dev_user, budgeted
+def test_old_spend_and_milestone_rows_are_hidden_from_the_list_and_the_badge(
+    client: TestClient, db_session: Session, dev_user
 ) -> None:
-    now = datetime.now(timezone.utc)
-    yesterday_noon_kst = (now.astimezone(notifications.KST) - timedelta(days=1)).replace(hour=12, minute=0)
-    _charge(db_session, dev_user.id, budgeted.quarter_id, "chat", 120, yesterday_noon_kst)
-    _charge(db_session, dev_user.id, budgeted.quarter_id, "chat", 80, yesterday_noon_kst + timedelta(hours=1))
-    _charge(db_session, dev_user.id, budgeted.quarter_id, "build", 300, yesterday_noon_kst + timedelta(hours=2))
-    # Today's charge waits for tomorrow; a free call never counts.
-    _charge(db_session, dev_user.id, budgeted.quarter_id, "chat", 50, now)
-    _charge(db_session, dev_user.id, budgeted.quarter_id, "chat", 0, yesterday_noon_kst)
-
-    [row] = client.get("/api/notifications").json()["items"]
-    yesterday = yesterday_noon_kst.date()
-    assert row["kind"] == "spend" and row["title"] == f"{yesterday.month}월 {yesterday.day}일 지원금 500원 사용"
-    assert row["body"] == "채팅 2회 · 빌더 1회" and row["link"] == "/usage"
-    # A second read writes nothing more (dedupe per day); the bell's count
-    # route writes the summary too, so the badge can announce it.
-    assert len(client.get("/api/notifications").json()["items"]) == 1
-    assert db_session.query(Notification).filter_by(kind="spend").count() == 1
-    db_session.query(Notification).delete()
+    for kind, title in (("spend", "10월 1일 지원금 500원 사용"), ("milestone", "지원금의 25%를 썼어요")):
+        db_session.add(Notification(user_id=dev_user.id, kind=kind, title=title, body="", link="/usage"))
+    db_session.add(Notification(user_id=dev_user.id, kind="publish", title="'앱' 게시 완료 — v1", body="", link=None))
     db_session.commit()
+    assert _titles(client) == ["'앱' 게시 완료 — v1"]
     assert client.get("/api/notifications/unread").json() == {"unread": 1}
 
 
-def test_spend_summaries_follow_the_profile_switch_and_an_old_day_is_named(
-    client: TestClient, db_session: Session, dev_user, budgeted
+# ------------------------------------------------------------ 반응을 얻었어요
+
+
+@pytest.fixture
+def my_video(db_session: Session, other_user) -> TubeVideo:
+    """A video made by `other` — reactions on it reach `other`."""
+    video = TubeVideo(slug="otherclip", kind="hosted", title="다른 회원의 영상", description="", creator_id=other_user.id)
+    db_session.add(video)
+    db_session.commit()
+    return video
+
+
+def test_reactions_and_comments_on_my_video_become_one_row_per_day_that_counts_up(
+    client: TestClient, db_session: Session, dev_user, other_user, participating, other_participating, my_video: TubeVideo
 ) -> None:
-    now = datetime.now(timezone.utc)
-    three_days = (now.astimezone(notifications.KST) - timedelta(days=3)).replace(hour=9, minute=0)
-    _charge(db_session, dev_user.id, budgeted.quarter_id, "video_generate", 700, three_days)
-    dev_user.spend_notifications = False
+    # The dev user reacts and comments on other's video.
+    assert client.post(f"/api/tube/videos/{my_video.slug}/reactions", json={"kind": "like"}).status_code == 200
+    first = client.post(f"/api/tube/videos/{my_video.slug}/comments", json={"body": "멋져요!"})
+    assert first.status_code == 201
+    # Nothing for the actor themselves; one grouped row for the maker.
+    assert _titles(client) == []
+    rows = db_session.query(Notification).filter_by(user_id=other_user.id).all()
+    assert len(rows) == 1
+    row = rows[0]
+    today = notifications._day_label(notifications._kst_day(datetime.now(timezone.utc)))
+    assert row.kind == "reaction" and row.title == f"'다른 회원의 영상'이(가) {today} 반응 2개를 얻었어요"
+    assert row.body == "방금: 댓글" and row.link == "/ctrlaitube/otherclip" and row.read_at is None
+
+    # Read, then a second comment: the same row, counted up and unread again.
+    row.read_at = datetime.now(timezone.utc)
     db_session.commit()
+    assert client.post(f"/api/tube/videos/{my_video.slug}/comments", json={"body": "또 멋져요"}).status_code == 201
+    db_session.expire_all()
+    row = db_session.query(Notification).filter_by(user_id=other_user.id).one()
+    assert row.title.endswith("반응 3개를 얻었어요") and row.body == "방금: 댓글" and row.read_at is None
+
+    # Pressing 좋아요 off and on, or adding a second kind, is not a new reaction for the maker.
+    row.read_at = datetime.now(timezone.utc)
+    db_session.commit()
+    for kind in ("like", "like", "useful"):
+        assert client.post(f"/api/tube/videos/{my_video.slug}/reactions", json={"kind": kind}).status_code == 200
+    db_session.expire_all()
+    row = db_session.query(Notification).filter_by(user_id=other_user.id).one()
+    assert row.title.endswith("반응 3개를 얻었어요") and row.read_at is not None
+
+    # Other answers dev's comment: dev hears of the reply (one row for that comment).
+    _sign_in(client, other_user.username, MEMBER_PASSWORD)
+    reply = client.post(f"/api/tube/videos/{my_video.slug}/comments", json={"body": "고마워요", "parent_id": first.json()["id"]})
+    assert reply.status_code == 201
+    mine = db_session.query(Notification).filter_by(user_id=dev_user.id).one()
+    assert mine.kind == "reaction" and mine.title == f"'멋져요!'이(가) {today} 반응 1개를 얻었어요" and mine.body == "방금: 답글"
+    # The maker's own reply on their own video adds nothing for themselves.
+    assert db_session.query(Notification).filter_by(user_id=other_user.id).count() == 1
+
+
+def test_the_count_is_what_was_counted_never_the_label_and_a_token_counts_once(db_session: Session, dev_user, other_user) -> None:
+    for token in ("r:1", "r:1", "c:5", "c:5", "r:2"):
+        notifications.reaction_received(
+            db_session, owner_id=other_user.id, actor_id=dev_user.id, item_kind="video", item_id=9,
+            item_label="반응 100개 모으기", what="like", link="/ctrlaitube/x", token=token,
+        )
+    db_session.commit()
+    row = db_session.query(Notification).filter_by(user_id=other_user.id).one()
+    assert row.title.endswith("반응 3개를 얻었어요") and row.title.startswith("'반응 100개 모으기'")
+    assert row.counted == ["r:1", "c:5", "r:2"]
+
+
+def test_the_clubs_own_video_has_no_maker_to_tell(client: TestClient, db_session: Session, participating) -> None:
+    from app.services import tube
+
+    assert client.post(f"/api/tube/videos/{tube.OFFICIAL_SLUG}/reactions", json={"kind": "like"}).status_code == 200
+    assert db_session.query(Notification).count() == 0
+
+
+def test_clearing_deletes_the_shown_rows_or_everything(client: TestClient, db_session: Session, dev_user, other_user) -> None:
+    for n in range(3):
+        db_session.add(Notification(user_id=dev_user.id, kind="publish", title=f"'앱 {n}' 게시 완료 — v1", body="", link=None))
+    db_session.add(Notification(user_id=other_user.id, kind="publish", title="남의 것", body="", link=None))
+    db_session.commit()
+    ids = [row["id"] for row in client.get("/api/notifications").json()["items"]]
+    assert len(ids) == 3
+
+    # The shown ones (two of three), never another member's.
+    others = [row.id for row in db_session.query(Notification).filter_by(user_id=other_user.id)]
+    cleared = client.post("/api/notifications/clear", json={"ids": ids[:2] + others})
+    assert cleared.status_code == 200 and cleared.json() == {"unread": 1}
+    assert len(client.get("/api/notifications").json()["items"]) == 1
+    assert db_session.query(Notification).filter_by(user_id=other_user.id).count() == 1
+
+    # Everything of mine.
+    assert client.post("/api/notifications/clear", json={}).json() == {"unread": 0}
     assert client.get("/api/notifications").json()["items"] == []
-    dev_user.spend_notifications = True
-    db_session.commit()
-    [row] = client.get("/api/notifications").json()["items"]
-    assert row["title"] == f"{three_days.month}월 {three_days.day}일 지원금 700원 사용"
-    assert row["body"] == "영상 1회"
+    assert db_session.query(Notification).filter_by(user_id=other_user.id).count() == 1
 
 
 # ------------------------------------------------------------ reading

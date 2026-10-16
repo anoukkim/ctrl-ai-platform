@@ -62,10 +62,14 @@ export interface AppRuntimeProps {
    * 화면에 보여 줍니다(자동은 조용히).
    */
   onCapture?: (image: Blob, manual: boolean) => Promise<void>;
+  /** owner-polish-3 (a2): the 게시 dialog photographs candidates from this frame. */
+  onFrameReady?: (frame: HTMLIFrameElement | null, appsOrigin: string | null) => void;
 }
 
 /** 프레임이 뜬 뒤 이만큼 기다렸다 찍습니다 — 앱의 첫 그림이 그려질 시간. */
 export const CAPTURE_DELAY_MS = 1500;
+/** 첫 시도가 실패하면(앱이 아직 그리는 중) 이만큼 뒤에 한 번 더. */
+export const CAPTURE_RETRY_MS = 4000;
 
 /** 작업 공간이 미리보기 도구 줄에 끼워 넣는 것 (quality-tuning Q3). */
 export interface PreviewToolbarProps {
@@ -210,6 +214,7 @@ export default function PreviewPane({
   toolbarStart,
   toolbarEnd,
   onCapture,
+  onFrameReady,
 }: PreviewRuntimeProps & AppRuntimeProps & PreviewToolbarProps) {
   const [fullscreen, setFullscreen] = useState(false);
   // 썸네일 (ui-improvements): 프레임이 뜨고 CAPTURE_DELAY_MS 뒤 한 번, 그리고
@@ -217,34 +222,48 @@ export default function PreviewPane({
   // The frame element is state (a callback ref), so the capture callbacks
   // read no ref during render.
   const [frameEl, setFrameEl] = useState<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    onFrameReady?.(frameEl, originOf(appUrl));
+  }, [appUrl, frameEl, onFrameReady]);
   const captureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const captureNow = useCallback(
-    async (manual: boolean) => {
+    async (manual: boolean): Promise<boolean> => {
       const frame = frameEl;
       const origin = originOf(appUrl);
-      if (!frame || !origin || !onCapture) return;
+      if (!frame || !origin || !onCapture) return true;
       setCapturing(true);
       if (manual) setCaptureError(null);
       try {
         const image = await captureFrame(frame, origin);
         await onCapture(image, manual);
         setCaptureError(null);
+        return true;
       } catch (error) {
         // The capture helper throws plain Errors with a Korean sentence;
         // an upload failure is an ApiError — describeError reads those.
         if (manual) setCaptureError(error instanceof Error && !("status" in error) ? error.message : describeError(error));
+        return false;
       } finally {
         setCapturing(false);
       }
     },
     [appUrl, frameEl, onCapture],
   );
+  // owner-polish-3 (a): a capture after every load of the frame (a new
+  // version's 미리보기 reloads it), and once more a little later when the
+  // first try failed — an app that is still drawing at CAPTURE_DELAY_MS
+  // used to leave the card without a picture until the next visit.
   const scheduleCapture = useCallback(() => {
     if (!onCapture) return;
     if (captureTimer.current) clearTimeout(captureTimer.current);
-    captureTimer.current = setTimeout(() => void captureNow(false), CAPTURE_DELAY_MS);
+    captureTimer.current = setTimeout(() => {
+      void captureNow(false).then((ok) => {
+        if (ok) return;
+        captureTimer.current = setTimeout(() => void captureNow(false), CAPTURE_RETRY_MS);
+      });
+    }, CAPTURE_DELAY_MS);
   }, [captureNow, onCapture]);
   useEffect(
     () => () => {

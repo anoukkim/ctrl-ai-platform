@@ -207,6 +207,7 @@ default.**
 | GitHub | `GITHUB_PROVIDER` | `mock` (default) \| `github` |
 | Google/YouTube | `YOUTUBE_PROVIDER` | `mock` (default) \| `google` |
 | Google sign-in | `GOOGLE_LOGIN_PROVIDER` | `mock` (development only) \| `google` |
+| USD→KRW rate | `FX_PROVIDER` | `mock` (default) \| `frankfurter` — free and keyless (the ECB's rates); never a paid service (owner-polish-3, 2026-10-16) |
 
 (Feature switches such as `PERSONAL_TOPUP_ENABLED` follow the same
 spirit: default to the safe value, enforce in the backend.)

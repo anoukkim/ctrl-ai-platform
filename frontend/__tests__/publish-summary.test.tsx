@@ -7,7 +7,7 @@
  * 받으면 빈 칸 그대로 게시할 수 있습니다.
  */
 
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -151,5 +151,80 @@ describe("app-ai-access — 다른 회원에게 AI 기능을 열까요?", () => 
     expect(screen.queryByTestId("ai-access")).toBeNull();
     await userEvent.setup().click(screen.getByRole("button", { name: "게시하기" }));
     expect(onConfirm).toHaveBeenCalledWith({ name: "메모장", description: "메모예요.", note: "" });
+  });
+});
+
+describe("owner-polish-3 (a2) — 게시 썸네일 고르기", () => {
+  test("후보 셋이 차례로 찍히고 첫 화면이 기본으로 골라지며, 지금 화면으로는 한 장 더 찍어 고르고, 고른 그림이 게시와 함께 간다", async () => {
+    const original = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:candidate");
+    URL.revokeObjectURL = vi.fn();
+    getPublishSummary.mockResolvedValue({ description: "메모예요.", note: "", cached: false, model: "fast", uses_ai: false, ai_access: "demo" });
+    const blobs: Record<string, Blob> = {
+      first: new Blob(["first"], { type: "image/png" }),
+      scrolled: new Blob(["scrolled"], { type: "image/png" }),
+      phone: new Blob(["phone"], { type: "image/png" }),
+      now: new Blob(["now"], { type: "image/png" }),
+    };
+    const capture = vi.fn(async (kind: string) => blobs[kind]);
+    const onConfirm = vi.fn();
+    render(
+      <PublishDialog
+        projectId={7}
+        publishedVersion={null}
+        nextVersion={1}
+        initial={{ name: "메모장", description: "", note: "" }}
+        captureThumbnail={capture}
+        busy={false}
+        error={null}
+        onClose={() => {}}
+        onConfirm={onConfirm}
+      />,
+    );
+    const picker = await screen.findByTestId("thumbnail-picker");
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(3));
+    expect(capture.mock.calls.map((call) => call[0])).toEqual(["first", "scrolled", "phone"]);
+    await waitFor(() => expect(picker.querySelectorAll("img")).toHaveLength(3));
+    const first = within(picker).getByRole("radio", { name: /첫 화면/ }) as HTMLInputElement;
+    expect(first.checked).toBe(true);
+
+    const user = userEvent.setup();
+    await user.click(within(picker).getByRole("button", { name: "지금 화면으로" }));
+    await waitFor(() => expect(capture).toHaveBeenCalledWith("now"));
+    const now = await within(picker).findByRole("radio", { name: /지금 화면/ });
+    expect((now as HTMLInputElement).checked).toBe(true);
+
+    await screen.findByText("Claude가 쓴 설명이에요 — 마음에 안 들면 고치세요.");
+    await user.click(screen.getByRole("button", { name: "게시하기" }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm.mock.calls[0][0].thumbnail).toBe(blobs.now);
+    URL.createObjectURL = original;
+  });
+
+  test("찍을 미리보기가 없으면 후보가 실패로 보이고, 고른 그림 없이 게시한다 (게시 뒤 자동으로 찍는다)", async () => {
+    getPublishSummary.mockResolvedValue({ description: "메모예요.", note: "", cached: false, model: "fast", uses_ai: false, ai_access: "demo" });
+    const capture = vi.fn(async () => {
+      throw new Error("미리보기가 아직 없어요.");
+    });
+    const onConfirm = vi.fn();
+    render(
+      <PublishDialog
+        projectId={7}
+        publishedVersion={null}
+        nextVersion={1}
+        initial={{ name: "메모장", description: "", note: "" }}
+        captureThumbnail={capture}
+        busy={false}
+        error={null}
+        onClose={() => {}}
+        onConfirm={onConfirm}
+      />,
+    );
+    const picker = await screen.findByTestId("thumbnail-picker");
+    await waitFor(() => expect(within(picker).getAllByText("못 찍었어요")).toHaveLength(3));
+    expect(within(picker).getByText(/게시하면 공개 주소에서 자동으로/)).toBeTruthy();
+    await screen.findByText("Claude가 쓴 설명이에요 — 마음에 안 들면 고치세요.");
+    await userEvent.setup().click(screen.getByRole("button", { name: "게시하기" }));
+    expect(onConfirm.mock.calls[0][0].thumbnail).toBeNull();
   });
 });

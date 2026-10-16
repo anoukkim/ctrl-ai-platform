@@ -1,11 +1,13 @@
 "use client";
 
 /**
- * 사이드바 계정 영역의 종 (feat-notifications, owner-polish 2).
+ * 사이드바 머리의 종 (feat-notifications, owner-polish 2; owner-polish-3 (c2)).
  *
- * 안 읽은 수를 달고, 누르면 최근 알림 몇 개가 작은 창으로 열립니다 — 각
- * 줄을 누르면 읽음으로 표시되고 그 일이 있는 곳(앱, Usage…)으로 갑니다.
- * "모두 읽음"과 Profile의 전체 목록으로 가는 링크가 있습니다.
+ * 안 읽은 수를 달고, 누르면 최근 알림이 작은 창으로 열립니다. **여는 순간
+ * 숫자가 사라집니다** — 보이는 것을 읽음으로 표시해요("벨 누르면 숫자는
+ * 사라지고"). 각 줄을 누르면 그 일이 있는 곳(앱, 영상…)으로 가고, "지우기"는
+ * 보이는 알림을 지웁니다 — 기록은 남기지 않아요. 알림은 여기에만 있습니다;
+ * Profile에는 설정만 남았습니다.
  *
  * 숫자는 처음, 창이 다시 보일 때, 1분마다, 그리고 같은 창의 다른 곳이
  * 읽음 처리를 알릴 때 다시 받습니다. 실패는 조용히 — 종은 그대로 0.
@@ -13,7 +15,6 @@
  */
 
 import { Bell } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -23,9 +24,9 @@ import {
   NOTIFICATIONS_CHANGED,
   announceNotificationsChanged,
   changedElsewhere,
+  clearNotifications,
   listNotifications,
   markAllRead,
-  markRead,
   unreadCount,
   type Notification,
   type NotificationList,
@@ -92,8 +93,16 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
     try {
       const got = await listNotifications();
       if (mine !== seq.current) return;
+      // The rows keep their "new" dot for this opening; the badge goes now.
       setList(got);
-      setUnread(got.unread);
+      setUnread(0);
+      if (got.unread > 0) {
+        markAllRead()
+          .then(() => announceNotificationsChanged(ME))
+          .catch(() => {
+            /* the badge comes back on the next count if this did not stick */
+          });
+      }
     } catch {
       if (mine === seq.current) setError("알림을 불러오지 못했어요.");
     }
@@ -128,26 +137,8 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
     };
   }, [open, close]);
 
-  const pick = async (row: Notification) => {
-    if (row.read_at === null) {
-      try {
-        await markRead(row.id);
-        setList((current) =>
-          current
-            ? {
-                unread: Math.max(0, current.unread - 1),
-                items: current.items.map((item) =>
-                  item.id === row.id ? { ...item, read_at: new Date().toISOString() } : item,
-                ),
-              }
-            : current,
-        );
-        setUnread((n) => Math.max(0, n - 1));
-        announceNotificationsChanged(ME);
-      } catch {
-        /* 읽음 표시가 안 돼도 가는 건 갑니다 */
-      }
-    }
+  const pick = (row: Notification) => {
+    // Already read by opening the panel; a row just leads somewhere.
     setOpen(false);
     if (row.link) {
       onNavigate?.();
@@ -155,18 +146,17 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
     }
   };
 
-  const readAll = async () => {
+  // 지우기 (owner-polish-3 (c2)): the rows shown are deleted — no history.
+  const clearShown = async () => {
+    const ids = (list?.items ?? []).slice(0, PANEL_LIMIT).map((row) => row.id);
+    if (ids.length === 0) return;
     try {
-      await markAllRead();
+      await clearNotifications(ids);
+      setList({ unread: 0, items: (list?.items ?? []).filter((row) => !ids.includes(row.id)) });
       setUnread(0);
-      setList((current) =>
-        current
-          ? { unread: 0, items: current.items.map((item) => ({ ...item, read_at: item.read_at ?? new Date().toISOString() })) }
-          : current,
-      );
       announceNotificationsChanged(ME);
     } catch {
-      setError("모두 읽음으로 바꾸지 못했어요.");
+      setError("알림을 지우지 못했어요.");
     }
   };
 
@@ -199,8 +189,8 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
             <span id={titleId} ref={headingRef} tabIndex={-1}>
               알림
             </span>
-            <button className="btn btn-sm" type="button" onClick={() => void readAll()} disabled={unread === 0}>
-              모두 읽음
+            <button className="btn btn-sm" type="button" onClick={() => void clearShown()} disabled={items.length === 0}>
+              지우기
             </button>
           </div>
           {error ? (
@@ -210,20 +200,18 @@ export default function NotificationBell({ className = "", onNavigate }: Props) 
           ) : list === null ? (
             <p className={styles.panelEmpty}>불러오는 중…</p>
           ) : items.length === 0 ? (
-            <p className={styles.panelEmpty}>아직 알림이 없어요. 게시, 신청 승인, 지원금 사용 요약이 여기에 쌓여요.</p>
+            <p className={styles.panelEmpty}>아직 알림이 없어요. 게시 완료, 신청 승인, 내 영상의 반응, 신고 처리가 여기에 와요.</p>
           ) : (
             <ul className={styles.panelList}>
               {items.map((row) => (
                 <li key={row.id}>
-                  <NotificationRow row={row} onPick={() => void pick(row)} />
+                  <NotificationRow row={row} onPick={() => pick(row)} />
                 </li>
               ))}
             </ul>
           )}
           <div className={styles.panelFoot}>
-            <Link href="/profile#notifications" onClick={() => { setOpen(false); onNavigate?.(); }}>
-              Profile에서 전체 보기
-            </Link>
+            <span className="small dim">지난 알림은 지우기로 비워요 — 따로 보관하지 않아요.</span>
           </div>
         </div>,
         document.body,

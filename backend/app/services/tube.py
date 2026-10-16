@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import AuditAction, TubeComment, TubeReaction, TubeReport, TubeVideo, User
-from app.services import audit
+from app.services import audit, notifications
 
 REACTION_KINDS = ("like", "useful", "interesting")
 MAX_COMMENT = 1000
@@ -157,6 +157,13 @@ def toggle_reaction(db: Session, video: TubeVideo, user: User, kind: str) -> boo
             db.flush()
     except IntegrityError:
         return True  # a double press raced itself: it is on
+    # 반응을 얻었어요 for the video's maker (owner-polish-3 (c)); the club's own
+    # video has none. One member counts once a day whatever they press, so
+    # 좋아요 on and off does not keep the maker's badge lit.
+    notifications.reaction_received(
+        db, owner_id=video.creator_id, actor_id=user.id, item_kind="video", item_id=video.id,
+        item_label=video.title, what=kind, link=f"/ctrlaitube/{video.slug}", token=f"r:{user.id}",
+    )
     return True
 
 
@@ -251,6 +258,20 @@ def add_comment(db: Session, video: TubeVideo, user: User, body: object, parent_
     row = TubeComment(video_id=video.id, user_id=user.id, parent_id=parent_id, body=text)
     db.add(row)
     db.flush()
+    # 반응을 얻었어요 (owner-polish-3 (c)): the video's maker hears of every
+    # comment; the author of the comment answered hears of the reply.
+    link = f"/ctrlaitube/{video.slug}"
+    notifications.reaction_received(
+        db, owner_id=video.creator_id, actor_id=user.id, item_kind="video", item_id=video.id,
+        item_label=video.title, what="reply" if parent_id else "comment", link=link, token=f"c:{row.id}",
+    )
+    if parent_id is not None:
+        parent = db.get(TubeComment, parent_id)
+        if parent is not None and parent.user_id is not None and parent.user_id != video.creator_id:
+            notifications.reaction_received(
+                db, owner_id=parent.user_id, actor_id=user.id, item_kind="comment", item_id=parent.id,
+                item_label=parent.body[:30], what="reply", link=link, token=f"c:{row.id}",
+            )
     return row
 
 

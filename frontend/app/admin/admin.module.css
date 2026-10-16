@@ -1825,3 +1825,38 @@ td.modelIdCell {
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
+
+/* owner-polish-3 (b): Admin › System › 환율 — 자동 반영의 상태 줄과 경고. */
+.fxBlock {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.fxRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+}
+
+.fxActions {
+  display: inline-flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.fxNote {
+  margin: 0;
+}
+
+/* owner-polish-3 (a): Admin › Apps › 썸네일 만들기 — 단추와 진행 한 줄. */
+.thumbnailMaker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.8rem;
+}

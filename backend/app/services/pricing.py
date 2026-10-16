@@ -199,7 +199,7 @@ def seed_defaults(db: Session) -> None:
     """
     chat_models.seed_defaults(db)
     if current_rate(db) is None:
-        db.add(ExchangeRate(currency="USD", krw_per_unit=DEFAULT_USD_KRW))
+        db.add(ExchangeRate(currency="USD", krw_per_unit=DEFAULT_USD_KRW, source="seed"))
     db.flush()
 
 

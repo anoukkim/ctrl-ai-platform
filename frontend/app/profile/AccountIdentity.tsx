@@ -19,7 +19,6 @@ import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import { updateDisplayName, type AccountStatus, type UserRole } from "@/lib/auth";
 import { MEMBERSHIP_BADGE, MEMBERSHIP_LABEL } from "@/lib/quarters";
 
-import NotificationFeed from "./NotificationFeed";
 import styles from "./profile.module.css";
 
 const STATUS_LABEL: Record<AccountStatus, string> = {
@@ -92,13 +91,11 @@ export function NotificationSettings() {
 
   return (
     <section className="card" aria-labelledby="profile-notifications" id="notifications">
+      {/* owner-polish-3 (c2): the list itself lives only in the sidebar's
+          bell now ("오른쪽 알림 필요 없음"); these two switches stay here. */}
       <h2 className="section-title" id="profile-notifications">
-        알림
+        알림 설정
       </h2>
-      {/* 목록이 먼저 (feat-notifications): 게시 완료, 참여 신청 승인, 지원금
-          사용 요약 … 서버가 실제 일에서만 만듭니다. */}
-      <NotificationFeed />
-      <h3 className={styles.subTitle}>알림 설정</h3>
       {/* 두 줄이 같은 모양: 제목과 한 줄 설명은 왼쪽, 스위치는 오른쪽
           (owner, 2026-10-16). 체크박스가 스위치로 보이고, 키보드와 화면
           읽기는 체크박스 그대로입니다. */}

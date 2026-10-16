@@ -70,6 +70,15 @@ PROVIDERS: list[dict[str, str]] = [
         "real_mode": "google",
         "phase": "Phase 7",
     },
+    {
+        # owner-polish-3 (b): keyless, free — the ECB's rates via Frankfurter.
+        "key": "fx",
+        "name": "환율 (Frankfurter)",
+        "purpose": "달러→원 환율을 하루 한 번 자동 반영",
+        "setting": "FX_PROVIDER",
+        "real_mode": "frankfurter",
+        "phase": "owner-polish-3",
+    },
 ]
 
 PROVIDER_KEYS = [entry["key"] for entry in PROVIDERS]
@@ -171,6 +180,8 @@ def check(db: Session, provider: str, settings: Settings) -> CheckResult:
 
     if provider == "claude":
         result = _check_claude(settings)
+    elif provider == "fx":
+        result = _check_fx(settings)
     else:
         # The real adapter does not exist yet. Saying so is better than a
         # green light that means nothing, and better than a fake request.
@@ -188,6 +199,18 @@ def check(db: Session, provider: str, settings: Settings) -> CheckResult:
     else:
         record_failure(db, provider, result.error_kind, result.detail)
     return result
+
+
+def _check_fx(settings: Settings) -> CheckResult:
+    """One quote from the rate source — nothing is applied here (the daily
+    refresh and Admin › System's 지금 새로 고침 do that, with the 5% rule)."""
+    from app.services import fx
+
+    try:
+        quote = fx.get_fx_provider(settings).fetch()
+    except fx.FxError as error:
+        return CheckResult(ok=False, message=str(error), error_kind=ProviderErrorKind.UNAVAILABLE, detail=error.detail)
+    return CheckResult(ok=True, message=f"연결됐습니다. 1달러 = {quote.rate:,}원 ({quote.as_of.isoformat()} 기준).")
 
 
 def _check_claude(settings: Settings) -> CheckResult:

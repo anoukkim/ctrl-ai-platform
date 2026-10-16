@@ -407,6 +407,27 @@ export interface ExchangeRate {
   krw_per_usd: string;
   set_at: string;
   set_by_username: string;
+  /** owner-polish-3 (b): "seed" | "admin" | "mock" | "frankfurter". */
+  source?: string;
+  /** 자동으로 받아 온 줄이면 그 환율의 기준 날짜. */
+  fetched_for?: string | null;
+}
+
+/** owner-polish-3 (b): 환율 자동 반영의 상태 — 스위치, 마지막 확인, 보류 경고. */
+export interface FxStatus {
+  provider: string;
+  is_mock: boolean;
+  /** false = 관리자가 환율을 고정함. 아무것도 받아 오지 않아요. */
+  auto_enabled: boolean;
+  checked_at: string | null;
+  fetched_rate: string | null;
+  fetched_for: string | null;
+  /** "applied" | "unchanged" | "blocked" | "failed" | "". */
+  outcome: string;
+  outcome_label: string;
+  /** 보류 중인 변동이나 실패의 이유 — 경고로 보여요. */
+  note: string;
+  max_jump_pct: string;
 }
 
 /** `GET /api/admin/claude-pricing`. API 키는 들어 있지 않습니다. */
@@ -428,6 +449,8 @@ export interface ClaudeSettings {
   cache_ttl: string | null;
   exchange_rate: ExchangeRate | null;
   rate_history: ExchangeRate[];
+  /** owner-polish-3 (b): 자동 반영의 상태. */
+  fx: FxStatus;
   /** token-guard의 세 한도. 0은 그 한도를 끈 것입니다. */
   chat_limits: ChatLimits;
 }
@@ -486,6 +509,22 @@ export function setExchangeRate(krwPerUsd: string): Promise<ClaudeSettings> {
   return request<ClaudeSettings>("/admin/claude-pricing/exchange-rate", {
     method: "POST",
     body: JSON.stringify({ krw_per_usd: krwPerUsd }),
+  });
+}
+
+/** owner-polish-3 (b): 자동 반영 켜기(true) / 지금 환율 고정(false). */
+export function setExchangeRateAuto(on: boolean): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>("/admin/claude-pricing/exchange-rate/auto", {
+    method: "POST",
+    body: JSON.stringify({ on }),
+  });
+}
+
+/** owner-polish-3 (b): 지금 새로 고침 — 하루 한 번 도는 것과 같은 규칙으로. */
+export function refreshExchangeRate(): Promise<ClaudeSettings> {
+  return request<ClaudeSettings>("/admin/claude-pricing/exchange-rate/refresh", {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 

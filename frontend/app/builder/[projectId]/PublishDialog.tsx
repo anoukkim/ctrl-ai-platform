@@ -24,12 +24,16 @@ import DialogShell from "@/app/components/DialogShell";
 import styles from "@/app/components/confirm-dialog.module.css";
 import { AI_ACCESS_LABEL, APP_LIMITS_NOTE, getPublishSummary, type AiAccess, type PublishSummary } from "@/lib/projects";
 
+import ThumbnailPicker, { type ThumbnailCapture } from "./ThumbnailPicker";
+
 export interface PublishValues {
   name: string;
   description: string;
   note: string;
   /** AI를 쓰는 앱에서만 — 다른 회원에게 AI 기능을 어떻게 열지. */
   ai_access?: AiAccess;
+  /** owner-polish-3 (a2): 고른 썸네일. 없으면 게시 뒤 공개 주소에서 자동으로 한 장. */
+  thumbnail?: Blob | null;
 }
 
 export const AI_ACCESS_QUESTION = "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?";
@@ -49,6 +53,8 @@ interface Props {
   initial: PublishValues;
   /** 지금 설정 (처음 게시면 데모만). */
   initialAiAccess?: AiAccess;
+  /** owner-polish-3 (a2): 미리보기 프레임에서 후보를 찍는 함수. 없으면 고르개가 없습니다. */
+  captureThumbnail?: ThumbnailCapture;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -66,6 +72,7 @@ export default function PublishDialog({
   nextVersion,
   initial,
   initialAiAccess = "demo",
+  captureThumbnail,
   busy,
   error,
   onClose,
@@ -73,6 +80,7 @@ export default function PublishDialog({
 }: Props) {
   const [values, setValues] = useState<PublishValues>(initial);
   const [aiAccess, setAiAccess] = useState<AiAccess>(initialAiAccess);
+  const [thumbnail, setThumbnail] = useState<Blob | null>(null);
   // 회원이 손댄 칸은 요약이 덮지 않습니다 — 효과의 닫힘이 아니라 ref로 읽어, 늦게 온 요약도 지켜요.
   const touched = useRef({ description: false, note: false });
   const [summary, setSummary] = useState<SummaryState>({ phase: "loading" });
@@ -128,8 +136,12 @@ export default function PublishDialog({
         )}
         <li>{APP_LIMITS_NOTE}</li>
         <li>설명은 Claude가 미리 써 줘요 (무료) — 고쳐도 돼요. 게시는 비용이 들지 않고, 언제든 취소할 수 있어요. 버전 기록은 그대로 남아요.</li>
-        {/* 보안 검토(ui-improvements-a)의 한 줄: 첫 화면이 사진이 되니, 내 자료가 보이면 알고 게시하도록. */}
-        <li>게시하면 앱의 첫 화면을 사진으로 찍어 CtrlAIApps 카드에 보여 줘요 — 첫 화면에 내 자료가 보이면 그 사진에도 들어가요.</li>
+        {/* 보안 검토(ui-improvements-a)의 한 줄: 화면이 사진이 되니, 내 자료가 보이면 알고 게시하도록. */}
+        <li>
+          {captureThumbnail
+            ? "아래에서 고른 그림이 CtrlAIApps 카드에 보여요 — 화면에 내 자료가 보이면 그 그림에도 들어가요."
+            : "게시하면 앱의 첫 화면을 사진으로 찍어 CtrlAIApps 카드에 보여 줘요 — 첫 화면에 내 자료가 보이면 그 사진에도 들어가요."}
+        </li>
       </ul>
 
       <div className={styles.dialogField}>
@@ -196,6 +208,10 @@ export default function PublishDialog({
         />
       </div>
 
+      {captureThumbnail && (
+        <ThumbnailPicker capture={captureThumbnail} value={thumbnail} onChange={(blob) => setThumbnail(blob)} disabled={busy} />
+      )}
+
       {usesAi && (
         <fieldset className={`${styles.dialogField} ${styles.choices}`} data-testid="ai-access">
           <legend className={styles.fieldLabel}>{AI_ACCESS_QUESTION}</legend>
@@ -231,7 +247,12 @@ export default function PublishDialog({
         <button
           className="btn btn-primary"
           type="button"
-          onClick={() => onConfirm(usesAi ? { ...values, ai_access: aiAccess } : values)}
+          onClick={() =>
+            onConfirm({
+              ...(usesAi ? { ...values, ai_access: aiAccess } : values),
+              ...(captureThumbnail ? { thumbnail } : {}),
+            })
+          }
           disabled={busy || !values.description.trim()}
         >
           {busy ? "게시하는 중…" : update ? "업데이트 게시" : "게시하기"}

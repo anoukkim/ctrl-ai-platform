@@ -170,6 +170,9 @@ class Settings(BaseSettings):
     video_provider: str = "mock"
     github_provider: str = "mock"
     youtube_provider: str = "mock"
+    #: owner-polish-3 (b): the daily USD→KRW rate. `frankfurter` is the
+    #: ECB's reference rates through api.frankfurter.app — free, no key.
+    fx_provider: str = "mock"
 
     # The credentials themselves. An empty value is not an error while the
     # matching provider above is `mock`; it only matters once a real
@@ -411,6 +414,7 @@ class Settings(BaseSettings):
             "video": self.video_provider,
             "github": self.github_provider,
             "youtube": self.youtube_provider,
+            "fx": self.fx_provider,
         }[provider].strip().lower()
 
     def provider_is_mock(self, provider: str) -> bool:
@@ -422,6 +426,8 @@ class Settings(BaseSettings):
         Returned to the Admin screen as a yes/no. The key itself is not
         exposed by any route, logged, or put in an audit row.
         """
+        if provider == "fx":
+            return True  # keyless by design (owner-polish-3): no paid service, ever
         return bool(
             {
                 "claude": self.anthropic_api_key,

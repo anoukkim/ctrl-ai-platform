@@ -7,6 +7,9 @@
 #    kept; the bucket keeps 30 days by its lifecycle rule (offsite-backups).
 # 2. Anonymising accounts withdrawn more than 30 days ago
 #    (app/jobs/anonymise_withdrawn.py).
+# 3. Today's USD→KRW rate from the configured source (app/jobs/refresh_fx.py,
+#    owner-polish-3): applied under the 5% rule, or held back with a note in
+#    Admin › System; a failed fetch keeps the last rate.
 #
 # Every step is idempotent, so a missed or repeated day does no harm. A
 # failed backup does not stop the anonymising job, but the script still
@@ -25,5 +28,6 @@ fi
 ls -1t "$HOME"/backups/ctrlai-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm --
 
 docker compose -f docker-compose.prod.yml exec -T api python -m app.jobs.anonymise_withdrawn || status=1
+docker compose -f docker-compose.prod.yml exec -T api python -m app.jobs.refresh_fx || status=1
 
 exit "$status"

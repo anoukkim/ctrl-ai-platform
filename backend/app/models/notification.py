@@ -10,7 +10,7 @@ being written twice (one row per member per day for spending).
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -40,3 +40,8 @@ class Notification(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: owner-polish-3 (c): a 반응을 얻었어요 row counts what it has already
+    #: counted — "r:<user id>" once per member per day whatever they press,
+    #: "c:<comment id>" per comment — so a 좋아요 pressed on and off is one
+    #: reaction, and the count is never read back out of the title.
+    counted: Mapped[list | None] = mapped_column(JSON, nullable=True)

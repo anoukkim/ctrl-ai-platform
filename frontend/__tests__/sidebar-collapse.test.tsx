@@ -3,7 +3,7 @@
  * 갈 수 있는지, 이름이 툴팁으로 나오는지, Admin의 기다리는 수.
  */
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // The signed-in user; a test switches it to a member.
@@ -198,5 +198,34 @@ describe("collapsible sidebar", () => {
     // The collapsed rail has no room for them; they come back on expand.
     fireEvent.click(screen.getByRole("button", { name: "사이드바 접기" }));
     expect(screen.queryByRole("link", { name: "개인정보" })).toBeNull();
+  });
+
+  test("owner-polish-3 (c2): the bell sits in the header, the account row opens a menu, the footer holds only the legal links", async () => {
+    await renderShell();
+    const nav = screen.getByRole("navigation", { name: "주요 메뉴" });
+    // The bell is in the brand row, before the collapse button; no icon strip at the bottom.
+    const bell = within(nav).getByRole("button", { name: /^알림/ });
+    expect(bell.compareDocumentPosition(screen.getByRole("button", { name: "사이드바 접기" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(nav).queryByRole("button", { name: "로그아웃" })).toBeNull();
+    expect(within(nav).queryByRole("button", { name: /화면으로$/ })).toBeNull();
+
+    // The account row is a menu: Profile · Usage · theme · 처음 안내 · 의견 보내기 · 로그아웃.
+    const account = within(nav).getByRole("button", { name: /Ctrl AI Developer — 계정 메뉴/ });
+    fireEvent.click(account);
+    const menu = screen.getByRole("menu");
+    const labels = within(menu).getAllByRole("menuitem").map((item) => item.textContent ?? "");
+    expect(labels.some((text) => text.startsWith("Profile"))).toBe(true);
+    expect(labels.some((text) => text.startsWith("Usage"))).toBe(true);
+    expect(labels.some((text) => /화면으로/.test(text))).toBe(true);
+    expect(labels.some((text) => text.startsWith("처음 안내"))).toBe(true);
+    expect(labels.some((text) => text.startsWith("의견 보내기"))).toBe(true);
+    expect(labels[labels.length - 1].startsWith("로그아웃")).toBe(true);
+
+    // Collapsed: the avatar still opens the menu; the legal links hide.
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "사이드바 접기" }));
+    expect(within(nav).getByRole("button", { name: /계정 메뉴/ })).toBeTruthy();
+    expect(within(nav).getByRole("button", { name: /^알림/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "약관" })).toBeNull();
   });
 });

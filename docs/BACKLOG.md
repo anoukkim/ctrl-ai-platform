@@ -161,7 +161,11 @@ The owner's words, verbatim:
   the collapsed rail. The 사용 알림 표시 / 띠링 settings stay on Profile.
 - **(d)** the CtrlAIApps header still says "저장한 내용은 그 사람 기기에만
   남아요" — outdated since `ctrlai.db`; rewrite it to match what apps can
-  do now.
+  do now. The owner, later the same evening: "별거 아니긴 한데 앱스토어에서
+  ai 기능 관련해서 간단하게 설명있으면 좋겠는데 이젠 기기에만 남는게
+  아니잖아" → two or three short lines, each true of the code (AI paid by
+  the visitor, 데모 = no call, `ctrlai.db` on CTRL+AI across devices,
+  `ctrlai.storage` on the device), with 자세히 → /help/apps.
 
 1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
    "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on

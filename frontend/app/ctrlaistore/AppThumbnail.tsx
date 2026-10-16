@@ -10,7 +10,6 @@
  * (lib/thumbnail-capture.ts).
  */
 
-import { Code2 } from "lucide-react";
 import { useState } from "react";
 
 import { appThumbnailUrl, coverTint, type AppListing } from "@/lib/apps";
@@ -26,10 +25,10 @@ interface Props {
   /** `card`는 16:10 전체 너비, `small`은 머리 줄의 작은 칸. */
   size?: "card" | "small";
   /**
-   * 표지에 얹는 것: 이름(기본), 또는 아이콘만 — Builder 카드는 바로 아래에
-   * 이름이 있으니 표지에 또 적지 않습니다.
+   * 표지에 얹는 것: 이름(기본), 또는 큰 첫 글자만 — Builder 카드는 바로 아래에
+   * 이름이 있으니 표지에 또 적지 않습니다 (owner-polish-3: `</>` 대신).
    */
-  label?: "name" | "icon";
+  label?: "name" | "initial";
 }
 
 export default function Thumbnail({ name, seed, imageUrl = null, size = "card", label = "name" }: Props) {
@@ -50,11 +49,11 @@ export default function Thumbnail({ name, seed, imageUrl = null, size = "card", 
       style={{ background: coverTint(seed) }}
       aria-hidden="true"
     >
-      {label === "icon" ? (
-        <Code2 className={styles.artworkText} size={28} aria-hidden="true" />
-      ) : (
-        <span className={styles.artworkText}>{small ? name.slice(0, 1) : name}</span>
-      )}
+      {/* owner-polish-3 (a): a name-and-colour cover — the app's initial, large
+          and faint, drawn by CSS (no text node: a list of cards must not read
+          every name twice), behind the name — instead of a bare </> glyph. */}
+      {!small && <span className={styles.artworkInitial} data-initial={name.slice(0, 1)} aria-hidden="true" />}
+      {label === "name" && <span className={styles.artworkText}>{small ? name.slice(0, 1) : name}</span>}
     </div>
   );
 }

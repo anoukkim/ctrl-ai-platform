@@ -1,54 +1,51 @@
-"""A member's notifications (feat-notifications, owner-polish 2).
+"""A member's notifications (feat-notifications, owner-polish 2; cut down in owner-polish-3 (c)).
 
-The owner's words: "프로필 정리 뭔가 알림 같은 것도 추가하면 좋겠어. 게시가
-완료됐습니다! 사용이 차감됐습니다 etc". Rows come **only from things that
-really happened**, written in the same transaction by the code that did
-them — never from the browser:
+The owner's words (2026-10-16 evening): "매번 쓸 때마다 알림 오면 너무
+많잖아 그냥 승인됐습니다 반응을 얻었습니다 그런 것만 알림" and "알림은 그닥
+중요한게 아니라서 … 걍 벨 누르면 숫자는 사라지고 clear 누르면 알림 없애기".
+Rows come **only from things that really happened**, written in the same
+transaction by the code that did them — never from the browser:
 
 * **publish** — 게시 완료 / 업데이트 게시 완료 (`app_publish.publish`).
 * **application** — 참여 신청 승인 / 거절 (Admin › Applications).
-* **spend** — one summary **per KST day**, "어제 지원금 1,234원 사용 ·
-  채팅 3회 · 빌더 1회", written when the member next opens the list
-  (`ensure_spend_summaries`), from the usage ledger — a row per reply
-  would be noise, and the toast already shows each charge as it happens.
-  Off with Profile › 알림 › 사용 알림 표시, like the toast.
-* **milestone** — the once-per-quarter spend milestones (첫 사용, 25 /
-  50 / 75 %, 잔액 10,000원 이하, 잔액 0), recorded with the milestone row.
-* **app_report** — an admin took the member's app down (with the reason),
-  or closed a report keeping it.
+* **reaction** — 반응을 얻었어요: a reaction or a comment on the member's
+  CtrlAITube video, or a reply to their comment — **one row per item per
+  KST day** that counts up (`reaction_received`), so a popular video is
+  one line, not twenty. (Apps have no reactions yet; a ★ 즐겨찾기 is the
+  visitor's private preference and is never shown to the maker.)
+* **app_report** — 신고 처리: an admin took the member's app down (with the
+  reason), or closed a report keeping it.
+
+Gone since owner-polish-3: the daily spend summaries and the spend
+milestones — the toast and Usage already say what was spent. Rows of those
+kinds that still exist are hidden (`VISIBLE_KINDS`) and pruned with the
+rest after `KEEP_DAYS`.
 
 Reading: newest first, at most `LIST_LIMIT`; rows older than `KEEP_DAYS`
-are deleted for that member on each read. A member sees only their own —
-someone else's id is a 404, like any owned thing.
+are deleted for that member on each read. Opening the bell marks what it
+shows read (the badge goes); 지우기 deletes the rows shown — no history is
+kept on purpose. A member sees only their own — someone else's id is a
+404, like any owned thing.
 """
 
 from __future__ import annotations
 
-from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import BuilderProject, Notification, Quarter, QuarterApplication, UsageEvent, User
-from app.models.usage import spending_group
+from app.models import BuilderProject, Notification, Quarter, QuarterApplication, User
 from app.services.chat_limits import KST
 
 KEEP_DAYS = 90
 LIST_LIMIT = 50
-#: How far back a first visit writes daily spend summaries — never a flood.
-SUMMARY_DAYS = 7
+#: What the list and the badge show. Older kinds ("spend", "milestone")
+#: stay in the table until pruned but never reach a screen.
+VISIBLE_KINDS = ("publish", "application", "reaction", "app_report")
 
-GROUP_LABEL = {"chat": "채팅", "build": "빌더", "video": "영상", "other": "기타"}
-MILESTONE_TITLE = {
-    "first": "지원금을 처음 썼어요",
-    "used_25": "지원금의 25%를 썼어요",
-    "used_50": "지원금의 절반을 썼어요",
-    "used_75": "지원금의 75%를 썼어요",
-    "low": "남은 지원금이 10,000원 이하예요",
-    "empty": "지원금을 다 썼어요",
-}
+REACTION_WORD = {"like": "좋아요", "useful": "유용해요", "interesting": "흥미로워요"}
 
 
 def notify(
@@ -149,21 +146,6 @@ def app_report_kept(db: Session, project: BuilderProject) -> None:
     )
 
 
-def milestone_crossed(db: Session, user_id: int, quarter_id: int, kind: str, remaining_krw: int) -> None:
-    title = MILESTONE_TITLE.get(kind)
-    if title is None:
-        return
-    notify(
-        db, user_id, "milestone", title,
-        f"남은 지원금 {max(0, remaining_krw):,}원.",
-        "/usage",
-        dedupe_key=f"milestone:{quarter_id}:{kind}",
-    )
-
-
-# ------------------------------------------------------------ spend summaries
-
-
 def _kst_day(moment: datetime) -> date:
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
@@ -171,73 +153,79 @@ def _kst_day(moment: datetime) -> date:
 
 
 def _day_label(day: date) -> str:
-    """The date itself — a row lives 90 days, so "어제" would go stale."""
+    """The date itself — a row lives 90 days, so "오늘" would go stale."""
     return f"{day.month}월 {day.day}일"
 
 
-def ensure_spend_summaries(db: Session, user: User, *, now: datetime | None = None) -> int:
-    """One "spend" row per past KST day with a charge, for the last
-    `SUMMARY_DAYS` days — written here, when the member looks, from the
-    ledger (reads only; money never moves here). Returns how many were
-    written. Nothing while 사용 알림 표시 is off."""
-    if not user.spend_notifications:
-        return 0
+def reaction_received(
+    db: Session,
+    *,
+    owner_id: int | None,
+    actor_id: int,
+    item_kind: str,
+    item_id: int,
+    item_label: str,
+    what: str,
+    link: str | None,
+    token: str | None = None,
+    now: datetime | None = None,
+) -> Notification | None:
+    """반응을 얻었어요 — one row per (item, KST day) that counts up.
+
+    `what` is a reaction kind ("like" …), "comment" or "reply". `token`
+    names what is being counted — "r:<user id>" for a reaction (a member
+    counts once a day whatever they press), "c:<comment id>" for a
+    comment; the same token twice changes nothing. Nothing for the
+    member's own reaction on their own thing, and nothing when the item
+    has no owner (the club's own video). Does not commit."""
+    if owner_id is None or owner_id == actor_id:
+        return None
     moment = now or datetime.now(timezone.utc)
-    today = _kst_day(moment)
-    first = today - timedelta(days=SUMMARY_DAYS)
-    # The window starts at KST midnight `SUMMARY_DAYS` days ago, in UTC.
-    since = datetime.combine(first, datetime.min.time(), tzinfo=KST).astimezone(timezone.utc)
-    events = db.execute(
-        select(UsageEvent.created_at, UsageEvent.feature, UsageEvent.charged_krw).where(
-            UsageEvent.user_id == user.id,
-            UsageEvent.charged_krw > 0,
-            UsageEvent.created_at >= since,
-        )
-    ).all()
-    by_day: dict[date, list[tuple[str | None, int]]] = {}
-    for created_at, feature, charged in events:
-        day = _kst_day(created_at)
-        if day >= today:
-            continue  # today's charges are summarised tomorrow
-        by_day.setdefault(day, []).append((feature, int(charged)))
-    # Days already summarised are skipped before any write — the common
-    # case (nothing new) is one SELECT and no failed inserts.
-    done = set(
-        db.scalars(
-            select(Notification.dedupe_key).where(
-                Notification.user_id == user.id,
-                Notification.dedupe_key.in_([f"spend:{day.isoformat()}" for day in by_day]),
-            )
-        )
-    ) if by_day else set()
-    written = 0
-    for day in sorted(by_day):
-        if f"spend:{day.isoformat()}" in done:
-            continue
-        rows = by_day[day]
-        total = sum(charged for _, charged in rows)
-        counts = Counter(spending_group(feature) for feature, _ in rows)
-        parts = " · ".join(
-            f"{GROUP_LABEL[group]} {counts[group]}회" for group in GROUP_LABEL if counts.get(group)
-        )
-        if notify(
-            db, user.id, "spend",
-            f"{_day_label(day)} 지원금 {total:,}원 사용",
-            parts, "/usage",
-            dedupe_key=f"spend:{day.isoformat()}",
-        ):
-            written += 1
-    return written
+    day = _kst_day(moment)
+    key = f"reaction:{item_kind}:{item_id}:{day.isoformat()}"
+    word = REACTION_WORD.get(what, "댓글" if what == "comment" else "답글" if what == "reply" else what)
+    token = token or f"{what}:{actor_id}"
+    # The label is cut so the count's suffix always fits in the 200-character title.
+    label = item_label[:60]
+
+    def title(count: int) -> str:
+        return f"'{label}'이(가) {_day_label(day)} 반응 {count}개를 얻었어요"
+
+    def bump(row: Notification) -> Notification:
+        counted = list(row.counted or [])
+        if token in counted:
+            return row  # pressed again: nothing new for the maker
+        counted.append(token)
+        row.counted = counted
+        row.title = title(len(counted))
+        row.body = f"방금: {word}"[:600]
+        row.created_at = moment
+        row.read_at = None  # new since it was last seen
+        db.flush()
+        return row
+
+    existing = db.scalar(
+        select(Notification).where(Notification.user_id == owner_id, Notification.dedupe_key == key)
+    )
+    if existing is not None:
+        return bump(existing)
+    created = notify(db, owner_id, "reaction", title(1), f"방금: {word}", link, dedupe_key=key)
+    if created is not None:
+        created.counted = [token]
+        db.flush()
+        return created
+    # Two first reactions at once: the other one wrote the row — count on it.
+    row = db.scalar(select(Notification).where(Notification.user_id == owner_id, Notification.dedupe_key == key))
+    return bump(row) if row is not None else None
 
 
 # ------------------------------------------------------------ reading
 
 
 def refresh(db: Session, user: User) -> None:
-    """What every read does first: drop old rows, write the daily spend
-    summaries up to yesterday. Commits — the caller reads afterwards."""
+    """What every read does first: drop old rows. Commits — the caller
+    reads afterwards."""
     prune(db, user.id)
-    ensure_spend_summaries(db, user)
     db.commit()
 
 
@@ -255,7 +243,7 @@ def list_for(db: Session, user: User, limit: int = LIST_LIMIT) -> list[Notificat
     return list(
         db.scalars(
             select(Notification)
-            .where(Notification.user_id == user.id)
+            .where(Notification.user_id == user.id, Notification.kind.in_(VISIBLE_KINDS))
             .order_by(Notification.created_at.desc(), Notification.id.desc())
             .limit(limit)
         )
@@ -266,7 +254,9 @@ def unread_count(db: Session, user_id: int) -> int:
     return int(
         db.scalar(
             select(func.count(Notification.id)).where(
-                Notification.user_id == user_id, Notification.read_at.is_(None)
+                Notification.user_id == user_id,
+                Notification.read_at.is_(None),
+                Notification.kind.in_(VISIBLE_KINDS),
             )
         )
         or 0
@@ -293,4 +283,16 @@ def mark_all_read(db: Session, user_id: int) -> int:
         .values(read_at=datetime.now(timezone.utc))
         .execution_options(synchronize_session="fetch")
     )
+    return result.rowcount or 0
+
+
+def clear(db: Session, user_id: int, ids: list[int] | None = None) -> int:
+    """지우기: delete the member's rows — the ones shown (`ids`), or all.
+    No history is kept on purpose (owner-polish-3 (c2))."""
+    statement = delete(Notification).where(Notification.user_id == user_id)
+    if ids is not None:
+        if not ids:
+            return 0
+        statement = statement.where(Notification.id.in_(ids))
+    result = db.execute(statement.execution_options(synchronize_session="fetch"))
     return result.rowcount or 0

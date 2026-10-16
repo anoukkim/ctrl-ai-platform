@@ -28,6 +28,12 @@
   right: 0;
 }
 
+/* 바닥에 붙은 단추(사이드바의 계정 줄)는 위로 엽니다. */
+.placeUp {
+  top: auto;
+  bottom: calc(100% + 0.3rem);
+}
+
 .item {
   display: grid;
   gap: 0.1rem;
