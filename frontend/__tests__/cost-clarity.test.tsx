@@ -44,6 +44,7 @@ vi.mock("@/lib/quarters", async (importOriginal) => {
 });
 
 vi.mock("@/app/components/SiteProvider", () => ({
+  useSiteLoaded: () => true,
   useSite: () => ({ top_ups_enabled: false }),
 }));
 
