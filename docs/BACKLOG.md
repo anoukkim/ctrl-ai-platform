@@ -164,7 +164,11 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
     a bell with read marks, stored on the server, from real events),
     7 (promo video → now `promo-videos`), 11 (continue past the cap —
     `feat-auto-continue`, built, waiting on the owner), 12 (image provider
-    research). The owner's nine
+    research). Small note (app-ai-access, 2026-10-16, not fixed yet):
+    Admin › Apps draws a `<Link>` inside the row's `rowHref` link
+    (`AdminTable` + the name column), so dev mode logs one "<a> cannot
+    be a descendant of <a>" hydration warning — make the name column
+    plain text there. The owner's nine
     points from a walk through production (2026-10-16), to start **only
     after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
     Spec below ("owner-polish-2026-10-16"), with what the screenshots
