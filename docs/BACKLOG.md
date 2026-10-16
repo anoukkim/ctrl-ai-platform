@@ -88,8 +88,11 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    (`services/project_handoff.py` README / CLAUDE.md, and the showcase
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
    that outside CTRL+AI those calls need replacing — done in P1.
-   **P3 is next** (2026-10-16). Its first drafts were lost with the old
-   computer (RUN-2026-10-16) — design it again from the spec below.
+   **P3 built 2026-10-16** on `feat-app-platform-p3` (`ctrlai.db`; its
+   first drafts were lost with the old computer, RUN-2026-10-16, and it was
+   designed again from the spec below) — tests green, **waiting for the
+   owner's 확인 before merge + deploy** (pre-approved; migration
+   `1cc00c092902`). Then P4.
 
 2. **app-ai-access** · M3 · branch `feat-app-ai-access`
     *Not pre-approved — branch, test, report, WAIT.* Owner decision
