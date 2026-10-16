@@ -145,9 +145,9 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 6. **owner-polish-2026-10-16** · M1 · one small branch per point
     *Not pre-approved — branch, test, report, WAIT.* **Points 3, 8, 1, 9,
-    6, 13, 14, 10 are built on `fix-owner-polish-a`** (2026-10-16, eight
-    commits, pushed, awaiting the owner's approval — see
-    `progress/RUN-2026-10-16.md` › polish-a). Left in this item: 2
+    6, 13, 14, 10 merged as `806f563`** (owner-polish-a, owner approved
+    2026-10-16 — Done row and the eight points' spec in the archive; the
+    deploy runs migration `d7e1f3a9b5c2`). Left in this item: 2
     (notification list), 4–5 (thumbnails), 7 (promo video → now
     `promo-videos`), 11 (continue past the cap), 12 (image provider
     research), 15 (app detail layout). The owner's nine
@@ -840,6 +840,10 @@ development.
 → **test-database-isolation — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#test-database-isolation--full-spec-merged-2026-10-13).
 
 ## owner-polish-2026-10-16 — owner's words and what production showed
+
+**Merged 2026-10-16 (owner-polish-a, `806f563`): points 1, 3, 6, 8, 9, 10,
+13, 14** — kept here because the remaining points refer to them; their
+delivery notes are in `archive/done-specs.md`.
 
 Added by the owner on 2026-10-16 with screenshots of ctrlai.my (Chat,
 Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Admin ›

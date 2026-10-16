@@ -2825,3 +2825,43 @@ Branch `feat-promo-videos`. Moved here from BACKLOG › Next on merge; text unch
     video element, reaction/comment CRUD and permissions (non-participating
     members read only; another member's comment), admin hide, 신고.
     Screenshots 1440 · 390, light and dark.
+
+## owner-polish-a — delivery notes (merged 2026-10-16)
+
+Branch `fix-owner-polish-a`, merged `806f563` (owner approved 2026-10-16).
+The owner's words for every point stay in BACKLOG › "owner-polish-2026-10-16"
+(the remaining points refer to them). What was built, per point:
+
+- **3 (bug)** Profile › 내가 만든 앱: `GET /api/apps/mine` (the store's
+  listing query narrowed to the caller), shown with the shared `AppCard`.
+- **8 (bug)** Admin › Members: 미신청 = neither an application nor a
+  participation row this quarter, excluding 탈퇴 회원 — card and filter
+  alike; the list carries `application_status`; 미참여 stays its own option.
+- **1** `PATCH /api/admin/invites/{id}` (`max_uses`): never below the
+  sign-ups made (row locked), unchanged logs nothing, `invite.updated`
+  audited with before/after; inline 바꾸기 in the 사용 cell.
+- **9** `PATCH /api/account/profile` (display_name, 1~100, trimmed,
+  `get_current_user`); 이름 바꾸기 inline; 아이디 fixed; no profile picture.
+- **6** `feature_switches` (append-only, newest wins, no row = locked;
+  migration `d7e1f3a9b5c2`). `require_video_open` on Video create/edit/AI
+  routes on top of participation (delete and reads keep their guards); the
+  API never locks the 관리자 out. `/api/site.video_open`; Admin › System ›
+  기능 열기 flips it with a note (`feature.set` audited). Screens (owner's
+  shape): one centred lock + "Video Generator는 다음 단계에서 열려요 / 지금은
+  준비 중이에요" for everyone, the 관리자 with one extra line to Admin ›
+  System; the menu item carries a lock and the hint under its name.
+- **13** The Claude 판 conversation appears only once a Claude-made
+  version exists; until then 모든 버전 is open and carries 이 버전 보기.
+- **14** Builder: busy button with spinner and `cursor: progress` (never
+  🚫), "작성 중… N초" on the current step, ✓ pops, thin n / m 파일 bar.
+  Chat: "생각하는 중…" shimmer + seconds; new blocks ease in. Reduced
+  motion: no animation, text and timers stay. Not built: per-character
+  file text — the backend writes files whole (needs run-stream deltas).
+- **10** spend-feedback v2: spring pop with a coin and sparks, large
+  "-N원", the chip flies to the sidebar balance when visible, the toast
+  carries amount + remaining otherwise; 띠링 = WebAudio two tones, Profile ›
+  알림 switch, off by default, per device (localStorage). Real
+  `charged_krw` only; reduced motion = plain toast.
+- Checks at merge: backend 1063 (PG on, exit 0), frontend 535,
+  tsc/lint/build OK, Playwright 14/14, screenshots
+  `progress/screens/owner-polish-a/`; `/code-review high` findings fixed.
