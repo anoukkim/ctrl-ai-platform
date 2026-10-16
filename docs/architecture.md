@@ -160,6 +160,7 @@ the same commit that adds it.
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
 | `GET /api/admin/invites` | `require_admin` | Invite codes, with who signed up with each |
 | `POST /api/admin/invites` | `require_admin` | Generated or custom code; audited |
+| `PATCH /api/admin/invites/{invite_id}` | `require_admin` | Change 최대 가입 수 later, never below the sign-ups made; audited |
 | `POST /api/admin/invites/{invite_id}/deactivate` | `require_admin` | Stops new sign-ups only; audited |
 | `POST /api/admin/invites/{invite_id}/reactivate` | `require_admin` | Audited |
 | `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, read-only |

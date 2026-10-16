@@ -97,6 +97,8 @@ class AuditAction:
     INVITE_CREATED = "invite.created"
     INVITE_DEACTIVATED = "invite.deactivated"
     INVITE_REACTIVATED = "invite.reactivated"
+    # owner-polish 1: the 최대 가입 수 of an existing code changed.
+    INVITE_UPDATED = "invite.updated"
     # google-login: an account made admin because its verified Google email
     # equals ADMIN_EMAIL. Logged with the new account as the actor.
     ADMIN_BY_GOOGLE = "account.admin_by_google"
@@ -157,6 +159,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.INVITE_CREATED: "초대 코드 생성",
     AuditAction.INVITE_DEACTIVATED: "초대 코드 사용 중지",
     AuditAction.INVITE_REACTIVATED: "초대 코드 다시 사용",
+    AuditAction.INVITE_UPDATED: "초대 코드 가입 수 변경",
     AuditAction.ADMIN_BY_GOOGLE: "Google 계정으로 관리자 가입",
     AuditAction.GOOGLE_LINKED: "Google 로그인 연결",
     AuditAction.GOOGLE_UNLINKED: "Google 로그인 연결 해제",

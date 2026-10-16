@@ -67,6 +67,14 @@ export function setInviteActive(id: number, active: boolean): Promise<Invite> {
   });
 }
 
+/** 최대 가입 수를 나중에 바꿉니다 — 이미 가입한 수 아래로는 백엔드가 거절합니다 (owner-polish 1). */
+export function updateInviteMaxUses(id: number, maxUses: number): Promise<Invite> {
+  return request<Invite>(`/admin/invites/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ max_uses: maxUses }),
+  });
+}
+
 /** 코드가 미리 채워진 가입 링크. 관리자가 복사해 나눠 줍니다. */
 export function signupLink(origin: string, code: string): string {
   return `${origin}/signup?code=${encodeURIComponent(code)}`;

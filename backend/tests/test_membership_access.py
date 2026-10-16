@@ -524,6 +524,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/invites"): "require_admin",
     ("POST", "/api/admin/invites"): "require_admin",
+    ("PATCH", "/api/admin/invites/{invite_id}"): "require_admin",
     ("POST", "/api/admin/invites/{invite_id}/deactivate"): "require_admin",
     ("POST", "/api/admin/invites/{invite_id}/reactivate"): "require_admin",
     ("PATCH", "/api/admin/chat-models/{chat_model_id}"): "require_admin",

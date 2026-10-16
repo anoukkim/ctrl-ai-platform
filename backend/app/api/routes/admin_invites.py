@@ -1,7 +1,9 @@
 """Admin › Members › 초대 코드 (invite-only-signup).
 
 Create a code (generated or custom), list them with who signed up with
-each, switch one off and on again. Every change is written to the audit
+each, switch one off and on again, and change how many may sign up with
+it (owner-polish 1 — a 1/1 code can be opened to more people later, never
+to fewer than have already used it). Every change is written to the audit
 log. A code is never deleted: accounts keep pointing at the code they
 used, and switching it off stops new signups without touching them.
 
@@ -17,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import AuditAction, InviteCode, User
-from app.schemas.invite import InviteCreate, InviteRead, InviteSignup
+from app.schemas.invite import InviteCreate, InviteRead, InviteSignup, InviteUpdate
 from app.services import audit, invites
 
 router = APIRouter(prefix="/admin/invites", tags=["admin"])
@@ -159,6 +161,48 @@ def _switch(db: Session, admin: User, invite_id: int, active: bool) -> InviteRea
             else f"초대 코드 사용 중지: {invite.code} — 이미 가입한 {invite.uses}명은 그대로"
         ),
         detail={"before": not active, "after": active, "uses": invite.uses},
+    )
+    db.commit()
+    db.refresh(invite)
+    return _read(db, invite)
+
+
+@router.patch("/{invite_id}", response_model=InviteRead, summary="최대 가입 수 바꾸기")
+def update_invite(
+    invite_id: int,
+    payload: InviteUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> InviteRead:
+    """Change a code's 최대 가입 수 after creation (owner-polish 1).
+
+    The floor is the sign-ups already made: lowering below `uses` would
+    make the row say "3/2", and nothing is ever taken from the people who
+    signed up. The row is locked while it is compared and written, so a
+    sign-up claiming the code at the same moment cannot slip under a new,
+    lower limit. Audited with before and after; unchanged means no log.
+    """
+    invite = db.scalar(select(InviteCode).where(InviteCode.id == invite_id).with_for_update())
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    if payload.max_uses < invite.uses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"이미 {invite.uses}명이 이 코드로 가입했어요. 최대 가입 수는 {invite.uses} 이상이어야 합니다.",
+        )
+    before = invite.max_uses
+    if payload.max_uses == before:
+        return _read(db, invite)
+    invite.max_uses = payload.max_uses
+    audit.record(
+        db,
+        actor=admin,
+        action=AuditAction.INVITE_UPDATED,
+        target_type="invite_code",
+        target_id=invite.id,
+        target_label=invite.code,
+        summary=f"초대 코드 최대 가입 수 변경: {invite.code} — {before}명 → {invite.max_uses}명 (가입 {invite.uses}명)",
+        detail={"before": before, "after": invite.max_uses, "uses": invite.uses},
     )
     db.commit()
     db.refresh(invite)
