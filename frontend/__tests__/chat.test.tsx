@@ -254,6 +254,59 @@ describe("ChatWorkspace", () => {
     expect(screen.queryByTestId("waiting-live")).toBeNull();
   });
 
+  test("a reply the server continues by itself: '이어서 쓰는 중… 지금까지 N원', then one bubble with the count (feat-auto-continue)", async () => {
+    let finish!: (outcome: StreamOutcome) => void;
+    chatApi.sendMessage.mockImplementation(
+      (_id: number, _text: string, handlers: StreamHandlers): Promise<StreamOutcome> =>
+        new Promise((resolve) => {
+          handlers.onStart?.({ ...SAVED_REPLY, id: 41, role: "user", content: "길게" }, { base_krw: 3, won_per_1k_output: 20 });
+          handlers.onDelta?.("앞부분 ");
+          handlers.onContinue?.(2, 57, { base_krw: 5, won_per_1k_output: 20 });
+          handlers.onDelta?.("뒷부분");
+          finish = resolve;
+        }),
+    );
+    await renderChat();
+
+    typeAndSend("길게 써 줘");
+
+    const line = await screen.findByTestId("continuing");
+    expect(line.textContent).toContain("이어서 쓰는 중… (2번째)");
+    expect(line.textContent).toContain("지금까지 57원");
+    // The running estimate restarts from what was charged so far.
+    expect(screen.getByTestId("live-cost").textContent).toMatch(/약 6\d원/);
+    // 중지 stays available while the server continues.
+    expect(screen.getByRole("button", { name: "중지" })).toBeTruthy();
+
+    finish({
+      kind: "done",
+      chargedKrw: 91,
+      segments: 3,
+      message: { ...SAVED_REPLY, content: "앞부분 뒷부분", segments: 3 },
+    });
+    expect(await screen.findByText("앞부분 뒷부분")).toBeTruthy();
+    expect(screen.queryByTestId("continuing")).toBeNull();
+    expect(screen.getByTestId("reply-model").textContent).toContain("3번에 나눠 씀");
+    expect(screen.queryByTestId("continue-reply")).toBeNull();
+  });
+
+  test("a reply the server stopped continuing says why and offers 이어서 쓰기", async () => {
+    chatApi.sendMessage.mockResolvedValue({
+      kind: "done",
+      chargedKrw: 30,
+      segments: 1,
+      stopNote: "답장이 전체 비용 한도(30원)에 닿아 여기서 멈췄어요. '이어서 쓰기'로 이어 받을 수 있어요.",
+      message: { ...SAVED_REPLY, content: "여기까지", status: "truncated", capped_krw: 30 },
+    });
+    await renderChat();
+
+    typeAndSend("길게 써 줘");
+
+    expect(await screen.findByText("여기까지")).toBeTruthy();
+    expect(screen.getByText(/전체 비용 한도\(30원\)에 닿아/)).toBeTruthy();
+    expect(screen.getByTestId("continue-reply")).toBeTruthy();
+  });
+
   test("a failed reply shows the Korean reason under the message", async () => {
     chatApi.sendMessage.mockResolvedValue({
       kind: "error",

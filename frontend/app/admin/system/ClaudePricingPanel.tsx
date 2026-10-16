@@ -92,6 +92,7 @@ export default function ClaudePricingPanel() {
         for (const level of DEPTH_LEVELS) {
           table[`${surface}.${level}.max_tokens`] = String(levels[surface][level].max_tokens);
           table[`${surface}.${level}.cap_krw`] = String(levels[surface][level].cap_krw);
+          table[`${surface}.${level}.total_cap_krw`] = String(levels[surface][level].total_cap_krw ?? 0);
         }
       }
     }
@@ -144,6 +145,7 @@ export default function ClaudePricingPanel() {
         out[surface][level] = {
           max_tokens: Number(depthDraft[`${surface}.${level}.max_tokens`]),
           cap_krw: Number(depthDraft[`${surface}.${level}.cap_krw`]),
+          total_cap_krw: Number(depthDraft[`${surface}.${level}.total_cap_krw`] ?? 0),
         };
       }
     }
@@ -158,7 +160,8 @@ export default function ClaudePricingPanel() {
       DEPTH_LEVELS.some(
         (level) =>
           Number(depthDraft[`${surface}.${level}.max_tokens`]) !== levels[surface][level].max_tokens ||
-          Number(depthDraft[`${surface}.${level}.cap_krw`]) !== levels[surface][level].cap_krw,
+          Number(depthDraft[`${surface}.${level}.cap_krw`]) !== levels[surface][level].cap_krw ||
+          Number(depthDraft[`${surface}.${level}.total_cap_krw`] ?? 0) !== (levels[surface][level].total_cap_krw ?? 0),
       ),
     );
   };
@@ -197,7 +200,8 @@ export default function ClaudePricingPanel() {
                   `${DEPTH_SURFACE_LABEL[surface]} 생각 깊이: ` +
                   DEPTH_LEVELS.map(
                     (level) =>
-                      `${DEPTH_LABEL[level]} ${table[surface][level].max_tokens.toLocaleString()}토큰/${won(table[surface][level].cap_krw)}`,
+                      `${DEPTH_LABEL[level]} ${table[surface][level].max_tokens.toLocaleString()}토큰/${won(table[surface][level].cap_krw)}` +
+                      (table[surface][level].total_cap_krw ? `/전체 ${won(table[surface][level].total_cap_krw ?? 0)}` : ""),
                   ).join(" · "),
               )
             : []),
@@ -472,8 +476,9 @@ export default function ClaudePricingPanel() {
               {Object.keys(depthDraft).length > 0 && (
                 <table className={styles.depthTable} data-testid="depth-table">
                   <caption>
-                    생각 깊이 — 회원이 고른 깊이마다 최대 출력(토큰)과 1회 한도(원). 회원 화면의
-                    &ldquo;(최대 M원)&rdquo;이 이 한도입니다.
+                    생각 깊이 — 회원이 고른 깊이마다 최대 출력(토큰), 1회 한도(원), 전체 한도(원). 회원
+                    화면의 &ldquo;(최대 M원)&rdquo;이 1회 한도이고, 답장이 거기에 닿으면 서버가 전체 한도까지
+                    스스로 이어 씁니다 (채팅만; 0이면 이어 쓰지 않음).
                   </caption>
                   <thead>
                     <tr>
@@ -525,6 +530,25 @@ export default function ClaudePricingPanel() {
                               />
                               <span aria-hidden="true">원</span>
                             </label>
+                            {surface === "chat" && (
+                              <label className={styles.depthCell}>
+                                <span className="sr-only">
+                                  {DEPTH_SURFACE_LABEL[surface]} {DEPTH_LABEL[level]} 전체 한도 원
+                                </span>
+                                <input
+                                  className="field numeric"
+                                  inputMode="numeric"
+                                  value={depthDraft[`${surface}.${level}.total_cap_krw`] ?? ""}
+                                  onChange={(event) =>
+                                    setDepthDraft((current) => ({
+                                      ...current,
+                                      [`${surface}.${level}.total_cap_krw`]: event.target.value,
+                                    }))
+                                  }
+                                />
+                                <span aria-hidden="true">원 전체</span>
+                              </label>
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -533,9 +557,11 @@ export default function ClaudePricingPanel() {
                 </table>
               )}
               <p className={styles.pricingNote}>
-                답장이 그 깊이의 1회 한도에 닿으면 거기서 멈추고 쓴 만큼만 차감됩니다(회원은
-                &lsquo;이어서 쓰기&rsquo;로 이어 받을 수 있어요). 최대 출력은 1,024–64,000토큰, 1회 한도는
-                10–5,000원 사이로 정해요. 긴 대화 경고는
+                답장이 그 깊이의 1회 한도에 닿으면 서버가 같은 답장 안에서 스스로 이어 씁니다 — 호출마다
+                1회 한도 아래에서, 호출마다 지갑을 먼저 확인하고, 답장 전체가 전체 한도에 닿거나 지갑이
+                모자라면 거기서 멈춥니다(회원은 &lsquo;이어서 쓰기&rsquo;로 이어 받을 수 있어요). 최대 출력은
+                1,024–64,000토큰, 1회 한도는 10–5,000원, 전체 한도는 0(이어 쓰지 않음) 또는 1회 한도 이상
+                50,000원 이하로 정해요. 긴 대화 경고는
                 입력창 위에 &lsquo;새 대화로 시작하면 아낄 수 있어요&rsquo;를 띄웁니다. 하루 한도는 회원마다
                 모든 유료 기능을 합산해 적용됩니다 (0 = 없음).
                 {settings.chat_limits.set_at
