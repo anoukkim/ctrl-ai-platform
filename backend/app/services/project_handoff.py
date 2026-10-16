@@ -298,7 +298,12 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         conventions.append(
             "스크립트는 `index.html`에서 `<script src>`로 차례대로 불러와요. 순서가 중요해요(앞 파일이 만든 것을 뒤 파일이 써요)."
         )
-    if _uses(files, "ctrlai."):
+    if _uses(files, "ctrlai.db"):
+        conventions.append(
+            "데이터는 `ctrlai.db`(CTRL+AI 기능 상자의 앱 데이터베이스 — 개인·공유 목록)에 저장해요. CTRL+AI 밖에서는 "
+            "직접 만든 서버나 localStorage로 바꿔야 해요."
+        )
+    elif _uses(files, "ctrlai."):
         conventions.append(
             "저장은 `ctrlai.storage`(CTRL+AI 기능 상자), `window.ctrlai`가 없으면 localStorage로 — 그 분기를 지켜 주세요."
         )
@@ -328,7 +333,9 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         f"전체 {builder_files.MAX_PROJECT_BYTES // 1_000_000}MB, 폴더 깊이 {builder_files.MAX_DEPTH}단계, "
         "확장자 " + " ".join(sorted(builder_files.ALLOWED_EXTENSIONS)) + ".\n\n"
         "- **CTRL+AI 기능 상자(SDK)**: CTRL+AI에서 돌 때는 `window.ctrlai`가 있어요 — "
-        "`ctrlai.storage.get/set/remove/keys/clear`(앱마다 · 방문자마다 약 1MB, 비동기). CTRL+AI가 "
+        "`ctrlai.storage.get/set/remove/keys/clear`(앱마다 · 방문자마다 약 1MB, 비동기), "
+        "`ctrlai.db.save/list/get/update/remove/count`(앱의 서버 데이터베이스 — 개인·공유 목록, 항목 4KB, "
+        "앱마다 2,000개 · 5MB), `ctrlai.user/login`, `ctrlai.ai.ask/stream`(방문자가 자기 지원금으로 냄). CTRL+AI가 "
         "실행할 때 스크립트를 넣어 주므로 이 폴더에는 없어요.\n\n"
         "**CTRL+AI 밖에서는 이 제한이 더 이상 적용되지 않아요.** 그 대신 `ctrlai.*`도 없어요 — 그런 호출은 "
         "localStorage나 직접 만든 서버로 바꿔야 해요(지금 코드에 localStorage로 넘어가는 길이 있으면 그대로 "

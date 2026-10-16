@@ -188,8 +188,19 @@ use **`ctrlai.ai`** — Claude, paid by the **visitor** from their own 동아리
 only for members taking part this quarter. The app sees a display name and
 a per-app id, never the email, username or balance. Profile › 연결된 앱
 disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Content can
-stop an app's 기능 상자. Coming in P3–P4: `ctrlai.db`, templates, Admin ›
-Apps (BACKLOG › app-platform).
+stop an app's 기능 상자. **Since P3** an app has a database of its own,
+**`ctrlai.db`**: named lists that are either 개인 (each signed-in visitor
+sees only their own — a diary, a score history) or 공유 (everyone reads,
+signed out too; members write, with their display name on each item — a
+board, a poll, a ranking). The app says which with every call
+(`shared: true`; otherwise the 개인 list of that name) — the same name is
+two separate lists, so no visitor can turn another's private data public. An item is at most 4 KB, an app holds 2,000
+items / 5 MB, a visitor writes 30 times a minute at most; the author can
+change or delete their item, the app's maker can delete any shared item,
+and 신고 of a shared item reaches Admin › Content, where the admin hides
+or deletes it (audited). The Builder's 미리보기 has data of its own, so
+trying an app never changes the live app's. Coming in P4: templates,
+the Builder knowing the SDK, Admin › Apps (BACKLOG › app-platform).
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 

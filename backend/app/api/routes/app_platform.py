@@ -17,6 +17,9 @@ of this is reachable from `ctrlai.my`.
   `/v1/user`) with the app-scoped cookie `ctrlai_app_<slug>`, read only
   for its own app (`app_call`); `ctrlai.ai` (`/v1/ai/ask`, `/v1/ai/stream`)
   paid by the signed-in visitor (`services/app_ai.py`).
+* P3: `ctrlai.db` (`/v1/data/*`, `services/app_data.py`) — reads work
+  signed out on shared collections; every write needs the app's own
+  cookie and the "data" consent.
 """
 
 import json
@@ -31,7 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import BuilderProject, User
-from app.services import app_ai, app_auth, app_shell, chat_limits, provider_limiter
+from app.services import app_ai, app_auth, app_data, app_shell, chat_limits, provider_limiter
 from app.services.claude_provider import ClaudeError, get_claude_provider
 
 router = APIRouter(prefix="/_ctrlai", tags=["app-platform"])
@@ -413,3 +416,167 @@ async def ai_stream(
             yield _sse("done", {"text": tally.text if tally else "", "chargedKrw": charged, "model": prepared.label})
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
+
+
+# --------------------------------------------------------------- P3: data
+
+
+def running_app(call: AppCall = Depends(app_call)) -> AppCall:
+    """A running app (the 기능 상자 not stopped); the visitor may be signed out."""
+    if call.target.project.sdk_disabled_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SDK_OFF)
+    return call
+
+
+def _reader(call: AppCall) -> app_data.Reader:
+    return app_data.Reader(
+        project=call.target.project,
+        space=app_data.space_of(call.target.mode),
+        user=call.visitor.user if call.visitor else None,
+    )
+
+
+def _writer(call: AppCall) -> app_data.Reader:
+    """A signed-in visitor who allowed "data". A consent from before P3
+    lacks it: the shell asks the visitor to allow the app again."""
+    if call.visitor is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=MEMBERS_ONLY)
+    if "data" not in call.visitor.consent.scopes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "이 앱에 데이터 저장을 아직 허용하지 않았어요. 다시 연결해 주세요.", "code": "consent_required"},
+        )
+    return _reader(call)
+
+
+def _data_error(error: app_data.AppDataError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail={"message": str(error), "code": error.code})
+
+
+class DataListBody(BaseModel):
+    """`ctrlai.db.list` options, as the SDK sends them. `shared` names
+    which of the two collections of that name (every data body has it)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    collection: str = Field(max_length=40)
+    shared: bool = False
+    where: dict | None = None
+    order_by: str | None = Field(default=None, alias="orderBy", max_length=40)
+    order: str | None = Field(default=None, max_length=4)
+    limit: int = app_data.DEFAULT_LIMIT
+    cursor: str | None = Field(default=None, max_length=20)
+    mine: bool = False
+
+
+class DataCountBody(BaseModel):
+    collection: str = Field(max_length=40)
+    shared: bool = False
+    where: dict | None = None
+    mine: bool = False
+
+
+class DataGetBody(BaseModel):
+    collection: str = Field(max_length=40)
+    shared: bool = False
+    id: str = Field(max_length=20)
+
+
+class DataSaveBody(BaseModel):
+    collection: str = Field(max_length=40)
+    shared: bool = False
+    data: dict
+
+
+class DataUpdateBody(BaseModel):
+    collection: str = Field(max_length=40)
+    shared: bool = False
+    id: str = Field(max_length=20)
+    data: dict
+
+
+class DataRemoveBody(BaseModel):
+    collection: str = Field(max_length=40)
+    shared: bool = False
+    id: str = Field(max_length=20)
+
+
+class DataReportBody(BaseModel):
+    collection: str = Field(max_length=40)
+    id: str = Field(max_length=20)
+    reason: str = Field(default="", max_length=app_data.MAX_REASON_CHARS)
+
+
+@router.post("/v1/data/list", summary="ctrlai.db.list: a page of a collection")
+def data_list(body: DataListBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    try:
+        options = app_data.list_options(
+            where=body.where, order_by=body.order_by, order=body.order, limit=body.limit, cursor=body.cursor, mine=body.mine
+        )
+        return app_data.list_items(db, _reader(call), body.collection, body.shared, options)
+    except app_data.AppDataError as error:
+        raise _data_error(error) from error
+
+
+@router.post("/v1/data/count", summary="ctrlai.db.count")
+def data_count(body: DataCountBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    try:
+        return {"count": app_data.count_items(db, _reader(call), body.collection, body.shared, body.where, body.mine)}
+    except app_data.AppDataError as error:
+        raise _data_error(error) from error
+
+
+@router.post("/v1/data/get", summary="ctrlai.db.get: one item, or null")
+def data_get(body: DataGetBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    try:
+        return {"item": app_data.get_item(db, _reader(call), body.collection, body.shared, body.id)}
+    except app_data.AppDataError as error:
+        raise _data_error(error) from error
+
+
+@router.post("/v1/data/save", summary="ctrlai.db.save: a new item")
+def data_save(body: DataSaveBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    reader = _writer(call)
+    try:
+        item = app_data.save_item(db, reader, body.collection, body.shared, body.data)
+    except app_data.AppDataError as error:
+        db.rollback()
+        raise _data_error(error) from error
+    db.commit()
+    return {"item": item}
+
+
+@router.post("/v1/data/update", summary="ctrlai.db.update: change some fields of my item")
+def data_update(body: DataUpdateBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    reader = _writer(call)
+    try:
+        item = app_data.update_item(db, reader, body.collection, body.shared, body.id, body.data)
+    except app_data.AppDataError as error:
+        db.rollback()
+        raise _data_error(error) from error
+    db.commit()
+    return {"item": item}
+
+
+@router.post("/v1/data/remove", summary="ctrlai.db.remove")
+def data_remove(body: DataRemoveBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    reader = _writer(call)
+    try:
+        app_data.remove_item(db, reader, body.collection, body.shared, body.id)
+    except app_data.AppDataError as error:
+        db.rollback()
+        raise _data_error(error) from error
+    db.commit()
+    return {"removed": True}
+
+
+@router.post("/v1/data/report", summary="ctrlai.db.report: 신고 a shared item to the admin")
+def data_report(body: DataReportBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
+    reader = _writer(call)
+    try:
+        app_data.report_item(db, reader, body.collection, body.id, body.reason)
+    except app_data.AppDataError as error:
+        db.rollback()
+        raise _data_error(error) from error
+    db.commit()
+    return {"detail": "신고했어요. 관리자가 확인할게요."}

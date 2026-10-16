@@ -65,10 +65,12 @@ the same commit that adds it.
 | `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
 | `GET /_ctrlai/v1/app`, `POST /_ctrlai/v1/login/start`, `POST /_ctrlai/v1/logout` | `app_call` | `app_request` (`X-CtrlAI-App` naming a live app, same-origin) + who is signed in to this app — only its own `ctrlai_app_<slug>` cookie, never the site's session |
 | `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) |
+| `POST /_ctrlai/v1/data/{list,count,get,save,update,remove,report}` | `running_app` | `ctrlai.db` (P3): `app_call` + the 기능 상자 running. Reads work signed out on shared collections; a write needs the app's own cookie and the "data" consent (checked inside, so the SDK can ask the visitor to sign in and try again) |
 | `GET /{slug}/_ctrlai/callback`, `GET /_ctrlai/callback.js` | none | The end of signing in: a one-time code (60 s) that only the browser holding the matching state cookie can spend |
 | `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
 | `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
+| `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
@@ -393,8 +395,8 @@ database is migrated, never re-created.
 
 Owner decisions of 2026-10-15 are in CLAUDE.md §2 ("Member app platform").
 Built in phases P1–P5 (BACKLOG › app-platform). **P1 (the shell, the SDK,
-`ctrlai.storage`)** and **P2 (sign-in, `ctrlai.user`, `ctrlai.ai`)** are in
-place:
+`ctrlai.storage`)**, **P2 (sign-in, `ctrlai.user`, `ctrlai.ai`)** and **P3
+(`ctrlai.db`)** are in place:
 
 ```text
 ctrlai.my (Builder / CtrlAIApps)
@@ -466,6 +468,39 @@ ctrlai.my (Builder / CtrlAIApps)
   "앱 · <앱 이름>", the shell shows "앱 AI · N원 · 내 동아리 지원금에서".
   **Kill switch**: Admin › Content › 기능 상자 멈추기 (a reason, audited) —
   every `/_ctrlai/v1` call of that app is refused at once.
+* **P3 — `ctrlai.db`** (`services/app_data.py`, `/_ctrlai/v1/data/*`).
+  An app's data is **collections** of JSON objects (`app_data_collections`,
+  `app_data_items`). A collection is a **(name, kind)** pair — **private**
+  (a visitor sees only their own items) or **shared** (everyone reads,
+  signed-out visitors too; signed-in members write, and each item carries
+  its author's display name and per-app id — the consent screen's "data"
+  line says so) — and the kind is part of every call (`shared: true`,
+  else private): `posts` private and `posts` shared are two lists, so a
+  visitor who writes first can never decide what another call means
+  (security review 2026-10-16, Vuln 1: with the kind fixed by the first
+  save, Mallory could pre-create a name as shared and every later default
+  — private — save landed in public). A signed-out visitor's read of a
+  private list is refused before the lookup, so it learns nothing, not
+  even whether the list exists. Items ≤ 4 KB; per app ≤ 2,000 items, 5 MB, 20
+  collections; per visitor ≤ 30 writes a minute in one app (`app_data_writes`,
+  counted in the database so every API worker sees the same count); the
+  app row is locked for a write so two saves cannot both slip under the
+  quota. Queries — `list` (`where` = equality on top-level fields, `orderBy`
+  createdAt / updatedAt / a field, `limit` ≤ 100, an offset `cursor`,
+  `mine`), `get`, `count` — read one collection of one app and filter in
+  Python, so SQLite and PostgreSQL behave alike; no raw SQL, and every
+  lookup is scoped by project **and space** — the Builder's 미리보기 has
+  its own space ("preview"), so trying an app never touches its live data.
+  The author updates or removes their item; the app's owner may remove any
+  shared item of their app. `ctrlai.db.report(collection, id, reason)` puts
+  a shared item in the admin's queue (`AppReport.data_item_id` + an excerpt
+  that outlives the item). Admin › Content shows each app's data size, and
+  per app its collections and shared items with 숨기기 (`hidden_at`, gone
+  for everyone, the row kept) or 지우기 — both need a reason, both audited
+  (`app_data.hidden` / `app_data.deleted`, with the excerpt), both close the
+  item's open reports. A consent given before P3 lacks "data": the first
+  write answers 403 `consent_required` and the shell reopens the consent
+  window, then tries once more.
 * **Proven in a real browser** (`frontend/e2e/app-platform.spec.ts`,
   `npm run e2e`, run against the local apps server and against the real
   Caddyfile in a container): the app's origin is opaque and its fetches

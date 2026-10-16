@@ -94,7 +94,11 @@ export default function ConnectedAppsSection() {
               )}
             </p>
             <p className={styles.connectionHint}>
-              {row.scopes.map((scope) => (scope.key === "ai" ? "AI 사용" : scope.key === "profile" ? "표시 이름" : scope.key)).join(" · ")}
+              {row.scopes
+                .map((scope) =>
+                  scope.key === "ai" ? "AI 사용" : scope.key === "profile" ? "표시 이름" : scope.key === "data" ? "데이터 저장" : scope.key,
+                )
+                .join(" · ")}
               {" · "}
               {formatRelative(row.granted_at)} 허용
             </p>

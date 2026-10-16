@@ -93,7 +93,7 @@ def test_the_consent_screen_needs_the_site_session_and_tells_what_the_app_may_do
 ) -> None:
     info = client.get(f"/api/app-connect/{shop.app_slug}").json()
     assert info["name"] == "영수증 읽기" and info["owner_name"] == "Other Member"
-    assert [scope["key"] for scope in info["scopes"]] == ["profile", "ai"]
+    assert [scope["key"] for scope in info["scopes"]] == ["profile", "ai", "data"]
     assert info["call_cap_krw"] == 200 and info["connected"] is False
     assert client.get("/api/app-connect/zzzzzzzzzz").status_code == 404
 
@@ -113,7 +113,7 @@ def test_the_full_sign_in_gives_a_name_and_a_per_app_id_only(
 ) -> None:
     info = sign_in(client, shop)
 
-    assert info["signedIn"] is True and info["scopes"] == ["profile", "ai"]
+    assert info["signedIn"] is True and info["scopes"] == ["profile", "ai", "data"]
     user = client.get("/_ctrlai/v1/user", headers=headers(shop)).json()
     assert set(user) == {"displayName", "appUserId"}
     assert user["displayName"] == dev_user.display_name

@@ -23,7 +23,26 @@ interface Ctrlai {
     ask(options: unknown): Promise<{ text: string; json: unknown; chargedKrw: number; model: string }>;
     stream(options: unknown, onChunk: (text: string) => void): Promise<{ text: string; chargedKrw: number }>;
   };
+  db: {
+    save(collection: string, data: Record<string, unknown>, options?: { shared?: boolean }): Promise<CtrlaiItem>;
+    list(collection: string, options?: Record<string, unknown>): Promise<{ items: CtrlaiItem[]; nextCursor: string | null }>;
+    get(collection: string, id: string, options?: { shared?: boolean }): Promise<CtrlaiItem | null>;
+    update(collection: string, id: string, changes: Record<string, unknown>, options?: { shared?: boolean }): Promise<CtrlaiItem>;
+    remove(collection: string, id: string, options?: { shared?: boolean }): Promise<void>;
+    count(collection: string, options?: Record<string, unknown>): Promise<number>;
+    report(collection: string, id: string, reason: string): Promise<void>;
+  };
 }
+
+type CtrlaiItem = {
+  id: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  mine: boolean;
+  canDelete: boolean;
+  author: { displayName: string; appUserId: string | null };
+};
 
 interface Window {
   ctrlai: Ctrlai;
