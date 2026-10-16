@@ -42,6 +42,44 @@ class AdminAppRead(AppListing):
     data_bytes: int = 0
 
 
+class AdminAppAiRead(BaseModel):
+    """AI through the 기능 상자, as Admin › Apps shows it (app-platform P4b).
+    Visitors' calls and the maker's 미리보기 tries are counted apart."""
+
+    today_calls: int = 0
+    today_krw: int = 0
+    quarter_calls: int = 0
+    quarter_krw: int = 0
+    preview_quarter_calls: int = 0
+    preview_quarter_krw: int = 0
+
+
+class AdminAppOverview(BaseModel):
+    """One app in Admin › Apps — published or not, as long as the 기능
+    상자 has been used (consents, AI) or it is on CtrlAIApps."""
+
+    id: int
+    name: str
+    published: bool
+    slug: str | None = None
+    app_url: str | None = None
+    version_number: int | None = None
+    published_at: datetime | None = None
+    owner_id: int
+    owner_username: str
+    owner_name: str
+    example: bool = False
+    sdk_enabled: bool = True
+    sdk_disabled_reason: str = ""
+    open_reports: int = 0
+    #: Members who allowed this app and have not disconnected.
+    consents: int = 0
+    data_items: int = 0
+    data_bytes: int = 0
+    ai: AdminAppAiRead
+    updated_at: datetime | None = None
+
+
 class AdminReportRead(BaseModel):
     id: int
     project_id: int

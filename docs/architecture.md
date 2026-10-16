@@ -528,6 +528,34 @@ ctrlai.my (Builder / CtrlAIApps)
   toast says "미리보기 사용 · N원 · 내 지원금에서" and Usage lists "앱
   미리보기 · <이름>"; its data stays in the preview space. Proven in a real
   browser (`frontend/e2e/app-platform-p4.spec.ts`).
+* **P4b — the price before the button, the showcases live, Admin › Apps.**
+  `ctrlai.ai.estimate(options)` (`POST /_ctrlai/v1/ai/estimate`, behind
+  `app_call` — free, signed out too) prices a call with the formulas
+  `prepare()` checks with, every image counted at its upper bound
+  (`IMAGE_TOKENS_UPPER`, the long edge's square after re-encoding) →
+  `{typicalKrw, maxKrw}`. **A call made with the same options never costs
+  more than `maxKrw`**: the JSON retry's `prepare` is given the first
+  attempt's worst case as its cap (`Prepared.max_krw`), so the second
+  attempt spends only what the first left, or is refused as `bad_json`
+  before any provider call. SDK version "4". The three **showcase apps**
+  run on 실제 AI when the visitor is signed in (a per-app toggle kept in
+  storage; the demo logic stays): the receipt ledger sends a PNG of the
+  photo with a JSON schema and writes the month's pattern on request; the
+  trip planner asks for days of place ids checked against the city's list
+  (the demo planner fills a day that does not fit) and classifies a request
+  into rain/cheap/relax; the doc chatbot sends its BM25 passages and shows
+  the sources, calling nothing when nothing matches. Every button shows
+  "1회 약 N원 · 최대 M원" from `estimate` first, and opening or switching
+  spends nothing (`frontend/e2e/app-platform-p4b.spec.ts`). **Admin › Apps**
+  (`GET /api/admin/apps/overview`, `GET /api/admin/apps/{id}`,
+  `require_admin`): every app that uses the 기능 상자 — published, or with
+  a consent or an AI call (the maker's 미리보기 counts) — with the
+  visitors' calls and won today and this quarter, the maker's 미리보기
+  this quarter apart, active consents, data, open reports, and the
+  actions (기능 상자 멈추기/켜기, 공유 데이터 숨기기/지우기, 게시 내리기, ZIP
+  미리보기); Admin › Content keeps the 신고 queue. **/help/apps** is the
+  members' guide. A 고치기 request never becomes a project's description
+  (only a 만들기 does); a template project starts with none.
 * **Proven in a real browser** (`frontend/e2e/app-platform.spec.ts`,
   `npm run e2e`, run against the local apps server and against the real
   Caddyfile in a container): the app's origin is opaque and its fetches

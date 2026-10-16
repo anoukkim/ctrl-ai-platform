@@ -187,7 +187,7 @@ use **`ctrlai.ai`** — Claude, paid by the **visitor** from their own 동아리
 지원, at most 200원 a call and 2,000원 a day across apps (an admin setting),
 only for members taking part this quarter. The app sees a display name and
 a per-app id, never the email, username or balance. Profile › 연결된 앱
-disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Content can
+disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Apps can
 stop an app's 기능 상자. **Since P3** an app has a database of its own,
 **`ctrlai.db`**: named lists that are either 개인 (each signed-in visitor
 sees only their own — a diary, a score history) or 공유 (everyone reads,
@@ -198,7 +198,7 @@ two separate lists, so no visitor can turn another's private data public. An ite
 items / 5 MB, a visitor writes 30 times a minute at most; the author can
 change or delete their item, the app's maker can delete any shared item,
 and 신고 of a shared item reaches Admin › Content, where the admin hides
-or deletes it (audited). The Builder's 미리보기 has data of its own, so
+or deletes it (audited; the app's own data is also under Admin › Apps). The Builder's 미리보기 has data of its own, so
 trying an app never changes the live app's. **Since P4a** the lists an
 app uses are the maker's to declare, in the project's `ctrlai.json`
 (a visitor cannot make one); the Builder's Claude knows the whole 기능
@@ -208,8 +208,18 @@ app uses are the maker's to declare, in the project's `ctrlai.json`
 once, each with a demo path for signed-out visitors and a 로그인 button;
 and in the **미리보기** the maker uses their own app as a visitor, paid
 from their own 지원금 ("미리보기 사용 · N원", Usage: "앱 미리보기 · <이름>").
-Coming in P4b: the showcase apps in LIVE mode, Admin › Apps, /help/apps
-(BACKLOG › app-platform).
+**Since P4b** an app can price a call before it is made
+(`ctrlai.ai.estimate` — "1회 약 N원 · 최대 M원" beside the button; a call
+with the same options never costs more than that figure, the server's
+JSON retry included); the three **showcase apps** run on 실제 AI when the
+visitor is signed in, with a toggle back to 데모 and nothing charged until
+a button is pressed; **Admin › Apps** lists every app that uses the 기능
+상자 (published or not) with its AI use — visitors' today and this
+quarter, the maker's 미리보기 apart — consents, data, reports, and holds
+기능 상자 멈추기, 공유 데이터 and 게시 내리기, while Admin › Content keeps
+the 신고 queue; and **/help/apps** explains all of it to members in
+Korean, with code to copy. A template project starts with an empty
+description and a 고치기 request never becomes one.
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 
@@ -747,7 +757,8 @@ nothing public changes until **업데이트 게시** (the dialog shows v3 → v5
 **게시 취소** takes it down and keeps every version. The detail page has
 **앱 실행** (new tab), the same app live in a sandboxed frame, an honest
 note on what an app can do, and **신고**. Admin › Content lists open
-reports and published apps; **게시 내리기** (with a reason) is audited and
+reports (the apps themselves are under Admin › Apps since app-platform
+P4b); **게시 내리기** (with a reason) is audited and
 closes the app's reports; closing a report without taking the app down is
 audited too. No mock listings remain. Later: screenshots, reactions (Like /
 Useful / Interesting), threaded comments, GitHub link. Published

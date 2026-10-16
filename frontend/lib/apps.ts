@@ -67,6 +67,47 @@ export interface AdminApp extends AppListing {
   data_bytes: number;
 }
 
+/** Admin › Apps (app-platform P4b): AI through the 기능 상자, visitors and the maker's 미리보기 apart. */
+export interface AdminAppAi {
+  today_calls: number;
+  today_krw: number;
+  quarter_calls: number;
+  quarter_krw: number;
+  preview_quarter_calls: number;
+  preview_quarter_krw: number;
+}
+
+/** 앱 하나 — 게시됐든 아니든, 기능 상자를 쓴 적이 있으면 보여요. */
+export interface AdminAppOverview {
+  id: number;
+  name: string;
+  published: boolean;
+  slug: string | null;
+  app_url: string | null;
+  version_number: number | null;
+  published_at: string | null;
+  owner_id: number;
+  owner_username: string;
+  owner_name: string;
+  example: boolean;
+  sdk_enabled: boolean;
+  sdk_disabled_reason: string;
+  open_reports: number;
+  consents: number;
+  data_items: number;
+  data_bytes: number;
+  ai: AdminAppAi;
+  updated_at: string | null;
+}
+
+export function listAdminAppOverview(): Promise<AdminAppOverview[]> {
+  return request<AdminAppOverview[]>("/admin/apps/overview");
+}
+
+export function getAdminApp(projectId: number): Promise<AdminAppOverview> {
+  return request<AdminAppOverview>(`/admin/apps/${projectId}`);
+}
+
 export interface AdminReport {
   id: number;
   project_id: number;

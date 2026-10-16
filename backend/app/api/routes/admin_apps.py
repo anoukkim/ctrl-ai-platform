@@ -9,7 +9,7 @@ and they may publish again.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
@@ -17,8 +17,21 @@ from app.api.routes.apps import listing_of
 from app.api.routes.builder import build_bundle, handoff_read
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import AppDataCollection, AppDataItem, AppReport, AuditAction, BuilderProject, User, UserRole
+from app.models import (
+    AppConsent,
+    AppDataCollection,
+    AppDataItem,
+    AppReport,
+    AuditAction,
+    BuilderProject,
+    UsageEvent,
+    UsageFeature,
+    User,
+    UserRole,
+)
 from app.schemas.apps import (
+    AdminAppAiRead,
+    AdminAppOverview,
     AdminAppRead,
     AdminDataAction,
     AdminDataCollectionRead,
@@ -30,7 +43,8 @@ from app.schemas.apps import (
     AdminUnpublish,
 )
 from app.schemas.builder import HandoffRead
-from app.services import app_data, app_publish, audit, project_handoff
+from app.services import app_data, app_publish, app_runtime, audit, chat_limits, project_handoff
+from app.services.quarters import current_quarter
 
 router = APIRouter(prefix="/admin/apps", tags=["admin"])
 
@@ -61,6 +75,97 @@ def list_published(
             )
         )
     return out
+
+
+# ------------------------------------------------- P4b: Admin › Apps
+
+
+def _ai_figures(db: Session, project: BuilderProject) -> AdminAppAiRead:
+    """Calls and won through this app's 기능 상자: visitors' use today and
+    this quarter, and the maker's 미리보기 tries this quarter, apart."""
+    quarter = current_quarter(db)
+    since_quarter = datetime.combine(quarter.starts_at, datetime.min.time(), tzinfo=timezone.utc) if quarter else None
+
+    def tally(feature: str, since: datetime | None) -> tuple[int, int]:
+        query = select(func.count(UsageEvent.id), func.coalesce(func.sum(UsageEvent.charged_krw), 0)).where(
+            UsageEvent.builder_project_id == project.id, UsageEvent.feature == feature
+        )
+        if since is not None:
+            query = query.where(UsageEvent.created_at >= since)
+        calls, krw = db.execute(query).one()
+        return int(calls or 0), int(krw or 0)
+
+    today_calls, today_krw = tally(UsageFeature.APP_AI.value, chat_limits.kst_day_start())
+    quarter_calls, quarter_krw = tally(UsageFeature.APP_AI.value, since_quarter)
+    preview_calls, preview_krw = tally(UsageFeature.APP_AI_PREVIEW.value, since_quarter)
+    return AdminAppAiRead(
+        today_calls=today_calls,
+        today_krw=today_krw,
+        quarter_calls=quarter_calls,
+        quarter_krw=quarter_krw,
+        preview_quarter_calls=preview_calls,
+        preview_quarter_krw=preview_krw,
+    )
+
+
+def _overview(db: Session, settings: Settings, project: BuilderProject, open_reports: int) -> AdminAppOverview:
+    owner = db.get(User, project.owner_user_id)
+    usage = app_data.app_usage(db, project)
+    consents = db.scalar(
+        select(func.count(AppConsent.id)).where(AppConsent.project_id == project.id, AppConsent.revoked_at.is_(None))
+    )
+    published = project.published_version_id is not None
+    return AdminAppOverview(
+        id=project.id,
+        name=project.name,
+        published=published,
+        slug=project.app_slug if published else None,
+        app_url=app_runtime.public_url(settings, project),
+        version_number=project.published_version.number if published and project.published_version else None,
+        published_at=project.published_at if published else None,
+        owner_id=project.owner_user_id,
+        owner_username=owner.username if owner else "",
+        owner_name=owner.display_name if owner else "탈퇴 회원",
+        example=owner is not None and owner.role is UserRole.ADMIN,
+        sdk_enabled=project.sdk_disabled_at is None,
+        sdk_disabled_reason=project.sdk_disabled_reason,
+        open_reports=open_reports,
+        consents=int(consents or 0),
+        data_items=usage["items"],
+        data_bytes=usage["bytes"],
+        ai=_ai_figures(db, project),
+        updated_at=project.updated_at,
+    )
+
+
+@router.get("/overview", response_model=list[AdminAppOverview], summary="Admin › Apps: every app that uses the 기능 상자")
+def list_overview(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> list[AdminAppOverview]:
+    """Published apps, plus unpublished projects whose 기능 상자 has been
+    used (a consent, or an AI call — the maker's 미리보기 counts). Deleted
+    projects never appear (CLAUDE.md §10)."""
+    used_ids = {
+        row for row in db.scalars(select(AppConsent.project_id).distinct())
+    } | {
+        row
+        for row in db.scalars(
+            select(UsageEvent.builder_project_id)
+            .where(UsageEvent.feature.in_([UsageFeature.APP_AI.value, UsageFeature.APP_AI_PREVIEW.value]))
+            .distinct()
+        )
+        if row is not None
+    }
+    rows = db.scalars(
+        select(BuilderProject)
+        .where(BuilderProject.deleted_at.is_(None))
+        .where(or_(BuilderProject.published_version_id.is_not(None), BuilderProject.id.in_(used_ids or {0})))
+        .order_by(BuilderProject.updated_at.desc())
+    )
+    counts = app_publish.open_report_counts(db)
+    return [_overview(db, settings, row, counts.get(row.id, 0)) for row in rows]
 
 
 def _is_example(db: Session, project: BuilderProject) -> bool:
@@ -321,3 +426,17 @@ def delete_data_item(
     closed = app_data.admin_delete(db, admin, _live_item(db, item_id), _reason(payload))
     db.commit()
     return {"detail": "항목을 지웠습니다.", "reports_closed": closed}
+
+
+# Declared last: a bare /{project_id} must not swallow /reports or /overview.
+@router.get("/{project_id}", response_model=AdminAppOverview, summary="Admin › Apps: one app")
+def read_overview(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> AdminAppOverview:
+    project = db.get(BuilderProject, project_id)
+    if project is None or project.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="앱을 찾을 수 없습니다.")
+    return _overview(db, settings, project, app_publish.open_report_counts(db).get(project.id, 0))

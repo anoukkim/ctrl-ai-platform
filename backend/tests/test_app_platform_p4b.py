@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.models import BuilderProject, UsageEvent
 from app.services import app_ai
 from tests.test_app_platform_p2 import config, headers, shop, sign_in  # noqa: F401 — fixtures
-from tests.test_app_platform_p3 import stranger  # noqa: F401 — fixture
+from tests.test_app_platform_p3 import stranger, visitor_b  # noqa: F401 — fixtures
 
 pytestmark = pytest.mark.usefixtures("config")
 
@@ -108,3 +108,42 @@ def test_the_sdk_and_shell_carry_estimate() -> None:
     sdk = app_shell.static_file("sdk.js")
     assert "estimate: function" in sdk and 'version: "4"' in sdk
     assert 'case "ai.estimate"' in app_shell.static_file("shell.js")
+
+
+# ------------------------------------------------------------ Admin › Apps
+
+
+def test_admin_apps_overview_lists_used_apps_with_ai_consents_and_data(
+    client: TestClient, visitor_b: TestClient, db_session: Session, shop: BuilderProject, budgeted, dev_user, other_user, config
+) -> None:
+    from app.services import app_runtime
+    from tests.test_app_platform_p4 import sign_in_preview
+
+    # A visitor's call on the published app, and the maker's try in the preview.
+    sign_in(client, shop)
+    assert client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕?"}).status_code == 200
+    draft = BuilderProject(owner_user_id=dev_user.id, name="내 초안", description="")
+    db_session.add(draft)
+    db_session.flush()
+    app_runtime.write_draft(db_session, config, draft, {"index.html": "<!doctype html><head></head>"})
+    db_session.commit()
+    preview = sign_in_preview(client, draft)
+    assert client.post("/_ctrlai/v1/ai/ask", headers=preview, json={"prompt": "안녕?"}).status_code == 200
+    # An untouched, unpublished project stays out of the list.
+    db_session.add(BuilderProject(owner_user_id=dev_user.id, name="손 안 댄 초안", description=""))
+    db_session.commit()
+
+    rows = {row["name"]: row for row in client.get("/api/admin/apps/overview").json()}
+    assert set(rows) == {"내 초안", "영수증 읽기"}
+    mine, theirs = rows["내 초안"], rows["영수증 읽기"]
+    assert mine["published"] is False and mine["slug"] is None and mine["consents"] == 1
+    assert mine["ai"]["quarter_calls"] == 0 and mine["ai"]["preview_quarter_calls"] == 1 and mine["ai"]["preview_quarter_krw"] > 0
+    assert theirs["published"] is True and theirs["slug"] == shop.app_slug and theirs["owner_username"] == "other"
+    assert theirs["ai"]["today_calls"] == 1 and theirs["ai"]["quarter_calls"] == 1 and theirs["ai"]["today_krw"] == theirs["ai"]["quarter_krw"] > 0
+    assert theirs["consents"] == 1 and theirs["data_items"] == 0 and theirs["sdk_enabled"] is True
+
+    one = client.get(f"/api/admin/apps/{shop.id}").json()
+    assert one["name"] == "영수증 읽기" and one["ai"] == theirs["ai"]
+    assert client.get("/api/admin/apps/999").status_code == 404
+    assert visitor_b.get("/api/admin/apps/overview").status_code == 403
+    assert visitor_b.get(f"/api/admin/apps/{shop.id}").status_code == 403

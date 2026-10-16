@@ -408,3 +408,19 @@ def test_the_self_check_may_add_a_missing_ctrlai_json(
     check = dict(events)["check_done"]
     assert check["fixed"] == ["ctrlai.json"]
     assert '"posts"' in files_of(db_session, project)["ctrlai.json"]
+
+
+def test_only_the_making_request_becomes_the_description(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    """A 고치기 request is not a description (owner, 2026-10-16): 게시
+    pre-fills the CtrlAIApps blurb from it, and a template project starts
+    with an empty one."""
+    run(client, project, plan(client, project, "할 일 앱").json()["id"])
+    db_session.expire_all()
+    assert db_session.get(BuilderProject, project.id).description == "할 일 앱"
+    db_session.get(BuilderProject, project.id).description = ""
+    db_session.commit()
+    run(client, project, plan(client, project, "카카오톡처럼 보이게 해줘").json()["id"])
+    db_session.expire_all()
+    assert db_session.get(BuilderProject, project.id).description == ""

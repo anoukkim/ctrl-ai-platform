@@ -207,7 +207,10 @@ def generate(
     builder_versions.replace_files(db, project, updated)
     note = ("만들기: " if not files else "고치기: ") + request
     version = builder_versions.snapshot(db, project, note[:200], updated)
-    if not project.description.strip():
+    # Only the request that made the app describes it. A later 고치기
+    # ("카카오톡처럼 보이게 해줘") is not a description — 게시 pre-fills the
+    # CtrlAIApps blurb from this field (owner, 2026-10-16).
+    if not files and not project.description.strip():
         project.description = request[:2000]
     providers.record_success(db, "claude", "빌더" + (" (mock)" if is_mock else ""))
     db.commit()

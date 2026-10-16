@@ -92,10 +92,12 @@ area carries a small **관리자** badge. Admin pages keep the breadcrumb
 "Admin › …". Admin is a single expanding item (its open/closed state is
 remembered) whose sections are defined **once**, in
 `frontend/app/admin/sections.ts`, which the sidebar, tabs, breadcrumbs,
-dashboard cards and each section's own heading all read. Twelve sections
+dashboard cards and each section's own heading all read. Thirteen sections
 are visible (Dashboard, Members, Applications, Quarters, Budget, Video
-Models, AI Models, Feedback, Deleted Items, Audit Log, Content, System —
-Content since `ctrlaiapps-publish`: published apps and 신고); a section
+Models, AI Models, Feedback, Deleted Items, Audit Log, Apps, Content,
+System — **Apps** since `app-platform` P4b: every app that uses the 기능
+상자, its AI use, consents, data and the kill switch; **Content** since
+`ctrlaiapps-publish`, now 신고 and 게시 내리기 only); a section
 whose feature has not landed — Top-ups (`personal-topup-off`) — stays in
 the code with its route and a `hidden` flag.
 

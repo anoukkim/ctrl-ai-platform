@@ -1,9 +1,9 @@
 /**
- * app-platform P3 — Admin › Content: 앱의 ctrlai.db 데이터.
+ * app-platform P3 — 앱의 ctrlai.db 데이터 (P4b부터 Admin › Apps › 앱 상세에서).
  *
- * 게시된 앱 표의 "데이터" 칸(개수 · 크기)으로 시트를 열면 목록과 공유 항목이
- * 보이고, 숨기기/지우기는 사유를 적어야 보내집니다. 공유 항목 하나를 신고한
- * 건은 신고 표에 내용 일부와 "항목 숨기기"가 나옵니다.
+ * "공유 데이터 보기"로 시트를 열면 목록과 공유 항목이 보이고, 숨기기/지우기는
+ * 사유를 적어야 보내집니다. 공유 항목 하나를 신고한 건은 Content의 신고 표에
+ * 내용 일부와 "항목 숨기기"가 나옵니다.
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -11,9 +11,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import AdminContentPage from "@/app/admin/content/page";
+import AppDetailView from "@/app/admin/apps/[id]/AppDetailView";
 import { formatBytes } from "@/lib/apps";
 
 const listAdminApps = vi.fn();
+const getAdminApp = vi.fn();
 const listAppReports = vi.fn();
 const getAdminAppData = vi.fn();
 const adminDataItem = vi.fn();
@@ -23,6 +25,7 @@ vi.mock("@/lib/apps", async (importOriginal) => {
   return {
     ...actual,
     listAdminApps: () => listAdminApps(),
+    getAdminApp: () => getAdminApp(),
     listAppReports: () => listAppReports(),
     getAdminAppData: (...args: unknown[]) => getAdminAppData(...args),
     adminDataItem: (...args: unknown[]) => adminDataItem(...args),
@@ -48,6 +51,18 @@ const APP = {
   sdk_disabled_reason: "",
   data_items: 12,
   data_bytes: 3 * 1024,
+};
+
+/** Apps 상세가 읽는 모양 (P4b). */
+const OVERVIEW = {
+  ...APP,
+  published: true,
+  app_url: "http://apps.test/abcdefgh23/",
+  owner_username: "minji",
+  owner_name: "민지",
+  consents: 3,
+  ai: { today_calls: 2, today_krw: 24, quarter_calls: 9, quarter_krw: 110, preview_quarter_calls: 1, preview_quarter_krw: 7 },
+  updated_at: new Date().toISOString(),
 };
 
 const REPORT = {
@@ -86,6 +101,7 @@ const DATA = {
 
 beforeEach(() => {
   listAdminApps.mockReset().mockResolvedValue([APP]);
+  getAdminApp.mockReset().mockResolvedValue(OVERVIEW);
   listAppReports.mockReset().mockResolvedValue([REPORT]);
   getAdminAppData.mockReset().mockResolvedValue(DATA);
   adminDataItem.mockReset().mockResolvedValue({ detail: "항목을 숨겼습니다.", reports_closed: 1 });
@@ -100,12 +116,14 @@ describe("formatBytes", () => {
   });
 });
 
-describe("Admin › Content › 데이터", () => {
+describe("Admin › Apps › 공유 데이터", () => {
   test("데이터 칸으로 시트를 열면 목록과 공유 항목이 보인다", async () => {
     const user = userEvent.setup();
-    render(<AdminContentPage />);
+    render(<AppDetailView projectId={5} />);
+    expect((await screen.findByTestId("app-ai")).textContent).toContain("2회 · 24원");
+    expect(screen.getByTestId("app-ai").textContent).toContain("1회 · 7원");
 
-    const open = await screen.findByRole("button", { name: "12개 · 3.0 KB" });
+    const open = await screen.findByRole("button", { name: "공유 데이터 보기" });
     await user.click(open);
 
     const sheet = await screen.findByRole("dialog", { name: "데이터 — 동아리 게시판" });
@@ -122,8 +140,8 @@ describe("Admin › Content › 데이터", () => {
 
   test("숨기기는 사유 없이는 보내지지 않고, 사유를 적으면 보내고 다시 읽는다", async () => {
     const user = userEvent.setup();
-    render(<AdminContentPage />);
-    await user.click(await screen.findByRole("button", { name: "12개 · 3.0 KB" }));
+    render(<AppDetailView projectId={5} />);
+    await user.click(await screen.findByRole("button", { name: "공유 데이터 보기" }));
     const sheet = await screen.findByRole("dialog", { name: "데이터 — 동아리 게시판" });
     await within(sheet).findByTestId("data-shared");
 
@@ -137,13 +155,13 @@ describe("Admin › Content › 데이터", () => {
     await user.click(within(form).getByRole("button", { name: "숨기기" }));
     await waitFor(() => expect(adminDataItem).toHaveBeenCalledWith(31, "hide", "욕설"));
     await waitFor(() => expect(getAdminAppData).toHaveBeenCalledTimes(2));
-    expect(listAdminApps).toHaveBeenCalledTimes(2);
+    expect(getAdminApp).toHaveBeenCalledTimes(2);
   });
 
   test("지우기는 빨간 단추로, 같은 흐름", async () => {
     const user = userEvent.setup();
-    render(<AdminContentPage />);
-    await user.click(await screen.findByRole("button", { name: "12개 · 3.0 KB" }));
+    render(<AppDetailView projectId={5} />);
+    await user.click(await screen.findByRole("button", { name: "공유 데이터 보기" }));
     const sheet = await screen.findByRole("dialog", { name: "데이터 — 동아리 게시판" });
     await within(sheet).findByTestId("data-shared");
 

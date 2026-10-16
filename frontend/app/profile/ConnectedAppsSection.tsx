@@ -78,7 +78,8 @@ export default function ConnectedAppsSection() {
       {rows === null && !error && <p className="small muted">불러오는 중…</p>}
       {rows !== null && rows.length === 0 && (
         <p className="small muted">
-          아직 연결한 앱이 없어요. CtrlAIApps의 앱에서 &lsquo;CTRL+AI로 로그인&rsquo;을 허용하면 여기에 보여요.
+          아직 연결한 앱이 없어요. CtrlAIApps의 앱에서 &lsquo;CTRL+AI로 로그인&rsquo;을 허용하면 여기에 보여요.{" "}
+          <a href="/help/apps">앱 기능 상자 안내</a>
         </p>
       )}
       {rows?.map((row) => (

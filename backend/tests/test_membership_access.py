@@ -423,6 +423,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
     ("GET", "/api/admin/apps"): "require_admin",
     ("GET", "/api/admin/apps/reports"): "require_admin",
+    # app-platform P4b: Admin › Apps.
+    ("GET", "/api/admin/apps/overview"): "require_admin",
+    ("GET", "/api/admin/apps/{project_id}"): "require_admin",
     ("GET", "/api/admin/apps/{project_id}/handoff"): "require_admin",
     ("POST", "/api/admin/apps/{project_id}/unpublish"): "require_admin",
     ("POST", "/api/admin/apps/reports/{report_id}/resolve"): "require_admin",
