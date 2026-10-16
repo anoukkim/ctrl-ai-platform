@@ -63,6 +63,7 @@ the same commit that adds it.
 | `GET /api/health` | none | Must answer while the database is down |
 | `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
 | `GET /_ctrlai/sdk.js`, `GET /_ctrlai/shell.js` | none | The app platform's two scripts (apps origin only, outside `/api`) |
+| `GET /_ctrlai/fonts.css`, `GET /_ctrlai/fonts/{name}` | none | The font catalogue for member apps: public OFL files, CORS `*` (feat-app-fonts) |
 | `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
 | `GET /_ctrlai/v1/app`, `POST /_ctrlai/v1/login/start`, `POST /_ctrlai/v1/logout` | `app_call` | `app_request` (`X-CtrlAI-App` naming a live app, same-origin) + who is signed in to this app — only its own `ctrlai_app_<slug>` cookie, never the site's session |
 | `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) — and, in mode "app", the maker's **전체 기능** setting (`app-ai-access`; 데모만 → 403 with code `demo`, nothing charged) |
@@ -516,6 +517,25 @@ ctrlai.my (Builder / CtrlAIApps)
   `localStorage` kept by the shell — the saved copy is handed over in
   `window.name` at start, so old apps that read `localStorage`
   synchronously keep working.
+* **Fonts** (feat-app-fonts, owner 2026-10-17): an app that is fenced in
+  has nowhere to fetch a web font, so CTRL+AI serves a catalogue of Korean
+  OFL fonts itself (`app/services/app_fonts.py`, files and `manifest.json`
+  in `app/static/fonts/`, built by `backend/tools/build_fonts.py` — each
+  cut to the 2,350 KS X 1001 syllables, ~100–650 KB as WOFF2). The api
+  answers `/_ctrlai/fonts.css` and `/_ctrlai/fonts/<file>.woff2` (public,
+  CORS `*`, because a font is fetched with CORS and the app's origin is
+  opaque); Caddy and `dev_apps_server` already send `/_ctrlai/*` there. A
+  page whose app names a catalogue family gets
+  `<link href="/_ctrlai/fonts.css">` beside the SDK tag when its files are
+  written (`app_fonts.FONTS_TAG`), so the font arrives from the app's own
+  origin and **the CSP did not change**. The Builder prompts list the
+  families by mood. Pages written before this item pick the link up the
+  next time they are written (`python -m app.db.rewrite_app_runtime`).
+  **Not covered:** the Builder's `srcdoc` fallback preview and chat's
+  html cards (no apps origin: system fonts only), and an exported ZIP
+  (the `/_ctrlai/` path does not exist outside CTRL+AI; the system fonts
+  after the name are the fallback). Adding a font: OFL only, one row in
+  `build_fonts.py`, run it, commit the files.
 * **Storage**: the shell origin's `localStorage`, key
   `ctrlai:<slug>:l:<key>` (the app's `localStorage`) and
   `ctrlai:<slug>:k:<key>` (`ctrlai.storage`, JSON); about 1 MB per app.

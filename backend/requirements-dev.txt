@@ -3,3 +3,8 @@
 pytest>=8.3,<9.0
 # httpx2 (FastAPI's TestClient uses it too) moved to requirements.txt:
 # the provider key check imports it at runtime (fix-beta-blockers 4).
+
+# Reads the font files in tests/test_app_fonts.py and builds them in
+# tools/build_fonts.py (feat-app-fonts). Never imported by the app.
+fonttools>=4.50
+brotli>=1.1

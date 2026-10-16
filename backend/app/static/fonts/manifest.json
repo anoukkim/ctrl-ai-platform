@@ -1,0 +1,426 @@
+[
+ {
+  "family": "Pretendard",
+  "mood": "고딕",
+  "license": "OFL-1.1",
+  "copyright": "Copyright © 2023 Kil Hyung-jin",
+  "faces": [
+   {
+    "file": "pretendard.woff2",
+    "weight": "45 920"
+   }
+  ]
+ },
+ {
+  "family": "Noto Sans KR",
+  "mood": "고딕",
+  "license": "OFL-1.1",
+  "copyright": "(c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.",
+  "faces": [
+   {
+    "file": "noto-sans-kr.woff2",
+    "weight": "100 900"
+   }
+  ]
+ },
+ {
+  "family": "Nanum Gothic",
+  "mood": "고딕",
+  "license": "OFL-1.1",
+  "copyright": "Copyright © 2011 NHN Corporation. All rights reserved. Font designed by Sandoll Communications Inc.",
+  "faces": [
+   {
+    "file": "nanum-gothic-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "nanum-gothic-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Gothic A1",
+  "mood": "고딕",
+  "license": "OFL-1.1",
+  "copyright": "(C) Copyright HanYang I&C Co.,Ltd. All rights reserved.",
+  "faces": [
+   {
+    "file": "gothic-a1-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "gothic-a1-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "IBM Plex Sans KR",
+  "mood": "고딕",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2018 IBM Corp. All rights reserved.",
+  "faces": [
+   {
+    "file": "ibm-plex-sans-kr-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "ibm-plex-sans-kr-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Gowun Dodum",
+  "mood": "고딕",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2021 The Gowun Dodum Project Authors (https://github.com/yangheeryu/Gowun-Dodum)",
+  "faces": [
+   {
+    "file": "gowun-dodum.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Jua",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2018 The BM JUA Project Authors",
+  "faces": [
+   {
+    "file": "jua.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Gamja Flower",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) YoonDesign Inc. All Rights Reserved.",
+  "faces": [
+   {
+    "file": "gamja-flower.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Gaegu",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2018 The Gaegu Project Authors",
+  "faces": [
+   {
+    "file": "gaegu-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "gaegu-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Hi Melody",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) YoonDesign Inc. All Rights Reserved.",
+  "faces": [
+   {
+    "file": "hi-melody.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Single Day",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2015 DXKorea Inc. All rights reserved.",
+  "faces": [
+   {
+    "file": "single-day.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Dongle",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2021 The Dongle Project Authors (https://github.com/yangheeryu/Dongle)",
+  "faces": [
+   {
+    "file": "dongle-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "dongle-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Cute Font",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "COPYRIGHT ⓒ 2004-2017 by TypoDesign Lab. Inc. All rights reserved. Font designed by TypoDesign Lab. Inc.",
+  "faces": [
+   {
+    "file": "cute-font.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Poor Story",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) YoonDesign Inc. All Rights Reserved.",
+  "faces": [
+   {
+    "file": "poor-story.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Sunflower",
+  "mood": "둥글고 귀여운",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2008 The Sunflower Project Authors",
+  "faces": [
+   {
+    "file": "sunflower-300.woff2",
+    "weight": "300"
+   },
+   {
+    "file": "sunflower-500.woff2",
+    "weight": "500"
+   },
+   {
+    "file": "sunflower-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Black Han Sans",
+  "mood": "굵은 제목용",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2015 The Black Han Sans Project Authors (https://github.com/zesstype/Black-Han-Sans)",
+  "faces": [
+   {
+    "file": "black-han-sans.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Do Hyeon",
+  "mood": "굵은 제목용",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2018 The Do Hyeon Project Authors",
+  "faces": [
+   {
+    "file": "do-hyeon.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Bagel Fat One",
+  "mood": "굵은 제목용",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2022 The Bagel Fat Project Authors (https://github.com/JAMO-TYPEFACE/BagelFat)",
+  "faces": [
+   {
+    "file": "bagel-fat-one.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Gasoek One",
+  "mood": "굵은 제목용",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2022 The Gasoek Project Authors (https://github.com/JAMO-TYPEFACE/Gasoek)",
+  "faces": [
+   {
+    "file": "gasoek-one.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Gugi",
+  "mood": "굵은 제목용",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) 2017 by TAE System & Typefaces Co.. All rights reserved.",
+  "faces": [
+   {
+    "file": "gugi.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Noto Serif KR",
+  "mood": "명조·단정",
+  "license": "OFL-1.1",
+  "copyright": "(c) 2017-2024 Adobe (http://www.adobe.com/).",
+  "faces": [
+   {
+    "file": "noto-serif-kr.woff2",
+    "weight": "200 900"
+   }
+  ]
+ },
+ {
+  "family": "Nanum Myeongjo",
+  "mood": "명조·단정",
+  "license": "OFL-1.1",
+  "copyright": "Copyright © 2010 NHN Corporation. All rights reserved. Font designed by FONTRIX.",
+  "faces": [
+   {
+    "file": "nanum-myeongjo-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "nanum-myeongjo-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Gowun Batang",
+  "mood": "명조·단정",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2021 The Gowun Batang Project Authors (https://github.com/yangheeryu/Gowun-Batang)",
+  "faces": [
+   {
+    "file": "gowun-batang-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "gowun-batang-700.woff2",
+    "weight": "700"
+   }
+  ]
+ },
+ {
+  "family": "Hahmlet",
+  "mood": "명조·단정",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2020 The Hahmlet Project Authors (https://github.com/hyper-type/hahmlet)",
+  "faces": [
+   {
+    "file": "hahmlet.woff2",
+    "weight": "100 900"
+   }
+  ]
+ },
+ {
+  "family": "Song Myung",
+  "mood": "명조·단정",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2018 The Song Myung Project Authors",
+  "faces": [
+   {
+    "file": "song-myung.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Nanum Pen Script",
+  "mood": "손글씨",
+  "license": "OFL-1.1",
+  "copyright": "Copyright © 2010 NHN Corporation. All rights reserved. Font designed by Sandoll Communications Inc.",
+  "faces": [
+   {
+    "file": "nanum-pen-script.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Nanum Brush Script",
+  "mood": "손글씨",
+  "license": "OFL-1.1",
+  "copyright": "Copyright © 2010 NHN Corporation. All rights reserved. Font designed by Sandoll Communications Inc.",
+  "faces": [
+   {
+    "file": "nanum-brush-script.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "East Sea Dokdo",
+  "mood": "손글씨",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) YoonDesign Inc. All Rights Reserved.",
+  "faces": [
+   {
+    "file": "east-sea-dokdo.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Dokdo",
+  "mood": "손글씨",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) 2005-2017 FONTRIX. All Rights Reserved.",
+  "faces": [
+   {
+    "file": "dokdo.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Yeon Sung",
+  "mood": "손글씨",
+  "license": "OFL-1.1",
+  "copyright": "Copyright 2018 The Yeon Sung Project Authors",
+  "faces": [
+   {
+    "file": "yeon-sung.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Black And White Picture",
+  "mood": "손글씨",
+  "license": "OFL-1.1",
+  "copyright": "Copyright (c) 1992-2018 AsiaSoft Inc. Seoul Korea All Rights Reserved.",
+  "faces": [
+   {
+    "file": "black-and-white-picture.woff2",
+    "weight": "400"
+   }
+  ]
+ },
+ {
+  "family": "Nanum Gothic Coding",
+  "mood": "코드·고정폭",
+  "license": "OFL-1.1",
+  "copyright": "Copyright © 2009 NHN Corporation. All rights reserved. Font designed by Sandoll Communications Inc.",
+  "faces": [
+   {
+    "file": "nanum-gothic-coding-400.woff2",
+    "weight": "400"
+   },
+   {
+    "file": "nanum-gothic-coding-700.woff2",
+    "weight": "700"
+   }
+  ]
+ }
+]
