@@ -170,7 +170,11 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 ---
 
 8. **publish-summary** · M3 · branch `feat-publish-summary`
-    *Not pre-approved — branch, test, report, WAIT.* Owner, 2026-10-16
+    *Not pre-approved — branch, test, report, WAIT.* **Built 2026-10-16,
+    awaiting approval** (RUN-2026-10-16; has a migration). Decisions:
+    once per version, kept; the note joins every version since the
+    published one; wording "설명은 Claude가 미리 써 줘요 (무료) — 고쳐도
+    돼요". Owner, 2026-10-16
     (relayed from another session, saved in their words): "지금은 매뉴얼로
     작성하는데 설명 그리고 업데이트(일 때) 그냥 간단요약하게 쓰이게 해줘" /
     "보일 설명은 그냥 하이쿠로 간단 요약하게". When the 게시 dialog opens,

@@ -390,6 +390,20 @@ export function labelVersion(
   });
 }
 
+/** 게시 창의 미리 채울 글 (publish-summary): Claude가 쓴 설명과 업데이트 메모. 둘 다 빈 글일 수 있어요. */
+export interface PublishSummary {
+  description: string;
+  note: string;
+  /** 같은 버전에 대해 전에 받은 것을 돌려줬는지. */
+  cached: boolean;
+  model: string;
+}
+
+/** 무료(동아리 부담) — 회원 지갑에서 나가지 않고, 실패하면 빈 글이 와요. POST: 서버가 결과를 버전에 남겨요. */
+export function getPublishSummary(projectId: number | string): Promise<PublishSummary> {
+  return request<PublishSummary>(`/builder/projects/${projectId}/publish-summary`, { method: "POST", body: "{}" });
+}
+
 /** 만든 앱이 할 수 있는 일, 솔직하게 (ctrlaiapps-publish F3). */
 export const APP_LIMITS_NOTE =
   "만든 앱은 방문한 사람의 브라우저에서 돌아가요. 앱이 CTRL+AI 로그인·AI·공유 목록을 쓰면 보는 사람이 허용한 뒤에만 되고, AI는 쓰는 사람의 지원금에서 나가요. 자세한 건 /help/apps에 있어요.";

@@ -417,6 +417,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # ctrlaiapps-publish
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
+    # publish-summary: a Claude call the club pays for — participating members only.
+    ("POST", "/api/builder/projects/{project_id}/publish-summary"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
     ("GET", "/api/apps"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",

@@ -192,6 +192,13 @@ class BuilderProjectVersion(TimestampMixin, Base):
     #: pin. Pinned versions — and the published one — are never pruned.
     label: Mapped[str] = mapped_column(String(80), default="", nullable=False)
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    #: publish-summary: the 게시 dialog's pre-filled text for this version,
+    #: written once (None = not asked yet). The note was written against
+    #: `summary_base_version` (the published version's number then).
+    summary_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_base_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    summary_model: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     def __repr__(self) -> str:
         return f"<BuilderProjectVersion v{self.number} project={self.project_id}>"

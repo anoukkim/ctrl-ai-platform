@@ -59,6 +59,9 @@ class UsageFeature(str, enum.Enum):
     #: trying their own app, charged to the creator. Kept apart so Usage
     #: and Admin › Apps can tell a visitor's use from the maker's tries.
     APP_AI_PREVIEW = "app_ai_preview"
+    #: publish-summary: the 게시 dialog's pre-filled text — always a
+    #: club-absorbed row (0원 to the member).
+    PUBLISH_SUMMARY = "publish_summary"
 
 
 #: How a member's spending is broken down on their wallet card: 채팅 /
@@ -70,6 +73,7 @@ SPENDING_GROUP: dict[str, str] = {
     # 빌더 got its own line with cost-clarity (2026-10-14): the owner's
     # breakdown is 채팅 / 빌더 / 영상 / 기타.
     UsageFeature.BUILD.value: "build",
+    UsageFeature.PUBLISH_SUMMARY.value: "build",
     UsageFeature.VIDEO_PROMPT.value: "video",
     UsageFeature.VIDEO_GENERATE.value: "video",
     UsageFeature.VIDEO_EDIT.value: "video",

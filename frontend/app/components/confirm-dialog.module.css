@@ -145,3 +145,14 @@
     flex-direction: column-reverse;
   }
 }
+
+/* 칸 아래 한 줄 안내 (publish-summary: 요약 상태). */
+.fieldHint {
+  margin: 0.35rem 0 0;
+  min-height: 1.2em;
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
