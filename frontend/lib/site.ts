@@ -6,6 +6,7 @@
  * APP_ENV와 제공자 설정으로 답합니다.
  */
 
+import { API_BASE_URL, ApiError } from "./api";
 import { request } from "./http";
 
 /** "테스트 모드" 표시를 붙일 화면. 백엔드의 app/schemas/site.py와 짝입니다. */
@@ -65,11 +66,33 @@ export const TEST_MODE_LABEL: Record<TestModeArea, string> = {
 
 export const FEEDBACK_MAX_LENGTH = 2000;
 
+/** 의견에 붙이는 스크린샷 — 한 의견에 최대 3장, 1장 5MB 이하 (feedback-screenshots). */
+export const FEEDBACK_MAX_IMAGES = 3;
+export const FEEDBACK_IMAGE_MAX_MB = 5;
+export const FEEDBACK_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+/** 파일 고르기 창에 걸 종류. 휴대폰은 이것으로 사진 보관함을 엽니다. */
+export const FEEDBACK_IMAGE_ACCEPT = FEEDBACK_IMAGE_TYPES.join(",");
+export const FEEDBACK_IMAGE_UNSUPPORTED = "PNG, JPG, WebP 이미지만 올릴 수 있어요.";
+export const FEEDBACK_IMAGE_TOO_BIG = `사진이 너무 커요 (1장 ${FEEDBACK_IMAGE_MAX_MB}MB 이하).`;
+export const FEEDBACK_IMAGES_TOO_MANY = `사진은 ${FEEDBACK_MAX_IMAGES}장까지 붙일 수 있어요.`;
+/** 붙이기 전에 한 줄로 — 화면에 보이는 남의 정보까지 운영진에게 가므로. */
+export const FEEDBACK_IMAGE_PRIVACY_NOTE = "화면에 개인정보가 보이면 가린 뒤 올려 주세요.";
+
+export interface FeedbackImage {
+  id: number;
+  name: string;
+  size: number;
+  width: number;
+  height: number;
+  media_type: string;
+}
+
 export interface FeedbackItem {
   id: number;
   body: string;
   page: string;
   created_at: string;
+  images: FeedbackImage[];
 }
 
 export interface FeedbackAdminItem extends FeedbackItem {
@@ -78,13 +101,79 @@ export interface FeedbackAdminItem extends FeedbackItem {
   display_name: string | null;
 }
 
-export function sendFeedback(body: string, page: string): Promise<FeedbackItem> {
+/** 올리기 전에 알 수 있는 것만 미리 말합니다 — 진짜 판단은 백엔드가 바이트로 합니다. */
+export function precheckFeedbackImage(file: File): string | null {
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
+  const byType = FEEDBACK_IMAGE_TYPES.includes(file.type);
+  const byName = [".png", ".jpg", ".jpeg", ".webp"].includes(ext);
+  if (!byType && !byName) return FEEDBACK_IMAGE_UNSUPPORTED;
+  if (file.size > FEEDBACK_IMAGE_MAX_MB * 1024 * 1024) return FEEDBACK_IMAGE_TOO_BIG;
+  return null;
+}
+
+/**
+ * 붙여넣은 스크린샷은 이름이 없거나 `image.png`뿐입니다. 서버는 바이트와
+ * 확장자가 맞는지 보므로, 종류에 맞는 이름을 붙여 보냅니다.
+ */
+export function feedbackImageName(file: File, index: number): string {
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
+  if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext)) return file.name;
+  const byType: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+  return `screenshot-${index + 1}.${byType[file.type] ?? "png"}`;
+}
+
+/**
+ * 스크린샷 하나를 올립니다 — 본문은 파일의 바이트, 이름은 `?name=`.
+ * `application/octet-stream`으로 보냅니다: 다른 출처의 페이지가 미리
+ * 확인(preflight) 없이 보낼 수 있는 형식은 백엔드가 받지 않습니다(CLAUDE.md §2).
+ */
+export async function uploadFeedbackImage(file: File, name: string): Promise<FeedbackImage> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/feedback/images?name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
+      body: file,
+    });
+  } catch {
+    throw new ApiError("서버에 연결할 수 없습니다", 0);
+  }
+  if (!response.ok) {
+    let detail = `사진을 올리지 못했어요 (HTTP ${response.status})`;
+    try {
+      const body = await response.json();
+      if (body && typeof body.detail === "string") detail = body.detail;
+    } catch {
+      /* 기본 문구 */
+    }
+    throw new ApiError(detail, response.status);
+  }
+  return (await response.json()) as FeedbackImage;
+}
+
+/** 아직 보내지 않은 스크린샷을 뺍니다(✕, 창 닫기). */
+export function deleteFeedbackImage(imageId: number): Promise<void> {
+  return request<void>(`/feedback/images/${imageId}`, { method: "DELETE" });
+}
+
+export function sendFeedback(body: string, page: string, imageIds: number[] = []): Promise<FeedbackItem> {
   return request<FeedbackItem>("/feedback", {
     method: "POST",
-    body: JSON.stringify({ body, page }),
+    body: JSON.stringify({ body, page, image_ids: imageIds }),
   });
 }
 
 export function listFeedback(): Promise<FeedbackAdminItem[]> {
   return request<FeedbackAdminItem[]>("/admin/feedback");
+}
+
+/** 저장된 스크린샷 — 관리자만 열립니다(회원은 403). */
+export function feedbackImageUrl(imageId: number): string {
+  return `${API_BASE_URL}/api/admin/feedback/images/${imageId}/file`;
+}
+
+/** 의견을 지웁니다 — 사진도 함께. 감사 기록에 남습니다. */
+export function deleteFeedback(feedbackId: number): Promise<void> {
+  return request<void>(`/admin/feedback/${feedbackId}`, { method: "DELETE" });
 }
