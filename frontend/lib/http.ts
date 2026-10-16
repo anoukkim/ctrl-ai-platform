@@ -83,3 +83,35 @@ export function describeError(error: unknown): string {
   if (error instanceof TypeError) return "서버에 연결할 수 없습니다";
   return "알 수 없는 오류가 발생했습니다";
 }
+
+/**
+ * 파일 하나를 바이트 그대로 올립니다 — Chat 첨부(chat-plus-files)와 의견의
+ * 스크린샷(feedback-screenshots)이 같이 씁니다. 본문은 파일, 이름은 `?name=`,
+ * 형식은 `application/octet-stream`: 다른 출처의 페이지가 미리 확인(preflight)
+ * 없이 보낼 수 있는 형식은 백엔드가 받지 않습니다(CLAUDE.md §2). 거절은
+ * 백엔드의 한국어 `detail`을 그대로 던집니다.
+ */
+export async function uploadBytes<T>(path: string, file: File, name: string, fallback: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api${path}?name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
+      body: file,
+    });
+  } catch {
+    throw new ApiError("서버에 연결할 수 없습니다", 0);
+  }
+  if (!response.ok) {
+    let detail = `${fallback} (HTTP ${response.status})`;
+    try {
+      const body = await response.json();
+      if (body && typeof body.detail === "string") detail = body.detail;
+    } catch {
+      /* 기본 문구 */
+    }
+    throw new ApiError(detail, response.status);
+  }
+  return (await response.json()) as T;
+}

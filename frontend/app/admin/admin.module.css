@@ -54,6 +54,9 @@
 /* Admin › Feedback: 회원이 쓴 글. 줄바꿈을 살리고, 긴 글은 칸 안에서 접습니다. */
 .feedbackBody {
   display: block;
+  /* 사진 칸이 생긴 뒤(feedback-screenshots) 좁은 화면에서 글이 한 글자씩
+     꺾이지 않도록 — 표가 옆으로 넘기게 둡니다. */
+  min-width: 14rem;
   max-width: 36rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1634,4 +1637,35 @@ td.modelIdCell {
   cursor: pointer;
   font-size: var(--fs-count);
   font-weight: var(--fw-strong);
+}
+
+/* Admin › Feedback — 붙은 스크린샷 (feedback-screenshots). */
+.feedbackShots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.feedbackShot {
+  display: block;
+  width: 72px;
+  height: 54px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  cursor: zoom-in;
+}
+
+.feedbackShot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feedbackShot:hover,
+.feedbackShot:focus-visible {
+  border-color: var(--accent);
 }
