@@ -676,6 +676,7 @@ def _sse_body(
     output_tokens: int = 15,
     cache_write: int | None = None,
     cache_read: int | None = None,
+    stop_reason: str = "end_turn",
 ) -> bytes:
     usage = {"input_tokens": input_tokens, "output_tokens": 1}
     if cache_write is not None:
@@ -703,7 +704,7 @@ def _sse_body(
         ("content_block_stop", {"type": "content_block_stop", "index": 0}),
         ("message_delta", {
             "type": "message_delta",
-            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+            "delta": {"stop_reason": stop_reason, "stop_sequence": None},
             "usage": {"output_tokens": output_tokens},
         }),
         ("message_stop", {"type": "message_stop"}),
