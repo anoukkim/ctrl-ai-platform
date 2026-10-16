@@ -988,7 +988,15 @@ admin's own browser, one at a time, and saves what the SDK drew (still
 client-side — no server renderer, which stays `thumbnail-render-worker`);
 until a picture exists the cover is the app's name on its colour with a
 large faint initial behind it (no more `</>`), on CtrlAIApps and Builder
-cards alike. A visitor's browser never uploads a thumbnail.
+cards alike. A visitor's browser never uploads a thumbnail. **(a2) The
+maker chooses**: the 게시 dialog photographs three candidates from the
+미리보기 — 첫 화면, 조금 내려간 화면, 폰 너비 — and 「지금 화면으로」 adds the
+preview exactly as it is; nothing chosen means the first screen; no AI,
+no charge. Once published, **the chosen picture is the thumbnail
+everywhere** — CtrlAIApps and the Builder card both show it, and the
+automatic draft captures stop replacing it (`thumbnail_chosen_at`); the
+게시 menu's **썸네일 바꾸기…** opens the same picker later. Admin › Apps'
+썸네일 만들기 stays for apps published before this.
 (b) **The exchange rate is automatic**: Admin › System › 환율 shows
 자동 반영 (the ECB's USD→KRW through Frankfurter — free, keyless, fetched
 once a day by the server's daily job; `FX_PROVIDER=mock|frankfurter`) with

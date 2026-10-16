@@ -666,6 +666,8 @@
       id: id,
       width: Number(data.width) || window.innerWidth,
       height: Number(data.height) || window.innerHeight,
+      // owner-polish-3 (a2): a candidate further down the page.
+      offset: Math.max(0, Number(data.offset) || 0),
     });
   });
 

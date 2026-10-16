@@ -71,6 +71,7 @@ the same commit that adds it.
 | `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
 | `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
+| `POST /api/builder/projects/{id}/thumbnail/choose` | `require_active_member` | owner-polish-3 (a2): the maker's pick for the published thumbnail — a PNG/JPEG/WebP data URL in a JSON body, checked and re-encoded like an upload; stamps `thumbnail_chosen_at`; 409 before 게시 |
 | `POST /api/admin/apps/{project_id}/thumbnail` | `require_admin` | owner-polish-3 (a): 썸네일 만들기 — raw image bytes taken in the admin's own browser from the published app, re-encoded like the maker's (409 without a published version) |
 | `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |

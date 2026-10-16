@@ -1,10 +1,14 @@
-"""owner-polish-3 (b): the automatic USD→KRW rate
+"""owner-polish-3: the automatic USD→KRW rate (b) and the chosen thumbnail (a2)
 
 `exchange_rates.source` says who wrote a row — "seed" (the first
 migration's default), "admin" (typed in on Admin › System), or the
 provider that fetched it ("mock" / "frankfurter") — and `fetched_for`
 the day the provider quoted. `fx_status` is one row: the pin switch
 (`auto_enabled`), the last fetch and why it was not applied.
+
+`builder_projects.thumbnail_chosen_at` (a2): when the maker picked the
+published thumbnail — the Builder card then shows that picture, and the
+automatic draft captures stop replacing it.
 
 Revision ID: c3e5a7b9d1f3
 Revises: a8c4e2f6b1d9
@@ -24,6 +28,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    op.add_column("builder_projects", sa.Column("thumbnail_chosen_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column(
         "exchange_rates", sa.Column("source", sa.String(length=20), nullable=False, server_default="admin")
     )
@@ -42,6 +47,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("builder_projects", "thumbnail_chosen_at")
     op.drop_table("fx_status")
     op.drop_column("exchange_rates", "fetched_for")
     op.drop_column("exchange_rates", "source")

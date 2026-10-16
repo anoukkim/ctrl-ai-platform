@@ -24,12 +24,16 @@ import DialogShell from "@/app/components/DialogShell";
 import styles from "@/app/components/confirm-dialog.module.css";
 import { AI_ACCESS_LABEL, APP_LIMITS_NOTE, getPublishSummary, type AiAccess, type PublishSummary } from "@/lib/projects";
 
+import ThumbnailPicker, { type ThumbnailCapture } from "./ThumbnailPicker";
+
 export interface PublishValues {
   name: string;
   description: string;
   note: string;
   /** AI를 쓰는 앱에서만 — 다른 회원에게 AI 기능을 어떻게 열지. */
   ai_access?: AiAccess;
+  /** owner-polish-3 (a2): 고른 썸네일. 없으면 게시 뒤 공개 주소에서 자동으로 한 장. */
+  thumbnail?: Blob | null;
 }
 
 export const AI_ACCESS_QUESTION = "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?";
@@ -49,6 +53,8 @@ interface Props {
   initial: PublishValues;
   /** 지금 설정 (처음 게시면 데모만). */
   initialAiAccess?: AiAccess;
+  /** owner-polish-3 (a2): 미리보기 프레임에서 후보를 찍는 함수. 없으면 고르개가 없습니다. */
+  captureThumbnail?: ThumbnailCapture;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -66,6 +72,7 @@ export default function PublishDialog({
   nextVersion,
   initial,
   initialAiAccess = "demo",
+  captureThumbnail,
   busy,
   error,
   onClose,
@@ -73,6 +80,7 @@ export default function PublishDialog({
 }: Props) {
   const [values, setValues] = useState<PublishValues>(initial);
   const [aiAccess, setAiAccess] = useState<AiAccess>(initialAiAccess);
+  const [thumbnail, setThumbnail] = useState<Blob | null>(null);
   // 회원이 손댄 칸은 요약이 덮지 않습니다 — 효과의 닫힘이 아니라 ref로 읽어, 늦게 온 요약도 지켜요.
   const touched = useRef({ description: false, note: false });
   const [summary, setSummary] = useState<SummaryState>({ phase: "loading" });
@@ -196,6 +204,10 @@ export default function PublishDialog({
         />
       </div>
 
+      {captureThumbnail && (
+        <ThumbnailPicker capture={captureThumbnail} value={thumbnail} onChange={(blob) => setThumbnail(blob)} disabled={busy} />
+      )}
+
       {usesAi && (
         <fieldset className={`${styles.dialogField} ${styles.choices}`} data-testid="ai-access">
           <legend className={styles.fieldLabel}>{AI_ACCESS_QUESTION}</legend>
@@ -231,7 +243,12 @@ export default function PublishDialog({
         <button
           className="btn btn-primary"
           type="button"
-          onClick={() => onConfirm(usesAi ? { ...values, ai_access: aiAccess } : values)}
+          onClick={() =>
+            onConfirm({
+              ...(usesAi ? { ...values, ai_access: aiAccess } : values),
+              ...(captureThumbnail ? { thumbnail } : {}),
+            })
+          }
           disabled={busy || !values.description.trim()}
         >
           {busy ? "게시하는 중…" : update ? "업데이트 게시" : "게시하기"}

@@ -258,3 +258,38 @@ def test_the_admin_takes_a_missing_thumbnail_for_a_published_app(
     assert client.post(f"/api/admin/apps/{draft.id}/thumbnail", content=picture(), headers=OCTET).status_code == 409
     anon_client.post("/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD})
     assert anon_client.post(f"/api/admin/apps/{project.id}/thumbnail", content=picture(), headers=OCTET).status_code == 403
+
+
+def test_the_maker_chooses_the_published_thumbnail_and_the_card_keeps_it(
+    client: TestClient, anon_client: TestClient, db_session: Session, project: BuilderProject, other_user, budgeted, config
+) -> None:
+    """owner-polish-3 (a2): a data URL from the 게시 dialog's candidates (or the
+    게시 menu later) becomes the published picture; the project remembers the
+    choice so the automatic draft captures stop replacing what the card shows."""
+    import base64
+
+    data_url = "data:image/png;base64," + base64.b64encode(picture(1280, 800)).decode()
+    # Before 게시 there is nothing to choose for.
+    assert client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": data_url}).status_code == 409
+    publish(client, project)
+    db_session.refresh(project)
+
+    chosen = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": data_url})
+    assert chosen.status_code == 200, chosen.text
+    body = chosen.json()
+    assert body["thumbnail_chosen_at"] is not None and body["published_thumbnail_at"] is not None
+    assert client.get(f"/api/apps/{project.app_slug}/thumbnail").status_code == 200
+    assert client.get(f"/api/builder/projects/{project.id}/thumbnail?space=published").status_code == 200
+
+    # A later automatic draft capture is stored but the choice stands.
+    assert client.post(f"/api/builder/projects/{project.id}/thumbnail?space=draft", content=picture(), headers=OCTET).status_code == 200
+    db_session.refresh(project)
+    assert project.thumbnail_chosen_at is not None and project.draft_thumbnail_at is not None
+
+    # Refusals: not an image data URL, not the owner.
+    bad = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": "data:text/plain;base64,aGVsbG8gd29ybGQgaGVsbG8="})
+    assert bad.status_code == 400 and "형식" in bad.json()["detail"]
+    tiny = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": "data:image/png;base64,aGVsbG8gd29ybGQgaGVsbG8="})
+    assert tiny.status_code == 400
+    anon_client.post("/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD})
+    assert anon_client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": data_url}).status_code in (403, 404)

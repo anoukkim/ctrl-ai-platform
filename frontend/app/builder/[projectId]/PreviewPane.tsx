@@ -62,6 +62,8 @@ export interface AppRuntimeProps {
    * 화면에 보여 줍니다(자동은 조용히).
    */
   onCapture?: (image: Blob, manual: boolean) => Promise<void>;
+  /** owner-polish-3 (a2): the 게시 dialog photographs candidates from this frame. */
+  onFrameReady?: (frame: HTMLIFrameElement | null, appsOrigin: string | null) => void;
 }
 
 /** 프레임이 뜬 뒤 이만큼 기다렸다 찍습니다 — 앱의 첫 그림이 그려질 시간. */
@@ -212,6 +214,7 @@ export default function PreviewPane({
   toolbarStart,
   toolbarEnd,
   onCapture,
+  onFrameReady,
 }: PreviewRuntimeProps & AppRuntimeProps & PreviewToolbarProps) {
   const [fullscreen, setFullscreen] = useState(false);
   // 썸네일 (ui-improvements): 프레임이 뜨고 CAPTURE_DELAY_MS 뒤 한 번, 그리고
@@ -219,6 +222,9 @@ export default function PreviewPane({
   // The frame element is state (a callback ref), so the capture callbacks
   // read no ref during render.
   const [frameEl, setFrameEl] = useState<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    onFrameReady?.(frameEl, originOf(appUrl));
+  }, [appUrl, frameEl, onFrameReady]);
   const captureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);

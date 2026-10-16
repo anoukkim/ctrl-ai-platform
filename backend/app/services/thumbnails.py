@@ -123,6 +123,38 @@ def save_version(
     quiet_update(db, version, thumbnail_at=datetime.now(timezone.utc))
 
 
+CHOOSE_NOT_IMAGE = "썸네일 그림의 형식이 이상해요 (PNG, JPG, WebP의 data URL이어야 해요)."
+
+
+def decode_data_url(value: str) -> bytes:
+    """A `data:image/...;base64,` URL → bytes, or `AttachmentRefusal`. The
+    kind is still read from the bytes afterwards (`encode`), never from
+    the prefix."""
+    import base64
+    import re
+
+    match = re.match(r"^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$", value)
+    if not match:
+        raise AttachmentRefusal(CHOOSE_NOT_IMAGE)
+    try:
+        data = base64.b64decode(match.group(2), validate=False)
+    except (ValueError, TypeError) as error:
+        raise AttachmentRefusal(CHOOSE_NOT_IMAGE) from error
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise AttachmentRefusal(TOO_BIG, 413)
+    return data
+
+
+def choose(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:
+    """owner-polish-3 (a2): the maker's pick becomes the published version's
+    picture, and the project remembers that it was chosen."""
+    version = project.published_version
+    if version is None:
+        raise AttachmentRefusal(NOT_PUBLISHED, 409)
+    save_version(db, storage, project, version, data)
+    quiet_update(db, project, thumbnail_chosen_at=datetime.now(timezone.utc))
+
+
 def load_draft(storage: AssetStorage, project: BuilderProject) -> bytes | None:
     if project.draft_thumbnail_at is None:
         return None

@@ -55,6 +55,15 @@ describe("썸네일 주소", () => {
     expect(
       builderThumbnailUrl({ ...PROJECT, draft_thumbnail_at: "2026-10-16T02:00:00Z", published_thumbnail_at: "2026-10-16T01:00:00Z" }),
     ).toBe("/api/builder/projects/12/thumbnail?space=draft&v=2026-10-16T02%3A00%3A00Z");
+    // owner-polish-3 (a2): a picture the maker chose wins over the automatic draft capture.
+    expect(
+      builderThumbnailUrl({
+        ...PROJECT,
+        draft_thumbnail_at: "2026-10-16T02:00:00Z",
+        published_thumbnail_at: "2026-10-16T01:00:00Z",
+        thumbnail_chosen_at: "2026-10-16T01:00:00Z",
+      }),
+    ).toBe("/api/builder/projects/12/thumbnail?space=published&v=2026-10-16T01%3A00%3A00Z");
   });
 });
 
