@@ -50,6 +50,7 @@ import {
   labelVersion,
   publicUrl,
   publishProject,
+  setAiAccess,
   unpublishProject,
   uploadThumbnail,
   getBuilderProject,
@@ -467,6 +468,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           name: values.name,
           description: values.description,
           note: values.note,
+          ...(values.ai_access ? { ai_access: values.ai_access } : {}),
         });
         setState({ phase: "ready", project: updated });
         setPublishOpen(false);
@@ -505,6 +507,34 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     },
     [previewWhich, projectId, toast],
   );
+
+  // app-ai-access: 게시 메뉴의 스위치 — 데모만 ↔ 전체 기능, 언제든.
+  const askToSwitchAiAccess = useCallback(() => {
+    if (state.phase !== "ready") return;
+    const next = state.project.ai_access === "full" ? "demo" : "full";
+    setDeleteError(null);
+    setConfirm({
+      title: next === "full" ? "AI 기능을 전체 기능으로 열기" : "AI 기능을 데모만으로",
+      effect:
+        next === "full"
+          ? "로그인한 회원이 이 앱에서 AI 버튼을 누르면 자기 동아리 지원금에서 나가요. 방문자는 앱 맨 위 CTRL+AI 줄의 스위치로 언제든 데모로 볼 수 있어요."
+          : "방문자에게는 데모 답변만 보여요. AI를 부르지 않고, 누구의 지원금도 나가지 않아요. 미리보기에서는 내가 계속 실제 AI를 쓸 수 있어요.",
+      confirmLabel: next === "full" ? "전체 기능으로 열기" : "데모만으로",
+      onConfirm: async () => {
+        setDeleting(true);
+        try {
+          const updated = await setAiAccess(projectId, next);
+          setState({ phase: "ready", project: updated });
+          setConfirm(null);
+          toast.show(next === "full" ? "AI 기능을 전체 기능으로 열었어요." : "AI 기능을 데모만으로 바꿨어요.");
+        } catch (error) {
+          setDeleteError(describeError(error));
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  }, [projectId, state, toast]);
 
   const askToUnpublish = useCallback(() => {
     setDeleteError(null);
@@ -847,6 +877,22 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               label="게시 메뉴 더 보기"
               title="더 보기"
               items={[
+                // app-ai-access: offered for every published app — the
+                // "uses AI" flag can miss an app that reaches ctrlai.ai
+                // through an alias, and the server refuses visitors'
+                // calls while the setting is 데모만 whatever the flag says.
+                ...(project.published_uses_ai || project.ai_access === "full" || published !== null
+                  ? [
+                      {
+                        label: project.ai_access === "full" ? "AI 기능: 전체 기능 → 데모만으로" : "AI 기능: 데모만 → 전체 기능으로 열기",
+                        hint:
+                          project.ai_access === "full"
+                            ? "방문자의 AI 호출을 멈춰요 (0원). 데모 답변만 보여요."
+                            : "로그인한 회원이 자기 지원금으로 이 앱의 AI를 쓸 수 있게 해요.",
+                        onSelect: askToSwitchAiAccess,
+                      },
+                    ]
+                  : []),
                 {
                   label: "게시 취소",
                   hint: "CtrlAIApps에서 내려요. 버전은 모두 남아요.",
@@ -1398,6 +1444,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             description: project.description,
             note: "",
           }}
+          initialAiAccess={project.ai_access ?? "demo"}
           busy={publishing}
           error={publishError}
           onClose={() => setPublishOpen(false)}

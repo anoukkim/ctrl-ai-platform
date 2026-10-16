@@ -93,6 +93,12 @@
         return;
       }
     }
+    // app-ai-access: 만든 사람이 '데모만'으로 두었거나 방문자가 CTRL+AI의 데모
+    // 스위치를 켰으면 실제 AI는 켜지지 않아요 (0원).
+    if (on && sdk.ai.mode && (await sdk.ai.mode().catch(() => "live")) === "demo") {
+      toast("지금은 데모로만 볼 수 있어요. 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켜요.");
+      return;
+    }
     live.on = on;
     store.set(MODE_KEY, on ? "live" : "demo").catch(() => {});
     modeBadge();
@@ -451,8 +457,15 @@
       render();
     } catch (error) {
       if (draft !== started) return;
-      // 실제 AI는 그대로 둬요(로그인 취소, 지원금 부족, 너무 잦음 모두 여기로). 양식을 직접 채우게 열어요.
-      toast(`AI가 읽지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
+      if (error && error.code === "demo") {
+        // 데모로 바뀌었어요(0원): 데모 데이터로 보여 줘요.
+        live.on = false;
+        modeBadge();
+        toast("데모로 보여 줘요 — AI는 부르지 않았어요 (0원).");
+      } else {
+        // 실제 AI는 그대로 둬요(로그인 취소, 지원금 부족, 너무 잦음 모두 여기로). 양식을 직접 채우게 열어요.
+        toast(`AI가 읽지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
+      }
       const result = sampleId ? L.extractionFor(sampleId) : null;
       draft = {
         stage: "review",
@@ -557,7 +570,13 @@
         };
         save();
       } catch (error) {
-        toast(`분석을 받지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
+        if (error && error.code === "demo") {
+          live.on = false;
+          modeBadge();
+          toast("데모로 보여 줘요 — AI는 부르지 않았어요 (0원).");
+        } else {
+          toast(`분석을 받지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
+        }
       }
       live.busy = false;
       render();
@@ -735,6 +754,14 @@
   );
   const modeToggle = $("#mode-toggle");
   if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
+  // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
+  window.addEventListener("ctrlai:ai-mode", (event) => {
+    if (event.detail && event.detail.mode === "demo" && live.on) {
+      live.on = false;
+      modeBadge();
+      render();
+    }
+  });
   Promise.all([
     store.get(KEY),
     window.ctrlai && window.ctrlai.connected
@@ -742,12 +769,14 @@
       : null,
     sdk ? sdk.user().catch(() => null) : null,
     sdk ? store.get(MODE_KEY).catch(() => null) : null,
+    sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "live") : "live",
   ])
-    .then(([saved, , user, mode]) => {
+    .then(([saved, , user, mode, aiMode]) => {
       if (saved && Array.isArray(saved.transactions) && saved.budget) state = saved;
       // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
+      // CTRL+AI가 데모라고 하면(만든 사람의 설정이나 방문자의 스위치) 데모예요.
       live.user = user || null;
-      live.on = Boolean(sdk && user && mode !== "demo");
+      live.on = Boolean(sdk && user && mode !== "demo" && aiMode === "live");
       modeBadge();
     })
     .catch(() => {

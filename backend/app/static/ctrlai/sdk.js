@@ -26,10 +26,19 @@
  *                                    → Promise<{ text, json, chargedKrw, model }>
  *   ctrlai.ai.stream(options, onChunk) → Promise<{ text, chargedKrw, model }>
  *   ctrlai.ai.estimate(options)        → Promise<{ typicalKrw, maxKrw, model }>  (free, signed out too)
+ *   ctrlai.ai.mode()                   → Promise<"live" | "demo">
  *
  * AI is paid by the visitor from their own 동아리 지원 (at most 200원 a call).
  * `json` is a JSON Schema; the answer comes back parsed and checked.
  * `model` is "fast" (default) or "smart". `images` are data URLs, 5 MB each.
+ *
+ * app-ai-access — 데모. The maker opens an app's AI to other members as
+ * 데모만 or 전체 기능, and every visitor has a 데모 switch in the shell. In
+ * 데모 no call is made and nothing is charged: `ask` / `stream` fail with
+ * code "demo" — show the app's own demo answer, marked "데모". `mode()`
+ * says which it is now, and the window event "ctrlai:ai-mode"
+ * (`event.detail.mode`) fires when the visitor flips the switch. Outside
+ * CTRL+AI the mode is always "demo".
  *
  * P3 — ctrlai.db, the app's own database on the server. A collection is a
  * list of JSON objects named by (name, kind): **private** (each signed-in
@@ -183,6 +192,15 @@
           post({ type: "capture.failed", capture: String(data.id), error: String((error && error.message) || error) });
         }
       );
+      return;
+    }
+    if (data.event === "ai-mode") {
+      // The visitor flipped the shell's 데모 switch (app-ai-access).
+      try {
+        window.dispatchEvent(new CustomEvent("ctrlai:ai-mode", { detail: { mode: data.mode === "live" ? "live" : "demo" } }));
+      } catch (error) {
+        /* an app without CustomEvent support simply asks mode() */
+      }
       return;
     }
     if (data.event === "ai-chunk") {
@@ -398,6 +416,7 @@
     if (type === "storage.clear") loose = {};
     if (type === "hello") return { slug: null, mode: "alone" };
     if (type === "user.get") return null;
+    if (type === "ai.mode") return "demo";
     if (type === "login" || type.indexOf("ai.") === 0 || type.indexOf("db.") === 0) {
       var error = new Error("CTRL+AI 안에서 열었을 때만 쓸 수 있어요.");
       error.code = "not_in_ctrlai";
@@ -465,6 +484,11 @@
       var settings = aiOptions(options);
       delete settings.json;
       return ask("ai.stream", { options: settings }, typeof onChunk === "function" ? onChunk : null);
+    },
+    // "live" (a call would run and be charged) or "demo" (it would fail with
+    // code "demo" — show the demo answer). app-ai-access.
+    mode: function () {
+      return ask("ai.mode");
     },
   });
 
@@ -551,7 +575,7 @@
   });
 
   var api = Object.freeze({
-    version: "5",
+    version: "6",
     /** True inside CTRL+AI (the shell around the app answers). */
     connected: !!parentWindow,
     storage: storage,

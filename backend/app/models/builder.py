@@ -89,6 +89,12 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     #: data). The app still opens; every `/_ctrlai/v1` call is refused.
     sdk_disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sdk_disabled_reason: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    #: app-ai-access: how the app's AI is opened to other members — "demo"
+    #: (the server refuses every visitor's `ctrlai.ai` call; the app shows
+    #: its demo answers; nothing is charged) or "full" (signed-in visitors
+    #: pay from their own 지원금). The maker chooses at 게시 and may change
+    #: it later; the maker's own 미리보기 is never limited by it.
+    ai_access: Mapped[str] = mapped_column(String(8), default="demo", server_default="demo", nullable=False)
     #: quality-tuning Q1: the model and 생각 깊이 this project's 만들기 /
     #: 고치기 use, remembered from the last choice. NULL: the member's
     #: default.
@@ -119,6 +125,11 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     def published_thumbnail_at(self) -> datetime | None:
         """When the published version's thumbnail was captured (ui-improvements)."""
         return self.published_version.thumbnail_at if self.published_version is not None else None
+
+    @property
+    def published_uses_ai(self) -> bool:
+        """Whether the published version's files call `ctrlai.ai` (app-ai-access)."""
+        return bool(self.published_version.uses_ai) if self.published_version is not None else False
 
     files: Mapped[list["BuilderProjectFile"]] = relationship(
         back_populates="project",
@@ -204,6 +215,10 @@ class BuilderProjectVersion(TimestampMixin, Base):
     #: pin. Pinned versions — and the published one — are never pruned.
     label: Mapped[str] = mapped_column(String(80), default="", nullable=False)
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    #: app-ai-access: the files of this version call `ctrlai.ai` — found
+    #: when the version is written (`app_ai_access.uses_ai`), so the 게시
+    #: dialog, the listing and the shell know without reading the files.
+    uses_ai: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
     #: publish-summary: the 게시 dialog's pre-filled text for this version,
     #: written once (None = not asked yet). The note was written against
     #: `summary_base_version` (the published version's number then).

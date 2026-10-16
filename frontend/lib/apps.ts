@@ -30,6 +30,9 @@ export interface AppListing {
   favorite: boolean;
   /** 게시된 버전의 썸네일을 찍은 때. 없으면 표지를 그려요. */
   thumbnail_at?: string | null;
+  /** app-ai-access: 게시된 버전이 AI를 쓰는지, 만든 사람이 어떻게 열었는지 — 상세의 안내 한 줄. */
+  uses_ai?: boolean;
+  ai_access?: "demo" | "full";
 }
 
 /** 게시된 앱의 썸네일 주소 — 찍은 때를 뒤에 붙여 새 그림이 바로 보이게. 없으면 null. */
@@ -118,6 +121,9 @@ export interface AdminAppOverview {
   example: boolean;
   sdk_enabled: boolean;
   sdk_disabled_reason: string;
+  /** app-ai-access: 게시된 버전이 AI를 쓰는지, 만든 사람의 설정. */
+  uses_ai?: boolean;
+  ai_access?: "demo" | "full";
   open_reports: number;
   consents: number;
   data_items: number;

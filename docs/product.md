@@ -219,7 +219,17 @@ quarter, the maker's 미리보기 apart — consents, data, reports, and holds
 기능 상자 멈추기, 공유 데이터 and 게시 내리기, while Admin › Content keeps
 the 신고 queue; and **/help/apps** explains all of it to members in
 Korean, with code to copy. A template project starts with an empty
-description and a 고치기 request never becomes one.
+description and a 고치기 request never becomes one. **Since
+app-ai-access** (owner, 2026-10-16) the maker of an app that uses AI
+chooses at 게시 — "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?" —
+**데모만** (the default) or **전체 기능**, and can change it later from the
+Builder's 게시 menu; every visitor has a 데모 switch in a thin CTRL+AI
+bar above the app (실제 AI 켜기 / 데모로 보기, remembered per app in their
+browser; a bar rather than a floating pill, so it never covers the app's
+own buttons or a phone's tab bar); the 관리자 keeps 기능 상자 멈추기. 데모 means no AI call and
+0원 — the server refuses the visitor's call and the app shows its demo
+answer; the maker's own 미리보기 always runs the real thing. CtrlAIApps'
+detail page says which an app is; Admin › Apps shows it beside the app.
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 

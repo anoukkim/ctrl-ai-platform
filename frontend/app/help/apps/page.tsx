@@ -97,6 +97,12 @@ export default function HelpAppsPage() {
           <strong>상한.</strong> 1회 200원, 하루에 앱 전체에서 쓸 수 있는 금액(관리자 설정, 기본 2,000원), 1분에 10번. 넘으면 한국어로 이유가 보여요.
         </li>
         <li>
+          <strong>데모와 실제 AI.</strong> 앱을 게시할 때 만든 사람이 다른 회원에게 AI를 <strong>데모만</strong> 열지 <strong>전체 기능</strong>으로 열지
+          골라요(나중에 게시 메뉴에서 바꿀 수 있어요). 데모에서는 AI를 부르지 않아서 0원이고, 앱은 미리 적어 둔 답을 보여 줘요. 전체 기능인 앱에서도
+          앱 맨 위 CTRL+AI 줄의 스위치로 언제든 데모로 볼 수 있어요. 관리자는 앱의 기능 상자를 통째로 멈출 수 있어요. 앱 코드에서는 호출이
+          <code>error.code === &quot;demo&quot;</code>로 실패하고, <code>ctrlai.ai.mode()</code>가 지금 어느 쪽인지 알려 줘요.
+        </li>
+        <li>
           <strong>모델.</strong> &ldquo;fast&rdquo;(기본, 짧은 답 약 10원)와 &ldquo;smart&rdquo;(약 30원). 사진은 한 장에 몇 원이 더 들어요.
         </li>
       </ul>

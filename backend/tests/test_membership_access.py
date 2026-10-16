@@ -436,6 +436,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # publish-summary: a Claude call the club pays for — participating members only.
     ("POST", "/api/builder/projects/{project_id}/publish-summary"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
+    # app-ai-access: the owner's own switch — closing must work after a quarter ends.
+    ("POST", "/api/builder/projects/{project_id}/ai-access"): "get_current_user",
     ("GET", "/api/apps"): "get_current_user",
     ("GET", "/api/apps/mine"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",
@@ -705,6 +707,10 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # work for anyone.
         ("POST", "/api/app-connect/{slug}"),
         ("POST", "/api/me/app-consents/{consent_id}/revoke"),
+        # app-ai-access: the owner's own switch spends nothing of theirs
+        # (visitors pay for their own calls), and closing the AI must work
+        # after a quarter ends, like 게시 취소.
+        ("POST", "/api/builder/projects/{project_id}/ai-access"),
     }
 
     offenders = [

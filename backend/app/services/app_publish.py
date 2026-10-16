@@ -26,7 +26,7 @@ from app.models import (
     BuilderProjectVersion,
     User,
 )
-from app.services import app_runtime, audit, builder_versions
+from app.services import app_ai_access, app_runtime, audit, builder_versions
 
 MAX_DESCRIPTION = 2_000
 MAX_NOTE = 200
@@ -57,8 +57,13 @@ def publish(
     *,
     description: str,
     note: str,
+    ai_access: str | None = None,
 ) -> BuilderProjectVersion:
     """게시 / 업데이트 게시: the newest version becomes the public one.
+
+    `ai_access` (app-ai-access): "demo" or "full" — the maker's answer to
+    "다른 회원에게 AI 기능을 열까요?"; None keeps what the project has
+    (a new project starts as "demo").
 
     The working copy always has a version (every change writes one; a
     project made before versions gets "처음 상태" here), so what is
@@ -83,6 +88,12 @@ def publish(
     except app_runtime.AppRuntimeError as error:
         raise PublishError(str(error), error.status_code) from error
 
+    try:
+        chosen = app_ai_access.checked(ai_access)
+    except ValueError as error:
+        raise PublishError(str(error)) from error
+    if chosen is not None:
+        project.ai_access = chosen
     project.published_version_id = version.id
     project.published_version = version
     project.published_at = datetime.now(timezone.utc)

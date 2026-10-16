@@ -3082,3 +3082,79 @@ the coordinating session asked before the merge. What was built:
   re-check of `deleted_at` under a lock, a whitespace reason, and
   "늦췄습니다" for a deadline that moved earlier. Nothing touches
   `usage.charge()` or the wallets.
+
+## app-ai-access — full spec and delivery notes (merged 2026-10-16)
+
+The item as it stood in BACKLOG › Next (its "Not pre-approved" line
+predates the owner's batch pre-approval of 2026-10-16, which names it):
+
+**app-ai-access** · M3 · branch `feat-app-ai-access`
+    *Not pre-approved — branch, test, report, WAIT.* Owner decision
+    2026-10-16 (saved in their words below): when publishing an app that
+    uses AI, the creator chooses **데모만** or **전체 기능** (changeable
+    later); visitors switch between 데모 and 토큰 사용 any time; the
+    관리자 can turn AI off per app (today's kill switch). Comes after
+    app-platform P4.
+
+The owner's answers of 2026-10-16 stay in BACKLOG › "owner-polish …" ›
+Answers ("Who controls 데모 / 토큰 사용"). Branch `feat-app-ai-access`,
+built in the worktree `../ctrl-ai-ui-b` right after ui-improvements B,
+on the coordinating session's "시작해". What was built:
+
+- **The maker's choice** (`builder_projects.ai_access`, "demo" | "full",
+  migration `b2d4f6a8c0e1`). The 게시 dialog asks "이 앱은 AI를 써요 —
+  다른 회원에게 AI 기능을 열까요?" — 데모만 (default) / 전체 기능 — when
+  `publish-summary` reports `uses_ai` (the working copy's pages or
+  scripts call `.ai.ask/stream/estimate` in a file naming `ctrlai`,
+  aliases included) or the app is already 전체 기능; `publish` takes
+  `ai_access`; the Builder's 게시 menu (⋯) offers "AI 기능: …" for every
+  published app (`POST /api/builder/projects/{id}/ai-access`, owner only,
+  `get_current_user` like 게시 취소). Apps published before the migration
+  were set to "full" so the deploy changed nothing; a new app starts as
+  "demo"; `import_example_apps` publishes the showcases as full.
+- **The server refuses in 데모** (`app_platform._ai_allowed`): a visitor's
+  `/_ctrlai/v1/ai/ask` and `/stream` in mode "app" — or in a preview used
+  by anyone but the project's own maker (`_owners_preview`) — answer 403
+  `{code: "demo"}` before `prepare()`: no provider call, no `UsageEvent`,
+  the wallet untouched (`test_app_ai_access.py`). `estimate` stays free.
+  `/v1/app` carries `ai: {usesAi, access}`.
+- **The shell's bar** (`shell.js`): a thin CTRL+AI strip above the app
+  frame for a published app that uses AI or is 전체 기능 — badge "실제 AI
+  · 내 지원금에서" (or "· 로그인하면 …" signed out) / "데모 · 0원" / "데모 ·
+  AI 호출 없음" and the button 데모로 보기 / 실제 AI 켜기 (the showcases'
+  badge-and-button look); the visitor's choice is kept per app in the
+  shell origin's `localStorage` (`ctrlai:<slug>:ai-mode`). In 데모 the
+  shell rejects `ai.ask` / `ai.stream` locally with code "demo" after
+  `/v1/app` has answered (never on a stale `info`, never in the maker's
+  preview) and before `signedIn()`, so no sign-in window opens. A bar,
+  not a floating pill: the pill covered the showcase's tab bar at 390px.
+- **SDK version "6"**: `ctrlai.ai.mode()` → "live" | "demo" ("demo"
+  outside CTRL+AI), the window event `ctrlai:ai-mode` when the bar is
+  flipped. `_SDK_RULES` tells the Builder's Claude to treat code "demo"
+  like signed-out (the demo answer, marked "데모"). The three showcases
+  and the AI 챗봇 template handle it.
+- **Screens.** CtrlAIApps' detail adds one honest line (데모만 / 전체
+  기능); Admin › Apps shows "AI 전체 기능 / 데모만" beside the app and a
+  fact on the app's page; /help/apps gained the paragraph. Docs:
+  CLAUDE.md §2 › Member app platform (5), product.md, architecture.md.
+- **Tests.** Backend `test_app_ai_access.py` (11): the flag and its
+  aliases, the version carries it, the dialog asks only for AI apps, the
+  choice at 게시 and the default, the owner's switch and a stranger's
+  404, 데모 refuses ask/stream with the code and an empty ledger, the
+  maker's own preview vs a guest of the preview, the shell/SDK strings
+  and the gate's order, the showcases import as full, the prompt and
+  examples know the code, a bad setting refused. Guard-table rows.
+  Frontend: the dialog's question (shown, default, sent; not shown, not
+  sent), the detail's note. Playwright `e2e/app-ai-access.spec.ts`:
+  데모만 → code demo and no sign-in window; 전체 기능 → the bar, 데모로
+  보기, the choice survives a reload, nothing charged throughout; live
+  and signed out → the sign-in window opens. Final: backend full (PG
+  on) exit 0, frontend 570, tsc/lint/build, Playwright 19/19;
+  screenshots `progress/screens/app-ai-access/` (14, by
+  `e2e/app-ai-access-shots.mjs`).
+- **Review** (one read-only subagent on the worktree diff, code +
+  security): 5 findings fixed in `50da2b0` — the shell's gate on a
+  stale `info`, the flag gating the switch (aliases), the preview
+  exemption open to anyone with the link (low, security → owner only),
+  the doc chatbot stuck in demo, bare 403 assertions. No money or
+  security high.

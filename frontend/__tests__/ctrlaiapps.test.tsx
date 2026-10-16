@@ -212,6 +212,23 @@ describe("앱 상세", () => {
     expect(screen.getByRole("button", { name: "설명 접기" }).getAttribute("aria-expanded")).toBe("true");
   });
 
+  test("AI를 쓰는 앱은 만든 사람이 어떻게 열었는지 한 줄 더 말한다 (app-ai-access)", async () => {
+    appsApi.getApp.mockResolvedValue({ ...APP, uses_ai: true, ai_access: "demo" });
+    const { unmount } = render(<AppDetail slug="k3m9qx7pwa" />);
+    expect((await screen.findByTestId("ai-access-note")).textContent).toContain("데모로만 열려 있어요");
+    unmount();
+    appsApi.getApp.mockResolvedValue({ ...APP, uses_ai: true, ai_access: "full" });
+    render(<AppDetail slug="k3m9qx7pwa" />);
+    expect((await screen.findByTestId("ai-access-note")).textContent).toContain("자기 지원금에서 나가요");
+  });
+
+  test("AI를 안 쓰는 앱에는 그 줄이 없다", async () => {
+    appsApi.getApp.mockResolvedValue({ ...APP, uses_ai: false });
+    render(<AppDetail slug="k3m9qx7pwa" />);
+    await screen.findByText(/방문한 사람의 브라우저에서 돌아가요/);
+    expect(screen.queryByTestId("ai-access-note")).toBeNull();
+  });
+
   test("짧은 설명에는 펼치기 단추가 없고, 앱 서버가 꺼져 있으면 그렇게 말한다", async () => {
     appsApi.getApp.mockResolvedValue({ ...APP, app_url: null });
     render(<AppDetail slug="k3m9qx7pwa" />);

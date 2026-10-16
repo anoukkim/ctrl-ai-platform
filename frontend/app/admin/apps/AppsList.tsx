@@ -32,6 +32,12 @@ export function AppStateBadges({ app }: { app: AdminAppOverview }) {
       )}
       {app.example && <span className="badge badge-muted"> 예시 앱</span>}
       {!app.sdk_enabled && <span className="badge badge-warn"> 기능 상자 멈춤</span>}
+      {app.uses_ai && (
+        <span className="badge badge-muted" title="만든 사람이 다른 회원에게 AI를 어떻게 열었는지 (app-ai-access)">
+          {" "}
+          AI {app.ai_access === "full" ? "전체 기능" : "데모만"}
+        </span>
+      )}
     </>
   );
 }

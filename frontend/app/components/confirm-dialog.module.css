@@ -156,3 +156,36 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* app-ai-access: 게시 창의 "다른 회원에게 AI 기능을 열까요?" — 선택지 둘, 한 줄 설명씩. */
+.choices {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.choices legend {
+  padding: 0;
+  margin-bottom: 0.2rem;
+}
+
+.choice {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.45rem 0;
+  cursor: pointer;
+}
+
+.choice input {
+  margin-top: 0.25rem;
+  flex: none;
+}
+
+.choiceHint {
+  display: block;
+  font-size: 0.86rem;
+  color: var(--text-muted, #666);
+  margin-top: 0.1rem;
+}
