@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.api.routes import chat as chat_route
 from app.core.config import Settings
-from app.models import AuditLog, ChatLimits, ChatMessage, ChatMessageStatus, UsageEvent
+from app.models import AuditLog, ChatLimits, ChatMessage, ChatMessageStatus, ProviderStatus, UsageEvent
 from app.services import chat as chat_service
 from app.services import depth as depth_service
 from app.services.claude_provider import AnthropicClaudeProvider, mock_long_reply
@@ -170,7 +170,8 @@ def test_a_stop_during_a_continuation_keeps_both_calls_charged(
 
 
 class ScriptedAnthropic:
-    """A fake Messages API that answers each request from a script."""
+    """A fake Messages API that answers each request from a script; a step
+    whose stop_reason is "error" answers with a 500 instead."""
 
     def __init__(self, script: list[tuple[str, str]]) -> None:
         self.script = list(script)
@@ -178,16 +179,18 @@ class ScriptedAnthropic:
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
-        text, stop_reason = self.script.pop(0)
+        # The SDK retries a 5xx once: an exhausted script repeats its last step.
+        text, stop_reason = self.script.pop(0) if len(self.script) > 1 else self.script[0]
+        if stop_reason == "error":
+            return httpx.Response(500, json={"type": "error", "error": {"type": "api_error", "message": "boom"}})
         return httpx.Response(
             200, headers={"content-type": "text/event-stream"}, content=_sse_body(text, stop_reason=stop_reason)
         )
 
 
-@pytest.fixture
-def scripted_claude(monkeypatch, config):
+def scripted(monkeypatch, config, script):
     settings = use_settings(claude_provider="anthropic", anthropic_api_key=SECRET, anthropic_model="claude-sonnet-5-5")
-    fake = ScriptedAnthropic([("<p>앞부분", "max_tokens"), (" 뒷부분</p>", "end_turn")])
+    fake = ScriptedAnthropic(script)
     monkeypatch.setattr(
         chat_route,
         "get_claude_provider",
@@ -196,6 +199,11 @@ def scripted_claude(monkeypatch, config):
         ),
     )
     return fake
+
+
+@pytest.fixture
+def scripted_claude(monkeypatch, config):
+    return scripted(monkeypatch, config, [("<p>앞부분", "max_tokens"), (" 뒷부분</p>", "end_turn")])
 
 
 def test_the_real_adapter_is_asked_to_go_on_from_the_cut(
@@ -249,3 +257,54 @@ def test_the_admin_sets_the_total_cap_and_it_is_checked_and_audited(
     info = client.get("/api/chat/info").json()
     sonnet = [m for m in info["models"] if m["model_id"].startswith("claude-sonnet")][0]
     assert [step["total_krw"] for step in sonnet["levels"] if step["level"] == "medium"] == [2500]
+
+
+def test_a_failed_continuation_keeps_the_paid_part_and_tells_the_status_board(
+    client: TestClient, db_session: Session, budgeted, monkeypatch, config
+) -> None:
+    """The second call fails at the provider: the first call's text and
+    charge stay, the reply is cut with the reason (kept on reload), the
+    failed call is not charged, and Admin › System hears of the failure."""
+    scripted(monkeypatch, config, [("<p>앞부분", "max_tokens"), ("", "error")])
+    conversation = new_conversation(client)
+    events = events_of(send(client, conversation, "길게 설명해 줘").text)
+
+    done = done_of(events)
+    assert reply_text(events) == "<p>앞부분"
+    assert done["message"]["content"] == "<p>앞부분"
+    assert done["message"]["status"] == "truncated" and done["message"]["capped_krw"] is None
+    assert "오류" in done["stop_note"] and "청구되지 않았어요" in done["stop_note"]
+    assert done["segments"] == 2 and db_session.query(UsageEvent).count() == 1
+    assert done["charged_krw"] == db_session.query(UsageEvent).one().charged_krw
+    status = db_session.get(ProviderStatus, "claude")
+    assert status is not None and status.last_error_at is not None
+    # The reason survives a reload.
+    detail = client.get(f"/api/chat/conversations/{conversation}").json()
+    reply = [m for m in detail["messages"] if m["role"] == "assistant"][0]
+    assert reply["stop_note"] == done["stop_note"] and reply["segments"] == 1
+
+
+def test_nothing_to_continue_from_and_the_call_cap_stop_with_their_own_figures(
+    db_session: Session, dev_user, budgeted, config
+) -> None:
+    from tests.test_chat import _prepared
+
+    settings = Settings(app_env="development")
+    turn = _prepared(db_session, settings, dev_user)
+    assert turn.total_cap_krw == 1500 and turn.level_cap_krw == 200
+    # An empty partial (the budget went to thinking): no continuation, a plain reason.
+    plan = chat_service.plan_continuation(db_session, settings, turn, "", 0)
+    assert isinstance(plan, chat_service.ContinuationStop) and plan.reason == "empty"
+    # The partial alone fills the call cap: the stop names the call cap, and
+    # the saved reply carries that figure — not the whole-reply ceiling.
+    huge = "가" * 200_000
+    plan = chat_service.plan_continuation(db_session, settings, turn, huge, 50)
+    assert isinstance(plan, chat_service.ContinuationStop) and plan.reason == "call_cap"
+    assert "1회 비용 한도(200원)" in plan.note
+    segment = chat_service.settle_segment(
+        db_session, settings, turn,
+        chat_service.TurnState(raw_text="앞부분", input_tokens=100, output_tokens=50, stop_reason="max_tokens"),
+    )
+    result = chat_service.save_reply(db_session, settings, turn, [segment], stop=plan)
+    assert result.message.status is ChatMessageStatus.TRUNCATED
+    assert result.message.capped_krw == 200 and result.message.stop_note == plan.note

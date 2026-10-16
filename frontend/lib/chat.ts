@@ -97,6 +97,8 @@ export interface ChatMessage {
   created_at: string;
   /** 몇 번의 호출로 쓴 답장인지(feat-auto-continue). 1이면 한 번. */
   segments?: number;
+  /** 서버가 이어 쓰기를 멈춘 이유(전체 한도·지갑·오류). 끝까지 썼으면 null. */
+  stop_note?: string | null;
 }
 
 /** 답장 하나가 실제로 쓴 토큰. 캐시 칸은 캐시가 꺼져 있으면 null입니다. */

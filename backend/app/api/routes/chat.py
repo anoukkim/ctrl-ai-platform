@@ -31,6 +31,7 @@ spent.
 from __future__ import annotations
 
 import asyncio
+import logging
 import json
 from decimal import ROUND_CEILING, Decimal
 from collections.abc import AsyncIterator
@@ -94,6 +95,8 @@ from app.services.claude_provider import (
 #: refused for every POST by `JsonOnlyMiddleware`; checked here again so
 #: the upload route is safe on its own.
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 NOT_FOUND = "대화를 찾을 수 없습니다."
@@ -123,29 +126,14 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
         for m in messages
         if m.usage_event_id is not None
     }
-    event_ids = [event_id for ids in groups.values() for event_id in ids]
-    if not event_ids:
+    if not groups:
         return {}
-    rows = {row.id: row for row in db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids)))}
     prices = accounting.catalogue_prices(db)
     out: dict[int, ReplyReceipt] = {}
     for first, ids in groups.items():
-        events = [rows[event_id] for event_id in ids if event_id in rows]
-        if not events:
-            continue
-        cached = any(row.cache_write_tokens is not None or row.cache_read_tokens is not None for row in events)
-        fields = chat_service._sum_splits([accounting.receipt_fields(row, prices) for row in events])
-        out[first] = ReplyReceipt(
-            input_tokens=sum(row.input_tokens or 0 for row in events),
-            output_tokens=sum(row.output_tokens or 0 for row in events),
-            cache_write_tokens=sum(row.cache_write_tokens or 0 for row in events) if cached else None,
-            cache_read_tokens=sum(row.cache_read_tokens or 0 for row in events) if cached else None,
-            web_search_count=sum(row.web_search_count or 0 for row in events),
-            tool_fee_krw=sum(row.tool_fee_krw or 0 for row in events),
-            charged_krw=sum(row.charged_krw for row in events),
-            thinking_shown=any(bool(row.thinking_shown) for row in events),
-            **(fields or {}),
-        )
+        figures = chat_service.receipt_for_events(db, ids, prices)
+        if figures is not None:
+            out[first] = ReplyReceipt(**figures)
     return out
 
 
@@ -795,16 +783,32 @@ def send_message(
                 segments.append(segment)
                 if state.stopped or state.stop_reason != "max_tokens":
                     break
+                # 중지 while the call was being settled: no next call — the
+                # reply is 중지됨 at what was written (security review).
+                if stop.is_set():
+                    state.stopped = True
+                    break
                 # Cut by the call cap: plan the next call, or say why not.
                 raw_so_far = "".join(part.state.raw_text for part in segments)
                 charged_so_far = sum(part.charged_krw for part in segments)
+                # The provider's own figures for the call just made (its
+                # input, cached or not, plus what it wrote) are the next
+                # call's input — tighter than re-estimating.
+                measured = (
+                    segment.input_tokens + segment.cache_write_tokens + segment.cache_read_tokens
+                ) if (segment.input_tokens or segment.cache_write_tokens or segment.cache_read_tokens) else 0
                 plan = await run_in_threadpool(
                     _in_session,
                     session_factory,
-                    lambda db: chat_service.plan_continuation(db, settings, turn, raw_so_far, charged_so_far),
+                    lambda db: chat_service.plan_continuation(
+                        db, settings, turn, raw_so_far, charged_so_far, measured_input_tokens=measured
+                    ),
                 )
                 if isinstance(plan, chat_service.ContinuationStop):
                     stop_reason = plan
+                    break
+                if stop.is_set():
+                    state.stopped = True
                     break
                 request = plan.request
                 estimated_input = plan.estimated_input_tokens
@@ -824,24 +828,35 @@ def send_message(
         finally:
             provider_limiter.release()
 
-        if error is not None and not segments:
-            failed = chat_service.TurnState()
-            failed.error = error
+        try:
+            if error is not None and not segments:
+                failed = chat_service.TurnState()
+                failed.error = error
+                result = await run_in_threadpool(
+                    _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, failed)
+                )
+                queue.put_nowait(("end", result))
+                return
+            if error is not None:
+                # A continuation failed after earlier calls were paid: keep what
+                # was written — the failed call's text too, since the screen
+                # already showed it (charged nothing) — as a cut reply, say why,
+                # and tell the status board.
+                segments.append(chat_service.unsettled_segment(state))
+                stop_reason = chat_service.ContinuationStop(
+                    "error",
+                    f"답장을 이어 쓰다 오류가 났어요: {error} 여기까지 저장했고, 오류가 난 부분은 청구되지 않았어요.",
+                )
             result = await run_in_threadpool(
-                _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, failed)
+                _in_session,
+                session_factory,
+                lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason, error=error),
             )
-            queue.put_nowait(("end", result))
-            return
-        if error is not None:
-            # A continuation failed after earlier calls were paid: keep what
-            # was written as a cut reply and say why it stopped.
-            stop_reason = chat_service.ContinuationStop("wallet", f"{error} 답장은 여기까지 저장했어요.")
-            segments[-1].state.stop_reason = "max_tokens"
-        result = await run_in_threadpool(
-            _in_session,
-            session_factory,
-            lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason),
-        )
+        except Exception:  # noqa: BLE001 — a bug here must not leave the member's stream hanging
+            logger.exception("finishing a chat turn failed")
+            result = chat_service.TurnResult(
+                message=None, charged_krw=0, error=ClaudeError(ProviderErrorKind.UNKNOWN, "finish failed")
+            )
         if result.error is None:
             rest = marker.finish()
             if rest.strip():

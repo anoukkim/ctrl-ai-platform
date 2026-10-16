@@ -151,8 +151,10 @@ class ChatMessageRead(BaseModel):
     #: (feat-auto-continue) or, with continuation off, the call's
     #: (token-guard) — in won. Null for every other ending.
     capped_krw: int | None = None
-    #: feat-auto-continue: how many calls wrote this reply (1 = one call).
+    #: feat-auto-continue: how many calls wrote this reply (1 = one call),
+    #: and why the server stopped continuing (None: it ended by itself).
     segments: int = 1
+    stop_note: str | None = None
     #: Web-search sources the reply cited (chat-plus-tools), in order.
     sources: list["SourceRead"] | None = None
     #: Claude's summarized thinking (chat-thinking-view). Display only.

@@ -48,6 +48,7 @@ from app.models import (
     ProviderErrorKind,
     UsageFeature,
     User,
+    UsageEvent,
 )
 from app.services import depth as depth_service
 from app.services import attachments as attachments_service
@@ -719,7 +720,13 @@ class ContinuationStop:
 
 
 def plan_continuation(
-    db: Session, settings: Settings, turn: PreparedTurn, raw_so_far: str, charged_so_far_krw: int
+    db: Session,
+    settings: Settings,
+    turn: PreparedTurn,
+    raw_so_far: str,
+    charged_so_far_krw: int,
+    *,
+    measured_input_tokens: int = 0,
 ) -> Continuation | ContinuationStop:
     """Plan the next call after a cut — or say why there is none.
 
@@ -732,9 +739,19 @@ def plan_continuation(
     """
     if turn.total_cap_krw <= 0:
         return ContinuationStop("total_cap", "")
+    if not raw_so_far.strip():
+        # Nothing to continue from (the budget went to thinking): the API
+        # refuses an empty assistant turn, and "go on" would make no sense.
+        return ContinuationStop(
+            "empty",
+            "생각에 1회 비용 한도를 다 써서 답을 시작하지 못했어요. 생각 깊이를 높이거나 생각 과정 보기를 끄고 다시 물어보세요.",
+        )
     added = pricing.estimate_tokens(raw_so_far) + pricing.estimate_tokens(CONTINUE_PROMPT)
     estimated_input = turn.estimated_input_tokens + added
-    calibrated_input = turn.calibrated_input_tokens + added
+    # The call before reported its real input (prompt + history); the next
+    # call sends that plus the partial and the request. The pre-call
+    # estimate stands in only while nothing was measured (security review).
+    calibrated_input = (measured_input_tokens or turn.calibrated_input_tokens) + added
 
     max_tokens = turn.level_max_tokens
     if turn.level_cap_krw > 0:
@@ -743,8 +760,9 @@ def plan_continuation(
         )
         if affordable < 1:
             return ContinuationStop(
-                "total_cap",
-                f"이어 쓰려면 지금까지 쓴 글만으로 1회 비용 한도({turn.level_cap_krw:,}원)에 닿아 여기서 멈췄어요.",
+                "call_cap",
+                f"이어 쓰려면 지금까지 쓴 글만으로 1회 비용 한도({turn.level_cap_krw:,}원)에 닿아 여기서 멈췄어요. "
+                "새 대화에서 생각 깊이를 높여 다시 물어보세요.",
             )
         max_tokens = min(max_tokens, affordable)
 
@@ -1018,6 +1036,46 @@ def settle_segment(
     )
 
 
+def unsettled_segment(state: TurnState) -> SegmentCharge:
+    """A call that failed after it had streamed some text: kept in the
+    reply so the screen does not lose what the member read, charged
+    nothing — the provider's usage for a failed call is not known, as on
+    the single-call error path."""
+    return SegmentCharge(
+        event_id=None, charged_krw=0, input_tokens=0, output_tokens=0, cache_write_tokens=0,
+        cache_read_tokens=0, web_search_count=0, tool_fee_krw=0, split=None, wallet_remaining_krw=None,
+        state=state,
+    )
+
+
+def receipt_for_events(db: Session, event_ids: list[int], prices: dict | None = None) -> dict | None:
+    """One reply's receipt figures from its usage events — the calls added
+    up (feat-auto-continue). The one place the sum is defined: the route
+    reads it for a conversation, `save_reply` for the `done` event. None
+    when no event is found (a refusal, or the quarter closed mid-stream)."""
+    if not event_ids:
+        return None
+    rows = list(db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids))))
+    if not rows:
+        return None
+    rows.sort(key=lambda row: event_ids.index(row.id))
+    if prices is None:
+        prices = accounting.catalogue_prices(db)
+    cached = any(row.cache_write_tokens is not None or row.cache_read_tokens is not None for row in rows)
+    fields = _sum_splits([accounting.receipt_fields(row, prices) for row in rows]) or {}
+    return {
+        "input_tokens": sum(row.input_tokens or 0 for row in rows),
+        "output_tokens": sum(row.output_tokens or 0 for row in rows),
+        "cache_write_tokens": sum(row.cache_write_tokens or 0 for row in rows) if cached else None,
+        "cache_read_tokens": sum(row.cache_read_tokens or 0 for row in rows) if cached else None,
+        "web_search_count": sum(row.web_search_count or 0 for row in rows),
+        "tool_fee_krw": sum(row.tool_fee_krw or 0 for row in rows),
+        "charged_krw": sum(row.charged_krw for row in rows),
+        "thinking_shown": any(bool(row.thinking_shown) for row in rows),
+        **fields,
+    }
+
+
 def _sum_splits(splits: list[dict | None]) -> dict | None:
     """The receipt's won split for the whole reply: the calls' added up."""
     present = [split for split in splits if split]
@@ -1042,6 +1100,7 @@ def save_reply(
     segments: list[SegmentCharge],
     *,
     stop: ContinuationStop | None = None,
+    error: ClaudeError | None = None,
 ) -> TurnResult:
     """Save the reply the calls produced — one message, however many calls.
 
@@ -1068,16 +1127,20 @@ def save_reply(
     action, action_title = action_of(raw_text)
     text = visible_text(raw_text)
     status = _status_for(last)
+    if stop is not None and status is ChatMessageStatus.COMPLETE:
+        # The server did not go on (a ceiling, the wallet, nothing to
+        # continue from, a failed call): the reply is cut.
+        status = ChatMessageStatus.TRUNCATED
     capped: int | None = None
     if status is ChatMessageStatus.TRUNCATED:
-        # Cut at a cost ceiling: the whole reply's (after continuations)
-        # or — with continuation off — the call's own (token-guard).
-        if stop is not None and stop.reason == "total_cap":
-            capped = turn.total_cap_krw or turn.reply_cap_krw
-        elif stop is None:
+        # Cut at a cost ceiling — the figure the note names: the whole
+        # reply's, the call's own, or (continuation off) the call's cap.
+        if stop is None:
             capped = turn.reply_cap_krw
-    elif stop is not None and stop.reason == "wallet" and status is ChatMessageStatus.COMPLETE:
-        status = ChatMessageStatus.TRUNCATED
+        elif stop.reason == "total_cap":
+            capped = turn.total_cap_krw or turn.reply_cap_krw
+        elif stop.reason == "call_cap":
+            capped = turn.level_cap_krw
 
     charged = sum(segment.charged_krw for segment in segments)
     event_ids = [segment.event_id for segment in segments if segment.event_id is not None]
@@ -1108,13 +1171,20 @@ def save_reply(
             thinking=thinking or None,
             usage_event_id=event_ids[0] if event_ids else None,
             segment_event_ids=event_ids if len(event_ids) > 1 else None,
+            stop_note=(stop.note[:300] if stop is not None and stop.note else None),
             created_at=datetime.now(timezone.utc),
         )
         db.add(message)
         conversation.last_message_at = message.created_at
 
     label_suffix = " (mock)" if turn.is_mock else ""
-    providers.record_success(db, "claude", f"채팅 답변{label_suffix}")
+    if error is not None:
+        # A later call failed: the status board hears about it, as it
+        # does for a failed single call (BUSY is our own limit, not theirs).
+        if error.kind != ProviderErrorKind.BUSY:
+            providers.record_failure(db, "claude", error.kind, error.detail)
+    else:
+        providers.record_success(db, "claude", f"채팅 답변{label_suffix}")
     db.commit()
     if message is not None:
         db.refresh(message)
@@ -1132,17 +1202,19 @@ def save_reply(
     usage: ReplyUsage | None = None
     # Only what the ledger actually recorded gets a receipt: with no
     # event (the quarter closed mid-stream) a 0원 receipt would claim a
-    # charge the ledger does not have, and vanish on reload.
-    if event_ids:
-        cached = turn.request.cache_ttl is not None
+    # charge the ledger does not have, and vanish on reload. The figures
+    # come from the events themselves, the same way a reload reads them.
+    figures = receipt_for_events(db, event_ids)
+    if figures is not None:
+        split_keys = ("input_krw", "cache_write_krw", "cache_read_krw", "output_krw", "tool_krw", "cache_saved_krw", "split_estimated")
         usage = ReplyUsage(
-            input_tokens=sum(s.input_tokens for s in segments),
-            output_tokens=output_tokens,
-            cache_write_tokens=sum(s.cache_write_tokens for s in segments) if cached else None,
-            cache_read_tokens=sum(s.cache_read_tokens for s in segments) if cached else None,
-            web_search_count=sum(s.web_search_count for s in segments),
-            tool_fee_krw=sum(s.tool_fee_krw for s in segments),
-            split=_sum_splits([s.split for s in segments]),
+            input_tokens=figures["input_tokens"],
+            output_tokens=figures["output_tokens"],
+            cache_write_tokens=figures["cache_write_tokens"],
+            cache_read_tokens=figures["cache_read_tokens"],
+            web_search_count=figures["web_search_count"],
+            tool_fee_krw=figures["tool_fee_krw"],
+            split={key: figures[key] for key in split_keys if key in figures} or None,
             thinking_shown=turn.request.show_thinking,
         )
     return TurnResult(

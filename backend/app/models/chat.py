@@ -159,6 +159,9 @@ class ChatMessage(Base):
     #: every call's usage event here (the first is also `usage_event_id`);
     #: the receipt adds them up. Null for a one-call reply.
     segment_event_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    #: Why the server stopped continuing (the ceiling, the wallet, a failed
+    #: call) — the Korean sentence the screen shows, after a reload too.
+    stop_note: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True

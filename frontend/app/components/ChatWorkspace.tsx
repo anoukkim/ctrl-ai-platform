@@ -191,6 +191,7 @@ function toView(message: ChatMessage): ViewMessage {
     depth: message.depth ?? null,
     cappedKrw: message.capped_krw ?? null,
     segments: message.segments ?? 1,
+    stopNote: message.stop_note ?? null,
     receipt: message.receipt ?? null,
     sources: message.sources ?? null,
     thinking: message.thinking ?? null,
@@ -939,7 +940,7 @@ export default function ChatWorkspace() {
                 ...toView(saved),
                 receipt: receipt ?? saved.receipt ?? null,
                 segments: outcome.segments ?? saved.segments ?? 1,
-                stopNote: outcome.stopNote ?? null,
+                stopNote: outcome.stopNote ?? saved.stop_note ?? null,
               }
             : null,
         );

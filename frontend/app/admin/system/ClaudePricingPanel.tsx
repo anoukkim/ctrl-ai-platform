@@ -145,7 +145,11 @@ export default function ClaudePricingPanel() {
         out[surface][level] = {
           max_tokens: Number(depthDraft[`${surface}.${level}.max_tokens`]),
           cap_krw: Number(depthDraft[`${surface}.${level}.cap_krw`]),
-          total_cap_krw: Number(depthDraft[`${surface}.${level}.total_cap_krw`] ?? 0),
+          // 비워 둔 칸은 "그대로": 0은 이어 쓰기를 끄는 값이라 직접 적어야 합니다.
+          total_cap_krw:
+            (depthDraft[`${surface}.${level}.total_cap_krw`] ?? "").trim() === ""
+              ? (settings?.chat_limits.depth_levels?.[surface]?.[level]?.total_cap_krw ?? 0)
+              : Number(depthDraft[`${surface}.${level}.total_cap_krw`]),
         };
       }
     }

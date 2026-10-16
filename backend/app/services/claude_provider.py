@@ -1414,6 +1414,16 @@ class MockClaudeProvider:
         # An unanswered earlier message may have been joined to this one
         # (see `chat.build_context`); the mock answers only the newest part.
         last = whole.rsplit("\n\n", 1)[-1]
+        # feat-auto-continue: a continuation request carries the cut-off
+        # partial as the assistant turn before it; the mock answers with
+        # the rest of the reply it would have given the turn before that —
+        # so everything below (files, tools, rules) reads that turn.
+        continued_from: str | None = None
+        if last.startswith(MOCK_CONTINUE_PREFIX) and len(request.messages) >= 3:
+            continued_from = _text_of(request.messages[-2]["content"])
+            newest = request.messages[-3]["content"]
+            whole = _text_of(newest)
+            last = whole.rsplit("\n\n", 1)[-1]
         files = (
             [block for block in newest if block.get("type") != "text"]
             if isinstance(newest, list)
@@ -1498,15 +1508,6 @@ class MockClaudeProvider:
                 if self.delay:
                     await asyncio.sleep(self.delay)
                 yield ThinkingDelta(paragraph + "\n\n")
-
-        # feat-auto-continue: a continuation request carries the cut-off
-        # partial as the assistant turn before it; the mock answers with
-        # the rest of the reply it would have given the turn before that.
-        continued_from: str | None = None
-        if last.startswith(MOCK_CONTINUE_PREFIX) and len(request.messages) >= 3:
-            continued_from = _text_of(request.messages[-2]["content"])
-            whole = _text_of(request.messages[-3]["content"])
-            last = whole.rsplit("\n\n", 1)[-1]
 
         reply, action = _CHAT_FALLBACK, None
         long = MOCK_LONG.search(last)
