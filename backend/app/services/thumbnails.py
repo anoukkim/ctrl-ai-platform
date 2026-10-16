@@ -6,11 +6,13 @@ the shell relays it to the site, and the Builder page uploads the bytes
 here. Member code never runs on the server for this — the server only
 receives an image, checks what it is and re-encodes it (like the
 screenshots on 의견 보내기): the kind is read from the bytes, the picture
-is decoded under the pixel guard, **scaled whole** into `WIDTH × HEIGHT`
-(owner-polish-3 (a): the owner wants the whole app screen on the card,
-not its top-left corner — a capture of another shape is letterboxed on
-the page's own background colour, never cropped) and written again as
-WebP with no metadata.
+is decoded under the pixel guard, made into **the first screen, like a
+screenshot** — scaled to fill `WIDTH × HEIGHT` and cut from the top
+(centred side to side), never letterboxed (owner, 2026-10-17: "전체가 안
+나와도 되니까 걍 screenshot 으로 하는게 낫지 않음?", replacing
+owner-polish-3 (a)'s whole-page fit, whose tiny pages and bands looked
+nothing like the app when opened) — and written again as WebP with no
+metadata.
 
 Two pictures per project, both in asset storage (never the database):
 
@@ -83,7 +85,7 @@ def encode(data: bytes) -> bytes:
             rgba = image.convert("RGBA")
             base.paste(rgba, mask=rgba.getchannel("A"))
             image = base
-        fitted = _contain(image)
+        fitted = _first_screen(image)
         out = io.BytesIO()
         # No `exif=`: nothing of the source's metadata is copied.
         fitted.save(out, format="WEBP", quality=82, method=4)
@@ -92,20 +94,13 @@ def encode(data: bytes) -> bytes:
     return out.getvalue()
 
 
-def _contain(image):
-    """The whole picture scaled into WIDTH × HEIGHT, letterboxed on the
-    page's background colour (the top-left pixel) when the shapes differ."""
+def _first_screen(image):
+    """The top of the picture filling WIDTH × HEIGHT, like a screenshot:
+    scaled until both edges cover the card, then cut from the top and
+    centred side to side — what a visitor sees first when the app opens."""
     from PIL import Image, ImageOps
 
-    scaled = ImageOps.contain(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS)
-    if scaled.size == (WIDTH, HEIGHT):
-        return scaled
-    background = image.getpixel((0, 0))
-    if not isinstance(background, tuple) or len(background) < 3:
-        background = (255, 255, 255)
-    canvas = Image.new("RGB", (WIDTH, HEIGHT), tuple(background[:3]))
-    canvas.paste(scaled, ((WIDTH - scaled.width) // 2, (HEIGHT - scaled.height) // 2))
-    return canvas
+    return ImageOps.fit(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS, centering=(0.5, 0.0))
 
 
 def save_draft(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:
@@ -121,38 +116,6 @@ def save_version(
     """Store a version's picture (the published one, taken after 게시)."""
     storage.save(version_key(project, version), encode(data))
     quiet_update(db, version, thumbnail_at=datetime.now(timezone.utc))
-
-
-CHOOSE_NOT_IMAGE = "썸네일 그림의 형식이 이상해요 (PNG, JPG, WebP의 data URL이어야 해요)."
-
-
-def decode_data_url(value: str) -> bytes:
-    """A `data:image/...;base64,` URL → bytes, or `AttachmentRefusal`. The
-    kind is still read from the bytes afterwards (`encode`), never from
-    the prefix."""
-    import base64
-    import re
-
-    match = re.match(r"^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$", value)
-    if not match:
-        raise AttachmentRefusal(CHOOSE_NOT_IMAGE)
-    try:
-        data = base64.b64decode(match.group(2), validate=False)
-    except (ValueError, TypeError) as error:
-        raise AttachmentRefusal(CHOOSE_NOT_IMAGE) from error
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise AttachmentRefusal(TOO_BIG, 413)
-    return data
-
-
-def choose(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:
-    """owner-polish-3 (a2): the maker's pick becomes the published version's
-    picture, and the project remembers that it was chosen."""
-    version = project.published_version
-    if version is None:
-        raise AttachmentRefusal(NOT_PUBLISHED, 409)
-    save_version(db, storage, project, version, data)
-    quiet_update(db, project, thumbnail_chosen_at=datetime.now(timezone.utc))
 
 
 def load_draft(storage: AssetStorage, project: BuilderProject) -> bytes | None:
