@@ -214,6 +214,7 @@ export default function ModelCatalog() {
       {state.phase === "ready" && (
         <>
           {/* 한눈에: 펼치지 않아도 보이는 숫자들 (ui-improvements B). */}
+          <div style={{ marginBottom: "1rem" }}>
           <StatCards
             cards={[
               { key: "models", label: "모델", value: models.length, unit: "개" },
@@ -239,6 +240,7 @@ export default function ModelCatalog() {
               },
             ]}
           />
+          </div>
 
           {models.length > 0 && (
             <SearchBar

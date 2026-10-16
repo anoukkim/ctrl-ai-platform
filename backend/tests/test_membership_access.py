@@ -563,6 +563,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/deleted-items"): "require_admin",
     ("POST", "/api/admin/work/{kind}/{item_id}/restore"): "require_admin",
     ("DELETE", "/api/admin/work/{kind}/{item_id}"): "require_admin",
+    ("DELETE", "/api/admin/work/{kind}/{item_id}/purge"): "require_admin",
     # Withdrawal, from the member detail page. Audited in the service.
     ("GET", "/api/admin/members/{user_id}/withdrawal"): "require_admin",
     ("POST", "/api/admin/members/{user_id}/withdrawal"): "require_admin",
