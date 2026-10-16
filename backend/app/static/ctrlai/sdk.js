@@ -331,17 +331,17 @@
       return dbCall("db.list", query);
     },
     get: function (collection, id) {
-      return dbCall("db.get", { collection: checkedCollection(collection), id: checkedId(id) });
+      return dbCall("db.get", { collection: checkedCollection(collection), item: checkedId(id) });
     },
     update: function (collection, id, changes) {
       return dbCall("db.update", {
         collection: checkedCollection(collection),
-        id: checkedId(id),
+        item: checkedId(id),
         data: checkedObject(changes, "바꿀 값"),
       });
     },
     remove: function (collection, id) {
-      return dbCall("db.remove", { collection: checkedCollection(collection), id: checkedId(id) });
+      return dbCall("db.remove", { collection: checkedCollection(collection), item: checkedId(id) });
     },
     count: function (collection, options) {
       options = options || {};
@@ -353,7 +353,7 @@
     report: function (collection, id, reason) {
       return dbCall("db.report", {
         collection: checkedCollection(collection),
-        id: checkedId(id),
+        item: checkedId(id),
         reason: typeof reason === "string" ? reason : "",
       });
     },

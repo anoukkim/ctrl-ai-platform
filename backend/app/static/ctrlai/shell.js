@@ -498,10 +498,11 @@
       case "db.remove":
       case "db.count":
       case "db.report": {
+        // The envelope's `id` is the request id; the item's id came as `item`.
         var fields = {};
         for (var name in message) {
           if (Object.prototype.hasOwnProperty.call(message, name) && name !== "type" && name !== "id" && name !== "ctrlai") {
-            fields[name] = message[name];
+            fields[name === "item" ? "id" : name] = message[name];
           }
         }
         return dbCall(type, fields, false).then(function (data) {
