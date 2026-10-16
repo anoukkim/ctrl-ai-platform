@@ -983,6 +983,29 @@ code {
   transform: translateY(1px) scale(0.98);
 }
 
+/* 일하는 중인 단추 (owner-polish 14): 눌리지는 않지만 금지(🚫)가 아니라
+   진행 중(⌛) 커서와 스피너. disabled로 두면 브라우저가 not-allowed를
+   보여 줘 "왜 안 되지?"로 읽힙니다. */
+.btn-working,
+.btn-working:hover,
+[data-working="true"] {
+  cursor: progress !important;
+  opacity: 0.85;
+}
+
+.btn-working .spin,
+.spin {
+  display: inline-block;
+  vertical-align: -2px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 성공을 알리는 작은 체크 — 한 번 톡 커졌다가 자리 잡습니다. */
 .success-pop {
   animation: success-pop 0.28s ease-out;

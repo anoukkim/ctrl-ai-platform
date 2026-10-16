@@ -29,6 +29,7 @@ import {
   MoreHorizontal,
   Pin,
   Tag,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -1281,19 +1282,34 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     : "이번 분기에는 사용할 수 없습니다"
                 }
                 disabled={!mayCreate || generating || empty}
+                data-working={generating || undefined}
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
               <span className="sr-only" id="builder-ask-keys">
                 Enter로 보내고, Shift+Enter로 줄을 바꿔요.
               </span>
               <div className={styles.askActions}>
+                {/* owner-polish 14: while working the button is busy, not
+                    disabled — disabled gives the 🚫 cursor; busy gives
+                    cursor: progress and a spinner. */}
                 <button
-                  className="btn btn-primary btn-sm"
+                  className={`btn btn-primary btn-sm ${generating ? "btn-working" : ""}`}
                   type="button"
-                  onClick={() => void makePlan({ request: ask.trim() })}
-                  disabled={!mayCreate || generating || empty || !ask.trim()}
+                  onClick={() => {
+                    if (generating) return;
+                    void makePlan({ request: ask.trim() });
+                  }}
+                  aria-disabled={generating || undefined}
+                  aria-busy={generating || undefined}
+                  disabled={!generating && (!mayCreate || empty || !ask.trim())}
                 >
-                  {generating ? "만드는 중…" : "고치기"}
+                  {generating ? (
+                    <>
+                      <Loader2 size={14} className="spin" aria-hidden="true" /> 만드는 중…
+                    </>
+                  ) : (
+                    "고치기"
+                  )}
                 </button>
                 {generateEstimate && (
                   <span className={styles.starterCost}>

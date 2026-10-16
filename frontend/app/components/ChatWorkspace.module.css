@@ -377,7 +377,49 @@
   }
 }
 
-/* 첫 글자가 오기 전의 세 점. 차례로 살짝 떠오릅니다(ui-friendly-motion). */
+/* 첫 글자가 오기 전 (owner-polish 14): "생각하는 중…"이 시머로 빛나고 초가
+   흐릅니다. 글자는 그대로 읽히고, 빛만 지나갑니다. */
+.waiting {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.92em;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--text-muted) 0%,
+    var(--text-muted) 35%,
+    var(--text) 50%,
+    var(--text-muted) 65%,
+    var(--text-muted) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+.waitingSeconds {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+/* 첫 글자가 오기 전의 세 점(ui-friendly-motion) — 도구 상태 등 다른 곳에서 씁니다. */
 .typing {
   display: inline-flex;
   align-items: center;
@@ -419,6 +461,13 @@
   .caret,
   .typing span[aria-hidden] {
     animation: none;
+  }
+
+  /* 움직임 줄이기: 빛이 지나가지 않고 그냥 글자로 보입니다. 초는 그대로. */
+  .shimmer {
+    animation: none;
+    color: var(--text-muted);
+    background: none;
   }
 }
 

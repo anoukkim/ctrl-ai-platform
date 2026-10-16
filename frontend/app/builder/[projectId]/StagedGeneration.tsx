@@ -11,7 +11,9 @@
  */
 
 import { Check, Circle, Loader2, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import WorkingSince from "@/app/components/WorkingSince";
 
 import type { Generation, PlanInput } from "@/lib/generation";
 import { STYLE_CHOICES } from "@/lib/projects";
@@ -125,8 +127,23 @@ export function StartForm({ initialIdea, busy, disabled, error, onPlan }: StartF
         </>
       )}
       <div className={styles.actions}>
-        <button className="btn btn-primary" type="submit" disabled={disabled || busy || !idea.trim()}>
-          {busy ? "계획을 세우는 중…" : "만들 계획 세우기"}
+        <button
+          className={`btn btn-primary ${busy ? "btn-working" : ""}`}
+          type="submit"
+          aria-busy={busy || undefined}
+          aria-disabled={busy || undefined}
+          disabled={!busy && (disabled || !idea.trim())}
+          onClick={(event) => {
+            if (busy) event.preventDefault();
+          }}
+        >
+          {busy ? (
+            <>
+              <Loader2 size={14} className="spin" aria-hidden="true" /> 계획을 세우는 중…
+            </>
+          ) : (
+            "만들 계획 세우기"
+          )}
         </button>
         <button
           type="button"
@@ -171,6 +188,19 @@ function stepState(generation: Generation, progress: Progress, path: string) {
 
 export function PlanCard({ generation, running, progress, disabled, onStart, onCancel }: PlanCardProps) {
   const resumable = generation.status === "partial" || generation.status === "failed";
+  // owner-polish 14: how long the current step has been running, and a
+  // thin n / m bar — 20~60초 동안 아무것도 움직이지 않던 자리입니다.
+  const [stepSince, setStepSince] = useState(() => Date.now());
+  const stepKey = progress.current ?? (progress.check === "running" ? "__check__" : null);
+  const lastStep = useRef<string | null>(null);
+  useEffect(() => {
+    if (stepKey !== lastStep.current) {
+      lastStep.current = stepKey;
+      setStepSince(Date.now());
+    }
+  }, [stepKey]);
+  const total = generation.plan.length;
+  const done = generation.plan.filter((step) => stepState(generation, progress, step.path) === "done").length;
   const estimate =
     generation.estimated_krw !== null
       ? ` · 약 ${formatKrw(generation.estimated_krw)}${
@@ -181,6 +211,16 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
     <section className={styles.plan} aria-label="만들 계획" data-testid="plan-card">
       <p className={styles.title}>{generation.kind === "create" ? "만들 계획" : "바꿀 계획"}</p>
       {generation.summary && <p className={styles.text}>{generation.summary}</p>}
+      {(running || done > 0) && total > 0 && (
+        <div className={styles.progress} data-testid="plan-progress">
+          <span className={styles.progressTrack} aria-hidden="true">
+            <span className={styles.progressFill} style={{ width: `${Math.round((done / total) * 100)}%` }} />
+          </span>
+          <span className={styles.progressText}>
+            {done} / {total} 파일
+          </span>
+        </div>
+      )}
       <ol className={styles.steps}>
         {generation.plan.map((step) => {
           const state = stepState(generation, progress, step.path);
@@ -188,7 +228,7 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
             <li key={step.path} className={styles.step} data-state={state}>
               <span className={styles.stepIcon} aria-hidden="true">
                 {state === "done" ? (
-                  <Check size={14} />
+                  <Check size={14} className="success-pop" />
                 ) : state === "writing" ? (
                   <Loader2 size={14} className={styles.spin} />
                 ) : (
@@ -197,7 +237,12 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
               </span>
               <span className={styles.stepBody}>
                 <code className={styles.path}>{step.path}</code>
-                {state === "writing" && <span className={styles.status}> 작성 중…</span>}
+                {state === "writing" && (
+                  <span className={styles.status}>
+                    {" "}
+                    작성 중… <WorkingSince since={stepSince} />
+                  </span>
+                )}
                 {state === "done" && progress.charged[step.path] !== undefined && (
                   <span className={styles.status}> {formatKrw(progress.charged[step.path])}</span>
                 )}
@@ -210,7 +255,7 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
           <li className={styles.step} data-state={progress.check === "done" ? "done" : progress.check === "running" ? "writing" : "waiting"}>
             <span className={styles.stepIcon} aria-hidden="true">
               {progress.check === "done" ? (
-                <Check size={14} />
+                <Check size={14} className="success-pop" />
               ) : progress.check === "running" ? (
                 <Loader2 size={14} className={styles.spin} />
               ) : (
@@ -219,7 +264,12 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
             </span>
             <span className={styles.stepBody}>
               <span className={styles.path}>점검</span>
-              {progress.check === "running" && <span className={styles.status}> 점검 중…</span>}
+              {progress.check === "running" && (
+                <span className={styles.status}>
+                  {" "}
+                  점검 중… <WorkingSince since={stepSince} />
+                </span>
+              )}
               <span className={styles.purpose}>
                 {progress.check === "done"
                   ? progress.checkSummary
