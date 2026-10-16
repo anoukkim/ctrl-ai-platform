@@ -33,6 +33,20 @@ export interface Conversation {
   use_code_execution?: boolean;
   /** 생각 과정 보기(chat-thinking-view). 이후 답장부터 적용됩니다. */
   show_thinking?: boolean;
+  /** 맨 위에 고정(chat-pins) — 고정한 시각. null이면 고정 안 됨. */
+  pinned_at?: string | null;
+}
+
+/**
+ * 목록을 고정됨 / 최근 대화로 나눕니다(chat-pins). 고정된 대화는 최근에
+ * 고정한 것이 먼저, 나머지는 서버가 준 순서(마지막 메시지순) 그대로.
+ */
+export function splitPinned(rows: Conversation[]): { pinned: Conversation[]; rest: Conversation[] } {
+  const pinned = rows
+    .filter((row) => Boolean(row.pinned_at))
+    .sort((a, b) => (b.pinned_at ?? "").localeCompare(a.pinned_at ?? "") || b.id - a.id);
+  const rest = rows.filter((row) => !row.pinned_at);
+  return { pinned, rest };
 }
 
 /** 서버 도구 한 가지. */
@@ -358,6 +372,14 @@ export function renameConversation(id: number, title: string): Promise<Conversat
   return request<Conversation>(`/chat/conversations/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ title }),
+  });
+}
+
+/** 맨 위에 고정 / 고정 해제 — Builder의 `setBuilderPinned`와 같습니다. */
+export function setConversationPinned(id: number, on: boolean): Promise<Conversation> {
+  return request<Conversation>(`/chat/conversations/${id}/pin`, {
+    method: "POST",
+    body: JSON.stringify({ on }),
   });
 }
 

@@ -102,6 +102,7 @@ the same commit that adds it.
 | `GET /api/chat/conversations/{id}` | `get_current_user` | Reading your own conversation |
 | `POST /api/chat/conversations` | **`require_active_member`** | Creating |
 | `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
+| `POST /api/chat/conversations/{id}/pin` | `get_current_user` | 맨 위에 고정 / 고정 해제 (`{on}`, chat-pins) — a reading preference, so the owner may while not participating; `updated_at` and `last_message_at` untouched |
 | `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
 | `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet |
 | `POST /api/chat/conversations/{id}/attachments` | **`require_active_member`** | Attach a file to the next message (bytes as the body, `?name=`); checked, then stored |

@@ -181,9 +181,12 @@
   color: var(--text);
 }
 
-/* 지우기 단추(두 번째)는 가리키면 빨갛게 — 되돌릴 수 없는 일입니다. */
-.iconButtonDanger:hover:not(:disabled) {
-  color: var(--error-text);
+/* chat-pins: 고정된 대화의 작은 핀 — 제목 앞에. */
+.pinMark {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  vertical-align: -1px;
+  color: var(--text-dim);
 }
 
 .renameInput {

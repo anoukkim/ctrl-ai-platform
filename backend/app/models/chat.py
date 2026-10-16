@@ -65,6 +65,10 @@ class Conversation(TimestampMixin, Base):
     last_message_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    #: chat-pins: 맨 위에 고정 — when the member pinned it (NULL = not
+    #: pinned). The same 고정 as Builder and Video projects: the owner's own
+    #: reading preference, so pinning is not an edit (`updated_at` stays).
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     #: The catalogue model this conversation's *next* reply uses. Set to the
     #: default when the conversation is created; the member may change it,
     #: which affects later replies only — each reply records its own model

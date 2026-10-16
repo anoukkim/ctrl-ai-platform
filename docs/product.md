@@ -327,9 +327,16 @@ Chat is the opening screen and a real conversation with Claude, behind
 `CLAUDE_PROVIDER` (mock by default; the screen says
 **테스트 모드 – 실제 AI 결과가 아닙니다** while it is).
 
-- **Conversations** are listed on the left: 새 대화, rename, delete. They are
-  private to the member. Deleting is a real delete — a chat is not *work*,
-  so it does not go to Deleted Items — but the money it spent stays in Usage.
+- **Conversations** are listed on the left: 새 대화, and each row's ⋯ menu
+  with 이름 바꾸기 · 맨 위에 고정 / 고정 해제 · 지우기 (chat-pins,
+  2026-10-17 — the two hover icons became the same ⋯ menu a Builder or
+  Video card has). A pinned conversation wears a small pin and sits under
+  a **고정됨** heading above 최근 대화, newest pin first (`pinned_at` on the
+  conversation, `POST …/pin {on}`; a pin is the owner's reading
+  preference — it works while not participating and moves no date). They
+  are private to the member. Deleting is a real delete — a chat is not
+  *work*, so it does not go to Deleted Items — but the money it spent
+  stays in Usage.
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
 - **Previews** (chat-plus-artifacts): a finished reply's fenced `html` or

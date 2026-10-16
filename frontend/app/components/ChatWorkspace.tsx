@@ -34,11 +34,13 @@ import {
   Lock,
   MessageSquare,
   Pencil,
+  Pin,
+  PinOff,
+  Trash2,
   Plus,
   SendHorizontal,
   Square,
   Table2,
-  Trash2,
   type LucideIcon,
   Paperclip,
   Image as ImageIcon,
@@ -57,6 +59,8 @@ import {
   listConversations,
   modelLabel,
   renameConversation,
+  setConversationPinned,
+  splitPinned,
   sendMessage,
   setConversationModel,
   type ChatAction,
@@ -98,6 +102,7 @@ import { NOT_PARTICIPATING_HINT, formatKrw } from "@/lib/quarters";
 
 import BrandMark from "./BrandMark";
 import ChatMarkdown from "./ChatMarkdown";
+import MenuButton from "./MenuButton";
 import ModelDepthPicker from "./ModelDepthPicker";
 import TestModeNotice from "./TestModeNotice";
 import WorkingSince from "./WorkingSince";
@@ -1022,6 +1027,16 @@ export default function ChatWorkspace() {
     [renameDraft],
   );
 
+  /** 맨 위에 고정 / 고정 해제 (chat-pins) — 그 줄만 바꿉니다. */
+  const pin = useCallback(async (id: number, next: boolean) => {
+    try {
+      const updated = await setConversationPinned(id, next);
+      setConversations((rows) => rows.map((row) => (row.id === id ? updated : row)));
+    } catch (error) {
+      setListError(describeError(error));
+    }
+  }, []);
+
   const askDelete = useCallback(
     (conversation: Conversation) => {
       setConfirmError(null);
@@ -1131,75 +1146,110 @@ export default function ChatWorkspace() {
           />
         )}
 
-        {conversations.length > 0 && <p className={`section-label ${styles.listLabel}`}>최근 대화</p>}
-
-        <ul className={styles.listItems}>
-          {conversations.map((conversation) => (
-            <li
-              key={conversation.id}
-              className={`${styles.listItem} ${
-                conversation.id === activeId ? styles.listItemActive : ""
-              }`}
-            >
-              {renamingId === conversation.id ? (
-                <input
-                  className={styles.renameInput}
-                  aria-label="대화 이름"
-                  value={renameDraft}
-                  maxLength={100}
-                  autoFocus
-                  onChange={(event) => setRenameDraft(event.target.value)}
-                  onBlur={() => void saveRename(conversation.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                      event.preventDefault();
-                      void saveRename(conversation.id);
-                    } else if (event.key === "Escape") {
-                      setRenamingId(null);
-                    }
-                  }}
-                />
-              ) : (
-                <button
-                  className={styles.listOpenButton}
-                  type="button"
-                  onClick={() => void openConversation(conversation.id)}
-                  disabled={streaming && conversation.id !== activeId}
-                  title={conversation.title || "새 대화"}
-                >
-                  {conversation.title || "새 대화"}
-                </button>
-              )}
-              {mayCreate && renamingId !== conversation.id && (
-                <span className={styles.listTools}>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label="이름 바꾸기"
-                    title="이름 바꾸기"
-                    disabled={streaming}
-                    onClick={() => {
-                      setRenameDraft(conversation.title);
-                      setRenamingId(conversation.id);
+        {(() => {
+          // chat-pins: 고정됨 first (newest pin first), then 최근 대화.
+          const { pinned, rest } = splitPinned(conversations);
+          const row = (conversation: Conversation) => (
+              <li
+                key={conversation.id}
+                className={`${styles.listItem} ${
+                  conversation.id === activeId ? styles.listItemActive : ""
+                }`}
+              >
+                {renamingId === conversation.id ? (
+                  <input
+                    className={styles.renameInput}
+                    aria-label="대화 이름"
+                    value={renameDraft}
+                    maxLength={100}
+                    autoFocus
+                    onChange={(event) => setRenameDraft(event.target.value)}
+                    onBlur={() => void saveRename(conversation.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                        event.preventDefault();
+                        void saveRename(conversation.id);
+                      } else if (event.key === "Escape") {
+                        setRenamingId(null);
+                      }
                     }}
-                  >
-                    <Pencil size={13} aria-hidden="true" />
-                  </button>
+                  />
+                ) : (
                   <button
+                    className={styles.listOpenButton}
                     type="button"
-                    className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                    aria-label="지우기"
-                    title="지우기"
-                    disabled={streaming}
-                    onClick={() => askDelete(conversation)}
+                    onClick={() => void openConversation(conversation.id)}
+                    disabled={streaming && conversation.id !== activeId}
+                    title={conversation.title || "새 대화"}
                   >
-                    <Trash2 size={13} aria-hidden="true" />
+                    {conversation.pinned_at && <Pin size={11} className={styles.pinMark} aria-hidden="true" data-testid="pin-mark" />}
+                    {conversation.title || "새 대화"}
                   </button>
-                </span>
+                )}
+                {renamingId !== conversation.id && (
+                  <span className={styles.listTools}>
+                    {/* chat-pins: the row's ⋯ menu — 이름 바꾸기 · 맨 위에 고정 /
+                        고정 해제 · 지우기, like a Builder or Video card's. A member
+                        not participating may still pin (a reading preference);
+                        the two changes are disabled with the usual hint. */}
+                    <MenuButton
+                      label="더보기"
+                      title="더보기"
+                      className={styles.iconButton}
+                      disabled={streaming}
+                      items={[
+                        {
+                          label: "이름 바꾸기",
+                          icon: <Pencil size={14} />,
+                          disabled: !mayCreate,
+                          hint: mayCreate ? undefined : NOT_PARTICIPATING_HINT,
+                          onSelect: () => {
+                            setRenameDraft(conversation.title);
+                            setRenamingId(conversation.id);
+                          },
+                        },
+                        {
+                          label: conversation.pinned_at ? "고정 해제" : "맨 위에 고정",
+                          icon: conversation.pinned_at ? <PinOff size={14} /> : <Pin size={14} />,
+                          onSelect: () => void pin(conversation.id, !conversation.pinned_at),
+                        },
+                        {
+                          label: "지우기",
+                          icon: <Trash2 size={14} />,
+                          danger: true,
+                          disabled: !mayCreate,
+                          hint: mayCreate ? undefined : NOT_PARTICIPATING_HINT,
+                          onSelect: () => askDelete(conversation),
+                        },
+                      ]}
+                    >
+                      <span aria-hidden="true">⋯</span>
+                    </MenuButton>
+                  </span>
+                )}
+              </li>
+          );
+          return (
+            <>
+              {pinned.length > 0 && (
+                <p className={`section-label ${styles.listLabel}`} data-testid="pinned-label">
+                  고정됨
+                </p>
               )}
-            </li>
-          ))}
-        </ul>
+              {pinned.length > 0 && (
+                <ul className={styles.listItems} aria-label="고정된 대화">
+                  {pinned.map(row)}
+                </ul>
+              )}
+              {rest.length > 0 && <p className={`section-label ${styles.listLabel}`}>최근 대화</p>}
+              {rest.length > 0 && (
+                <ul className={styles.listItems} aria-label="최근 대화">
+                  {rest.map(row)}
+                </ul>
+              )}
+            </>
+          );
+        })()}
       </aside>
 
       <div className={styles.chat}>
