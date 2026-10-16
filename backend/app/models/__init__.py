@@ -49,7 +49,7 @@ from app.models.provider import (
 )
 from app.models.invite import InviteCode, InviteStatus
 from app.models.feature_switch import FeatureSwitch
-from app.models.pricing import ChatLimits, ChatModel, ChatModelVisibility, ExchangeRate
+from app.models.pricing import ChatLimits, ChatModel, ChatModelVisibility, ExchangeRate, FxStatus
 from app.models.quarter import (
     ApplicationStatus,
     Quarter,
@@ -107,6 +107,7 @@ __all__ = [
     "ChatLimits",
     "FeatureSwitch",
     "ExchangeRate",
+    "FxStatus",
     "AccountWithdrawal",
     "GRACE_PERIOD_DAYS",
     "PublishedWorkChoice",

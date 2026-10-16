@@ -1,7 +1,7 @@
 """Admin › AI Models (the chat model catalogue) and Admin › System
 (the exchange rate and the chat limits)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -98,8 +98,34 @@ class ChatModelUpdate(BaseModel):
 class ExchangeRateRead(BaseModel):
     krw_per_usd: Decimal
     set_at: datetime
-    #: Empty for the rate the migration seeded.
+    #: Empty for the rate the migration seeded, and for automatic rows.
     set_by_username: str = ""
+    #: owner-polish-3 (b): "seed" | "admin" | "mock" | "frankfurter".
+    source: str = "admin"
+    #: The day the provider quoted (automatic rows only).
+    fetched_for: date | None = None
+
+
+class FxStatusRead(BaseModel):
+    """owner-polish-3 (b): the automatic refresh, for Admin › System."""
+
+    provider: str
+    is_mock: bool
+    #: False = the admin pinned the rate; nothing is fetched.
+    auto_enabled: bool
+    checked_at: datetime | None = None
+    fetched_rate: Decimal | None = None
+    fetched_for: date | None = None
+    #: "applied" | "unchanged" | "blocked" | "failed" | "".
+    outcome: str = ""
+    outcome_label: str = ""
+    #: The warning while a jump is held back, or the failure.
+    note: str = ""
+    max_jump_pct: Decimal
+
+
+class FxAutoWrite(BaseModel):
+    on: bool
 
 
 class ExchangeRateWrite(BaseModel):
@@ -168,6 +194,8 @@ class ClaudeSettingsRead(BaseModel):
     cache_ttl: str | None = "5m"
     exchange_rate: ExchangeRateRead | None
     rate_history: list[ExchangeRateRead]
+    #: owner-polish-3 (b): the automatic refresh and its switch.
+    fx: FxStatusRead
     #: token-guard: the per-reply cap, the warning threshold, the daily cap.
     chat_limits: ChatLimitsRead
 

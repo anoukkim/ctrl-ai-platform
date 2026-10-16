@@ -9,7 +9,7 @@ and they may publish again.
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -44,7 +44,11 @@ from app.schemas.apps import (
     AdminUnpublish,
 )
 from app.schemas.builder import HandoffRead
-from app.services import app_data, app_publish, app_runtime, audit, chat_limits, project_handoff
+from app.services import app_data, app_publish, app_runtime, audit, chat_limits, project_handoff, thumbnails
+from app.api.uploads import read_upload_body
+from starlette.concurrency import run_in_threadpool
+from app.services.attachments import AttachmentRefusal
+from app.services.storage import get_storage
 from app.services.quarters import current_quarter
 
 router = APIRouter(prefix="/admin/apps", tags=["admin"])
@@ -178,6 +182,7 @@ def _overview(settings: Settings, project: BuilderProject, figures: _Figures) ->
         sdk_disabled_reason=project.sdk_disabled_reason,
         uses_ai=project.published_uses_ai,
         ai_access=project.ai_access,
+        thumbnail_at=project.published_thumbnail_at if published else None,
         open_reports=figures.reports.get(project.id, 0),
         consents=figures.consents.get(project.id, 0),
         data_items=items,
@@ -487,6 +492,42 @@ def delete_data_item(
 
 
 # Declared last: a bare /{project_id} must not swallow /reports or /overview.
+@router.post(
+    "/{project_id}/thumbnail",
+    response_model=AdminAppOverview,
+    summary="owner-polish-3: store a thumbnail of the published app taken in the admin's browser",
+)
+async def upload_admin_thumbnail(
+    project_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> AdminAppOverview:
+    """Admin › Apps › 썸네일 만들기: the admin's own browser opens each app
+    without a picture in a hidden frame and sends what the SDK drew; the
+    server only checks and re-encodes it (`thumbnails.encode`), like the
+    maker's own upload. Raw bytes — the JSON-body rule's documented
+    exception. 409 without a published version; a deleted project is a 404.
+    """
+    project = db.get(BuilderProject, project_id)
+    if project is None or project.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="앱을 찾을 수 없습니다.")
+    version = project.published_version
+    if version is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=thumbnails.NOT_PUBLISHED)
+    data = await read_upload_body(
+        request, thumbnails.MAX_UPLOAD_BYTES, thumbnails.TOO_BIG, "썸네일은 application/octet-stream 형식으로 보내 주세요."
+    )
+    try:
+        await run_in_threadpool(thumbnails.save_version, db, get_storage(settings), project, version, data)
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    db.commit()
+    db.refresh(project)
+    return _overview(settings, project, _figures(db, [project]))
+
+
 @router.get("/{project_id}", response_model=AdminAppOverview, summary="Admin › Apps: one app")
 def read_overview(
     project_id: int,

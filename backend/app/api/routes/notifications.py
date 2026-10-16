@@ -5,6 +5,7 @@ read spend nothing and must work while not taking part this quarter.
 Another member's row is a 404 — never a 403 that confirms it exists.
 """
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,21 @@ def unread(db: Session = Depends(get_db), user: User = Depends(get_current_user)
     """The bell polls this, so the daily summary is written here too —
     otherwise the count could never announce it."""
     notifications.refresh(db, user)
+    return UnreadRead(unread=notifications.unread_count(db, user.id))
+
+
+class ClearWrite(BaseModel):
+    """지우기 — the ids the bell shows; empty/omitted = everything of mine."""
+
+    ids: list[int] | None = None
+
+
+@router.post("/clear", response_model=UnreadRead, summary="지우기: delete the shown notifications (owner-polish-3)")
+def clear_notifications(
+    payload: ClearWrite, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> UnreadRead:
+    notifications.clear(db, user.id, payload.ids)
+    db.commit()
     return UnreadRead(unread=notifications.unread_count(db, user.id))
 
 

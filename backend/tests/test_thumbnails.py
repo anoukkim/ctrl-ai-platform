@@ -81,9 +81,22 @@ def test_encode_makes_a_640x400_webp_without_metadata_from_any_allowed_picture()
             assert stored.format == "WEBP"
             assert stored.size == (640, 400)
             assert not stored.getexif()
-    # A tall capture is cropped from the top, not squashed; a tiny one is scaled up.
-    with Image.open(io.BytesIO(thumbnails.encode(picture(400, 1000)))) as stored:
+    # owner-polish-3 (a): the whole picture is kept — a tall capture is
+    # letterboxed on the page's own background, never cropped; a tiny one
+    # is scaled up.
+    tall = Image.new("RGB", (400, 1000), (30, 120, 200))
+    tall.paste((255, 255, 255), (100, 400, 300, 600))  # a white box in the middle of the page
+    buffer = io.BytesIO()
+    tall.save(buffer, format="PNG")
+    with Image.open(io.BytesIO(thumbnails.encode(buffer.getvalue()))) as stored:
         assert stored.size == (640, 400)
+        rgb = stored.convert("RGB")
+        # The page is 160 px wide after scaling and sits in the middle; the
+        # box is still there (nothing cropped), and the sides are the page's background.
+        white = rgb.getpixel((320, 200))
+        assert all(channel > 240 for channel in white)
+        for side in ((20, 200), (620, 200)):  # WebP is lossy: within a few steps of the background
+            assert all(abs(a - b) <= 3 for a, b in zip(rgb.getpixel(side), (30, 120, 200))), rgb.getpixel(side)
     with Image.open(io.BytesIO(thumbnails.encode(picture(64, 40)))) as stored:
         assert stored.size == (640, 400)
 
@@ -218,3 +231,30 @@ def test_the_shell_names_the_site_origins_it_answers_captures_from(
     page = client.get(f"/_ctrlai/shell/{project.app_slug}")
     assert page.status_code == 200
     assert 'data-sites="http://localhost:3000' in page.text or 'data-sites="' in page.text
+
+
+def test_the_admin_takes_a_missing_thumbnail_for_a_published_app(
+    client: TestClient, anon_client: TestClient, db_session: Session, project: BuilderProject, other_user, budgeted, config
+) -> None:
+    """owner-polish-3 (a): Admin › Apps › 썸네일 만들기 — the admin's browser
+    photographs each app without a picture and sends it here."""
+    publish(client, project)
+    db_session.refresh(project)
+    rows = {row["name"]: row for row in client.get("/api/admin/apps/overview").json()}
+    assert rows[project.name]["thumbnail_at"] is None
+
+    stored = client.post(f"/api/admin/apps/{project.id}/thumbnail", content=picture(1280, 800), headers=OCTET)
+    assert stored.status_code == 200, stored.text
+    assert stored.json()["thumbnail_at"] is not None
+    db_session.expire_all()
+    assert project.published_version.thumbnail_at is not None
+    # CtrlAIApps serves it like one the maker took.
+    assert client.get(f"/api/apps/{project.app_slug}/thumbnail").status_code == 200
+
+    # Not for an unpublished project; not for members.
+    draft = BuilderProject(owner_user_id=other_user.id, name="초안", description="")
+    db_session.add(draft)
+    db_session.commit()
+    assert client.post(f"/api/admin/apps/{draft.id}/thumbnail", content=picture(), headers=OCTET).status_code == 409
+    anon_client.post("/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD})
+    assert anon_client.post(f"/api/admin/apps/{project.id}/thumbnail", content=picture(), headers=OCTET).status_code == 403

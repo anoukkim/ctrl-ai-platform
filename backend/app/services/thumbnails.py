@@ -6,8 +6,11 @@ the shell relays it to the site, and the Builder page uploads the bytes
 here. Member code never runs on the server for this — the server only
 receives an image, checks what it is and re-encodes it (like the
 screenshots on 의견 보내기): the kind is read from the bytes, the picture
-is decoded under the pixel guard, cropped to 16:10, scaled to
-`WIDTH × HEIGHT` and written again as WebP with no metadata.
+is decoded under the pixel guard, **scaled whole** into `WIDTH × HEIGHT`
+(owner-polish-3 (a): the owner wants the whole app screen on the card,
+not its top-left corner — a capture of another shape is letterboxed on
+the page's own background colour, never cropped) and written again as
+WebP with no metadata.
 
 Two pictures per project, both in asset storage (never the database):
 
@@ -62,8 +65,9 @@ def encode(data: bytes) -> bytes:
     """The uploaded bytes → the stored WebP. Raises `AttachmentRefusal`.
 
     Checked, not trusted: the browser said "image", the bytes decide.
-    Centre-cropped to 16:10 so a tall capture does not squash; a picture
-    already at that ratio is only scaled.
+    The whole picture is scaled to fit `WIDTH × HEIGHT`; a capture of
+    another shape sits centred on a canvas of the page's own background
+    (its top-left pixel), so nothing of the app is cut off.
     """
     if sniff(data) not in ALLOWED:
         raise AttachmentRefusal(UNSUPPORTED)
@@ -79,13 +83,29 @@ def encode(data: bytes) -> bytes:
             rgba = image.convert("RGBA")
             base.paste(rgba, mask=rgba.getchannel("A"))
             image = base
-        fitted = ImageOps.fit(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS, centering=(0.5, 0.0))
+        fitted = _contain(image)
         out = io.BytesIO()
         # No `exif=`: nothing of the source's metadata is copied.
         fitted.save(out, format="WEBP", quality=82, method=4)
     except (Image.DecompressionBombError, OSError, ValueError, SyntaxError) as error:
         raise AttachmentRefusal(BROKEN) from error
     return out.getvalue()
+
+
+def _contain(image):
+    """The whole picture scaled into WIDTH × HEIGHT, letterboxed on the
+    page's background colour (the top-left pixel) when the shapes differ."""
+    from PIL import Image, ImageOps
+
+    scaled = ImageOps.contain(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS)
+    if scaled.size == (WIDTH, HEIGHT):
+        return scaled
+    background = image.getpixel((0, 0))
+    if not isinstance(background, tuple) or len(background) < 3:
+        background = (255, 255, 255)
+    canvas = Image.new("RGB", (WIDTH, HEIGHT), tuple(background[:3]))
+    canvas.paste(scaled, ((WIDTH - scaled.width) // 2, (HEIGHT - scaled.height) // 2))
+    return canvas
 
 
 def save_draft(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:

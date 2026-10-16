@@ -362,6 +362,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/notifications/unread"): "get_current_user",
     ("POST", "/api/notifications/read-all"): "get_current_user",
     ("POST", "/api/notifications/{notification_id}/read"): "get_current_user",
+    # owner-polish-3 (c2): 지우기 — one's own rows, no history kept.
+    ("POST", "/api/notifications/clear"): "get_current_user",
     ("GET", "/api/admin/feedback"): "require_admin",
     # feedback-screenshots: a screenshot is uploaded before the note and
     # can be removed until sent; only an admin ever opens a stored one,
@@ -469,6 +471,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/apps/{project_id}"): "require_admin",
     ("GET", "/api/admin/apps/{project_id}/handoff"): "require_admin",
     ("POST", "/api/admin/apps/{project_id}/unpublish"): "require_admin",
+    # owner-polish-3 (a): 썸네일 만들기 — a picture taken in the admin's own browser.
+    ("POST", "/api/admin/apps/{project_id}/thumbnail"): "require_admin",
     ("POST", "/api/admin/apps/reports/{report_id}/resolve"): "require_admin",
     ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # chat-plus-artifacts: Builder로 보내기 creates a project — a creation.
@@ -572,6 +576,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/invites/{invite_id}/reactivate"): "require_admin",
     ("PATCH", "/api/admin/chat-models/{chat_model_id}"): "require_admin",
     ("POST", "/api/admin/claude-pricing/exchange-rate"): "require_admin",
+    # owner-polish-3 (b): the automatic rate's switch and 지금 새로 고침.
+    ("POST", "/api/admin/claude-pricing/exchange-rate/auto"): "require_admin",
+    ("POST", "/api/admin/claude-pricing/exchange-rate/refresh"): "require_admin",
     # token-guard: the chat limits, edited like the rate.
     ("POST", "/api/admin/claude-pricing/chat-limits"): "require_admin",
     ("GET", "/api/admin/providers"): "require_admin",
@@ -700,6 +707,7 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # who should be able to say so.
         ("POST", "/api/feedback"),
         ("POST", "/api/notifications/read-all"),
+        ("POST", "/api/notifications/clear"),
         ("POST", "/api/notifications/{notification_id}/read"),
         ("POST", "/api/feedback/images"),
         ("DELETE", "/api/feedback/images/{image_id}"),

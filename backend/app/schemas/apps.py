@@ -92,6 +92,9 @@ class AdminAppOverview(BaseModel):
     #: app-ai-access: the published version uses AI, and the maker's setting.
     uses_ai: bool = False
     ai_access: str = "demo"
+    #: owner-polish-3 (a): when the published version's thumbnail was taken
+    #: (None = none yet — 썸네일 만들기 in Admin › Apps can take one).
+    thumbnail_at: datetime | None = None
     open_reports: int = 0
     #: Members who allowed this app and have not disconnected.
     consents: int = 0

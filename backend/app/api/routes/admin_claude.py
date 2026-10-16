@@ -21,15 +21,18 @@ from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import AuditAction, BuilderEvalReport, ChatLimits, ExchangeRate, User
+from app.schemas.builder import EmptyBody
 from app.schemas.pricing import (
+    FxStatusRead,
+    FxAutoWrite,
     ChatLimitsRead,
     ChatLimitsWrite,
     ClaudeSettingsRead,
     ExchangeRateRead,
     ExchangeRateWrite,
 )
+from app.services import audit, chat_limits, chat_models, fx, pricing
 from app.services import depth as depth_service
-from app.services import audit, chat_limits, chat_models, pricing
 
 router = APIRouter(prefix="/admin/claude-pricing", tags=["admin"])
 
@@ -40,6 +43,24 @@ def _rate_read(db: Session, row: ExchangeRate) -> ExchangeRateRead:
         krw_per_usd=row.krw_per_unit,
         set_at=row.created_at,
         set_by_username=who.username if who else "",
+        source=row.source,
+        fetched_for=row.fetched_for,
+    )
+
+
+def _fx_read(db: Session, settings: Settings) -> FxStatusRead:
+    row = fx.status_row(db)
+    return FxStatusRead(
+        provider=settings.provider_mode("fx"),
+        is_mock=settings.provider_is_mock("fx"),
+        auto_enabled=row.auto_enabled,
+        checked_at=row.checked_at,
+        fetched_rate=row.fetched_rate,
+        fetched_for=row.fetched_for,
+        outcome=row.outcome,
+        outcome_label=fx.OUTCOME_LABEL.get(row.outcome, ""),
+        note=row.note,
+        max_jump_pct=fx.MAX_JUMP_PCT,
     )
 
 
@@ -82,6 +103,7 @@ def _settings_read(db: Session, settings: Settings) -> ClaudeSettingsRead:
         cache_ttl=settings.cache_ttl,
         exchange_rate=_rate_read(db, current) if current else None,
         rate_history=[_rate_read(db, row) for row in pricing.rate_history(db)],
+        fx=_fx_read(db, settings),
         chat_limits=_limits_read(db),
     )
 
@@ -107,7 +129,11 @@ def set_exchange_rate(
     settings: Settings = Depends(get_settings),
 ) -> ClaudeSettingsRead:
     previous = pricing.current_rate(db)
-    db.add(ExchangeRate(currency="USD", krw_per_unit=payload.krw_per_usd, set_by=admin.id))
+    db.add(ExchangeRate(currency="USD", krw_per_unit=payload.krw_per_usd, set_by=admin.id, source="admin"))
+    # owner-polish-3 (b): a rate typed in is a pin — the daily refresh
+    # must not overwrite it tomorrow. The switch turns it back on.
+    was_auto = fx.status_row(db).auto_enabled
+    fx.pin_by_hand(db, admin=admin)
     audit.record(
         db,
         actor=admin,
@@ -117,12 +143,50 @@ def set_exchange_rate(
         summary=(
             f"환율: 1달러 = {payload.krw_per_usd:,}원"
             + (f" (이전 {previous.krw_per_unit:,}원)" if previous else "")
+            + (" · 자동 반영 꺼짐 (고정)" if was_auto else "")
         ),
         detail={
             "before": str(previous.krw_per_unit) if previous else None,
             "after": str(payload.krw_per_usd),
+            "auto_enabled": False,
         },
     )
+    db.commit()
+    return _settings_read(db, settings)
+
+
+@router.post(
+    "/exchange-rate/auto",
+    response_model=ClaudeSettingsRead,
+    summary="owner-polish-3: turn the daily automatic rate on (or pin the current rate: off)",
+)
+def set_exchange_rate_auto(
+    payload: FxAutoWrite,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> ClaudeSettingsRead:
+    fx.set_auto(db, admin=admin, on=payload.on)
+    db.commit()
+    return _settings_read(db, settings)
+
+
+@router.post(
+    "/exchange-rate/refresh",
+    response_model=ClaudeSettingsRead,
+    summary="owner-polish-3: fetch today's rate now (the same rules as the daily job)",
+)
+def refresh_exchange_rate(
+    payload: EmptyBody,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> ClaudeSettingsRead:
+    """Applied, unchanged, held back (over 5%) or failed — the status row
+    says which; a failure keeps the last rate and is not an error here."""
+    result = fx.refresh(db, settings)
+    if result.outcome == "paused":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=result.message)
     db.commit()
     return _settings_read(db, settings)
 

@@ -23,7 +23,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import QuarterAllocation, SpendMilestone, User
-from app.services import notifications
 from app.services.quarters import current_quarter
 
 #: 잔액이 이만큼 이하로 내려가면 차분한 경고 한 번.
@@ -91,12 +90,11 @@ def claim(db: Session, user: User) -> Claim | None:
     for kind in new:
         db.add(SpendMilestone(user_id=user.id, quarter_id=quarter.id, kind=kind))
     try:
-        # Flushed here, so the two-tabs race surfaces as this IntegrityError
-        # and not inside the notification's own savepoint.
+        # Flushed here, so the two-tabs race surfaces as this IntegrityError.
+        # (A milestone no longer writes a notification row — owner-polish-3
+        # (c): the toast says it, and the list keeps only approvals,
+        # reactions and 신고 처리.)
         db.flush()
-        # The same moments in the member's notification list (feat-notifications).
-        for kind in new:
-            notifications.milestone_crossed(db, user.id, quarter.id, kind, allocation.remaining_krw)
         db.commit()
     except IntegrityError:
         # Two tabs claimed at once: the other recorded it and shows it.
