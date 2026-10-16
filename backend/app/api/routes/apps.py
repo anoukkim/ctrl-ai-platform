@@ -52,6 +52,24 @@ def list_apps(
     return [listing_of(db, settings, row) for row in rows]
 
 
+@router.get("/mine", response_model=list[AppListing], summary="The signed-in member's own published apps")
+def list_my_apps(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> list[AppListing]:
+    """Profile › 내가 만든 앱 (owner-polish 3). The same listing query as
+    CtrlAIApps — published, `deleted_at IS NULL` — narrowed to the caller,
+    so Profile shows exactly the cards the store shows for them. Declared
+    before `/{slug}` so "mine" is never read as an app's address."""
+    rows = db.scalars(
+        app_publish.published_listing()
+        .where(BuilderProject.owner_user_id == user.id)
+        .order_by(BuilderProject.published_at.desc())
+    )
+    return [listing_of(db, settings, row) for row in rows]
+
+
 @router.get("/{slug}", response_model=AppListing, summary="One published app")
 def read_app(
     slug: str,

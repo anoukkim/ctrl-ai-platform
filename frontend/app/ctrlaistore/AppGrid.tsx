@@ -10,28 +10,23 @@
  */
 
 import { LayoutGrid } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import EmptyState from "@/app/components/EmptyState";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import Skeleton from "@/app/components/Skeleton";
-import { coverTint, listApps, type AppListing } from "@/lib/apps";
+import { listApps, type AppListing } from "@/lib/apps";
 import { describeError } from "@/lib/http";
-import { relativeTime } from "@/lib/relative-time";
 
+import AppCard, { versionLine } from "./AppCard";
 import styles from "./ctrlaistore.module.css";
+
+export { versionLine };
 
 type State =
   | { phase: "loading" }
   | { phase: "ready"; apps: AppListing[] }
   | { phase: "error"; message: string };
-
-/** "v5 · 3일 전 업데이트" */
-export function versionLine(app: AppListing): string {
-  const when = app.published_at ? `${relativeTime(app.published_at)} 업데이트` : "";
-  return [`v${app.version_number}`, when].filter(Boolean).join(" · ");
-}
 
 export default function AppGrid({ onCount }: { onCount?: (count: number) => void }) {
   const [state, setState] = useState<State>({ phase: "loading" });
@@ -93,22 +88,7 @@ export default function AppGrid({ onCount }: { onCount?: (count: number) => void
       ) : (
         <div className={styles.grid} data-testid="app-grid">
           {visible.map((app) => (
-            <Link className={styles.card} href={`/ctrlaistore/${app.slug}`} key={app.id}>
-              <div className={styles.artwork} style={{ background: coverTint(app.slug) }}>
-                <span className={styles.artworkText} aria-hidden="true">
-                  {app.name}
-                </span>
-              </div>
-              <div className={styles.body}>
-                <h2 className={styles.name}>{app.name}</h2>
-                <p className={styles.tagline}>{app.description}</p>
-                <p className={styles.meta}>
-                  <span className={styles.metaItem}>{app.author_name}</span>
-                  <span className={`${styles.metaItem} ${styles.metaDate}`}>{versionLine(app)}</span>
-                </p>
-                {app.publish_note && <p className={styles.note}>{app.publish_note}</p>}
-              </div>
-            </Link>
+            <AppCard app={app} key={app.id} />
           ))}
         </div>
       )}

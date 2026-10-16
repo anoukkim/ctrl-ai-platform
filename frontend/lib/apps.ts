@@ -29,6 +29,11 @@ export function listApps(): Promise<AppListing[]> {
   return request<AppListing[]>("/apps");
 }
 
+/** Profile › 내가 만든 앱 — 내가 게시한 앱만 (owner-polish 3). */
+export function listMyApps(): Promise<AppListing[]> {
+  return request<AppListing[]>("/apps/mine");
+}
+
 export function getApp(slug: string): Promise<AppListing> {
   return request<AppListing>(`/apps/${encodeURIComponent(slug)}`);
 }

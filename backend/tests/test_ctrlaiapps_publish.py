@@ -15,7 +15,7 @@ from app.main import app
 from app.models import AppReport, AuditLog, BuilderProject, BuilderProjectStatus
 from app.services import builder_versions
 from app.services.claude_provider import MOCK_ACCENT, MOCK_ACCENT_NEW, edit_request_text
-from tests.conftest import DEV_PASSWORD, JSON_HEADERS
+from tests.conftest import DEV_PASSWORD, JSON_HEADERS, MEMBER_PASSWORD
 
 APPS_BASE = "http://apps.test"
 
@@ -191,6 +191,39 @@ def test_the_listing_shows_name_author_version_and_note(
     assert row["name"] == "오늘 할 일" and row["description"] == "할 일 앱이에요."
     assert row["author_name"] == dev_user.display_name
     assert (row["version_number"], row["publish_note"]) == (1, "첫 게시")
+
+
+def test_profile_lists_only_my_published_apps(
+    client: TestClient, db_session: Session, project, budgeted, config, other_user
+) -> None:
+    """owner-polish 3: Profile › 내가 만든 앱 reads `/api/apps/mine` — the
+    caller's published apps and nobody else's, the same rows the store
+    shows (deleted or unpublished ones never appear)."""
+    generate(client, project, "할 일 앱을 만들어 줘")
+    assert publish(client, project).status_code == 200
+
+    other = BuilderProject(owner_user_id=other_user.id, name="남의 앱", description="")
+    db_session.add(other)
+    db_session.commit()
+
+    mine = client.get("/api/apps/mine")
+    assert mine.status_code == 200
+    assert [row["id"] for row in mine.json()] == [project.id]
+    assert mine.json()[0]["slug"] == project.app_slug
+
+    assert len(client.get("/api/apps").json()) == 1  # the store lists everyone's
+
+    # Deleting the project takes it off Profile too.
+    assert client.delete(f"/api/builder/projects/{project.id}").status_code in (200, 204)
+    assert client.get("/api/apps/mine").json() == []
+
+    # The other member sees nothing of mine (same TestClient, re-signed-in).
+    client.post("/api/auth/logout")
+    signed_in = client.post(
+        "/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD}
+    )
+    assert signed_in.status_code == 200
+    assert client.get("/api/apps/mine").json() == []
 
 
 # ------------------------------------------------------------ versions: 버전 저장

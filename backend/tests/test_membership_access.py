@@ -419,6 +419,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
     ("GET", "/api/apps"): "get_current_user",
+    ("GET", "/api/apps/mine"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
     ("GET", "/api/admin/apps"): "require_admin",

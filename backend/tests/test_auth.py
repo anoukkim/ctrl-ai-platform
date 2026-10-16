@@ -172,6 +172,7 @@ def test_every_member_endpoint_refuses_a_logged_out_visitor(anon_client: TestCli
         ("get", "/api/users"),
         ("get", "/api/builder/projects"),
         ("post", "/api/builder/projects"),
+        ("get", "/api/apps/mine"),
         ("get", "/api/video/projects"),
         ("get", "/api/video/models"),
         ("get", "/api/quarters/current"),

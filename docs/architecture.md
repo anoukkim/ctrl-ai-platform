@@ -118,7 +118,7 @@ the same commit that adds it.
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |
 | `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
-| `GET /api/apps`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing and detail |
+| `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
 | `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
