@@ -168,6 +168,8 @@ def describe(path: str, content: str) -> str:
     if extension == "md":
         heading = _md_heading(content)
         return f"문서{f' — {heading}' if heading else ''}."
+    if path == "ctrlai.json":
+        return "CTRL+AI 기능 상자 설정 — 이 앱이 쓰는 ctrlai.db 목록(이름과 개인·공유)."
     if extension == "json":
         return "데이터(JSON)."
     if extension == "svg":
@@ -300,7 +302,8 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         )
     if _uses(files, "ctrlai.db"):
         conventions.append(
-            "데이터는 `ctrlai.db`(CTRL+AI 기능 상자의 앱 데이터베이스 — 개인·공유 목록)에 저장해요. CTRL+AI 밖에서는 "
+            "데이터는 `ctrlai.db`(CTRL+AI 기능 상자의 앱 데이터베이스 — 개인·공유 목록)에 저장해요. 앱이 쓰는 목록은 "
+            "`ctrlai.json`에 적혀 있어요 — 목록을 더 쓰면 거기에도 적어 주세요. CTRL+AI 밖에서는 "
             "직접 만든 서버나 localStorage로 바꿔야 해요."
         )
     elif _uses(files, "ctrlai."):
@@ -335,7 +338,8 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         "- **CTRL+AI 기능 상자(SDK)**: CTRL+AI에서 돌 때는 `window.ctrlai`가 있어요 — "
         "`ctrlai.storage.get/set/remove/keys/clear`(앱마다 · 방문자마다 약 1MB, 비동기), "
         "`ctrlai.db.save/list/get/update/remove/count`(앱의 서버 데이터베이스 — 개인·공유 목록, 항목 4KB, "
-        "앱마다 2,000개 · 5MB), `ctrlai.user/login`, `ctrlai.ai.ask/stream`(방문자가 자기 지원금으로 냄). CTRL+AI가 "
+        "앱마다 2,000개 · 5MB; 앱이 쓰는 목록은 `ctrlai.json`에 적어야 해요), `ctrlai.user/login`, "
+        "`ctrlai.ai.ask/stream`(방문자가 자기 지원금으로 냄). CTRL+AI가 "
         "실행할 때 스크립트를 넣어 주므로 이 폴더에는 없어요.\n\n"
         "**CTRL+AI 밖에서는 이 제한이 더 이상 적용되지 않아요.** 그 대신 `ctrlai.*`도 없어요 — 그런 호출은 "
         "localStorage나 직접 만든 서버로 바꿔야 해요(지금 코드에 localStorage로 넘어가는 길이 있으면 그대로 "

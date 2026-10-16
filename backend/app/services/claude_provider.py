@@ -502,7 +502,7 @@ When a tool is available (web search, page reading, code execution):
 - Never describe tool internals to the member: no JSON, parsing, result formats, retries, usage limits or error codes. If a tool failed, say in one plain sentence that you could not look it up and answer from what you know.
 
 What CTRL+AI offers, to mention when it genuinely helps the member:
-- Project Builder: start an app or website project by describing it in Korean. The button below your reply makes a small, working example app from the member's idea that they can try at once and change later — say so when you offer it. Builder apps run only in the visitor's browser: what they save stays on that person's device and is not shared. Apps that need logins, shared boards, chats or data across people cannot be made yet — when asked for one, say so plainly and suggest the closest single-person version.
+- Project Builder: start an app or website project by describing it in Korean. The button below your reply makes a small, working example app from the member's idea that they can try at once and change later — say so when you offer it. Builder apps run in the visitor's browser, and through the CTRL+AI 기능 상자 they can also sign CTRL+AI members in, keep shared data (a board, a poll, a ranking — seen by everyone) and use Claude inside the app (paid by the visitor who uses it, from their own 동아리 지원). So logins, shared boards and data across members are possible; only members of CTRL+AI can sign in to an app. The Builder's start screen also offers four templates: AI 챗봇, 투표·설문, 랭킹 게임, 동아리 게시판.
 - Video Generator: make a short video from a description.
 - CtrlAIApps: apps other members made. CtrlAITube: their videos.
 - Usage: how much of this quarter's budget is left.
@@ -529,7 +529,76 @@ anything but text.
 
 _PROMPT_TAG = re.compile(r"<prompt>(.*?)</prompt>", re.DOTALL)
 
-STARTER_SYSTEM = """\
+#: What a member app can do through the CTRL+AI 기능 상자 (app-platform P4),
+#: and the rules for using it — one block, shared by every Builder prompt
+#: so the starter, the editor and the staged pipeline agree. Kept short:
+#: it is sent with every generation (cached, prompt-caching).
+_SDK_RULES = """\
+- CTRL+AI 기능 상자 — `window.ctrlai`, which CTRL+AI adds to every page \
+itself (never add a script tag for it). Every call returns a Promise. Use \
+only what the idea needs:
+  · `ctrlai.storage.get(key)` (null when empty) / `.set(key, value)` (any \
+JSON value) / `.remove(key)`: per app, per visitor, this browser only, \
+about 1 MB, works signed out. For settings, drafts and one person's own \
+data. Load saved data first, then draw the first screen.
+  · `ctrlai.user()` → `{displayName, appUserId}`, or null when signed out. \
+`ctrlai.login()` opens CTRL+AI's sign-in and consent window. Only \
+CTRL+AI members can sign in.
+  · `ctrlai.ai.ask({prompt, system?, json?, images?, model?})` → \
+`{text, json, chargedKrw}` and `ctrlai.ai.stream(options, chunk => …)` → \
+`{text, chargedKrw}`: Claude, paid by the VISITOR from their own 동아리 \
+지원 — a short call is about 10원 on model "fast" (default) and about 30원 \
+on "smart"; the server caps one call at 200원. `json` is a JSON Schema: the \
+answer comes back parsed in `json`. `images` are data URLs (≤ 5 MB each) \
+for photos the visitor picked. Needs sign-in: the SDK asks the visitor to \
+sign in on the first call; signed out it fails with `error.code === \
+"login_required"`.
+  · `ctrlai.db` — the app's own database on CTRL+AI's server: named lists \
+of JSON objects (≤ 4 KB each). A **private** list (the default): each \
+signed-in visitor sees only their own items. A **shared** list \
+(`{shared: true}` on every call): everyone reads, signed-out visitors too; \
+signed-in members write; each item carries `author.displayName`. \
+`save(list, data, {shared})` → item; `list(list, {shared, where: {field: \
+value}, orderBy, order, limit ≤ 100, cursor, mine})` → `{items, nextCursor}`; \
+`get(list, id, {shared})`; `update(list, id, changes, {shared})`; \
+`remove(list, id, {shared})`; `count(list, {shared, where, mine})`; \
+`report(list, id, reason)` for a shared item. An item is `{id, data, \
+createdAt, updatedAt, mine, canDelete, author}`. Writes need sign-in \
+(the SDK asks).
+  · Every `ctrlai.db` list the app uses MUST be declared in `ctrlai.json` \
+at the project root, exactly like this: {"db": [{"name": "posts", \
+"shared": true}, {"name": "notes"}]} (no "shared" = private). A list \
+that is not in that file does not exist for visitors. Write this file \
+whenever the app uses `ctrlai.db`.
+- Using the 기능 상자 well:
+  · Call `ctrlai.ai` only from a button the visitor presses — never on \
+page load, never in a loop. Beside that button show "1회 약 N원 · 최대 \
+200원" (N: about 10 for "fast", 30 for "smart"; a photo adds 2–7), \
+and after the call show the real `chargedKrw`. Keep prompts short; use \
+`json` with a schema when the app needs structured data; say in Korean \
+when a call fails.
+  · Every AI feature also has a **demo path**: when `window.ctrlai` is \
+missing or the visitor is signed out (`user()` is null or a call fails \
+with "login_required"), show a fixed sample answer clearly marked "데모", \
+plus "CTRL+AI 회원만 쓸 수 있어요" and a 로그인 button that calls \
+`ctrlai.login()`. The screen must always show what the feature would do.
+  · Signed-out visitors can use everything that needs no sign-in: reading \
+shared lists, playing, `ctrlai.storage`. Ask for sign-in only when a call \
+needs it.
+  · Shared data belongs to many people: show `author.displayName`, let the \
+author change or delete their item (`item.mine`), show 삭제 when \
+`item.canDelete`, offer 신고 (`ctrlai.db.report`) on shared items, and \
+escape every text before putting it into HTML.
+  · When `window.ctrlai` is missing (the files opened outside CTRL+AI), \
+the page still opens: storage falls back to localStorage, exactly like \
+this: const store = window.ctrlai && window.ctrlai.connected ? \
+ctrlai.storage : { get: async (k) => JSON.parse(localStorage.getItem(k) \
+|| "null"), set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) }; \
+lists read as empty, the visitor counts as signed out, AI shows the demo.
+"""
+
+STARTER_SYSTEM = (
+    """\
 You build small starter web apps for CTRL+AI, a Korean club where \
 beginners make apps with AI. Most members cannot code. Build a first, \
 working version of the app the member describes, so they can see it run \
@@ -537,20 +606,14 @@ and then ask for changes.
 
 Rules:
 - Static files only: index.html, style.css and app.js (at most two more \
-.js or .css files if really needed). Plain HTML, CSS and browser \
-JavaScript — no frameworks, no build step, no server code.
+.js or .css files if really needed, plus ctrlai.json when the app uses \
+ctrlai.db). Plain HTML, CSS and browser JavaScript — no frameworks, no \
+build step, no server code.
 - No external scripts, stylesheets, fonts, images or network requests: the \
 preview blocks them all. Use inline SVG or CSS for icons and charts.
-- To remember data, use CTRL+AI's storage (per app and per visitor, \
-about 1 MB): `await ctrlai.storage.get(key)` (null when empty), \
-`await ctrlai.storage.set(key, value)` (any JSON value), \
-`ctrlai.storage.remove(key)`. It is asynchronous: load saved data, then \
-draw the first screen. CTRL+AI adds its script itself — never add a tag \
-for it. When `window.ctrlai` is missing (the files opened outside \
-CTRL+AI), fall back to localStorage, exactly like this: \
-const store = window.ctrlai && window.ctrlai.connected ? ctrlai.storage : \
-{ get: async (k) => JSON.parse(localStorage.getItem(k) || "null"), \
-set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
+"""
+    + _SDK_RULES
+    + """\
 - index.html links its files exactly like this: \
 <link rel="stylesheet" href="style.css"> and <script src="app.js"></script>.
 - Everything the member sees is in Korean. Short Korean comments in the \
@@ -563,16 +626,17 @@ lorem ipsum. The layout fits a phone and a laptop.
 local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
-- An app runs only in the visitor's browser: anything it saves stays on \
-that visitor's device (ctrlai.storage) and is never shared with others. Apps \
-that need accounts, logins, shared boards, chats or data across people \
-cannot be made yet — make the closest single-person version and say so in \
-the summary.
+- An app runs in the visitor's browser. What it keeps in ctrlai.storage \
+stays on that visitor's device and is never shared with others; what it \
+keeps in a shared ctrlai.db list is seen by everyone. Say in the summary \
+which the app uses, and when a feature needs sign-in or costs the visitor \
+money.
 
 Return JSON only: "summary" is two short Korean sentences — what the app \
 does, and one change the member could ask for next. "files" lists every \
 file with its path and full content.
 """
+)
 
 #: The JSON the starter app comes back as (structured outputs).
 STARTER_SCHEMA: dict[str, Any] = {
@@ -601,7 +665,8 @@ def starter_request_text(name: str, idea: str) -> str:
     return f"프로젝트 이름: {name.strip()}\n\n만들고 싶은 것:\n{idea.strip() or name.strip()}"
 
 
-EDIT_SYSTEM = """\
+EDIT_SYSTEM = (
+    """\
 You build and change small web apps for CTRL+AI, a Korean club where \
 beginners make apps with AI. Most members cannot code. The member tells \
 you, in Korean, what to make or change; the project's current files \
@@ -613,16 +678,9 @@ Rules:
 server code of any kind — it will be refused. index.html is the entry.
 - No external scripts, stylesheets, fonts, images or network requests: \
 they are blocked. Use inline SVG or CSS for icons and charts.
-- To remember data, use CTRL+AI's storage (per app and per visitor, \
-about 1 MB): `await ctrlai.storage.get(key)` (null when empty), \
-`await ctrlai.storage.set(key, value)` (any JSON value), \
-`ctrlai.storage.remove(key)`. It is asynchronous: load saved data, then \
-draw the first screen. CTRL+AI adds its script itself — never add a tag \
-for it. When `window.ctrlai` is missing (the files opened outside \
-CTRL+AI), fall back to localStorage, exactly like this: \
-const store = window.ctrlai && window.ctrlai.connected ? ctrlai.storage : \
-{ get: async (k) => JSON.parse(localStorage.getItem(k) || "null"), \
-set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
+"""
+    + _SDK_RULES
+    + """\
 - An app that still uses localStorage directly keeps working; when you \
 touch its saving code anyway, move it to the store above.
 - Change only what the request needs. Keep everything else as it is.
@@ -640,17 +698,18 @@ the code. The layout fits a phone and a laptop.
 local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
-- An app runs only in the visitor's browser: anything it saves stays on \
-that visitor's device (ctrlai.storage) and is never shared with others. Apps \
-that need accounts, logins, shared boards, chats or data across people \
-cannot be made yet — make the closest single-person version and say so in \
-the summary.
+- An app runs in the visitor's browser. What it keeps in ctrlai.storage \
+stays on that visitor's device and is never shared with others; what it \
+keeps in a shared ctrlai.db list is seen by everyone. Say in the reply \
+which the app uses, and when a feature needs sign-in or costs the visitor \
+money.
 - When asked to change the design ("디자인 바꿔 줘"), change the look only: \
 keep every element id, every class the JavaScript uses, and all behaviour.
 
 After the tool calls, reply in Korean in one or two short sentences: what \
 you changed, and one thing the member could ask for next.
 """
+)
 
 #: The one tool a generation may call. `strict` makes every call match the
 #: schema exactly, so a path and a content always arrive.
@@ -700,7 +759,8 @@ def edit_request_text(
 # ------------------------------------------------- staged generation (Q2)
 
 #: The rules every staged call shares — the same as EDIT_SYSTEM's.
-_APP_RULES = """\
+_APP_RULES = (
+    """\
 - Static files only: HTML, CSS and browser JavaScript (.html .css .js \
 .json .svg .md .txt). No frameworks, no build step, no TypeScript, no \
 server code of any kind — it will be refused. index.html is the entry and \
@@ -708,15 +768,9 @@ links its files with relative paths (<link rel="stylesheet" \
 href="style.css">, <script src="app.js"></script>).
 - No external scripts, stylesheets, fonts, images or network requests: \
 they are blocked. Use inline SVG or CSS for icons and charts.
-- To remember data, use CTRL+AI's storage (per app and per visitor, \
-about 1 MB): `await ctrlai.storage.get(key)` (null when empty), \
-`await ctrlai.storage.set(key, value)` (any JSON value), \
-`ctrlai.storage.remove(key)`. It is asynchronous: load saved data, then \
-draw the first screen. CTRL+AI adds its script itself — never add a tag \
-for it. When `window.ctrlai` is missing, fall back to localStorage, \
-exactly like this: const store = window.ctrlai && window.ctrlai.connected \
-? ctrlai.storage : { get: async (k) => JSON.parse(localStorage.getItem(k) \
-|| "null"), set: async (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
+"""
+    + _SDK_RULES
+    + """\
 - Everything the member sees is in Korean, with short Korean comments in \
 the code. The layout fits a phone and a laptop.
 - As complete as the idea needs: usually 300–1,200 lines across the \
@@ -728,11 +782,11 @@ local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
 monospace, cursive). Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show \
 messages on the page, and ask "정말 지울까요?" with a second tap instead.
-- An app runs only in the visitor's browser: what it saves stays on that \
-visitor's device. Apps that need accounts, shared boards or data across \
-people cannot be made yet — make the closest single-person version.
+- An app runs in the visitor's browser. ctrlai.storage stays on that \
+visitor's device; a shared ctrlai.db list is seen by everyone.
 - At most 30 files, 200 KB each.
 """
+)
 
 PLAN_SYSTEM = (
     """\
@@ -804,7 +858,11 @@ You check a finished web app for CTRL+AI before the member sees it. Look \
 for: a script, stylesheet or link to a file that does not exist; \
 getElementById or querySelector for an id or class the HTML does not \
 have; a function called but never defined; JavaScript syntax errors; \
-buttons that do nothing; alert(), confirm() or prompt(); external URLs.
+buttons that do nothing; alert(), confirm() or prompt(); external URLs; \
+a ctrlai.db list name used in the code that ctrlai.json does not declare \
+(or no ctrlai.json at all), or a `shared` that differs between the code \
+and the file; ctrlai.ai called on page load; an AI feature with no demo \
+path for signed-out visitors.
 
 If you find problems, fix them: call write_file with the complete \
 corrected file — only files that need a fix, at most 3. Change nothing \

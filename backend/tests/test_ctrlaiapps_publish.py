@@ -307,7 +307,9 @@ def test_the_prompts_ask_for_a_fitting_look_and_honesty_about_shared_apps() -> N
         assert "never shared with others" in prompt
         assert "Never use alert(), confirm() or prompt()" in prompt
     assert "keep every element id" in EDIT_SYSTEM
-    assert "logins, shared boards" in CHAT_SYSTEM_PROMPT
+    # app-platform P4: shared boards and logins are possible now, through the 기능 상자.
+    assert "logins, shared boards and data across members are possible" in CHAT_SYSTEM_PROMPT
+    assert "cannot be made yet" not in CHAT_SYSTEM_PROMPT
 
 
 # ------------------------------------------------------------ withdrawal
