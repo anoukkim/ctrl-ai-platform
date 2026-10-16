@@ -18,25 +18,21 @@
  */
 
 import {
-  CircleHelp,
   Clapperboard,
   Code2,
   Gauge,
   LayoutGrid,
   Lock,
-  LogOut,
   MessageSquare,
-  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   PlayCircle,
   Shield,
-  Sun,
   User,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
@@ -46,7 +42,8 @@ import { useTheme } from "@/lib/theme";
 
 import AnimatedNumber from "./AnimatedNumber";
 import BrandMark from "./BrandMark";
-import FeedbackButton from "./FeedbackButton";
+import { FeedbackDialog } from "./FeedbackButton";
+import MenuButton from "./MenuButton";
 import NotificationBell from "./NotificationBell";
 import GuideProvider, { useGuide } from "./FirstVisitGuide";
 import Skeleton from "./Skeleton";
@@ -163,6 +160,15 @@ const CHAT_PATH = "/";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  // owner-polish-3 (c2): 의견 보내기 is a menu item now; its dialog is ours to open.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const router = useRouter();
+  const guide = useRef<() => void>(() => {});
+  const openGuide = () => guide.current();
+  const go = (href: string) => {
+    setMenuOpen(false);
+    router.push(href);
+  };
   // 사이드바는 로그인을 확인한 뒤에만 그려지고, 그 확인은 브라우저에서
   // 일어납니다. 그래서 처음 값에서 바로 읽어도 서버가 그린 HTML과
   // 어긋나지 않습니다 — 효과로 읽으면 한 번 펼쳐졌다 접히며 깜빡입니다.
@@ -215,6 +221,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     // 처음 로그인한 브라우저에서 한 번 뜨는 안내(ui-friendly-motion).
     <GuideProvider autoOpen>
+    <GuideHandle register={(open) => { guide.current = open; }} />
     <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ""}`}>
       <header className={styles.topbar}>
         <Link className={styles.brandLink} href="/" onClick={() => setMenuOpen(false)}>
@@ -245,6 +252,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <BrandMark size={18} variant="glyph" />
               <span className={styles.navLabel}>CTRL+AI</span>
             </span>
+            {/* owner-polish-3 (c2): the bell lives up here beside the name — its
+                popover opens below it, over nothing. The footer was too crowded. */}
+            <span className={styles.navBrandTools}>
+              <NotificationBell className={styles.footerButton} onNavigate={() => setMenuOpen(false)} />
             <button
               className={`${styles.footerButton} ${styles.collapseButton}`}
               type="button"
@@ -260,6 +271,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <PanelLeftClose size={16} aria-hidden="true" />
               )}
             </button>
+            </span>
           </div>
           <span className={styles.brandPhase}>함께 만들고 함께 나누는 AI 창작 커뮤니티</span>
         </div>
@@ -306,11 +318,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* 계정 영역 — 두 줄입니다(fix-ui-polish-admin). 위는 이름과 관리자
-            배지, 아래는 개인정보·약관과 네 개의 아이콘 단추. 한 줄에 모두
-            두면 이름이 말줄임으로 사라졌습니다. */}
+        {/* 계정 영역 (owner-polish-3 (c2)): the way common sites split it —
+            the account row is a button that opens a small menu (Profile,
+            Usage, 테마, 처음 안내, 의견 보내기, 로그아웃); the line under it
+            keeps only 개인정보 · 약관. The bell moved up beside the name, so
+            nothing here overlaps anything. */}
         <div className={styles.navFooter}>
-          <span className={styles.navUser} title={collapsed ? user.display_name : undefined}>
+          <MenuButton
+            className={styles.navUser}
+            label={`${user.display_name} — 계정 메뉴`}
+            title={collapsed ? user.display_name : undefined}
+            align="start"
+            placement="up"
+            items={[
+              { label: "Profile", hint: `@${user.username}`, onSelect: () => go("/profile") },
+              { label: "Usage", hint: "이번 분기 지원금과 사용 내역", onSelect: () => go("/usage") },
+              {
+                label: theme === "dark" ? "밝은 화면으로" : "어두운 화면으로",
+                onSelect: toggleTheme,
+              },
+              { label: "처음 안내 다시 보기", onSelect: () => { setMenuOpen(false); openGuide(); } },
+              { label: "의견 보내기", hint: "Admin › Feedback으로 바로 가요", onSelect: () => setFeedbackOpen(true) },
+              { label: "로그아웃", danger: true, onSelect: () => void signOut() },
+            ]}
+          >
             <span className={styles.navAvatar} aria-hidden="true">
               {user.display_name.slice(0, 1)}
             </span>
@@ -321,51 +352,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </span>
               <span className={styles.navUserHandle}>@{user.username}</span>
             </span>
-          </span>
-          <div className={styles.navActions}>
-            {/* 개인정보 처리방침·이용약관 (privacy-and-terms). 접힌 레일에는
-                자리가 없어 펼친 사이드바에서만 보입니다. */}
-            {!collapsed && (
-              <span className={styles.navLegal}>
-                <Link className={styles.navLegalLink} href="/privacy">
-                  개인정보
-                </Link>
-                <span aria-hidden="true">·</span>
-                <Link className={styles.navLegalLink} href="/terms">
-                  약관
-                </Link>
-              </span>
-            )}
-            {/* 알림 종 (feat-notifications) — 안 읽은 수를 달고, 최근 알림이 작은 창으로. */}
-            <NotificationBell className={styles.footerButton} onNavigate={() => setMenuOpen(false)} />
-            <button
-              className={styles.footerButton}
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
-              title={theme === "dark" ? "밝은 화면으로" : "어두운 화면으로"}
-            >
-              {theme === "dark" ? (
-                <Sun size={16} aria-hidden="true" />
-              ) : (
-                <Moon size={16} aria-hidden="true" />
-              )}
-            </button>
-            {/* 의견 보내기 — 어느 화면에서든 한 번에. 저장되고 Admin › Feedback에서
-                읽습니다. */}
-            <FeedbackButton variant="icon" className={styles.footerButton} />
-            <GuideButton onOpen={() => setMenuOpen(false)} />
-            <button
-              className={styles.footerButton}
-              type="button"
-              onClick={() => void signOut()}
-              aria-label="로그아웃"
-              title="로그아웃"
-            >
-              <LogOut size={16} aria-hidden="true" />
-            </button>
-          </div>
+          </MenuButton>
+          {/* 개인정보 처리방침·이용약관 (privacy-and-terms). 접힌 레일에는
+              자리가 없어 펼친 사이드바에서만 보입니다. */}
+          {!collapsed && (
+            <span className={styles.navLegal}>
+              <Link className={styles.navLegalLink} href="/privacy">
+                개인정보
+              </Link>
+              <span aria-hidden="true">·</span>
+              <Link className={styles.navLegalLink} href="/terms">
+                약관
+              </Link>
+            </span>
+          )}
         </div>
+        {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
       </nav>
 
       <main
@@ -380,23 +382,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** 사이드바 아래의 물음표 — 첫 안내를 다시 엽니다. 휴대폰 메뉴는 닫습니다. */
-function GuideButton({ onOpen }: { onOpen: () => void }) {
+/** Hands the guide's `open` to the shell — the account menu's 처음 안내 다시
+ *  보기 lives outside the provider's own tree (owner-polish-3 (c2)). */
+function GuideHandle({ register }: { register: (open: () => void) => void }) {
   const { open } = useGuide();
-  return (
-    <button
-      className={styles.footerButton}
-      type="button"
-      onClick={() => {
-        onOpen();
-        open();
-      }}
-      aria-label="처음 안내 다시 보기"
-      title="처음 안내 다시 보기"
-    >
-      <CircleHelp size={16} aria-hidden="true" />
-    </button>
-  );
+  useEffect(() => {
+    register(open);
+  }, [open, register]);
+  return null;
 }
 
 /**

@@ -24,8 +24,10 @@ import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDial
 import {
   formatWhen,
   getClaudeSettings,
+  refreshExchangeRate,
   setChatLimits,
   setExchangeRate,
+  setExchangeRateAuto,
   type ClaudeSettings,
   type DepthSurface,
   type DepthTable,
@@ -231,13 +233,49 @@ export default function ClaudePricingPanel() {
         effect: [
           `1달러 = ${settings?.exchange_rate?.krw_per_usd ?? "?"}원 → ${rateDraft}원`,
           "이후의 모든 Claude 사용분이 새 환율로 원화 계산됩니다. 이미 차감된 기록은 그대로입니다.",
+          "직접 적은 환율은 고정됩니다 — 자동 반영이 꺼져요. 다시 켜면 하루 한 번 새 환율을 받아 옵니다.",
           "이전 환율은 기록으로 남습니다.",
         ],
         confirmLabel: "환율 바꾸기",
       },
       () => setExchangeRate(rateDraft),
-      "환율을 저장했습니다.",
+      "환율을 저장했습니다. 자동 반영은 꺼졌어요.",
     );
+  };
+
+  // owner-polish-3 (b): 자동 반영 — 하루 한 번 무료 공개 환율(ECB · Frankfurter)을
+  // 받아 와요. 5% 넘는 변동은 반영하지 않고 경고로, 실패하면 마지막 환율 그대로.
+  const askAuto = (on: boolean) => {
+    ask(
+      {
+        title: on ? "환율 자동 반영을 켤까요?" : "지금 환율을 고정할까요?",
+        effect: on
+          ? [
+              "하루 한 번 공개 환율(ECB, Frankfurter — 무료, 키 없음)을 받아 옵니다.",
+              `하루 사이 ${settings?.fx.max_jump_pct ?? 5}%를 넘는 변동은 반영하지 않고 여기에 경고로 보여 줍니다.`,
+              "받아 오지 못하면 마지막 환율을 그대로 씁니다. 차감은 멈추지 않아요.",
+              "반영될 때마다 감사 기록에 남습니다.",
+            ]
+          : ["지금 환율이 그대로 유지됩니다. 자동으로 받아 오지 않아요.", "감사 기록에 남습니다."],
+        confirmLabel: on ? "자동 반영 켜기" : "환율 고정",
+      },
+      () => setExchangeRateAuto(on),
+      on ? "환율 자동 반영을 켰습니다." : "환율을 고정했습니다.",
+    );
+  };
+
+  const refreshNow = async () => {
+    setBusy(true);
+    setSaved(null);
+    try {
+      const next = await refreshExchangeRate();
+      apply(next);
+      setSaved(`환율 확인: ${next.fx.outcome_label}.`);
+    } catch (caught) {
+      setSaved(`환율 확인 실패: ${describeError(caught)}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const loading = (
@@ -259,7 +297,9 @@ export default function ClaudePricingPanel() {
         note="답장 한 번의 값 = 모델의 토큰 요금 × 환율, 동아리 지원 지갑에서 차감"
         summary={
           settings?.exchange_rate
-            ? `1달러 = ${Number(settings.exchange_rate.krw_per_usd).toLocaleString()}원`
+            ? `1달러 = ${Number(settings.exchange_rate.krw_per_usd).toLocaleString()}원 · ${
+                settings.fx.auto_enabled ? (settings.fx.outcome === "blocked" ? "자동 반영 보류 중" : "자동 반영") : "고정"
+              }`
             : undefined
         }
       >
@@ -272,6 +312,36 @@ export default function ClaudePricingPanel() {
               기본 모델과 모델별 요금, 회원이 고를 수 있는 모델은{" "}
               <Link href="/admin/ai-models">{sectionLabel("ai-models")}</Link>에서 정합니다.
             </p>
+
+            {/* owner-polish-3 (b): 자동 반영의 상태와 스위치 — 환율 칸 위에. */}
+            <div className={styles.fxBlock} data-testid="fx-status">
+              <div className={styles.fxRow}>
+                <span className={settings.fx.auto_enabled ? "badge badge-ok" : "badge badge-muted"}>
+                  {settings.fx.auto_enabled ? "자동 반영" : "고정"}
+                </span>
+                <span className="small muted">
+                  {settings.fx.is_mock
+                    ? "mock — 정해진 환율을 돌려줍니다 (FX_PROVIDER)"
+                    : "ECB · Frankfurter (무료, 키 없음), 하루 한 번"}
+                  {settings.fx.checked_at
+                    ? ` · 마지막 확인 ${formatWhen(settings.fx.checked_at)}${settings.fx.outcome_label ? ` — ${settings.fx.outcome_label}` : ""}`
+                    : " · 아직 확인한 적이 없어요"}
+                </span>
+                <span className={styles.fxActions}>
+                  <button className="btn btn-sm" type="button" disabled={busy || !settings.fx.auto_enabled} onClick={() => void refreshNow()}>
+                    지금 새로 고침
+                  </button>
+                  <button className="btn btn-sm" type="button" disabled={busy} onClick={() => askAuto(!settings.fx.auto_enabled)}>
+                    {settings.fx.auto_enabled ? "환율 고정" : "자동 반영 켜기"}
+                  </button>
+                </span>
+              </div>
+              {settings.fx.note && (
+                <p className={`notice ${styles.fxNote}`} role="status" data-testid="fx-note">
+                  {settings.fx.note}
+                </p>
+              )}
+            </div>
 
             <div className={styles.rateBlock}>
               <label className={styles.rateLabel} htmlFor="claude-exchange-rate">
@@ -299,7 +369,11 @@ export default function ClaudePricingPanel() {
                   {settings.rate_history.map((rate) => (
                     <li key={rate.set_at} className="numeric">
                       {formatWhen(rate.set_at)} · {Number(rate.krw_per_usd).toLocaleString()}원
-                      {rate.set_by_username ? ` · ${rate.set_by_username}` : " · 처음 값"}
+                      {rate.set_by_username
+                        ? ` · ${rate.set_by_username}`
+                        : rate.source && rate.source !== "seed" && rate.source !== "admin"
+                          ? ` · 자동 (${rate.source}${rate.fetched_for ? `, ${rate.fetched_for} 기준` : ""})`
+                          : " · 처음 값"}
                     </li>
                   ))}
                 </ul>

@@ -1,14 +1,17 @@
 /**
- * 회원 알림 목록 (feat-notifications, owner-polish 2).
+ * 회원 알림 (feat-notifications, owner-polish 2; owner-polish-3 (c)·(c2)로 줄임).
  *
- * 서버가 실제로 일어난 일에서만 만듭니다 — 게시 완료, 참여 신청 승인,
- * 지원금 사용 요약(하루 한 줄), 이정표, 내 앱의 신고 처리. 브라우저는
- * 읽고 "읽음"으로 표시할 뿐, 알림을 만들지 않습니다.
+ * 서버가 실제로 일어난 일에서만 만듭니다 — 게시 완료, 참여 신청 승인·거절,
+ * 반응을 얻었어요(내 영상의 반응·댓글, 항목마다 하루 한 줄), 내 앱의 신고
+ * 처리. 지원금 사용 요약과 이정표는 더 이상 알림이 아닙니다(토스트가 말해요).
+ * 브라우저는 읽고 지울 뿐, 알림을 만들지 않습니다. 종을 열면 숫자가 사라지고
+ * (보이는 것을 읽음으로), 지우기는 보이는 알림을 지웁니다 — 기록은 남기지
+ * 않아요.
  */
 
 import { request } from "./http";
 
-export type NotificationKind = "publish" | "application" | "spend" | "milestone" | "app_report";
+export type NotificationKind = "publish" | "application" | "reaction" | "app_report";
 
 export interface Notification {
   id: number;
@@ -43,6 +46,11 @@ export function markAllRead(): Promise<{ unread: number }> {
   return request<{ unread: number }>("/notifications/read-all", { method: "POST", body: JSON.stringify({}) });
 }
 
+/** 지우기 (owner-polish-3 (c2)): 보이는 알림(ids)을, 없으면 내 것 전부를 지웁니다. */
+export function clearNotifications(ids?: number[]): Promise<{ unread: number }> {
+  return request<{ unread: number }>("/notifications/clear", { method: "POST", body: JSON.stringify(ids ? { ids } : {}) });
+}
+
 /**
  * 종과 Profile의 목록이 서로를 새로 고치는 신호. 한쪽에서 읽음으로 표시하면
  * 다른 쪽도 숫자를 다시 받습니다 (같은 창 안에서만).
@@ -64,7 +72,6 @@ export function changedElsewhere(event: Event, me: string): boolean {
 export const KIND_GLYPH: Record<string, string> = {
   publish: "📣",
   application: "✅",
-  spend: "💸",
-  milestone: "🏁",
+  reaction: "💬",
   app_report: "🚩",
 };

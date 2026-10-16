@@ -7,7 +7,7 @@
  */
 
 import { API_BASE_URL } from "./api";
-import { request } from "./http";
+import { request, uploadBytes } from "./http";
 
 export interface AppListing {
   id: number;
@@ -124,6 +124,8 @@ export interface AdminAppOverview {
   /** app-ai-access: 게시된 버전이 AI를 쓰는지, 만든 사람의 설정. */
   uses_ai?: boolean;
   ai_access?: "demo" | "full";
+  /** owner-polish-3 (a): 게시본 썸네일을 찍은 때. null이면 아직 없음 — 썸네일 만들기로 찍어요. */
+  thumbnail_at?: string | null;
   open_reports: number;
   consents: number;
   data_items: number;
@@ -134,6 +136,11 @@ export interface AdminAppOverview {
 
 export function listAdminAppOverview(): Promise<AdminAppOverview[]> {
   return request<AdminAppOverview[]>("/admin/apps/overview");
+}
+
+/** owner-polish-3 (a): Admin › Apps › 썸네일 만들기 — 관리자 브라우저가 찍은 그림을 올려요. */
+export function adminUploadThumbnail(projectId: number, image: Blob): Promise<AdminAppOverview> {
+  return uploadBytes<AdminAppOverview>(`/admin/apps/${projectId}/thumbnail`, image, {}, "썸네일을 저장하지 못했어요");
 }
 
 export function getAdminApp(projectId: number): Promise<AdminAppOverview> {

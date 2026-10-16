@@ -14,11 +14,14 @@ import { useEffect, useState } from "react";
 
 import PageHeader from "@/app/components/PageHeader";
 import { describeError } from "@/lib/http";
-import { formatBytes, listAdminAppOverview, type AdminAppOverview } from "@/lib/apps";
+import { adminUploadThumbnail, formatBytes, listAdminAppOverview, type AdminAppOverview } from "@/lib/apps";
 import { relativeTime } from "@/lib/relative-time";
 
+import HiddenCapture from "@/app/builder/[projectId]/HiddenCapture";
 import AdminTable, { type Column } from "../components/AdminTable";
 import { sectionLabel } from "../sections";
+
+import styles from "../admin.module.css";
 
 const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
 
@@ -96,6 +99,25 @@ const COLUMNS: Column<AdminAppOverview>[] = [
 export default function AppsList() {
   const [apps, setApps] = useState<AdminAppOverview[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // owner-polish-3 (a): 썸네일 만들기 — 그림이 없는 게시 앱을 이 브라우저의 숨은
+  // 프레임에 하나씩 띄워 찍고 올립니다. 서버는 회원 코드를 실행하지 않아요.
+  const [making, setMaking] = useState<{ queue: AdminAppOverview[]; done: number; failed: number } | null>(null);
+
+  const missing = (apps ?? []).filter((app) => app.published && app.app_url && !app.thumbnail_at);
+  const startMaking = () => {
+    if (missing.length === 0) return;
+    setMaking({ queue: missing, done: 0, failed: 0 });
+  };
+  const current = making?.queue[0] ?? null;
+  const finishOne = (updated: AdminAppOverview | null) => {
+    if (updated) setApps((rows) => (rows ?? []).map((row) => (row.id === updated.id ? updated : row)));
+    setMaking((state) =>
+      state
+        ? { queue: state.queue.slice(1), done: state.done + (updated ? 1 : 0), failed: state.failed + (updated ? 0 : 1) }
+        : state,
+    );
+  };
+  const finished = making !== null && making.queue.length === 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +144,35 @@ export default function AppsList() {
         <p className="small" role="alert">
           {error}
         </p>
+      )}
+      {apps !== null && (
+        <div className={styles.thumbnailMaker} data-testid="thumbnail-maker">
+          <button className="btn btn-sm" type="button" onClick={startMaking} disabled={missing.length === 0 || (making !== null && !finished)}>
+            썸네일 만들기
+          </button>
+          <span className="small muted" aria-live="polite">
+            {making === null
+              ? missing.length > 0
+                ? `그림이 없는 게시 앱 ${missing.length}개 — 이 브라우저에서 하나씩 열어 찍고 저장해요.`
+                : "게시된 앱마다 그림이 있어요."
+              : finished
+                ? `끝 — ${making.done}개 저장${making.failed > 0 ? `, ${making.failed}개 실패 (앱을 열어 다시 찍어 주세요)` : ""}.`
+                : `찍는 중 ${making.done + making.failed + 1}/${making.done + making.failed + making.queue.length} — ${current?.name ?? ""}`}
+          </span>
+          {current && current.app_url && (
+            <HiddenCapture
+              key={current.id}
+              url={`${current.app_url}?v=${encodeURIComponent(current.published_at ?? "")}`}
+              onImage={async (image) => {
+                finishOne(await adminUploadThumbnail(current.id, image));
+              }}
+              onDone={() => {
+                // onImage took care of success; a failure or a timeout lands here with the queue unchanged.
+                setMaking((state) => (state && state.queue[0]?.id === current.id ? { ...state, queue: state.queue.slice(1), failed: state.failed + 1 } : state));
+              }}
+            />
+          )}
+        </div>
       )}
       {apps === null && !error ? (
         <p className="small muted">불러오는 중…</p>

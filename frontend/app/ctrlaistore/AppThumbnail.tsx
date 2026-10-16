@@ -50,6 +50,9 @@ export default function Thumbnail({ name, seed, imageUrl = null, size = "card", 
       style={{ background: coverTint(seed) }}
       aria-hidden="true"
     >
+      {/* owner-polish-3 (a): a name-and-colour cover — the app's initial, large
+          and faint, behind its name — instead of a bare </> glyph. */}
+      {!small && <span className={styles.artworkInitial} aria-hidden="true">{name.slice(0, 1)}</span>}
       {label === "icon" ? (
         <Code2 className={styles.artworkText} size={28} aria-hidden="true" />
       ) : (
