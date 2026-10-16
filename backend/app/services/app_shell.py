@@ -22,6 +22,7 @@ Deleted projects and unpublished slugs have no shell.
 from __future__ import annotations
 
 import html
+from urllib.parse import quote
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -113,6 +114,42 @@ def resolve(db: Session, slug: str) -> ShellTarget | None:
     return ShellTarget(project, "preview")
 
 
+def cover_hue(seed: str) -> int:
+    """The cover's hue from the app's address — the same arithmetic as the
+    frontend's `coverHue` (`lib/apps.ts`): a 32-bit `hash * 31 + char`
+    over the UTF-16 code units, modulo 360 — so the tab icon is the same
+    colour as the card on CtrlAIApps."""
+    data = seed.encode("utf-16-le")
+    value = 0
+    for i in range(0, len(data), 2):
+        value = (value * 31 + int.from_bytes(data[i : i + 2], "little")) & 0xFFFFFFFF
+    return value % 360
+
+
+def favicon(name: str, seed: str) -> str:
+    """app-tab-icon: the tab's icon as an SVG data URL — the app's cover
+    (its colour from `seed`, its first letter), drawn here so every app
+    has one without the member doing anything. Text goes in XML-escaped
+    and the whole document percent-encoded, so a name cannot break out of
+    the SVG or the attribute. `img-src 'self' data:` in `shell_csp`
+    already allows it."""
+    hue = cover_hue(seed)
+    initial = html.escape((name.strip() or "?")[0], quote=True)
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+        '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+        f'<stop offset="0" stop-color="oklch(0.42 0.09 {hue})"/>'
+        f'<stop offset="1" stop-color="oklch(0.3 0.07 {(hue + 20) % 360})"/>'
+        "</linearGradient></defs>"
+        '<rect width="64" height="64" rx="14" fill="url(#g)"/>'
+        '<text x="32" y="33" text-anchor="middle" dominant-baseline="central" '
+        'font-family="Pretendard Variable, Pretendard, Apple SD Gothic Neo, Malgun Gothic, system-ui, sans-serif" '
+        f'font-size="36" font-weight="800" fill="#fff">{initial}</text>'
+        "</svg>"
+    )
+    return "data:image/svg+xml," + quote(svg, safe="")
+
+
 def render(target: ShellTarget, sites: list[str] | None = None) -> str:
     """The shell page. The app's name is escaped; the slug is read by
     shell.js from the address itself, never from here. `sites` are the
@@ -121,12 +158,17 @@ def render(target: ShellTarget, sites: list[str] | None = None) -> str:
     name = html.escape(target.project.name)
     suffix = " · 미리보기" if target.mode == "preview" else ""
     sites_attr = html.escape(" ".join(sites or []), quote=True)
+    # app-tab-icon: the cover's seed is what the cards use — the published
+    # slug for an app, the working copy's for a preview (BuilderLibrary).
+    seed = (target.project.app_slug if target.mode == "app" else target.project.draft_slug) or str(target.project.id)
+    icon = favicon(target.project.name, seed)
     return (
         "<!doctype html>\n"
         '<html lang="ko"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<meta name="referrer" content="no-referrer">'
         f"<title>{name}{suffix} — CTRL+AI</title>"
+        f'<link rel="icon" type="image/svg+xml" href="{icon}">'
         "<style>"
         "html,body{margin:0;height:100%;color-scheme:light dark}"
         "iframe{display:block;width:100%;height:100%;border:0}"

@@ -72,6 +72,33 @@ def test_the_shell_of_a_published_app(anon_client: TestClient, published: Builde
     assert "set-cookie" not in response.headers
 
 
+def test_the_shell_has_the_apps_cover_as_its_tab_icon(anon_client: TestClient, published: BuilderProject) -> None:
+    """app-tab-icon: the browser tab shows the app's cover — its colour
+    from the slug (the same hue as the CtrlAIApps card) and its first
+    letter — as an SVG data URL the shell draws; CSP allows `data:` images
+    already, so nothing else changes."""
+    from urllib.parse import unquote
+
+    page = anon_client.get(f"/_ctrlai/shell/{published.app_slug}").text
+    start = page.index('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,')
+    href = page[start:].split('href="', 1)[1].split('"', 1)[0]
+    svg = unquote(href.removeprefix("data:image/svg+xml,"))
+    assert svg.startswith("<svg") and svg.endswith("</svg>")
+    assert f"oklch(0.42 0.09 {app_shell.cover_hue(published.app_slug)})" in svg
+    assert f">{published.name[0]}</text>" in svg
+    # The working copy's shell uses the draft's seed, like the Builder card.
+    preview = anon_client.get(f"/_ctrlai/shell/{published.draft_slug}").text
+    assert f"oklch(0.42 0.09 {app_shell.cover_hue(published.draft_slug)})" in unquote(preview)
+    # The same arithmetic as lib/apps.ts `coverHue` (values computed there).
+    assert [app_shell.cover_hue(s) for s in ("abcdefgh23", "hjy5qfvr6t", "zzzzzzzzzz", "3")] == [117, 341, 0, 51]
+    # A hostile name cannot break out of the SVG text or the attribute.
+    icon = app_shell.favicon('<b onload="x">', "abcdefgh23")
+    assert '"' not in icon and "<" not in icon and ">" not in icon
+    assert "&lt;" in unquote(icon) and "<b" not in unquote(icon)
+    assert ">?</text>" in unquote(app_shell.favicon("   ", "abcdefgh23"))
+    assert ">가</text>" in unquote(app_shell.favicon("가계부", "abcdefgh23"))
+
+
 def test_the_working_copy_has_a_preview_shell(anon_client: TestClient, published: BuilderProject) -> None:
     page = anon_client.get(f"/_ctrlai/shell/{published.draft_slug}").text
     assert 'data-mode="preview"' in page and "미리보기" in page
