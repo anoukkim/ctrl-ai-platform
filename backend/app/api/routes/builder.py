@@ -34,8 +34,10 @@ from app.models import (
 from app.schemas.builder import (
     BuilderProjectCreate,
     BuilderProjectFromChat,
+    BuilderProjectFromTemplate,
     BuilderProjectRead,
     BuilderProjectUpdate,
+    BuilderTemplateRead,
 )
 from app.core.config import Settings, get_settings
 from app.schemas.builder import (
@@ -63,8 +65,10 @@ from app.services import (
     app_publish,
     app_runtime,
     builder_edit,
+    builder_files,
     builder_stages,
     builder_starter,
+    builder_templates,
     builder_versions,
     chat_models,
     pricing,
@@ -211,6 +215,58 @@ def create_project_from_chat(
     db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
     db.flush()
     builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html})
+    _refresh_runtime(db, settings, project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.get("/templates", response_model=list[BuilderTemplateRead], summary="The start screen's templates")
+def list_templates(_: User = Depends(get_current_user)) -> list[BuilderTemplateRead]:
+    return [
+        BuilderTemplateRead(key=t.key, name=t.name, description=t.description, uses=list(t.uses))
+        for t in builder_templates.TEMPLATES
+    ]
+
+
+@router.post(
+    "/projects/from-template",
+    response_model=BuilderProjectRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="A project from a start-screen template (app-platform P4)",
+)
+def create_project_from_template(
+    payload: BuilderProjectFromTemplate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderProject:
+    """Like from-chat: the files are copied, nothing is generated, nothing
+    is charged. The template's files are checked by the same rules as any
+    project's, so a broken template can never reach the runtime."""
+    template = builder_templates.get(payload.template)
+    if template is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="그런 템플릿이 없어요.")
+    try:
+        files = builder_templates.files_of(template)
+    except (OSError, builder_files.FileRuleError) as error:
+        logger.error("template %s unusable: %s", template.key, error)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="템플릿을 읽지 못했어요. 관리자에게 알려 주세요."
+        ) from error
+    project = BuilderProject(
+        owner_user_id=user.id,
+        name=_checked_name(payload.name) if payload.name.strip() else template.name,
+        description=template.description,
+        chat_model_id=user.default_chat_model_id,
+        depth=user.default_depth,
+    )
+    db.add(project)
+    db.flush()
+    for path, content in files.items():
+        db.add(BuilderProjectFile(project_id=project.id, path=path, content=content))
+    db.flush()
+    builder_versions.snapshot(db, project, f"템플릿: {template.name}", files)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)

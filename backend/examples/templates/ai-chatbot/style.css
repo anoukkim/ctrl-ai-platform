@@ -1,0 +1,109 @@
+/* AI 챗봇 — 따뜻한 종이 느낌. 색은 맨 위 변수만 바꾸면 돼요. */
+:root {
+  --paper: #fbf5ec;
+  --ink: #2b2420;
+  --muted: #8a7b70;
+  --line: #e8dccb;
+  --me: #e9632b;
+  --me-ink: #ffffff;
+  --bot: #ffffff;
+  --accent: #e9632b;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 16px/1.55 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.app {
+  max-width: 44rem;
+  margin: 0 auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .9rem 1rem .6rem;
+  border-bottom: 1px solid var(--line);
+}
+.who { display: flex; align-items: center; gap: .7rem; min-width: 0; }
+.avatar {
+  width: 2.6rem; height: 2.6rem; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: grid; place-items: center; font-weight: 700; flex: none;
+}
+h1 { font-size: 1.1rem; margin: 0; }
+.mode { margin: 0; font-size: .8rem; color: var(--muted); }
+
+button {
+  font: inherit; cursor: pointer; border: 0; border-radius: 999px;
+  padding: .5rem 1rem; background: var(--accent); color: #fff;
+}
+button:focus-visible { outline: 3px solid #f7b596; outline-offset: 2px; }
+button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button.ghost.danger { color: #b3261e; }
+button.small { padding: .3rem .8rem; font-size: .85rem; }
+button[disabled] { opacity: .5; cursor: default; }
+
+.settings {
+  display: grid; gap: .7rem;
+  padding: .9rem 1rem;
+  background: #fff; border-bottom: 1px solid var(--line);
+}
+.settings label { display: grid; gap: .3rem; font-size: .9rem; color: var(--muted); }
+.settings label.inline { grid-auto-flow: column; align-items: center; justify-content: start; }
+.settings input, .settings textarea, .settings select {
+  font: inherit; color: var(--ink);
+  padding: .5rem .7rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--paper);
+}
+.settings .row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.hint { margin: 0; font-size: .8rem; color: var(--muted); }
+
+.notice {
+  margin: .7rem 1rem 0; padding: .6rem .8rem;
+  border-radius: .8rem; background: #fff3e8; color: #7a3b14; font-size: .9rem;
+  display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap;
+}
+
+.messages {
+  list-style: none; margin: 0; padding: 1rem;
+  display: flex; flex-direction: column; gap: .6rem; flex: 1;
+}
+.messages li {
+  max-width: 82%; padding: .6rem .9rem; border-radius: 1.1rem;
+  white-space: pre-wrap; word-break: break-word;
+}
+.messages .me { align-self: flex-end; background: var(--me); color: var(--me-ink); border-bottom-right-radius: .3rem; }
+.messages .bot { align-self: flex-start; background: var(--bot); border: 1px solid var(--line); border-bottom-left-radius: .3rem; }
+.messages .meta { display: block; margin-top: .3rem; font-size: .72rem; color: var(--muted); }
+.messages .demo { color: #a05a1c; }
+.messages .error { align-self: center; background: #fde8e6; color: #8a1f17; font-size: .85rem; }
+.messages .empty { align-self: center; color: var(--muted); font-size: .9rem; background: none; }
+
+.composer {
+  position: sticky; bottom: 0;
+  display: flex; gap: .5rem; align-items: flex-end;
+  padding: .6rem 1rem; background: var(--paper); border-top: 1px solid var(--line);
+}
+.composer textarea {
+  flex: 1; resize: none; font: inherit; color: var(--ink);
+  padding: .6rem .9rem; border: 1px solid var(--line); border-radius: 1.2rem; background: #fff;
+  max-height: 8rem;
+}
+.composer button { width: 2.6rem; height: 2.6rem; padding: 0; font-size: 1.2rem; flex: none; }
+.cost { margin: 0; padding: 0 1rem .6rem; font-size: .78rem; color: var(--muted); text-align: right; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .messages li { animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(4px); } }
+}

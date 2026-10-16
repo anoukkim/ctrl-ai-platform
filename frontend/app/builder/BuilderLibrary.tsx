@@ -22,13 +22,16 @@ import {
   LIBRARY_FILTERS,
   builderProjectDownloadUrl,
   createBuilderProject,
+  createBuilderProjectFromTemplate,
   deleteBuilderProject,
   describeError,
   formatRelative,
   listBuilderProjects,
+  listBuilderTemplates,
   updateBuilderProject,
   type LibraryFilter,
   type BuilderProject,
+  type BuilderTemplate,
 } from "@/lib/projects";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
@@ -64,6 +67,12 @@ export default function BuilderLibrary() {
   const [newName, setNewName] = useState(() => chatIdea.name);
   const [idea, setIdea] = useState(() => chatIdea.idea);
   const [busy, setBusy] = useState(false);
+  // 시작 방법 (app-platform P4): 빈 프로젝트(null) 또는 템플릿 하나. 목록은
+  // 칸을 처음 열 때 받아 옵니다. Chat에서 온 아이디어가 있으면 그 길이
+  // 우선이라 템플릿은 보이지 않습니다.
+  const [templates, setTemplates] = useState<BuilderTemplate[] | null>(null);
+  const [templateKey, setTemplateKey] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const router = useRouter();
   const [query, setQuery] = useState("");
   // 전체 / 작성 중 / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
@@ -96,27 +105,58 @@ export default function BuilderLibrary() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  useEffect(() => {
+    if (!creating || idea || templates !== null) return;
+    let cancelled = false;
+    listBuilderTemplates()
+      .then((list) => {
+        if (!cancelled) setTemplates(list);
+      })
+      .catch(() => {
+        // 템플릿이 없어도 빈 프로젝트는 만들 수 있습니다.
+        if (!cancelled) setTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [creating, idea, templates]);
+
+  /** 템플릿을 고르면 이름 칸을 그 이름으로 채웁니다 — 회원이 적은 이름은 두고요. */
+  const pickTemplate = useCallback(
+    (key: string | null) => {
+      setTemplateKey(key);
+      const previous = templates?.find((t) => t.key === templateKey)?.name ?? "";
+      const next = templates?.find((t) => t.key === key)?.name ?? "";
+      if (!newName.trim() || newName === previous) setNewName(next);
+    },
+    [newName, templateKey, templates],
+  );
+
   /**
    * 프로젝트를 만들고 작업 공간으로 갑니다. Chat에서 가져온 아이디어는
    * 설명으로 저장되고, 작업 공간이 그것으로 짧은 질문을 채워 둔 뒤 만들
    * 계획부터 보여 줍니다(quality-tuning Q2) — 돈은 계획을 세울 때부터 듭니다.
+   * 템플릿을 골랐다면 파일을 복사할 뿐이라 무료이고, 바로 미리보기로 열립니다.
    */
   const create = useCallback(async () => {
     const name = newName.trim();
     if (!name) return;
 
     setBusy(true);
+    setCreateError(null);
     let project: BuilderProject;
     try {
-      project = await createBuilderProject({ name, description: idea });
+      project = templateKey
+        ? await createBuilderProjectFromTemplate({ template: templateKey, name })
+        : await createBuilderProject({ name, description: idea });
     } catch (error) {
-      setState({ phase: "error", message: describeError(error) });
+      setCreateError(describeError(error));
       setBusy(false);
       return;
     }
     setBusy(false);
     router.push(`/builder/${project.id}`);
-  }, [idea, newName, router]);
+  }, [idea, newName, router, templateKey]);
 
   // 이름 바꾸기는 목록을 다시 받지 않고 그 줄만 고칩니다 — 다시
   // 불러오면 검색·필터가 깜빡이고, 바꾼 줄이 어디로 갔는지 알기
@@ -201,6 +241,40 @@ export default function BuilderLibrary() {
       {creating && (
         <div className={styles.createForm}>
           <p className={styles.createTitle}>새 프로젝트</p>
+          {!idea && (
+            <div className={styles.templateGrid} role="group" aria-label="시작 방법">
+              <button
+                aria-pressed={templateKey === null}
+                className={styles.templateCard}
+                onClick={() => pickTemplate(null)}
+                type="button"
+              >
+                <span className={styles.templateName}>빈 프로젝트</span>
+                <span className={styles.templateDesc}>
+                  이름만 정하고, 작업 공간에서 Claude에게 만들고 싶은 것을 말해요.
+                </span>
+              </button>
+              {(templates ?? []).map((template) => (
+                <button
+                  aria-pressed={templateKey === template.key}
+                  className={styles.templateCard}
+                  key={template.key}
+                  onClick={() => pickTemplate(template.key)}
+                  type="button"
+                >
+                  <span className={styles.templateName}>{template.name}</span>
+                  <span className={styles.templateDesc}>{template.description}</span>
+                  <span className={styles.templateUses}>
+                    {template.uses.map((use) => (
+                      <span className={styles.templateUse} key={use}>
+                        {use}
+                      </span>
+                    ))}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <label className="sr-only" htmlFor="new-builder-project">
             새 프로젝트 이름
           </label>
@@ -237,11 +311,23 @@ export default function BuilderLibrary() {
                 setCreating(false);
                 setNewName("");
                 setIdea("");
+                setTemplateKey(null);
+                setCreateError(null);
               }}
             >
               취소
             </button>
           </div>
+          {createError && (
+            <p className={styles.createError} role="alert">
+              {createError}
+            </p>
+          )}
+          {templateKey && (
+            <p className={styles.createStarterHint}>
+              템플릿은 바로 열려요 — 무료예요. 열리면 Claude에게 바꾸고 싶은 점을 말해 보세요.
+            </p>
+          )}
           {idea && (
             <p className={styles.createIdea}>
               <span className={styles.createIdeaLabel}>

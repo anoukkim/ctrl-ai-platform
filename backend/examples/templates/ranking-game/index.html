@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>색 맞추기 랭킹</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1>색 맞추기</h1>
+      <p class="rule">글자의 <b>뜻</b>이 아니라 글자의 <b>색</b>을 누르세요. 20초 동안 맞히면 +1, 틀리면 −1.</p>
+    </header>
+
+    <section class="stage" id="stage" aria-live="polite">
+      <div class="hud">
+        <span class="hud-item">점수 <b id="score">0</b></span>
+        <span class="hud-item">남은 시간 <b id="time">20</b>초</span>
+      </div>
+      <p class="word" id="word">시작</p>
+      <div class="pads" id="pads" role="group" aria-label="색 고르기"></div>
+      <div class="start" id="start-area">
+        <button type="button" id="start">시작!</button>
+        <p class="hint" id="best" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- 게임이 끝나면 점수를 랭킹에 올려요 (로그인한 회원만 저장돼요). -->
+    <section class="result card" id="result" hidden>
+      <h2>끝! <span id="final-score"></span>점</h2>
+      <p class="muted" id="result-note"></p>
+      <div class="row">
+        <button type="button" id="submit">랭킹에 올리기</button>
+        <button type="button" class="ghost" id="again">다시 하기</button>
+      </div>
+      <p class="error" id="submit-error" role="alert" hidden></p>
+    </section>
+
+    <section class="card">
+      <h2 class="board-title">랭킹 <span class="badge" id="board-badge"></span></h2>
+      <ol class="board" id="board" aria-live="polite"></ol>
+    </section>
+
+    <div class="notice" id="notice" hidden>
+      <span id="notice-text"></span>
+      <button type="button" class="small" id="login-button" hidden>로그인</button>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

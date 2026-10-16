@@ -427,6 +427,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # chat-plus-artifacts: Builder로 보내기 creates a project — a creation.
     ("POST", "/api/builder/projects/from-chat"): "require_active_member",
+    # app-platform P4: a template is a creation too; the list is free to read.
+    ("GET", "/api/builder/templates"): "get_current_user",
+    ("POST", "/api/builder/projects/from-template"): "require_active_member",
     # Video — same shape; generating spends budget.
     ("GET", "/api/video/models"): "get_current_user",
     ("GET", "/api/video/projects"): "get_current_user",

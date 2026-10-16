@@ -34,6 +34,22 @@ class BuilderProjectFromChat(BuilderProjectBase):
     html: str = Field(min_length=1)
 
 
+class BuilderProjectFromTemplate(BaseModel):
+    """A new project from one of the start screen's templates
+    (app-platform P4). No Claude call, no charge."""
+
+    template: str
+    #: The project's name; the template's own when left out.
+    name: str = ""
+
+
+class BuilderTemplateRead(BaseModel):
+    key: str
+    name: str
+    description: str
+    uses: list[str]
+
+
 class BuilderProjectUpdate(BaseModel):
     """Every field optional: this is a PATCH."""
 

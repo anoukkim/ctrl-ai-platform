@@ -7,6 +7,7 @@ save into a list that does not exist is refused.
 """
 
 import json
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -111,3 +112,61 @@ def test_the_sdk_names_the_manifest_and_the_refusal() -> None:
 
     sdk = app_shell.static_file("sdk.js")
     assert "ctrlai.json" in sdk and "no_collection" in sdk
+
+
+# ---------------------------------------------------------------- templates
+
+
+def test_every_template_passes_the_file_rules_and_uses_the_sdk_the_right_way() -> None:
+    from app.services import builder_templates
+
+    assert [t.key for t in builder_templates.TEMPLATES] == ["ai-chatbot", "poll", "ranking-game", "club-board"]
+    for template in builder_templates.TEMPLATES:
+        files = builder_templates.files_of(template)
+        assert "index.html" in files and "app.js" in files and "style.css" in files
+        code = files["app.js"]
+        # Signed out or outside CTRL+AI the page still works: a demo path, and
+        # a login button rather than a surprise sign-in window.
+        assert "window.ctrlai.connected" in code and "데모" in code
+        assert "login_required" in code and "login()" in code
+        for forbidden in ("alert(", "confirm(", "prompt(", "<script src=\"http", "https://"):
+            assert forbidden not in code and forbidden not in files["index.html"], (template.key, forbidden)
+        # Every list the code uses is declared, with the same kind (shared) in both.
+        used = set(re.findall(r'db\.(?:save|list|get|update|remove|count)\("([a-z]+)"', code))
+        declared = {c.name for c in app_manifest.parse(files)}
+        assert used == declared, (template.key, used, declared)
+        assert all(c.kind == "shared" for c in app_manifest.parse(files))
+    chatbot = builder_templates.files_of(builder_templates.get("ai-chatbot"))
+    assert "ctrlai.json" not in chatbot and "ai.stream" in chatbot["app.js"] and "최대 200원" in chatbot["app.js"]
+
+
+def test_a_template_becomes_a_free_project_with_its_lists_declared(
+    client: TestClient, db_session: Session, participating, config
+) -> None:
+    from app.models import UsageEvent
+
+    listed = client.get("/api/builder/templates")
+    assert listed.status_code == 200 and [t["key"] for t in listed.json()] == ["ai-chatbot", "poll", "ranking-game", "club-board"]
+    assert listed.json()[1]["uses"] == ["공유 데이터", "로그인"]
+
+    made = client.post("/api/builder/projects/from-template", json={"template": "club-board", "name": ""})
+    assert made.status_code == 201, made.text
+    project = db_session.get(BuilderProject, made.json()["id"])
+    assert project.name == "동아리 게시판" and project.draft_slug
+    paths = {f.path for f in project.files}
+    assert {"index.html", "style.css", "app.js", "ctrlai.json"} <= paths
+    assert db_session.query(UsageEvent).count() == 0
+    versions = client.get(f"/api/builder/projects/{project.id}/versions").json()
+    assert versions[0]["note"] == "템플릿: 동아리 게시판"
+    # The preview can be tried at once: its lists exist in the preview space.
+    assert collections(db_session, project, "preview") == {("posts", "shared"), ("comments", "shared")}
+
+    named = client.post("/api/builder/projects/from-template", json={"template": "poll", "name": "점심 투표"})
+    assert named.status_code == 201 and named.json()["name"] == "점심 투표"
+    assert client.post("/api/builder/projects/from-template", json={"template": "nope"}).status_code == 404
+
+
+def test_a_member_not_participating_gets_no_template_project(other_client: TestClient, db_session: Session) -> None:
+    assert other_client.get("/api/builder/templates").status_code == 200
+    assert other_client.post("/api/builder/projects/from-template", json={"template": "poll"}).status_code == 403
+    assert db_session.query(BuilderProject).count() == 0
