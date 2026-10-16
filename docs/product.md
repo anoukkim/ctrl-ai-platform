@@ -417,7 +417,7 @@ Chat is the opening screen and a real conversation with Claude, behind
   wallet checked first — until the reply ends, the member presses 중지,
   the whole reply reaches that depth's **전체 한도** (Admin › System › 채팅
   한도, default 낮음 600 · 보통 1,500 · 높음 3,000 · 최고 6,000원; 0 = one
-  call only) or the wallet runs short. While it continues the screen says
+  call only), eight calls have been made, or the wallet runs short. While it continues the screen says
   "이어서 쓰는 중… (n번째) · 지금까지 N원" and 중지 stays; the pieces are
   saved as one message whose receipt adds the calls up ("3번에 나눠 씀"),
   so a code block split across calls previews as one page. A reply the

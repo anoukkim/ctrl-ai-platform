@@ -374,9 +374,10 @@ same cap with the partial counted as input, refused when
 `usage.ensure_affordable` fails), sends SSE `continue` and streams again.
 `chat.save_reply` then writes **one** `ChatMessage` from every call: joined
 text, summed tokens, `usage_event_id` = the first call's event and
-`segment_event_ids` = all of them (migration `a8c4e2f6b1d9`), status from
-the last call and the stop reason (`capped_krw` = the whole-reply ceiling
-when that is what stopped it). `GET /conversations/{id}` sums the events
+`segment_event_ids` = all of them and `stop_note` = why the server did
+not go on (migration `a8c4e2f6b1d9`), status from the last call and the
+stop reason (`capped_krw` = the ceiling that stopped it — the whole
+reply's or the call's). `GET /conversations/{id}` sums the events
 into the receipt. 중지 closes the connection; the running call is settled
 like any stopped call and nothing further is started. The guard map is
 unchanged: the same `POST …/messages` route, `require_active_member`.
