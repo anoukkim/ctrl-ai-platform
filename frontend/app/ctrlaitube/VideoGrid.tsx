@@ -18,6 +18,7 @@ import { Heart, MessageCircle, Play } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import ListToolbar from "@/app/components/ListToolbar";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { CreatorLine } from "@/app/components/Community";
 import { MOCK_VIDEOS, totalComments, totalReactions } from "@/lib/mock-data";
@@ -67,27 +68,30 @@ export default function VideoGrid() {
 
   return (
     <>
-      <div className={`toolbar ${styles.toolbar}`}>
-        <div className="chips" role="group" aria-label="정렬">
-          {SORT_OPTIONS.map((option) => (
-            <button
-              className="chip"
-              type="button"
-              key={option.value}
-              aria-pressed={sort === option.value}
-              onClick={() => setSort(option.value as SortKey)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div className={styles.searchSlot}>
+      <ListToolbar
+        label={
+          <div className="chips" role="group" aria-label="정렬">
+            {SORT_OPTIONS.map((option) => (
+              <button
+                className="chip"
+                type="button"
+                key={option.value}
+                aria-pressed={sort === option.value}
+                onClick={() => setSort(option.value as SortKey)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        }
+        search={
           <SearchBar
             value={query}
             onChange={setQuery}
             placeholder="영상 제목, 설명, 만든 사람으로 검색"
             resultCount={visible.length + realVisible.length}
             totalCount={MOCK_VIDEOS.length + real.length}
+            grow
             filters={[
               {
                 key: "creator",
@@ -104,8 +108,8 @@ export default function VideoGrid() {
               },
             ]}
           />
-        </div>
-      </div>
+        }
+      />
 
       {visible.length + realVisible.length === 0 ? (
         <div className={styles.searchEmpty}>

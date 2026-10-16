@@ -36,6 +36,7 @@ import {
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
+import ListToolbar from "@/app/components/ListToolbar";
 import PageHeader from "@/app/components/PageHeader";
 import TestModeNotice from "@/app/components/TestModeNotice";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
@@ -348,26 +349,30 @@ export default function BuilderLibrary() {
         </div>
       )}
 
-      <div className={`toolbar ${styles.toolbar}`}>
-        <p className={`toolbar-count ${styles.sectionLabel}`}>
-          내 프로젝트
-          {state.phase === "ready" && (
-            <span className={styles.count}>{state.projects.length}개</span>
-          )}
-        </p>
-
-        {state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") && (
-          <>
-            <div className={styles.toolbarSearch}>
-              <SearchBar
-                value={query}
-                onChange={setQuery}
-                placeholder="프로젝트 이름이나 설명으로 검색"
-                resultCount={visible.length}
-                totalCount={state.projects.length}
-              />
-            </div>
-            {/* 전체 / 작성 중 / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
+      <ListToolbar
+        label={
+          <p className={styles.sectionLabel}>
+            내 프로젝트
+            {state.phase === "ready" && (
+              <span className={styles.count}>{state.projects.length}개</span>
+            )}
+          </p>
+        }
+        search={
+          state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") ? (
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="프로젝트 이름이나 설명으로 검색"
+              resultCount={visible.length}
+              totalCount={state.projects.length}
+              grow
+            />
+          ) : null
+        }
+        controls={
+          state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") ? (
+            /* 전체 / 작성 중 / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */
             <div className="segmented" role="group" aria-label="상태">
               {LIBRARY_FILTERS.map((option) => (
                 <button
@@ -381,9 +386,9 @@ export default function BuilderLibrary() {
                 </button>
               ))}
             </div>
-          </>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       {state.phase === "loading" && (
         <div className={styles.skeletonGrid} aria-busy="true" aria-label="불러오는 중">

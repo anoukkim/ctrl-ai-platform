@@ -1,20 +1,6 @@
 /* CtrlAITube — 영상 피드. 카드가 주인공이 되도록 구성합니다. */
 
-/* 정렬 칩(왼쪽)과 검색(오른쪽)이 한 줄에 섭니다. */
-.toolbar {
-  margin-bottom: 18px;
-}
-
-.searchSlot {
-  flex: 1 1 18rem;
-  max-width: 30rem;
-  margin-left: auto;
-}
-
-.searchSlot > * {
-  margin-bottom: 0;
-  flex-wrap: nowrap;
-}
+/* 머리 줄(정렬 칩 · 검색)은 ListToolbar가 그립니다 — 네 목록이 같은 격자. */
 
 .grid {
   display: grid;

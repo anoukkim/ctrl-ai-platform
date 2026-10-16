@@ -581,27 +581,8 @@ code {
   cursor: not-allowed;
 }
 
-/* ---------- 목록 화면의 도구 줄 ---------- */
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem 0.75rem;
-  margin-bottom: 14px;
-}
-
-.toolbar-count {
-  margin-right: auto;
-  color: var(--text-muted);
-  font-size: var(--fs-count);
-  font-weight: var(--fw-strong);
-}
-
-.toolbar-count span {
-  color: var(--text-dim);
-  font-weight: 500;
-}
+/* 목록 화면의 머리 줄은 components/list-toolbar.module.css (ListToolbar)가
+   그립니다 — 네 목록이 같은 격자를 씁니다. */
 
 /* ---------- 카드 ---------- */
 

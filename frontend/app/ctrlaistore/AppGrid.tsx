@@ -13,6 +13,7 @@ import { LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import EmptyState from "@/app/components/EmptyState";
+import ListToolbar from "@/app/components/ListToolbar";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import Skeleton from "@/app/components/Skeleton";
 import { listApps, type AppListing } from "@/lib/apps";
@@ -64,17 +65,23 @@ export default function AppGrid({ onCount }: { onCount?: (count: number) => void
 
   return (
     <>
-      <div className={`toolbar ${styles.toolbar}`}>
-        <div className={styles.searchSlot}>
+      <ListToolbar
+        label={
+          <p className={styles.sectionLabel}>
+            게시된 앱 <span className={styles.count}>{state.apps.length}개</span>
+          </p>
+        }
+        search={
           <SearchBar
             value={query}
             onChange={setQuery}
             placeholder="앱 이름, 설명, 만든 사람으로 검색"
             resultCount={visible.length}
             totalCount={state.apps.length}
+            grow
           />
-        </div>
-      </div>
+        }
+      />
 
       {visible.length === 0 ? (
         <div className={styles.searchEmpty}>

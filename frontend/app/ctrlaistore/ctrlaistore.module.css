@@ -2,20 +2,20 @@
    그러나 관리자 대시보드처럼 보이지 않도록 카드 중심으로 구성합니다. */
 
 /* 분류 칩(왼쪽)과 검색·정렬(오른쪽)이 한 줄에 섭니다. */
-.toolbar {
-  margin-bottom: 18px;
+/* 머리 줄은 ListToolbar(list-toolbar.module.css)가 그립니다. 라벨만 여기. */
+.sectionLabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--lib-gap-xs);
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+  color: var(--text-muted);
 }
 
-/* 검색창은 최대 380px. SearchBar 자체의 아래 여백은 이 줄에서 지웁니다. */
-.searchSlot {
-  flex: 1 1 18rem;
-  max-width: 30rem;
-  margin-left: auto;
-}
-
-.searchSlot > * {
-  margin-bottom: 0;
-  flex-wrap: nowrap;
+.count {
+  font-size: var(--fs-count);
+  font-weight: 500;
+  color: var(--text-dim);
 }
 
 .grid {
