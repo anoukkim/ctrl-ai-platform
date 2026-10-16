@@ -190,7 +190,9 @@ Playwright drives the installed Chrome against the running stack — the
 backend, the apps server, the site on 3000 and at least two published apps
 (`python -m app.db.import_example_apps dev`). It proves what jsdom cannot:
 the app frame's opaque origin, no app cookie on its requests, no driving
-another app's shell. The P2–P4 specs also need the dev member to have a
+another app's shell. The P4b spec needs the showcases published from the
+current files (`python -m app.db.import_example_apps dev --update`). The
+P2–P4b specs also need the dev member to have a
 wallet this quarter (apply from the sidebar and approve it in Admin ›
 Applications, or through the API) — an AI call without one fails with
 "이번 분기 지원금이 부족합니다". `APPS_ORIGIN` points it elsewhere — e.g. the real

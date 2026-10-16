@@ -1,6 +1,6 @@
 // 영수증 가계부 — 데모 데이터.
 // 모든 상호는 지어낸 것이고, "AI 결과"는 미리 만들어 둔 것입니다.
-// AI 연결 후에는 이 자리의 결과를 Claude가 영수증 사진에서 직접 읽어 옵니다.
+// 실제 AI(로그인한 회원)에서는 app.js의 readWithAi가 Claude로 사진을 직접 읽고, 데모에서는 이 자리의 결과를 써요.
 
 window.LEDGER = window.LEDGER || {};
 
@@ -129,7 +129,7 @@ LEDGER.seedTransactions = function () {
   return out.sort((a, b) => (a.date < b.date ? 1 : -1));
 };
 
-// ---- 미리 만든 "이번 달 소비 패턴" (데모 · AI 연결 전) ----
+// ---- 미리 만든 "이번 달 소비 패턴" (데모 — 실제 AI에서는 Claude가 써요) ----
 // 숫자는 화면이 실제 내역으로 채우고, 문장은 미리 써 둔 것입니다.
 LEDGER.PATTERN_NOTES = {
   "-2": {

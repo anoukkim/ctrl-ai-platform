@@ -6,7 +6,37 @@
   B.esc = (text) =>
     String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-  const DEMO_BADGE = "데모 · 문서 문장을 그대로 보여 줘요 (AI 연결 후 Claude가 정리)";
+  const DEMO_BADGE = "데모 · 문서 문장을 그대로 보여 줘요 (로그인하면 Claude가 정리)";
+  // 실제 AI (app-platform P4b): 찾은 단락을 Claude에게 주고 출처가 붙은 답을 받아요.
+  // 근거가 없으면(found: false) 설정의 "못 찾을 때 문구"를 그대로 보여 줘요.
+  B.ANSWER_SCHEMA = {
+    type: "object",
+    required: ["found", "answer", "sources"],
+    additionalProperties: false,
+    properties: {
+      found: { type: "boolean" },
+      answer: { type: "string" },
+      sources: { type: "array", maxItems: 4, items: { type: "integer", minimum: 1, maximum: 4 } },
+    },
+  };
+  B.answerOptions = function (settings, hits, question) {
+    const passages = hits.map((h, i) => `[${i + 1}] ${h.chunk.doc} · ${h.chunk.label}\n${h.chunk.text}`).join("\n\n");
+    return {
+      system: `당신은 "${settings.name || "문서 챗봇"}"이에요. 주어진 문서 단락만 근거로 한국어로 ${settings.tone === "공식" ? "공식적이고 정중하게" : "친근하게"} 2~4문장으로 답해요. 단락에 답이 없으면 found를 false로 하고 answer는 비워요. sources에는 근거로 쓴 단락 번호를 적어요.`,
+      prompt: `문서 단락:\n${passages}\n\n질문: ${question}`,
+      json: B.ANSWER_SCHEMA,
+      maxTokens: 350,
+    };
+  };
+  // 가격은 가장 긴 단락 4개 + 가장 긴 질문(200자) 기준 — 실제 질문은 그보다 짧거나 같아요.
+  B.priceOptions = function (settings, index) {
+    const longest = index.docs
+      .slice()
+      .sort((a, b) => b.chunk.text.length - a.chunk.text.length)
+      .slice(0, 4)
+      .map((d) => ({ chunk: d.chunk }));
+    return B.answerOptions(settings, longest, "가".repeat(200));
+  };
   const reduced = () => {
     try {
       return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -103,6 +133,13 @@
       form.querySelector(".send").disabled = true;
       suggest.hidden = true;
       add(`<div class="bubble">${B.esc(q)}</div>`, "msg me");
+      if (opts.live && opts.live()) {
+        await askAi(q);
+        busy = false;
+        form.querySelector(".send").disabled = false;
+        input.focus();
+        return;
+      }
       const result = B.answer(q, opts.index());
       if (opts.onHits) opts.onHits(q, B.retrieve(q, opts.index(), 3));
       const log = {
@@ -164,6 +201,56 @@
       busy = false;
       form.querySelector(".send").disabled = false;
       input.focus();
+    }
+
+    // 실제 AI: BM25로 찾은 단락이 있을 때만 Claude를 불러요 (없으면 0원, 못 찾음).
+    async function askAi(q) {
+      const hits = B.retrieve(q, opts.index(), 4);
+      if (opts.onHits) opts.onHits(q, hits.slice(0, 3));
+      const log = { id: B.newId(), at: new Date().toISOString(), q, found: false, source: null, excerpt: "", rating: 0, topic: B.topicOf(q), ai: true };
+      const li = add(`<div class="bubble"><p class="intro"></p><div class="sources"></div><div class="after" hidden>
+          <span class="demo live"></span>
+          <span class="rate" role="group" aria-label="이 답이 도움이 됐나요?">
+            <button type="button" data-rate="1" aria-pressed="false" aria-label="도움이 됐어요">👍</button>
+            <button type="button" data-rate="-1" aria-pressed="false" aria-label="도움이 안 됐어요">👎</button>
+          </span></div></div>`, "msg bot");
+      let text = s().notFound || "문서에서 찾을 수 없어요.";
+      let badge = "실제 AI · 0원 (근거 단락 없음)";
+      if (hits.length) {
+        li.querySelector(".intro").textContent = "생각하는 중…";
+        try {
+          const result = await opts.sdk().ai.ask(B.answerOptions(s(), hits, q));
+          const out = result.json || {};
+          const used = (Array.isArray(out.sources) ? out.sources : []).map((n) => hits[n - 1]).filter(Boolean);
+          if (out.found && String(out.answer || "").trim()) {
+            text = String(out.answer).trim();
+            log.found = true;
+            log.source = used[0] ? { doc: used[0].chunk.doc, label: used[0].chunk.label } : { doc: hits[0].chunk.doc, label: hits[0].chunk.label };
+            log.excerpt = text.slice(0, 160);
+            li.querySelector(".sources").innerHTML = (used.length ? used : hits.slice(0, 1))
+              .map((h) => `<p class="source">📄 <b>${B.esc(h.chunk.doc)}</b> · ${B.esc(h.chunk.label)}</p>`)
+              .join("");
+          }
+          badge = `실제 AI · ${result.chargedKrw}원 · 내 동아리 지원금에서`;
+        } catch (error) {
+          text = `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`;
+          badge = "실제 AI · 오류";
+        }
+      }
+      li.querySelector(".intro").textContent = "";
+      await stream(li.querySelector(".intro"), text);
+      li.querySelector(".after .demo").textContent = badge;
+      li.querySelector(".after").hidden = false;
+      li.querySelectorAll("[data-rate]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const value = Number(b.dataset.rate);
+          log.rating = log.rating === value ? 0 : value;
+          li.querySelectorAll("[data-rate]").forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.rate) === log.rating)));
+          opts.onRate(log.id, log.rating);
+        }),
+      );
+      list.scrollTop = list.scrollHeight;
+      opts.onLog(log);
     }
 
     form.addEventListener("submit", (event) => {

@@ -326,6 +326,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/_ctrlai/v1/logout"): "app_call",
     ("GET", "/_ctrlai/v1/user"): "signed_in_visitor",
     ("POST", "/_ctrlai/v1/ai/ask"): "signed_in_visitor",
+    # app-platform P4b: the price before the button — free, signed out too.
+    ("POST", "/_ctrlai/v1/ai/estimate"): "app_call",
     ("POST", "/_ctrlai/v1/ai/stream"): "signed_in_visitor",
     # app-platform P3 — ctrlai.db: reads work signed out (shared
     # collections); writes check the app cookie and the "data" consent inside.
@@ -421,6 +423,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
     ("GET", "/api/admin/apps"): "require_admin",
     ("GET", "/api/admin/apps/reports"): "require_admin",
+    # app-platform P4b: Admin › Apps.
+    ("GET", "/api/admin/apps/overview"): "require_admin",
+    ("GET", "/api/admin/apps/{project_id}"): "require_admin",
     ("GET", "/api/admin/apps/{project_id}/handoff"): "require_admin",
     ("POST", "/api/admin/apps/{project_id}/unpublish"): "require_admin",
     ("POST", "/api/admin/apps/reports/{report_id}/resolve"): "require_admin",

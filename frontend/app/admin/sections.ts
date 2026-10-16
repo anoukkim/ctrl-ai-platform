@@ -12,6 +12,7 @@
  */
 
 import {
+  AppWindow,
   Bot,
   Clapperboard,
   FileText,
@@ -145,12 +146,21 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     Icon: ScrollText,
   },
   {
-    // ctrlaiapps-publish(2026-10-14)가 켰습니다 — 게시된 앱과 신고.
-    // 영상(Phase 8)은 나중에 같은 화면에 들어옵니다.
+    // app-platform P4b: 회원 앱의 기능 상자 — AI 사용, 동의, 데이터, 멈추기.
+    // 게시 여부와 상관없이 기능 상자를 쓴 앱은 모두 여기 있습니다.
+    key: "apps",
+    href: "/admin/apps",
+    label: "Apps",
+    description: "회원 앱의 기능 상자 — AI 사용량, 연결 동의, 데이터, 멈추기.",
+    Icon: AppWindow,
+  },
+  {
+    // ctrlaiapps-publish(2026-10-14)가 켰습니다 — 신고와 게시 내리기.
+    // P4b부터 앱 자체는 Apps에서 다룹니다. 영상(Phase 8)은 나중에 같은 화면에.
     key: "content",
     href: "/admin/content",
     label: "Content",
-    description: "게시된 앱과 신고를 확인하고, 필요하면 게시를 내립니다.",
+    description: "회원들의 신고를 확인하고, 필요하면 게시를 내립니다.",
     Icon: FileText,
   },
   {

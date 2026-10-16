@@ -4,7 +4,7 @@ Claude Code가 이 프로젝트에서 일을 시작할 때 읽는 안내예요.
 
 ## 이 앱은
 
-올린 문서(.txt · .md)로만 답하는 챗봇을 만드는 정적 데모예요. 질문과 가장 잘 맞는 단락을 BM25로 찾아 그대로 인용하고 출처(문서 · 단락)를 붙여요. 퍼가기 위젯과 관리자 통계(주제별 차트, 못 찾은 질문, 👍/👎)도 있어요. 실제 AI는 아직 없고, 답마다 "데모 · 문서 문장을 그대로 보여 줘요 (AI 연결 후 Claude가 정리)" 배지가 붙어요.
+올린 문서(.txt · .md)로만 답하는 챗봇을 만드는 앱이에요. 질문과 가장 잘 맞는 단락을 BM25로 찾고, **CTRL+AI 안에서 로그인한 회원이 실제 AI를 켜면** 그 단락들을 Claude(`ctrlai.ai.ask`, JSON 스키마)에 주어 출처가 붙은 답을 받아요 — 질문한 사람의 지원금에서, 보냈을 때만, 단락이 없으면 부르지 않고. 로그인 전이거나 CTRL+AI 밖에서는 **데모**: 단락을 그대로 인용하고 "데모 · 문서 문장을 그대로 보여 줘요" 배지가 붙어요. 퍼가기 위젯과 관리자 통계(주제별 차트, 못 찾은 질문, 👍/👎)도 있어요.
 
 만든 사람은 코딩을 잘 모르는 초보자예요. 쉬운 한국어로 설명하고, 파일을 바꾸기 전에 무엇을 왜 바꿀지 먼저 짧게 말해 주세요.
 
@@ -33,7 +33,9 @@ SPEC.md         원래 기획
 - **흘려 보여 주기**: `chat.js`의 `stream()`이 16ms마다 3글자씩 써요(가짜 스트리밍). `prefers-reduced-motion`이면 한 번에. 말투별 첫 문장은 `INTRO.친근` / `INTRO.공식`.
 - **위젯**: 퍼가기 탭의 코드 한 줄은 `widget.html`을 가리키는 `<iframe>`이에요. 미리보기는 `srcdoc` + `<base href>`로 같은 파일을 그리고 `sandbox="allow-scripts allow-forms"`라 저장소를 못 써요. 그래서 `postMessage`로 주고받아요: 위젯 `bot-ready` → 만들기 화면 `bot-config`(settings, docs) → 위젯은 `bot-log` · `bot-rate`를 보내고, 만들기 화면이 기록에 `widget: true`로 쌓아요. 양쪽 모두 보낸 창(`event.source`)을 확인해요. 위젯을 바로 열면 저장된 문서 · 설정을 읽기만 해요.
 
-## AI 연결 자리
+## 실제 AI (CTRL+AI 기능 상자) 와 밖에서의 AI 연결 자리
+
+CTRL+AI 안에서는 `app.js`의 `live` 상태(`#mode-toggle`, 설정의 `mode`)가 켜지면 `chat.js`의 `askAi()`가 `B.retrieve()`로 찾은 단락 4개를 `B.answerOptions()`로 묶어 `ctrlai.ai.ask`에 보내고 `{ found, answer, sources }`를 받아요. 가격은 `B.priceOptions()`(가장 긴 단락 4개 + 200자 질문)로 `ctrlai.ai.estimate`에 미리 물어 "질문 1회 약 N원 · 최대 M원"으로 보여 줘요. 위젯은 셸 안에서 혼자 열렸을 때만 실제 AI예요. **CTRL+AI 밖에서 진짜로 연결할 때** 갈아 끼울 자리는 아래와 같아요.
 
 - `BOT.retrieve()`는 그대로 둬요(나중에 임베딩 검색으로 바꿔도 반환 모양 `[{ chunk, score }]`만 지키면 돼요).
 - 바뀌는 곳은 **답 만들기**예요: `chat.js`의 `ask()`에서 `B.answer()` 결과로 `INTRO` 문장 + `result.best.chunk.text`를 `stream()`하는 부분을, "질문 + 찾은 단락들을 내 서버로 보내고 → 서버가 Claude API로 답을 만들어 → 흘려 돌려주는" 호출로 바꿔요. 출처 표시(`chunk.doc` · `chunk.label`), 👍/👎, `onLog`는 그대로 써요.

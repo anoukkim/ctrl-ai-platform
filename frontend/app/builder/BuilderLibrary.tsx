@@ -325,7 +325,11 @@ export default function BuilderLibrary() {
           )}
           {templateKey && (
             <p className={styles.createStarterHint}>
-              템플릿은 바로 열려요 — 무료예요. 열리면 Claude에게 바꾸고 싶은 점을 말해 보세요.
+              템플릿은 바로 열려요 — 무료예요. 열리면 Claude에게 바꾸고 싶은 점을 말해 보세요. 로그인·AI·공유 데이터가 어떻게 되는지는{" "}
+              <a href="/help/apps" target="_blank" rel="noreferrer">
+                앱 기능 상자 안내
+              </a>
+              에 있어요.
             </p>
           )}
           {idea && (

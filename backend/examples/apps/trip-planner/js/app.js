@@ -18,6 +18,142 @@
   const won = T.won;
   const main = $("#main");
 
+  // ---------------------------------------------------------------- 실제 AI (CTRL+AI 기능 상자, app-platform P4b)
+  // 로그인한 CTRL+AI 회원은 Claude가 일정을 짜고 문장을 알아들어요 — 방문자 자신의 지원금에서,
+  // 버튼을 눌렀을 때만. 장소는 여전히 이 앱의 목록 안에서만 골라요(밖의 id는 데모 플래너가 채워요).
+  const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
+  const MODE_KEY = "trip-planner-mode";
+  const live = { user: null, on: false, prices: {}, busy: false };
+  const PLAN_SCHEMA = {
+    type: "object",
+    required: ["days", "notes"],
+    additionalProperties: false,
+    properties: {
+      days: { type: "array", minItems: 1, maxItems: 7, items: { type: "array", minItems: 1, maxItems: 6, items: { type: "string" } } },
+      notes: { type: "array", maxItems: 3, items: { type: "string" } },
+    },
+  };
+  const EDIT_SCHEMA = {
+    type: "object",
+    required: ["intent", "reply"],
+    additionalProperties: false,
+    properties: { intent: { type: "string", enum: ["rain", "cheap", "relax", "none"] }, reply: { type: "string" } },
+  };
+  function placesText(city) {
+    return T.CITIES[city].places.map((p) => `${p.id} ${p.name} (${p.pref}${p.indoor ? "·실내" : ""}, ${p.minutes}분, 1인 ${p.cost}원)`).join("\n");
+  }
+  function planOptions(input) {
+    return {
+      system: "여행 일정을 짜는 도우미예요. 주어진 장소 목록의 id만 써서 날짜별 동선(하루 3~5곳, 맛집은 하루 1~2곳, 가까운 곳끼리)을 JSON으로 만들어요. 같은 장소는 한 번만. notes에는 한국어 한 줄 조언을 최대 3개.",
+      prompt: `도시 ${input.city}, ${input.days}일, ${input.people}명, 총예산 ${input.budget}원, 취향 ${input.prefs.join("·")}.\n장소 목록:\n${placesText(input.city)}`,
+      json: PLAN_SCHEMA,
+      maxTokens: 700,
+    };
+  }
+  function editOptions(trip, text) {
+    return {
+      system: "여행 일정에 대한 부탁을 분류해요. rain(비 오는 날·실내 위주), cheap(더 저렴하게), relax(더 여유롭게) 중 하나이면 그 intent를, 아니면 none과 함께 한국어로 짧게 답(reply)해요. reply는 한 문장.",
+      prompt: `지금 일정: ${trip.input.city} ${trip.input.days}일, ${trip.days.map((d) => d.length + "곳").join("/")}.\n부탁: ${String(text).slice(0, 200)}`,
+      json: EDIT_SCHEMA,
+      maxTokens: 120,
+    };
+  }
+  // "1회 약 N원 · 최대 M원" — 같은 옵션으로 부르면 최대 금액을 넘지 않아요 (재시도 포함).
+  function priceLine(key, options, onDone) {
+    const p = live.prices[key];
+    if (p === undefined) {
+      live.prices[key] = null;
+      sdk.ai.estimate(options).then(
+        (figures) => {
+          live.prices[key] = figures;
+          onDone();
+        },
+        () => {
+          live.prices[key] = false;
+          onDone();
+        },
+      );
+      return "비용 확인 중…";
+    }
+    if (!p) return "1회 최대 200원";
+    return `1회 약 ${p.typicalKrw}원 · 최대 ${p.maxKrw}원`;
+  }
+  // 같은 글이면 같은 열쇠 — 길이가 아니라 내용으로 (도시가 바뀌면 장소 목록도 바뀌어요).
+  function hashOf(text) {
+    let h = 0;
+    for (let i = 0; i < text.length; i += 1) h = (h * 31 + text.charCodeAt(i)) | 0;
+    return h.toString(36);
+  }
+  const priceKey = (prefix, options) => `${prefix}:${hashOf(options.system + "\n" + options.prompt)}`;
+  function updatePrice(el, prefix, options) {
+    if (!el) return;
+    el.textContent = priceLine(priceKey(prefix, options), options, () => updatePrice($(`#${el.id}`), prefix, options));
+  }
+  function debounce(fn, ms) {
+    let timer = null;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(fn, ms);
+    };
+  }
+  function modeBadge() {
+    const badge = $(".badge.demoAll");
+    const toggle = $("#mode-toggle");
+    if (!badge) return;
+    if (!sdk) {
+      badge.textContent = "데모 데이터";
+      if (toggle) toggle.hidden = true;
+      return;
+    }
+    badge.textContent = live.on ? "실제 AI · 내 지원금에서" : "데모 데이터";
+    badge.classList.toggle("liveAll", live.on);
+    if (toggle) {
+      toggle.hidden = false;
+      toggle.textContent = live.on ? "데모 데이터로 보기" : live.user ? "실제 AI 켜기" : "실제 AI로 써 보기 (로그인)";
+    }
+  }
+  async function setMode(on) {
+    if (on && !live.user) {
+      try {
+        live.user = await sdk.login();
+      } catch (error) {
+        say("로그인하지 않았어요. 데모로 계속해요.");
+        return;
+      }
+    }
+    live.on = on;
+    store.set(MODE_KEY, on ? "live" : "demo").catch(() => {});
+    modeBadge();
+    render();
+  }
+  // Claude의 일정: 목록 안의 id만, 하루에 한 번씩, 6곳까지. 맞지 않는 날은 데모 플래너의 날을 그대로 둬요.
+  async function planWithAi(input) {
+    const result = await sdk.ai.ask(planOptions(input));
+    const trip = T.plan(input);
+    const valid = new Set(T.CITIES[input.city].places.map((p) => p.id));
+    const used = new Set();
+    const replacedDays = new Set();
+    const days = Array.isArray(result.json && result.json.days) ? result.json.days : [];
+    for (let d = 0; d < input.days; d += 1) {
+      const ids = Array.isArray(days[d]) ? days[d].filter((id) => valid.has(id) && !used.has(id)).slice(0, 6) : [];
+      if (ids.length >= 2) {
+        ids.forEach((id) => used.add(id));
+        trip.days[d] = ids;
+        replacedDays.add(d);
+      }
+    }
+    // 데모가 채운 날에 AI가 쓴 장소가 겹치면 그 날에서 빼고, 비면 다시 짜요.
+    trip.days.forEach((ids, d) => {
+      if (replacedDays.has(d)) return;
+      const kept = ids.filter((id) => !used.has(id));
+      if (kept.length) trip.days[d] = kept;
+      else T.regenerateDay(trip, d);
+    });
+    const notes = Array.isArray(result.json && result.json.notes) ? result.json.notes.map(String).slice(0, 3) : [];
+    trip.notes = [...notes, ...trip.notes].slice(0, 5);
+    trip.ai = { krw: result.chargedKrw, days: replacedDays.size, total: input.days };
+    return trip;
+  }
   // ---------------------------------------------------------------- 저장
   function fresh() {
     return { trip: T.plan(T.SAMPLE_INPUT), day: 0, view: "result", form: { ...T.SAMPLE_INPUT, prefs: [...T.SAMPLE_INPUT.prefs] } };
@@ -110,10 +246,11 @@
       </fieldset>
       <p id="form-error" class="error" role="alert"></p>
       <div class="actions">
-        <button class="primary" type="submit">일정 만들기</button>
+        <button class="primary" type="submit" id="plan-submit">일정 만들기</button>
+        <span class="price" id="plan-price" aria-live="polite"></span>
         ${state.trip ? `<button class="ghost" type="button" id="back-result">지금 일정으로 돌아가기</button>` : ""}
       </div>
-      <p class="muted small"><span class="demo">데모 플래너 · AI 연결 후 Claude가 생성</span> 지금은 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.</p>
+      <p class="muted small">${live.on && sdk ? `<span class="demo live">실제 AI</span> Claude가 아래 도시의 장소 목록에서만 골라 일정을 짜요 — 1회 비용은 버튼 옆에.` : `<span class="demo">데모 플래너${sdk ? " · 로그인하면 Claude가 생성" : ""}</span> 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.`}</p>
     </form>`;
   }
 
@@ -149,17 +286,42 @@
       const error = $("#form-error");
       if (!input.prefs.length) return (error.textContent = "취향을 하나 이상 골라 주세요.");
       if (input.budget < 50000) return (error.textContent = "총예산은 5만 원 이상으로 적어 주세요.");
+      if (live.busy) return; // 이미 짜는 중이에요
       undo = state.trip ? JSON.stringify(state.trip) : null;
       state.form = input;
-      state.trip = T.plan(input);
-      state.day = 0;
-      state.view = "result";
-      message = null;
-      save();
-      render();
-      main.focus();
-      say(`${input.city} ${input.days}일 일정을 만들었어요.`);
+      const finish = (trip, note) => {
+        state.trip = trip;
+        state.day = 0;
+        state.view = "result";
+        message = note || null;
+        live.busy = false;
+        save();
+        render();
+        main.focus();
+        say(`${input.city} ${input.days}일 일정을 만들었어요.`);
+      };
+      if (live.on && sdk) {
+        live.busy = true;
+        error.textContent = "";
+        $("#plan-submit").disabled = true;
+        $("#plan-submit").textContent = "Claude가 일정을 짜는 중…";
+        planWithAi(input).then(
+          (trip) => finish(trip, trip.ai.days < trip.ai.total ? { text: `AI가 ${trip.ai.days}일을 짰고, 나머지 ${trip.ai.total - trip.ai.days}일은 데모 플래너가 채웠어요.`, kind: "wait" } : null),
+          (err) => {
+            live.busy = false;
+            finish(T.plan(input), { text: `AI가 일정을 짜지 못해 데모 플래너로 만들었어요: ${err && err.message ? err.message : ""}`, kind: "wait" });
+          },
+        );
+        return;
+      }
+      finish(T.plan(input));
     });
+    // 실제 AI: 짜기 버튼 옆에 가격을 먼저 보여 줘요 (입력이 바뀌면 다시).
+    if (live.on && sdk) {
+      const refreshPrice = () => updatePrice($("#plan-price"), "plan", planOptions(readForm()));
+      refreshPrice();
+      form.addEventListener("input", debounce(refreshPrice, 400));
+    }
     const back = $("#back-result");
     if (back) back.addEventListener("click", () => ((state.view = "result"), save(), render()));
   }
@@ -192,7 +354,7 @@
           <small>${ratio > 1 ? `예산보다 ${won(budget.total - input.budget)} 많아요` : `${won(input.budget - budget.total)} 남아요`}</small>
         </div>
       </section>
-      <p class="plannerLine"><span class="demo">데모 플래너 · AI 연결 후 Claude가 생성</span>
+      <p class="plannerLine">${trip.ai ? `<span class="demo live">실제 AI · ${trip.ai.krw}원 · ${trip.ai.days}/${trip.ai.total}일</span>` : `<span class="demo">데모 플래너${live.on ? "" : " · 로그인하면 Claude가 생성"}</span>`}
         ${[trip.rain ? "☔ 비 오는 날 버전" : "", trip.cheap ? "💸 알뜰 버전" : "", trip.relaxed ? "🐢 여유 버전" : ""].filter(Boolean).map((t) => `<span class="mode">${t}</span>`).join("")}
         ${trip.notes.map((n) => `<span class="note">${esc(n)}</span>`).join("")}</p>
       <div class="dayTabs" role="tablist" aria-label="날짜">
@@ -269,9 +431,9 @@
         <p class="muted small">카드를 끌어서 순서를 바꾸거나 ↑ ↓ 버튼을 쓰세요. 이동 시간과 예산이 바로 다시 계산돼요.</p>
       </div>
       <form id="nl" class="nl">
-        <label for="nl-text"><b>문장으로 고치기</b> <span class="demo">데모 규칙 · AI 연결 후 Claude가 이해</span></label>
-        <div class="nlRow"><input id="nl-text" type="text" placeholder="예: 비 오는 날 버전으로" autocomplete="off">
-          <button class="primary" type="submit">바꾸기</button></div>
+        <label for="nl-text"><b>문장으로 고치기</b> ${live.on && sdk ? `<span class="demo live">실제 AI · <span id="edit-price">비용 확인 중…</span></span>` : `<span class="demo">데모 규칙${sdk ? " · 로그인하면 Claude가 이해" : ""}</span>`}</label>
+        <div class="nlRow"><input id="nl-text" type="text" placeholder="예: 비 오는 날 버전으로" autocomplete="off" maxlength="200">
+          <button class="primary" type="submit" id="nl-submit">바꾸기</button></div>
         <div class="suggest">${["비 오는 날 버전으로", "더 저렴하게", "더 여유롭게"]
           .map((t) => `<button type="button" class="chipBtn" data-say="${t}">${t}</button>`)
           .join("")}</div>
@@ -359,6 +521,10 @@
       event.preventDefault();
       edit($("#nl-text").value);
     });
+    if (live.on && sdk) {
+      // 가격은 가장 긴 부탁(200자) 기준 — 실제 부탁은 그보다 짧으니 최대 금액을 넘지 않아요.
+      updatePrice($("#edit-price"), "edit", editOptions(trip, "가".repeat(200)));
+    }
     $$("[data-say]").forEach((b) => b.addEventListener("click", () => edit(b.dataset.say)));
     const undoButton = $("#undo");
     if (undoButton)
@@ -423,10 +589,14 @@
   function edit(text) {
     const trimmed = (text || "").trim();
     if (!trimmed) return;
+    if (live.on && sdk) {
+      editWithAi(trimmed);
+      return;
+    }
     const intent = T.intent(trimmed);
     if (!intent) {
       message = {
-        text: `"${trimmed}" 같은 부탁은 AI 연결 후 가능해요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'를 알아들어요.`,
+        text: `"${trimmed}" 같은 부탁은 ${sdk ? "실제 AI를 켜면" : "데모에서는 못"} 알아들어요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'만 알아들어요.`,
         kind: "wait",
       };
       render();
@@ -439,6 +609,32 @@
     change(() => (text2 = apply(state.trip)), null);
     message = { text: text2, kind: "ok" };
     render();
+    $("#nl-text").focus();
+  }
+
+  // 실제 AI: 부탁을 알아듣고 세 규칙 중 하나를 적용하거나, 아니면 한 줄로 답해요.
+  async function editWithAi(text) {
+    const button = $("#nl-submit");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "듣는 중…";
+    }
+    try {
+      const result = await sdk.ai.ask(editOptions(state.trip, text));
+      const out = result.json || {};
+      const apply = { rain: T.applyRain, cheap: T.applyCheap, relax: T.applyRelax }[out.intent];
+      if (!apply) {
+        message = { text: `${String(out.reply || "그 부탁은 아직 못 알아들었어요.")} (실제 AI · ${result.chargedKrw}원)`, kind: "wait" };
+      } else {
+        let text2 = "";
+        change(() => (text2 = apply(state.trip)), null);
+        message = { text: `${text2} (실제 AI · ${result.chargedKrw}원)`, kind: "ok" };
+      }
+    } catch (error) {
+      message = { text: `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`, kind: "wait" };
+    }
+    render();
+    say(message.text);
     $("#nl-text").focus();
   }
 
@@ -527,10 +723,15 @@
       render();
     }
   });
-  store
-    .get(KEY)
-    .then((saved) => {
+  const modeToggle = $("#mode-toggle");
+  if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
+  Promise.all([store.get(KEY), sdk ? sdk.user().catch(() => null) : null, sdk ? store.get(MODE_KEY).catch(() => null) : null])
+    .then(([saved, user, mode]) => {
       if (saved && saved.trip && saved.trip.input && T.CITIES[saved.trip.input.city]) state = saved;
+      // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
+      live.user = user || null;
+      live.on = Boolean(sdk && user && mode !== "demo");
+      modeBadge();
     })
     .catch(() => {
       /* 저장소를 못 쓰면 예시 일정으로 시작해요 */

@@ -67,7 +67,7 @@ export interface PreviewToolbarProps {
 /**
  * 안전 안내 — 한 줄로 두고, ⓘ를 누르면 전체 글 (quality-tuning Q3).
  */
-function SafetyNote({ full }: { full: string }) {
+function SafetyNote({ full }: { full: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={styles.staticPreviewLabel}>

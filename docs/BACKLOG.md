@@ -94,7 +94,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    again, RUN-2026-10-16). **P4 is built in two halves** (owner,
    2026-10-16): **P4a** = the owner-declared lists (`ctrlai.json`), the
    Builder prompts knowing the SDK, the four templates, the 미리보기's own
-   label — **merged 2026-10-16** (`d39d251`, branch `feat-app-platform-p4`); **P4b** = the three showcase apps in LIVE mode (an in-app
+   label — **merged 2026-10-16** (`d39d251`, branch `feat-app-platform-p4`); **P4b** — built 2026-10-16 on `feat-app-platform-p4b`, **awaiting approval** (RUN-2026-10-16) — = the three showcase apps in LIVE mode (an in-app
    toggle, the demo logic kept; an expensive call shows its maximum
    beside the button first and has a per-call cap), Admin › Apps as a new
    section (Content keeps 신고 and 게시 내리기), `/help/apps`. Each merged
@@ -169,9 +169,70 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-8. **app-libraries** · M3 · branch `feat-app-libraries`
+8. **publish-summary** · M3 · branch `feat-publish-summary`
+    *Not pre-approved — branch, test, report, WAIT.* Owner, 2026-10-16
+    (relayed from another session, saved in their words): "지금은 매뉴얼로
+    작성하는데 설명 그리고 업데이트(일 때) 그냥 간단요약하게 쓰이게 해줘" /
+    "보일 설명은 그냥 하이쿠로 간단 요약하게". When the 게시 dialog opens,
+    Haiku reads the app's files (+ the project name) and pre-fills the
+    CtrlAIApps 설명 with a 1–2 sentence Korean summary; for 업데이트 게시 it
+    also pre-fills 업데이트 메모 with one line on what changed between the
+    published version and now (from the versions' requests and summaries).
+    Both are defaults the member can edit; "요약하는 중…" while it runs; on
+    failure the field stays empty and 게시 is never blocked. Cost: the
+    dialog promises "비용은 들지 않고", so the member's wallet is not
+    charged — 0원 to the member, recorded as club-absorbed; Haiku, a short
+    `max_tokens`; the real API never called in tests (mock). Tests: the
+    pre-fill (new / update), empty on failure, 0원 to the member + the club
+    row, the dialog's updated wording. **Two things the owner saw on the
+    way (both fixed in app-platform P4b):** the 설명 field held the last
+    고치기 request ("카카오톡처럼 보이게 해줘") — `builder_stages` /
+    `builder_edit` filled an empty description from *any* request, and a
+    template project started empty; now only a 만들기 request does. And the
+    dialog's note still said shared apps and logins cannot be made — the
+    note now says what the 기능 상자 does and points at /help/apps.
+
+9. **promo-videos** · M1 · branch `feat-promo-videos`
+    *Not pre-approved — branch, test, report, WAIT. Order: after
+    publish-summary.* Owner, 2026-10-16 (relayed from another session,
+    their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
+    — 2번(데스크탑), 3번(모바일 영상) — 이거를 각각 가이드 마지막(화면
+    임베디드, 크게 보기 가능) 그리고 ctrl tube에 그냥 기본적으로 나오는
+    영상 하나(리액션 댓글 가능하게. 나머지 영상들은 유튜브일텐데 얘는 그냥
+    기본으로) 나오게 해줘" — this is owner-polish 7. Sources on
+    `origin/chore-promo-videos`: `promo-videos/02-swiss-garage.mp4`
+    (1920×1080, 13.8 MB, desktop) and `03-y2k-jersey.mp4` (1080×1920,
+    23.9 MB, mobile); original music per its README. Do not commit the
+    originals: re-encode with ffmpeg for the web (H.264 + AAC, +faststart,
+    about 1280×720 and 720×1280, roughly 5–8 MB each, check the quality)
+    plus a JPG poster, commit only those; decide and report where they are
+    served from (e.g. `frontend/public`) and the cache headers;
+    `preload="metadata"`, never autoplay (data, sound). (1) FirstVisitGuide
+    (four steps today) gets a last step "CTRL+AI 한눈에 보기": the video in
+    the page with controls, 크게 보기 / fullscreen; 02 on desktop, 03 at
+    phone widths; sound only when the viewer turns it on; reduced motion,
+    keyboard and screen readers considered. Also *propose* in the report
+    (owner decides) replacing step 3 "Video Generator — 영상 만들기", which
+    contradicts owner-polish 6 (video locked this quarter), with a
+    CtrlAIApps introduction. (2) CtrlAITube: a default video first in the
+    grid marked "공식", played in the page from our file (02/03 by width),
+    with real reactions and comments on its detail screen. CtrlAITube is
+    all `MOCK_VIDEOS` today, so this needs the backend: design the video
+    rows with a source kind (hosted / youtube) with Phase 8 in view,
+    reaction and comment tables + an Alembic migration + routes (reads
+    `get_current_user`, writes `require_active_member`, another member's
+    comment 404/403), admin hide/delete (reason, audited) and 신고 through
+    the existing report queue, the CLAUDE.md §10 `deleted_at` rule, the
+    guard map. The other sample cards stay marked as test data. Tests: the
+    guide's last step (desktop/mobile choice, 크게 보기), the Tube default
+    video element, reaction/comment CRUD and permissions (non-participating
+    members read only; another member's comment), admin hide, 신고.
+    Screenshots 1440 · 390, light and dark.
+
+10. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
-    be set by the owner.* Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    be set by the owner.* (Numbered 8 until publish-summary and promo-videos joined on
+    2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
     높인다."** Member apps have no network (CSP `connect-src 'none'`, no
     CDN), so a game or a chart today means hand-written code. Review a
     bundle of **approved libraries that CTRL+AI hosts itself** on the apps
@@ -807,6 +868,22 @@ above.)
     below it show the same rows. Show one or the other for such projects
     — e.g. hide the history until the first Claude-made version, or fold
     "모든 버전" when it would repeat the history.
+
+15. **CtrlAIApps 앱 상세 — "뭔가 너무 화면이 비효율적"** (owner,
+    2026-10-16, screenshot of '동아리 게시판' v5, relayed from another
+    session). What the screenshot showed: the top half of the detail screen
+    is a colour-gradient placeholder block repeating the app's name; the
+    live app frame sits below it and needs a scroll; 앱 실행 duplicates the
+    frame right under it. Proposal: a one-line head (small thumbnail or
+    icon · name · maker · vN · description folded/unfolded · 새 창에서 열기 ·
+    신고), the app frame taking most of the first screen (nearly the
+    desktop height, visible at once at 390px), long descriptions below;
+    once thumbnails exist (points 4–5) use them small in the list cards and
+    the head and drop the big placeholder block. Also make the screen's
+    honest note per app: when the app's `ctrlai.json` declares a shared
+    list, say "이 앱의 공유 글은 다른 회원도 볼 수 있어요"; otherwise the
+    plain sentence (P4b already replaced the pre-P3 wording with a general
+    one that mentions login, AI and shared lists).
 
 11. **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
     가겠냐고 물어보고 그냥 쭉 할 수 있게 (중단도 가능하니)"** (2026-10-16,

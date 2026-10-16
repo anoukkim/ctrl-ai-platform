@@ -40,6 +40,7 @@ from app.core.config import Settings
 from app.models import BuilderProject, ChatModelVisibility, MembershipStatus, UsageEvent, UsageFeature, User
 from app.services import chat_limits, chat_models, pricing, providers
 from app.services import usage as usage_service
+from app.services.attachments import IMAGE_LONG_EDGE as IMAGE_LONG_EDGE_PX
 from app.services.attachments import AttachmentRefusal, content_tokens
 from app.services.claude_provider import ChatRequest, ClaudeError, StreamEnd, TextDelta, UsageUpdate
 from app.services.quarters import current_quarter, membership_for
@@ -100,6 +101,28 @@ class Prepared:
     model: chat_models.ChosenModel
     label: str
     input_estimate: int
+    #: The most this attempt can cost (P4b): the retry of a JSON call is
+    #: held inside the first attempt's figure, so a visitor never pays
+    #: more than the "최대 M원" `estimate()` showed for the same options.
+    max_krw: int = CALL_CAP_KRW
+
+
+@dataclass(frozen=True)
+class Estimate:
+    """`ctrlai.ai.estimate`: what a call with these options would cost —
+    free, for the "1회 약 N원 · 최대 M원" an app shows beside its button."""
+
+    typical_krw: int
+    max_krw: int
+    model: str
+
+
+#: An image's tokens after Chat's re-encoding can never pass the long
+#: edge's square — the estimate counts every image at that bound, so the
+#: real call (actual image sizes) stays at or under it.
+IMAGE_TOKENS_UPPER = ((IMAGE_LONG_EDGE_PX + 27) // 28) ** 2
+#: Output tokens a typical short answer uses, for "1회 약 N원".
+TYPICAL_OUTPUT_TOKENS = 300
 
 
 @dataclass
@@ -354,11 +377,13 @@ def prepare(
     data: AskInput,
     spent_krw: int = 0,
     messages: list[dict] | None = None,
+    cap_krw: int = CALL_CAP_KRW,
 ) -> Prepared:
     """Every check that can refuse, and the request. Spends nothing.
 
     `spent_krw` is what earlier attempts of the same call already cost (a
-    JSON retry): they share the one per-call cap.
+    JSON retry): they share one cap, `cap_krw` — the server's 200원, or
+    for a retry the first attempt's own worst case (P4b).
     """
     if project.sdk_disabled_at is not None:
         raise AppAIError("이 앱의 기능 상자는 관리자가 잠시 멈췄어요.", 403, "sdk_off")
@@ -391,7 +416,7 @@ def prepare(
     system = system_prompt(data.system or "", data.schema)
     input_estimate = content_tokens(system) + sum(content_tokens(m["content"]) for m in messages)
 
-    cap_left = CALL_CAP_KRW - spent_krw
+    cap_left = cap_krw - spent_krw
     budget = chat_limits.output_budget(price, cap_left, input_estimate)
     if budget < 1:
         if spent_krw:
@@ -400,6 +425,8 @@ def prepare(
     wanted = min(max(1, int(data.max_tokens or DEFAULT_MAX_TOKENS)), MAX_TOKENS_LIMIT)
     max_tokens = min(wanted, budget)
     worst_case = price.worst_case_krw(input_estimate, max_tokens)
+    # A retry may spend only what the first attempt's figure left.
+    max_krw = min(cap_krw, spent_krw + worst_case)
     if spent_krw == 0:
         check_day_cap(db, user, worst_case)
     try:
@@ -415,6 +442,36 @@ def prepare(
         model=model,
         label=label,
         input_estimate=input_estimate,
+        max_krw=max_krw,
+    )
+
+
+def estimate(db: Session, settings: Settings, data: AskInput, image_count: int) -> Estimate:
+    """What `ask`/`stream` with these options would cost, before anything
+    is sent — the same formulas as `prepare`, with every image counted at
+    its upper bound, so the real call never passes `max_krw`. Free, and
+    open to signed-out visitors: a button shows its price before sign-in."""
+    if image_count > MAX_IMAGES:
+        raise AppAIError(f"이미지는 한 번에 {MAX_IMAGES}장까지 보낼 수 있어요.")
+    try:
+        model, label = choose_model(db, settings, data.model or "fast")
+        price = pricing.price_for(db, model)
+    except chat_models.ModelChoiceError as error:
+        raise AppAIError(str(error), error.status_code, "model") from error
+    except pricing.PricingError as error:
+        raise AppAIError(str(error), 503, "pricing") from error
+    system = system_prompt(data.system or "", data.schema)
+    prompt = (data.prompt or "").strip() or "이 이미지를 봐 줘."
+    input_estimate = content_tokens(system) + content_tokens(prompt) + image_count * IMAGE_TOKENS_UPPER
+    budget = chat_limits.output_budget(price, CALL_CAP_KRW, input_estimate)
+    if budget < 1:
+        raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW}원)에 닿아요. 줄여서 다시 보내 주세요.")
+    wanted = min(max(1, int(data.max_tokens or DEFAULT_MAX_TOKENS)), MAX_TOKENS_LIMIT)
+    max_tokens = min(wanted, budget)
+    return Estimate(
+        typical_krw=max(1, price.krw(input_estimate, min(max_tokens, TYPICAL_OUTPUT_TOKENS))),
+        max_krw=min(CALL_CAP_KRW, price.worst_case_krw(input_estimate, max_tokens)),
+        model=label,
     )
 
 
@@ -554,7 +611,12 @@ async def ask(
             },
         ]
         try:
-            prepared = prepare(db, settings, user=user, project=project, data=data, spent_krw=spent, messages=messages)
+            # The retry lives inside the first attempt's worst case: the
+            # visitor never pays more than the "최대 M원" they were shown.
+            prepared = prepare(
+                db, settings, user=user, project=project, data=data, spent_krw=spent, messages=messages,
+                cap_krw=first_prepared.max_krw,
+            )
         except AppAIError:
             charge(db, settings, user=user, project=project, prepared=first_prepared,
                    input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)

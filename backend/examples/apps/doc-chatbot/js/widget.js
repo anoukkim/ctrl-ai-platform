@@ -11,6 +11,23 @@
   let index = B.buildIndex(docs.flatMap(B.chunk));
   const framed = window.parent !== window;
   let chat = null;
+  // 실제 AI (P4b): 셸 안에서 혼자 열렸고(= 기능 상자가 답하고) 설정이 실제 AI이며 로그인했을 때만.
+  // 만들기 화면의 미리보기(srcdoc)에서는 기능 상자에 닿지 못해 늘 데모예요.
+  const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
+  let liveOn = false;
+  function checkLive() {
+    if (!sdk || framedByMaker) return Promise.resolve();
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 1500));
+    return Promise.race([sdk.app(), timeout])
+      .then((info) => (info ? sdk.user() : null))
+      .then((user) => {
+        liveOn = Boolean(user) && settings.mode !== "demo";
+      })
+      .catch(() => {
+        liveOn = false;
+      });
+  }
+  let framedByMaker = false;
 
   function fromStorage() {
     const read =
@@ -38,7 +55,9 @@
     chat = B.mountChat(document.getElementById("widget"), {
       settings: () => settings,
       index: () => index,
-      summary: () => "문서로 답하는 챗봇 · 데모",
+      live: () => liveOn,
+      sdk: () => sdk,
+      summary: () => (liveOn ? "문서로 답하는 챗봇 · 실제 AI" : "문서로 답하는 챗봇 · 데모"),
       onLog: (log) => {
         if (framed) window.parent.postMessage({ type: "bot-log", log }, "*");
       },
@@ -52,6 +71,8 @@
   // 부모 화면에서 온 메시지만 받아요.
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent || !event.data || event.data.type !== "bot-config") return;
+    framedByMaker = true; // 만들기 화면의 미리보기: 데모만
+    liveOn = false;
     const data = event.data;
     if (data.settings && typeof data.settings === "object") settings = { ...B.DEFAULT_SETTINGS, ...data.settings };
     if (Array.isArray(data.docs)) docs = data.docs.filter((d) => d && typeof d.text === "string" && typeof d.name === "string");
@@ -60,5 +81,10 @@
 
   start();
   if (framed) window.parent.postMessage({ type: "bot-ready" }, "*");
-  else fromStorage().then(apply);
+  // 셸 안에서 혼자 열린 위젯은 저장된 문서·설정을 읽고, 로그인했으면 실제 AI로 답해요.
+  fromStorage()
+    .then(checkLive)
+    .then(() => {
+      if (!framedByMaker) apply();
+    });
 })();

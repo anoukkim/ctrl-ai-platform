@@ -145,7 +145,7 @@ describe("앱 상세", () => {
     const frame = container.querySelector("iframe")!;
     expect(frame.getAttribute("src")).toBe(APP.app_url);
     expect(frame.getAttribute("sandbox")).toBe(RUNTIME_SANDBOX);
-    expect(screen.getByText(/저장한 내용은 그 사람 기기에만 남고/)).toBeTruthy();
+    expect(screen.getByText(/내가 허용한 뒤에만 쓰고, AI는 내 지원금에서/)).toBeTruthy();
   });
 
   test("신고는 사유를 적어 보낸다", async () => {
@@ -172,7 +172,7 @@ describe("Builder의 게시", () => {
     await user.click(screen.getByRole("button", { name: "업데이트 게시" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByTestId("publish-change").textContent).toContain("v1 → v3");
-    expect(within(dialog).getByText(/여러 사람이 같이 쓰는 앱은 아직 만들 수 없어요/)).toBeTruthy();
+    expect(within(dialog).getByText(/허용한 뒤에만 되고, AI는 쓰는 사람의 지원금에서/)).toBeTruthy();
 
     await user.type(within(dialog).getByLabelText(/업데이트 메모/), "메모 기능 추가");
     fireEvent.click(within(dialog).getByRole("button", { name: "업데이트 게시" }));

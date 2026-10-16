@@ -392,7 +392,7 @@ export function labelVersion(
 
 /** 만든 앱이 할 수 있는 일, 솔직하게 (ctrlaiapps-publish F3). */
 export const APP_LIMITS_NOTE =
-  "만든 앱은 방문한 사람의 브라우저에서 돌아가요. 저장한 내용은 그 사람 기기에만 남고, 다른 사람과 공유되지 않아요. 로그인·게시판처럼 여러 사람이 같이 쓰는 앱은 아직 만들 수 없어요.";
+  "만든 앱은 방문한 사람의 브라우저에서 돌아가요. 앱이 CTRL+AI 로그인·AI·공유 목록을 쓰면 보는 사람이 허용한 뒤에만 되고, AI는 쓰는 사람의 지원금에서 나가요. 자세한 건 /help/apps에 있어요.";
 
 export function updateBuilderProject(
   id: number | string,

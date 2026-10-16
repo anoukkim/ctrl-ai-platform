@@ -313,6 +313,41 @@ def _ai_allowed(call: AppCall) -> None:
 BUSY = "지금 AI가 바빠요. 잠시 후 다시 해 주세요."
 
 
+class EstimateBody(AskBody):
+    """`ctrlai.ai.estimate`: the same options, but `images` is a **count**
+    (the SDK turns data URLs into one before sending — the photo need not
+    be picked yet, and nothing is read on this free, signed-out route)."""
+
+    images: int = Field(default=0, ge=0, le=app_ai.MAX_IMAGES)  # type: ignore[assignment]
+
+    @property
+    def image_count(self) -> int:
+        return self.images
+
+
+@router.post("/v1/ai/estimate", summary="ctrlai.ai.estimate: what a call would cost (free, signed out too)")
+def ai_estimate(
+    body: EstimateBody,
+    call: AppCall = Depends(app_call),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Nothing is sent to Claude and nothing is charged. The figures use
+    the formulas `ask` checks with, every image at its upper bound, so a
+    call made with the same options never costs more than `maxKrw` —
+    the JSON retry included (app-platform P4b)."""
+    if call.target.project.sdk_disabled_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SDK_OFF)
+    data = app_ai.AskInput(
+        prompt=body.prompt, system=body.system, images=[], schema=body.json_schema, model=body.model, max_tokens=body.max_tokens
+    )
+    try:
+        figures = app_ai.estimate(db, settings, data, body.image_count)
+    except app_ai.AppAIError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    return {"typicalKrw": figures.typical_krw, "maxKrw": figures.max_krw, "model": figures.model}
+
+
 @router.post("/v1/ai/ask", summary="ctrlai.ai.ask: one answer, paid by the visitor")
 async def ai_ask(
     body: AskBody,

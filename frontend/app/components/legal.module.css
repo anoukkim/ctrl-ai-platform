@@ -69,6 +69,48 @@
   margin: 0.3rem 0;
 }
 
+/* 코드 예제 (help/apps). 가로로 넘치면 그 칸만 스크롤합니다. */
+.doc pre {
+  margin: 0.6rem 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.doc code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--text);
+}
+
+.doc table {
+  width: 100%;
+  margin: 0.6rem 0 1rem;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.doc th,
+.doc td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  color: var(--text-muted);
+}
+
+.doc th {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .doc strong {
   color: var(--text);
 }

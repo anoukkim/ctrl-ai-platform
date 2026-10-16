@@ -25,6 +25,7 @@
  *   ctrlai.ai.ask({ prompt, system?, images?, json?, model?, maxTokens? })
  *                                    → Promise<{ text, json, chargedKrw, model }>
  *   ctrlai.ai.stream(options, onChunk) → Promise<{ text, chargedKrw, model }>
+ *   ctrlai.ai.estimate(options)        → Promise<{ typicalKrw, maxKrw, model }>  (free, signed out too)
  *
  * AI is paid by the visitor from their own 동아리 지원 (at most 200원 a call).
  * `json` is a JSON Schema; the answer comes back parsed and checked.
@@ -284,6 +285,15 @@
     ask: function (options) {
       return ask("ai.ask", { options: aiOptions(options) });
     },
+    // What ask/stream with these options would cost — free, works signed
+    // out: { typicalKrw, maxKrw, model }. `images` may be a count. A call
+    // made with the same options never costs more than maxKrw (P4b).
+    estimate: function (options) {
+      var settings = aiOptions(options);
+      var raw = options && options.images;
+      settings.images = typeof raw === "number" ? Math.max(0, Math.min(4, Math.floor(raw))) : settings.images.length;
+      return ask("ai.estimate", { options: settings });
+    },
     stream: function (options, onChunk) {
       var settings = aiOptions(options);
       delete settings.json;
@@ -374,7 +384,7 @@
   });
 
   var api = Object.freeze({
-    version: "3",
+    version: "4",
     /** True inside CTRL+AI (the shell around the app answers). */
     connected: !!parentWindow,
     storage: storage,

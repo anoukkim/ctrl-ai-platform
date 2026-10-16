@@ -27,7 +27,7 @@ type State =
   | { phase: "error"; message: string };
 
 export const HONEST_NOTE =
-  "이 앱은 방문한 사람의 브라우저에서 돌아가요. 저장한 내용은 그 사람 기기에만 남고, 다른 사람과 공유되지 않아요.";
+  "이 앱은 방문한 사람의 브라우저에서 돌아가요. 로그인·AI·공유 목록은 내가 허용한 뒤에만 쓰고, AI는 내 지원금에서 나가요 — 버튼을 눌렀을 때만.";
 
 export default function AppDetail({ slug }: { slug: string }) {
   const toast = useToast();

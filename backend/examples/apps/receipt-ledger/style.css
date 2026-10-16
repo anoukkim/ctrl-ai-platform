@@ -65,6 +65,7 @@ input, select {
 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .demoAll { background: #2a3f3a; color: var(--caution); }
+.demoAll.liveAll, .demo.live { background: rgba(94, 234, 160, 0.16); color: #7ff0b6; }
 .badge.caution { background: rgba(255, 194, 75, 0.15); color: var(--caution); }
 .badge.warn { background: rgba(255, 107, 107, 0.18); color: var(--warn); }
 .demo {
