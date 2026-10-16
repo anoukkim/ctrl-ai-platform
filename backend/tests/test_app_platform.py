@@ -91,12 +91,19 @@ def test_the_shell_has_the_apps_cover_as_its_tab_icon(anon_client: TestClient, p
     assert f"oklch(0.42 0.09 {app_shell.cover_hue(published.draft_slug)})" in unquote(preview)
     # The same arithmetic as lib/apps.ts `coverHue` (values computed there).
     assert [app_shell.cover_hue(s) for s in ("abcdefgh23", "hjy5qfvr6t", "zzzzzzzzzz", "3")] == [117, 341, 0, 51]
+    # Beyond the slug alphabet too: `charCodeAt(0)` of each code point.
+    assert [app_shell.cover_hue(s) for s in ("a\U0001F600b", "가계부")] == [22, 92]
     # A hostile name cannot break out of the SVG text or the attribute.
     icon = app_shell.favicon('<b onload="x">', "abcdefgh23")
     assert '"' not in icon and "<" not in icon and ">" not in icon
-    assert "&lt;" in unquote(icon) and "<b" not in unquote(icon)
+    # Only a letter or digit is drawn, so the markup never reaches the SVG.
+    assert ">b</text>" in unquote(icon) and "<b" not in unquote(icon) and "onload" not in unquote(icon)
     assert ">?</text>" in unquote(app_shell.favicon("   ", "abcdefgh23"))
     assert ">가</text>" in unquote(app_shell.favicon("가계부", "abcdefgh23"))
+    # The first letter or digit — not a control, a zero-width space or a mark.
+    assert ">가</text>" in unquote(app_shell.favicon("\x01\u200b 가계부", "abcdefgh23"))
+    assert ">3</text>" in unquote(app_shell.favicon("(3) 할 일", "abcdefgh23"))
+    assert ">?</text>" in unquote(app_shell.favicon("!!!", "abcdefgh23"))
 
 
 def test_the_working_copy_has_a_preview_shell(anon_client: TestClient, published: BuilderProject) -> None:

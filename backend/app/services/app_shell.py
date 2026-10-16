@@ -22,6 +22,7 @@ Deleted projects and unpublished slugs have no shell.
 from __future__ import annotations
 
 import html
+import unicodedata
 from urllib.parse import quote
 import re
 from dataclasses import dataclass
@@ -115,15 +116,28 @@ def resolve(db: Session, slug: str) -> ShellTarget | None:
 
 
 def cover_hue(seed: str) -> int:
-    """The cover's hue from the app's address — the same arithmetic as the
-    frontend's `coverHue` (`lib/apps.ts`): a 32-bit `hash * 31 + char`
-    over the UTF-16 code units, modulo 360 — so the tab icon is the same
-    colour as the card on CtrlAIApps."""
-    data = seed.encode("utf-16-le")
+    """The cover's hue from the app's address — exactly the frontend's
+    `coverHue` (`lib/apps.ts`): a 32-bit `hash * 31 + code` modulo 360,
+    where `code` is `charCodeAt(0)` of each code point — the character
+    itself in the BMP, only the high surrogate beyond it — so the tab
+    icon is the same colour as the card on CtrlAIApps whatever the seed
+    (today a ten-letter slug)."""
     value = 0
-    for i in range(0, len(data), 2):
-        value = (value * 31 + int.from_bytes(data[i : i + 2], "little")) & 0xFFFFFFFF
+    for char in seed:
+        point = ord(char)
+        code = point if point < 0x10000 else 0xD800 + ((point - 0x10000) >> 10)
+        value = (value * 31 + code) & 0xFFFFFFFF
     return value % 360
+
+
+def cover_initial(name: str) -> str:
+    """The letter on the cover: the first letter or digit of the name —
+    a leading control, zero-width or combining character would leave the
+    SVG malformed or blank — else "?"."""
+    for char in name:
+        if unicodedata.category(char)[0] in "LN":
+            return char
+    return "?"
 
 
 def favicon(name: str, seed: str) -> str:
@@ -134,7 +148,7 @@ def favicon(name: str, seed: str) -> str:
     the SVG or the attribute. `img-src 'self' data:` in `shell_csp`
     already allows it."""
     hue = cover_hue(seed)
-    initial = html.escape((name.strip() or "?")[0], quote=True)
+    initial = html.escape(cover_initial(name), quote=True)
     svg = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
         '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
@@ -160,7 +174,8 @@ def render(target: ShellTarget, sites: list[str] | None = None) -> str:
     sites_attr = html.escape(" ".join(sites or []), quote=True)
     # app-tab-icon: the cover's seed is what the cards use — the published
     # slug for an app, the working copy's for a preview (BuilderLibrary).
-    seed = (target.project.app_slug if target.mode == "app" else target.project.draft_slug) or str(target.project.id)
+    # `resolve` only returns a target whose slug matched, so the seed is set.
+    seed = (target.project.app_slug if target.mode == "app" else target.project.draft_slug) or ""
     icon = favicon(target.project.name, seed)
     return (
         "<!doctype html>\n"
