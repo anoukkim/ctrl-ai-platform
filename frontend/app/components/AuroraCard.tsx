@@ -42,7 +42,10 @@ export default function AuroraCard({ title = "미리보기 만드는 중…", si
   // 파일을 쓰는 동안만 카드를 올리므로 그게 곧 시작 시각입니다.
   const [mountedAt] = useState(() => Date.now());
   return (
-    <div className={`${styles.card} ${size === "fill" ? styles.fill : ""}`} data-testid="aurora-card" role="status" aria-live="polite">
+    // Not a live region: the seconds change every second and would be read
+    // out each time. The Builder's PlanCard and Chat's own status line
+    // already announce that work is going on.
+    <div className={`${styles.card} ${size === "fill" ? styles.fill : ""}`} data-testid="aurora-card">
       <span className={styles.aurora} aria-hidden="true">
         <span className={styles.blob} />
         <span className={`${styles.blob} ${styles.blob2}`} />
@@ -77,12 +80,12 @@ export default function AuroraCard({ title = "미리보기 만드는 중…", si
  * 끝난 뒤의 등장: 오로라가 녹아 미리보기가 됩니다 — 흐림이 걷히며 나타납니다.
  * 움직임 줄이기면 그냥 나타납니다.
  */
-export function AuroraReveal({ children, className }: { children: React.ReactNode; className?: string }) {
+export function AuroraReveal({ children, className, play = true }: { children: React.ReactNode; className?: string; play?: boolean }) {
   const reduced = useReducedMotion();
   return (
     <motion.div
       className={className}
-      initial={reduced ? false : { opacity: 0, filter: "blur(10px)", scale: 0.985 }}
+      initial={reduced || !play ? false : { opacity: 0, filter: "blur(10px)", scale: 0.985 }}
       animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
       transition={{ duration: 0.55, ease: [0.2, 0.7, 0.2, 1] }}
       data-testid="aurora-reveal"
@@ -97,14 +100,25 @@ export function chipsFromCode(code: string): AuroraChip[] {
   const lower = code.toLowerCase();
   const hasStyle = lower.includes("<style") || lower.includes("style=");
   const hasScript = lower.includes("<script");
-  const hasBody = lower.includes("<body") || lower.includes("<svg") || lower.includes("<div") || lower.length > 80;
-  const done = (ok: boolean): AuroraChip["state"] => (ok ? "done" : "todo");
-  const chips: AuroraChip[] = [
-    { label: "뼈대", state: hasBody ? (hasStyle || hasScript ? "done" : "now") : "now" },
-    { label: "스타일", state: hasStyle ? (hasScript ? "done" : "now") : "todo" },
-    { label: "동작", state: hasScript ? "now" : "todo" },
+    // In order: a later step arriving finishes every earlier one.
+  if (hasScript) {
+    return [
+      { label: "뼈대", state: "done" },
+      { label: "스타일", state: "done" },
+      { label: "동작", state: "now" },
+    ];
+  }
+  if (hasStyle) {
+    return [
+      { label: "뼈대", state: "done" },
+      { label: "스타일", state: "now" },
+      { label: "동작", state: "todo" },
+    ];
+  }
+  // Before any style or script, the first step is "now" from the first byte.
+  return [
+    { label: "뼈대", state: "now" },
+    { label: "스타일", state: "todo" },
+    { label: "동작", state: "todo" },
   ];
-  // The chip after the last finished one is "now"; nothing before it is "todo".
-  const lastDone = chips.map((c) => c.state).lastIndexOf("done");
-  return chips.map((chip, index) => (index <= lastDone ? { ...chip, state: "done" } : index === lastDone + 1 ? { ...chip, state: "now" } : { ...chip, state: done(false) }));
 }

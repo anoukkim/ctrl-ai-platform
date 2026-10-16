@@ -919,6 +919,9 @@
    테두리 뒤에서 conic 그라데이션이 돕니다. 움직임 줄이기면 멈춘 테두리. */
 .composerBusy {
   position: relative;
+  /* Its own stacking context, so the z-index: -1 ring sits behind this
+     box's background and not behind the whole composer area's. */
+  isolation: isolate;
   border-color: transparent;
   background-clip: padding-box;
 }

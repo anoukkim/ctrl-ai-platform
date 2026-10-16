@@ -112,6 +112,15 @@ export default function ArtifactPreview({
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // motion-modern (1): the aurora melts into the preview only right after
+  // this card streamed — a saved conversation's cards just appear.
+  const streamingNow = context?.streaming ?? false;
+  const [wasStreaming, setWasStreaming] = useState(streamingNow);
+  const [reveal, setReveal] = useState(false);
+  if (wasStreaming !== streamingNow) {
+    setWasStreaming(streamingNow);
+    if (wasStreaming && !streamingNow) setReveal(true);
+  }
 
   // 미리보기 사정을 모르는 화면(다른 곳)에서는 코드 그대로.
   if (context === null) return <>{codeView}</>;
@@ -179,7 +188,7 @@ export default function ArtifactPreview({
   }
 
   return (
-    <AuroraReveal>
+    <AuroraReveal play={reveal}>
     <div className={styles.card} data-testid="artifact">
       <div className={styles.head}>
         <span className={styles.title}>미리보기 · {language.toUpperCase()}</span>

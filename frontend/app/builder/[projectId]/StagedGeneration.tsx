@@ -248,12 +248,14 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
         {generation.plan.map((step) => {
           const state = stepState(generation, progress, step.path);
           if (running && state === "waiting") return null;
+          // Folded rows are not rendered: the `hidden` attribute would lose
+          // to `.step { display: flex }` (author CSS beats the UA sheet).
+          if (folded && state === "done" && !doneOpen) return null;
           return (
             <li
               key={step.path}
               className={`${styles.step} ${running && state === "writing" ? styles.stepNow : ""}`}
               data-state={state}
-              hidden={folded && state === "done" && !doneOpen}
             >
               <span className={styles.stepIcon} aria-hidden="true">
                 {state === "done" ? (

@@ -215,7 +215,9 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
         if (flight !== null) {
           setFly(flight);
           if (flyTimer.current !== null) window.clearTimeout(flyTimer.current);
-          flyTimer.current = window.setTimeout(() => setFly(null), FLY_MS + 100);
+          // The twinkles at the wallet start near the end of the flight and
+          // run 0.8 s; the flight is kept until they are done.
+          flyTimer.current = window.setTimeout(() => setFly(null), FLY_MS + 900);
         }
         if (sound) playChime();
       }
@@ -379,16 +381,17 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
                 <motion.span
                   key={index}
                   className={`${styles.star} ${spread.gold ? styles.starGold : ""}`}
-                  style={{ width: spread.size, height: spread.size }}
-                  initial={{ left: fly.from.x + spread.dx, top: fly.from.y + spread.dy, opacity: 0, scale: 0.4, rotate: 0 }}
+                  // Placed once at the toast (centred by the negative margins
+                  // in CSS) and moved by transform only — no layout per frame.
+                  style={{ width: spread.size, height: spread.size, margin: -spread.size / 2, left: fly.from.x, top: fly.from.y }}
+                  initial={{ x: spread.dx, y: spread.dy, opacity: 0, scale: 0.4, rotate: 0 }}
                   animate={{
-                    left: [fly.from.x + spread.dx, fly.from.x + spread.dx * 2.2, fly.to.x + spread.dx * 0.4],
-                    top: [fly.from.y + spread.dy, fly.from.y - 28 + spread.dy, fly.to.y + spread.dy * 0.4],
+                    x: [spread.dx, spread.dx * 2.2, fly.to.x - fly.from.x + spread.dx * 0.4],
+                    y: [spread.dy, spread.dy - 28, fly.to.y - fly.from.y + spread.dy * 0.4],
                     opacity: [0, 1, 0.9, 0],
                     scale: [0.4, 1.3, 1, 0.5],
                     rotate: 180,
                   }}
-                  exit={{ opacity: 0 }}
                   transition={{ duration: FLY_MS / 1000, delay: spread.delay, ease: [0.25, 0.6, 0.3, 1] }}
                 />
               );
@@ -399,7 +402,13 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
                 <motion.span
                   key={`t-${index}`}
                   className={`${styles.star} ${styles.twinkle}`}
-                  style={{ width: 4 + (index % 2) * 2, height: 4 + (index % 2) * 2, left: fly.to.x + spread.dx * 1.6, top: fly.to.y + spread.dy * 1.2 }}
+                  style={{
+                    width: 4 + (index % 2) * 2,
+                    height: 4 + (index % 2) * 2,
+                    margin: -(2 + index % 2),
+                    left: fly.to.x + spread.dx * 1.6,
+                    top: fly.to.y + spread.dy * 1.2,
+                  }}
                   initial={{ opacity: 0, scale: 0.3 }}
                   animate={{ opacity: [0, 1, 0, 1, 0], scale: [0.3, 1.4, 0.6, 1.2, 0.2] }}
                   transition={{ duration: 0.8, delay: FLY_MS / 1000 - 0.2 + index * 0.08, ease: "easeInOut" }}

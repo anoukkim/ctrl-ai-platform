@@ -179,7 +179,9 @@
 
 .star {
   position: fixed;
-  transform: translate(-50%, -50%);
+  /* Centred on its point by negative margins (set inline, half the size):
+     motion owns `transform`, so a CSS translate(-50%, -50%) would be
+     overwritten by the star's own scale/rotate. */
   background: #fff;
   clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
   filter: drop-shadow(0 0 3px rgba(255, 244, 200, 0.9));

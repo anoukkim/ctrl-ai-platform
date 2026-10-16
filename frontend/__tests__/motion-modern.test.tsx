@@ -6,6 +6,8 @@
  * only the text; nothing waits on a click.
  */
 import { act, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -32,12 +34,14 @@ describe("오로라 카드 (1)", () => {
     expect(chipsFromCode("<!doctype html><html><body><h1>안녕").map((c) => c.state)).toEqual(["now", "todo", "todo"]);
     expect(chipsFromCode("<html><head><style>body{}</style></head><body>").map((c) => c.state)).toEqual(["done", "now", "todo"]);
     expect(chipsFromCode("<html><style>a{}</style><body><script>x()</script>").map((c) => c.state)).toEqual(["done", "done", "now"]);
+    // A script without any style still finishes the style step.
+    expect(chipsFromCode("<html><body><script>x()</script>").map((c) => c.state)).toEqual(["done", "done", "now"]);
   });
 
   test("제목, 초, 비용, 칩이 보이고 상태로 읽힌다", () => {
     vi.useFakeTimers();
     render(<AuroraCard since={Date.now() - 5000} costKrw={30} chips={chipsFromCode("<html><body>")} />);
-    const card = screen.getByRole("status");
+    const card = screen.getByTestId("aurora-card");
     expect(card.textContent).toContain("미리보기 만드는 중…");
     expect(card.textContent).toContain("5초");
     expect(card.textContent).toContain("약 30원");
@@ -60,8 +64,11 @@ describe("게시 완료 (5)", () => {
     expect(stage.textContent?.replace(/\u00a0/g, " ")).toBe("게시 완료!");
     expect(stage.querySelectorAll("[class*='confetti']").length).toBeGreaterThan(10);
     expect(stage.querySelectorAll("[class*='letter']").length).toBe(6);
-    // Clicks go straight through: nothing to press, nothing in the way.
-    expect(getComputedStyle(stage).pointerEvents === "none" || stage.className.includes("stage")).toBe(true);
+    // Clicks go straight through: the stage never takes the pointer (the
+    // CSS module is not loaded in jsdom, so the stylesheet is read as text).
+    const css = readFileSync(resolve(__dirname, "../app/components/celebration.module.css"), "utf8");
+    expect(css).toMatch(/\.stage\s*\{[^}]*pointer-events:\s*none/);
+    expect(stage.getAttribute("aria-hidden")).toBe("true");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(CELEBRATION_MS + 50);
     });

@@ -98,7 +98,7 @@ export default function PublishCelebration({ text = "게시 완료!", onDone }: 
               })}
             </>
           )}
-          <span className={styles.text} role="status">
+          <span className={styles.text}>
             {Array.from(text).map((letter, index) => (
               <motion.span
                 key={index}

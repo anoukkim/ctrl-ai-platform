@@ -74,9 +74,13 @@ describe("Builder 계획 카드 — 일하는 중", () => {
         onCancel={() => {}}
       />,
     );
+    // motion-modern (3): the finished row folds into "✓ 1개 완료" (the ✓
+    // pops there); unfolding shows the row itself.
+    const fold = screen.getByTestId("done-fold");
+    expect(fold.querySelector("svg.success-pop")).toBeTruthy();
+    fireEvent.click(within(fold).getByRole("button", { name: /1개 완료/ }));
     const done = screen.getByText("index.html").closest("li")!;
     expect(done.dataset.state).toBe("done");
-    expect(done.querySelector("svg.success-pop")).toBeTruthy();
     expect(screen.getByTestId("plan-progress").textContent).toContain("1 / 2 파일");
     expect(screen.getByText("app.js").closest("li")!.dataset.state).toBe("writing");
     // The action buttons stay hidden while running.
@@ -123,11 +127,12 @@ describe("motion-modern (3) — 접힌 단계", () => {
     );
     const fold = screen.getByTestId("done-fold");
     expect(fold.textContent).toContain("1개 완료");
-    // The finished row is folded away until asked for.
-    const done = screen.getByText("index.html").closest("li")!;
-    expect(done.hidden).toBe(true);
+    // The finished row is folded away (not rendered) until asked for.
+    expect(screen.queryByText("index.html")).toBeNull();
     fireEvent.click(within(fold).getByRole("button", { name: /1개 완료/ }));
-    expect(done.hidden).toBe(false);
+    expect(screen.getByText("index.html").closest("li")!.dataset.state).toBe("done");
+    fireEvent.click(within(fold).getByRole("button", { name: /1개 완료/ }));
+    expect(screen.queryByText("index.html")).toBeNull();
     // The file being written is the big one; the rest are dots.
     expect(screen.getByText("app.js").closest("li")!.className).toContain("stepNow");
     const dots = screen.getByTestId("waiting-dots");
@@ -149,6 +154,6 @@ describe("motion-modern (3) — 접힌 단계", () => {
     );
     expect(screen.queryByTestId("done-fold")).toBeNull();
     expect(screen.queryByTestId("waiting-dots")).toBeNull();
-    expect(screen.getByText("index.html").closest("li")!.hidden).toBe(false);
+    expect(screen.getByText("index.html").closest("li")!.dataset.state).toBe("done");
   });
 });
