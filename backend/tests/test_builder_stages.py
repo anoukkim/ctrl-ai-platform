@@ -377,3 +377,34 @@ def test_the_eval_refuses_a_member_account(db_session: Session, other_user, conf
     from app.tools import builder_eval
 
     assert builder_eval.main(["--ideas", "9"]) == 2
+
+
+# ------------------------------------------------ app-platform P4: ctrlai.json
+
+
+def test_ctrlai_json_written_beside_a_planned_file_is_kept_and_declared(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    """The plan names index.html/style.css/app.js; Claude writes ctrlai.json
+    beside app.js (the SDK rules). It must not be dropped as "not in the
+    plan", and the preview's lists exist as soon as the files are written."""
+    from app.models import AppDataCollection
+
+    body = plan(client, project, "동아리 게시판 MOCK_MANIFEST").json()
+    assert [step["path"] for step in body["plan"]] == ["index.html", "style.css", "app.js"]
+    run(client, project, body["id"])
+    files = files_of(db_session, project)
+    assert "ctrlai.json" in files and '"posts"' in files["ctrlai.json"]
+    rows = db_session.query(AppDataCollection).filter_by(project_id=project.id, space="preview").all()
+    assert [(row.name, row.kind) for row in rows] == [("posts", "shared")]
+
+
+def test_the_self_check_may_add_a_missing_ctrlai_json(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    run(client, project, plan(client, project, "할 일 앱").json()["id"])
+    body = plan(client, project, "안내 문구를 넣어 줘 MOCK_CHECK_MANIFEST").json()
+    events = run(client, project, body["id"])
+    check = dict(events)["check_done"]
+    assert check["fixed"] == ["ctrlai.json"]
+    assert '"posts"' in files_of(db_session, project)["ctrlai.json"]

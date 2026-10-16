@@ -53,7 +53,13 @@
     user = await sdk.user();
   }
   async function removePost(post) {
-    if (!sdk) { demo.posts = demo.posts.filter((p) => p !== post); return; }
+    if (!sdk) { demo.posts = demo.posts.filter((p) => p !== post); delete demo.comments[post.id]; return; }
+    // 댓글도 같이 지워요 — 내가 지울 수 있는 것만(내 댓글, 앱 주인이면 전부). 남의 댓글은
+    // 그 사람 것이라 남고, 운영진이 Admin › Content에서 정리할 수 있어요.
+    const page = await sdk.db.list("comments", { ...SHARED, where: { postId: post.id }, limit: 100 });
+    for (const comment of page.items) {
+      if (comment.mine || comment.canDelete) await sdk.db.remove("comments", comment.id, SHARED);
+    }
     await sdk.db.remove("posts", post.id, SHARED);
   }
   async function saveComment(post, body) {

@@ -798,7 +798,8 @@ written, and say in one short Korean sentence what each one is for.
 
 - A new app needs index.html. Usually index.html, style.css and app.js; \
 more .js, .css or .json files only when the app is big enough to need \
-them (at most 12 files).
+them (at most 12 files). When the app will use ctrlai.db, list \
+ctrlai.json too (its purpose: the app's lists).
 - A change lists only the files that must change or be added — as few as \
 possible.
 - "summary" is one or two short Korean sentences: what will be built or \
@@ -918,6 +919,12 @@ def check_request_text(name: str, files: list[tuple[str, str]]) -> str:
 MOCK_ERROR_FILE = re.compile(r"\[mock-error-file:([\w./-]+)\]")
 #: Mock only: a file containing this text is "fixed" by the self-check.
 MOCK_CHECK_FIX = "MOCK_CHECK_FIX"
+#: Mock only (app-platform P4): `MOCK_MANIFEST` in a request makes the
+#: file stage write ctrlai.json beside app.js; `MOCK_CHECK_MANIFEST` in a
+#: file makes the check stage add a missing ctrlai.json.
+MOCK_MANIFEST = "MOCK_MANIFEST"
+MOCK_CHECK_MANIFEST = "MOCK_CHECK_MANIFEST"
+MOCK_MANIFEST_JSON = '{"db": [{"name": "posts", "shared": true}]}\n'
 #: What the mock says each starter file is for.
 _MOCK_PURPOSES = {
     "index.html": "화면의 뼈대와 글을 담아요.",
@@ -1668,6 +1675,10 @@ class MockClaudeProvider:
         else:
             content = dict(self.edit_project(name, files, request, model, max_tokens, style).writes).get(path)
         writes = [(path, content)] if content is not None else []
+        # `MOCK_MANIFEST` in the request: the mock writes ctrlai.json beside
+        # app.js, as the SDK rules make the real model do (app-platform P4).
+        if MOCK_MANIFEST in request and path == "app.js":
+            writes.append(("ctrlai.json", MOCK_MANIFEST_JSON))
         text = file_request_text(name, files, request, plan, path, style)
         return ProjectEdit(
             summary=f"{path}을(를) 썼어요.",
@@ -1685,12 +1696,15 @@ class MockClaudeProvider:
         max_tokens: int = 16000,
         effort: str | None = None,
     ) -> ProjectEdit:
-        """Nothing to fix — unless a file carries `MOCK_CHECK_FIX`."""
+        """Nothing to fix — unless a file carries `MOCK_CHECK_FIX`, or
+        `MOCK_CHECK_MANIFEST` with no ctrlai.json yet (the check adds it)."""
         fixes = [
             (path, content.replace(MOCK_CHECK_FIX, "fixed by check"))
             for path, content in files
             if MOCK_CHECK_FIX in content
         ][:CHECK_MAX_FIXES]
+        if any(MOCK_CHECK_MANIFEST in content for _, content in files) and "ctrlai.json" not in dict(files):
+            fixes.append(("ctrlai.json", MOCK_MANIFEST_JSON))
         summary = (
             f"점검하면서 {len(fixes)}곳을 고쳤어요." if fixes else "점검했어요 — 고칠 곳이 없어요."
         )

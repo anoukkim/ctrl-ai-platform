@@ -257,7 +257,9 @@ def create_project_from_template(
     project = BuilderProject(
         owner_user_id=user.id,
         name=_checked_name(payload.name) if payload.name.strip() else template.name,
-        description=template.description,
+        # No description: 게시 pre-fills CtrlAIApps's blurb from it, and the
+        # template's start-screen line is not this member's app.
+        description="",
         chat_model_id=user.default_chat_model_id,
         depth=user.default_depth,
     )

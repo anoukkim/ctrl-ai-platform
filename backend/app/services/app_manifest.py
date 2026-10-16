@@ -28,14 +28,17 @@ or the owner removes the items.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import AppDataCollection, BuilderProject
 
 MANIFEST_FILE = "ctrlai.json"
+logger = logging.getLogger(__name__)
 
 
 class ManifestError(Exception):
@@ -109,11 +112,25 @@ def declare(db: Session, project: BuilderProject, space: str, files: dict[str, s
         if (collection.name, collection.kind) in existing:
             continue
         # The app's cap counts lists the owner made by hand too; past it,
-        # the rest of the file waits until some are removed.
+        # the rest of the file waits until some are removed — said in the
+        # log, since the file itself passed every check.
         if len(existing) + added >= app_data.MAX_COLLECTIONS:
-            break
-        db.add(AppDataCollection(project_id=project.id, space=space, name=collection.name, kind=collection.kind))
+            logger.warning(
+                "project %s: ctrlai.json names more lists than the cap leaves room for; '%s' (%s) not made",
+                project.id, collection.name, collection.kind,
+            )
+            continue
+        # Another writer (a staged generation finishing a file while the
+        # maker presses 미리보기 갱신, or the owner's own first save) may
+        # make the same list first: a savepoint keeps that from being an
+        # IntegrityError that fails the whole write.
+        try:
+            with db.begin_nested():
+                db.add(
+                    AppDataCollection(project_id=project.id, space=space, name=collection.name, kind=collection.kind)
+                )
+                db.flush()
+        except IntegrityError:
+            continue
         added += 1
-    if added:
-        db.flush()
     return added

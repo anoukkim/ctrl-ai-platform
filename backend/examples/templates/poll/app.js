@@ -96,15 +96,23 @@
 
   async function closePoll(poll) {
     if (!sdk) { poll.data.closed = true; render(); return; }
-    await sdk.db.update("polls", poll.id, { closed: true }, SHARED);
-    await loadPolls();
+    try {
+      await sdk.db.update("polls", poll.id, { closed: true }, SHARED);
+      await loadPolls();
+    } catch (error) {
+      showNotice(`마감하지 못했어요: ${error.message}`);
+    }
     render();
   }
 
   async function removePoll(poll) {
     if (!sdk) { demo.polls = demo.polls.filter((p) => p !== poll); await loadPolls(); render(); return; }
-    await sdk.db.remove("polls", poll.id, SHARED);
-    await loadPolls();
+    try {
+      await sdk.db.remove("polls", poll.id, SHARED);
+      await loadPolls();
+    } catch (error) {
+      showNotice(`삭제하지 못했어요: ${error.message}`);
+    }
     render();
   }
 
@@ -151,7 +159,8 @@
           })
           .join("");
         const actions = [];
-        if ((poll.mine || poll.canDelete) && !closed) actions.push(`<button type="button" class="ghost small" data-close="${esc(poll.id)}">마감</button>`);
+        // 마감은 고치기라서 올린 사람만(ctrlai.db.update는 쓴 사람만 돼요); 앱 주인은 삭제만.
+        if (poll.mine && !closed) actions.push(`<button type="button" class="ghost small" data-close="${esc(poll.id)}">마감</button>`);
         if (poll.mine || poll.canDelete) actions.push(`<button type="button" class="ghost small" data-remove="${esc(poll.id)}">삭제</button>`);
         return `<article class="card poll">
           <h2>${esc(poll.data.question)}${closed ? '<span class="closed">마감</span>' : ""}</h2>

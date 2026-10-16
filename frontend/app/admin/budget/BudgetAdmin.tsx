@@ -122,6 +122,7 @@ const FEATURE_LABEL: Record<string, string> = {
   chat: "채팅",
   build: "빌더",
   app_ai: "앱 AI",
+  app_ai_preview: "앱 미리보기",
   video_prompt: "영상 프롬프트",
 };
 

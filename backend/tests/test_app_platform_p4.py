@@ -153,6 +153,7 @@ def test_a_template_becomes_a_free_project_with_its_lists_declared(
     assert made.status_code == 201, made.text
     project = db_session.get(BuilderProject, made.json()["id"])
     assert project.name == "동아리 게시판" and project.draft_slug
+    assert project.description == ""  # 게시 pre-fills the blurb from it: the member writes their own
     paths = {f.path for f in project.files}
     assert {"index.html", "style.css", "app.js", "ctrlai.json"} <= paths
     assert db_session.query(UsageEvent).count() == 0
