@@ -88,11 +88,15 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    (`services/project_handoff.py` README / CLAUDE.md, and the showcase
    apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
    that outside CTRL+AI those calls need replacing — done in P1.
-   **P3 built 2026-10-16** on `feat-app-platform-p3` (`ctrlai.db`; its
-   first drafts were lost with the old computer, RUN-2026-10-16, and it was
-   designed again from the spec below) — tests green, **waiting for the
-   owner's 확인 before merge + deploy** (pre-approved; migration
-   `1cc00c092902`). Then P4.
+   **P3 merged 2026-10-16** (`739aacb`; `ctrlai.db` — collections as
+   (name, kind) pairs after the security review, migration `1cc00c092902`;
+   its first drafts were lost with the old computer and it was designed
+   again, RUN-2026-10-16). **P4 is next.** Two things to look at in P4
+   besides its spec: (a) the security review's stronger recommendation —
+   collections **defined by the app's owner** (a manifest in the project
+   files, or created only by the owner's first write) rather than by any
+   visitor's first write; (b) `app-libraries` (item 8) is reviewed after
+   P4, so P4's templates should not paint it in.
 
 2. **app-ai-access** · M3 · branch `feat-app-ai-access`
     *Not pre-approved — branch, test, report, WAIT.* Owner decision
@@ -155,6 +159,25 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     reduced motion keeps a plain toast.
 
 ---
+
+8. **app-libraries** · M3 · branch `feat-app-libraries`
+    *Direction, not pre-approved — review after app-platform P4; order to
+    be set by the owner.* Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    높인다."** Member apps have no network (CSP `connect-src 'none'`, no
+    CDN), so a game or a chart today means hand-written code. Review a
+    bundle of **approved libraries that CTRL+AI hosts itself** on the apps
+    origin — `/_ctrlai/lib/<name>@<version>/…` — pinned versions, served
+    with the same headers as the SDK, allowed by the member-file CSP
+    (`script-src 'self'` already covers the apps origin): **Phaser**
+    (2D games), **Three.js** (3D), **Chart.js** (charts), **Leaflet**
+    (maps — tiles are a network call, so offline/embedded tiles or a
+    CTRL+AI tile proxy would be part of the review), **Tone.js** (sound),
+    **p5.js** (creative coding). The Builder's prompt learns the list and
+    the `<script src="/_ctrlai/lib/…">` form; the handoff README names
+    the CDN equivalents for outside CTRL+AI. Licences (all MIT/BSD),
+    sizes and a load-time check belong to the review. **Example apps the
+    owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
+    Chart.js/p5 for the chart) — the same two named under builder-python.
 
 ## app-platform — full spec
 
@@ -767,6 +790,14 @@ Dashboard / Members / System, Profile): "이것도 일단 백로그에만 추가
 
 (Point 10, a livelier "띠링" spend notification, is in the Next entry
 above.)
+
+13. **Builder › Claude 판 — a project that has only imported versions
+    shows the same content twice** (owner, 2026-10-16): when every version
+    came from 예시 앱 / 가져오기 (no `BuilderGeneration` behind it), the
+    conversation-style history (Q3) and the compact "모든 버전 (n)" list
+    below it show the same rows. Show one or the other for such projects
+    — e.g. hide the history until the first Claude-made version, or fold
+    "모든 버전" when it would repeat the history.
 
 11. **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
     가겠냐고 물어보고 그냥 쭉 할 수 있게 (중단도 가능하니)"** (2026-10-16,
