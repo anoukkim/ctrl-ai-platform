@@ -124,29 +124,21 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
    `window.ctrlai` is missing or the visitor is signed out — the basis of
    app-ai-access.
 
-2. **app-ai-access** · M3 · branch `feat-app-ai-access`
-    *Not pre-approved — branch, test, report, WAIT.* Owner decision
-    2026-10-16 (saved in their words below): when publishing an app that
-    uses AI, the creator chooses **데모만** or **전체 기능** (changeable
-    later); visitors switch between 데모 and 토큰 사용 any time; the
-    관리자 can turn AI off per app (today's kill switch). Comes after
-    app-platform P4.
-
-3. **quarter-end-apps** · M3 · branch `feat-quarter-end-apps`
+2. **quarter-end-apps** · M3 · branch `feat-quarter-end-apps`
     *Not pre-approved — branch, test, report, WAIT.* Owner decision
     2026-10-16: at 분기 마감 every app goes demo-only (AI off) and is
     archived under its quarter; CtrlAIApps opens on this quarter with a
     지난 분기 selector. **Chat history at quarter end is ON HOLD** — the
     owner is asking members first (archive vs delete); do not build it.
 
-4. **builder-python** · M2 · branch `feat-builder-python`
+3. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below. Owner, 2026-10-16: wanted
     — "a tetris game", "a 사주 site", made in the Builder and usable on the
     apps origin during the quarter.
 
-5. **app-remix** · M3 · branch `feat-app-remix`
+4. **app-remix** · M3 · branch `feat-app-remix`
     *Not pre-approved — order to be set by the owner.* From H4's optional
     point 4 (project-export-handoff), split out because it is not small: on
     a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
@@ -160,7 +152,7 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
     project and its listing, audit-free (it is a member action), and tests
     (allowed/not allowed, deleted original, own app, inactive member).
 
-6. **owner-polish-2026-10-16** · M1 · one small branch per point
+5. **owner-polish-2026-10-16** · M1 · one small branch per point
     *Not pre-approved — branch, test, report, WAIT.* **Points 3, 8, 1, 9,
     6, 13, 14, 10 merged as `806f563`** (owner-polish-a, owner approved
     2026-10-16 — Done row and the eight points' spec in the archive; the
@@ -191,7 +183,7 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
 
 ---
 
-7. **app-libraries** · M3 · branch `feat-app-libraries`
+6. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
     be set by the owner.* (Renumbered as items joined and merged on
     2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
@@ -241,7 +233,7 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
     Everything off with 동작 줄이기 (text stays); no click waits on an
     animation; CSS + motion/react + Web Animations only, no paid service.
 
-8. **dino-avatars** · M3 · branch `feat-dino-avatars`
+7. **dino-avatars** · M3 · branch `feat-dino-avatars`
     *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
     (decided in another session after four mock-ups; relayed): **"CTRL+AI
     공룡" profile avatars** replace the letter avatar. **No uploaded
