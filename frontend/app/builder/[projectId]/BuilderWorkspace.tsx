@@ -3,9 +3,14 @@
 /**
  * Project Builder 작업 공간 — 프로젝트 하나.
  *
- * 구성: 왼쪽에 이 프로젝트의 파일만, 가운데에 코드와 미리보기,
- * 오른쪽에 Claude. 프로젝트 목록은 더 이상 왼쪽을 차지하지 않고,
- * 위쪽 막대의 전환 메뉴로 옮겼습니다.
+ * 구성: 왼쪽에 이 프로젝트의 파일만, 가운데에 코드 또는 미리보기,
+ * 오른쪽에 Claude. 프로젝트 목록은 위쪽 막대의 전환 메뉴에 있습니다.
+ *
+ * 배치 (quality-tuning Q3): 가운데는 코드 / 미리보기 두 탭(나란히는
+ * 없앴습니다)이고 마지막 탭을 프로젝트마다 기억합니다. 왼쪽 파일 목록과
+ * 오른쪽 Claude 판은 접을 수 있고(기억), 1100px 아래에서는 파일 목록이
+ * 서랍, Claude 판이 아래에서 올라오는 시트가 됩니다. 안내 문서(README ·
+ * CLAUDE.md …)는 "안내 문서" 폴더로 따로 묶습니다.
  *
  * 프로젝트 정보와 파일은 백엔드에서 가져옵니다. 빈 프로젝트에서는 Claude가
  * 작은 예시 앱(HTML·CSS·JS)을 만들어 줄 수 있고(chat-builder-starter),
@@ -14,12 +19,23 @@
  * 미리보기 프레임 안에서 돌아갑니다. GitHub 연동은 다음 단계입니다.
  */
 
-import { ArrowLeft, Lock, Pin, Tag } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  FolderOpen,
+  Lock,
+  MessageSquare,
+  MoreHorizontal,
+  Pin,
+  Tag,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
+import MenuButton from "@/app/components/MenuButton";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
@@ -36,6 +52,8 @@ import {
   unpublishProject,
   getBuilderProject,
   getGenerateEstimate,
+  getVersionFiles,
+  isGuideDoc,
   listBuilderFiles,
   listBuilderProjects,
   listVersions,
@@ -67,7 +85,10 @@ import {
 } from "@/lib/generation";
 import { NO_PROGRESS, PlanCard, StartForm, type Progress } from "./StagedGeneration";
 import type { DepthLevel, PickerModel } from "@/lib/depth";
+import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
+import ClaudeHistory, { particleRo } from "./ClaudeHistory";
+import CodeView from "./CodeView";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
 import PublishDialog, { type PublishValues } from "./PublishDialog";
@@ -75,7 +96,7 @@ import styles from "./workspace.module.css";
 import Skeleton from "@/app/components/Skeleton";
 import { useToast } from "@/app/components/ToastProvider";
 
-type Mode = "code" | "preview" | "split";
+type Mode = "code" | "preview";
 
 type State =
   | { phase: "loading" }
@@ -84,10 +105,18 @@ type State =
 
 const ENTRY_FILE = "index.html";
 
-/** 숫자 뒤의 "로/으로": 삼으로, 이로, 칠로 (백엔드 버전 메모와 같은 규칙). */
-function particleRo(n: number): string {
-  return [0, 3, 6].includes(n % 10) ? "으로" : "로";
-}
+/** 이 폭 아래에서 파일 목록은 서랍, Claude 판은 시트 (1100px). */
+const NARROW_QUERY = "(max-width: 68.74rem)";
+
+/** Claude 판 입력칸의 예시 — 몇 초마다 바뀝니다. */
+export const ASK_EXAMPLES = [
+  "버튼 색을 주황색으로 바꿔 줘",
+  "다크 모드 버튼 만들어 줘",
+  "지도에 맛집 표시 추가해 줘",
+  "점수가 저장되게 해 줘",
+  "글씨를 조금 더 크게 해 줘",
+];
+const EXAMPLE_MS = 4000;
 
 /** 파일 목록을 왼쪽 나무로: 맨 위 파일, 그다음 폴더별 파일. */
 function fileTree(files: BuilderFile[]): { name: string; path: string; depth: number; folder: boolean }[] {
@@ -105,41 +134,6 @@ function fileTree(files: BuilderFile[]): { name: string; path: string; depth: nu
   return rows;
 }
 
-/**
- * 코드에 색을 입힙니다 — 화면용 장식일 뿐, 코드를 바꾸지 않습니다.
- *
- * 문법을 제대로 읽는 편집기(Monaco)는 Phase 3 이후입니다. 그때까지는
- * 예약어, 문자열, JSX 태그, 주석 네 가지만 색으로 구분합니다. 색은
- * 토큰(--code-keyword, --code-string, --accent)이라 밝은 테마에서도
- * 읽힙니다.
- */
-const TOKEN_PATTERN =
-  /(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|(<\/?[A-Za-z][\w.]*)|\b(import|from|export|default|function|const|let|var|return|if|else|type|interface|async|await|new|extends)\b/g;
-
-function highlight(code: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  let last = 0;
-  for (const match of code.matchAll(TOKEN_PATTERN)) {
-    const start = match.index ?? 0;
-    if (start > last) nodes.push(code.slice(last, start));
-    const className = match[1]
-      ? styles.tokComment
-      : match[2]
-        ? styles.tokString
-        : match[3]
-          ? styles.tokTag
-          : styles.tokKeyword;
-    nodes.push(
-      <span className={className} key={start}>
-        {match[0]}
-      </span>,
-    );
-    last = start + match[0].length;
-  }
-  if (last < code.length) nodes.push(code.slice(last));
-  return nodes;
-}
-
 export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const toast = useToast();
   // 참여하지 않는 분기에도 이 화면은 열립니다 — 내 작업물은 언제든 볼 수
@@ -151,8 +145,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [siblings, setSiblings] = useState<BuilderProject[]>([]);
   const [activeFile, setActiveFile] = useState(ENTRY_FILE);
-  // 만든 앱을 먼저 보여 줍니다 — 초보 회원에게는 코드보다 결과가 먼저입니다.
-  const [mode, setMode] = useState<Mode>("preview");
   const [files, setFiles] = useState<BuilderFile[] | null>(null);
   const [filesError, setFilesError] = useState<string | null>(null);
   const { refresh: refreshWallet } = useMyQuarter();
@@ -186,6 +178,89 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [previewWhich, setPreviewWhich] = useState<"draft" | "published">("draft");
   const [labelling, setLabelling] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
+
+  // 배치 (quality-tuning Q3). 넓은 화면에서는 접어 둔 판을 기억하고,
+  // 좁은 화면에서는 서랍·시트가 닫힌 채로 시작합니다.
+  const { github_enabled: githubEnabled } = useSite();
+  const narrow = useMediaQuery(NARROW_QUERY);
+  const filesHidden = usePref("files-hidden") === "1";
+  const claudeHidden = usePref("claude-hidden") === "1";
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [guidesOpen, setGuidesOpen] = useState(false);
+  /** 이 버전 보기: 미리보기에 띄운 지난 버전의 파일. */
+  const [viewing, setViewing] = useState<{ number: number; files: Record<string, string> } | null>(null);
+  const [exampleIndex, setExampleIndex] = useState(0);
+  const tabRefs = useRef<Record<Mode, HTMLButtonElement | null>>({ code: null, preview: null });
+
+  // 마지막 탭은 프로젝트마다. 기억이 없으면 미리보기 — 초보 회원에게는
+  // 코드보다 만든 결과가 먼저입니다.
+  const savedTab = usePref(`tab.${projectId}`);
+  const mode: Mode = savedTab === "code" ? "code" : "preview";
+
+  const chooseMode = useCallback(
+    (next: Mode) => writePref(`tab.${projectId}`, next),
+    [projectId],
+  );
+
+  const filesShown = narrow ? drawerOpen : !filesHidden;
+  const claudeShown = narrow ? sheetOpen : !claudeHidden;
+
+  const showFiles = useCallback(
+    (show: boolean) => {
+      if (narrow) setDrawerOpen(show);
+      else writePref("files-hidden", show ? "0" : "1");
+    },
+    [narrow],
+  );
+
+  const showClaude = useCallback(
+    (show: boolean) => {
+      if (narrow) {
+        setSheetOpen(show);
+        if (show) setDrawerOpen(false);
+      } else {
+        writePref("claude-hidden", show ? "0" : "1");
+      }
+    },
+    [narrow],
+  );
+
+  // 서랍·시트는 Esc로 닫힙니다.
+  useEffect(() => {
+    if (!narrow || (!drawerOpen && !sheetOpen)) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setDrawerOpen(false);
+      setSheetOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [narrow, drawerOpen, sheetOpen]);
+
+  // 입력칸의 예시가 몇 초마다 바뀝니다. 움직임을 줄인 설정이면 그대로 둡니다.
+  useEffect(() => {
+    if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    const timer = setInterval(() => setExampleIndex((n) => (n + 1) % ASK_EXAMPLES.length), EXAMPLE_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  /** 이 버전 보기 — 지난 버전의 파일을 받아 미리보기에 띄웁니다(읽기만, 무료). */
+  const viewVersion = useCallback(
+    async (version: BuilderVersion) => {
+      try {
+        const list = await getVersionFiles(projectId, version.number);
+        setViewing({ number: version.number, files: Object.fromEntries(list.map((f) => [f.path, f.content])) });
+        chooseMode("preview");
+        if (narrow) setSheetOpen(false);
+      } catch (error) {
+        toast.show(describeError(error));
+      }
+    },
+    [projectId, chooseMode, narrow, toast],
+  );
 
   // 효과가 두 번 도는 일은 흔합니다 — 개발 모드의 StrictMode가 그렇고,
   // 작업 공간을 빠르게 갈아타도 그렇습니다. 예전에는 뒷정리에서 "이
@@ -311,17 +386,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         if (outcome.kind === "done") {
           setGeneration(null);
           setAsk("");
-          setMode("preview");
-          const fixed = outcome.checkFixed.length > 0 ? ` 점검하면서 ${outcome.checkFixed.length}곳을 고쳤어요.` : "";
-          setThread((list) => [
-            ...list,
-            {
-              role: "claude",
-              text:
-                `${plan.summary}${fixed}\n` +
-                `v${outcome.versionNumber} · 파일 ${outcome.filesDone.length}개 · ${formatKrw(outcome.chargedKrw)}`,
-            },
-          ]);
+          // 끝나면 새 버전을 미리보기로 — 앱 주소도 백엔드가 이미 다시 올렸습니다.
+          setViewing(null);
+          chooseMode("preview");
+          // 방금 한 부탁과 Claude의 답은 이제 버전 기록(대화)에 있습니다.
+          setThread([]);
           reportCharge({ chargedKrw: spent, label: plan.kind === "create" ? "빌더 · 만들기" : "빌더 · 고치기" });
         } else {
           const label = plan.kind === "create" ? "빌더 · 만들기" : "빌더 · 고치기";
@@ -344,7 +413,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         reloadAfterRun();
       }
     },
-    [projectId, reportCharge, reloadAfterRun],
+    [projectId, reportCharge, reloadAfterRun, chooseMode],
   );
 
   /** 계획 세우기. 고치기는 계획이 나오면 바로 시작합니다. */
@@ -455,6 +524,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         const result = await restoreVersion(projectId, number);
         setFiles(result.files);
         setState({ phase: "ready", project: result.project });
+        setViewing(null);
         setVersions((list) => [result.version, ...list]);
         setConfirm(null);
         toast.show(`v${number}의 파일로 되돌렸어요. 되돌리기 전 상태도 버전으로 남아 있어요.`);
@@ -580,15 +650,89 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const fileMap: Record<string, string> = Object.fromEntries(
     (files ?? []).map((file) => [file.path, file.content]),
   );
-  const code = fileMap[activeFile] ?? "";
-  const lineCount = code.split("\n").length;
+  const appFileList = (files ?? []).filter((file) => !isGuideDoc(file.path));
+  const guideFileList = (files ?? []).filter((file) => isGuideDoc(file.path));
   const empty = files !== null && files.length === 0;
-  const showCode = mode === "code" || mode === "split";
-  const showPreview = mode === "preview" || mode === "split";
   const draftUrl = appUrl(project, appsBase);
   const publishedUrl = publicUrl(project, appsBase);
   const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
   const latestVersion = versions.length > 0 ? versions[0].number : null;
+  const published = project.published_version_number ?? null;
+  // 작업 중인 버전이 이미 게시된 버전이면 업데이트 게시는 할 일이 없습니다.
+  const sameAsPublished = published !== null && latestVersion !== null && latestVersion === published;
+  const guideOpen = guidesOpen || isGuideDoc(activeFile);
+
+  const openFile = (path: string) => {
+    setActiveFile(path);
+    chooseMode("code");
+    if (narrow) setDrawerOpen(false);
+  };
+
+  const fileButton = (path: string, name: string, depth: number) => (
+    <li key={path}>
+      <button
+        className={`${styles.fileRow} ${mode === "code" && path === activeFile ? styles.fileRowActive : ""}`}
+        style={{ paddingLeft: `${0.4 + depth * 0.75}rem` }}
+        type="button"
+        aria-current={mode === "code" && path === activeFile ? "true" : undefined}
+        onClick={() => openFile(path)}
+      >
+        <span className={styles.fileGlyph} aria-hidden="true">
+          ·
+        </span>
+        {name}
+      </button>
+    </li>
+  );
+
+  const openPublish = () => {
+    setPublishError(null);
+    setPublishOpen(true);
+  };
+
+  /** 탭은 ←→·Home·End로도 움직입니다. */
+  const moveTab = (event: React.KeyboardEvent) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next: Mode =
+      event.key === "Home" ? "code" : event.key === "End" ? "preview" : mode === "code" ? "preview" : "code";
+    chooseMode(next);
+    tabRefs.current[next]?.focus();
+  };
+
+  const versionSelect = latestVersion !== null && (
+    <label className={styles.versionSelect}>
+      <span className="sr-only">미리볼 버전</span>
+      <select
+        className={styles.versionSelectField}
+        value={viewing ? `v${viewing.number}` : previewWhich}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (value === "draft" || value === "published") {
+            setViewing(null);
+            setPreviewWhich(value);
+          }
+        }}
+      >
+        <option value="draft">작업 중 v{latestVersion}</option>
+        {publishedUrl && published !== null && <option value="published">게시된 v{published}</option>}
+        {viewing && <option value={`v${viewing.number}`}>v{viewing.number} 보는 중</option>}
+      </select>
+    </label>
+  );
+
+  const claudeOpener = !claudeShown && (
+    <button
+      className={styles.reopenButton}
+      type="button"
+      onClick={() => showClaude(true)}
+      aria-label="Claude 판 열기"
+      title="Claude 판 열기"
+    >
+      <MessageSquare size={14} aria-hidden="true" />
+      Claude
+    </button>
+  );
 
   return (
     <div className={ws.shell}>
@@ -627,77 +771,86 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
-        {(project.published_version_number || latestVersion) && (
+        {(published || latestVersion) && (
           <span className="badge badge-muted" data-testid="version-status">
-            {[
-              project.published_version_number ? `게시됨 v${project.published_version_number}` : null,
-              latestVersion ? `작업 중 v${latestVersion}` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+            {sameAsPublished
+              ? `게시됨 v${published} · 게시된 버전과 같아요`
+              : [published ? `게시됨 v${published}` : null, latestVersion ? `작업 중 v${latestVersion}` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
           </span>
         )}
         <TestModeNotice area="builder" />
-        <span className="badge badge-muted">
-          {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
-        </span>
+        {/* GitHub은 Phase 4가 들어오기 전까지 보이지 않습니다 — 누를 수 없는 단추를 두지 않아요. */}
+        {githubEnabled && (
+          <span className="badge badge-muted">
+            {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
+          </span>
+        )}
 
         <span className={ws.topbarSpacer} />
         <span className={ws.topbarActions}>
-          {/* 내려받기는 참여 여부와 무관합니다 — 내가 만든 것을 꺼내 오는
+          {/* 내보내기는 참여 여부와 무관합니다 — 내가 만든 것을 꺼내 오는
               일이고, 백엔드도 같은 이유로 열어 두었습니다. */}
-          <button
-            className="btn btn-sm"
-            type="button"
-            onClick={() => setHandoff("download")}
+          <MenuButton
             disabled={files === null}
-            title="앱 파일과 안내를 ZIP으로 받습니다"
+            items={[
+              {
+                label: "내려받기",
+                hint: "앱 파일과 안내 문서를 ZIP으로 받아요",
+                onSelect: () => setHandoff("download"),
+              },
+              {
+                label: "내 Claude로 이어서 만들기",
+                hint: "claude.ai나 Claude Code에서 이어서 만드는 방법",
+                onSelect: () => setHandoff("claude"),
+              },
+            ]}
           >
-            내려받기
-          </button>
-          <button
-            className="btn btn-sm"
-            type="button"
-            onClick={() => setHandoff("claude")}
-            disabled={files === null}
-            title="claude.ai나 Claude Code에서 이어서 만드는 방법"
-          >
-            내 Claude로 이어서 만들기
-          </button>
-          <button className="btn btn-sm" type="button" disabled title="Phase 5에서 제공됩니다">
-            GitHub에 저장
-          </button>
-          {project.published_version_number ? (
-            <>
-              <button
-                className="btn btn-sm"
-                type="button"
-                onClick={askToUnpublish}
-                title="CtrlAIApps에서 내립니다. 버전은 모두 남아요."
-              >
-                게시 취소
-              </button>
-              <button
-                className="btn btn-sm btn-primary"
-                type="button"
-                onClick={() => {
-                  setPublishError(null);
-                  setPublishOpen(true);
-                }}
-                disabled={!mayCreate || empty}
-                title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-              >
-                업데이트 게시
-              </button>
-            </>
+            내보내기 ▾
+          </MenuButton>
+          {published !== null && (
+            <MenuButton
+              className={`btn btn-sm ${styles.iconOnly}`}
+              label="게시 메뉴 더 보기"
+              title="더 보기"
+              items={[
+                {
+                  label: "게시 취소",
+                  hint: "CtrlAIApps에서 내려요. 버전은 모두 남아요.",
+                  danger: true,
+                  onSelect: askToUnpublish,
+                },
+              ]}
+            >
+              <MoreHorizontal size={15} aria-hidden="true" />
+            </MenuButton>
+          )}
+          {published !== null ? (
+            <button
+              className={`btn btn-sm btn-primary ${sameAsPublished ? styles.inactive : ""}`}
+              type="button"
+              // 같은 버전이면 눌러도 아무 일이 없다는 것을 말로 알려 줍니다.
+              aria-disabled={sameAsPublished || undefined}
+              onClick={() => {
+                if (!sameAsPublished) openPublish();
+              }}
+              disabled={!mayCreate || empty}
+              title={
+                !mayCreate
+                  ? NOT_PARTICIPATING_HINT
+                  : sameAsPublished
+                    ? "게시된 버전과 같아요. 고친 뒤에 업데이트 게시할 수 있어요."
+                    : undefined
+              }
+            >
+              업데이트 게시
+            </button>
           ) : (
             <button
               className="btn btn-sm btn-primary"
               type="button"
-              onClick={() => {
-                setPublishError(null);
-                setPublishOpen(true);
-              }}
+              onClick={openPublish}
               disabled={!mayCreate || empty || files === null}
               title={empty ? "앱을 먼저 만들어 주세요" : mayCreate ? undefined : NOT_PARTICIPATING_HINT}
             >
@@ -709,71 +862,134 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
       <NotParticipatingBanner inWorkspace />
 
-      <div className={ws.body}>
-        {/* 왼쪽 — 이 프로젝트의 파일만 */}
-        <aside className={`${ws.pane} ${styles.left}`}>
-          <div className={ws.paneHead}>
-            <span className={ws.paneHeadTitle}>파일</span>
-            {files !== null && <span className="badge badge-muted">{files.length}개</span>}
-          </div>
-          <div className={ws.paneBody}>
-            {filesError !== null && <p className={styles.hint}>파일을 불러오지 못했습니다. {filesError}.</p>}
-            {empty && <p className={styles.hint}>아직 파일이 없어요. 가운데에서 예시 앱을 만들 수 있어요.</p>}
-            <ul className={styles.fileList}>
-              {fileTree(files ?? []).map((node) => {
-                const isFolder = node.folder;
-                const isActive = !isFolder && node.path === activeFile;
+      <div className={`${ws.body} ${styles.body}`}>
+        {/* 좁은 화면: 서랍·시트 뒤를 누르면 닫힙니다. */}
+        {narrow && (drawerOpen || sheetOpen) && (
+          <button
+            className={styles.scrim}
+            type="button"
+            aria-label="닫기"
+            tabIndex={-1}
+            onClick={() => {
+              setDrawerOpen(false);
+              setSheetOpen(false);
+            }}
+          />
+        )}
 
-                return (
-                  <li key={`${node.depth}-${node.path}`}>
-                    <button
-                      className={`${styles.fileRow} ${isActive ? styles.fileRowActive : ""} ${
-                        isFolder ? styles.folderRow : ""
-                      }`}
-                      style={{ paddingLeft: `${0.4 + node.depth * 0.75}rem` }}
-                      type="button"
-                      onClick={() => {
-                        if (isFolder) return;
-                        setActiveFile(node.path);
-                        if (mode === "preview") setMode("split");
-                      }}
-                      disabled={isFolder}
-                    >
-                      <span className={styles.fileGlyph} aria-hidden="true">
-                        {isFolder ? "▾" : "·"}
+        {/* 왼쪽 — 이 프로젝트의 파일만 */}
+        {filesShown && (
+          <aside
+            className={`${ws.pane} ${styles.left} ${narrow ? styles.drawer : ""}`}
+            aria-label="파일"
+          >
+            <div className={ws.paneHead}>
+              <span className={ws.paneHeadTitle}>
+                파일
+                {files !== null && (
+                  <span className="badge badge-muted" data-testid="file-count">
+                    {`파일 ${appFileList.length}개`}
+                    {guideFileList.length > 0 ? ` · 안내 문서 ${guideFileList.length}개` : ""}
+                  </span>
+                )}
+              </span>
+              <button
+                className={styles.collapseButton}
+                type="button"
+                onClick={() => showFiles(false)}
+                aria-label={narrow ? "파일 목록 닫기" : "파일 목록 접기"}
+                title={narrow ? "파일 목록 닫기" : "파일 목록 접기"}
+              >
+                <ChevronsLeft size={15} aria-hidden="true" />
+              </button>
+            </div>
+            <div className={ws.paneBody}>
+              {filesError !== null && <p className={styles.hint}>파일을 불러오지 못했습니다. {filesError}.</p>}
+              {empty && <p className={styles.hint}>아직 파일이 없어요. 가운데에서 앱을 만들 수 있어요.</p>}
+              <ul className={styles.fileList}>
+                {fileTree(appFileList).map((node) =>
+                  node.folder ? (
+                    <li key={`folder-${node.path}`}>
+                      <span className={`${styles.fileRow} ${styles.folderRow}`}>
+                        <span className={styles.fileGlyph} aria-hidden="true">
+                          ▾
+                        </span>
+                        {node.name}
                       </span>
-                      {node.name}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </aside>
+                    </li>
+                  ) : (
+                    fileButton(node.path, node.name, node.depth)
+                  ),
+                )}
+              </ul>
+              {guideFileList.length > 0 && (
+                <div className={styles.guideFolder}>
+                  <button
+                    className={`${styles.fileRow} ${styles.folderButton}`}
+                    type="button"
+                    aria-expanded={guideOpen}
+                    onClick={() => setGuidesOpen(!guideOpen)}
+                    title="내 Claude가 읽을 안내 — 앱 주소에는 올라가지 않아요"
+                  >
+                    <span className={styles.fileGlyph} aria-hidden="true">
+                      {guideOpen ? "▾" : "▸"}
+                    </span>
+                    안내 문서
+                  </button>
+                  {guideOpen && (
+                    <ul className={styles.fileList} aria-label="안내 문서">
+                      {guideFileList.map((file) => fileButton(file.path, file.path, 1))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
 
         {/* 가운데 — 코드 / 미리보기 */}
         <section className={`${ws.pane} ${ws.paneCenter} ${styles.center}`}>
-          <div className={styles.modeTabs} role="tablist" aria-label="작업 모드">
-            {(
-              [
-                ["code", "코드"],
-                ["preview", "미리보기"],
-                ["split", "나란히"],
-              ] as const
-            ).map(([value, label]) => (
+          <div className={styles.modeTabs}>
+            {!filesShown && (
               <button
-                className={`${styles.modeTab} ${mode === value ? styles.modeTabActive : ""}`}
-                key={value}
+                className={styles.reopenButton}
                 type="button"
-                role="tab"
-                aria-selected={mode === value}
-                onClick={() => setMode(value)}
+                onClick={() => showFiles(true)}
+                aria-label="파일 목록 열기"
+                title="파일 목록 열기"
               >
-                {label}
+                <FolderOpen size={14} aria-hidden="true" />
+                <span className={styles.reopenLabel}>파일</span>
               </button>
-            ))}
+            )}
+            {!empty && (
+              <div className={styles.tabGroup} role="tablist" aria-label="보기">
+                {(
+                  [
+                    ["code", "코드"],
+                    ["preview", "미리보기"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    className={`${styles.modeTab} ${mode === value ? styles.modeTabActive : ""}`}
+                    key={value}
+                    ref={(node) => {
+                      tabRefs.current[value] = node;
+                    }}
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === value}
+                    tabIndex={mode === value ? 0 : -1}
+                    onClick={() => chooseMode(value)}
+                    onKeyDown={moveTab}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <span className={styles.modeSpacer} />
-            <span className={styles.splitToggle}>{project.name}</span>
+            {(mode === "code" || empty) && claudeOpener}
           </div>
 
           <div className={styles.centerBody}>
@@ -803,49 +1019,25 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               </div>
             )}
 
-            {!empty && showCode && (
-              <div className={styles.codeSide}>
-                <div className={styles.tabs}>
-                  <span className={`${styles.tab} ${styles.tabActive}`}>{activeFile}</span>
-                </div>
-                <div className={styles.codeScroll}>
-                  <pre className={styles.code}>
-                    <span className={styles.gutter} aria-hidden="true">
-                      {Array.from({ length: lineCount }, (_, i) => i + 1).join("\n")}
-                    </span>
-                    <code className={styles.codeText}>{highlight(code)}</code>
-                  </pre>
-                </div>
-              </div>
+            {!empty && mode === "code" && files !== null && (
+              <CodeView path={activeFile} content={fileMap[activeFile] ?? ""} />
             )}
 
-            {!empty && showPreview && (
+            {!empty && mode === "preview" && (
               <div className={styles.previewSide}>
-                {publishedUrl && (
-                  <div className={styles.previewWhich} role="group" aria-label="미리볼 버전">
-                    {(
-                      [
-                        ["draft", `작업 중 버전${latestVersion ? ` (v${latestVersion})` : ""}`],
-                        ["published", `게시된 버전 (v${project.published_version_number})`],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={`${styles.modeTab} ${previewWhich === value ? styles.modeTabActive : ""}`}
-                        aria-pressed={previewWhich === value}
-                        onClick={() => setPreviewWhich(value)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                {viewing && (
+                  <p className={styles.viewingBanner} role="status">
+                    v{viewing.number}을(를) 보는 중이에요 — 읽기만 하고, 파일은 바뀌지 않아요.
+                    <button className="btn btn-sm" type="button" onClick={() => setViewing(null)}>
+                      작업 중 버전으로
+                    </button>
+                  </p>
                 )}
                 <PreviewPane
-                  files={fileMap}
+                  files={viewing ? viewing.files : fileMap}
                   entry={ENTRY_FILE}
-                  appUrl={liveUrl}
-                  runtimeAvailable={Boolean(appsBase) && mayCreate}
+                  appUrl={viewing ? null : liveUrl}
+                  runtimeAvailable={!viewing && Boolean(appsBase) && mayCreate}
                   onRefreshRuntime={() => void refreshRuntime()}
                   refreshing={refreshing}
                   stamp={
@@ -853,6 +1045,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                       ? (project.published_at ?? null)
                       : (project.app_runtime_at ?? null)
                   }
+                  toolbarStart={versionSelect}
+                  toolbarEnd={claudeOpener}
                 />
                 {runtimeError && (
                   <p className={styles.starterError} role="alert">
@@ -864,11 +1058,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           </div>
         </section>
 
-        {/* 오른쪽 — Claude: 말로 만들기 / 고치기, 버전 기록 */}
-        <aside className={`${ws.pane} ${ws.paneLast} ${styles.right}`}>
+        {/* 오른쪽 — Claude: 바뀌어 온 대화, 고치기 */}
+        {claudeShown && (
+          <aside
+            className={`${ws.pane} ${ws.paneLast} ${styles.right} ${narrow ? styles.sheet : ""}`}
+            aria-label="Claude"
+          >
           <div className={styles.rightInner}>
             <div className={ws.paneHead}>
               <span className={ws.paneHeadTitle}>Claude</span>
+              <span className={styles.headTools}>
               {generateEstimate && (generateEstimate.models?.length ?? 0) > 0 ? (
                 <ModelDepthPicker
                   name="빌더 모델"
@@ -890,9 +1089,29 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   <span className="badge badge-muted">{generateEstimate.model_label}</span>
                 )
               )}
+              <button
+                className={styles.collapseButton}
+                type="button"
+                onClick={() => showClaude(false)}
+                aria-label={narrow ? "Claude 판 닫기" : "Claude 판 접기"}
+                title={narrow ? "Claude 판 닫기" : "Claude 판 접기"}
+              >
+                <ChevronsRight size={15} aria-hidden="true" />
+              </button>
+              </span>
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
+                {versions.length > 0 && (
+                  <ClaudeHistory
+                    versions={versions}
+                    viewing={viewing?.number ?? null}
+                    onView={(version) => void viewVersion(version)}
+                    onRestore={askToRestore}
+                    restoreDisabled={!mayCreate || generating}
+                    restoreTitle={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+                  />
+                )}
                 {thread.map((message, index) => (
                   <div
                     className={`${ws.chatMessage} ${
@@ -919,7 +1138,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     onCancel={() => void dropPlan()}
                   />
                 )}
-                {thread.length === 0 && !generating && !generation && (
+                {versions.length === 0 && thread.length === 0 && !generating && !generation && (
                   <p className={styles.hint}>
                     {empty
                       ? "가운데에서 만들고 싶은 앱을 알려 주면 Claude가 먼저 계획을 보여 줘요."
@@ -930,7 +1149,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
               {versions.length > 0 && (
                 <details className={styles.versions}>
-                  <summary>버전 기록 ({versions.length})</summary>
+                  <summary>모든 버전 ({versions.length})</summary>
                   <ul className={styles.versionList}>
                     {versions.map((version, index) => (
                       <li className={styles.versionRow} key={version.number}>
@@ -1025,16 +1244,27 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 maxLength={2000}
                 value={ask}
                 onChange={(event) => setAsk(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter는 보내기, Shift+Enter는 줄 바꿈. 한글을 조합하는 중의
+                  // Enter는 글자를 끝내는 것이라 보내지 않습니다.
+                  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                  event.preventDefault();
+                  if (mayCreate && !generating && !empty && ask.trim()) void makePlan({ request: ask.trim() });
+                }}
+                aria-describedby="builder-ask-keys"
                 placeholder={
                   mayCreate
                     ? empty
                       ? "앱을 만든 뒤에 여기서 고쳐 달라고 할 수 있어요"
-                      : "예: 버튼 색을 주황색으로 바꿔 줘"
+                      : `예: ${ASK_EXAMPLES[exampleIndex]}`
                     : "이번 분기에는 사용할 수 없습니다"
                 }
                 disabled={!mayCreate || generating || empty}
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
+              <span className="sr-only" id="builder-ask-keys">
+                Enter로 보내고, Shift+Enter로 줄을 바꿔요.
+              </span>
               <div className={styles.askActions}>
                 <button
                   className="btn btn-primary btn-sm"
@@ -1076,7 +1306,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               )}
             </div>
           </div>
-        </aside>
+          </aside>
+        )}
       </div>
 
       {handoff && (

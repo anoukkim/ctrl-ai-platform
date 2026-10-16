@@ -207,7 +207,18 @@ describe("말로 고치기와 버전", () => {
       handlers.onFileDone?.("style.css", 40);
       handlers.onCheckStart?.();
       handlers.onCheckDone?.([], "점검했어요 — 고칠 곳이 없어요.", 9);
-      listVersions.mockResolvedValue([{ ...V1, number: 2, note: "고치기: 버튼 색을 바꿔 줘" }, V1]);
+      listVersions.mockResolvedValue([
+        {
+          ...V1,
+          number: 2,
+          note: "고치기: 버튼 색을 바꿔 줘",
+          request: "버튼 색을 바꿔 줘",
+          summary: "버튼 색을 주황색으로 바꿔요.",
+          changed_count: 1,
+          charged_krw: 52,
+        },
+        V1,
+      ]);
       return { kind: "done", versionNumber: 2, chargedKrw: 52, filesDone: ["style.css"], checkFixed: [] };
     });
     const user = userEvent.setup();
@@ -220,9 +231,13 @@ describe("말로 고치기와 버전", () => {
     // 고치기는 계획이 나오면 바로 시작합니다.
     expect(planGeneration).toHaveBeenCalledWith("7", { request: "버튼 색을 바꿔 줘" });
     expect(runGeneration).toHaveBeenCalledWith("7", 4, expect.anything());
-    expect(await screen.findByText(/버튼 색을 주황색으로 바꿔요\./)).toBeTruthy();
-    expect(screen.getByText(/v2 · 파일 1개 · 52원/)).toBeTruthy();
-    expect(await screen.findByText("버전 기록 (2)")).toBeTruthy();
+    // 끝나면 Claude 판의 대화에 부탁 → 한 일 + "v2 · 파일 1개 바뀜 · 52원" (Q3).
+    const history = await screen.findByRole("list", { name: "바뀌어 온 기록" });
+    expect(await within(history).findByText(/v2 · 파일 1개 바뀜 · 52원/)).toBeTruthy();
+    expect(within(history).getByText("버튼 색을 바꿔 줘")).toBeTruthy();
+    expect(within(history).getByText(/버튼 색을 주황색으로 바꿔요\./)).toBeTruthy();
+    expect(within(history).getByRole("button", { name: "v1로 되돌리기" })).toBeTruthy();
+    expect(await screen.findByText("모든 버전 (2)")).toBeTruthy();
   });
 
   test("되돌리기는 확인을 받고, 무료라고 알린다", async () => {
@@ -235,8 +250,7 @@ describe("말로 고치기와 버전", () => {
     const user = userEvent.setup();
     render(<BuilderWorkspace projectId="7" />);
 
-    await user.click(await screen.findByText("버전 기록 (2)"));
-    await user.click(screen.getByRole("button", { name: "되돌리기" }));
+    await user.click(await screen.findByRole("button", { name: "v1로 되돌리기" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/비용은 들지 않고/)).toBeTruthy();
     expect(within(dialog).getByText("v1로 되돌리기")).toBeTruthy();
