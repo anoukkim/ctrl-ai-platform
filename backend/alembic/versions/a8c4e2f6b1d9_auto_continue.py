@@ -7,7 +7,7 @@ keeps the first; the receipt adds them all up. Null for a one-call reply.
 screen after a reload. Null for a reply that ended by itself.
 
 Revision ID: a8c4e2f6b1d9
-Revises: d7e1f3a9b5c2
+Revises: c4e8a2d6f0b3
 Create Date: 2026-10-16
 
 """
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a8c4e2f6b1d9"
-down_revision: str | None = "d7e1f3a9b5c2"
+down_revision: str | None = "c4e8a2d6f0b3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -135,7 +135,7 @@ export function feedbackImageName(file: File, index: number): string {
 
 /** 스크린샷 하나를 올립니다 — 본문은 파일의 바이트, 이름은 `?name=` (`uploadBytes`). */
 export function uploadFeedbackImage(file: File, name: string): Promise<FeedbackImage> {
-  return uploadBytes<FeedbackImage>("/feedback/images", file, name, "사진을 올리지 못했어요");
+  return uploadBytes<FeedbackImage>("/feedback/images", file, { name }, "사진을 올리지 못했어요");
 }
 
 /** 아직 보내지 않은 스크린샷을 뺍니다(✕, 창 닫기). */

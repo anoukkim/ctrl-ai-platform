@@ -38,6 +38,8 @@ interface Props {
   resultCount?: number;
   totalCount?: number;
   filters?: FilterSpec[];
+  /** 목록 머리 줄 안에서: 주어진 칸을 다 씁니다(최대 폭은 줄이 정합니다). */
+  grow?: boolean;
 }
 
 export default function SearchBar({
@@ -47,6 +49,7 @@ export default function SearchBar({
   resultCount,
   totalCount,
   filters = [],
+  grow = false,
 }: Props) {
   const inputId = useId();
   const narrowed =
@@ -54,7 +57,7 @@ export default function SearchBar({
 
   return (
     <div className={styles.bar}>
-      <div className={styles.searchWrap}>
+      <div className={`${styles.searchWrap} ${grow ? styles.searchWrapGrow : ""}`}>
         <Search className={styles.glyph} size={15} aria-hidden="true" />
         <input
           className={`field ${styles.input}`}

@@ -23,6 +23,24 @@ class AppListing(BaseModel):
     publish_note: str = ""
     #: https://apps.ctrlai.my/<slug>/ — None while the runtime is off.
     app_url: str | None = None
+    #: ui-improvements: the published version's `ctrlai.json` declares at
+    #: least one shared list — the detail page says so in its honest note.
+    shared_lists: bool = False
+    #: ui-improvements: the caller's 즐겨찾기 — kept first on their list.
+    favorite: bool = False
+    #: ui-improvements: when the published version's thumbnail was taken;
+    #: None = no picture, the card draws the generated cover.
+    thumbnail_at: datetime | None = None
+    #: app-ai-access: the published version calls `ctrlai.ai`, and how the
+    #: maker opened it — "demo" (no call, 0원) or "full" (visitors pay).
+    uses_ai: bool = False
+    ai_access: str = "demo"
+
+
+class AppFavoriteSet(BaseModel):
+    """즐겨찾기 on or off — a JSON body, like every state-changing route."""
+
+    on: bool
 
 
 class AppReportCreate(BaseModel):
@@ -71,6 +89,9 @@ class AdminAppOverview(BaseModel):
     example: bool = False
     sdk_enabled: bool = True
     sdk_disabled_reason: str = ""
+    #: app-ai-access: the published version uses AI, and the maker's setting.
+    uses_ai: bool = False
+    ai_access: str = "demo"
     open_reports: int = 0
     #: Members who allowed this app and have not disconnected.
     consents: int = 0

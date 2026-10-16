@@ -3,11 +3,7 @@
    영역 색(보라 / 청록)은 새 카드와 아이디어 칸에서만 바뀝니다.
    머리말은 PageHeader(globals.css의 .page-header)가 그립니다. */
 
-/* ---------- 도구 줄: 개수 · 검색 · 상태 ---------- */
-
-.toolbar {
-  margin-bottom: var(--card-gap);
-}
+/* ---------- 도구 줄: 개수 · 검색 · 상태 — 격자는 ListToolbar ---------- */
 
 .sectionLabel {
   display: flex;
@@ -22,18 +18,6 @@
   font-size: var(--fs-count);
   font-weight: 500;
   color: var(--text-dim);
-}
-
-.toolbarSearch {
-  flex: 1 1 14rem;
-  max-width: var(--lib-search-max);
-  min-width: 0;
-}
-
-/* SearchBar는 혼자 쓰일 때 아래 여백을 둡니다. 도구 줄 안에서는 줄이
-   여백을 맡습니다. */
-.toolbarSearch > div {
-  margin-bottom: 0;
 }
 
 /* ---------- 목록 ---------- */
@@ -124,24 +108,8 @@
   overflow: hidden;
 }
 
-/* Project Builder: 아직 미리보기가 없어 빗금 자리에 "미리보기 썸네일"
-   (Phase 3에서 실제 화면으로 바뀝니다). */
-.thumbPlaceholder {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--panel-2) 0,
-    var(--panel-2) var(--lib-stripe),
-    var(--panel) var(--lib-stripe),
-    var(--panel) calc(var(--lib-stripe) * 2)
-  );
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: var(--fs-label);
-}
+/* Project Builder 카드의 그림은 ctrlaistore/AppThumbnail(Thumbnail)이 그립니다:
+   찍어 둔 썸네일, 없으면 표지 (ui-improvements). */
 
 /* Video Generator: 버전의 실제 화면을 원래 비율 그대로, 어두운 바탕
    가운데에 둡니다(레터박스). 영상 무대는 밝은 테마에서도 어둡습니다. */
@@ -194,6 +162,13 @@
 .cardBadge {
   flex-shrink: 0;
   display: inline-flex;
+}
+
+/* 고정한 카드의 핀 (ui-improvements) — 배지 옆, 줄지 않습니다. */
+.cardPin {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--accent);
 }
 
 .cardName {

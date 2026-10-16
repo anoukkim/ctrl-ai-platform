@@ -26,7 +26,7 @@ from app.models import (
     BuilderProjectVersion,
     User,
 )
-from app.services import app_runtime, audit, builder_versions
+from app.services import app_ai_access, app_runtime, audit, builder_versions, notifications
 
 MAX_DESCRIPTION = 2_000
 MAX_NOTE = 200
@@ -57,8 +57,17 @@ def publish(
     *,
     description: str,
     note: str,
+    ai_access: str | None = None,
+    notify: bool = True,
 ) -> BuilderProjectVersion:
     """게시 / 업데이트 게시: the newest version becomes the public one.
+
+    `notify=False` for the example-app importer: a deploy's own publishes
+    are not the admin's news (feat-notifications).
+
+    `ai_access` (app-ai-access): "demo" or "full" — the maker's answer to
+    "다른 회원에게 AI 기능을 열까요?"; None keeps what the project has
+    (a new project starts as "demo").
 
     The working copy always has a version (every change writes one; a
     project made before versions gets "처음 상태" here), so what is
@@ -83,6 +92,13 @@ def publish(
     except app_runtime.AppRuntimeError as error:
         raise PublishError(str(error), error.status_code) from error
 
+    try:
+        chosen = app_ai_access.checked(ai_access)
+    except ValueError as error:
+        raise PublishError(str(error)) from error
+    if chosen is not None:
+        project.ai_access = chosen
+    was_published = project.published_version_id is not None
     project.published_version_id = version.id
     project.published_version = version
     project.published_at = datetime.now(timezone.utc)
@@ -90,6 +106,9 @@ def publish(
     project.description = description.strip()
     project.status = BuilderProjectStatus.PUBLISHED
     db.flush()
+    # 게시 완료 / 업데이트 게시 완료 — the owner's own notification list.
+    if notify:
+        notifications.app_published(db, project, update=was_published)
     return version
 
 
@@ -111,6 +130,7 @@ def admin_unpublish(
     unpublish(db, settings, project)
     closed = _close_reports(db, project, admin)
     owner = db.get(User, project.owner_user_id)
+    notifications.app_taken_down(db, project, reason, was)
     audit.record(
         db,
         actor=admin,
@@ -172,6 +192,8 @@ def resolve_report(db: Session, admin: User, row: AppReport, note: str) -> None:
     row.resolved_at = datetime.now(timezone.utc)
     row.resolved_by = admin.id
     project = db.get(BuilderProject, row.project_id)
+    if project is not None and project.published_version_id is not None:
+        notifications.app_report_kept(db, project)
     audit.record(
         db,
         actor=admin,

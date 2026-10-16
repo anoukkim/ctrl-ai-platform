@@ -119,6 +119,8 @@ export interface ClosePreview {
   reclaimed_krw: number;
   carry_over_krw: number;
   lines: CloseLine[];
+  /** 마감이 함께 완전히 삭제할(또는 삭제한) Deleted Items 수 (ui-improvements B). */
+  purge_count: number;
 }
 
 export interface ReconcileDay {

@@ -16,6 +16,7 @@ import { Heart, MessageCircle, Play } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import ListToolbar from "@/app/components/ListToolbar";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { describeError } from "@/lib/http";
 import { exactDate } from "@/lib/relative-time";
@@ -45,17 +46,23 @@ export default function VideoGrid() {
 
   return (
     <>
-      <div className={`toolbar ${styles.toolbar}`}>
-        <div className={styles.searchSlot}>
+      <ListToolbar
+        label={
+          <p className={styles.sectionLabel}>
+            영상 <span className={styles.count}>{all.length}개</span>
+          </p>
+        }
+        search={
           <SearchBar
             value={query}
             onChange={setQuery}
             placeholder="영상 제목, 설명, 만든 사람으로 검색"
             resultCount={visible.length}
             totalCount={all.length}
+            grow
           />
-        </div>
-      </div>
+        }
+      />
 
       {error ? (
         <p className="small" role="alert">

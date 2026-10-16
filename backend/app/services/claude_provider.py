@@ -587,10 +587,15 @@ the real `chargedKrw`. Keep prompts short; use \
 `json` with a schema when the app needs structured data; say in Korean \
 when a call fails.
   · Every AI feature also has a **demo path**: when `window.ctrlai` is \
-missing or the visitor is signed out (`user()` is null or a call fails \
-with "login_required"), show a fixed sample answer clearly marked "데모", \
-plus "CTRL+AI 회원만 쓸 수 있어요" and a 로그인 button that calls \
-`ctrlai.login()`. The screen must always show what the feature would do.
+missing, the visitor is signed out (`user()` is null or a call fails \
+with "login_required"), or the app is in 데모 (a call fails with code \
+"demo" — the maker opened the AI as 데모만, or the visitor chose 데모 in \
+CTRL+AI's switch; nothing is charged), show a fixed sample answer clearly \
+marked "데모". Signed out, add "CTRL+AI 회원만 쓸 수 있어요" and a 로그인 \
+button that calls `ctrlai.login()`; in 데모 just say it is a demo. \
+`ctrlai.ai.mode()` → "live" | "demo" tells which it is now, and the \
+window event "ctrlai:ai-mode" fires when the visitor flips the switch. \
+The screen must always show what the feature would do.
   · Signed-out visitors can use everything that needs no sign-in: reading \
 shared lists, playing, `ctrlai.storage`. Ask for sign-in only when a call \
 needs it.

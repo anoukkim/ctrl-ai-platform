@@ -176,6 +176,8 @@ def _overview(settings: Settings, project: BuilderProject, figures: _Figures) ->
         example=_is_example(owner),
         sdk_enabled=project.sdk_disabled_at is None,
         sdk_disabled_reason=project.sdk_disabled_reason,
+        uses_ai=project.published_uses_ai,
+        ai_access=project.ai_access,
         open_reports=figures.reports.get(project.id, 0),
         consents=figures.consents.get(project.id, 0),
         data_items=items,

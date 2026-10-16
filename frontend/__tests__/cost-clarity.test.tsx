@@ -228,7 +228,7 @@ describe("분기 마감 창", () => {
   test("미리보기와 이월 비율", async () => {
     accounting.getClosePreview.mockImplementation(async (_id: number, percent: number) => ({
       quarter_id: 7, quarter_name: "2026 Q4", carry_over_percent: percent, closed: false,
-      reclaimed_krw: 70_000, carry_over_krw: Math.floor((70_000 * percent) / 100),
+      reclaimed_krw: 70_000, carry_over_krw: Math.floor((70_000 * percent) / 100), purge_count: 3,
       lines: [
         {
           user_id: 2, username: "yuri", display_name: "김유리", budget_krw: 80_000,
@@ -243,6 +243,8 @@ describe("분기 마감 창", () => {
     render(<CloseQuarterDialog quarterId={7} quarterName="2026 Q4" onClose={vi.fn()} onClosed={onClosed} />);
 
     expect((await screen.findByTestId("close-total")).textContent).toContain("회수 70,000원");
+    // 되살리지 않은 삭제 항목은 마감과 함께 사라집니다 — 몇 개인지 미리 말합니다.
+    expect(screen.getByTestId("close-purge").textContent).toContain("3개");
     const user = userEvent.setup();
     const percent = screen.getByLabelText("다음 분기로 이월할 비율 (%)");
     await user.clear(percent);

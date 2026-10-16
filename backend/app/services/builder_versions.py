@@ -11,7 +11,10 @@ from __future__ import annotations
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.models import BuilderProject, BuilderProjectFile, BuilderProjectVersion
+from app.services import app_ai_access
+from app.services.storage import get_storage
 
 
 class VersionError(Exception):
@@ -52,12 +55,18 @@ def replace_files(db: Session, project: BuilderProject, files: dict[str, str]) -
 
 
 def snapshot(
-    db: Session, project: BuilderProject, note: str, files: dict[str, str] | None = None
+    db: Session,
+    project: BuilderProject,
+    note: str,
+    files: dict[str, str] | None = None,
+    settings: Settings | None = None,
 ) -> BuilderProjectVersion:
     """A new version holding `files` (default: what is stored now).
 
     Numbers only grow, so "v7" always means the same thing to the member.
-    Only the newest `KEEP` versions are kept.
+    Only the newest `KEEP` versions are kept; a pruned version's thumbnail
+    file goes with it (`settings` names the storage — the process's own
+    when a caller has none).
     """
     if files is None:
         files = current_files(db, project)
@@ -72,19 +81,30 @@ def snapshot(
         number=number,
         note=note.strip()[:200],
         files=[[path, files[path]] for path in sorted(files)],
+        # app-ai-access: known now, so nobody reads the files again later.
+        uses_ai=app_ai_access.uses_ai(files),
     )
     db.add(version)
     # Pruned: everything older than the newest `KEEP` — except versions the
     # member pinned (버전 저장) and the one CtrlAIApps serves.
-    prune = delete(BuilderProjectVersion).where(
+    pruned = (
         BuilderProjectVersion.project_id == project.id,
         BuilderProjectVersion.number <= number - BuilderProjectVersion.KEEP,
         BuilderProjectVersion.pinned.is_(False),
     )
+    prune = delete(BuilderProjectVersion).where(*pruned)
+    pictures = select(BuilderProjectVersion.number).where(*pruned, BuilderProjectVersion.thumbnail_at.is_not(None))
     if project.published_version_id is not None:
         prune = prune.where(BuilderProjectVersion.id != project.published_version_id)
+        pictures = pictures.where(BuilderProjectVersion.id != project.published_version_id)
+    # A pruned version's thumbnail (ui-improvements) goes with its row.
+    gone = list(db.scalars(pictures))
     db.execute(prune)
     db.flush()
+    if gone:
+        from app.services import thumbnails  # noqa: PLC0415 — thumbnails imports this module's models; keep it one-way
+
+        thumbnails.forget_versions(get_storage(settings or get_settings()), project.id, gone)
     return version
 
 

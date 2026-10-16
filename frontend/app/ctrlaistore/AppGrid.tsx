@@ -10,13 +10,16 @@
  */
 
 import { LayoutGrid } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import EmptyState from "@/app/components/EmptyState";
+import ListToolbar from "@/app/components/ListToolbar";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+import SortMenu from "@/app/components/SortMenu";
 import Skeleton from "@/app/components/Skeleton";
-import { listApps, type AppListing } from "@/lib/apps";
+import { listApps, setAppFavorite, type AppListing } from "@/lib/apps";
 import { describeError } from "@/lib/http";
+import { sortItems, useSortPref, writeSortPref } from "@/lib/list-sort";
 
 import AppCard from "./AppCard";
 import styles from "./ctrlaistore.module.css";
@@ -29,6 +32,18 @@ type State =
 export default function AppGrid({ onCount }: { onCount?: (count: number) => void }) {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [query, setQuery] = useState("");
+  // 정렬 (ui-improvements): 즐겨찾기 먼저, 그다음 최근 업데이트순 / 이름순 — 이 기기에 기억.
+  const sort = useSortPref("apps");
+
+  /** 즐겨찾기 켜기/끄기 — 그 카드만 바꿉니다. */
+  const favorite = useCallback(async (slug: string, on: boolean) => {
+    const updated = await setAppFavorite(slug, on);
+    setState((current) =>
+      current.phase === "ready"
+        ? { phase: "ready", apps: current.apps.map((item) => (item.slug === slug ? updated : item)) }
+        : current,
+    );
+  }, []);
 
   useEffect(() => {
     listApps()
@@ -58,23 +73,32 @@ export default function AppGrid({ onCount }: { onCount?: (count: number) => void
     );
   }
 
-  const visible = state.apps.filter((app) =>
-    matchesQuery(query, app.name, app.description, app.author_name, app.publish_note),
+  const visible = sortItems(
+    state.apps.filter((app) => matchesQuery(query, app.name, app.description, app.author_name, app.publish_note)),
+    sort,
+    (app) => ({ name: app.name, updated: app.published_at, pinned: app.favorite }),
   );
 
   return (
     <>
-      <div className={`toolbar ${styles.toolbar}`}>
-        <div className={styles.searchSlot}>
+      <ListToolbar
+        label={
+          <p className={styles.sectionLabel}>
+            게시된 앱 <span className={styles.count}>{state.apps.length}개</span>
+          </p>
+        }
+        search={
           <SearchBar
             value={query}
             onChange={setQuery}
             placeholder="앱 이름, 설명, 만든 사람으로 검색"
             resultCount={visible.length}
             totalCount={state.apps.length}
+            grow
           />
-        </div>
-      </div>
+        }
+        controls={<SortMenu value={sort} onChange={(key) => writeSortPref("apps", key)} />}
+      />
 
       {visible.length === 0 ? (
         <div className={styles.searchEmpty}>
@@ -86,7 +110,7 @@ export default function AppGrid({ onCount }: { onCount?: (count: number) => void
       ) : (
         <div className={styles.grid} data-testid="app-grid">
           {visible.map((app) => (
-            <AppCard app={app} key={app.id} />
+            <AppCard app={app} key={app.id} onFavorite={(on) => favorite(app.slug, on)} />
           ))}
         </div>
       )}

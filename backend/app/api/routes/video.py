@@ -64,6 +64,8 @@ from app.services.claude_provider import (
     ClaudeError,
     get_claude_provider,
 )
+from app.schemas.builder import ProjectPinSet
+from app.services.quiet import quiet_update
 from app.services.storage import StorageKeyError, get_storage
 from app.services.video_provider import (
     EditRequest,
@@ -203,6 +205,26 @@ def get_project(
     return _owned_project(project_id, db, user)
 
 
+@router.post(
+    "/projects/{project_id}/pin",
+    response_model=VideoProjectDetail,
+    summary="맨 위에 고정 / 고정 해제 (ui-improvements)",
+)
+def set_pinned(
+    project_id: int,
+    payload: ProjectPinSet,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> VideoProject:
+    """See the Builder's: a reading preference, open to any signed-in
+    owner, `updated_at` untouched."""
+    project = _owned_project(project_id, db, user)
+    quiet_update(db, project, pinned_at=datetime.now(timezone.utc) if payload.on else None)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
 @router.patch(
     "/projects/{project_id}",
     response_model=VideoProjectDetail,
@@ -225,7 +247,6 @@ def update_project(
 
     if "name" in changes:
         changes["name"] = _checked_name(changes["name"])
-
     if "selected_model_id" in changes and changes["selected_model_id"] is not None:
         if changes["selected_model_id"] not in {m.id for m in _allowed_models(db)}:
             raise HTTPException(

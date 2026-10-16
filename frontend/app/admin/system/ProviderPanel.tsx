@@ -77,13 +77,7 @@ export default function ProviderPanel() {
   }, []);
 
   return (
-    <section aria-labelledby="admin-providers">
-      <h2 className="section-title" id="admin-providers">
-        외부 서비스
-        <span className={styles.sectionNote}>
-          API 키는 백엔드에만 있습니다 — 이 화면에 나오지 않습니다
-        </span>
-      </h2>
+    <>
 
       {error !== null && (
         <div className="card">
@@ -217,6 +211,6 @@ export default function ProviderPanel() {
         연결 확인은 눌렀을 때만 실행되고, 토큰이나 크레딧을 쓰지 않는 가장 가벼운 요청을
         씁니다. mock 모드에서는 외부로 아무것도 보내지 않습니다.
       </p>
-    </section>
+    </>
   );
 }

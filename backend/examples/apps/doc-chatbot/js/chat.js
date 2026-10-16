@@ -233,8 +233,14 @@
           }
           badge = `실제 AI · ${result.chargedKrw}원 · 내 동아리 지원금에서`;
         } catch (error) {
-          text = `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`;
-          badge = "실제 AI · 오류";
+          if (error && error.code === "demo") {
+            // 데모로 바뀌었어요(0원).
+            text = "지금은 데모로만 답해요 — AI는 부르지 않았어요 (0원). 다시 물어보면 문서에서 찾은 부분을 보여 드려요.";
+            badge = "데모";
+          } else {
+            text = `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`;
+            badge = "실제 AI · 오류";
+          }
         }
       }
       li.querySelector(".intro").textContent = "";

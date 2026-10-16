@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
+from app.api.uploads import file_response, read_upload_body
 from app.db.session import get_db
 from app.models import (
     BuilderGeneration,
@@ -32,11 +33,13 @@ from app.models import (
     User,
 )
 from app.schemas.builder import (
+    AiAccessRequest,
     BuilderProjectCreate,
     BuilderProjectFromChat,
     BuilderProjectFromTemplate,
     BuilderProjectRead,
     BuilderProjectUpdate,
+    ProjectPinSet,
     BuilderTemplateRead,
     EmptyBody,
 )
@@ -64,6 +67,7 @@ from app.schemas.builder import (
     VersionRead,
 )
 from app.services import (
+    app_ai_access,
     app_publish,
     app_runtime,
     builder_edit,
@@ -80,7 +84,11 @@ from app.services import (
     publish_summary,
     project_zip,
 )
+from app.services import thumbnails
 from app.services import usage as usage_service
+from app.services.attachments import AttachmentRefusal
+from app.services.quiet import quiet_update
+from app.services.storage import get_storage
 from app.services.claude_provider import ClaudeError, get_claude_provider
 from app.services.work import InvalidNameError, clean_name
 
@@ -219,7 +227,7 @@ def create_project_from_chat(
     db.flush()
     db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
     db.flush()
-    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html})
+    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html}, settings)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)
@@ -273,7 +281,7 @@ def create_project_from_template(
     for path, content in files.items():
         db.add(BuilderProjectFile(project_id=project.id, path=path, content=content))
     db.flush()
-    builder_versions.snapshot(db, project, f"템플릿: {template.name}", files)
+    builder_versions.snapshot(db, project, f"템플릿: {template.name}", files, settings)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)
@@ -317,10 +325,31 @@ def update_project(
         # Clearing a choice is not offered: the picker always has one.
         if key in changes and changes[key] is None:
             del changes[key]
-
     for field, value in changes.items():
         setattr(project, field, value)
 
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post(
+    "/projects/{project_id}/pin",
+    response_model=BuilderProjectRead,
+    summary="맨 위에 고정 / 고정 해제 (ui-improvements)",
+)
+def set_pinned(
+    project_id: int,
+    payload: ProjectPinSet,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BuilderProject:
+    """A pin is how the owner reads their own list, not a change to the
+    work — so, like ★ on CtrlAIApps, it works while not taking part this
+    quarter (`get_current_user`), and it never moves `updated_at`: a
+    timestamp on the row, so "pinned first, then by date" has a date."""
+    project = _owned_project(project_id, db, user)
+    quiet_update(db, project, pinned_at=datetime.now(timezone.utc) if payload.on else None)
     db.commit()
     db.refresh(project)
     return project
@@ -822,6 +851,67 @@ def label_version(
     return _version_read(version, project)
 
 
+ThumbnailSpace = Literal["draft", "published"]
+
+
+@router.post(
+    "/projects/{project_id}/thumbnail",
+    response_model=BuilderProjectRead,
+    summary="Store a thumbnail captured in the maker's browser (the body is the image's bytes)",
+)
+async def upload_thumbnail(
+    project_id: int,
+    request: Request,
+    space: ThumbnailSpace = Query(default="draft"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderProject:
+    """ui-improvements (owner-polish 4·5). The picture was drawn by the SDK
+    inside the app frame and relayed by the shell; the server only checks
+    and re-encodes it (`thumbnails.encode`). `draft` stamps the working
+    copy; `published` stamps the version now published (409 without one).
+    Raw bytes, like Chat's and feedback's uploads — the JSON-body rule's
+    documented exception."""
+    project = _owned_project(project_id, db, user)
+    version = project.published_version if space == "published" else None
+    if space == "published" and version is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=thumbnails.NOT_PUBLISHED)
+    data = await read_upload_body(
+        request, thumbnails.MAX_UPLOAD_BYTES, thumbnails.TOO_BIG, "썸네일은 application/octet-stream 형식으로 보내 주세요."
+    )
+    storage = get_storage(settings)
+    try:
+        if version is not None:
+            await run_in_threadpool(thumbnails.save_version, db, storage, project, version, data)
+        else:
+            await run_in_threadpool(thumbnails.save_draft, db, storage, project, data)
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.get("/projects/{project_id}/thumbnail", summary="The project's thumbnail (WebP)")
+def read_thumbnail(
+    project_id: int,
+    space: ThumbnailSpace = Query(default="draft"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """Reading your own work: the draft's picture, or the published version's."""
+    project = _owned_project(project_id, db, user)
+    storage = get_storage(settings)
+    data = (
+        thumbnails.load_published(storage, project) if space == "published" else thumbnails.load_draft(storage, project)
+    )
+    if data is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="썸네일이 아직 없어요.")
+    return file_response(data, thumbnails.MEDIA_TYPE, f"project-{project.id}-{space}.webp", inline=True)
+
+
 @router.post(
     "/projects/{project_id}/publish",
     response_model=BuilderProjectRead,
@@ -841,7 +931,7 @@ def publish_project(
         project.name = _checked_name(payload.name)
     try:
         app_publish.publish(
-            db, config, project, description=payload.description, note=payload.note
+            db, config, project, description=payload.description, note=payload.note, ai_access=payload.ai_access
         )
     except app_publish.PublishError as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
@@ -868,17 +958,45 @@ async def publish_summary_read(
     never an error the dialog has to handle — an empty answer means
     "write your own"."""
     project = _owned_project(project_id, db, user)
+    # app-ai-access: whether the working copy calls ctrlai.ai — the dialog
+    # asks "다른 회원에게 AI 기능을 열까요?" only then.
+    uses_ai = app_ai_access.uses_ai(builder_versions.current_files(db, project))
     hit = publish_summary.cached(db, project)
     if hit is None:
         # A provider slot only for a real call — a stored answer waits for nobody.
         limit = chat_limits.current(db).provider_concurrency
         if not await run_in_threadpool(provider_limiter.acquire, limit):
-            return PublishSummaryRead()
+            return PublishSummaryRead(uses_ai=uses_ai, ai_access=project.ai_access)
         try:
             hit = await publish_summary.summarize(db, config, get_claude_provider(config), user=user, project=project)
         finally:
             provider_limiter.release()
-    return PublishSummaryRead(description=hit.description, note=hit.note, cached=hit.cached, model=hit.model)
+    return PublishSummaryRead(
+        description=hit.description, note=hit.note, cached=hit.cached, model=hit.model,
+        uses_ai=uses_ai, ai_access=project.ai_access,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/ai-access",
+    response_model=BuilderProjectRead,
+    summary="app-ai-access: open the app's AI to other members (전체 기능) or keep it 데모만",
+)
+def set_ai_access(
+    project_id: int,
+    payload: AiAccessRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BuilderProject:
+    """The owner's switch, any time after 게시 (and before: the value waits
+    for the next 게시). `get_current_user`, like 게시 취소: closing one's
+    own app's AI must keep working after a quarter ends, and opening it
+    spends nothing of the owner's — a visitor pays for their own calls."""
+    project = _owned_project(project_id, db, user)
+    project.ai_access = payload.ai_access
+    db.commit()
+    db.refresh(project)
+    return project
 
 
 @router.post(

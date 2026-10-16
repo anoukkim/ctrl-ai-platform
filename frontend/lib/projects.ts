@@ -10,7 +10,7 @@
 
 import type { DepthLevel, PickerModel } from "./depth";
 import { API_BASE_URL } from "./api";
-import { describeError, request } from "./http";
+import { describeError, request, uploadBytes } from "./http";
 
 export { describeError };
 
@@ -55,8 +55,29 @@ export interface BuilderProject {
   published_at?: string | null;
   /** 업데이트 메모. */
   publish_note?: string;
+  /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
+  pinned_at?: string | null;
+  /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5), 게시된 버전의 썸네일을 찍은 때 (4). */
+  draft_thumbnail_at?: string | null;
+  published_thumbnail_at?: string | null;
+  /** app-ai-access: 다른 회원에게 AI를 어떻게 열었는지, 게시된 버전이 AI를 쓰는지. */
+  ai_access?: AiAccess;
+  published_uses_ai?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** app-ai-access — 데모만(방문자의 AI 호출을 서버가 거부, 0원) / 전체 기능(로그인한 방문자가 자기 지원금으로). */
+export type AiAccess = "demo" | "full";
+
+export const AI_ACCESS_LABEL: Record<AiAccess, string> = { demo: "데모만", full: "전체 기능" };
+
+/** 만든 사람의 스위치 — 게시 뒤 언제든 바꿀 수 있어요. */
+export function setAiAccess(id: number | string, aiAccess: AiAccess): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/ai-access`, {
+    method: "POST",
+    body: JSON.stringify({ ai_access: aiAccess }),
+  });
 }
 
 /* ---------- 상태: 회원에게는 둘뿐입니다 ----------
@@ -363,6 +384,8 @@ export interface PublishInput {
   name?: string;
   description: string;
   note?: string;
+  /** AI를 쓰는 앱의 답 — "다른 회원에게 AI 기능을 열까요?" 안 보내면 지금 설정 그대로(처음은 데모만). */
+  ai_access?: AiAccess;
 }
 
 /** 게시 / 업데이트 게시: 지금 버전이 CtrlAIApps에 올라갑니다. 무료입니다. */
@@ -397,6 +420,9 @@ export interface PublishSummary {
   /** 같은 버전에 대해 전에 받은 것을 돌려줬는지. */
   cached: boolean;
   model: string;
+  /** app-ai-access: 작업 중 파일이 ctrlai.ai를 부르는지 — 그럴 때만 게시 창이 공개 범위를 물어요. */
+  uses_ai: boolean;
+  ai_access: AiAccess;
 }
 
 /** 무료(동아리 부담) — 회원 지갑에서 나가지 않고, 실패하면 빈 글이 와요. POST: 서버가 결과를 버전에 남겨요. */
@@ -416,6 +442,15 @@ export function updateBuilderProject(
     method: "PATCH",
     body: JSON.stringify(changes),
   });
+}
+
+/**
+ * 맨 위에 고정 / 고정 해제 (ui-improvements). 작업을 고치는 것이 아니라 내
+ * 목록을 보는 방식이라, CtrlAIApps의 ★처럼 이번 분기에 참여하지 않아도 되고
+ * 마지막 수정 시각도 움직이지 않습니다.
+ */
+export function setBuilderPinned(id: number | string, on: boolean): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/pin`, { method: "POST", body: JSON.stringify({ on }) });
 }
 
 /**
@@ -627,6 +662,8 @@ export interface VideoProject {
   thumbnail_aspect_ratio?: string | null;
   /** "image"(mock의 GIF)면 <img>, "video"(실제 MP4)면 <video>로 보여 줍니다. */
   thumbnail_kind?: "image" | "video" | null;
+  /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
+  pinned_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -678,6 +715,11 @@ export function updateVideoProject(
   });
 }
 
+/** 맨 위에 고정 / 고정 해제 — Builder의 `setBuilderPinned`와 같습니다. */
+export function setVideoPinned(id: number | string, on: boolean): Promise<VideoProjectDetail> {
+  return request<VideoProjectDetail>(`/video/projects/${id}/pin`, { method: "POST", body: JSON.stringify({ on }) });
+}
+
 /**
  * 만들어진 영상 한 편을 받는 주소.
  *
@@ -688,6 +730,33 @@ export function updateVideoProject(
  * 제공자 링크는 만료되거나 그쪽 자격 증명을 요구할 수 있고, 내가 만든
  * 것을 받는 일이 거기에 매여서는 안 됩니다.
  */
+export type ThumbnailSpace = "draft" | "published";
+
+/**
+ * 프로젝트 썸네일 주소 (ui-improvements): 작업 중 것이 있으면 그것, 없으면
+ * 게시된 버전 것, 둘 다 없으면 null(카드는 표지를 그립니다). 찍은 때를
+ * 뒤에 붙여 새 그림이 바로 보이게 합니다.
+ */
+export function builderThumbnailUrl(project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at">): string | null {
+  const space: ThumbnailSpace | null = project.draft_thumbnail_at
+    ? "draft"
+    : project.published_thumbnail_at
+      ? "published"
+      : null;
+  if (!space) return null;
+  const at = space === "draft" ? project.draft_thumbnail_at : project.published_thumbnail_at;
+  return `${API_BASE_URL}/api/builder/projects/${project.id}/thumbnail?space=${space}&v=${encodeURIComponent(at ?? "")}`;
+}
+
+/**
+ * 만든 사람의 브라우저에서 찍은 썸네일을 올립니다 — 바이트 그대로
+ * (application/octet-stream; 의견 스크린샷과 같은 길). 서버가 종류와 크기를
+ * 확인하고 다시 인코딩합니다.
+ */
+export function uploadThumbnail(id: number | string, space: ThumbnailSpace, image: Blob): Promise<BuilderProject> {
+  return uploadBytes<BuilderProject>(`/builder/projects/${id}/thumbnail`, image, { space }, "썸네일을 저장하지 못했어요");
+}
+
 export function videoVersionDownloadUrl(
   projectId: number | string,
   versionId: number,
@@ -815,6 +884,17 @@ export function restoreWork(kind: WorkKind, id: number): Promise<void> {
 /** 남의 작업물을 지웁니다. 감사 로그에 남습니다. */
 export function deleteWork(kind: WorkKind, id: number): Promise<void> {
   return request<void>(`/admin/work/${kind}/${id}`, { method: "DELETE" });
+}
+
+/**
+ * 삭제된 작업물을 완전히 지웁니다 (ui-improvements B). 되살릴 수 없고,
+ * 사유는 감사 로그에 남습니다. 사용량 기록과 지갑은 그대로입니다.
+ */
+export function purgeWork(kind: WorkKind, id: number, reason: string): Promise<void> {
+  return request<void>(`/admin/work/${kind}/${id}/purge`, {
+    method: "DELETE",
+    body: JSON.stringify({ reason }),
+  });
 }
 
 export function listAdminVideoModels(): Promise<AdminVideoModel[]> {

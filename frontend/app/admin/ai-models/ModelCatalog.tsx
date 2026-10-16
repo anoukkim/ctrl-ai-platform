@@ -41,7 +41,10 @@ import {
 import { describeError } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
 
+import Fold, { FoldGroup } from "../components/Fold";
+import StatCards from "../components/StatCards";
 import { sectionLabel } from "../sections";
+import CalibrationPanel from "./CalibrationPanel";
 
 import styles from "../admin.module.css";
 import Skeleton from "@/app/components/Skeleton";
@@ -210,6 +213,35 @@ export default function ModelCatalog() {
 
       {state.phase === "ready" && (
         <>
+          {/* 한눈에: 펼치지 않아도 보이는 숫자들 (ui-improvements B). */}
+          <div style={{ marginBottom: "1rem" }}>
+          <StatCards
+            cards={[
+              { key: "models", label: "모델", value: models.length, unit: "개" },
+              {
+                key: "open",
+                label: "회원 공개",
+                value: models.filter((m) => m.visibility === "members").length,
+                unit: "개",
+              },
+              {
+                key: "default",
+                label: "기본 모델",
+                value: models.find((m) => m.is_default)?.label ?? "없음",
+              },
+              {
+                key: "providers",
+                label: "제공자",
+                value: `${providers.length}곳${
+                  providers.some((p) => !p.ready)
+                    ? ` · 연결 준비 중 ${providers.filter((p) => !p.ready).length}`
+                    : ""
+                }`,
+              },
+            ]}
+          />
+          </div>
+
           {models.length > 0 && (
             <SearchBar
               value={query}
@@ -226,14 +258,32 @@ export default function ModelCatalog() {
             </p>
           )}
 
+          {/* 제공자마다 접는 섹션 하나 (ui-improvements B) — 한 번에 하나만
+              펼쳐지고, 펼친 것은 기억됩니다. 검색 중에는 결과가 보여야 하므로
+              모두 펼칩니다. */}
+          <FoldGroup screen="ai-models" defaultOpen={providers[0]?.id ?? null}>
           {groups.map(({ provider, models: rows }) => {
             const headingId = `${id}-${provider.id}`;
+            const open = rows.filter((m) => m.visibility === "members").length;
             return (
-              <section key={provider.id} className={styles.providerGroup} aria-labelledby={headingId}>
-                <h2 className={styles.providerHeading} id={headingId}>
-                  {provider.label}
-                  {!provider.ready && <span className="badge badge-muted">연결 준비 중</span>}
-                </h2>
+              <Fold
+                key={provider.id}
+                id={provider.id}
+                forceOpen={query !== ""}
+                title={
+                  <>
+                    {provider.label}
+                    {!provider.ready && <span className="badge badge-muted">연결 준비 중</span>}
+                  </>
+                }
+                summary={
+                  rows.length === 0
+                    ? "모델 없음"
+                    : `모델 ${rows.length}개 · 회원 공개 ${open}개${
+                        rows.some((m) => m.is_default) ? " · 기본 모델 있음" : ""
+                      }`
+                }
+              >
                 {!provider.ready && (
                   <p className="small dim" id={`${headingId}-why`}>
                     아직 연결되지 않은 제공자입니다. 요금은 미리 적어 둘 수 있지만, 연결될
@@ -384,9 +434,14 @@ export default function ModelCatalog() {
                     </table>
                   </div>
                 )}
-              </section>
+              </Fold>
             );
           })}
+
+          <Fold id="calibration" title="비용 보정" note="어림값과 실제 답장 비교 · 최근 200회까지">
+            <CalibrationPanel />
+          </Fold>
+          </FoldGroup>
 
           <p className="small dim" id={`${id}-default-rule`} style={{ marginTop: "0.6rem" }}>
             기본 모델은 회원에게 공개된 모델만 될 수 있고, 기본 모델의 공개 범위는 다른 모델을

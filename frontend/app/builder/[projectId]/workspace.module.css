@@ -228,6 +228,26 @@
   line-height: 1.5;
 }
 
+/* 썸네일을 찍지 못했을 때의 한 줄 (ui-improvements). */
+.captureError {
+  margin: 0;
+  padding: 0.35rem 0.8rem;
+  color: var(--error-text);
+  font-size: var(--fs-meta);
+}
+
+/* 게시 직후 게시본의 썸네일을 찍는 숨은 프레임: 화면 밖, 데스크톱 크기. */
+.captureFrame {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 1280px;
+  height: 800px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .staticPreviewFrame {
   width: 100%;
   height: 100%;

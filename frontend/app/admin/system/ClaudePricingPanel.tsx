@@ -35,6 +35,8 @@ import { describeError } from "@/lib/http";
 
 import { sectionLabel } from "../sections";
 
+import Fold from "../components/Fold";
+
 import styles from "../admin.module.css";
 import Skeleton from "@/app/components/Skeleton";
 
@@ -251,13 +253,16 @@ export default function ClaudePricingPanel() {
 
   return (
     <>
-      <section aria-labelledby="admin-exchange-rate">
-        <h2 className="section-title" id="admin-exchange-rate">
-          환율
-          <span className={styles.sectionNote}>
-            답장 한 번의 값 = 모델의 토큰 요금 × 환율, 동아리 지원 지갑에서 차감
-          </span>
-        </h2>
+      <Fold
+        id="exchange-rate"
+        title="환율"
+        note="답장 한 번의 값 = 모델의 토큰 요금 × 환율, 동아리 지원 지갑에서 차감"
+        summary={
+          settings?.exchange_rate
+            ? `1달러 = ${Number(settings.exchange_rate.krw_per_usd).toLocaleString()}원`
+            : undefined
+        }
+      >
 
         {loading}
 
@@ -307,13 +312,18 @@ export default function ClaudePricingPanel() {
             )}
           </div>
         )}
-      </section>
+      </Fold>
 
-      <section aria-labelledby="admin-chat-limits">
-        <h2 className="section-title" id="admin-chat-limits">
-          채팅 한도
-          <span className={styles.sectionNote}>0은 그 한도를 끕니다</span>
-        </h2>
+      <Fold
+        id="chat-limits"
+        title="채팅 한도"
+        note="0은 그 한도를 끕니다 · 생각 깊이 표도 여기"
+        summary={
+          settings
+            ? `답장 1회 ${settings.chat_limits.reply_cap_krw.toLocaleString()}원 · 하루 ${settings.chat_limits.daily_cap_krw.toLocaleString()}원 · 동시 ${settings.chat_limits.provider_concurrency}`
+            : undefined
+        }
+      >
 
         {loading}
 
@@ -589,14 +599,15 @@ export default function ClaudePricingPanel() {
             )}
           </div>
         )}
-      </section>
+      </Fold>
 
       {settings !== null && (
-        <section aria-labelledby="admin-env-settings">
-          <h2 className="section-title" id="admin-env-settings">
-            서버 설정 (.env)
-            <span className={styles.sectionNote}>읽기 전용 — .env를 고치고 서버를 다시 시작하면 바뀝니다</span>
-          </h2>
+        <Fold
+          id="env"
+          title="서버 설정 (.env)"
+          note="읽기 전용 — .env를 고치고 서버를 다시 시작하면 바뀝니다"
+          summary={`보내기 1분 ${settings.rate_limit_per_minute}개 · 캐시 ${settings.cache_ttl ? "켜짐" : "꺼짐"}`}
+        >
           <div className="card">
             <dl className={styles.envList}>
               <dt>회원당 보내기</dt>
@@ -613,7 +624,7 @@ export default function ClaudePricingPanel() {
               </dd>
             </dl>
           </div>
-        </section>
+        </Fold>
       )}
 
       <ConfirmDialog

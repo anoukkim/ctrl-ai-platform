@@ -50,6 +50,7 @@ import {
 
 import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
+import Fold, { FoldGroup } from "../components/Fold";
 import StatCards from "../components/StatCards";
 import CachePanel from "./CachePanel";
 import CreditPanel from "./CreditPanel";
@@ -328,16 +329,20 @@ export default function BudgetAdmin() {
         ]}
       />
 
+      {/* 아래는 접는 섹션들 (ui-improvements B): 한 번에 하나만 펼치고, 접힌
+          줄에는 한 줄 요약. 위의 숫자 카드는 늘 보입니다. */}
+      <FoldGroup screen="budget">
       {budget.anthropic_month_budget_usd !== null && budget.anthropic_month_budget_usd > 0 && (
-        <section aria-labelledby="budget-month" className="card" style={{ marginBottom: "1rem" }}>
+        <Fold
+          id="month"
+          title={`이번 달 Anthropic 지출 (${budget.anthropic_month})`}
+          note="KST 기준 — Console 월 한도에 닿기 전에 보는 막대"
+          summary={`$${budget.anthropic_month_usd.toFixed(2)} / $${budget.anthropic_month_budget_usd} · ${monthShare(budget)}%`}
+        >
           {/* PART F: 이번 달 Anthropic 지출을 .env의
               ANTHROPIC_MONTHLY_BUDGET_USD와 비교합니다. 실제 차단은
               Anthropic Console의 월 한도가 하고, 이 막대는 그 전에
               알아차리기 위한 것입니다. */}
-          <h2 className="section-title" id="budget-month">
-            이번 달 Anthropic 지출 ({budget.anthropic_month} · KST 기준 — Console의 월 한도와는 시간대가 다를 수 있습니다)
-            <span className={styles.sectionNote}>Console 월 한도에 닿기 전에 보는 막대</span>
-          </h2>
           <div
             className="meter"
             role="img"
@@ -351,16 +356,16 @@ export default function BudgetAdmin() {
               ? " — 월 예산의 80%를 넘었습니다. Console 한도에 닿으면 Chat이 멈추니, 예산을 올리거나 사용을 줄여 주세요."
               : ""}
           </p>
-        </section>
+        </Fold>
       )}
 
-      <section aria-labelledby="budget-granted" data-testid="granted-vs-used">
-        <h2 className="section-title" id="budget-granted">
-          지급 vs 사용
-          <span className={styles.sectionNote}>
-            {closed ? `마감됨 · 남은 돈은 회수, 그중 ${money.carry_over_percent}%는 다음 분기로 이월` : "이번 분기 동아리 지원"}
-          </span>
-        </h2>
+      <Fold
+        id="granted"
+        title="지급 vs 사용"
+        note={closed ? `마감됨 · 남은 돈은 회수, 그중 ${money.carry_over_percent}%는 다음 분기로 이월` : "이번 분기 동아리 지원"}
+        summary={`지급 ${formatKrw(money.granted_krw)} · 차감 ${formatKrw(money.charged_krw)} · ${closed ? "회수" : "안 쓴 돈"} ${formatKrw(money.unspent_krw)}`}
+      >
+        <div data-testid="granted-vs-used">
         <StatCards
           cards={[
             { key: "granted", label: "지급한 지갑", value: formatKrw(money.granted_krw) },
@@ -382,15 +387,28 @@ export default function BudgetAdmin() {
             이번 분기 회원에게 청구하지 않은 실패한 호출(동아리 부담): {formatUsd(money.absorbed_usd)}
           </p>
         )}
-      </section>
+        </div>
+      </Fold>
 
-      <CreditPanel credit={credit} onChanged={reload} />
+      <Fold
+        id="credit"
+        title="동아리 크레딧"
+        note="제공자별 · 남은 크레딧은 추정, 제공자 콘솔이 최종 기준"
+        summary={credit.providers.map((line) => `${line.label} 남음 ${formatUsd(line.remaining_usd)}`).join(" · ")}
+      >
+        <CreditPanel credit={credit} onChanged={reload} />
+      </Fold>
 
-      <section aria-labelledby="budget-providers">
-        <h2 className="section-title" id="budget-providers">
-          제공자별 사용액
-          <span className={styles.sectionNote}>다음 크레딧 구매를 정할 때 보는 숫자</span>
-        </h2>
+      <Fold
+        id="providers"
+        title="제공자별 사용액"
+        note="다음 크레딧 구매를 정할 때 보는 숫자"
+        summary={
+          budget.providers.length === 0
+            ? "아직 사용 기록 없음"
+            : budget.providers.map((line) => `${line.label} ${formatKrw(line.charged_krw)}`).join(" · ")
+        }
+      >
         <AdminTable
           columns={
             // The 지원금 / 개인 split only means something while top-ups are
@@ -412,13 +430,14 @@ export default function BudgetAdmin() {
           {/* 개인 충전이 꺼져 있는 동안(personal-topup-off)은 말하지 않습니다. */}
           {site.top_ups_enabled && " 개인 잔액에서 나간 사용도 같은 크레딧을 쓰므로 함께 셉니다."}
         </p>
-      </section>
+      </Fold>
 
-      <section aria-labelledby="budget-model-depth">
-        <h2 className="section-title" id="budget-model-depth">
-          Claude 모델 × 생각 깊이
-          <span className={styles.sectionNote}>깊이 기본값과 한도를 정할 때 보는 숫자</span>
-        </h2>
+      <Fold
+        id="model-depth"
+        title="Claude 모델 × 생각 깊이"
+        note="깊이 기본값과 한도를 정할 때 보는 숫자"
+        summary={`${(budget.model_depth ?? []).length}줄`}
+      >
         <AdminTable
           columns={MODEL_DEPTH_COLUMNS}
           rows={budget.model_depth ?? []}
@@ -430,13 +449,14 @@ export default function BudgetAdmin() {
           생각 깊이가 &ldquo;–&rdquo;인 줄은 깊이 조절이 없는 모델(Haiku)이거나 생각 깊이가 생기기 전의
           기록입니다.
         </p>
-      </section>
+      </Fold>
 
-      <section aria-labelledby="budget-members">
-        <h2 className="section-title" id="budget-members">
-          회원별
-          <span className={styles.sectionNote}>많이 쓴 순서 · 조정은 회원 상세에서</span>
-        </h2>
+      <Fold
+        id="members"
+        title="회원별"
+        note="많이 쓴 순서 · 조정은 회원 상세에서"
+        summary={`${money.members.length}명`}
+      >
         <AdminTable
           columns={memberColumns}
           rows={money.members}
@@ -454,11 +474,21 @@ export default function BudgetAdmin() {
           </a>
         </div>
         <p className="small dim">CSV는 Excel에서 바로 열리도록 UTF-8(BOM)으로 저장됩니다.</p>
-      </section>
+      </Fold>
 
-      <CachePanel />
+      <Fold id="cache" title="캐시" note="모델별 · 날짜별(KST) · 채팅 답장만">
+        <CachePanel />
+      </Fold>
 
-      <ReconcilePanel reportProvider={credit.report_provider} />
+      <Fold
+        id="reconcile"
+        title="Anthropic 비용과 대조"
+        note="선택 기능 · 날짜는 UTC 기준"
+        summary={credit.report_provider === "mock" ? "목업 보고서" : "실제 Anthropic 보고서"}
+      >
+        <ReconcilePanel reportProvider={credit.report_provider} />
+      </Fold>
+      </FoldGroup>
     </div>
   );
 }

@@ -356,6 +356,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # Feedback (prep-beta-launch). Sending spends nothing and is open to a
     # member who is not participating; the list is Admin's.
     ("POST", "/api/feedback"): "get_current_user",
+    # feat-notifications: one's own list — reading and marking read spend
+    # nothing and must work while not taking part.
+    ("GET", "/api/notifications"): "get_current_user",
+    ("GET", "/api/notifications/unread"): "get_current_user",
+    ("POST", "/api/notifications/read-all"): "get_current_user",
+    ("POST", "/api/notifications/{notification_id}/read"): "get_current_user",
     ("GET", "/api/admin/feedback"): "require_admin",
     # feedback-screenshots: a screenshot is uploaded before the note and
     # can be removed until sent; only an admin ever opens a stored one,
@@ -421,16 +427,29 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/versions/{number}/files"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/versions/{number}/restore"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/runtime"): "require_active_member",
+    # ui-improvements: 맨 위에 고정 is how the owner reads their list — open
+    # like ★, and never a change to the work.
+    ("POST", "/api/builder/projects/{project_id}/pin"): "get_current_user",
+    ("POST", "/api/video/projects/{project_id}/pin"): "get_current_user",
     # ctrlaiapps-publish
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
+    # ui-improvements: a thumbnail captured in the maker's browser — storing
+    # it changes your work; reading it is reading your own work.
+    ("POST", "/api/builder/projects/{project_id}/thumbnail"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/thumbnail"): "get_current_user",
+    ("GET", "/api/apps/{slug}/thumbnail"): "get_current_user",
     # publish-summary: a Claude call the club pays for — participating members only.
     ("POST", "/api/builder/projects/{project_id}/publish-summary"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
+    # app-ai-access: the owner's own switch — closing must work after a quarter ends.
+    ("POST", "/api/builder/projects/{project_id}/ai-access"): "get_current_user",
     ("GET", "/api/apps"): "get_current_user",
     ("GET", "/api/apps/mine"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
+    # ui-improvements: 즐겨찾기 is a reading preference, not a creation.
+    ("POST", "/api/apps/{slug}/favorite"): "get_current_user",
     # promo-videos: CtrlAITube — reads for any account, writes for participants, 신고 any account.
     ("GET", "/api/tube/videos"): "get_current_user",
     ("GET", "/api/tube/videos/{slug}"): "get_current_user",
@@ -563,6 +582,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/deleted-items"): "require_admin",
     ("POST", "/api/admin/work/{kind}/{item_id}/restore"): "require_admin",
     ("DELETE", "/api/admin/work/{kind}/{item_id}"): "require_admin",
+    ("DELETE", "/api/admin/work/{kind}/{item_id}/purge"): "require_admin",
     # Withdrawal, from the member detail page. Audited in the service.
     ("GET", "/api/admin/members/{user_id}/withdrawal"): "require_admin",
     ("POST", "/api/admin/members/{user_id}/withdrawal"): "require_admin",
@@ -671,11 +691,16 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # not creating anything.
         ("POST", "/api/builder/projects/{project_id}/unpublish"),
         ("POST", "/api/apps/{slug}/report"),
+        ("POST", "/api/apps/{slug}/favorite"),
+        ("POST", "/api/builder/projects/{project_id}/pin"),
+        ("POST", "/api/video/projects/{project_id}/pin"),
         # promo-videos: 신고 of a CtrlAITube comment, likewise.
         ("POST", "/api/tube/comments/{comment_id}/report"),
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),
+        ("POST", "/api/notifications/read-all"),
+        ("POST", "/api/notifications/{notification_id}/read"),
         ("POST", "/api/feedback/images"),
         ("DELETE", "/api/feedback/images/{image_id}"),
         # Spend feedback (feat-spend-feedback): recording which milestone
@@ -690,6 +715,10 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # work for anyone.
         ("POST", "/api/app-connect/{slug}"),
         ("POST", "/api/me/app-consents/{consent_id}/revoke"),
+        # app-ai-access: the owner's own switch spends nothing of theirs
+        # (visitors pay for their own calls), and closing the AI must work
+        # after a quarter ends, like 게시 취소.
+        ("POST", "/api/builder/projects/{project_id}/ai-access"),
     }
 
     offenders = [

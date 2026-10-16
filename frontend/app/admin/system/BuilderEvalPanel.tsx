@@ -43,11 +43,7 @@ export default function BuilderEvalPanel() {
   }, []);
 
   return (
-    <section aria-labelledby="admin-builder-eval">
-      <h2 className="section-title" id="admin-builder-eval">
-        빌더 점검
-        <span className={styles.sectionNote}>서버에서 직접 돌리는 실제 Claude 점검 — 관리자 지갑에서 차감</span>
-      </h2>
+    <>
       <div className="card">
         <p className="small dim">서버에서 이렇게 돌립니다(예산 한도를 넘기지 않아요):</p>
         <pre className={styles.command}>
@@ -72,6 +68,6 @@ export default function BuilderEvalPanel() {
           </details>
         ))}
       </div>
-    </section>
+    </>
   );
 }

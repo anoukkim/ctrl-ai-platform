@@ -63,7 +63,7 @@ export function uploadAttachment(conversationId: number, file: File): Promise<At
   return uploadBytes<AttachmentUploaded>(
     `/chat/conversations/${conversationId}/attachments`,
     file,
-    file.name,
+    { name: file.name },
     "파일을 올리지 못했습니다",
   );
 }

@@ -179,6 +179,10 @@ export default function AppDetailView({ projectId }: { projectId: number }) {
                 value={app.published ? `v${app.version_number}${app.published_at ? ` · ${relativeTime(app.published_at)}` : ""}` : "미게시 (미리보기만)"}
               />
               <Fact label="기능 상자" value={app.sdk_enabled ? "켜짐" : `멈춤 — ${app.sdk_disabled_reason || "사유 없음"}`} />
+              <Fact
+                label="AI 공개 (만든 사람의 설정)"
+                value={!app.uses_ai ? "AI를 쓰지 않음" : app.ai_access === "full" ? "전체 기능 — 방문자가 자기 지원금으로" : "데모만 — 방문자의 호출은 거부 (0원)"}
+              />
               <Fact label="데이터 (ctrlai.db)" value={app.data_items > 0 ? `${app.data_items.toLocaleString("ko-KR")}개 · ${formatBytes(app.data_bytes)}` : "없음"} mono />
               <Fact label="열린 신고" value={app.open_reports > 0 ? `${app.open_reports}건 — Content에서 처리` : "없음"} />
             </div>

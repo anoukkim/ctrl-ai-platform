@@ -83,6 +83,18 @@ class BuilderProjectRead(BuilderProjectBase):
     #: quality-tuning Q1: the panel's remembered model and 생각 깊이.
     chat_model_id: int | None = None
     depth: str | None = None
+    #: ui-improvements: when the owner pinned it; None = not pinned.
+    pinned_at: datetime | None = None
+    #: ui-improvements: the working copy's thumbnail, if one was captured,
+    #: and the published version's — the Builder card shows the first,
+    #: else the second, else the generated cover.
+    draft_thumbnail_at: datetime | None = None
+    published_thumbnail_at: datetime | None = None
+    #: app-ai-access: how the app's AI is opened to other members ("demo" |
+    #: "full"), and whether the published version's files call `ctrlai.ai`
+    #: at all — the Builder's 게시 menu shows the switch only then.
+    ai_access: str = "demo"
+    published_uses_ai: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -207,6 +219,13 @@ class EmptyBody(BaseModel):
     """A POST that needs no fields still needs a JSON body (CLAUDE.md §2)."""
 
 
+class ProjectPinSet(BaseModel):
+    """맨 위에 고정 / 고정 해제 (ui-improvements) — `POST …/pin`. Builder
+    and Video projects alike; `on: false` unpins."""
+
+    on: bool
+
+
 class PublishSummaryRead(BaseModel):
     """publish-summary: the 게시 dialog's pre-filled text. Empty strings
     when nothing could be written — the member types their own."""
@@ -215,6 +234,10 @@ class PublishSummaryRead(BaseModel):
     note: str = ""
     cached: bool = False
     model: str = ""
+    #: app-ai-access: the working copy calls `ctrlai.ai` — the dialog then
+    #: asks "다른 회원에게 AI 기능을 열까요?" — and the project's current answer.
+    uses_ai: bool = False
+    ai_access: str = "demo"
 
 
 class PublishRequest(BaseModel):
@@ -224,6 +247,15 @@ class PublishRequest(BaseModel):
     description: str = Field(min_length=1, max_length=2000)
     #: 업데이트 메모 — one optional line on the listing.
     note: str = Field(default="", max_length=200)
+    #: app-ai-access: "demo" | "full" — the maker's answer when the app
+    #: uses AI; omitted keeps the project's setting (a new one is "demo").
+    ai_access: Literal["demo", "full"] | None = None
+
+
+class AiAccessRequest(BaseModel):
+    """The Builder's 게시 menu: change how the app's AI is opened, any time."""
+
+    ai_access: Literal["demo", "full"]
 
 
 class GenerateRead(BaseModel):

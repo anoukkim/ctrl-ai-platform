@@ -145,6 +145,30 @@ def _image(data: bytes, settings: Settings) -> Checked:
     return reencode_image(data)
 
 
+def decode_image(data: bytes) -> tuple["Image.Image", str]:
+    """The one decoder: open under the pixel guard, apply the EXIF
+    orientation (and keep nothing else of the metadata), load the first
+    frame, normalise the mode. Returns the image and the source format
+    name ("JPEG", "PNG", "WEBP", "GIF"). Pillow's errors propagate —
+    the caller turns them into its own refusal.
+
+    Shared by Chat (chat-plus-files), app AI (app-platform), the
+    screenshots on 의견 보내기 (feedback-screenshots) and app thumbnails
+    (ui-improvements).
+    """
+    from PIL import Image, ImageOps
+
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    with Image.open(io.BytesIO(data)) as source:
+        fmt = (source.format or "").upper()
+        source.seek(0)  # a GIF's first frame
+        image = ImageOps.exif_transpose(source) or source
+        image.load()
+    if image.mode not in ("RGB", "RGBA", "L", "LA"):
+        image = image.convert("RGBA" if "transparency" in image.info or image.mode == "P" else "RGB")
+    return image, fmt
+
+
 def reencode_image(data: bytes, long_edge: int = IMAGE_LONG_EDGE) -> Checked:
     """Decode, drop the metadata, scale to `long_edge` and encode again.
 
@@ -153,32 +177,25 @@ def reencode_image(data: bytes, long_edge: int = IMAGE_LONG_EDGE) -> Checked:
     under the same pixel guard, and never a byte of EXIF kept — phone
     photos carry GPS.
     """
-    from PIL import Image, ImageOps
+    from PIL import Image
 
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
     try:
-        with Image.open(io.BytesIO(data)) as source:
-            fmt = (source.format or "").upper()
-            source.seek(0)  # a GIF's first frame
-            image = ImageOps.exif_transpose(source) or source
-            image.load()
-            if image.mode not in ("RGB", "RGBA", "L", "LA"):
-                image = image.convert("RGBA" if "transparency" in image.info or image.mode == "P" else "RGB")
-            image.thumbnail((long_edge, long_edge))
-            out = io.BytesIO()
-            if fmt == "JPEG":
-                if image.mode not in ("RGB", "L"):
-                    image = image.convert("RGB")
-                # No `exif=` argument: the metadata is not copied.
-                image.save(out, format="JPEG", quality=85, optimize=True)
-                media_type = "image/jpeg"
-            elif fmt == "WEBP":
-                image.save(out, format="WEBP", quality=85)
-                media_type = "image/webp"
-            else:  # PNG, and a GIF's first frame
-                image.save(out, format="PNG", optimize=True)
-                media_type = "image/png"
-            width, height = image.size
+        image, fmt = decode_image(data)
+        image.thumbnail((long_edge, long_edge))
+        out = io.BytesIO()
+        if fmt == "JPEG":
+            if image.mode not in ("RGB", "L"):
+                image = image.convert("RGB")
+            # No `exif=` argument: the metadata is not copied.
+            image.save(out, format="JPEG", quality=85, optimize=True)
+            media_type = "image/jpeg"
+        elif fmt == "WEBP":
+            image.save(out, format="WEBP", quality=85)
+            media_type = "image/webp"
+        else:  # PNG, and a GIF's first frame
+            image.save(out, format="PNG", optimize=True)
+            media_type = "image/png"
+        width, height = image.size
     except (Image.DecompressionBombError, OSError, ValueError, SyntaxError) as error:
         raise AttachmentRefusal(BROKEN) from error
     return Checked(

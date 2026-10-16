@@ -236,7 +236,9 @@ export function listQuarters(): Promise<Quarter[]> {
 
 export function updateQuarter(
   id: number,
-  changes: Partial<Pick<Quarter, "status" | "subsidy_limit_krw" | "display_name">>,
+  changes: Partial<
+    Pick<Quarter, "status" | "subsidy_limit_krw" | "display_name" | "application_closes_at">
+  >,
 ): Promise<Quarter> {
   return request<Quarter>(`/admin/quarters/${id}`, {
     method: "PATCH",

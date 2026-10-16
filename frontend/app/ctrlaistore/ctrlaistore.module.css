@@ -2,20 +2,20 @@
    그러나 관리자 대시보드처럼 보이지 않도록 카드 중심으로 구성합니다. */
 
 /* 분류 칩(왼쪽)과 검색·정렬(오른쪽)이 한 줄에 섭니다. */
-.toolbar {
-  margin-bottom: 18px;
+/* 머리 줄은 ListToolbar(list-toolbar.module.css)가 그립니다. 라벨만 여기. */
+.sectionLabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--lib-gap-xs);
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+  color: var(--text-muted);
 }
 
-/* 검색창은 최대 380px. SearchBar 자체의 아래 여백은 이 줄에서 지웁니다. */
-.searchSlot {
-  flex: 1 1 18rem;
-  max-width: 30rem;
-  margin-left: auto;
-}
-
-.searchSlot > * {
-  margin-bottom: 0;
-  flex-wrap: nowrap;
+.count {
+  font-size: var(--fs-count);
+  font-weight: 500;
+  color: var(--text-dim);
 }
 
 .grid {
@@ -25,6 +25,7 @@
 }
 
 .card {
+  position: relative;
   display: grid;
   align-content: start;
   background: var(--panel);
@@ -41,6 +42,55 @@
 .card:hover {
   border-color: var(--accent-border);
   transform: translateY(-2px);
+}
+
+/* 카드를 덮는 링크 — 보이는 것은 없고 이름만 읽어 줍니다(LibraryCard와 같음). */
+.cardLink {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--radius);
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 즐겨찾기 ★ — 표지의 오른쪽 위, 링크보다 위에. 쉬고 있을 때도 보입니다. */
+.favorite {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: var(--lib-menu-button);
+  height: var(--lib-menu-button);
+  padding: 0;
+  border: 1px solid color-mix(in oklch, var(--on-accent) 25%, transparent);
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--video-letterbox) 55%, transparent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition:
+    background-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.favorite:hover,
+.favorite:focus-visible {
+  background: color-mix(in oklch, var(--video-letterbox) 80%, transparent);
+  transform: scale(1.06);
+}
+
+.favorite:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.favoriteOn {
+  color: var(--warn-text, #f5c542);
 }
 
 /* 표지. 색은 softTint()가 정하고, 그 위의 글자는 늘 흰색입니다 — 표지는
@@ -60,6 +110,30 @@
 .artworkText {
   position: relative;
   z-index: 1;
+}
+
+/* 찍어 둔 썸네일: 표지 칸을 그림이 꽉 채웁니다. */
+.artworkPhoto {
+  padding: 0;
+  background: var(--panel-2);
+}
+
+.artworkImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 상세 머리 줄의 작은 칸: 같은 표지를 첫 글자만으로. */
+.artworkSmall {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--page-name);
 }
 
 .category {
@@ -129,66 +203,128 @@
   color: var(--accent);
 }
 
-/* 히어로 — 그림 하나와 읽을 것 한 덩어리.
- *
- * 좁은 화면에서는 적힌 순서대로 쌓입니다: 그림 → 이름 · 만든 사람 ·
- * 버튼. 넓은 화면에서는 아래 @media가 둘을 나란히 놓습니다. */
-.hero {
+/* 머리 줄 (ui-improvements, owner-polish 15) — 작은 썸네일 · 이름과 메타 ·
+ * 오른쪽의 단추들. 한 줄이 기본이고, 좁은 화면에서는 단추 줄이 아래로
+ * 내려갑니다. 큰 표지 블록은 없습니다: 바로 아래가 앱입니다. */
+.head {
   display: grid;
-  gap: 1.5rem;
-  margin-bottom: 1.75rem;
+  grid-template-columns: var(--apps-head-thumb) minmax(0, 1fr);
+  grid-template-areas:
+    "thumb text"
+    "actions actions";
+  align-items: center;
+  gap: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
 }
 
-/* 16:10 표지. */
-.heroArtwork {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 16 / 10;
-  border-radius: var(--radius);
+.headThumb {
+  grid-area: thumb;
+  width: var(--apps-head-thumb);
+  height: calc(var(--apps-head-thumb) * 0.625);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  color: var(--on-accent);
-  font-size: var(--page-detail-title);
-  font-weight: var(--fw-title);
-  text-align: center;
-  padding: 1rem;
   overflow: hidden;
 }
 
-.heroMeta {
+.headText {
+  grid-area: text;
   display: grid;
-  align-content: center;
-  gap: 0.7rem;
+  gap: 0.2rem;
   min-width: 0;
 }
 
-.heroTagline {
+.headTitle {
+  display: block;
+  font-size: var(--page-title-sm);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-count);
+}
+
+.headNote {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.headActions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.headActions :global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.headOffline {
+  color: var(--text-dim);
+}
+
+/* 설명: 한 줄로 접혀 있고 "설명 더 보기"로 펼칩니다. */
+.description {
+  margin-bottom: 0.35rem;
   color: var(--text-muted);
-  font-size: var(--fs-card-name);
+  font-size: var(--fs-count);
   line-height: 1.6;
+}
+
+.descriptionFolded {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.descriptionToggle {
+  margin-bottom: 0.6rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.descriptionToggle:hover {
+  text-decoration: underline;
 }
 
 /* 만든 사람. 이름이 가장 진하고, 꼬리표가 그 옆에 붙습니다. */
 .creator {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
-  font-size: var(--fs-section);
+  gap: 0.35rem;
 }
 
 .creatorAvatar {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--panel-2);
   border: 1px solid var(--border-strong);
   color: var(--text-muted);
-  font-size: var(--fs-meta);
+  font-size: var(--fs-label);
   font-weight: var(--fw-strong);
 }
 
@@ -783,9 +919,14 @@
 /* ---------- 넓은 화면 ---------- */
 
 @media (min-width: 60rem) {
-  .hero {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    align-items: center;
+  .head {
+    grid-template-columns: var(--apps-head-thumb) minmax(0, 1fr) auto;
+    grid-template-areas: "thumb text actions";
+  }
+
+  /* 머리 줄이 한 줄이니 프레임은 그만큼 더 큽니다. */
+  .livePreviewFrame {
+    height: clamp(360px, calc(100dvh - var(--apps-detail-chrome)), 1400px);
   }
 
   /* `auto-fill`로는 칸 수의 위를 막을 수 없어 여기서 못을 박습니다.
@@ -837,7 +978,7 @@
 
 /* 상세 화면의 실행 미리보기 — 앱 주소를 그대로, 샌드박스 안에서. */
 .livePreview {
-  margin-top: 1.4rem;
+  margin-top: 0.4rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -855,12 +996,21 @@
   font-size: var(--fs-meta);
 }
 
+/* 앱은 첫 화면의 대부분입니다: 화면 높이에서 머리말·머리 줄·여백을 뺀 만큼,
+   390px에서도 그렇습니다. 위아래 한계는 아주 작은 창과 아주 큰 창에서만
+   걸립니다. */
 .livePreviewFrame {
   display: block;
   width: 100%;
-  height: min(70vh, 640px);
+  height: clamp(360px, calc(100dvh - var(--apps-detail-chrome-narrow)), 1400px);
   border: 0;
   background: #fff;
+}
+
+.livePreviewOffline {
+  padding: 2.5rem 1rem;
+  color: var(--text-dim);
+  text-align: center;
 }
 
 .honest {

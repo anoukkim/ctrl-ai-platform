@@ -2865,3 +2865,338 @@ The owner's words for every point stay in BACKLOG › "owner-polish-2026-10-16"
 - Checks at merge: backend 1063 (PG on, exit 0), frontend 535,
   tsc/lint/build OK, Playwright 14/14, screenshots
   `progress/screens/owner-polish-a/`; `/code-review high` findings fixed.
+
+## ui-improvements-a — delivery notes (merged 2026-10-16)
+
+Branch `feat-ui-improvements-a`, merged `89efa9c` under the owner's written
+pre-approval of 2026-10-16 (quoted in `progress/RUN-2026-10-16.md` › UI-A):
+own `/code-review high` and `/security-review`, every gate green, main
+merged with one Alembic head, the coordinating session asked before the
+merge. The owner's words stay in BACKLOG › "owner-polish-2026-10-16"
+(points 4, 5, 15) and › ui-improvements (the UI bundle; its admin half,
+points 3–6, is another session's branch). What was built:
+
+- **App detail (owner-polish 15).** One head row — small thumbnail, name,
+  maker, "vN · 3일 전 업데이트", 업데이트 메모; 새 창에서 열기 and 신고하기 on
+  the right — the description folded past 80 characters, the sandboxed
+  frame right under it sized `clamp(360px, 100dvh − chrome, 1400px)`
+  with a taller chrome figure on the phone (the head is two rows there),
+  so the frame ends inside the first screen at 390px. No colour block,
+  no duplicate 앱 실행. The honest note names shared lists only when the
+  published `ctrlai.json` declares one (`AppListing.shared_lists`,
+  parsed from that one file; a broken manifest counts as none).
+- **ListToolbar.** `label | search | controls` grid on the four lists
+  (Builder, CtrlAIApps, Video, CtrlAITube's header row); the search ends
+  at the card row's edge; stacked below 44rem. The global `.toolbar`
+  rules and the striped `--lib-stripe` placeholder are gone.
+- **Pins · favourites · sort** (migration `a3f7c1d9e2b4`: `pinned_at` on
+  builder and video projects, `draft_thumbnail_at`, versions'
+  `thumbnail_at`, table `app_favorites`). `POST
+  /api/builder/projects/{id}/pin` and `/api/video/projects/{id}/pin`
+  (`{on}`, `get_current_user` — a reading preference, like ★; never moves
+  `updated_at` via `services/quiet.quiet_update`); `POST
+  /api/apps/{slug}/favorite` (`get_current_user`, idempotent on the
+  unique row); `SortMenu` + `lib/list-sort` (마지막 수정순 / 이름순 in
+  `localStorage` per screen), pinned or favourite first with a stable sort.
+- **Thumbnails (owner-polish 4·5)** — method A of the plan: a capture in
+  the maker's browser, never member code on the server. SDK version "5"
+  answers the shell's `capture` event with a PNG (DOM clone with the
+  computed styles that differ from a bare element of the same tag → SVG
+  `foreignObject` → canvas; ≤ 5,000 nodes, ≤ 4 M characters, long edge
+  ≤ 1,600 px); the shell relays only for `window.parent` with an origin
+  in `data-sites`, answers only the asking origin, once per id; the site
+  (`lib/thumbnail-capture.ts`) checks source, origin and id, turns the
+  data URL into a Blob and uploads it (`POST
+  /api/builder/projects/{id}/thumbnail?space=draft|published`,
+  `application/octet-stream`, ≤ 4 MB, `require_active_member`);
+  `services/thumbnails.encode` sniffs PNG/JPEG/WebP from the bytes,
+  decodes through the shared `attachments.decode_image` (pixel guard,
+  EXIF applied then dropped), draws on white, fits 640×400 top-anchored,
+  writes WebP q82 with no metadata into `AssetStorage`
+  (`thumbnails/<project>/draft.webp`, `v<N>.webp`; pruned versions take
+  theirs along). `PreviewPane` captures 1.5 s after the frame loads and
+  on ⋯ › 썸네일 다시 찍기 (errors shown only for the manual one);
+  `HiddenCapture` photographs the published address right after 게시; the
+  게시 dialog says the first screen becomes the card. Served by `GET
+  /api/builder/projects/{id}/thumbnail` (owner) and `GET
+  /api/apps/{slug}/thumbnail` (any signed-in member, published only) with
+  nosniff and a sandboxed CSP. Known blanks — an app's own `<img>` files,
+  WebGL, Safari — keep the coloured cover; `thumbnail-render-worker` is
+  the later item.
+- **Add-ons the owner asked for on the way.** builder_stages, builder_edit
+  and builder_starter no longer copy a request into `description` and
+  `ArtifactPreview` sends none, so a card shows a description only once
+  published; Profile › 알림 as two `role="switch"` rows on one grid;
+  Profile › 내가 만든 앱 as `<ul>` rows (name · vN · time · 열기), no pictures.
+- **Tests.** Backend: `test_ui_improvements.py` (pins incl. an owner not
+  taking part, `updated_at` untouched, favourites per member),
+  `test_thumbnails.py` (encode, routes, pruning, shell `data-sites`),
+  guard-map rows, shared-lists listing, "a request never becomes the
+  description", SDK "5". Frontend: ListToolbar CSS contract and the four
+  screens, list-sort, pin/sort cards, thumbnail capture protocol,
+  thumbnails on cards and the preview, Profile rows, CtrlAIApps detail.
+  Playwright `e2e/ui-improvements.spec.ts` (4): a from-chat project's
+  preview is photographed and the stored WebP's RIFF/WEBP header checked,
+  the Builder card shows it, 게시 photographs the published app for the
+  CtrlAIApps card and head, the detail frame fits 390 × 844, pin · 이름순
+  · ★ survive a reload, Profile's two switches align and the list has no
+  image. Final: backend 1076, frontend 547, tsc/lint/build, Playwright
+  6/6 (with promo-videos), screenshots `progress/screens/ui-improvements-a/`.
+- **Reviews.** `/code-review high` 9 findings fixed in `028c5eb` (the
+  `updated_at` bump, the pin guard, pruned pictures, one decoder, the SDK
+  payload, the favourite race, manifest-only parsing, the `<img>` retry,
+  one upload helper); `/security-review` no findings; nothing touches
+  wallets or charging.
+
+## ui-improvements — full spec (A merged 2026-10-16 `89efa9c`, B merged 2026-10-16)
+
+Moved out of BACKLOG › Next when the B half merged. The item as it stood,
+with the owner's words:
+
+**ui-improvements** · M1 · two branches
+    **A — the member screens: merged 2026-10-16 as `89efa9c`
+    (`feat-ui-improvements-a`; Done row and delivery notes in the archive;
+    migration `a3f7c1d9e2b4`):
+    points (1), (2) and (7) below, plus three add-ons the owner asked for
+    on the way — a Builder card never shows the last request as its
+    description (the from-chat path fixed too), Profile › 알림 as two
+    aligned switch rows, Profile › 내가 만든 앱 as a plain list. **B — the
+    admin screens, points (3)–(6): merged 2026-10-16
+    (`feat-ui-improvements-b`; delivery notes below; migration
+    `a3c7e9b1d5f2`).** Owner, 2026-10-16 (relayed from another
+    session): fold **owner-polish 15** (app detail screen) and **owner-polish
+    4·5** (thumbnails) together with the UI points below into one bundle.
+    The thumbnail method is decided in the plan from 2–3 compared options
+    (never running member code on the server, CLAUDE.md §8·§10). Do **not**
+    touch owner-polish 6 (video lock) — another session has it. Owner's
+    words, verbatim: "그거랑 같이 지금 검색도 이상함 뭔가 선도 끝에랑
+    안맞고 (video에는 보면 사용자별 드랍다운이 있는데 여기엔 없어서 그런지
+    뭔지 모르겠음) 모든 build, store, 빌드 영상 둘다 나중에 pin이랑 정렬
+    (마지막 수정일 이름) 으로 할 수 있게 / 분기 신청기한도 늘릴 수 있게 /
+    ai model budget 여기 화면 너무 복잡해 너무 줄줄이 길어 뭔가 차라리
+    하나씩 토글해서 볼 수 있으면 나을 듯 / deleted items는 관리자가
+    완전히 삭제할 수 있음. 그리고 분기 끝나면 관리자 안 삭제한거
+    전체적으로 자동 삭제 (이건 확정) / system도 뭔가 너무 많음;; 걍
+    연결상태를 전체적으로 health를 보고 싶은데 아래에 뭐가 저리 많음 /
+    그거까지 해서 ui개선". The relaying session's reading of the
+    screenshots, to confirm in the plan: (1) the search bar's right edge on
+    CtrlAIApps does not line up with the card row (Video has the
+    전체/작성 중/게시됨 filter beside it) — align the list screens' header
+    rows (Builder, CtrlAIApps, Video, CtrlAITube) on one grid; (2) pin +
+    sort (last modified / name, remembered) on the Builder, CtrlAIApps and
+    Video lists — pins per member (CtrlAIApps: a member's own favourites),
+    one migration if storage is needed; (3) Admin › Quarters: extend an
+    application deadline later (within the quarter; audited; whether a
+    closed quarter can reopen is proposed in the plan); (4) Admin › AI
+    Models and Budget: sections collapsed to a summary, opened one at a
+    time, state remembered; (5) Deleted Items: an admin's 완전히 삭제
+    (confirm, reason, audit) **and**, at 분기 마감, everything not restored
+    is purged automatically (owner's decision) — money rows (`UsageEvent`,
+    wallets, audit) are never deleted, so the design must survive the
+    project's removal (FKs, name snapshots), app folders and stored files
+    go too, and the decision is recorded in CLAUDE.md §2/§4; (6) Admin ›
+    System: an at-a-glance health row (server · DB · each provider,
+    green/red) on top, the rest (exchange rate, chat limits, depth table,
+    `.env` list, builder check) in collapsed sections; (7) owner-polish 15
+    and 4·5 as written.
+
+## ui-improvements-b — delivery notes (merged 2026-10-16)
+
+Branch `feat-ui-improvements-b`, built in the worktree `../ctrl-ai-ui-b`
+under the owner's written pre-approval of 2026-10-16 (quoted in
+`progress/RUN-2026-10-16.md` › UI-B): own `/code-review high` and
+`/security-review`, every gate green, main merged with one Alembic head,
+the coordinating session asked before the merge. What was built:
+
+- **(4) 신청 기한 연장 / 신청 다시 열기** (`cddc2bc`). Admin › Quarters row
+  menu: 신청 기한 연장… while applications are open, 신청 다시 열기… once
+  they were closed by hand (`active`); off for `draft` and `closed`.
+  `ExtendDeadlineDialog` opens on the first valid day (the day after the
+  current deadline, or today) and is bounded by the quarter's end. The
+  rules are the backend's (`PATCH /api/admin/quarters/{id}`): once a
+  quarter is open or running its deadline is today or later and inside
+  the quarter; reopening `active` → `application_open` needs a deadline
+  that has not passed; a quarter that never had an application window
+  gets one from its first day when a deadline is set; **분기 마감
+  (`closed`) never reopens** (409). The audit summary names the change
+  ("…마감일을 D로 늦췄습니다" when it moved later, "바꿨습니다" otherwise,
+  "신청을 다시 열고…" on reopen).
+- **(1)+(2) Folds** (`e15b066`). `admin/components/Fold.tsx`: `FoldGroup`
+  keeps one open section per screen in `localStorage`
+  (`ctrlai.admin.<screen>.open`, "" = all closed) through
+  `lib/layout-prefs.makePrefs`; `Fold` is a `<section>` with an
+  `aria-expanded` button, a one-line summary while closed and the body
+  only while open. **AI Models**: StatCards (모델 · 회원 공개 · 기본 모델 ·
+  제공자), one fold per provider (all forced open while searching), 비용
+  보정 as a fold. **Budget**: the stat cards, then eight folds (이달 ·
+  지원금 대비 사용 · 크레딧 · 제공자별 · 모델·깊이별 · 회원별 · 캐시 · 대조)
+  each with a figure in its summary line. **System**: `HealthStrip` on top
+  — 서버 · 데이터베이스 from `/api/health`, each provider from its last
+  recorded success/error (`providerTone`: mock → grey; an error newer
+  than the last success → red; otherwise green) — nothing is called on
+  open, 모두 확인 runs every provider check in turn; below it the server
+  card, 기능 상자, providers, 환율, 채팅 한도 (with the depth table), `.env`
+  and the builder check as folds.
+- **(3) Deleted Items 완전히 삭제 + purge at 분기 마감** (`32a25e5`, owner's
+  decision recorded in CLAUDE.md §2/§4). `services/purge.py`:
+  `purge(db, item)` locks the row, re-checks `deleted_at` (a restore in
+  between wins), copies the name onto its usage events
+  (`usage_events.work_label`, migration `a3c7e9b1d5f2`) and nulls their
+  project/video links, then deletes every child explicitly youngest first
+  (reports, data items/collections/writes, login codes, sessions,
+  consents, favourites, generations, files, versions; video versions)
+  and the row — explicitly because the tests run on SQLite, which does not
+  cascade. `DELETE /api/admin/work/{kind}/{id}/purge` (`require_admin`,
+  JSON `{reason}` 1–500 characters, blank refused, Deleted Items only)
+  writes `work.purged` with the reason in `detail` (the summary column
+  holds 300). `POST /api/admin/quarters/{id}/close` purges everything in
+  Deleted Items **deleted by the quarter's last day (KST)** in the same
+  transaction as the wallet freeze — a late close leaves this week's
+  deletions for their own quarter — with one `work.purged_at_close` row
+  listing the items; the close preview carries `purge_count` and the
+  dialog says how many. App folders and stored videos are removed after
+  commit (`remove_files`, tolerant of a missing file or a bad key). Usage
+  labels purged work "… (삭제됨)". **Money rows never go**: usage events
+  keep their amounts, wallets freeze as before, audit rows are appended.
+- **Tests.** Backend `test_purge.py` (12): project purge removes the row,
+  one row of every child table and the folder but keeps the charge with
+  its amount and name; video purge removes the stored file; app charges
+  keep the name; live work refused; reason required, blank refused, a
+  500-character reason fits (proven on the PG run); only admins; close
+  purges what was deleted by the last day and keeps a later deletion; a
+  restore between the list and the purge wins; nothing deleted → no row.
+  `test_admin_quarter_form.py` +7 (extend, past, outside the quarter,
+  reopen, reopen with a past deadline, closed never, no window). Guard
+  table row for the purge route. Frontend: `admin-fold`,
+  `admin-health-strip`, `admin-extend-deadline`, `admin-deleted`,
+  `cost-clarity` (purge count), catalogue and wallet tests adapted to the
+  folds. Screenshots `progress/screens/ui-improvements-b/` (18, by
+  `e2e/ui-b-shots.mjs`).
+- **Reviews.** `/security-review` (subagent on the worktree diff): no
+  findings; one note applied (`remove_files` catches `StorageKeyError`).
+  `/code-review high` (subagent on the worktree diff): 8 findings, all
+  fixed in `0097817` — the audit summary overflowing 300 characters on
+  PostgreSQL, a quarter without an application window unable to reopen,
+  the extend dialog opening in an error state, `AppFavorite` rows not
+  purged, the close purging deletions after the quarter's last day, no
+  re-check of `deleted_at` under a lock, a whitespace reason, and
+  "늦췄습니다" for a deadline that moved earlier. Nothing touches
+  `usage.charge()` or the wallets.
+
+## app-ai-access — full spec and delivery notes (merged 2026-10-16)
+
+The item as it stood in BACKLOG › Next (its "Not pre-approved" line
+predates the owner's batch pre-approval of 2026-10-16, which names it):
+
+**app-ai-access** · M3 · branch `feat-app-ai-access`
+    *Not pre-approved — branch, test, report, WAIT.* Owner decision
+    2026-10-16 (saved in their words below): when publishing an app that
+    uses AI, the creator chooses **데모만** or **전체 기능** (changeable
+    later); visitors switch between 데모 and 토큰 사용 any time; the
+    관리자 can turn AI off per app (today's kill switch). Comes after
+    app-platform P4.
+
+The owner's answers of 2026-10-16 stay in BACKLOG › "owner-polish …" ›
+Answers ("Who controls 데모 / 토큰 사용"). Branch `feat-app-ai-access`,
+built in the worktree `../ctrl-ai-ui-b` right after ui-improvements B,
+on the coordinating session's "시작해". What was built:
+
+- **The maker's choice** (`builder_projects.ai_access`, "demo" | "full",
+  migration `b2d4f6a8c0e1`). The 게시 dialog asks "이 앱은 AI를 써요 —
+  다른 회원에게 AI 기능을 열까요?" — 데모만 (default) / 전체 기능 — when
+  `publish-summary` reports `uses_ai` (the working copy's pages or
+  scripts call `.ai.ask/stream/estimate` in a file naming `ctrlai`,
+  aliases included) or the app is already 전체 기능; `publish` takes
+  `ai_access`; the Builder's 게시 menu (⋯) offers "AI 기능: …" for every
+  published app (`POST /api/builder/projects/{id}/ai-access`, owner only,
+  `get_current_user` like 게시 취소). Apps published before the migration
+  were set to "full" so the deploy changed nothing; a new app starts as
+  "demo"; `import_example_apps` publishes the showcases as full.
+- **The server refuses in 데모** (`app_platform._ai_allowed`): a visitor's
+  `/_ctrlai/v1/ai/ask` and `/stream` in mode "app" — or in a preview used
+  by anyone but the project's own maker (`_owners_preview`) — answer 403
+  `{code: "demo"}` before `prepare()`: no provider call, no `UsageEvent`,
+  the wallet untouched (`test_app_ai_access.py`). `estimate` stays free.
+  `/v1/app` carries `ai: {usesAi, access}`.
+- **The shell's bar** (`shell.js`): a thin CTRL+AI strip above the app
+  frame for a published app that uses AI or is 전체 기능 — badge "실제 AI
+  · 내 지원금에서" (or "· 로그인하면 …" signed out) / "데모 · 0원" / "데모 ·
+  AI 호출 없음" and the button 데모로 보기 / 실제 AI 켜기 (the showcases'
+  badge-and-button look); the visitor's choice is kept per app in the
+  shell origin's `localStorage` (`ctrlai:<slug>:ai-mode`). In 데모 the
+  shell rejects `ai.ask` / `ai.stream` locally with code "demo" after
+  `/v1/app` has answered (never on a stale `info`, never in the maker's
+  preview) and before `signedIn()`, so no sign-in window opens. A bar,
+  not a floating pill: the pill covered the showcase's tab bar at 390px.
+- **SDK version "6"**: `ctrlai.ai.mode()` → "live" | "demo" ("demo"
+  outside CTRL+AI), the window event `ctrlai:ai-mode` when the bar is
+  flipped. `_SDK_RULES` tells the Builder's Claude to treat code "demo"
+  like signed-out (the demo answer, marked "데모"). The three showcases
+  and the AI 챗봇 template handle it.
+- **Screens.** CtrlAIApps' detail adds one honest line (데모만 / 전체
+  기능); Admin › Apps shows "AI 전체 기능 / 데모만" beside the app and a
+  fact on the app's page; /help/apps gained the paragraph. Docs:
+  CLAUDE.md §2 › Member app platform (5), product.md, architecture.md.
+- **Tests.** Backend `test_app_ai_access.py` (11): the flag and its
+  aliases, the version carries it, the dialog asks only for AI apps, the
+  choice at 게시 and the default, the owner's switch and a stranger's
+  404, 데모 refuses ask/stream with the code and an empty ledger, the
+  maker's own preview vs a guest of the preview, the shell/SDK strings
+  and the gate's order, the showcases import as full, the prompt and
+  examples know the code, a bad setting refused. Guard-table rows.
+  Frontend: the dialog's question (shown, default, sent; not shown, not
+  sent), the detail's note. Playwright `e2e/app-ai-access.spec.ts`:
+  데모만 → code demo and no sign-in window; 전체 기능 → the bar, 데모로
+  보기, the choice survives a reload, nothing charged throughout; live
+  and signed out → the sign-in window opens. Final: backend full (PG
+  on) exit 0, frontend 570, tsc/lint/build, Playwright 19/19;
+  screenshots `progress/screens/app-ai-access/` (14, by
+  `e2e/app-ai-access-shots.mjs`).
+- **Review** (one read-only subagent on the worktree diff, code +
+  security): 5 findings fixed in `50da2b0` — the shell's gate on a
+  stale `info`, the flag gating the switch (aliases), the preview
+  exemption open to anyone with the link (low, security → owner only),
+  the doc chatbot stuck in demo, bare 403 assertions. No money or
+  security high.
+
+## feat-notifications — delivery notes (merged 2026-10-16)
+
+Branch `feat-notifications`, merged `fa16d52` under the owner's written
+pre-approval of 2026-10-16 (BACKLOG › Next head: "③ owner-polish 2 … Yes,
+merge + deploy … Build directly"); the coordinating session confirmed the
+turn and the go before the merge. The owner's words (owner-polish 2):
+"프로필 정리 뭔가 알림 같은 것도 추가하면 좋겠어. 게시가 완료됐습니다 !
+사용이 차감됐습니다 etc". The build log with the safest defaults chosen is
+in `progress/RUN-2026-10-16.md` › NT. What was built:
+
+- **Rows** (`notifications`, migration `c4e8a2d6f0b3`; `services/
+  notifications.py`): kind, title, body, link (literal site paths plus
+  ids or server slugs), `dedupe_key` unique per member, `read_at`.
+  Written in the transaction of the event by `app_publish.publish`
+  (`notify=False` for the example-app importer), the admin's review in
+  `admin_quarters` (approval after the carry-over, with
+  `allocation.budget_krw`), `milestones.claim` (flushed first so the
+  two-tabs race keeps its graceful path), `app_publish.admin_unpublish`
+  and `resolve_report`. `ensure_spend_summaries` reads `usage_events`
+  for the last 7 KST days, skips days already summarised, writes one
+  "spend" row per day (never today, never 0원), only while
+  `spend_notifications` is on; `prune` deletes rows older than 90 days.
+  `refresh()` (prune + summaries + commit) runs on both reads.
+- **Routes** (`get_current_user`, spends nothing): `GET /api/
+  notifications` (newest first, 50, with the unread count), `GET …/
+  unread`, `POST …/{id}/read`, `POST …/read-all` (JSON `{}`); another
+  member's row → 404. Guard-map rows and the write-exception list in
+  `test_membership_access.py`.
+- **Screens**: `NotificationBell` (badge, a portal panel: latest 8, 모두
+  읽음, "Profile에서 전체 보기"; Esc / outside click; focus to the heading
+  on open; a visually hidden "안 읽음" and the whole row's text as its
+  name; count refreshed on mount, `visibilitychange`, every 60 s and on
+  `ctrlai:notifications-changed` from elsewhere — events carry a
+  `source`, sequence guards drop stale responses); `NotificationFeed` on
+  Profile above the switches (now under 알림 설정), `#notifications`.
+- **Tests**: backend `test_notifications.py` (12) + guard rows; frontend
+  `notifications.test.tsx` (5); Playwright `notifications.spec.ts` (1),
+  screenshots `progress/screens/notifications/`. Final after merging
+  main: backend 1118, frontend 575, tsc/lint/build, Playwright 1/1.
+- **Not built, on purpose**: no row for an admin's reply to 의견 (no
+  reply feature exists; noted in product.md).

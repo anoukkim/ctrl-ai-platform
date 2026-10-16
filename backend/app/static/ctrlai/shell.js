@@ -35,6 +35,9 @@
   var match = /^\/([a-z2-9]{10})\/$/.exec(location.pathname);
   var body = document.body;
   var mode = body.getAttribute("data-mode") === "preview" ? "preview" : "app";
+  // The club's own site — the only parent whose thumbnail capture requests
+  // this shell answers (ui-improvements). Stamped by the server.
+  var sites = (body.getAttribute("data-sites") || "").split(" ").filter(Boolean);
   var LIMIT = 1024 * 1024; // characters of key + value, per app
   var SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads";
 
@@ -171,6 +174,7 @@
   function refresh() {
     return api("/v1/app").then(function (data) {
       info = data;
+      drawAiSwitch(); // app-ai-access: the pill follows what the server says (and sign-in)
       return data;
     });
   }
@@ -364,8 +368,120 @@
     toast(mode === "preview" ? "미리보기 사용 · " + won + " · 내 지원금에서" : "앱 AI · " + won + " · 내 동아리 지원금에서");
   }
 
+  // ------------------------------------------- app-ai-access: 데모 / 실제 AI
+  // Two switches decide whether an AI call leaves this page at all. The
+  // maker's: "데모만" or "전체 기능" (the server tells us, and refuses on its
+  // own too). The visitor's: this pill, remembered in this browser per app.
+  // In 데모 nothing is sent — no sign-in window, no call, 0원 — and the app
+  // gets an error with code "demo" to show its demo answer instead.
+  var AI_MODE_KEY = PREFIX + "ai-mode"; // "demo" when the visitor chose 데모
+  var aiBox = null;
+
+  function aiAccess() {
+    return info && info.ai && info.ai.access === "full" ? "full" : "demo";
+  }
+
+  function aiUsed() {
+    // The flag can miss an app that reaches ctrlai.ai through an alias; an
+    // app the maker opened as 전체 기능 gets the switch regardless.
+    return !!(info && info.ai && (info.ai.usesAi || info.ai.access === "full"));
+  }
+
+  function visitorMode() {
+    return store.getItem(AI_MODE_KEY) === "demo" ? "demo" : "live";
+  }
+
+  function aiMode() {
+    return aiAccess() === "full" && visitorMode() === "live" ? "live" : "demo";
+  }
+
+  function demoRefusal() {
+    var error = new Error(
+      aiAccess() === "full"
+        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켤 수 있어요."
+        : "이 앱의 AI는 데모로만 열려 있어요. 데모 답변을 보여 드려요."
+    );
+    error.code = "demo";
+    return error;
+  }
+
+  function setVisitorMode(next) {
+    if (next === "demo") store.setItem(AI_MODE_KEY, "demo");
+    else store.removeItem(AI_MODE_KEY);
+    drawAiSwitch();
+    send({ event: "ai-mode", mode: aiMode() });
+    toast(aiMode() === "demo" ? "데모로 봐요 — AI를 부르지 않아요 (0원)." : "실제 AI를 켰어요 — 버튼을 누를 때만 내 지원금에서 나가요.");
+  }
+
+  /** A thin bar above the app: what mode it is in, and the visitor's switch.
+   *  A bar, not a floating pill — a pill would sit on top of whatever the
+   *  app keeps in that corner (a tab bar on a phone, its own buttons). */
+  function drawAiSwitch() {
+    // Only a published app that uses AI; the maker's 미리보기 has no switch.
+    if (mode !== "app" || !aiUsed()) return;
+    if (!aiBox) {
+      aiBox = document.createElement("div");
+      aiBox.id = "ctrlai-ai";
+      aiBox.setAttribute("role", "group");
+      aiBox.setAttribute("aria-label", "AI 모드");
+      aiBox.style.cssText =
+        "position:fixed;left:0;right:0;top:0;height:34px;z-index:2147483646;display:flex;gap:8px;align-items:center;" +
+        "padding:0 10px;box-sizing:border-box;background:rgba(20,20,24,.96);color:#fff;" +
+        "font:12px/1.4 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.25)";
+      body.insertBefore(aiBox, frame);
+      // The app keeps its whole height below the bar — nothing is covered.
+      frame.style.marginTop = "34px";
+      frame.style.height = "calc(100% - 34px)";
+    }
+    while (aiBox.firstChild) aiBox.removeChild(aiBox.firstChild);
+    var live = aiMode() === "live";
+    var signed = !!(info && info.signedIn);
+    var badge = document.createElement("span");
+    badge.setAttribute("data-mode", live ? "live" : "demo");
+    badge.textContent = live
+      ? signed
+        ? "실제 AI · 내 지원금에서"
+        : "실제 AI · 로그인하면 내 지원금에서"
+      : aiAccess() === "full"
+        ? "데모 · 0원"
+        : "데모 · AI 호출 없음";
+    badge.style.cssText =
+      "display:inline-block;padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap;" +
+      (live ? "background:rgba(94,234,160,.16);color:#7ff0b6" : "background:#2a3f3a;color:#ffc24b");
+    aiBox.appendChild(badge);
+    var note = document.createElement("span");
+    note.textContent = live
+      ? "AI 버튼을 누를 때만 나가요."
+      : aiAccess() === "full"
+        ? "데모 답변만 봐요. AI는 부르지 않아요."
+        : "만든 사람이 AI를 데모로만 열었어요.";
+    note.style.cssText = "opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1";
+    aiBox.appendChild(note);
+    if (aiAccess() === "full") {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = live ? "데모로 보기" : "실제 AI 켜기";
+      button.style.cssText =
+        "flex:none;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;" +
+        "color:#fff;font:inherit;cursor:pointer";
+      button.addEventListener("click", function () {
+        setVisitorMode(live ? "demo" : "live");
+      });
+      aiBox.appendChild(button);
+    }
+  }
+
+  /** In 데모 the call stops here — after the server has said what the app
+   *  is (never on a stale `info`), and never in the maker's 미리보기. */
+  function demoGate() {
+    if (mode === "preview") return Promise.resolve();
+    return (info ? Promise.resolve(info) : refresh()).then(function () {
+      if (aiMode() === "demo") throw demoRefusal();
+    });
+  }
+
   function askAI(options) {
-    return signedIn().then(function () {
+    return demoGate().then(signedIn).then(function () {
       return api("/v1/ai/ask", { method: "POST", body: options }).then(
         function (data) {
           charged(data.chargedKrw);
@@ -380,7 +496,7 @@
   }
 
   function streamAI(id, options) {
-    return signedIn().then(function () {
+    return demoGate().then(signedIn).then(function () {
       return api("/v1/ai/stream", { method: "POST", body: options, raw: true }).then(function (response) {
         if (!response.ok) {
           return response.text().then(function (text) {
@@ -499,6 +615,11 @@
         return api("/v1/ai/estimate", { method: "POST", body: message.options || {} }).then(function (data) {
           return { value: data };
         });
+      case "ai.mode":
+        // "live" or "demo" — the maker's setting and the visitor's switch together.
+        return (info ? Promise.resolve(info) : refresh()).then(function () {
+          return { value: aiMode() };
+        });
       case "db.save":
       case "db.list":
       case "db.get":
@@ -528,11 +649,49 @@
     }
   }
 
+  // ------------------------------------------------- thumbnails (ui-improvements)
+  // The site above (the maker's Builder page) asks; the app frame draws;
+  // the picture goes back up — only to a parent on one of `sites`.
+  var captures = {};
+
+  window.addEventListener("message", function (event) {
+    if (window.parent === window || event.source !== window.parent) return;
+    if (sites.indexOf(event.origin) < 0) return;
+    var data = event.data;
+    if (!data || data.ctrlai !== "capture" || typeof data.id !== "string") return;
+    var id = data.id.slice(0, 40);
+    captures[id] = event.origin;
+    send({
+      event: "capture",
+      id: id,
+      width: Number(data.width) || window.innerWidth,
+      height: Number(data.height) || window.innerHeight,
+    });
+  });
+
+  function captured(message) {
+    var id = typeof message.capture === "string" ? message.capture.slice(0, 40) : "";
+    var origin = captures[id];
+    if (!origin) return;
+    delete captures[id];
+    var ok = message.type === "capture.result" && typeof message.dataUrl === "string" && message.dataUrl.indexOf("data:image/png") === 0;
+    window.parent.postMessage(
+      ok
+        ? { ctrlai: "capture", id: id, ok: true, dataUrl: message.dataUrl, slug: slug, mode: mode }
+        : { ctrlai: "capture", id: id, ok: false, error: String(message.error || "썸네일을 만들지 못했어요."), slug: slug, mode: mode },
+      origin
+    );
+  }
+
   window.addEventListener("message", function (event) {
     // Only this page's own app frame, running sandboxed (opaque origin).
     if (event.source !== frame.contentWindow || event.origin !== "null") return;
     var message = event.data;
     if (!message || typeof message !== "object" || message.ctrlai !== 1 || typeof message.type !== "string") return;
+    if (message.type === "capture.result" || message.type === "capture.failed") {
+      captured(message);
+      return;
+    }
     var id = typeof message.id === "string" ? message.id.slice(0, 40) : null;
     Promise.resolve()
       .then(function () {

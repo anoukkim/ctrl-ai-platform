@@ -379,5 +379,5 @@ def test_the_shell_and_the_sdk_carry_ctrlai_db() -> None:
     shell = app_shell.static_file("shell.js")
     for name in ("save", "list", "get", "update", "remove", "count", "report"):
         assert f"{name}: function" in sdk
-    assert 'db: db' in sdk and 'version: "4"' in sdk  # P4b: ai.estimate
+    assert 'db: db' in sdk and 'version: "6"' in sdk  # app-ai-access: ai.mode
     assert '"/v1/data/" + op' in shell and 'error.code === "consent_required"' in shell

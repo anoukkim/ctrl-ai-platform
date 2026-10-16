@@ -34,6 +34,7 @@ import { QuarterBadge } from "../components/StatusBadge";
 import { sectionLabel } from "../sections";
 
 import CloseQuarterDialog from "./CloseQuarterDialog";
+import ExtendDeadlineDialog from "./ExtendDeadlineDialog";
 import QuarterForm from "./QuarterForm";
 
 import styles from "../admin.module.css";
@@ -51,6 +52,8 @@ export default function QuarterAdmin() {
   const [formOpen, setFormOpen] = useState(false);
   // 분기 마감 창(cost-clarity) — 열려 있으면 그 분기.
   const [closing, setClosing] = useState<QuarterWithStats | null>(null);
+  // 신청 기한 연장 창 (ui-improvements B) — 열려 있으면 그 분기.
+  const [extending, setExtending] = useState<QuarterWithStats | null>(null);
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
   useEffect(() => {
@@ -253,6 +256,14 @@ export default function QuarterAdmin() {
                     }),
                 },
                 {
+                  // 신청 접수 중이면 기한만, 신청을 마감한 뒤면 다시 열면서
+                  // 기한을 늦춥니다. 분기 마감(closed)과 준비 중(draft)은 아님.
+                  label: quarter.status === "active" ? "신청 다시 열기…" : "신청 기한 연장…",
+                  disabled:
+                    busy || quarter.status === "closed" || quarter.status === "draft",
+                  onSelect: () => setExtending(quarter),
+                },
+                {
                   label: "분기 마감…",
                   disabled:
                     busy || quarter.status === "closed" || quarter.status === "draft",
@@ -270,6 +281,17 @@ export default function QuarterAdmin() {
           썼더라도 한 명으로 셉니다. 사용률은 실제 사용자 ÷ 참여 회원입니다.
         </p>
       </section>
+
+      {extending !== null && (
+        <ExtendDeadlineDialog
+          quarter={extending}
+          onClose={() => setExtending(null)}
+          onExtended={(message) => {
+            setExtending(null);
+            void run(message, async () => undefined);
+          }}
+        />
+      )}
 
       {closing !== null && (
         <CloseQuarterDialog

@@ -87,12 +87,12 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/applications` | Applications    | Approve or reject, with stat cards and tabs  |
 | `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
-| `/admin/budget`       | Budget          | Every wallet in a quarter, spend by provider (what to buy), and the ANTHROPIC_MONTHLY_BUDGET_USD month bar |
+| `/admin/budget`       | Budget          | Stat cards on top; the rest (month bar, 지급 vs 사용, 크레딧, 제공자별, 모델×깊이, 회원별, 캐시, 대조) as sections opened one at a time, each row summarising its figures (`ui-improvements` B) |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
-| `/admin/ai-models`    | AI Models       | Chat models by provider, their prices, who may pick them, the default (`/admin/claude-models` redirects) |
-| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted  |
+| `/admin/ai-models`    | AI Models       | A summary strip, then one section per provider opened one at a time (all open while searching) and 비용 보정 last; prices, who may pick them, the default (`/admin/claude-models` redirects) |
+| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted, or remove it for good (reason, audited); whatever is still here at 분기 마감 and was deleted by that quarter's last day is purged |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
-| `/admin/system`       | System          | Server health, external services, 환율 and 채팅 한도 (editable), read-only 서버 설정 (.env) — the default model lives in AI Models |
+| `/admin/system`       | System          | A health strip on top (서버 · DB · each provider, green/red/grey), then collapsed sections: 서버 상세, 기능 열기, 외부 서비스, 환율, 채팅 한도 (with the depth table), read-only 서버 설정 (.env), 빌더 점검 — the default model lives in AI Models |
 
 `/admin/content` exists in the code but is hidden from the navigation until
 Phases 5/8 fill it — a menu item that always leads to an empty screen is in
@@ -219,7 +219,17 @@ quarter, the maker's 미리보기 apart — consents, data, reports, and holds
 기능 상자 멈추기, 공유 데이터 and 게시 내리기, while Admin › Content keeps
 the 신고 queue; and **/help/apps** explains all of it to members in
 Korean, with code to copy. A template project starts with an empty
-description and a 고치기 request never becomes one.
+description and a 고치기 request never becomes one. **Since
+app-ai-access** (owner, 2026-10-16) the maker of an app that uses AI
+chooses at 게시 — "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?" —
+**데모만** (the default) or **전체 기능**, and can change it later from the
+Builder's 게시 menu; every visitor has a 데모 switch in a thin CTRL+AI
+bar above the app (실제 AI 켜기 / 데모로 보기, remembered per app in their
+browser; a bar rather than a floating pill, so it never covers the app's
+own buttons or a phone's tab bar); the 관리자 keeps 기능 상자 멈추기. 데모 means no AI call and
+0원 — the server refuses the visitor's call and the app shows its demo
+answer; the maker's own 미리보기 always runs the real thing. CtrlAIApps'
+detail page says which an app is; Admin › Apps shows it beside the app.
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 
@@ -607,10 +617,17 @@ is already spent.
 **분기 마감** (Admin › Quarters, cost-clarity): freezes every wallet of the
 quarter (nothing is charged to it again), records each member's unspent
 money as **회수**, and — at the carry-over % the admin chooses (default 0) —
-adds that share to the member's next approved wallet, once. Nothing is
-deleted; a closed quarter does not reopen. **신청 마감** is different: it
+adds that share to the member's next approved wallet, once. No wallet or
+usage row is deleted; a closed quarter does not reopen. The close also
+**purges everything still in Deleted Items that was deleted by the
+quarter's last day** (`ui-improvements` B, owner 2026-10-16; a quarter
+closed late leaves this week's deletions for their own quarter) — the
+dialog says how many — and usage events of purged work keep the work's
+name (`(삭제됨)` in Usage). **신청 마감** is different: it
 stops new applications and makes the quarter *active*; wallets keep
-working.
+working, and it can be undone — Admin › Quarters › 신청 다시 열기… sets a
+new deadline (today or later, inside the quarter) and reopens; 신청 기한
+연장… moves the deadline of an open window later. Both are audited.
 
 What the money went on is information, not a limit: Usage shows the wallet
 ("이번 분기 지원금 80,000원 중 52,300원 남음") and a 채팅 / 빌더 / 영상 /
@@ -697,6 +714,70 @@ A member who stops participating does not lose their published work:
 
 "탈퇴 회원" is used rather than anything meaning "deleted", because
 attribution on published apps and videos must continue to exist.
+
+## List screens — one header row, pins, sort, thumbnails (ui-improvements, 2026-10-16)
+
+The four list screens — Project Builder, Video Generator, CtrlAIApps,
+CtrlAITube — share one header row (`ListToolbar`): the count on the
+left ("내 프로젝트 6개", "게시된 앱 5개"), the search in the middle ending
+at the card row's right edge, and the controls (status filter, 정렬,
+the new-project button) on the right; below 44rem the three stack.
+
+**Pins and sort.** A Builder or Video card's ⋯ menu has **맨 위에 고정**
+/ **고정 해제**; a pinned card wears a small pin and always comes first
+(`pinned_at` on the project, `POST …/pin {on}`). On CtrlAIApps a member's
+own **★ 즐겨찾기** on a card does the same for that member only
+(`app_favorites`, `POST /api/apps/{slug}/favorite`). Both are how a
+member reads their own list, not a change to the work: they work while
+not taking part this quarter, and neither a pin nor a thumbnail moves a
+project's 마지막 수정 time. The **정렬** menu
+offers 마지막 수정순 (default) and 이름순; the choice is remembered per
+screen on the device (`localStorage`, not an account setting). Pinned or
+favourite first, then the chosen order.
+
+**Thumbnails (owner-polish 4·5).** An app's picture is a real screenshot
+of the app, taken **in the maker's browser** — never by running member
+code on the server (CLAUDE.md §8). In the Builder workspace, a moment
+after the preview frame loads, the shell asks the app frame for a
+picture (the SDK draws the page into a canvas and answers with a PNG),
+the browser uploads the bytes, and the server checks the kind and size
+from the bytes, re-encodes it to a 640×400 WebP with no metadata (like
+의견 보내기 screenshots) and stores it as the project's **working-copy
+thumbnail**; ⋯ › **썸네일 다시 찍기** retakes it by hand. **게시** does the
+same once for the published version from its public address, in a hidden
+frame, so CtrlAIApps shows the published look while the Builder card
+shows the working copy. No picture yet (or a page the browser cannot
+draw — WebGL, an app's own image files, Safari's weaker support) → a
+plain coloured cover with the name (CtrlAIApps) or a code icon (Builder).
+A Builder card shows a description only once the project is published;
+a request typed in Chat or the Builder never becomes a card's text.
+
+**Profile (owner-polish 2, 2026-10-16).** 알림 is a card with the
+member's **notification list** on top and the two aligned switch rows
+(사용 알림 표시, 띠링 소리) under 알림 설정; 내가 만든 앱 is a plain list —
+name · vN · "N분 전 업데이트" · 열기 — with no pictures.
+
+**Notifications (feat-notifications, owner-polish 2: "게시가 완료됐습니다!
+사용이 차감됐습니다 etc").** A bell in the sidebar's account row carries
+the unread count; pressing it opens a small panel with the latest
+notifications, 모두 읽음, and a link to Profile › 알림, which lists them
+all (newest first, up to 50, an unread dot, read on click, 모두 읽음).
+Every row is **stored on the server and comes only from something that
+really happened**, written by the code that did it — never by the
+browser: `'앱 이름' 게시 완료 — v3` / 업데이트 게시 완료 (→ the app on
+CtrlAIApps); `2026 Q4 참여 신청이 승인됐어요` with the wallet amount (→
+Usage), or 거절 with the admin's note; the once-a-quarter spend
+milestones (첫 사용, 25 / 50 / 75 %, 잔액 10,000원 이하, 잔액 0 → Usage);
+an app taken down by an admin with the reason, or a report on it closed
+with the app kept; and **one spend summary per KST day** — "어제 지원금
+1,234원 사용 · 채팅 3회 · 빌더 1회" (→ Usage) — written from the usage
+ledger when the member next opens the list, never a row per reply (the
+toast already shows each charge as it happens) and only while 사용 알림
+표시 is on. Rows older than 90 days are removed the next time the member
+looks. The count is refreshed on open, when the tab comes back and every
+minute; nothing animates, so 동작 줄이기 has nothing to turn off. An
+admin's reply to 의견 보내기 is not a notification yet because there is
+no reply feature; it joins the list when one exists.
 
 ## Search
 
@@ -803,14 +884,20 @@ working version, kept on the version, free to the member (the club's cost
 is an absorbed 0원 row, feature `publish_summary`), never blocking 게시
 (a failure leaves the field empty, "직접 적어 주세요"). Only empty fields
 are filled; a field the member typed in is never overwritten, and an
-existing description gets a "Claude 요약으로 바꾸기" button. The detail page has
-**앱 실행** (new tab), the same app live in a sandboxed frame, an honest
-note on what an app can do, and **신고**. Admin › Content lists open
+existing description gets a "Claude 요약으로 바꾸기" button. **The detail page (ui-improvements, owner-polish 15, 2026-10-16)** is
+one head row — the app's small thumbnail · name · maker · "v5 · 3일 전
+업데이트" · 업데이트 메모, with **새 창에서 열기** and **신고하기** on the
+right — the description folded to one line (설명 더 보기), and right
+under it the app itself in its sandboxed frame, taking the first screen
+(the frame's height follows the viewport, at 390px too); the big colour
+block and the duplicate 앱 실행 button are gone. The honest note under the
+frame is per app: when the published version's `ctrlai.json` declares a
+shared list it says "이 앱의 공유 글은 다른 회원도 볼 수 있어요". Admin › Content lists open
 reports (the apps themselves are under Admin › Apps since app-platform
 P4b); **게시 내리기** (with a reason) is audited and
 closes the app's reports; closing a report without taking the app down is
-audited too. No mock listings remain. Later: screenshots, reactions (Like /
-Useful / Interesting), threaded comments, GitHub link. Published
+audited too. No mock listings remain. Later: reactions (Like / Useful /
+Interesting), threaded comments, GitHub link. Published
 apps stay visible when their developer is no longer participating —
 attribution is never erased, a former member shows as 탈퇴 회원.
 **Every listing query filters the project's `deleted_at`** — deleting is

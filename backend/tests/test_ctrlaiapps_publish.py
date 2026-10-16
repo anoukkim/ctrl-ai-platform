@@ -193,6 +193,33 @@ def test_the_listing_shows_name_author_version_and_note(
     assert (row["version_number"], row["publish_note"]) == (1, "첫 게시")
 
 
+def test_the_listing_says_whether_the_published_version_shares_lists(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    """ui-improvements: the detail page's honest note reads `shared_lists`
+    — true only when the *published* version's ctrlai.json declares a
+    shared list; a private-only or broken manifest counts as none."""
+    import json
+
+    generate(client, project, "할 일 앱을 만들어 줘")
+    assert publish(client, project).status_code == 200
+    assert client.get("/api/apps").json()[0]["shared_lists"] is False
+
+    def republish(manifest: str) -> tuple[int, bool]:
+        files = dict(builder_versions.current_files(db_session, project), **{"ctrlai.json": manifest})
+        builder_versions.replace_files(db_session, project, files)
+        builder_versions.snapshot(db_session, project, "고치기", files)
+        db_session.commit()
+        status_code = publish(client, project).status_code
+        return status_code, client.get(f"/api/apps/{project.app_slug}").json()["shared_lists"]
+
+    assert republish(json.dumps({"db": [{"name": "notes"}]})) == (200, False)
+    assert republish(json.dumps({"db": [{"name": "posts", "shared": True}]})) == (200, True)
+    # A manifest that will not parse is refused at 게시; the listing keeps
+    # saying what the version still published declares.
+    assert republish("{not json") == (400, True)
+
+
 def test_profile_lists_only_my_published_apps(
     client: TestClient, db_session: Session, project, budgeted, config, other_user
 ) -> None:

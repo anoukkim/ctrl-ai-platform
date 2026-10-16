@@ -23,6 +23,8 @@ interface Ctrlai {
     ask(options: unknown): Promise<{ text: string; json: unknown; chargedKrw: number; model: string }>;
     stream(options: unknown, onChunk: (text: string) => void): Promise<{ text: string; chargedKrw: number }>;
     estimate(options: unknown): Promise<{ typicalKrw: number; maxKrw: number; model: string }>;
+    /** app-ai-access: "live" or "demo" (the maker's setting and the visitor's switch together). */
+    mode(): Promise<"live" | "demo">;
   };
   db: {
     save(collection: string, data: Record<string, unknown>, options?: { shared?: boolean }): Promise<CtrlaiItem>;

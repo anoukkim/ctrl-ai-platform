@@ -38,7 +38,7 @@ test("a shared item: saved after the consent window, read signed out, changed an
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
-  expect(await frame.evaluate(() => window.ctrlai.version)).toBe("4");
+  expect(await frame.evaluate(() => window.ctrlai.version)).toBe("6");
 
   // Signed out: a shared collection that does not exist yet is empty, the
   // private list of the same name is refused, and a write starts the sign-in.

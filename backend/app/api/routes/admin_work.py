@@ -17,6 +17,7 @@ reaching into someone else's library is the thing worth recording.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -25,7 +26,8 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import AuditAction, BuilderProject, User, VideoProject
 from app.schemas.work import DeletedItemRead, WorkKind
-from app.services import app_publish, app_runtime, audit
+from app.services import app_publish, app_runtime, audit, purge
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -186,3 +188,66 @@ def delete_item(
         summary=f"{owner.username if owner else '알 수 없는 회원'}의 {KIND_LABEL[kind]} '{item.name}'을 삭제했습니다.",
     )
     db.commit()
+
+
+class PurgeRequest(BaseModel):
+    """Why the admin is removing it for good — required, kept in the audit row."""
+
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        # Spaces alone pass min_length; the barrier is here, not in the form.
+        if not value.strip():
+            raise ValueError("사유를 적어 주세요.")
+        return value.strip()
+
+
+@router.delete(
+    "/work/{kind}/{item_id}/purge",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a deleted project or video for good (ui-improvements B)",
+)
+def purge_item(
+    kind: str,
+    item_id: int,
+    payload: PurgeRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """완전히 삭제. Only something already in Deleted Items — a live project
+    is deleted first (soft), so there is always one step where it can come
+    back. The row and its files go; every money row stays, with the work's
+    name copied onto it (`services/purge.py`).
+
+    A JSON body is required even though it is a DELETE: every
+    state-changing route takes one (CLAUDE.md §2, apps.ctrlai.my), and the
+    reason belongs in the audit row anyway.
+    """
+    item = _load(kind, item_id, db)
+    if item.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="삭제된 항목만 완전히 삭제할 수 있습니다. 먼저 삭제해 주세요.",
+        )
+
+    facts = purge.purge(db, item)
+    audit.record(
+        db,
+        actor=admin,
+        action=AuditAction.WORK_PURGED,
+        target_type=kind,
+        target_id=facts.id,
+        target_label=facts.owner_username,
+        # The reason (up to 500 characters) lives in `detail`; the summary
+        # column holds 300, so it carries the name and the fact only.
+        summary=(
+            f"{facts.owner_username or '알 수 없는 회원'}의 {KIND_LABEL[kind]} '{facts.name}'을 "
+            "완전히 삭제했습니다. 사유는 자세히 보기에 있습니다."
+        ),
+        detail={**facts.as_detail(), "reason": payload.reason},
+    )
+    db.commit()
+    purge.remove_files(settings, get_storage(settings), [facts])

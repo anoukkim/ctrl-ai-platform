@@ -65,7 +65,7 @@ the same commit that adds it.
 | `GET /_ctrlai/sdk.js`, `GET /_ctrlai/shell.js` | none | The app platform's two scripts (apps origin only, outside `/api`) |
 | `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
 | `GET /_ctrlai/v1/app`, `POST /_ctrlai/v1/login/start`, `POST /_ctrlai/v1/logout` | `app_call` | `app_request` (`X-CtrlAI-App` naming a live app, same-origin) + who is signed in to this app — only its own `ctrlai_app_<slug>` cookie, never the site's session |
-| `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) |
+| `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) — and, in mode "app", the maker's **전체 기능** setting (`app-ai-access`; 데모만 → 403 with code `demo`, nothing charged) |
 | `POST /_ctrlai/v1/data/{list,count,get,save,update,remove,report}` | `running_app` | `ctrlai.db` (P3): `app_call` + the 기능 상자 running. Reads work signed out on shared collections; a write needs the app's own cookie and the "data" consent (checked inside, so the SDK can ask the visitor to sign in and try again) |
 | `GET /{slug}/_ctrlai/callback`, `GET /_ctrlai/callback.js` | none | The end of signing in: a one-time code (60 s) that only the browser holding the matching state cookie can spend |
 | `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
@@ -75,6 +75,8 @@ the same commit that adds it.
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |
 | `POST /api/feedback/images` | `get_current_user` | One screenshot for the next note (bytes as the body, `?name=`, `application/octet-stream`); checked like a Chat image, then stored (feedback-screenshots) |
 | `DELETE /api/feedback/images/{image_id}` | `get_current_user` | ✕ on a picture not sent yet — own and waiting only, else 404 |
+| `GET /api/notifications`, `GET /api/notifications/unread` | `get_current_user` | One's own notification list (feat-notifications) and the bell's count — spends nothing, works while not taking part; reading prunes rows older than 90 days and writes the daily spend summaries up to yesterday from the ledger |
+| `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all` | `get_current_user` | Marking one's own rows read (JSON body `{}`); another member's row is a 404 |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
@@ -119,11 +121,17 @@ the same commit that adds it.
 | `GET /api/builder/projects/{id}/versions/{n}/files` | `get_current_user` | 이 버전 보기 — reading an old version (free, read-only) |
 | `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 되돌리기 — changing your work (free) |
 | `POST /api/builder/projects/{id}/runtime` | **`require_active_member`** | 미리보기 갱신 — writes the files to `apps.ctrlai.my` |
+| `POST /api/builder/projects/{id}/pin`, `POST /api/video/projects/{id}/pin` | `get_current_user` | 맨 위에 고정 / 고정 해제 (`{on}`): how the owner reads their own list, like ★ — works while not taking part, never moves `updated_at` |
+| `POST /api/builder/projects/{id}/thumbnail?space=draft\|published` | **`require_active_member`** | A picture of the working copy or the published version, taken in the maker's browser (bytes as the body, `application/octet-stream`, ≤ 4 MB): kind and size checked from the bytes, re-encoded to 640×400 WebP, stored; 409 for `published` while nothing is published |
+| `GET /api/builder/projects/{id}/thumbnail?space=…` | `get_current_user` | The member's own project's picture (Builder cards) — works while inactive |
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |
 | `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
+| `POST /api/builder/projects/{id}/ai-access` | `get_current_user` | app-ai-access — the owner's 데모만 / 전체 기능 switch; closing must work while inactive, and opening spends nothing of the owner's |
 | `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
+| `GET /api/apps/{slug}/thumbnail` | `get_current_user` | The published version's picture (CtrlAIApps cards and the detail head); 404 while there is none |
+| `POST /api/apps/{slug}/favorite` | `get_current_user` | ★ 즐겨찾기 on / off — the member's own `app_favorites` row; spends nothing, so not participating may still pin |
 | `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
@@ -188,6 +196,7 @@ the same commit that adds it.
 | `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
 | `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
 | `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |
+| `DELETE /api/admin/work/{kind}/{id}/purge` | `require_admin` | Deleted work only, JSON `{reason}`; removes the row, children, app folders and stored files; money rows stay with the work's name (`services/purge.py`); audited. 분기 마감 (`POST …/close`) does the same for everything in Deleted Items deleted by the quarter's last day (KST); the reason stays in the audit `detail` |
 | `GET /api/admin/members/{user_id}/withdrawal` | `require_admin` | Read-only; what withdrawing would do |
 | `POST /api/admin/members/{user_id}/withdrawal` | `require_admin` | Same rules as the member's own; audited |
 | `POST /api/admin/members/{user_id}/withdrawal/restore` | `require_admin` | 복구, within 30 days only; audited |
@@ -335,7 +344,10 @@ static file in `frontend/public/promo/` (two H.264+AAC encodes, 5.3 MB
 `/promo/*` with `Cache-Control: public, max-age=31536000, immutable` —
 the file names carry a version (`-v1`), so a new encode is a new name and
 the year-long cache never serves a stale file. Member videos never go
-this way.
+this way. **App thumbnails (ui-improvements)** go through the same
+`AssetStorage` as video placeholders and feedback pictures —
+`thumbnails/<project_id>/draft.webp` for the working copy and
+`v<N>.webp` per published version — and are removed with the project.
 
 ### CtrlAITube rows (`promo-videos`)
 
@@ -420,20 +432,26 @@ Alembic has migrated (`backend/app/models/`).
   charged) **separate from** charged_krw (what moved a budget), token and
   cache-token counts, exchange rate, and nullable links to the
   conversation / project / video version that caused it (`ON DELETE SET
-  NULL`, so history survives deletes).
+  NULL`, so history survives deletes) — plus `work_label`, the project's
+  or video's name copied in just before that row is purged for good.
 - **Project (BuilderProject) / BuilderProjectFile** — owner, name,
   description, status (`draft` / `building` / `ready` / `published`),
   github_repo, preview_url, **deleted_at** (soft delete — every member
-  listing filters on it).
+  listing filters on it); since ui-improvements **pinned_at** (맨 위에
+  고정) and **draft_thumbnail_at** (the working copy's picture exists in
+  storage), and each **BuilderProjectVersion** a **thumbnail_at** (the
+  published picture, kept per version).
 - **App** (Phase 5) — the published, community-facing object: project_id,
   owner, slug, thumbnail, launch_url, published_at. A project is the
   private working object; an app is the published listing. Listings must
-  filter the underlying project's `deleted_at`.
+  filter the underlying project's `deleted_at`. **AppFavorite**
+  (`app_favorites`, ui-improvements) — one row per member per project
+  (unique), the member's own ★ on CtrlAIApps; nothing public.
 - **Video (VideoProject / VideoVersion) / VideoModel** — owner, prompt,
   provider job id, `asset_storage_key` (served through the storage
   interface, never a provider URL), youtube_video_id (Phase 7/8), status,
   per-version settings validated against the model's capabilities,
-  **deleted_at** (soft delete, same rule).
+  **deleted_at** (soft delete, same rule), **pinned_at** (ui-improvements).
 - **Reactions / Comments** (Phases 5 and 8) — per app and per video, with
   `parent_comment_id` for threads; CTRL+AI comments stay separate from
   YouTube comments.
@@ -446,7 +464,11 @@ Alembic has migrated (`backend/app/models/`).
   exchange_rates, feedback + feedback_images (screenshots on a note,
   bytes in storage under `feedback/<user_id>/<id>`; cascade from the
   note), account_withdrawals, oauth_states / pending_google_signups,
-  audit_log (append-only).
+  audit_log (append-only), **notifications** (feat-notifications: one row
+  per thing that happened to the member — kind, title, body, link,
+  `dedupe_key` unique per member for the once-a-day spend summary and
+  the once-a-quarter milestones, `read_at`; written only by the server
+  code that did the thing, in its transaction; pruned at 90 days).
 
 Alembic owns the schema. `create_all` is not used, and a production
 database is migrated, never re-created.
@@ -618,6 +640,66 @@ ctrlai.my (Builder / CtrlAIApps)
   미리보기); Admin › Content keeps the 신고 queue. **/help/apps** is the
   members' guide. A 고치기 request never becomes a project's description
   (only a 만들기 does); a template project starts with none.
+* **ui-improvements — thumbnails, SDK version "5"** (now "6", app-ai-access). A picture of an app
+  is taken **in the maker's browser**, never on the server (CLAUDE.md
+  §8·§10). The shell page carries `data-sites` (the site origins allowed
+  to ask); the site posts `{ctrlai: "capture", id, width, height}` to the
+  shell from the Builder preview frame (or, right after 게시, a hidden
+  1280×800 frame on the published address); the shell accepts it only
+  from `window.parent` with an origin in that list and relays
+  `{event: "capture"}` to the sandboxed app frame; the SDK clones the
+  DOM with computed styles (≤ 5,000 nodes, no scripts/iframes, canvases
+  as images, input values kept, long edge ≤ 1,600 px), draws it through
+  an SVG `foreignObject` into a canvas and answers `capture.result` with
+  a PNG data URL (or `capture.failed` in Korean); the shell posts it back
+  to the asking origin only. The site turns it into bytes and uploads
+  them (`POST /api/builder/projects/{id}/thumbnail`, octet-stream, the
+  JSON-body rule's one exception); `services/thumbnails.encode` sniffs
+  PNG/JPEG/WebP from the bytes, applies EXIF orientation, drops alpha on
+  white, fits 640×400 (top-anchored) and writes WebP q82 with no
+  metadata — the browser's picture is never stored as sent. Limits: an
+  app's own `<img>` files draw blank (no fetch across the opaque origin),
+  WebGL is skipped, Safari's `foreignObject` support is weak — the card
+  then keeps its coloured cover; a server-side renderer in an isolated
+  container is the later item `thumbnail-render-worker`.
+* **app-ai-access — 데모만 / 전체 기능, SDK version "6"** (owner,
+  2026-10-16; CLAUDE.md §2 › Member app platform (5)).
+  `builder_projects.ai_access` ("demo" | "full", migration `b2d4f6a8c0e1`;
+  apps published before it were set to "full" so nothing changed at
+  deploy; a new app starts as "demo") and
+  `builder_project_versions.uses_ai` — found when a version is written
+  (`app_ai_access.uses_ai`: any page or script calling `.ai.ask(` /
+  `.ai.stream(` / `.ai.estimate(`), filled in by the migration for old
+  versions, so the dialog, the listing and the shell read a flag. The
+  게시 dialog asks "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?"
+  when `publish-summary` says `uses_ai` or the app is already 전체 기능
+  (default 데모만); `publish` takes `ai_access`, and `POST
+  /api/builder/projects/{id}/ai-access` is the owner's switch from the
+  Builder's 게시 menu — offered for every published app, since the flag
+  can miss a call made through an alias while the server still refuses. **Enforcement is the
+  server's alone**: `_ai_allowed` on `/v1/ai/ask` and `/v1/ai/stream`
+  refuses a visitor's call in mode "app" with 403 `{code: "demo"}` before
+  `prepare()` — no provider call, no ledger row; `estimate` stays free and
+  open; the maker's **own** 미리보기 (mode "preview", the signed-in
+  visitor is the owner) is never limited — another member handed the
+  preview link is a visitor like any other. The shell
+  (`shell.js`) adds a second, per-visitor switch — a thin bar above the
+  app frame ("실제 AI · 내 지원금에서" / "데모 · 0원" + 실제 AI 켜기 / 데모로
+  보기, the showcases' badge-and-button look; a bar, not a floating pill,
+  so nothing of the app is covered — the frame keeps its full height
+  below it), remembered in the shell origin's `localStorage` per app
+  (`ctrlai:<slug>:ai-mode`, outside the app's `l:`/`k:` prefixes), shown
+  only for a published app that uses AI — and in 데모
+  rejects `ai.ask` / `ai.stream` locally with code "demo" (no sign-in
+  window, no request). `/v1/app` carries `ai: {usesAi, access}`; the SDK
+  gains `ctrlai.ai.mode()` → "live" | "demo" and fires the window event
+  `ctrlai:ai-mode` when the pill is flipped; outside CTRL+AI the mode is
+  "demo". The Builder prompt (`_SDK_RULES`) tells Claude to treat code
+  "demo" like signed-out (the demo answer, marked "데모"); the three
+  showcases and the AI 챗봇 template do the same and import as 전체 기능
+  (`import_example_apps`). CtrlAIApps' detail says which it is; Admin ›
+  Apps shows "AI 전체 기능 / 데모만" beside each app; the kill switch is
+  unchanged.
 * **publish-summary** (`services/publish_summary.py`, `POST
   /api/builder/projects/{id}/publish-summary` with a JSON body — it
   writes and spends, CLAUDE.md §2 — `require_active_member`, owner only): the 게시 dialog's 설명 and 메모 written by the "fast"
