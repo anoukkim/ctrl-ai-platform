@@ -216,6 +216,69 @@ describe("의견 보내기 — 스크린샷", () => {
     expect(api.deleteFeedbackImage).not.toHaveBeenCalled();
   });
 
+  test("보내는 중에는 Esc로 닫히지 않고 사진도 지우지 않는다", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    let finish: (value: unknown) => void = () => {};
+    api.sendFeedback.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    render(<FeedbackDialog onClose={onClose} />);
+    await user.type(screen.getByLabelText("내용"), "보내는 중");
+    fireEvent.paste(screen.getByLabelText("내용"), { clipboardData: transfer([pngFile("a.png")]) });
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "보내기" }));
+
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(api.deleteFeedbackImage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finish({ id: 1, body: "보내는 중", page: "/chat", created_at: "", images: [] });
+    });
+    expect((await screen.findByRole("status")).textContent).toContain("고맙습니다");
+  });
+
+  test("올리는 동안 닫으면 늦게 끝난 사진도 서버에서 지운다", async () => {
+    const user = userEvent.setup();
+    let finish: (value: unknown) => void = () => {};
+    api.uploadFeedbackImage.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    render(<FeedbackDialog onClose={vi.fn()} />);
+    fireEvent.paste(screen.getByLabelText("내용"), { clipboardData: transfer([pngFile("slow.png")]) });
+    await screen.findByRole("status");
+    await user.click(screen.getByRole("button", { name: "취소" }));
+    expect(api.deleteFeedbackImage).not.toHaveBeenCalled(); // 아직 번호가 없습니다
+
+    await act(async () => {
+      finish({ id: 77, name: "slow.png", size: 1, width: 1, height: 1, media_type: "image/png" });
+    });
+    await waitFor(() => expect(api.deleteFeedbackImage).toHaveBeenCalledWith(77));
+  });
+
+  test("붙여넣기 두 번이 연달아 와도 3장을 넘기지 않고 이름이 겹치지 않는다", async () => {
+    render(<FeedbackDialog onClose={vi.fn()} />);
+    const field = screen.getByLabelText("내용");
+    const nameless = (type: string) => new File([new Uint8Array(3)], "", { type });
+    fireEvent.paste(field, { clipboardData: transfer([nameless("image/png"), nameless("image/png")]) });
+    fireEvent.paste(field, { clipboardData: transfer([nameless("image/png"), nameless("image/png")]) });
+
+    await waitFor(() => expect(api.uploadFeedbackImage).toHaveBeenCalledTimes(3));
+    await act(async () => {});
+    expect(api.uploadFeedbackImage).toHaveBeenCalledTimes(3);
+    expect(api.uploadFeedbackImage.mock.calls.map((call) => call[1])).toEqual([
+      "screenshot-1.png",
+      "screenshot-2.png",
+      "screenshot-3.png",
+    ]);
+    expect(screen.getByTestId("feedback-shot-error").textContent).toBe("사진은 3장까지 붙일 수 있어요.");
+  });
+
   test("개인정보 안내 한 줄이 있다", () => {
     render(<FeedbackDialog onClose={vi.fn()} />);
     expect(screen.getByText("화면에 개인정보가 보이면 가린 뒤 올려 주세요.")).toBeTruthy();
@@ -260,8 +323,10 @@ describe("Admin › Feedback — 스크린샷", () => {
     expect(thumbs).toHaveLength(2);
     expect(thumbs[0].getAttribute("src")).toBe("/api/admin/feedback/images/3/file");
 
-    await user.click(within(shots).getByRole("button", { name: "사진 크게 보기: b.jpg" }));
+    const opener = within(shots).getByRole("button", { name: "사진 크게 보기: b.jpg" });
+    await user.click(opener);
     const lightbox = screen.getByRole("dialog", { name: "사진 크게 보기" });
+    expect(document.activeElement).toBe(within(lightbox).getByRole("button", { name: "닫기" }));
     expect(within(lightbox).getByRole("img", { name: "b.jpg" }).getAttribute("src")).toBe(
       "/api/admin/feedback/images/4/file",
     );
@@ -272,6 +337,7 @@ describe("Admin › Feedback — 스크린샷", () => {
     expect(within(lightbox).getByRole("img", { name: "a.png" })).toBeTruthy();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "사진 크게 보기" })).toBeNull();
+    expect(document.activeElement).toBe(opener);
   });
 
   test("지우기는 확인한 뒤 글과 사진을 지운다", async () => {

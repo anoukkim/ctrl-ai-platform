@@ -357,7 +357,7 @@ function SectionCard({
   );
 }
 
-/** "첨부 파일 120MB / 5GB" — 서버 디스크의 채팅 첨부(chat-plus-files). */
+/** "첨부 파일 120MB / 5GB" — 서버 디스크의 채팅 첨부(chat-plus-files)와 의견 스크린샷(feedback-screenshots). */
 function attachmentLine(figures: AdminDashboard): string | null {
   const used = figures.attachment_bytes;
   const limit = figures.attachment_limit_bytes;

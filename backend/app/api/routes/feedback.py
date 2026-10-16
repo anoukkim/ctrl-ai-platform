@@ -11,7 +11,6 @@ types a cross-site page could send without a preflight); the note then
 names the uploaded ids. Only an admin can open a stored image.
 """
 
-import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -20,8 +19,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
+from app.api.uploads import clean_upload_name, file_response, read_upload_body
 from app.core.config import Settings, get_settings
-from app.core.json_only import SIMPLE_CONTENT_TYPES
 from app.db.session import get_db
 from app.models import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, AuditAction, Feedback, FeedbackImage, User
 from app.schemas.feedback import FeedbackAdminRead, FeedbackCreate, FeedbackImageRead, FeedbackRead
@@ -61,40 +60,28 @@ async def upload_feedback_image(
     settings: Settings = Depends(get_settings),
 ) -> FeedbackImageRead:
     """Read only up to the limit plus one byte, check everything, then store."""
-    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
-    if content_type in SIMPLE_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="사진은 application/octet-stream 형식으로 보내 주세요.",
-        )
-    # Pictures left behind by a dialog that never closed (tab closed) must
-    # not count against this upload, or the member could never attach again.
-    swept = images_service.sweep_abandoned(db, user.id)
-    if swept:
-        db.commit()
-        images_service.delete_bytes(get_storage(settings), swept)
-    if len(images_service.pending_for(db, user.id)) >= settings.feedback_images_per_note:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=images_service.too_many(settings.feedback_images_per_note),
-        )
-    limit = settings.feedback_image_max_mb * MB
-    chunks: list[bytes] = []
-    received = 0
-    async for chunk in request.stream():
-        received += len(chunk)
-        if received > limit:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=images_service.too_big(settings.feedback_image_max_mb),
-            )
-        chunks.append(chunk)
-    data = b"".join(chunks)
-    base = name.strip().replace("\\", "/").rsplit("/", 1)[-1]
-    original = "".join(ch for ch in base if ch.isprintable())[:255] or "image"
+    cap = settings.feedback_images_per_note
+    if len(images_service.pending_for(db, user.id)) >= cap:
+        # Pictures left behind by a dialog that never closed (tab closed)
+        # must not block this member for good: at the cap, and only then,
+        # day-old leftovers are swept before the count is final.
+        swept = images_service.sweep_abandoned(db, user.id)
+        if swept:
+            db.commit()
+            images_service.delete_bytes(get_storage(settings), swept)
+        if len(images_service.pending_for(db, user.id)) >= cap:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=images_service.too_many(cap))
+    data = await read_upload_body(
+        request,
+        settings.feedback_image_max_mb * MB,
+        images_service.too_big(settings.feedback_image_max_mb),
+        "사진은 application/octet-stream 형식으로 보내 주세요.",
+    )
+    original = clean_upload_name(name, "image")
 
     try:
-        checked = await run_in_threadpool(images_service.check_image, original, data, settings)
+        checked = await run_in_threadpool(images_service.check_image, original, data)
+        images_service.check_room(db, user.id, checked, settings)
     except AttachmentRefusal as refusal:
         raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
 
@@ -268,18 +255,8 @@ def feedback_image_file(
         data = get_storage(settings).load(row.storage_key)
     except (FileNotFoundError, OSError) as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사진을 찾을 수 없습니다.") from error
-    quoted = urllib.parse.quote(row.original_name)
-    return Response(
-        content=data,
-        media_type=row.media_type,
-        headers={
-            "Content-Disposition": f"inline; filename*=UTF-8''{quoted}",
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "private, max-age=3600",
-            # A member's upload, shown to the admin — never a page of this site.
-            "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
-        },
-    )
+    # A member's upload, shown to the admin — never a page of this site.
+    return file_response(data, row.media_type, row.original_name, inline=True)
 
 
 @router.delete(

@@ -116,17 +116,23 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const [dragging, setDragging] = useState(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * 사진 목록은 두 곳에 삽니다: 그리는 데 쓰는 state와, 이벤트 안에서 바로
+   * 읽어야 하는 ref. 붙여넣기 두 번이 연달아 오면 둘 다 "3장 중 몇 장"을
+   * 같은 순간에 세므로, ref는 state를 기다리지 않고 그 자리에서 고칩니다.
+   */
   const shotsRef = useRef<Shot[]>([]);
+  const updateShots = useCallback((change: (rows: Shot[]) => Shot[]) => {
+    shotsRef.current = change(shotsRef.current);
+    setShots(shotsRef.current);
+  }, []);
+  /** 창이 닫혔거나(취소·Esc·바깥) 보낸 뒤 — 늦게 끝난 올리기가 알아야 합니다. */
+  const closedRef = useRef(false);
   const sentRef = useRef(false);
+  const busyRef = useRef(false);
   const nextKey = useRef(1);
   const titleId = useId();
   const fieldId = useId();
-
-  // 닫기와 올리기는 이벤트 안에서 최신 목록을 봐야 합니다(렌더 밖에서 갱신).
-  useEffect(() => {
-    shotsRef.current = shots;
-    sentRef.current = sent;
-  }, [shots, sent]);
 
   useEffect(() => {
     fieldRef.current?.focus();
@@ -134,9 +140,13 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
 
   /**
    * 닫기 — 보내지 않은 사진은 서버에서도 지웁니다(✕를 누르지 않고 창을
-   * 닫는 경우). 보낸 뒤에는 의견에 붙었으므로 건드리지 않습니다.
+   * 닫는 경우). 보낸 뒤에는 의견에 붙었으므로 건드리지 않고, 보내는 중에는
+   * 닫히지 않습니다 — 지우기가 보내기와 경주하면 의견이 사진 없이, 또는
+   * 아예 저장되지 않습니다.
    */
   const close = useCallback(() => {
+    if (busyRef.current) return;
+    closedRef.current = true;
     if (!sentRef.current) {
       for (const shot of shotsRef.current) {
         if (shot.id !== null) void deleteFeedbackImage(shot.id).catch(() => undefined);
@@ -163,14 +173,14 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const addFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
     setShotError(null);
-    const room = FEEDBACK_MAX_IMAGES - shotsRef.current.length;
-    if (files.length > room) {
-      setShotError(FEEDBACK_IMAGES_TOO_MANY);
-      files = files.slice(0, Math.max(0, room));
-      if (files.length === 0) return;
-    }
-    for (const [index, file] of files.entries()) {
-      const name = feedbackImageName(file, shotsRef.current.length + index);
+    for (const file of files) {
+      // 한 장씩, 그 순간의 수로 셉니다: 붙여넣기 두 번이 겹쳐 와도 3장을
+      // 넘기지 않고, 이름(screenshot-N)도 겹치지 않습니다.
+      if (shotsRef.current.length >= FEEDBACK_MAX_IMAGES) {
+        setShotError(FEEDBACK_IMAGES_TOO_MANY);
+        break;
+      }
+      const name = feedbackImageName(file, shotsRef.current.length);
       const refused = precheckFeedbackImage(file);
       if (refused) {
         setShotError(refused);
@@ -178,23 +188,32 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
       }
       const key = nextKey.current++;
       const previewUrl = previewUrlFor(file);
-      setShots((rows) => [...rows, { key, id: null, name, previewUrl }]);
+      updateShots((rows) => [...rows, { key, id: null, name, previewUrl }]);
       try {
         const uploaded = await uploadFeedbackImage(file, name);
-        setShots((rows) => rows.map((row) => (row.key === key ? { ...row, id: uploaded.id } : row)));
+        if (closedRef.current || !shotsRef.current.some((row) => row.key === key)) {
+          // 올리는 동안 창이 닫혔거나 ✕로 뺐습니다: 서버에 남기지 않습니다.
+          void deleteFeedbackImage(uploaded.id).catch(() => undefined);
+          revoke(previewUrl);
+          continue;
+        }
+        updateShots((rows) => rows.map((row) => (row.key === key ? { ...row, id: uploaded.id } : row)));
       } catch (caught) {
         revoke(previewUrl);
-        setShots((rows) => rows.filter((row) => row.key !== key));
+        updateShots((rows) => rows.filter((row) => row.key !== key));
         setShotError(describeError(caught));
       }
     }
-  }, []);
+  }, [updateShots]);
 
-  const removeShot = useCallback((shot: Shot) => {
-    revoke(shot.previewUrl);
-    setShots((rows) => rows.filter((row) => row.key !== shot.key));
-    if (shot.id !== null) void deleteFeedbackImage(shot.id).catch(() => undefined);
-  }, []);
+  const removeShot = useCallback(
+    (shot: Shot) => {
+      revoke(shot.previewUrl);
+      updateShots((rows) => rows.filter((row) => row.key !== shot.key));
+      if (shot.id !== null) void deleteFeedbackImage(shot.id).catch(() => undefined);
+    },
+    [updateShots],
+  );
 
   const trimmed = body.trim();
   const tooLong = trimmed.length > FEEDBACK_MAX_LENGTH;
@@ -203,14 +222,17 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
     event.preventDefault();
     if (busy || !trimmed || tooLong || uploading) return;
     setBusy(true);
+    busyRef.current = true;
     setError(null);
     try {
       const ids = shots.map((shot) => shot.id).filter((id): id is number => id !== null);
       await sendFeedback(trimmed, pathname, ids);
+      sentRef.current = true;
       setSent(true);
     } catch (caught) {
       setError(describeError(caught));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }

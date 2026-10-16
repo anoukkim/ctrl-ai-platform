@@ -242,6 +242,10 @@ class Settings(BaseSettings):
     # Over a limit is refused in Korean; nothing is stored.
     feedback_images_per_note: int = 3
     feedback_image_max_mb: int = 5
+    # Per member, all their feedback screenshots together (sent and
+    # waiting). The server total is shared with Chat attachments
+    # (CHAT_ATTACHMENT_TOTAL_LIMIT_GB) and shown on Admin's dashboard.
+    feedback_image_member_quota_mb: int = 100
     # The mock provider's pause between streamed chunks, so the typing
     # effect is visible locally. Tests set it to 0.
     chat_mock_delay_ms: int = 25

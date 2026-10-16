@@ -56,6 +56,7 @@ from app.schemas.quarter import (
 )
 from app.services import admin_stats, audit, providers
 from app.services import attachments as attachments_service
+from app.services import feedback_images as feedback_images_service
 from app.services.withdrawal import latest_withdrawal
 from app.services.quarters import current_quarter
 
@@ -217,7 +218,8 @@ def read_dashboard(
         recent_audit=_audit_rows(audit.recent(db, limit=10)),
         is_development=settings.is_development,
         failing_providers=_failing_providers(db, settings),
-        attachment_bytes=attachments_service.total_bytes(db),
+        # Chat attachments and feedback screenshots share the disk and the limit.
+        attachment_bytes=attachments_service.total_bytes(db) + feedback_images_service.total_bytes(db),
         attachment_limit_bytes=settings.chat_attachment_total_limit_gb * 1024 * attachments_service.MB,
     )
 

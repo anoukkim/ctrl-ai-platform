@@ -158,7 +158,7 @@ def test_a_fourth_picture_is_refused(client: TestClient, db_session: Session, st
     assert len(stored_files(storage_settings)) == 3
 
 
-def test_pictures_left_behind_for_an_hour_do_not_block_the_next_upload(
+def test_pictures_left_behind_for_a_day_do_not_block_the_next_upload(
     client: TestClient, db_session: Session, storage_settings
 ) -> None:
     for index in range(3):
@@ -166,7 +166,7 @@ def test_pictures_left_behind_for_an_hour_do_not_block_the_next_upload(
     assert upload(client, "s3.png", png()).status_code == 400
     # Age them past the sweep, as a closed tab would have left them.
     for row in images(db_session):
-        row.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        row.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
     db_session.commit()
 
     response = upload(client, "fresh.png", png())
@@ -174,6 +174,49 @@ def test_pictures_left_behind_for_an_hour_do_not_block_the_next_upload(
     [row] = images(db_session)
     assert row.original_name == "fresh.png"
     assert len(stored_files(storage_settings)) == 1
+
+
+def test_a_picture_still_in_an_open_dialog_is_never_swept(
+    client: TestClient, db_session: Session, storage_settings
+) -> None:
+    """Hours old but under the cap: a member writing a long note keeps the
+    picture the dialog still shows. At the cap, hours old is still not a day."""
+    first = upload(client, "a.png", png()).json()["id"]
+    db_session.get(FeedbackImage, first).created_at = datetime.now(timezone.utc) - timedelta(hours=5)
+    db_session.commit()
+    assert upload(client, "b.png", png()).status_code == 201
+    assert upload(client, "c.png", png()).status_code == 201
+    assert upload(client, "d.png", png()).status_code == 400  # at the cap, nothing a day old
+    assert [row.original_name for row in images(db_session)] == ["a.png", "b.png", "c.png"]
+    assert db_session.get(FeedbackImage, first) is not None
+
+
+def test_member_quota_and_server_total_are_enforced(
+    client: TestClient, db_session: Session, tmp_path
+) -> None:
+    tight = Settings(app_env="development", storage_dir=str(tmp_path / "s"), feedback_image_member_quota_mb=0)
+    app.dependency_overrides[get_settings] = lambda: tight
+    try:
+        refused = upload(client, "s.png", png())
+        assert refused.status_code == 409
+        assert refused.json()["detail"].startswith("의견 사진 공간이 가득 찼어요")
+        full = Settings(app_env="development", storage_dir=str(tmp_path / "s"), chat_attachment_total_limit_gb=0)
+        app.dependency_overrides[get_settings] = lambda: full
+        refused = upload(client, "s.png", png())
+        assert refused.status_code == 507
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+    assert images(db_session) == []
+    assert stored_files(tight) == []
+
+
+def test_admin_dashboard_counts_feedback_bytes(client: TestClient, db_session: Session, storage_settings) -> None:
+    image_id = upload(client, "s.png", png()).json()["id"]
+    assert send(client, "대시보드", [image_id]).status_code == 201
+    stored = db_session.get(FeedbackImage, image_id).stored_size
+    overview = client.get("/api/admin/dashboard")
+    assert overview.status_code == 200, overview.text
+    assert overview.json()["attachment_bytes"] == stored
 
 
 def test_a_simple_content_type_is_refused(client: TestClient, db_session: Session, storage_settings) -> None:

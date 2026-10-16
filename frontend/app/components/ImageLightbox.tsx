@@ -8,7 +8,7 @@
  */
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import styles from "./image-lightbox.module.css";
@@ -31,7 +31,16 @@ interface Props {
 export default function ImageLightbox({ images, index, onClose }: Props) {
   const [at, setAt] = useState(Math.min(Math.max(index, 0), images.length - 1));
   const captionId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
   const image = images[at];
+
+  // 키보드와 낭독기가 뒤의 표에 남지 않도록: 열리면 닫기 단추로, 닫히면
+  // 열었던 썸네일로 초점을 돌려 둡니다.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -56,7 +65,7 @@ export default function ImageLightbox({ images, index, onClose }: Props) {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <button className={styles.close} type="button" onClick={onClose} aria-label="닫기">
+      <button className={styles.close} ref={closeRef} type="button" onClick={onClose} aria-label="닫기">
         <X size={20} aria-hidden="true" />
       </button>
       {images.length > 1 && (

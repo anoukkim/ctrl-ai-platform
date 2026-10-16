@@ -998,16 +998,26 @@ chat-plus-files와 같은 서버 처리, 관리자만 보기, 의견을 지우�
    — not GIF), extension must agree, ≤ 5 MB read with a hard stop,
    decoded under the pixel guard, encoded again with no metadata, long
    edge 2,560 (a screenshot is read by a person, so larger than Chat's
-   1,568). A 4th waiting picture is refused ("사진은 3장까지 붙일 수
-   있어요."); waiting pictures older than an hour (a closed tab) are swept
-   on the next upload so they never block a member.
+   1,568). Stored bytes count against a per-member quota
+   (`FEEDBACK_IMAGE_MEMBER_QUOTA_MB=100`, 409) and the server total Chat
+   attachments share (`CHAT_ATTACHMENT_TOTAL_LIMIT_GB`, 507); Admin's
+   dashboard "첨부 파일" figure includes them. A 4th waiting picture is
+   refused ("사진은 3장까지 붙일 수 있어요."); only then, waiting pictures
+   older than a day (a closed tab) are swept first so a leftover never
+   blocks a member — and a picture still shown in an open dialog is never
+   taken away under it (review fix, 2026-10-16). The body reader, name
+   sanitiser and file-response headers are shared with Chat
+   (`api/uploads.py`), as is the browser's `uploadBytes` (`lib/http.ts`).
 2. **The note** `POST /api/feedback` carries `image_ids`: each must be the
    sender's own waiting picture (else 400 "사진을 찾을 수 없어요"), at
    most 3; they are attached, and any other waiting picture of the
    sender is deleted with its bytes (a dialog closed without sending).
 3. **✕ / closing the dialog** → `DELETE /api/feedback/images/{id}` (own
    and waiting only; 404 for anyone else's, 409 once sent). The dialog
-   also deletes what it uploaded when closed without sending.
+   also deletes what it uploaded when closed without sending — including
+   an upload that finishes after the close — and does not close at all
+   (Esc, backdrop) while 보내기 is in flight, so the deletions can never
+   race the note.
 4. **Who sees a picture: admins only.** `GET /api/admin/feedback` lists
    each note's pictures; `GET /api/admin/feedback/images/{id}/file`
    serves one inline (nosniff, sandboxed CSP, private cache) — a member,

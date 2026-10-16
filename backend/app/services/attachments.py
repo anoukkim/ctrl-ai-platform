@@ -101,7 +101,8 @@ class Checked:
 # ------------------------------------------------------------- what is it
 
 
-def _extension(name: str) -> str:
+def extension(name: str) -> str:
+    """The lower-cased extension, without the dot; "" when there is none."""
     return name.rsplit(".", 1)[-1].lower() if "." in name else ""
 
 
@@ -218,32 +219,32 @@ def _pdf(data: bytes, settings: Settings) -> Checked:
 
 def check_file(name: str, data: bytes, settings: Settings) -> Checked:
     """Every check on one file's bytes. Raises `AttachmentRefusal`."""
-    extension = _extension(name)
+    ext = extension(name)
     found = sniff(data)
 
     if found in ("jpeg", "png", "gif", "webp"):
-        if extension not in IMAGE_EXTENSIONS:
+        if ext not in IMAGE_EXTENSIONS:
             raise AttachmentRefusal(UNSUPPORTED)
         if len(data) > settings.chat_attachment_image_max_mb * MB:
             raise AttachmentRefusal(too_big(settings.chat_attachment_image_max_mb))
         return _image(data, settings)
 
     if found == "pdf":
-        if extension != "pdf":
+        if ext != "pdf":
             raise AttachmentRefusal(UNSUPPORTED)
         if len(data) > settings.chat_attachment_pdf_max_mb * MB:
             raise AttachmentRefusal(too_big(settings.chat_attachment_pdf_max_mb))
         return _pdf(data, settings)
 
     # Not an image or a PDF by its bytes: it may only be text.
-    if extension not in CSV_EXTENSIONS | TEXT_EXTENSIONS:
+    if ext not in CSV_EXTENSIONS | TEXT_EXTENSIONS:
         raise AttachmentRefusal(UNSUPPORTED)
     if len(data) > settings.chat_attachment_text_max_mb * MB:
         raise AttachmentRefusal(too_big(settings.chat_attachment_text_max_mb))
     text = decode_text(data)
     if text is None or not text.strip():
         raise AttachmentRefusal(UNSUPPORTED if text is None else BROKEN)
-    kind = AttachmentKind.CSV if extension in CSV_EXTENSIONS else AttachmentKind.TEXT
+    kind = AttachmentKind.CSV if ext in CSV_EXTENSIONS else AttachmentKind.TEXT
     return Checked(
         kind=kind,
         media_type="text/csv" if kind is AttachmentKind.CSV else "text/plain",
@@ -315,22 +316,26 @@ def delete_bytes(storage, keys: list[str]) -> None:
             pass
 
 
+def delete_all_of(db: Session, storage, model, user_id: int) -> int:
+    """Every stored file of a member in `model` (a table with `user_id` and
+    `storage_key`) — rows (not committed) and bytes. Returns how many."""
+    from sqlalchemy import delete as sql_delete
+
+    rows = list(db.scalars(select(model).where(model.user_id == user_id)))
+    keys = [row.storage_key for row in rows]
+    db.execute(
+        sql_delete(model).where(model.user_id == user_id).execution_options(synchronize_session=False)
+    )
+    delete_bytes(storage, keys)
+    return len(rows)
+
+
 def delete_for_user(db: Session, storage, user_id: int) -> int:
     """Every attachment of a member — rows (not committed) and bytes.
 
     Withdrawal anonymisation. Returns how many there were.
     """
-    from sqlalchemy import delete as sql_delete
-
-    rows = list(db.scalars(select(ChatAttachment).where(ChatAttachment.user_id == user_id)))
-    keys = [row.storage_key for row in rows]
-    db.execute(
-        sql_delete(ChatAttachment)
-        .where(ChatAttachment.user_id == user_id)
-        .execution_options(synchronize_session=False)
-    )
-    delete_bytes(storage, keys)
-    return len(rows)
+    return delete_all_of(db, storage, ChatAttachment, user_id)
 
 
 # ------------------------------------------------------------- what Claude receives

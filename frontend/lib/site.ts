@@ -6,8 +6,8 @@
  * APP_ENV와 제공자 설정으로 답합니다.
  */
 
-import { API_BASE_URL, ApiError } from "./api";
-import { request } from "./http";
+import { API_BASE_URL } from "./api";
+import { request, uploadBytes } from "./http";
 
 /** "테스트 모드" 표시를 붙일 화면. 백엔드의 app/schemas/site.py와 짝입니다. */
 export type TestModeArea = "chat" | "builder" | "video" | "community";
@@ -122,34 +122,9 @@ export function feedbackImageName(file: File, index: number): string {
   return `screenshot-${index + 1}.${byType[file.type] ?? "png"}`;
 }
 
-/**
- * 스크린샷 하나를 올립니다 — 본문은 파일의 바이트, 이름은 `?name=`.
- * `application/octet-stream`으로 보냅니다: 다른 출처의 페이지가 미리
- * 확인(preflight) 없이 보낼 수 있는 형식은 백엔드가 받지 않습니다(CLAUDE.md §2).
- */
-export async function uploadFeedbackImage(file: File, name: string): Promise<FeedbackImage> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}/api/feedback/images?name=${encodeURIComponent(name)}`, {
-      method: "POST",
-      cache: "no-store",
-      headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
-      body: file,
-    });
-  } catch {
-    throw new ApiError("서버에 연결할 수 없습니다", 0);
-  }
-  if (!response.ok) {
-    let detail = `사진을 올리지 못했어요 (HTTP ${response.status})`;
-    try {
-      const body = await response.json();
-      if (body && typeof body.detail === "string") detail = body.detail;
-    } catch {
-      /* 기본 문구 */
-    }
-    throw new ApiError(detail, response.status);
-  }
-  return (await response.json()) as FeedbackImage;
+/** 스크린샷 하나를 올립니다 — 본문은 파일의 바이트, 이름은 `?name=` (`uploadBytes`). */
+export function uploadFeedbackImage(file: File, name: string): Promise<FeedbackImage> {
+  return uploadBytes<FeedbackImage>("/feedback/images", file, name, "사진을 올리지 못했어요");
 }
 
 /** 아직 보내지 않은 스크린샷을 뺍니다(✕, 창 닫기). */

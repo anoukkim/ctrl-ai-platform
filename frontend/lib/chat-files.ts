@@ -10,8 +10,8 @@
  * 확인(preflight) 없이 보낼 수 있는 형식은 백엔드가 받지 않습니다(CLAUDE.md §2).
  */
 
-import { API_BASE_URL, ApiError } from "./api";
-import { request } from "./http";
+import { API_BASE_URL } from "./api";
+import { request, uploadBytes } from "./http";
 
 export type AttachmentKind = "image" | "pdf" | "csv" | "text";
 
@@ -59,35 +59,13 @@ export function precheck(file: File): string | null {
   return null;
 }
 
-export async function uploadAttachment(
-  conversationId: number,
-  file: File,
-): Promise<AttachmentUploaded> {
-  let response: Response;
-  try {
-    response = await fetch(
-      `${API_BASE_URL}/api/chat/conversations/${conversationId}/attachments?name=${encodeURIComponent(file.name)}`,
-      {
-        method: "POST",
-        cache: "no-store",
-        headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
-        body: file,
-      },
-    );
-  } catch {
-    throw new ApiError("서버에 연결할 수 없습니다", 0);
-  }
-  if (!response.ok) {
-    let detail = `파일을 올리지 못했습니다 (HTTP ${response.status})`;
-    try {
-      const body = await response.json();
-      if (body && typeof body.detail === "string") detail = body.detail;
-    } catch {
-      /* 기본 문구 */
-    }
-    throw new ApiError(detail, response.status);
-  }
-  return (await response.json()) as AttachmentUploaded;
+export function uploadAttachment(conversationId: number, file: File): Promise<AttachmentUploaded> {
+  return uploadBytes<AttachmentUploaded>(
+    `/chat/conversations/${conversationId}/attachments`,
+    file,
+    file.name,
+    "파일을 올리지 못했습니다",
+  );
 }
 
 export function getPendingAttachments(conversationId: number): Promise<ChatAttachment[]> {
