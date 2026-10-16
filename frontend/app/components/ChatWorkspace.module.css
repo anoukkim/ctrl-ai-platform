@@ -26,6 +26,12 @@
   container-type: inline-size;
 }
 
+/* chat-list-collapse: the list folded to a slim rail — the conversation
+   gets the rest. Remembered per browser (ChatWorkspace). */
+.layoutCollapsed {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
 .chat {
   position: relative;
   display: flex;
@@ -48,9 +54,51 @@
   overflow-y: auto;
 }
 
+/* 새 대화 and the fold button side by side; in the rail they stack. */
+.listHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.listCollapsed {
+  padding: 12px 6px;
+}
+
+.listCollapsed .listHead {
+  flex-direction: column;
+}
+
+.newChatRail {
+  width: 40px;
+  padding: 0.5rem 0;
+}
+
+.collapseList {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.collapseList:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
 .newChat {
   display: inline-flex;
-  flex: none;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
@@ -268,6 +316,20 @@
 
   .listToggle {
     display: inline-flex;
+  }
+
+  /* The drawer is the list here; the rail and its fold button have no
+     meaning on a narrow screen. */
+  .listCollapsed {
+    padding: 12px 8px;
+  }
+
+  .listCollapsed .listHead {
+    flex-direction: row;
+  }
+
+  .collapseList {
+    display: none;
   }
 
   /* 목록 단추가 왼쪽에 붙으므로 위쪽 줄은 비어 있어도 자리를 둡니다. */

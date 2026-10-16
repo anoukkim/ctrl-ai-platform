@@ -194,8 +194,9 @@ const SONNET = {
 
 async function renderChat() {
   const { default: ChatWorkspace } = await import("@/app/components/ChatWorkspace");
-  render(<ChatWorkspace />);
+  const result = render(<ChatWorkspace />);
   await waitFor(() => expect(chatApi.listConversations).toHaveBeenCalled());
+  return result;
 }
 
 function typeAndSend(text: string) {
@@ -207,6 +208,7 @@ function typeAndSend(text: string) {
 describe("ChatWorkspace", () => {
   beforeEach(() => {
     mayCreate = true;
+    window.localStorage.removeItem("ctrlai.chat-list-collapsed");
     for (const fn of Object.values(chatApi)) fn.mockReset();
     chatApi.getChatInfo.mockResolvedValue({
       is_mock: true,
@@ -509,6 +511,37 @@ describe("ChatWorkspace", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "고정 해제" }));
     await waitFor(() => expect(chatApi.setConversationPinned).toHaveBeenLastCalledWith(6, false));
     await waitFor(() => expect(screen.queryByTestId("pinned-label")).toBeNull());
+  });
+
+  test("chat-list-collapse: 목록 접기 folds the list to a rail, remembered per browser", async () => {
+    chatApi.listConversations.mockResolvedValue([CONVERSATION]);
+    const { container } = await renderChat();
+    await screen.findByRole("button", { name: "가계부 아이디어" });
+    const layout = container.querySelector("[class*='layout']")!;
+    expect(layout.getAttribute("data-list-collapsed")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "목록 접기" }));
+    expect(layout.getAttribute("data-list-collapsed")).toBe("true");
+    expect(layout.className).toContain("layoutCollapsed");
+    // The rail keeps 새 대화 (icon only) and the open button; the rows are gone.
+    expect(screen.queryByRole("button", { name: "가계부 아이디어" })).toBeNull();
+    expect(screen.getByRole("button", { name: "새 대화" }).getAttribute("aria-label")).toBe("새 대화");
+    expect(window.localStorage.getItem("ctrlai.chat-list-collapsed")).toBe("1");
+
+    fireEvent.click(screen.getByRole("button", { name: "목록 펼치기" }));
+    expect(screen.getByRole("button", { name: "가계부 아이디어" })).toBeTruthy();
+    expect(window.localStorage.getItem("ctrlai.chat-list-collapsed")).toBe("0");
+  });
+
+  test("chat-list-collapse: a remembered fold starts folded, and the drawer still opens the list", async () => {
+    window.localStorage.setItem("ctrlai.chat-list-collapsed", "1");
+    chatApi.listConversations.mockResolvedValue([CONVERSATION]);
+    await renderChat();
+    await screen.findByRole("button", { name: "목록 펼치기" });
+    expect(screen.queryByRole("button", { name: "가계부 아이디어" })).toBeNull();
+    // Narrow screens: the 대화 목록 drawer shows the rows even while folded.
+    fireEvent.click(screen.getByRole("button", { name: "대화 목록" }));
+    expect(screen.getByRole("button", { name: "가계부 아이디어" })).toBeTruthy();
   });
 
   test("chat-pins: 이름 바꾸기 from the ⋯ menu still opens the rename box", async () => {

@@ -32,6 +32,8 @@ import {
   Globe,
   ListIcon,
   Lock,
+  PanelLeftClose,
+  PanelLeftOpen,
   MessageSquare,
   Pencil,
   Pin,
@@ -410,6 +412,18 @@ export function statusNote(message: ViewMessage): string | undefined {
   return STATUS_NOTE[message.status];
 }
 
+/** chat-list-collapse: the folded list, remembered per browser (like the sidebar). */
+export const CHAT_LIST_STORAGE_KEY = "ctrlai.chat-list-collapsed";
+
+function readListCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(CHAT_LIST_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
   // 답장이 끝나면 사이드바의 지갑이 그 자리에서 줄어듭니다 — done
@@ -458,6 +472,24 @@ export default function ChatWorkspace() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 좁은 화면에서 대화 목록을 펼쳤는지. */
   const [listOpen, setListOpen] = useState(false);
+  // chat-list-collapse: on a wide screen the list folds to a slim rail
+  // (새 대화 + 목록 펼치기), remembered per browser like the sidebar. On a
+  // narrow screen the drawer above is what shows the list; the rail is
+  // not drawn there.
+  const [listCollapsed, setListCollapsed] = useState(readListCollapsed);
+  const toggleListCollapsed = useCallback(() => {
+    setListCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(CHAT_LIST_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* 기억하지 못해도 접기·펴기는 됩니다 */
+      }
+      return next;
+    });
+  }, []);
+  // The rows are drawn when the list is open as a panel or as a drawer.
+  const listShown = !listCollapsed || listOpen;
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -1129,14 +1161,42 @@ export default function ChatWorkspace() {
       : "Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 답장마다 동아리 지원에서 쓴 만큼 차감됩니다.";
 
   return (
-    <div className={styles.layout}>
-      <aside className={`${styles.list} ${listOpen ? styles.listOpen : ""}`} aria-label="대화 목록">
-        <button className={styles.newChat} type="button" onClick={startNew} disabled={streaming}>
-          <Plus size={15} aria-hidden="true" /> 새 대화
-        </button>
+    <div className={`${styles.layout} ${listCollapsed ? styles.layoutCollapsed : ""}`} data-list-collapsed={listCollapsed || undefined}>
+      <aside
+        className={`${styles.list} ${listOpen ? styles.listOpen : ""} ${listCollapsed ? styles.listCollapsed : ""}`}
+        aria-label="대화 목록"
+      >
+        <div className={styles.listHead}>
+          {listShown ? (
+            <button className={styles.newChat} type="button" onClick={startNew} disabled={streaming}>
+              <Plus size={15} aria-hidden="true" /> 새 대화
+            </button>
+          ) : (
+            <button
+              className={`${styles.newChat} ${styles.newChatRail}`}
+              type="button"
+              onClick={startNew}
+              disabled={streaming}
+              aria-label="새 대화"
+              title="새 대화"
+            >
+              <Plus size={16} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            className={styles.collapseList}
+            type="button"
+            onClick={toggleListCollapsed}
+            aria-expanded={!listCollapsed}
+            aria-label={listCollapsed ? "목록 펼치기" : "목록 접기"}
+            title={listCollapsed ? "목록 펼치기" : "목록 접기"}
+          >
+            {listCollapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
+          </button>
+        </div>
 
-        {listError !== null && <p className={styles.listNote}>{listError}</p>}
-        {listError === null && conversations.length === 0 && (
+        {listShown && listError !== null && <p className={styles.listNote}>{listError}</p>}
+        {listShown && listError === null && conversations.length === 0 && (
           <EmptyState
             compact
             icon={MessageSquare}
@@ -1146,7 +1206,7 @@ export default function ChatWorkspace() {
           />
         )}
 
-        {(() => {
+        {listShown && (() => {
           // chat-pins: 고정됨 first (newest pin first), then 최근 대화.
           const { pinned, rest } = splitPinned(conversations);
           const row = (conversation: Conversation) => (
