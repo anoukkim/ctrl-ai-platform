@@ -203,6 +203,16 @@ class VersionLabel(BaseModel):
     pinned: bool | None = None
 
 
+class PublishSummaryRead(BaseModel):
+    """publish-summary: the 게시 dialog's pre-filled text. Empty strings
+    when nothing could be written — the member types their own."""
+
+    description: str = ""
+    note: str = ""
+    cached: bool = False
+    model: str = ""
+
+
 class PublishRequest(BaseModel):
     """게시 / 업데이트 게시. The name goes through `clean_name` like a rename."""
 

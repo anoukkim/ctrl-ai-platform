@@ -1498,6 +1498,17 @@ class MockClaudeProvider:
             always_bad = any(MOCK_ALWAYS_BAD_JSON in _text_of(m["content"]) for m in request.messages)
             if always_bad or MOCK_BAD_JSON in last:
                 reply = "이건 JSON이 아니에요."
+            elif "PUBLISH_SUMMARY" in request.system:
+                # publish-summary: a deterministic blurb from the project's name,
+                # and a note only when changes were listed.
+                found = re.search(r"프로젝트 이름: (.+)", whole)
+                name = found.group(1).strip() if found else "내 앱"
+                changed = "이후 바뀐 것:" in whole
+                reply = json.dumps(
+                    {"description": f"'{name}'은 쉽게 써 볼 수 있는 작은 앱이에요. 필요한 것을 적고 바로 확인해요.",
+                     "note": "최근 요청대로 기능과 모양을 다듬었어요" if changed else ""},
+                    ensure_ascii=False,
+                )
             else:
                 from app.services.app_ai import sample_for
 

@@ -123,6 +123,7 @@ const FEATURE_LABEL: Record<string, string> = {
   build: "빌더",
   app_ai: "앱 AI",
   app_ai_preview: "앱 미리보기",
+  publish_summary: "게시 요약",
   video_prompt: "영상 프롬프트",
 };
 
