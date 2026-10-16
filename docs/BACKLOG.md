@@ -93,6 +93,52 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
 **dino-avatars stays on hold.** Not covered: the CtrlAITube poster branch
 `fix-tube-poster` (waits for the owner), anything else in Next.
 
+**Owner, 2026-10-16 (evening, desktop session), after checking
+production.** Answers: auto-continue **"yes, ship it"** · poster
+**"Yes"** (both merged 2026-10-16, `87f157f`, `4b0bbf6`) · and for the
+batch below **"Yes, same rules"** — each item may be merged and deployed
+once its code review + security review are clean and all tests pass, one
+window at a time, the desktop session deploying and checking each;
+serious money/security findings stop and wait for the owner. **Scope,
+exactly:** ④ **owner-polish-3** (the four points below, one branch
+`fix-owner-polish-3`), then ⑤ **motion-modern** (spec 8b, unchanged).
+The owner's words, verbatim:
+
+- "앱 썸네일이 겁나 이상해 그리고 들어갔다 나와야지 썸네일이 생김" →
+  **(a) thumbnails**: capture the **whole app screen scaled down** into
+  the 640×400 card (not the top-left crop); capture in the Builder
+  **whenever a new version's 미리보기 has loaded** and at 게시 — not
+  only on leaving a project; a one-time **"썸네일 만들기"** button in
+  Admin › Apps that loads each app without a thumbnail in the admin's own
+  browser, one at a time, and saves it (still client-side, no server
+  renderer — that stays `thumbnail-render-worker`); a nicer coloured
+  cover (app name + colour) instead of `</>` until one exists;
+  **CtrlAIApps cards show the thumbnail too** (the published version's).
+  A visitor's browser never uploads a thumbnail.
+- "환율은 그냥 자동 반영하면 안됨? 왜 굳이 여기다" → **(b) automatic
+  exchange rate**: USD→KRW fetched once a day from a **free, keyless**
+  public source (e.g. Frankfurter/ECB), behind a provider interface with
+  a mock default (`FX_PROVIDER=mock|frankfurter`, in `.env.example`);
+  a day-to-day jump over ~5% is not applied and shows a warning in
+  Admin › System; the admin may still pin a fixed rate (an override
+  switch); every change audited; only new charges use the new rate,
+  wallets never move. If no scheduler exists, refresh when the stored
+  rate is older than 24 h, never blocking or failing a charge (a failed
+  fetch keeps the last rate). **No paid service** — stop and ask if one
+  would be needed.
+- "매번 쓸 때마다 알림 오면 너무 많잖아 그냥 승인됐습니다 반응을
+  얻었습니다 그런 것만 알림" + "the notification number doesnt disappear
+  when i open and close it. only when i press 읽었음. delete number
+  bubble when opened" → **(c) notifications**: no more spending-summary
+  notifications (지원금 N원 사용; existing ones hidden from the list);
+  keep only approvals (신청 승인, 게시 완료), **반응을 얻었어요**
+  (a reaction or comment on your app or video, grouped per item per day)
+  and 신고 처리; **opening the list clears the number badge** (marks
+  everything shown as seen).
+- **(d)** the CtrlAIApps header still says "저장한 내용은 그 사람 기기에만
+  남아요" — outdated since `ctrlai.db`; rewrite it to match what apps can
+  do now.
+
 1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
    "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
    apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
