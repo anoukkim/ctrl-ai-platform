@@ -1,12 +1,15 @@
 # CTRL+AI — the beta server (ctrlai-server, Google Cloud, Seoul).
 #
-# Four services on one VM:
+# Four services on one VM, and a fifth behind a profile:
 #
 #   caddy  80/443, HTTPS from Let's Encrypt     — the only published ports
 #          (ctrlai.my, and member apps on apps.ctrlai.my from `apps_data`)
 #   web    Next.js (standalone)                 — pages + /api/* rewrite
 #   api    FastAPI                              — reads the server's .env
 #   db     PostgreSQL 16                        — NO published port
+#   thumbs headless Chromium (thumbnail-render-worker) — only with
+#          COMPOSE_PROFILES=thumbs in .env; on its own network with api,
+#          never with db or web (see the service)
 #
 # The server only PULLS images; GitHub Actions builds them
 # (.github/workflows/images.yml). Step-by-step: docs/deployment.md.
@@ -79,9 +82,16 @@ services:
       # Caddy serves the same volume read-only on apps.<domain>.
       APPS_DIR: /app/var/apps
       APPS_BASE_URL: https://apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
+      # thumbnail-render-worker: where the `thumbs` service answers. Fixed
+      # here like APPS_BASE_URL; the .env chooses THUMBNAIL_RENDERER and
+      # holds THUMBNAIL_WORKER_SECRET.
+      THUMBNAIL_WORKER_URL: http://thumbs:8080
     volumes:
       - api_storage:/app/var/storage
       - apps_data:/app/var/apps
+    networks:
+      - default
+      - thumbs_net
     depends_on:
       db:
         condition: service_healthy
@@ -125,6 +135,61 @@ services:
       start_period: 10s
     mem_limit: 1g
     logging: *logging
+
+  # thumbnail-render-worker: a real headless Chromium that photographs a
+  # published app for its card (THUMBNAIL_RENDERER=server). Member code
+  # runs in this container and nowhere else, so it is fenced in:
+  #   - its own network (`thumbs_net`) shared with api only — db, web and
+  #     caddy are not on it; the browser reaches apps.<domain> the way a
+  #     visitor does (the public address) and nothing else: every other
+  #     host name is refused inside Chromium and every request to another
+  #     host is aborted (thumbs/worker.py);
+  #   - its HTTP port is reachable only on that network and only with the
+  #     shared secret the api presents;
+  #   - 768 MB, one CPU, 256 processes, read-only filesystem with a tmpfs
+  #     for Chromium's profile, non-root, no capabilities, no privilege
+  #     escalation; one picture at a time, 20 s each.
+  # Started only with `COMPOSE_PROFILES=thumbs` in .env, so a server on
+  # `browser` keeps running exactly as before.
+  thumbs:
+    image: ${IMAGE_PREFIX:-ghcr.io/anoukkim/ctrl-ai-platform}-thumbs:${IMAGE_TAG:-latest}
+    profiles: ["thumbs"]
+    restart: unless-stopped
+    environment:
+      THUMBS_SECRET: ${THUMBNAIL_WORKER_SECRET:?Set THUMBNAIL_WORKER_SECRET in .env (openssl rand -hex 32)}
+      THUMBS_ALLOWED_HOST: apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
+      THUMBS_PORT: "8080"
+    networks:
+      - thumbs_net
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    shm_size: 256m
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 256
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *logging
+
+networks:
+  default:
+  # api ↔ thumbs only. Not `internal`: the browser must reach
+  # apps.<domain> through the public address (the VM's own IP); what else
+  # it may reach is decided inside Chromium, not by the network.
+  thumbs_net:
 
 volumes:
   pgdata:

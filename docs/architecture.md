@@ -72,8 +72,9 @@ the same commit that adds it.
 | `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
 | `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
-| `POST /api/builder/projects/{id}/thumbnail/choose` | `require_active_member` | owner-polish-3 (a2): the maker's pick for the published thumbnail — a PNG/JPEG/WebP data URL in a JSON body, checked and re-encoded like an upload; stamps `thumbnail_chosen_at`; 409 before 게시 |
 | `POST /api/admin/apps/{project_id}/thumbnail` | `require_admin` | owner-polish-3 (a): 썸네일 만들기 — raw image bytes taken in the admin's own browser from the published app, re-encoded like the maker's (409 without a published version) |
+| `GET /api/admin/apps/thumbnail-renderer` | `require_admin` | thumbnail-render-worker: `{renderer: browser\|server}` — whether 썸네일 다시 만들기 opens each app in the admin's browser or asks the server |
+| `POST /api/admin/apps/{project_id}/thumbnail/render` | `require_admin` | thumbnail-render-worker: the server's own browser photographs the published files (`{}`); one app per call; 503 with the reason while the renderer is `browser` or the worker fails (the old picture stays), 409 without a published version |
 | `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |
 | `POST /api/feedback/images` | `get_current_user` | One screenshot for the next note (bytes as the body, `?name=`, `application/octet-stream`); checked like a Chat image, then stored (feedback-screenshots) |
@@ -244,8 +245,10 @@ endpoint as an inactive, unenrolled, active and admin member.
 Every external provider sits behind an interface with a **mock
 implementation selected by an environment variable**, mock by default
 (`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `GITHUB_PROVIDER`,
-`YOUTUBE_PROVIDER`, and `GOOGLE_LOGIN_PROVIDER` for Google sign-in). See
-the provider rule in `CLAUDE.md`.
+`YOUTUBE_PROVIDER`, `FX_PROVIDER`, `GOOGLE_LOGIN_PROVIDER` for Google
+sign-in, and `THUMBNAIL_RENDERER` — `browser`, the in-browser capture, is
+its "mock"; `server` is the headless Chromium container below). See the
+provider rule in `CLAUDE.md`.
 
 This is what makes it possible to build every phase locally with no API keys
 and no domain, and it is why going live is a configuration change rather
@@ -256,7 +259,9 @@ Backend
   ├─ ClaudeProvider      ── MockClaude      | Anthropic
   ├─ VideoProvider       ── MockVideo       | Higgsfield
   ├─ GitHubProvider      ── MockGitHub      | GitHub App
-  └─ YouTubeProvider     ── MockYouTube     | Google OAuth
+  ├─ YouTubeProvider     ── MockYouTube     | Google OAuth
+  ├─ FxProvider          ── MockFx          | Frankfurter (ECB)
+  └─ ThumbnailRenderer   ── browser capture | thumbs (headless Chromium)
 ```
 
 Members never hold provider keys. Ctrl AI owns provider access and records
@@ -286,7 +291,57 @@ Internet ─ 80/443 ─▶ caddy (HTTPS, Let's Encrypt; www → apex)
 ```
 
 There is no `api` subdomain: the browser only talks to `ctrlai.my`.
-Images are built by GitHub Actions and pulled from ghcr.io. Secrets sit
+Images are built by GitHub Actions and pulled from ghcr.io.
+
+**A fifth service, behind a profile — `thumbs` (thumbnail-render-worker,
+2026-10-17).** With `THUMBNAIL_RENDERER=server` the published version's
+card picture is an exact screenshot taken by a real headless Chromium on
+the server, instead of (and after) the one the maker's browser draws.
+Member code runs in that container and nowhere else, so it is fenced in
+at three levels, each a test holds where it can:
+
+```text
+                     default network                 thumbs_net
+caddy ── web ── api ───────────────────────── api ── thumbs (Chromium)
+          │      │                                      │
+          └─ db ─┘  (db, web, caddy: not on thumbs_net)  └─▶ https://apps.<domain>/<slug>/_app/index.html
+                                                             (the public address, as a visitor; nothing else)
+```
+
+1. **The api asks for one address only** (`services/thumbnail_render`):
+   `APPS_BASE_URL` + the project's own ten-letter slug +
+   `/_app/index.html` — never a URL from a request body. 게시 queues the
+   render (one background thread, one at a time, a bounded queue that
+   drops rather than piles up); Admin › Apps' 썸네일 다시 만들기 asks for
+   one app at a time and waits. The PNG back (≤ 4 MB) goes through
+   `thumbnails.encode` like an upload; any failure keeps the old picture
+   or cover. The api never waits for a render inside a member's request
+   and never fails to start because the worker is down.
+2. **The worker** (`thumbs/worker.py`, a stdlib HTTP server on its own
+   port) accepts `POST /render` only with the shared secret
+   (`THUMBNAIL_WORKER_SECRET`, compared in constant time) and checks the
+   address again: the configured host only, https, the
+   `/<slug>/_app/index.html` path, no userinfo. Chromium is launched with
+   `--host-resolver-rules="MAP * ~NOTFOUND, EXCLUDE apps.<domain>"`, so
+   no other name resolves, and a Playwright route aborts every request
+   whose host is not the apps host — so an IP address written into the
+   page (`http://172.18.0.2:8000`) goes nowhere either. Service workers
+   are blocked, downloads refused, no permissions granted, a fresh
+   browser per picture, navigation capped at 15 s and the whole job at
+   20 s, one job at a time behind a lock (a second caller waits, then
+   gets 503). The files themselves are served under the apps origin's
+   `sandbox … connect-src 'none'` policy, a third fence.
+3. **The container** (`docker-compose.prod.yml`): the pinned
+   `mcr.microsoft.com/playwright/python` image plus the one script, on
+   `thumbs_net` with the api only (db, web and caddy are not on it; the
+   browser reaches `apps.<domain>` through the public address like any
+   visitor), `mem_limit: 768m`, `cpus: 1`, `pids_limit: 256`,
+   `read_only: true` with a tmpfs for Chromium's profile, the image's
+   non-root user, `cap_drop: ALL`, `no-new-privileges`. Chromium's own
+   sandbox is off (it would need capabilities the container does not
+   have); the container is the sandbox. The service starts only with
+   `COMPOSE_PROFILES=thumbs` in the server `.env`, so a server on
+   `browser` runs the four services exactly as before. Secrets sit
 in a `chmod 600` `.env` on the VM — the beta-only exception in
 `CLAUDE.md` section 17. The full decision is in `docs/archive/done-specs.md` ›
 prep-beta-launch › **Hosting decisions — 2026-10-13**; running it is

@@ -478,6 +478,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/apps/{project_id}/unpublish"): "require_admin",
     # owner-polish-3 (a): 썸네일 만들기 — a picture taken in the admin's own browser.
     ("POST", "/api/admin/apps/{project_id}/thumbnail"): "require_admin",
+    # thumbnail-render-worker
+    ("GET", "/api/admin/apps/thumbnail-renderer"): "require_admin",
+    ("POST", "/api/admin/apps/{project_id}/thumbnail/render"): "require_admin",
     ("POST", "/api/admin/apps/reports/{report_id}/resolve"): "require_admin",
     ("POST", "/api/builder/projects/{project_id}/starter"): "require_active_member",
     # chat-plus-artifacts: Builder로 보내기 creates a project — a creation.

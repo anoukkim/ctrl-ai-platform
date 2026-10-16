@@ -25,11 +25,13 @@ ctrlai-server (Google Cloud, 서울)
    ├─ caddy   80/443 — HTTPS 인증서를 스스로 받고, www를 ctrlai.my로 돌려보냄
    ├─ web     Next.js — 화면, 그리고 /api/* 요청을 api로 넘김
    ├─ api     FastAPI — 서버의 .env를 읽음 (비밀 값은 여기에만)
-   └─ db      PostgreSQL 16 — 바깥에서 접속할 수 없음
+   ├─ db      PostgreSQL 16 — 바깥에서 접속할 수 없음
+   └─ thumbs  (켜면) 서버 안의 진짜 브라우저가 게시된 앱의 썸네일을 찍음 —
+              api와만 같은 망, db·web과는 닿지 않음 (thumbnail-render-worker)
 ```
 
-네 개는 모두 **Docker Compose** 하나(`docker-compose.prod.yml`)로 함께
-켜고 끕니다. 프로그램(이미지)은 GitHub Actions가 만들어 ghcr.io(GitHub의
+네 개(켜면 다섯 개)는 모두 **Docker Compose** 하나(`docker-compose.prod.yml`)로
+함께 켜고 끕니다. 프로그램(이미지)은 GitHub Actions가 만들어 ghcr.io(GitHub의
 이미지 저장소)에 올리고, 서버는 **받아 오기만** 합니다.
 
 ### 서버 정보
@@ -674,7 +676,9 @@ dc up -d
    ```
 
    백업 → `git pull` → 새 이미지 받기 → 마이그레이션 → 다시 시작을 차례로
-   합니다. 사이트는 api와 web이 바뀌는 몇 초 동안만 멈춥니다.
+   합니다. 사이트는 api와 web이 바뀌는 몇 초 동안만 멈춥니다. `thumbs`를
+   켜 두었으면(아래 "서버 썸네일 렌더러 켜기") 그 이미지도 같이 받고 다시
+   만듭니다 — 따로 할 일은 없습니다.
 3. https://ctrlai.my 를 열어 로그인해 봅니다.
 
 **되돌리기:** 새 버전에 문제가 있으면 `.env`의 `IMAGE_TAG=`를 이전 커밋의
@@ -722,6 +726,10 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 ---
 
 ## 11. 보안 점검표
+
+- `thumbs`를 켰다면: `dc exec thumbs python -c "import socket; socket.create_connection(('db', 5432), timeout=3)"`가
+  **실패**해야 정상입니다(브라우저 컨테이너는 db·web과 다른 망). 비밀 값
+  `THUMBNAIL_WORKER_SECRET`은 `.env`에만 있고, 바꾸면 `dc up -d thumbs api`.
 
 키 하나로 여러 회원이 쓰는 구조와 그 보호 장치(동시 호출 한도, 월 예산
 막대, 크레딧 소진 시의 동작, Console 쪽 규칙)는
@@ -851,6 +859,50 @@ ZIP에만 있습니다. 이미 올라가 있는 앱 폴더에는 남아 있으�
 ```bash
 dc exec api python -m app.db.rewrite_app_runtime
 ```
+
+### 서버 썸네일 렌더러 켜기 (thumbnail-render-worker) — 한 번
+
+2026-10-17부터 게시된 앱의 카드 그림을 **서버 안의 진짜 브라우저**(Chromium)가
+찍을 수 있습니다(`thumbs` 서비스). 기본값은 예전처럼 만든 사람·관리자의
+브라우저가 찍는 `browser`라서, 아무것도 바꾸지 않으면 배포 뒤에도 그대로입니다.
+켜려면 배포(`update.sh`)를 마친 뒤 **한 번**:
+
+1. 비밀 값을 하나 만들어 `.env`에 세 줄을 더합니다(`.env`는 그대로 `chmod 600`):
+
+   ```bash
+   cd ~/ctrl-ai-platform
+   secret=$(openssl rand -hex 32)
+   printf 'THUMBNAIL_RENDERER=server\nTHUMBNAIL_WORKER_SECRET=%s\nCOMPOSE_PROFILES=thumbs\n' "$secret" >> .env
+   ```
+
+   (`THUMBNAIL_WORKER_URL`은 compose 파일이 `http://thumbs:8080`으로 정해
+   둡니다 — `.env`에 적지 않습니다.)
+2. 새 서비스의 이미지를 받고 둘을 다시 켭니다:
+
+   ```bash
+   dc pull thumbs
+   dc up -d thumbs api
+   ```
+
+3. 확인:
+
+   ```bash
+   dc ps                       # thumbs가 healthy
+   dc logs --tail 5 thumbs     # "thumbs listening on 8080 for apps.ctrlai.my"
+   dc exec api python -c "import urllib.request as u; print(u.urlopen('http://thumbs:8080/health', timeout=4).read())"
+   dc exec db true && ! dc exec thumbs python -c "import socket; socket.create_connection(('db', 5432), timeout=3)" && echo "thumbs는 db에 닿지 않음 (정상)"
+   ```
+
+   그다음 https://ctrlai.my/admin/apps 에서 **썸네일 다시 만들기**를 누르면
+   안내가 "서버의 브라우저가 … 찍어요"로 바뀌고, 앱 하나에 10초쯤 걸리며
+   저장된 수가 늘어납니다. 그 뒤로는 회원이 게시할 때마다 몇 초 뒤 서버가
+   찍은 그림으로 바뀝니다(그 전에 회원 브라우저가 찍은 그림이 먼저 저장되니,
+   서버가 실패해도 그림은 남습니다).
+
+끄려면 `.env`에서 `THUMBNAIL_RENDERER=browser`로 돌리고(또는 줄을 지우고)
+`COMPOSE_PROFILES=` 비운 뒤 `dc up -d --remove-orphans api` — thumbs가
+내려가고 예전 방식으로 돌아갑니다. 메모리: thumbs는 768 MB까지만 씁니다
+(e2-medium의 남은 ~2.8 GB 안).
 
 ## 13. 나중에 키울 때 (지금은 하지 않음) 💳
 

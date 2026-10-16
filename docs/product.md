@@ -1023,8 +1023,12 @@ in a 1024×640 frame so text stays readable on the card; the Builder's
 every new version) and once more a few seconds later when the first try
 failed; 게시 photographs the published app; Admin › Apps has a one-time
 **썸네일 만들기** that opens each published app without a picture in the
-admin's own browser, one at a time, and saves what the SDK drew (still
-client-side — no server renderer, which stays `thumbnail-render-worker`);
+admin's own browser, one at a time, and saves what the SDK drew — or,
+with `THUMBNAIL_RENDERER=server` (thumbnail-render-worker, 2026-10-17),
+asks the server's own headless Chromium for an exact screenshot of each
+app, one at a time ("서버의 브라우저가 … 찍어요"); 게시 then also gets the
+server's picture a few seconds after the maker's browser's, and a failed
+server render keeps whatever picture or cover the app had;
 until a picture exists the cover is the app's name on its colour with a
 large faint initial behind it (no more `</>`), on CtrlAIApps and Builder
 cards alike. A visitor's browser never uploads a thumbnail. **(a2) The

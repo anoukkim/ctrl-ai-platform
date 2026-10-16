@@ -1,0 +1,368 @@
+"""Server-side thumbnails (thumbnail-render-worker).
+
+`THUMBNAIL_RENDERER=browser` (the default) is today's behaviour: the
+picture is drawn in the maker's or the admin's own browser and uploaded
+(`services/thumbnails`). `THUMBNAIL_RENDERER=server` adds a **real headless
+Chromium in its own container** (`thumbs` in docker-compose.prod.yml): the
+api asks it for a 1024×640 screenshot of the published app, and the PNG
+goes through the same `thumbnails.encode` (first screen, 640×400 WebP)
+into the same storage. The in-browser capture stays as it is and is the
+fallback — a failed or refused render keeps whatever picture or cover the
+app had.
+
+The isolation lives in three places, each of which alone would hold:
+
+1. **What the api asks for** — never a URL from a request. `published_url`
+   builds it from `APPS_BASE_URL` and the project's own slug (ten letters
+   and digits), to the app's files under `/_app/`, which the apps origin
+   serves under a `sandbox … connect-src 'none'` policy.
+2. **The worker** (`thumbs/worker.py`) — checks the shared secret, checks
+   the URL again against its own allowed host and path pattern, and runs
+   Chromium with every other host name refused and every request to
+   another host aborted. One picture at a time, 20 s and it gives up.
+3. **The container** — its own network with the api only (never db or
+   web), 768 MB, one CPU, read-only, non-root, no capabilities.
+
+The api never waits for a render on the member's request: 게시 queues
+one (`enqueue`) and a single worker thread does them in order; Admin ›
+Apps' 썸네일 다시 만들기 asks for one at a time and waits (`render_now`).
+"""
+
+from __future__ import annotations
+
+import logging
+import queue
+import re
+import threading
+from collections.abc import Callable
+from typing import Protocol
+from urllib.parse import quote
+
+from sqlalchemy.orm import Session
+
+from app.core.config import Settings
+from app.models import BuilderProject
+from app.services import thumbnails
+from app.services.attachments import AttachmentRefusal
+from app.services.storage import get_storage
+
+logger = logging.getLogger(__name__)
+
+#: The worker's viewport — the first screen a laptop visitor sees; the
+#: card's 640×400 is cut from the top of it by `thumbnails.encode`.
+VIEWPORT_WIDTH = 1024
+VIEWPORT_HEIGHT = 640
+#: The worker's own timeout; the api waits this plus a little for the
+#: connection, then gives up as well.
+DEFAULT_TIMEOUT_S = 20
+#: What the api accepts back from the worker (a PNG of 1024×640 is far less).
+MAX_IMAGE_BYTES = thumbnails.MAX_UPLOAD_BYTES
+#: Renders waiting after 게시 at most — beyond this the newest is dropped
+#: (the in-browser capture still ran) rather than piling up.
+QUEUE_MAX = 20
+
+SECRET_HEADER = "X-Thumbs-Secret"
+_SLUG = re.compile(r"^[a-z2-9]{10}$")
+
+OFF = "서버 썸네일 렌더러가 꺼져 있어요 (THUMBNAIL_RENDERER=browser)."
+NOT_PUBLISHED = thumbnails.NOT_PUBLISHED
+FAILED = "서버에서 썸네일을 찍지 못했어요. 이전 그림을 그대로 둡니다."
+
+
+class RenderError(Exception):
+    """A Korean sentence for the screen, and an HTTP status for the route."""
+
+    def __init__(self, message: str, status_code: int = 503) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class Renderer(Protocol):
+    def render(self, url: str) -> bytes:
+        """The PNG of `url`'s first screen, or raise `RenderError`."""
+        ...
+
+
+class WorkerRenderer:
+    """The real thing: `POST {worker_url}/render {"url"}` with the shared
+    secret in a header; the body back is the PNG."""
+
+    def __init__(
+        self,
+        worker_url: str,
+        secret: str,
+        timeout_s: int = DEFAULT_TIMEOUT_S,
+        post: Callable[..., object] | None = None,
+    ) -> None:
+        self.worker_url = worker_url.rstrip("/")
+        self.secret = secret
+        self.timeout_s = timeout_s
+        self._post = post
+
+    def render(self, url: str) -> bytes:
+        import httpx2 as httpx
+
+        post = self._post or httpx.post
+        try:
+            response = post(
+                f"{self.worker_url}/render",
+                json={"url": url, "timeout_s": self.timeout_s},
+                headers={SECRET_HEADER: self.secret},
+                # The worker's own deadline, plus the time to connect and answer.
+                timeout=self.timeout_s + 5,
+            )
+        except Exception as error:  # noqa: BLE001 — any transport failure: the old picture stays
+            logger.warning("thumbnail worker unreachable: %s", type(error).__name__)
+            raise RenderError(FAILED) from error
+        status = getattr(response, "status_code", 0)
+        if status != 200:
+            logger.warning("thumbnail worker answered %s", status)
+            raise RenderError(FAILED)
+        data = getattr(response, "content", b"")
+        if not data or len(data) > MAX_IMAGE_BYTES:
+            raise RenderError(FAILED)
+        return data
+
+
+class FakeRenderer:
+    """Tests only: a solid PNG back, or a failure, and a record of the URLs."""
+
+    def __init__(self, image: bytes | None = None, fail: bool = False) -> None:
+        self.image = image if image is not None else _solid_png()
+        self.fail = fail
+        self.urls: list[str] = []
+
+    def render(self, url: str) -> bytes:
+        self.urls.append(url)
+        if self.fail:
+            raise RenderError(FAILED)
+        return self.image
+
+
+def _solid_png() -> bytes:
+    import io
+
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (VIEWPORT_WIDTH, VIEWPORT_HEIGHT), (40, 110, 190)).save(out, format="PNG")
+    return out.getvalue()
+
+
+# ------------------------------------------------------------ the provider
+
+
+def mode(settings: Settings) -> str:
+    """`browser` or `server` — the provider rule's switch."""
+    return settings.thumbnail_renderer.strip().lower()
+
+
+def enabled(settings: Settings) -> bool:
+    return mode(settings) == "server"
+
+
+_override: Renderer | None = None
+
+
+def use_renderer(renderer: Renderer | None) -> None:
+    """Tests: the renderer every call uses, instead of the worker."""
+    global _override
+    _override = renderer
+
+
+def get_renderer(settings: Settings) -> Renderer | None:
+    """The renderer for this configuration, or None while `browser`."""
+    if _override is not None:
+        return _override
+    if not enabled(settings):
+        return None
+    return WorkerRenderer(
+        settings.thumbnail_worker_url, settings.thumbnail_worker_secret, settings.thumbnail_render_timeout_s
+    )
+
+
+# ------------------------------------------------------------ the address
+
+
+def published_url(settings: Settings, project: BuilderProject) -> str:
+    """The one address the worker may be asked for: this project's
+    published files on the apps origin. Built here from the configuration
+    and the project's own slug — never from a request — and refused when
+    anything about it is off."""
+    origin = settings.apps_origin
+    if origin is None:
+        raise RenderError("앱 주소(APPS_BASE_URL)가 없어 서버에서 찍을 수 없어요.", 503)
+    slug = project.app_slug or ""
+    if project.published_version_id is None or not _SLUG.match(slug):
+        raise RenderError(NOT_PUBLISHED, 409)
+    stamp = project.published_at.isoformat() if project.published_at else ""
+    # `?v=` only busts caches (the apps origin serves static files); the
+    # worker checks the path, not the query.
+    return f"{origin}/{slug}/_app/index.html?v={quote(stamp, safe='')}"
+
+
+# ------------------------------------------------------------ one render
+
+
+def render_now(db: Session, settings: Settings, project: BuilderProject) -> None:
+    """Render and store the published version's picture, or raise
+    `RenderError` — the old picture (or cover) is untouched on failure."""
+    renderer = get_renderer(settings)
+    if renderer is None:
+        raise RenderError(OFF, 503)
+    version = project.published_version
+    if version is None:
+        raise RenderError(NOT_PUBLISHED, 409)
+    url = published_url(settings, project)
+    data = renderer.render(url)
+    try:
+        thumbnails.save_version(db, get_storage(settings), project, version, data)
+    except AttachmentRefusal as refusal:
+        # The worker sent something that is not a usable image.
+        logger.warning("thumbnail worker returned a bad image: %s", refusal)
+        raise RenderError(FAILED) from refusal
+
+
+def render_quietly(db: Session, settings: Settings, project: BuilderProject) -> bool:
+    """`render_now` for the queue: False instead of an exception."""
+    try:
+        render_now(db, settings, project)
+    except RenderError as error:
+        logger.info("thumbnail render skipped for project %s: %s", project.id, error)
+        return False
+    except Exception:  # noqa: BLE001 — a background job must never take the thread down
+        logger.exception("thumbnail render failed for project %s", project.id)
+        return False
+    return True
+
+
+# ------------------------------------------------------------ the queue
+
+
+class RenderQueue:
+    """One render at a time, in the order 게시 happened.
+
+    A single thread takes project ids off a bounded queue, opens its own
+    database session, and renders. The same project waiting twice is
+    queued once (the newest publish is what gets rendered either way).
+    """
+
+    def __init__(
+        self,
+        session_factory: Callable[[], Session],
+        settings_for: Callable[[], Settings],
+        maxsize: int = QUEUE_MAX,
+        background: bool = True,
+    ) -> None:
+        self._session_factory = session_factory
+        self._settings_for = settings_for
+        #: Tests run jobs by hand with `run_one`; no thread is started.
+        self._background = background
+        self._queue: queue.Queue[int] = queue.Queue(maxsize=maxsize)
+        self._waiting: set[int] = set()
+        self._lock = threading.Lock()
+        self._thread: threading.Thread | None = None
+        self.done = 0
+        self.failed = 0
+        self.dropped = 0
+
+    def submit(self, project_id: int) -> bool:
+        """Queue a project; False when it is already waiting or the queue
+        is full (logged — the in-browser capture still happened)."""
+        with self._lock:
+            if project_id in self._waiting:
+                return False
+            try:
+                self._queue.put_nowait(project_id)
+            except queue.Full:
+                self.dropped += 1
+                logger.warning("thumbnail render queue full; project %s not queued", project_id)
+                return False
+            self._waiting.add(project_id)
+        return True
+
+    def pending(self) -> int:
+        return self._queue.qsize()
+
+    def run_one(self, block: bool = True, timeout: float | None = None) -> bool:
+        """Take and render one project. False when nothing was waiting."""
+        try:
+            project_id = self._queue.get(block=block, timeout=timeout)
+        except queue.Empty:
+            return False
+        with self._lock:
+            self._waiting.discard(project_id)
+        try:
+            self._render(project_id)
+        finally:
+            self._queue.task_done()
+        return True
+
+    def _render(self, project_id: int) -> None:
+        db = self._session_factory()
+        try:
+            project = db.get(BuilderProject, project_id)
+            if project is None or project.deleted_at is not None:
+                return
+            if render_quietly(db, self._settings_for(), project):
+                db.commit()
+                self.done += 1
+            else:
+                db.rollback()
+                self.failed += 1
+        except Exception:  # noqa: BLE001 — see render_quietly
+            logger.exception("thumbnail render job failed for project %s", project_id)
+            db.rollback()
+            self.failed += 1
+        finally:
+            db.close()
+
+    def start(self) -> None:
+        """The background thread, started once, on the first submit."""
+        if not self._background:
+            return
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._thread = threading.Thread(target=self._loop, name="thumbnail-render", daemon=True)
+            self._thread.start()
+
+    def _loop(self) -> None:
+        while True:
+            self.run_one(block=True)
+
+
+_queue: RenderQueue | None = None
+_queue_lock = threading.Lock()
+
+
+def shared_queue() -> RenderQueue:
+    """The process's one queue (made on first use, with the app's session
+    factory and settings)."""
+    global _queue
+    with _queue_lock:
+        if _queue is None:
+            from app.core.config import get_settings
+            from app.db.session import SessionLocal
+
+            _queue = RenderQueue(SessionLocal, get_settings)
+        return _queue
+
+
+def use_queue(instance: RenderQueue | None) -> None:
+    """Tests: the queue `enqueue` fills (None restores the shared one)."""
+    global _queue
+    with _queue_lock:
+        _queue = instance
+
+
+def enqueue(settings: Settings, project_id: int) -> bool:
+    """After 게시: ask for the published version's picture, in the
+    background. A no-op (False) while the renderer is `browser`."""
+    if get_renderer(settings) is None:
+        return False
+    instance = shared_queue()
+    queued = instance.submit(project_id)
+    if queued:
+        instance.start()
+    return queued

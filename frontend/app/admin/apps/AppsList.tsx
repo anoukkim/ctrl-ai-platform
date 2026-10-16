@@ -14,7 +14,15 @@ import { useEffect, useState } from "react";
 
 import PageHeader from "@/app/components/PageHeader";
 import { describeError } from "@/lib/http";
-import { adminUploadThumbnail, formatBytes, listAdminAppOverview, type AdminAppOverview } from "@/lib/apps";
+import {
+  adminRenderThumbnail,
+  adminUploadThumbnail,
+  formatBytes,
+  getThumbnailRenderer,
+  listAdminAppOverview,
+  type AdminAppOverview,
+  type ThumbnailRenderer,
+} from "@/lib/apps";
 import { relativeTime } from "@/lib/relative-time";
 
 import HiddenCapture from "@/app/builder/[projectId]/HiddenCapture";
@@ -102,6 +110,10 @@ export default function AppsList() {
   // owner-polish-3 (a): 썸네일 만들기 — 그림이 없는 게시 앱을 이 브라우저의 숨은
   // 프레임에 하나씩 띄워 찍고 올립니다. 서버는 회원 코드를 실행하지 않아요.
   const [making, setMaking] = useState<{ queue: AdminAppOverview[]; done: number; failed: number } | null>(null);
+  // thumbnail-render-worker: with THUMBNAIL_RENDERER=server the same button
+  // asks the server's own browser instead, one app at a time (the server
+  // waits for each picture); unknown until the answer arrives → browser.
+  const [renderer, setRenderer] = useState<ThumbnailRenderer>("browser");
 
   const published = (apps ?? []).filter((app) => app.published && app.app_url);
   const missing = published.filter((app) => !app.thumbnail_at);
@@ -132,10 +144,37 @@ export default function AppsList() {
       .catch((caught: unknown) => {
         if (!cancelled) setError(describeError(caught));
       });
+    getThumbnailRenderer()
+      .then((answer) => {
+        if (!cancelled && answer.renderer === "server") setRenderer("server");
+      })
+      .catch(() => {
+        // Unknown → the admin's own browser, which always works.
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Server mode: ask for the current app's picture and move on — a failure
+  // counts as one (the old picture stays) and the queue continues.
+  const serverTarget = renderer === "server" ? current : null;
+  useEffect(() => {
+    if (!serverTarget) return;
+    let cancelled = false;
+    adminRenderThumbnail(serverTarget.id)
+      .then((updated) => {
+        if (!cancelled) finishOne(updated);
+      })
+      .catch(() => {
+        if (!cancelled) finishOne(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // finishOne is stable in effect (state setters only); the job is per app.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverTarget?.id]);
 
   return (
     <>
@@ -157,15 +196,19 @@ export default function AppsList() {
           <span className="small muted" aria-live="polite">
             {making === null
               ? missing.length > 0
-                ? `그림이 없는 게시 앱 ${missing.length}개 — 이 브라우저에서 하나씩 열어 찍고 저장해요.`
+                ? renderer === "server"
+                  ? `그림이 없는 게시 앱 ${missing.length}개 — 서버의 브라우저가 하나씩 열어 찍고 저장해요.`
+                  : `그림이 없는 게시 앱 ${missing.length}개 — 이 브라우저에서 하나씩 열어 찍고 저장해요.`
                 : published.length > 0
-                  ? `게시된 앱마다 그림이 있어요 — 다시 만들면 ${published.length}개를 첫 화면으로 새로 찍어요.`
+                  ? renderer === "server"
+                    ? `게시된 앱마다 그림이 있어요 — 다시 만들면 서버의 브라우저가 ${published.length}개를 첫 화면으로 새로 찍어요.`
+                    : `게시된 앱마다 그림이 있어요 — 다시 만들면 ${published.length}개를 첫 화면으로 새로 찍어요.`
                   : "게시된 앱이 없어요."
               : finished
                 ? `끝 — ${making.done}개 저장${making.failed > 0 ? `, ${making.failed}개 실패 (앱을 열어 다시 찍어 주세요)` : ""}.`
                 : `찍는 중 ${making.done + making.failed + 1}/${making.done + making.failed + making.queue.length} — ${current?.name ?? ""}`}
           </span>
-          {current && current.app_url && (
+          {renderer === "browser" && current && current.app_url && (
             <HiddenCapture
               key={current.id}
               url={`${current.app_url}?v=${encodeURIComponent(current.published_at ?? "")}`}

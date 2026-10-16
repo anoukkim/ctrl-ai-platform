@@ -43,8 +43,17 @@ from app.schemas.apps import (
     AdminSdkSet,
     AdminUnpublish,
 )
-from app.schemas.builder import HandoffRead
-from app.services import app_data, app_publish, app_runtime, audit, chat_limits, project_handoff, thumbnails
+from app.schemas.builder import EmptyBody, HandoffRead
+from app.services import (
+    app_data,
+    app_publish,
+    app_runtime,
+    audit,
+    chat_limits,
+    project_handoff,
+    thumbnail_render,
+    thumbnails,
+)
 from app.api.uploads import read_upload_body
 from starlette.concurrency import run_in_threadpool
 from app.services.attachments import AttachmentRefusal
@@ -489,6 +498,51 @@ def delete_data_item(
     closed = app_data.admin_delete(db, admin, _live_item(db, item_id), _reason(payload))
     db.commit()
     return {"detail": "항목을 지웠습니다.", "reports_closed": closed}
+
+
+@router.get(
+    "/thumbnail-renderer",
+    response_model=dict,
+    summary="thumbnail-render-worker: who photographs apps — browser or server",
+)
+def thumbnail_renderer_read(
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Admin › Apps reads this to know whether 썸네일 다시 만들기 opens each
+    app in the admin's browser (`browser`) or asks the server (`server`)."""
+    return {"renderer": "server" if thumbnail_render.enabled(settings) else "browser"}
+
+
+@router.post(
+    "/{project_id}/thumbnail/render",
+    response_model=AdminAppOverview,
+    summary="thumbnail-render-worker: photograph the published app on the server",
+)
+def render_admin_thumbnail(
+    project_id: int,
+    _payload: EmptyBody,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> AdminAppOverview:
+    """Admin › Apps › 썸네일 다시 만들기 with THUMBNAIL_RENDERER=server: the
+    api asks the `thumbs` container for a picture of the published files
+    and stores it like an upload — one app per call, the screen goes one
+    at a time. 503 with the reason while the renderer is `browser` or the
+    worker fails (the old picture stays); 409 without a published version;
+    a deleted project is a 404."""
+    project = db.get(BuilderProject, project_id)
+    if project is None or project.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="앱을 찾을 수 없습니다.")
+    try:
+        thumbnail_render.render_now(db, settings, project)
+    except thumbnail_render.RenderError as error:
+        db.rollback()
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    db.refresh(project)
+    return _overview(settings, project, _figures(db, [project]))
 
 
 # Declared last: a bare /{project_id} must not swallow /reports or /overview.

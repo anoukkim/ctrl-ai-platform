@@ -173,6 +173,16 @@ class Settings(BaseSettings):
     #: owner-polish-3 (b): the daily USD→KRW rate. `frankfurter` is the
     #: ECB's reference rates through api.frankfurter.dev — free, no key.
     fx_provider: str = "mock"
+    #: thumbnail-render-worker: who photographs a published app for its
+    #: card. `browser` (the default, today's behaviour): the maker's or the
+    #: admin's own browser. `server`: a headless Chromium in its own
+    #: container (`thumbs`), asked through THUMBNAIL_WORKER_URL with the
+    #: shared secret; the in-browser capture stays as the fallback.
+    thumbnail_renderer: str = "browser"
+    thumbnail_worker_url: str = ""
+    thumbnail_worker_secret: str = ""
+    #: The worker's deadline per picture, seconds (the spec's 20).
+    thumbnail_render_timeout_s: int = 20
 
     # The credentials themselves. An empty value is not an error while the
     # matching provider above is `mock`; it only matters once a real
@@ -415,6 +425,7 @@ class Settings(BaseSettings):
             "github": self.github_provider,
             "youtube": self.youtube_provider,
             "fx": self.fx_provider,
+            "thumbnail": self.thumbnail_renderer,
         }[provider].strip().lower()
 
     def provider_is_mock(self, provider: str) -> bool:
@@ -456,6 +467,18 @@ class Settings(BaseSettings):
             missing.append("ANTHROPIC_ADMIN_PROVIDER (mock 또는 anthropic)")
         elif admin_report == "anthropic" and not self.anthropic_admin_api_key.strip():
             missing.append("ANTHROPIC_ADMIN_API_KEY")
+        renderer = self.thumbnail_renderer.strip().lower()
+        if renderer not in {"browser", "server"}:
+            missing.append("THUMBNAIL_RENDERER (browser 또는 server)")
+        elif renderer == "server":
+            # The worker's address and the secret the api must present —
+            # without them the api would ask nothing and nobody.
+            for name, value in (
+                ("THUMBNAIL_WORKER_URL", self.thumbnail_worker_url),
+                ("THUMBNAIL_WORKER_SECRET", self.thumbnail_worker_secret),
+            ):
+                if not value.strip():
+                    missing.append(name)
         google = self.google_login_provider.strip().lower()
         if google not in {"mock", "google"}:
             missing.append("GOOGLE_LOGIN_PROVIDER (mock 또는 google)")

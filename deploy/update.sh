@@ -40,7 +40,9 @@ fi
 # compose can leave a container on the old image when `latest` moved to a
 # new image id with the same content (seen 2026-10-14 with an unchanged
 # frontend). Make sure api and web run exactly the image just pulled.
-for service in api web; do
+# thumbs (thumbnail-render-worker) only runs with COMPOSE_PROFILES=thumbs
+# in .env; without the profile `ps -q thumbs` is empty and it is skipped.
+for service in api web thumbs; do
   want=$(docker image inspect --format '{{.Id}}' "$("${compose[@]}" config --images | grep -- "-$service:" | head -n 1)" 2>/dev/null || true)
   have=$(docker inspect --format '{{.Image}}' "$("${compose[@]}" ps -q "$service")" 2>/dev/null || true)
   if [ -n "$want" ] && [ "$want" != "$have" ]; then

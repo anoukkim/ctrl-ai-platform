@@ -6,7 +6,7 @@
  * Content에는 신고 표만 남고 앱 표는 없습니다.
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import AdminContentPage from "@/app/admin/content/page";
@@ -14,6 +14,8 @@ import AppsList from "@/app/admin/apps/AppsList";
 
 const listAdminAppOverview = vi.fn();
 const listAppReports = vi.fn();
+const getThumbnailRenderer = vi.fn();
+const adminRenderThumbnail = vi.fn();
 
 vi.mock("@/lib/apps", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/apps")>();
@@ -21,8 +23,15 @@ vi.mock("@/lib/apps", async (importOriginal) => {
     ...actual,
     listAdminAppOverview: () => listAdminAppOverview(),
     listAppReports: () => listAppReports(),
+    getThumbnailRenderer: () => getThumbnailRenderer(),
+    adminRenderThumbnail: (id: number) => adminRenderThumbnail(id),
   };
 });
+
+// The in-browser capture opens a hidden frame; here it only reports itself.
+vi.mock("@/app/builder/[projectId]/HiddenCapture", () => ({
+  default: ({ url }: { url: string }) => <div data-testid="hidden-capture">{url}</div>,
+}));
 
 // promo-videos: Content also lists CtrlAITube comment reports — none here.
 vi.mock("@/lib/tube", async (importOriginal) => {
@@ -88,6 +97,8 @@ const ROWS = [
 beforeEach(() => {
   listAdminAppOverview.mockReset().mockResolvedValue(ROWS);
   listAppReports.mockReset().mockResolvedValue([]);
+  getThumbnailRenderer.mockReset().mockResolvedValue({ renderer: "browser" });
+  adminRenderThumbnail.mockReset();
 });
 
 describe("Admin › Apps", () => {
@@ -110,6 +121,32 @@ describe("Admin › Apps", () => {
     // 줄은 앱 상세로 이어집니다.
     const links = screen.getAllByRole("link", { name: /동아리 게시판/ });
     expect(links.some((link) => link.getAttribute("href") === "/admin/apps/5")).toBe(true);
+  });
+
+  test("thumbnail-render-worker: browser mode opens the hidden frame in this browser", async () => {
+    render(<AppsList />);
+    await screen.findAllByRole("row");
+    expect(screen.getByTestId("thumbnail-maker").textContent).toContain("이 브라우저에서 하나씩");
+    fireEvent.click(screen.getByRole("button", { name: "썸네일 만들기" }));
+    expect((await screen.findByTestId("hidden-capture")).textContent).toContain("http://apps.test/abcdefgh23/");
+    expect(adminRenderThumbnail).not.toHaveBeenCalled();
+  });
+
+  test("thumbnail-render-worker: server mode asks the server one app at a time, no frame", async () => {
+    getThumbnailRenderer.mockResolvedValue({ renderer: "server" });
+    const second = { ...ROWS[0], id: 6, name: "두 번째 앱", slug: "bcdefgh234", app_url: "http://apps.test/bcdefgh234/", thumbnail_at: null };
+    listAdminAppOverview.mockResolvedValue([ROWS[0], second, ROWS[1]]);
+    adminRenderThumbnail
+      .mockResolvedValueOnce({ ...ROWS[0], thumbnail_at: "2026-10-17T00:00:00Z" })
+      .mockRejectedValueOnce(new Error("서버에서 썸네일을 찍지 못했어요."));
+    render(<AppsList />);
+    await screen.findAllByRole("row");
+    await waitFor(() => expect(screen.getByTestId("thumbnail-maker").textContent).toContain("서버의 브라우저가"));
+    fireEvent.click(screen.getByRole("button", { name: "썸네일 만들기" }));
+    await waitFor(() => expect(adminRenderThumbnail).toHaveBeenCalledTimes(2));
+    expect(adminRenderThumbnail.mock.calls.map((call) => call[0])).toEqual([5, 6]);
+    expect(screen.queryByTestId("hidden-capture")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("thumbnail-maker").textContent).toContain("1개 저장, 1개 실패"));
   });
 
   test("Content에는 신고 표만 남고 앱 표는 없다", async () => {
