@@ -48,6 +48,20 @@ const nextConfig: NextConfig = {
    * 쿠키를 읽을 수 없습니다. CORS 설정이나 교차 출처 쿠키 플래그도 필요
    * 없습니다. 배포 환경에서도 같은 구조를 그대로 씁니다(Phase 9).
    */
+  /**
+   * 소개 영상(promo-videos)은 1년 캐시. 파일 이름에 판(v1)이 있어 새
+   * 인코딩은 새 이름이므로, 옛 파일이 캐시에 남아도 틀릴 일이 없습니다.
+   * 5~8MB짜리 파일을 안내 창이 열릴 때마다 다시 받지 않게 합니다.
+   */
+  async headers() {
+    return [
+      {
+        source: "/promo/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
+  },
+
   async rewrites() {
     return [
       {

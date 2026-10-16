@@ -19,17 +19,21 @@
  * 합니다. 목록을 댓글칸이 혼자 들고 있으면 탭은 그 수를 알 길이 없어,
  * 방금 쓴 댓글이 목록에는 보이는데 탭에는 세어지지 않습니다.
  *
- * 아직 **목업입니다.** 여기서 쓴 댓글은 화면을 떠나면 사라집니다 — 앱은
- * Phase 5, 영상은 Phase 8에서 CTRL+AI의 PostgreSQL에 저장됩니다. 그래도
- * 입력칸을 막아 두지 않은 이유는, 쓸 수 없는 입력칸으로는 Enter로
- * 올라가는지, 줄바꿈이 되는지, 긴 실타래가 칸을 넘지 않는지를 확인할
- * 방법이 없기 때문입니다. 사라진다는 사실은 입력칸 아래에 작게 적어
- * 둡니다.
+ * 두 가지로 씁니다.
+ *   - **목업** (`useCommentThread`): 예시 영상의 댓글. 화면을 떠나면
+ *     사라지고, 그 사실을 입력칸 아래에 작게 적습니다. 입력칸을 막아 두지
+ *     않은 이유는, 쓸 수 없는 입력칸으로는 Enter로 올라가는지, 줄바꿈이
+ *     되는지, 긴 실타래가 칸을 넘지 않는지를 확인할 방법이 없기 때문입니다.
+ *   - **실제** (`thread.live`, promo-videos): CTRL+AI 소개 영상의 댓글.
+ *     CTRL+AI의 PostgreSQL에 저장되고, 내 댓글은 고치기·지우기, 남의
+ *     댓글은 신고가 붙습니다. 댓글마다의 공감은 아직 저장하지 않으므로
+ *     실제 모드에서는 공감 단추와 인기순을 보이지 않습니다.
  */
 
-import { CornerDownRight, Heart, Lightbulb, Sparkles, ThumbsUp } from "lucide-react";
+import { CornerDownRight, Flag, Heart, Lightbulb, Pencil, Sparkles, ThumbsUp, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import {
@@ -72,13 +76,27 @@ const SORT_LABEL: Record<Sort, string> = {
 /**
  * 반응 칩 한 줄.
  *
- * 누른 상태는 이 컴포넌트가 혼자 들고 있습니다 — 바깥에서 쓸 일이 없는
- * 값이고, 저장은 Phase 5와 8에서 붙습니다.
+ * 목업에서는 누른 상태를 이 컴포넌트가 혼자 들고 있습니다. 실제 영상
+ * (promo-videos)은 `pressed`와 `onToggle`을 넘겨 바깥(서버)이 들고
+ * 있고, 그때 수는 서버가 센 그대로입니다.
  */
-export function ReactionChips({ reactions }: { reactions: Record<ReactionType, number> }) {
+export function ReactionChips({
+  reactions,
+  pressed,
+  onToggle,
+}: {
+  reactions: Record<ReactionType, number>;
+  pressed?: ReactionType[];
+  onToggle?: (type: ReactionType) => void;
+}) {
   const [reacted, setReacted] = useState<ReactionType[]>([]);
+  const controlled = pressed !== undefined;
 
   function toggle(type: ReactionType) {
+    if (controlled) {
+      onToggle?.(type);
+      return;
+    }
     setReacted((current) =>
       current.includes(type) ? current.filter((t) => t !== type) : [...current, type],
     );
@@ -88,7 +106,7 @@ export function ReactionChips({ reactions }: { reactions: Record<ReactionType, n
     <div className={styles.reactionRow}>
       {REACTION_TYPES.map((type) => {
         const Icon = REACTION_ICON[type];
-        const on = reacted.includes(type);
+        const on = (controlled ? pressed : reacted).includes(type);
         return (
           <button
             className={`${styles.reactionChip} ${on ? styles.reactionChipOn : ""}`}
@@ -99,7 +117,7 @@ export function ReactionChips({ reactions }: { reactions: Record<ReactionType, n
           >
             <Icon size={14} aria-hidden="true" />
             {REACTION_LABEL[type]}
-            <span className={styles.reactionCount}>{reactions[type] + (on ? 1 : 0)}</span>
+            <span className={styles.reactionCount}>{reactions[type] + (on && !controlled ? 1 : 0)}</span>
           </button>
         );
       })}
@@ -309,11 +327,18 @@ interface CommentProps {
   openThreads: string[];
   onToggleThread: (id: string) => void;
   authorName: string;
+  /** 실제 댓글(promo-videos): 공감 대신 고치기·지우기·신고. */
+  live?: boolean;
+  onEdit?: (id: string, body: string) => Promise<void>;
+  onDelete?: (comment: Comment) => void;
+  onReport?: (comment: Comment) => void;
 }
 
 function CommentItem(props: CommentProps) {
-  const { comment, isReply = false, likeCount, isLiked, onToggleLike, replyTo } = props;
+  const { comment, isReply = false, likeCount, isLiked, onToggleLike, replyTo, live = false } = props;
   const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [edited, setEdited] = useState(comment.body);
 
   const replies = comment.replies ?? [];
   const threadOpen = props.openThreads.includes(comment.id);
@@ -326,25 +351,50 @@ function CommentItem(props: CommentProps) {
     setDraft("");
   }
 
+  async function submitEdit() {
+    const body = edited.trim();
+    if (body.length === 0 || !props.onEdit) return;
+    await props.onEdit(comment.id, body);
+    setEditing(false);
+  }
+
   return (
-    <article className={isReply ? styles.reply : styles.comment}>
+    <article className={isReply ? styles.reply : styles.comment} data-mine={comment.mine ? "1" : undefined}>
       <Avatar name={comment.author.displayName} small={isReply} />
 
       <div className={styles.commentBody}>
         <AuthorLine author={comment.author} createdAt={comment.createdAt} />
-        <p className={styles.commentText}>{comment.body}</p>
+        {editing ? (
+          <Composer
+            value={edited}
+            onChange={setEdited}
+            onSubmit={() => void submitEdit()}
+            onCancel={() => {
+              setEdited(comment.body);
+              setEditing(false);
+            }}
+            authorName={props.authorName}
+            placeholder="댓글 고치기"
+            small
+            autoFocus
+          />
+        ) : (
+          <p className={styles.commentText}>{comment.body}</p>
+        )}
 
         <div className={styles.commentActions}>
-          <button
-            className={`${styles.commentAction} ${liked ? styles.commentActionOn : ""}`}
-            type="button"
-            onClick={() => onToggleLike(comment.id)}
-            aria-pressed={liked}
-            aria-label={`공감 ${likeCount(comment)}`}
-          >
-            <ThumbsUp size={13} aria-hidden="true" />
-            {likeCount(comment)}
-          </button>
+          {!live && (
+            <button
+              className={`${styles.commentAction} ${liked ? styles.commentActionOn : ""}`}
+              type="button"
+              onClick={() => onToggleLike(comment.id)}
+              aria-pressed={liked}
+              aria-label={`공감 ${likeCount(comment)}`}
+            >
+              <ThumbsUp size={13} aria-hidden="true" />
+              {likeCount(comment)}
+            </button>
+          )}
           <button
             className={styles.commentAction}
             type="button"
@@ -354,6 +404,24 @@ function CommentItem(props: CommentProps) {
             <CornerDownRight size={13} aria-hidden="true" />
             답글
           </button>
+          {live && comment.mine && (
+            <>
+              <button className={styles.commentAction} type="button" onClick={() => setEditing(true)}>
+                <Pencil size={13} aria-hidden="true" />
+                고치기
+              </button>
+              <button className={styles.commentAction} type="button" onClick={() => props.onDelete?.(comment)}>
+                <Trash2 size={13} aria-hidden="true" />
+                지우기
+              </button>
+            </>
+          )}
+          {live && !comment.mine && (
+            <button className={styles.commentAction} type="button" onClick={() => props.onReport?.(comment)}>
+              <Flag size={13} aria-hidden="true" />
+              신고
+            </button>
+          )}
         </div>
 
         {replyTo === comment.id && (
@@ -421,6 +489,11 @@ export interface CommentThread {
   count: number;
   add: (body: string) => void;
   addReply: (parentId: string, body: string) => void;
+  /** 실제 댓글(promo-videos): 저장되고, 내 것은 고치고 지우고, 남의 것은 신고. */
+  live?: boolean;
+  edit?: (id: string, body: string) => Promise<void>;
+  remove?: (id: string) => Promise<void>;
+  report?: (id: string, reason: string) => Promise<void>;
 }
 
 /**
@@ -476,8 +549,48 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
   const [openThreads, setOpenThreads] = useState<string[]>([]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const me = useMe();
+  const live = thread.live === true;
+
+  const run = (action: () => Promise<void>) => async () => {
+    setBusy(true);
+    setConfirmError(null);
+    try {
+      await action();
+      setConfirm(null);
+    } catch (caught) {
+      setConfirmError(caught instanceof Error ? caught.message : "잠시 뒤 다시 해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  function askDelete(comment: Comment) {
+    setConfirmError(null);
+    setConfirm({
+      title: "댓글을 지울까요?",
+      effect: "지운 댓글은 되돌릴 수 없어요. 답글은 그대로 남아요.",
+      confirmLabel: "지우기",
+      danger: true,
+      onConfirm: () => run(() => thread.remove?.(comment.id) ?? Promise.resolve())(),
+    });
+  }
+
+  function askReport(comment: Comment) {
+    setConfirmError(null);
+    setConfirm({
+      title: "댓글 신고",
+      effect: "관리자가 확인해요. 신고한 사실은 댓글을 쓴 회원에게 보이지 않아요.",
+      confirmLabel: "신고하기",
+      danger: true,
+      reason: { label: "이유", placeholder: "예: 욕설, 광고", required: true },
+      onConfirm: (reason) => run(() => thread.report?.(comment.id, reason) ?? Promise.resolve())(),
+    });
+  }
 
   function likeCount(comment: Comment): number {
     return comment.likes + (likedComments.includes(comment.id) ? 1 : 0);
@@ -518,6 +631,7 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
 
   return (
     <div className={`${styles.section} ${fill ? styles.sectionFill : ""}`}>
+      {!live && (
       <div className={styles.sortRow}>
         <span className={styles.sortLabel}>정렬</span>
         {(["newest", "popular"] as Sort[]).map((value) => (
@@ -532,6 +646,7 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
           </button>
         ))}
       </div>
+      )}
 
       <div className={styles.list}>
         {ordered.length === 0 ? (
@@ -550,6 +665,10 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
               openThreads={openThreads}
               onToggleThread={toggleThread}
               authorName={me.displayName}
+              live={live}
+              onEdit={thread.edit}
+              onDelete={askDelete}
+              onReport={askReport}
             />
           ))
         )}
@@ -563,10 +682,14 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
           authorName={me.displayName}
           placeholder="댓글을 남겨보세요"
         />
-        <p className={styles.mockNote}>
-          댓글 기능은 아직 준비 중입니다. 지금 쓴 댓글은 저장되지 않습니다.
-        </p>
+        {!live && (
+          <p className={styles.mockNote}>
+            댓글 기능은 아직 준비 중입니다. 지금 쓴 댓글은 저장되지 않습니다.
+          </p>
+        )}
       </div>
+
+      <ConfirmDialog busy={busy} error={confirmError} request={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

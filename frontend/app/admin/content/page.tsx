@@ -12,7 +12,11 @@
  * 다시 게시할 수 있습니다. 신고만 닫고 앱을 두는 것도 기록에 남습니다.
  *
  * 숨기더라도 만든 사람의 이름은 지우지 않습니다. 탈퇴한 회원의 작품에도
- * "탈퇴 회원"으로 이름이 남습니다. 영상(Phase 8)은 아직 없습니다.
+ * "탈퇴 회원"으로 이름이 남습니다.
+ *
+ * promo-videos: 아래 둘째 표는 CtrlAITube 댓글의 신고입니다 — 숨기기
+ * (모두에게 안 보임, 사유, 감사 기록), 지우기(답글까지, 감사 기록), 신고
+ * 닫기(댓글 유지).
  *
  * app-platform P3: 앱마다 ctrlai.db에 가진 데이터 크기와, "데이터" 단추로
  * 여는 공유 항목 목록(숨기기 · 지우기, 사유 필수, 감사 기록). 공유 항목
@@ -34,12 +38,14 @@ import {
 } from "@/lib/apps";
 import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
+import { adminTubeComment, listTubeReports, resolveTubeReport, type AdminTubeReport } from "@/lib/tube";
 
 import { sectionLabel } from "../sections";
 
 export default function AdminContentPage() {
   const toast = useToast();
   const [reports, setReports] = useState<AdminReport[] | null>(null);
+  const [tubeReports, setTubeReports] = useState<AdminTubeReport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +54,9 @@ export default function AdminContentPage() {
   const load = useCallback(() => {
     listAppReports()
       .then((rows) => setReports(rows))
+      .catch((caught: unknown) => setError(describeError(caught)));
+    listTubeReports()
+      .then((rows) => setTubeReports(rows))
       .catch((caught: unknown) => setError(describeError(caught)));
   }, []);
 
@@ -110,6 +119,33 @@ export default function AdminContentPage() {
       confirmLabel: "신고 닫기",
       reason: { label: "메모 (선택)", placeholder: "예: 확인해 보니 문제 없음" },
       onConfirm: (note) => run(() => resolveAppReport(report.id, note))(),
+    });
+  };
+
+  const askTubeComment = (report: AdminTubeReport, action: "hide" | "delete") => {
+    setConfirmError(null);
+    const hide = action === "hide";
+    setConfirm({
+      title: hide ? "영상 댓글 숨기기" : "영상 댓글 지우기",
+      effect: [
+        `'${report.video_title}'의 이 댓글을 ${hide ? "모든 회원에게 숨깁니다" : "답글까지 완전히 지웁니다"}: ${report.excerpt}`,
+        "이 댓글의 열린 신고는 처리된 것으로 닫힙니다. 감사 기록에 남습니다.",
+      ],
+      confirmLabel: hide ? "숨기기" : "지우기",
+      danger: true,
+      reason: { label: "사유", placeholder: "예: 욕설", required: true },
+      onConfirm: (reason) => run(() => adminTubeComment(report.comment_id, action, reason))(),
+    });
+  };
+
+  const askResolveTube = (report: AdminTubeReport) => {
+    setConfirmError(null);
+    setConfirm({
+      title: "신고 닫기 (댓글 유지)",
+      effect: "댓글은 그대로 두고 이 신고만 닫습니다. 감사 기록에 남습니다.",
+      confirmLabel: "신고 닫기",
+      reason: { label: "메모 (선택)", placeholder: "예: 확인해 보니 문제 없음" },
+      onConfirm: (note) => run(() => resolveTubeReport(report.id, note))(),
     });
   };
 
@@ -191,6 +227,65 @@ export default function AdminContentPage() {
                         </button>
                       )}{" "}
                       <button className="btn btn-sm" type="button" onClick={() => askResolve(report)}>
+                        신고 닫기
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="card" aria-labelledby="tube-reports-title">
+        <h2 className="section-title" id="tube-reports-title">
+          영상 댓글 신고 {tubeReports ? `(${tubeReports.length})` : ""}
+        </h2>
+        {tubeReports === null ? (
+          <p className="small muted">불러오는 중…</p>
+        ) : tubeReports.length === 0 ? (
+          <p className="small muted">열린 신고가 없습니다.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="table" data-testid="tube-reports">
+              <thead>
+                <tr>
+                  <th>영상 · 댓글</th>
+                  <th>사유</th>
+                  <th>쓴 회원</th>
+                  <th>신고한 회원</th>
+                  <th>언제</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {tubeReports.map((report) => (
+                  <tr key={report.id}>
+                    <td>
+                      <Link href={`/ctrlaitube/${report.video_slug}`}>{report.video_title}</Link>
+                      <br />
+                      <span className="small muted" data-testid="tube-report-excerpt">
+                        <code>{report.excerpt}</code>
+                        {!report.comment_live && " · 이미 숨기거나 지웠어요"}
+                      </span>
+                    </td>
+                    <td>{report.reason}</td>
+                    <td>{report.author_username || "—"}</td>
+                    <td>{report.reporter_username || "—"}</td>
+                    <td>{relativeTime(report.created_at)}</td>
+                    <td className="actions-cell">
+                      {report.comment_live && (
+                        <>
+                          <button className="btn btn-sm btn-danger" type="button" onClick={() => askTubeComment(report, "hide")}>
+                            댓글 숨기기
+                          </button>{" "}
+                          <button className="btn btn-sm btn-danger" type="button" onClick={() => askTubeComment(report, "delete")}>
+                            댓글 지우기
+                          </button>{" "}
+                        </>
+                      )}
+                      <button className="btn btn-sm" type="button" onClick={() => askResolveTube(report)}>
                         신고 닫기
                       </button>
                     </td>
