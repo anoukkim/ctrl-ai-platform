@@ -751,6 +751,39 @@ Dashboard / Members / System, Profile): "이것도 일단 백로그에만 추가
    display name editable (아이디 fixed); password change exists already
    (로그인 방법 › 바꾸기); a profile picture optional, low priority.
 
+(Point 10, a livelier "띠링" spend notification, is in the Next entry
+above.)
+
+11. **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
+    가겠냐고 물어보고 그냥 쭉 할 수 있게 (중단도 가능하니)"** (2026-10-16,
+    after a 강아지 SVG on Opus · 보통 stopped twice at the 200원 cap) —
+    when a reply stops at max_tokens or the per-reply cap, show the
+    estimated cost to finish ("끝까지 쓰면 약 N원 · 최대 M원") and one
+    question; on yes, continue **in one go** to the end with 중지 always
+    available, charging the actual usage per call (each call still behind
+    the wallet pre-check; a ceiling for the whole run that the member
+    sees). Also: (a) the system prompt must not promise to "finish in one
+    go" or restart from scratch at the cap — continue where it stopped, or
+    suggest a cheaper model / higher depth; (b) the preview joins a code
+    block split across 이어서 쓰기 replies.
+12. **"이미지 생성 모델 쓸만한거 있을지 소량 api 혹은 구글서버니까 제미나이
+    무료 해서 가져올 수 있는지까지"** — research only so far; a real
+    provider is a paid resource (CLAUDE.md §10: ask first). Checked
+    2026-10-16 on Google's pricing page (ai.google.dev/gemini-api/docs/pricing):
+    **no free API tier for any image model**; paid per 1K image ≈ $0.034
+    (Nano Banana 2 Lite `gemini-3.1-flash-lite-image`, Nano Banana 2.1),
+    $0.067 (Nano Banana 2 `gemini-3.1-flash-image`), $0.134 (Nano Banana
+    Pro); Batch half price; `gemini-2.5-flash-image` shut down 2026-10-02.
+    Free use is only in the consumer Gemini app (not an API). Other
+    options (third-party roundups, unverified): FLUX.2 [klein] ≈ $0.014,
+    FLUX.2 [pro] ≈ $0.03, OpenAI gpt-image-2 ≈ $0.05–0.06 medium. At
+    1,400원/$ a $0.034 image ≈ 48원. Whether the GCP free-trial credits
+    cover Gemini through Vertex AI is **not checked**. If approved: an
+    `IMAGE_PROVIDER` (mock default) behind the provider interface,
+    charged through `usage.charge()` (feature `image`), images stored like
+    chat attachments, a price shown before each image, and the chat
+    routing "그려 줘" to it instead of SVG.
+
 ---
 
 ## app-ai-access, quarter-end-apps, feedback-screenshots — owner's words
