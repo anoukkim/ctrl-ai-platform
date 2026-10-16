@@ -199,8 +199,17 @@ items / 5 MB, a visitor writes 30 times a minute at most; the author can
 change or delete their item, the app's maker can delete any shared item,
 and 신고 of a shared item reaches Admin › Content, where the admin hides
 or deletes it (audited). The Builder's 미리보기 has data of its own, so
-trying an app never changes the live app's. Coming in P4: templates,
-the Builder knowing the SDK, Admin › Apps (BACKLOG › app-platform).
+trying an app never changes the live app's. **Since P4a** the lists an
+app uses are the maker's to declare, in the project's `ctrlai.json`
+(a visitor cannot make one); the Builder's Claude knows the whole 기능
+상자 and writes that file itself; the new-project form offers four
+**templates** beside 빈 프로젝트 — AI 챗봇, 투표·설문, 랭킹 게임, 동아리
+게시판 — copied for free into a new project and opened in the preview at
+once, each with a demo path for signed-out visitors and a 로그인 button;
+and in the **미리보기** the maker uses their own app as a visitor, paid
+from their own 지원금 ("미리보기 사용 · N원", Usage: "앱 미리보기 · <이름>").
+Coming in P4b: the showcase apps in LIVE mode, Admin › Apps, /help/apps
+(BACKLOG › app-platform).
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 
