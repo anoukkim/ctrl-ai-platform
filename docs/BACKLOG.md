@@ -122,24 +122,14 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     지난 분기 selector. **Chat history at quarter end is ON HOLD** — the
     owner is asking members first (archive vs delete); do not build it.
 
-4. **feedback-screenshots** · M1 · branch `feat-feedback-screenshots`
-    *Not pre-approved — branch, test, report, WAIT.* **Replaces
-    anonymous-feedback-board** (owner, 2026-10-16: "no board — only the
-    관리자 can see it"). 의견 보내기 accepts screenshots; Admin › Feedback
-    shows them. The old board spec below is kept for history, not built.
-    **Built 2026-10-16 on the branch (separate worktree), waiting for the
-    owner** — spec below ("feedback-screenshots — full spec"); has a
-    migration (`c2d9e4f7a1b6`, on `d4e7a1b2c9f0`; re-parent at merge if
-    another tab's migration lands first).
-
-5. **builder-python** · M2 · branch `feat-builder-python`
+4. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below. Owner, 2026-10-16: wanted
     — "a tetris game", "a 사주 site", made in the Builder and usable on the
     apps origin during the quarter.
 
-6. **app-remix** · M3 · branch `feat-app-remix`
+5. **app-remix** · M3 · branch `feat-app-remix`
     *Not pre-approved — order to be set by the owner.* From H4's optional
     point 4 (project-export-handoff), split out because it is not small: on
     a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
@@ -153,7 +143,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     project and its listing, audit-free (it is a member action), and tests
     (allowed/not allowed, deleted original, own app, inactive member).
 
-7. **owner-polish-2026-10-16** · M1 · one small branch per point
+6. **owner-polish-2026-10-16** · M1 · one small branch per point
     *Not pre-approved — branch, test, report, WAIT.* The owner's nine
     points from a walk through production (2026-10-16), to start **only
     after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
@@ -173,7 +163,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-8. **promo-videos** · M1 · branch `feat-promo-videos`
+7. **promo-videos** · M1 · branch `feat-promo-videos`
     *Not pre-approved — branch, test, report, WAIT. Order: after
     publish-summary (merged 2026-10-16).* Owner, 2026-10-16 (relayed from another session,
     their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
@@ -210,7 +200,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     members read only; another member's comment), admin hide, 신고.
     Screenshots 1440 · 390, light and dark.
 
-9. **app-libraries** · M3 · branch `feat-app-libraries`
+8. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
     be set by the owner.* (Numbered 8 until publish-summary and promo-videos joined on
     2026-10-16; publish-summary merged the same day.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
@@ -979,82 +969,6 @@ P4 territory); where the visitor's switch lives (the shell, so every app
 gets it the same way).
 
 ---
-
-## feedback-screenshots — full spec
-
-Branch `feat-feedback-screenshots`, built 2026-10-16 in a separate
-worktree (two other tabs were on the main folder). The owner's words are
-above ("… and also be able to put in screenshots to their feedback"); the
-request as relayed: 최대 3장 (png/jpg/webp, 1장 5MB 이하), 파일 고르기 ·
-끌어다 놓기 · 붙여넣기(⌘V) 모두, 미리보기 썸네일 + ✕, 휴대폰에서도 사진
-고르기, 안내 한 줄 "화면에 개인정보가 보이면 가린 뒤 올려 주세요",
-chat-plus-files와 같은 서버 처리, 관리자만 보기, 의견을 지우면 이미지도.
-
-1. **Upload before the note**, like Chat: `POST /api/feedback/images`
-   (bytes as the body, `?name=`, must not be a "simple" content type —
-   CLAUDE.md §2) → a `feedback_images` row with `feedback_id` NULL and the
-   re-encoded copy in storage (`feedback/<user_id>/<id>`). Checks reuse
-   `attachments.reencode_image`: kind from the bytes (PNG/JPEG/WebP only
-   — not GIF), extension must agree, ≤ 5 MB read with a hard stop,
-   decoded under the pixel guard, encoded again with no metadata, long
-   edge 2,560 (a screenshot is read by a person, so larger than Chat's
-   1,568). Stored bytes count against a per-member quota
-   (`FEEDBACK_IMAGE_MEMBER_QUOTA_MB=100`, 409) and the server total Chat
-   attachments share (`CHAT_ATTACHMENT_TOTAL_LIMIT_GB`, 507); Admin's
-   dashboard "첨부 파일" figure includes them. A 4th waiting picture is
-   refused ("사진은 3장까지 붙일 수 있어요."); only then, waiting pictures
-   older than a day (a closed tab) are swept first so a leftover never
-   blocks a member — and a picture still shown in an open dialog is never
-   taken away under it (review fix, 2026-10-16). The body reader, name
-   sanitiser and file-response headers are shared with Chat
-   (`api/uploads.py`), as is the browser's `uploadBytes` (`lib/http.ts`).
-2. **The note** `POST /api/feedback` carries `image_ids`: each must be the
-   sender's own waiting picture (else 400 "사진을 찾을 수 없어요"), at
-   most 3; they are attached, and any other waiting picture of the
-   sender is deleted with its bytes (a dialog closed without sending).
-3. **✕ / closing the dialog** → `DELETE /api/feedback/images/{id}` (own
-   and waiting only; 404 for anyone else's, 409 once sent). The dialog
-   also deletes what it uploaded when closed without sending — including
-   an upload that finishes after the close — and does not close at all
-   (Esc, backdrop) while 보내기 is in flight, so the deletions can never
-   race the note.
-4. **Who sees a picture: admins only.** `GET /api/admin/feedback` lists
-   each note's pictures; `GET /api/admin/feedback/images/{id}/file`
-   serves one inline (nosniff, sandboxed CSP, private cache) — a member,
-   the uploader included, gets 403; a waiting (unsent) picture is 404 even
-   to an admin. There is deliberately no member route to a stored copy:
-   the thumbnail in the dialog is the browser's own object URL.
-5. **Deleting.** `DELETE /api/admin/feedback/{id}` removes the note, its
-   rows (cascade) and its bytes, audited `feedback.deleted` (의견 삭제)
-   with the count. Admin › Feedback gets 지우기 with a confirm. Withdrawal
-   anonymisation deletes the member's pictures (like Chat attachments) and
-   keeps the notes.
-6. **Dialog.** 스크린샷 붙이기 (file input `accept=image/png,image/jpeg,
-   image/webp`, multiple — phones open the photo library), drag onto the
-   form (dashed outline), paste on the form or the textarea (image files
-   only; pasting text is untouched; a nameless pasted image gets
-   `screenshot-N.<ext>` from its type). Thumbnails 88×66 with ✕; "N/3장 ·
-   붙여넣기(⌘V)나 끌어다 놓기도 돼요"; the privacy line; the server's
-   Korean refusal under the thumbnails; 보내기 waits while a picture is
-   uploading ("사진 올리는 중…").
-7. **Admin › Feedback.** A 사진 column of thumbnails (admin-only URL),
-   click → `ImageLightbox` (← → between a note's pictures, Esc, caption
-   with name · size · dimensions); 지우기 per row.
-8. **Settings** `FEEDBACK_IMAGES_PER_NOTE=3`, `FEEDBACK_IMAGE_MAX_MB=5`
-   (`.env.example`). Migration `c2d9e4f7a1b6` (`feedback_images`).
-9. **Tests.** Backend `tests/test_feedback_images.py` (kinds accepted by
-   bytes; GIF/PDF/renamed/text/broken refused with nothing stored; > 5 MB
-   413; 4th refused; stale sweep; simple content type 415; sign-in; note
-   carries pictures and Admin sees them; admin-only file (member 403,
-   signed-out 401, unsent 404); other member's picture 404 / "not found";
-   ✕ deletes bytes; sent picture 409; > 3 ids refused; abandoned picture
-   goes with the next note; admin delete + audit; member cannot delete;
-   anonymisation) and the guard map. Frontend
-   `__tests__/feedback-screenshots.test.tsx` (paste, nameless paste,
-   text paste ignored, drop + picker, ✕, close-without-send, 4th/kind/size
-   refused, server refusal, send carries ids and waits for uploads,
-   privacy line + accept; Admin thumbnails + lightbox, delete with
-   confirm).
 
 ## anonymous-feedback-board — full spec
 
