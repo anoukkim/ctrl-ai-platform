@@ -28,7 +28,8 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models import BuilderProject, BuilderProjectVersion
-from app.services.attachments import MAX_IMAGE_PIXELS, AttachmentRefusal, sniff
+from app.services.attachments import AttachmentRefusal, decode_image, sniff
+from app.services.quiet import quiet_update
 from app.services.storage import AssetStorage
 
 #: The stored picture — 16:10 like the cards.
@@ -50,7 +51,11 @@ def draft_key(project: BuilderProject) -> str:
 
 
 def version_key(project: BuilderProject, version: BuilderProjectVersion) -> str:
-    return f"thumbnails/{project.id}/v{version.number}.webp"
+    return version_key_for(project.id, version.number)
+
+
+def version_key_for(project_id: int, number: int) -> str:
+    return f"thumbnails/{project_id}/v{number}.webp"
 
 
 def encode(data: bytes) -> bytes:
@@ -64,21 +69,20 @@ def encode(data: bytes) -> bytes:
         raise AttachmentRefusal(UNSUPPORTED)
     from PIL import Image, ImageOps
 
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
     try:
-        with Image.open(io.BytesIO(data)) as source:
-            image = ImageOps.exif_transpose(source) or source
-            image.load()
-            if image.mode != "RGB":
-                # A transparent page is drawn on white, like the frame's background.
-                base = Image.new("RGB", image.size, (255, 255, 255))
-                rgba = image.convert("RGBA")
-                base.paste(rgba, mask=rgba.getchannel("A"))
-                image = base
-            fitted = ImageOps.fit(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS, centering=(0.5, 0.0))
-            out = io.BytesIO()
-            # No `exif=`: nothing of the source's metadata is copied.
-            fitted.save(out, format="WEBP", quality=82, method=4)
+        # The same decoder as Chat's and feedback's images: the pixel guard,
+        # EXIF orientation applied and then dropped.
+        image, _ = decode_image(data)
+        if image.mode != "RGB":
+            # A transparent page is drawn on white, like the frame's background.
+            base = Image.new("RGB", image.size, (255, 255, 255))
+            rgba = image.convert("RGBA")
+            base.paste(rgba, mask=rgba.getchannel("A"))
+            image = base
+        fitted = ImageOps.fit(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS, centering=(0.5, 0.0))
+        out = io.BytesIO()
+        # No `exif=`: nothing of the source's metadata is copied.
+        fitted.save(out, format="WEBP", quality=82, method=4)
     except (Image.DecompressionBombError, OSError, ValueError, SyntaxError) as error:
         raise AttachmentRefusal(BROKEN) from error
     return out.getvalue()
@@ -87,8 +91,8 @@ def encode(data: bytes) -> bytes:
 def save_draft(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:
     """Store the working copy's picture and stamp the project."""
     storage.save(draft_key(project), encode(data))
-    project.draft_thumbnail_at = datetime.now(timezone.utc)
-    db.flush()
+    # A picture is not an edit: `updated_at` (마지막 수정순) stays.
+    quiet_update(db, project, draft_thumbnail_at=datetime.now(timezone.utc))
 
 
 def save_version(
@@ -96,8 +100,7 @@ def save_version(
 ) -> None:
     """Store a version's picture (the published one, taken after 게시)."""
     storage.save(version_key(project, version), encode(data))
-    version.thumbnail_at = datetime.now(timezone.utc)
-    db.flush()
+    quiet_update(db, version, thumbnail_at=datetime.now(timezone.utc))
 
 
 def load_draft(storage: AssetStorage, project: BuilderProject) -> bytes | None:
@@ -122,8 +125,10 @@ def load_published(storage: AssetStorage, project: BuilderProject) -> bytes | No
     return load_version(storage, project, version)
 
 
-def delete_all(storage: AssetStorage, project: BuilderProject, versions: list[BuilderProjectVersion]) -> None:
-    """Every picture of a project — for a real removal, never a soft delete."""
-    for key in [draft_key(project), *(version_key(project, v) for v in versions)]:
+def forget_versions(storage: AssetStorage, project_id: int, numbers: list[int]) -> None:
+    """The pictures of versions being pruned (builder_versions.snapshot) —
+    a row that is gone must not leave a file behind."""
+    for number in numbers:
+        key = version_key_for(project_id, number)
         if storage.exists(key):
             storage.delete(key)

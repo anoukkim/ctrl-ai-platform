@@ -206,7 +206,7 @@ def generate(
     builder_versions.ensure_baseline(db, project)
     builder_versions.replace_files(db, project, updated)
     note = ("만들기: " if not files else "고치기: ") + request
-    version = builder_versions.snapshot(db, project, note[:200], updated)
+    version = builder_versions.snapshot(db, project, note[:200], updated, settings)
     # A request — 만들기 or 고치기 — is never the description (owner,
     # 2026-10-16, ui-improvements); 게시 writes the real one.
     providers.record_success(db, "claude", "빌더" + (" (mock)" if is_mock else ""))

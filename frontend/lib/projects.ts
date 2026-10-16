@@ -9,8 +9,8 @@
  */
 
 import type { DepthLevel, PickerModel } from "./depth";
-import { ApiError, API_BASE_URL } from "./api";
-import { describeError, request } from "./http";
+import { API_BASE_URL } from "./api";
+import { describeError, request, uploadBytes } from "./http";
 
 export { describeError };
 
@@ -415,15 +415,21 @@ export const APP_LIMITS_NOTE =
 
 export function updateBuilderProject(
   id: number | string,
-  changes: Partial<Pick<BuilderProject, "name" | "description" | "status" | "chat_model_id" | "depth">> & {
-    /** 고정 / 고정 해제 (ui-improvements). */
-    pinned?: boolean;
-  },
+  changes: Partial<Pick<BuilderProject, "name" | "description" | "status" | "chat_model_id" | "depth">>,
 ): Promise<BuilderProject> {
   return request<BuilderProject>(`/builder/projects/${id}`, {
     method: "PATCH",
     body: JSON.stringify(changes),
   });
+}
+
+/**
+ * 맨 위에 고정 / 고정 해제 (ui-improvements). 작업을 고치는 것이 아니라 내
+ * 목록을 보는 방식이라, CtrlAIApps의 ★처럼 이번 분기에 참여하지 않아도 되고
+ * 마지막 수정 시각도 움직이지 않습니다.
+ */
+export function setBuilderPinned(id: number | string, on: boolean): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/pin`, { method: "POST", body: JSON.stringify({ on }) });
 }
 
 /**
@@ -680,15 +686,17 @@ export function updateVideoProject(
   id: number | string,
   changes: Partial<
     Pick<VideoProject, "name" | "prompt" | "selected_model_id" | "status" | "final_version_id">
-  > & {
-    /** 고정 / 고정 해제 (ui-improvements). */
-    pinned?: boolean;
-  },
+  >,
 ): Promise<VideoProjectDetail> {
   return request<VideoProjectDetail>(`/video/projects/${id}`, {
     method: "PATCH",
     body: JSON.stringify(changes),
   });
+}
+
+/** 맨 위에 고정 / 고정 해제 — Builder의 `setBuilderPinned`와 같습니다. */
+export function setVideoPinned(id: number | string, on: boolean): Promise<VideoProjectDetail> {
+  return request<VideoProjectDetail>(`/video/projects/${id}/pin`, { method: "POST", body: JSON.stringify({ on }) });
 }
 
 /**
@@ -724,33 +732,8 @@ export function builderThumbnailUrl(project: Pick<BuilderProject, "id" | "draft_
  * (application/octet-stream; 의견 스크린샷과 같은 길). 서버가 종류와 크기를
  * 확인하고 다시 인코딩합니다.
  */
-export async function uploadThumbnail(
-  id: number | string,
-  space: ThumbnailSpace,
-  image: Blob,
-): Promise<BuilderProject> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}/api/builder/projects/${id}/thumbnail?space=${space}`, {
-      method: "POST",
-      cache: "no-store",
-      headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
-      body: image,
-    });
-  } catch {
-    throw new ApiError("서버에 연결할 수 없습니다", 0);
-  }
-  if (!response.ok) {
-    let detail = `썸네일을 저장하지 못했어요 (HTTP ${response.status})`;
-    try {
-      const body = await response.json();
-      if (body && typeof body.detail === "string") detail = body.detail;
-    } catch {
-      /* 기본 문구 */
-    }
-    throw new ApiError(detail, response.status);
-  }
-  return (await response.json()) as BuilderProject;
+export function uploadThumbnail(id: number | string, space: ThumbnailSpace, image: Blob): Promise<BuilderProject> {
+  return uploadBytes<BuilderProject>(`/builder/projects/${id}/thumbnail`, image, { space }, "썸네일을 저장하지 못했어요");
 }
 
 export function videoVersionDownloadUrl(

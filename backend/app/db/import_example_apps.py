@@ -158,7 +158,7 @@ def update_example(db, settings, project: BuilderProject, example: Example, root
         return False
     builder_versions.ensure_baseline(db, project)
     builder_versions.replace_files(db, project, files)
-    builder_versions.snapshot(db, project, "예시 앱 업데이트", files)
+    builder_versions.snapshot(db, project, "예시 앱 업데이트", files, settings)
     app_publish.publish(db, settings, project, description=example.description, note=example.note)
     return True
 
@@ -188,7 +188,7 @@ def import_examples(
         db.add(project)
         db.flush()
         builder_versions.replace_files(db, project, files)
-        builder_versions.snapshot(db, project, "예시 앱 가져오기", files)
+        builder_versions.snapshot(db, project, "예시 앱 가져오기", files, settings)
         app_publish.publish(
             db, settings, project, description=example.description, note=example.note
         )

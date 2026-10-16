@@ -421,6 +421,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/versions/{number}/files"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/versions/{number}/restore"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/runtime"): "require_active_member",
+    # ui-improvements: 맨 위에 고정 is how the owner reads their list — open
+    # like ★, and never a change to the work.
+    ("POST", "/api/builder/projects/{project_id}/pin"): "get_current_user",
+    ("POST", "/api/video/projects/{project_id}/pin"): "get_current_user",
     # ctrlaiapps-publish
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
@@ -679,6 +683,8 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         ("POST", "/api/builder/projects/{project_id}/unpublish"),
         ("POST", "/api/apps/{slug}/report"),
         ("POST", "/api/apps/{slug}/favorite"),
+        ("POST", "/api/builder/projects/{project_id}/pin"),
+        ("POST", "/api/video/projects/{project_id}/pin"),
         # promo-videos: 신고 of a CtrlAITube comment, likewise.
         ("POST", "/api/tube/comments/{comment_id}/report"),
         # Feedback. Spends nothing; a member who cannot create is exactly

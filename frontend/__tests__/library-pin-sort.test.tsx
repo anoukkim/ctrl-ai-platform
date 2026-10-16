@@ -1,7 +1,7 @@
 /**
  * ui-improvements — Project Builder 목록의 고정과 정렬.
  *
- * ⋯ 메뉴의 "맨 위에 고정"이 PATCH { pinned: true }를 보내고 그 카드가 맨
+ * ⋯ 메뉴의 "맨 위에 고정"이 POST …/pin { on: true }를 보내고 그 카드가 맨
  * 앞으로 오며 핀이 붙는다; 정렬 단추가 이름순으로 바꾸면 그 순서가 이
  * 기기에 남는다.
  */
@@ -37,7 +37,7 @@ const PROJECTS = [
 ];
 
 const listBuilderProjects = vi.fn();
-const updateBuilderProject = vi.fn();
+const setBuilderPinned = vi.fn();
 
 vi.mock("@/lib/projects", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/projects")>();
@@ -45,7 +45,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
     ...actual,
     listBuilderProjects: (...args: unknown[]) => listBuilderProjects(...args),
     listBuilderTemplates: vi.fn().mockResolvedValue([]),
-    updateBuilderProject: (...args: unknown[]) => updateBuilderProject(...args),
+    setBuilderPinned: (...args: unknown[]) => setBuilderPinned(...args),
   };
 });
 
@@ -78,9 +78,9 @@ beforeEach(() => {
 
 describe("Project Builder 목록의 고정과 정렬", () => {
   test("기본은 마지막 수정순이고, 고정하면 PATCH 뒤 맨 앞에 핀이 붙는다", async () => {
-    updateBuilderProject.mockImplementation(async (id: number, changes: { pinned?: boolean }) => ({
+    setBuilderPinned.mockImplementation(async (id: number, on: boolean) => ({
       ...PROJECTS.find((p) => p.id === id)!,
-      pinned_at: changes.pinned ? "2026-10-05T00:00:00Z" : null,
+      pinned_at: on ? "2026-10-05T00:00:00Z" : null,
     }));
     const user = userEvent.setup();
     render(<BuilderLibrary />);
@@ -88,7 +88,7 @@ describe("Project Builder 목록의 고정과 정렬", () => {
 
     await user.click(screen.getByRole("button", { name: "가 셋째 메뉴" }));
     await user.click(screen.getByRole("menuitem", { name: "맨 위에 고정" }));
-    expect(updateBuilderProject).toHaveBeenCalledWith(2, { pinned: true });
+    expect(setBuilderPinned).toHaveBeenCalledWith(2, true);
     await waitFor(() => expect(cardNames()).toEqual(["가 셋째", "다 첫째", "나 둘째"]));
     const pinnedCard = screen.getAllByRole("article")[0];
     expect(within(pinnedCard).getByRole("img", { name: "고정됨" })).toBeTruthy();
@@ -96,7 +96,7 @@ describe("Project Builder 목록의 고정과 정렬", () => {
     // The menu now offers 고정 해제, and unpinning sends false.
     await user.click(screen.getByRole("button", { name: "가 셋째 메뉴" }));
     await user.click(screen.getByRole("menuitem", { name: "고정 해제" }));
-    expect(updateBuilderProject).toHaveBeenLastCalledWith(2, { pinned: false });
+    expect(setBuilderPinned).toHaveBeenLastCalledWith(2, false);
     await waitFor(() => expect(cardNames()).toEqual(["다 첫째", "나 둘째", "가 셋째"]));
   });
 

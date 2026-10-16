@@ -211,22 +211,69 @@
   // ------------------------------------------------- a picture of this page
   var CAPTURE_MAX_NODES = 5000;
   var CAPTURE_MAX_EDGE = 1600;
+  // The serialized page at most — a cap on what the SVG image has to parse,
+  // whatever the node count (a long list app has many small nodes).
+  var CAPTURE_MAX_CHARS = 4000000;
+  var TOO_BIG = "페이지가 너무 커서 썸네일을 만들지 못했어요.";
+
+  // Only what differs from the browser's own default for that tag is
+  // inlined: ~350 computed properties per node would make a few thousand
+  // nodes tens of megabytes. The defaults come from a bare element of the
+  // same tag in an off-screen probe, read once per tag per capture.
+  var probe = null;
+  var defaults = {};
+
+  function defaultStyle(tag) {
+    if (defaults[tag]) return defaults[tag];
+    if (!probe) {
+      probe = document.createElement("div");
+      probe.setAttribute("style", "position:absolute;left:-100000px;top:0;width:0;height:0;overflow:hidden;pointer-events:none");
+      (document.body || document.documentElement).appendChild(probe);
+    }
+    var bare = document.createElement(tag);
+    probe.appendChild(bare);
+    var computed = window.getComputedStyle(bare);
+    var map = {};
+    for (var index = 0; index < computed.length; index += 1) {
+      var name = computed[index];
+      map[name] = computed.getPropertyValue(name);
+    }
+    defaults[tag] = map;
+    return map;
+  }
+
+  function dropProbe() {
+    if (probe && probe.parentNode) probe.parentNode.removeChild(probe);
+    probe = null;
+    defaults = {};
+  }
 
   function copyStyle(source, target) {
     var computed = window.getComputedStyle(source);
+    var base = defaultStyle(source.tagName.toLowerCase());
     var text = "";
     for (var index = 0; index < computed.length; index += 1) {
       var name = computed[index];
-      text += name + ":" + computed.getPropertyValue(name) + ";";
+      var value = computed.getPropertyValue(name);
+      if (base[name] !== value) text += name + ":" + value + ";";
     }
-    target.setAttribute("style", text);
+    if (text) target.setAttribute("style", text);
+    else target.removeAttribute("style");
   }
 
   /** The page as an SVG data URL: the DOM cloned with its computed styles. */
   function snapshot(width, height) {
+    try {
+      return snapshotInner(width, height);
+    } finally {
+      dropProbe();
+    }
+  }
+
+  function snapshotInner(width, height) {
     var root = document.documentElement;
     var sources = root.querySelectorAll("*");
-    if (sources.length > CAPTURE_MAX_NODES) throw new Error("페이지가 너무 커서 썸네일을 만들지 못했어요.");
+    if (sources.length > CAPTURE_MAX_NODES) throw new Error(TOO_BIG);
     var clone = root.cloneNode(true);
     var targets = clone.querySelectorAll("*");
     copyStyle(root, clone);
@@ -271,6 +318,7 @@
     clone.style.height = height + "px";
     clone.style.overflow = "hidden";
     var html = new XMLSerializer().serializeToString(clone);
+    if (html.length > CAPTURE_MAX_CHARS) throw new Error(TOO_BIG);
     var svg =
       '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '">' +
       '<foreignObject width="100%" height="100%">' + html + "</foreignObject></svg>";

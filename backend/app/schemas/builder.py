@@ -60,8 +60,6 @@ class BuilderProjectUpdate(BaseModel):
     #: project. A level name only — the server decides every number.
     chat_model_id: int | None = None
     depth: Literal["low", "medium", "high", "max"] | None = None
-    #: ui-improvements: 고정 / 고정 해제 — the list keeps pinned ones first.
-    pinned: bool | None = None
 
 
 class BuilderProjectRead(BuilderProjectBase):
@@ -214,6 +212,13 @@ class VersionLabel(BaseModel):
 
 class EmptyBody(BaseModel):
     """A POST that needs no fields still needs a JSON body (CLAUDE.md §2)."""
+
+
+class ProjectPinSet(BaseModel):
+    """맨 위에 고정 / 고정 해제 (ui-improvements) — `POST …/pin`. Builder
+    and Video projects alike; `on: false` unpins."""
+
+    on: bool
 
 
 class PublishSummaryRead(BaseModel):

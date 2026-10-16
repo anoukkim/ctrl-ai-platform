@@ -696,9 +696,12 @@ the new-project button) on the right; below 44rem the three stack.
 
 **Pins and sort.** A Builder or Video card's ⋯ menu has **맨 위에 고정**
 / **고정 해제**; a pinned card wears a small pin and always comes first
-(`pinned_at` on the project, `PATCH … {pinned}`). On CtrlAIApps a member's
+(`pinned_at` on the project, `POST …/pin {on}`). On CtrlAIApps a member's
 own **★ 즐겨찾기** on a card does the same for that member only
-(`app_favorites`, `POST /api/apps/{slug}/favorite`). The **정렬** menu
+(`app_favorites`, `POST /api/apps/{slug}/favorite`). Both are how a
+member reads their own list, not a change to the work: they work while
+not taking part this quarter, and neither a pin nor a thumbnail moves a
+project's 마지막 수정 time. The **정렬** menu
 offers 마지막 수정순 (default) and 이름순; the choice is remembered per
 screen on the device (`localStorage`, not an account setting). Pinned or
 favourite first, then the chosen order.

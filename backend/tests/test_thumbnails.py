@@ -106,10 +106,13 @@ def test_the_draft_thumbnail_is_stored_stamped_and_served_to_the_owner_only(
     assert client.get(f"/api/builder/projects/{project.id}").json()["draft_thumbnail_at"] is None
     assert client.get(f"/api/builder/projects/{project.id}/thumbnail").status_code == 404
 
+    before = client.get(f"/api/builder/projects/{project.id}").json()
     stored = client.post(f"/api/builder/projects/{project.id}/thumbnail", content=picture(), headers=OCTET)
     assert stored.status_code == 200, stored.text
     assert stored.json()["draft_thumbnail_at"] is not None
     assert stored.json()["published_thumbnail_at"] is None
+    # Opening the preview takes a picture; that is not an edit — 마지막 수정 stays.
+    assert stored.json()["updated_at"] == before["updated_at"]
 
     served = client.get(f"/api/builder/projects/{project.id}/thumbnail")
     assert served.status_code == 200
@@ -179,6 +182,30 @@ def test_a_published_thumbnail_belongs_to_the_version_and_reaches_ctrlaiapps(
     assert client.get(f"/api/builder/projects/{project.id}").json()["published_thumbnail_at"] is not None
     db_session.refresh(project)
     assert client.get(f"/api/apps/{project.app_slug}/thumbnail").status_code == 200
+
+
+def test_a_pruned_version_takes_its_thumbnail_file_with_it(
+    client: TestClient, db_session: Session, project, participating, config
+) -> None:
+    """Versions beyond KEEP are deleted by `builder_versions.snapshot`;
+    their pictures must not stay in storage (the published and pinned
+    ones are never pruned, so theirs stay)."""
+    from app.models import BuilderProjectVersion
+    from app.services import builder_versions, thumbnails
+    from app.services.storage import get_storage
+
+    storage = get_storage(config)
+    first = builder_versions.snapshot(db_session, project, "v1", {"index.html": "<p>1</p>"}, config)
+    thumbnails.save_version(db_session, storage, project, first, picture())
+    db_session.commit()
+    key = thumbnails.version_key(project, first)
+    assert storage.exists(key)
+
+    for n in range(BuilderProjectVersion.KEEP):
+        builder_versions.snapshot(db_session, project, f"v{n + 2}", {"index.html": f"<p>{n + 2}</p>"}, config)
+    db_session.commit()
+    assert db_session.get(BuilderProjectVersion, first.id) is None
+    assert not storage.exists(key)
 
 
 def test_the_shell_names_the_site_origins_it_answers_captures_from(

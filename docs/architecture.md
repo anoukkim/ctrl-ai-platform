@@ -119,6 +119,7 @@ the same commit that adds it.
 | `GET /api/builder/projects/{id}/versions/{n}/files` | `get_current_user` | 이 버전 보기 — reading an old version (free, read-only) |
 | `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 되돌리기 — changing your work (free) |
 | `POST /api/builder/projects/{id}/runtime` | **`require_active_member`** | 미리보기 갱신 — writes the files to `apps.ctrlai.my` |
+| `POST /api/builder/projects/{id}/pin`, `POST /api/video/projects/{id}/pin` | `get_current_user` | 맨 위에 고정 / 고정 해제 (`{on}`): how the owner reads their own list, like ★ — works while not taking part, never moves `updated_at` |
 | `POST /api/builder/projects/{id}/thumbnail?space=draft\|published` | **`require_active_member`** | A picture of the working copy or the published version, taken in the maker's browser (bytes as the body, `application/octet-stream`, ≤ 4 MB): kind and size checked from the bytes, re-encoded to 640×400 WebP, stored; 409 for `published` while nothing is published |
 | `GET /api/builder/projects/{id}/thumbnail?space=…` | `get_current_user` | The member's own project's picture (Builder cards) — works while inactive |
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |

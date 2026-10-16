@@ -33,13 +33,14 @@ interface Props {
 }
 
 export default function Thumbnail({ name, seed, imageUrl = null, size = "card", label = "name" }: Props) {
-  const [broken, setBroken] = useState(false);
+  // Remembered per address: a new `?v=` after a retake is tried again.
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
   const small = size === "small";
-  if (imageUrl && !broken) {
+  if (imageUrl && brokenUrl !== imageUrl) {
     return (
       <div className={`${styles.artwork} ${styles.artworkPhoto} ${small ? styles.artworkSmall : ""}`} aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element -- 백엔드가 주는 WebP, 크기는 CSS가 정합니다 */}
-        <img className={styles.artworkImage} src={imageUrl} alt="" loading="lazy" onError={() => setBroken(true)} />
+        <img className={styles.artworkImage} src={imageUrl} alt="" loading="lazy" onError={() => setBrokenUrl(imageUrl)} />
       </div>
     );
   }

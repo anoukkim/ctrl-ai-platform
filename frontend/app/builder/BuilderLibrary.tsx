@@ -29,6 +29,7 @@ import {
   formatRelative,
   listBuilderProjects,
   listBuilderTemplates,
+  setBuilderPinned,
   updateBuilderProject,
   type LibraryFilter,
   type BuilderProject,
@@ -183,7 +184,7 @@ export default function BuilderLibrary() {
 
   /** 고정 / 고정 해제 — 그 줄만 바꿉니다(이름 바꾸기와 같은 이유). */
   const pin = useCallback(async (id: number, next: boolean) => {
-    const updated = await updateBuilderProject(id, { pinned: next });
+    const updated = await setBuilderPinned(id, next);
     setState((current) =>
       current.phase === "ready"
         ? {

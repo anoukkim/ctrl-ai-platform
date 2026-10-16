@@ -7,6 +7,7 @@ filters on the project's `deleted_at` (CLAUDE.md section 10).
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -29,9 +30,12 @@ def shared_lists_of(project: BuilderProject) -> bool:
     version = project.published_version
     if version is None:
         return False
-    files = {str(path): str(content) for path, content in version.files}
+    # Only the manifest is read — never the whole file list of every row.
+    manifest = next((content for path, content in version.files if path == app_manifest.MANIFEST_FILE), None)
+    if manifest is None:
+        return False
     try:
-        return any(entry.kind == "shared" for entry in app_manifest.parse(files))
+        return any(entry.kind == "shared" for entry in app_manifest.parse({app_manifest.MANIFEST_FILE: str(manifest)}))
     except app_manifest.ManifestError:
         return False
 
@@ -147,9 +151,15 @@ def set_favorite(
     )
     if payload.on and row is None:
         db.add(AppFavorite(user_id=user.id, project_id=project.id))
+        try:
+            db.commit()
+        except IntegrityError:
+            # The same member's other tab got there first: already set.
+            db.rollback()
+            project = _listed(db, slug)
     elif not payload.on and row is not None:
         db.delete(row)
-    db.commit()
+        db.commit()
     return listing_of(db, settings, project, favorites_of(db, user))
 
 

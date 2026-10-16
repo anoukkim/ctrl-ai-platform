@@ -38,6 +38,7 @@ from app.schemas.builder import (
     BuilderProjectFromTemplate,
     BuilderProjectRead,
     BuilderProjectUpdate,
+    ProjectPinSet,
     BuilderTemplateRead,
     EmptyBody,
 )
@@ -84,6 +85,7 @@ from app.services import (
 from app.services import thumbnails
 from app.services import usage as usage_service
 from app.services.attachments import AttachmentRefusal
+from app.services.quiet import quiet_update
 from app.services.storage import get_storage
 from app.services.claude_provider import ClaudeError, get_claude_provider
 from app.services.work import InvalidNameError, clean_name
@@ -223,7 +225,7 @@ def create_project_from_chat(
     db.flush()
     db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
     db.flush()
-    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html})
+    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html}, settings)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)
@@ -277,7 +279,7 @@ def create_project_from_template(
     for path, content in files.items():
         db.add(BuilderProjectFile(project_id=project.id, path=path, content=content))
     db.flush()
-    builder_versions.snapshot(db, project, f"템플릿: {template.name}", files)
+    builder_versions.snapshot(db, project, f"템플릿: {template.name}", files, settings)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)
@@ -321,15 +323,31 @@ def update_project(
         # Clearing a choice is not offered: the picker always has one.
         if key in changes and changes[key] is None:
             del changes[key]
-    # 고정 (ui-improvements): a flag in the request, a timestamp on the row
-    # — so "pinned first, then by date" has a date to use. `null` = unchanged.
-    pinned = changes.pop("pinned", None)
-    if pinned is not None:
-        project.pinned_at = datetime.now(timezone.utc) if pinned else None
-
     for field, value in changes.items():
         setattr(project, field, value)
 
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post(
+    "/projects/{project_id}/pin",
+    response_model=BuilderProjectRead,
+    summary="맨 위에 고정 / 고정 해제 (ui-improvements)",
+)
+def set_pinned(
+    project_id: int,
+    payload: ProjectPinSet,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BuilderProject:
+    """A pin is how the owner reads their own list, not a change to the
+    work — so, like ★ on CtrlAIApps, it works while not taking part this
+    quarter (`get_current_user`), and it never moves `updated_at`: a
+    timestamp on the row, so "pinned first, then by date" has a date."""
+    project = _owned_project(project_id, db, user)
+    quiet_update(db, project, pinned_at=datetime.now(timezone.utc) if payload.on else None)
     db.commit()
     db.refresh(project)
     return project

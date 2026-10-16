@@ -259,12 +259,12 @@ export default function LibraryCard({
 
                 {onPin && (
                   <li role="none">
+                    {/* 고정은 내 목록을 보는 방식이라 참여하지 않는 분기에도 됩니다 (★처럼). */}
                     <button
                       className={styles.cardMenuItem}
-                      disabled={!mayEdit}
                       onClick={() => void togglePin()}
                       role="menuitem"
-                      title={mayEdit ? "고정한 것은 목록 맨 위에 있어요" : lockedHint}
+                      title="고정한 것은 목록 맨 위에 있어요"
                       type="button"
                     >
                       {pinned ? "고정 해제" : "맨 위에 고정"}

@@ -91,14 +91,20 @@ export function describeError(error: unknown): string {
  * 없이 보낼 수 있는 형식은 백엔드가 받지 않습니다(CLAUDE.md §2). 거절은
  * 백엔드의 한국어 `detail`을 그대로 던집니다.
  */
-export async function uploadBytes<T>(path: string, file: File, name: string, fallback: string): Promise<T> {
+export async function uploadBytes<T>(
+  path: string,
+  body: Blob,
+  query: Record<string, string>,
+  fallback: string,
+): Promise<T> {
   let response: Response;
+  const search = new URLSearchParams(query).toString();
   try {
-    response = await fetch(`${API_BASE_URL}/api${path}?name=${encodeURIComponent(name)}`, {
+    response = await fetch(`${API_BASE_URL}/api${path}${search ? `?${search}` : ""}`, {
       method: "POST",
       cache: "no-store",
       headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
-      body: file,
+      body,
     });
   } catch {
     throw new ApiError("서버에 연결할 수 없습니다", 0);

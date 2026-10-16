@@ -17,6 +17,7 @@ import {
   describeError,
   formatRelative,
   listVideoProjects,
+  setVideoPinned,
   updateVideoProject,
   videoVersionDownloadUrl,
   type LibraryFilter,
@@ -126,7 +127,7 @@ export default function VideoLibrary() {
 
   /** 고정 / 고정 해제 — 그 줄만 바꿉니다. */
   const pin = useCallback(async (id: number, next: boolean) => {
-    const updated = await updateVideoProject(id, { pinned: next });
+    const updated = await setVideoPinned(id, next);
     setState((current) =>
       current.phase === "ready"
         ? {

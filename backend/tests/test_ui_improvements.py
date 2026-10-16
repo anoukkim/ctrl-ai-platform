@@ -42,35 +42,62 @@ def test_a_builder_project_is_pinned_with_a_timestamp_and_unpinned_again(
     db_session.add(project)
     db_session.commit()
 
-    assert client.get(f"/api/builder/projects/{project.id}").json()["pinned_at"] is None
+    before = client.get(f"/api/builder/projects/{project.id}").json()
+    assert before["pinned_at"] is None
 
-    pinned = client.patch(f"/api/builder/projects/{project.id}", json={"pinned": True})
+    pinned = client.post(f"/api/builder/projects/{project.id}/pin", json={"on": True})
     assert pinned.status_code == 200, pinned.text
     assert pinned.json()["pinned_at"] is not None
-    # Other fields are untouched, and a PATCH without `pinned` leaves the pin.
+    # A pin is not an edit: 마지막 수정 (updated_at) stays where it was.
+    assert pinned.json()["updated_at"] == before["updated_at"]
+    # Other fields are untouched, and a PATCH leaves the pin.
     assert pinned.json()["name"] == "가계부"
     renamed = client.patch(f"/api/builder/projects/{project.id}", json={"name": "새 가계부"}).json()
     assert renamed["pinned_at"] == pinned.json()["pinned_at"]
     [row] = client.get("/api/builder/projects").json()
     assert row["pinned_at"] == pinned.json()["pinned_at"]
+    # `pinned` is not a PATCH field any more.
+    assert "pinned_at" in client.patch(f"/api/builder/projects/{project.id}", json={"pinned": False}).json()
+    assert client.get(f"/api/builder/projects/{project.id}").json()["pinned_at"] == pinned.json()["pinned_at"]
 
-    unpinned = client.patch(f"/api/builder/projects/{project.id}", json={"pinned": False}).json()
+    unpinned = client.post(f"/api/builder/projects/{project.id}/pin", json={"on": False}).json()
     assert unpinned["pinned_at"] is None
+    assert unpinned["updated_at"] == renamed["updated_at"]
+    # The JSON-body rule holds for the pin too.
+    assert client.post(f"/api/builder/projects/{project.id}/pin", content="true", headers={"Content-Type": "text/plain"}).status_code in (415, 422)
+
+
+def test_a_pin_is_a_reading_preference_open_to_an_owner_not_taking_part(
+    client: TestClient, db_session: Session, dev_user
+) -> None:
+    """No `participating` fixture: dev sits this quarter out. Like ★ on
+    CtrlAIApps (and unlike a rename), pinning their own list still works."""
+    project = BuilderProject(owner_user_id=dev_user.id, name="가계부", description="")
+    db_session.add(project)
+    db_session.commit()
+    assert client.patch(f"/api/builder/projects/{project.id}", json={"name": "x"}).status_code == 403
+    pinned = client.post(f"/api/builder/projects/{project.id}/pin", json={"on": True})
+    assert pinned.status_code == 200, pinned.text
+    assert pinned.json()["pinned_at"] is not None
 
 
 def test_a_video_project_is_pinned_the_same_way(
-    client: TestClient, db_session: Session, dev_user, participating, video_open
+    client: TestClient, db_session: Session, dev_user, participating
 ) -> None:
+    """No `video_open` either: the pin route is a read preference, not a
+    Video write — the locked screen hides it from members anyway."""
     project = VideoProject(owner_user_id=dev_user.id, name="비 오는 서울", prompt="")
     db_session.add(project)
     db_session.commit()
 
-    pinned = client.patch(f"/api/video/projects/{project.id}", json={"pinned": True})
+    before = client.get(f"/api/video/projects/{project.id}").json()
+    pinned = client.post(f"/api/video/projects/{project.id}/pin", json={"on": True})
     assert pinned.status_code == 200, pinned.text
     assert pinned.json()["pinned_at"] is not None
+    assert pinned.json()["updated_at"] == before["updated_at"]
     [row] = client.get("/api/video/projects").json()
     assert row["pinned_at"] == pinned.json()["pinned_at"]
-    assert client.patch(f"/api/video/projects/{project.id}", json={"pinned": False}).json()["pinned_at"] is None
+    assert client.post(f"/api/video/projects/{project.id}/pin", json={"on": False}).json()["pinned_at"] is None
 
 
 # ------------------------------------------------------------ 즐겨찾기

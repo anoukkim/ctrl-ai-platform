@@ -460,7 +460,7 @@ def run(
 
     files = builder_versions.current_files(db, project)
     note = ("만들기: " if generation.kind == "create" else "고치기: ") + generation.request.splitlines()[0]
-    version = builder_versions.snapshot(db, project, note[:200], files)
+    version = builder_versions.snapshot(db, project, note[:200], files, settings)
     generation.version_id = version.id
     generation.status = "done"
     # A request is never the description (owner, 2026-10-16, ui-improvements):

@@ -280,8 +280,6 @@ class VideoProjectUpdate(BaseModel):
     selected_model_id: int | None = None
     status: VideoProjectStatus | None = None
     final_version_id: int | None = None
-    #: ui-improvements: 고정 / 고정 해제.
-    pinned: bool | None = None
 
 
 class VideoProjectRead(VideoProjectBase):
