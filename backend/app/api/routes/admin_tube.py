@@ -4,7 +4,7 @@ The same queue as app reports: hide or delete the comment with a reason
 (audited, closes its open reports), or close a report and keep it.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
@@ -42,10 +42,7 @@ def list_reports(db: Session = Depends(get_db), _: User = Depends(require_admin)
 
 
 def _run(db: Session, action) -> dict:
-    try:
-        closed = action()
-    except tube.TubeError as error:
-        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    closed = action()  # a TubeError becomes its status in app.main
     db.commit()
     return {"detail": "처리했어요.", "reports_closed": closed}
 
@@ -68,9 +65,6 @@ def delete_comment(
 def resolve_report(
     report_id: int, payload: TubeResolve, db: Session = Depends(get_db), admin: User = Depends(require_admin)
 ) -> dict:
-    try:
-        tube.resolve_report(db, admin, report_id, payload.note)
-    except tube.TubeError as error:
-        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    tube.resolve_report(db, admin, report_id, payload.note)
     db.commit()
     return {"detail": "신고를 닫았어요."}

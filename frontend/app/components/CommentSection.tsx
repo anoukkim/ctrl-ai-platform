@@ -323,7 +323,7 @@ interface CommentProps {
   onToggleLike: (id: string) => void;
   replyTo: string | null;
   onOpenReply: (id: string | null) => void;
-  onReply: (parentId: string, body: string) => void;
+  onReply: (parentId: string, body: string) => void | Promise<void>;
   openThreads: string[];
   onToggleThread: (id: string) => void;
   authorName: string;
@@ -334,28 +334,46 @@ interface CommentProps {
   onReport?: (comment: Comment) => void;
 }
 
+/** 실패한 요청의 한국어 한 줄. */
+function failureText(caught: unknown): string {
+  return caught instanceof Error && caught.message ? caught.message : "잠시 뒤 다시 해 주세요.";
+}
+
 function CommentItem(props: CommentProps) {
   const { comment, isReply = false, likeCount, isLiked, onToggleLike, replyTo, live = false } = props;
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [edited, setEdited] = useState(comment.body);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const replies = comment.replies ?? [];
   const threadOpen = props.openThreads.includes(comment.id);
   const collapsed = replies.length > COLLAPSE_AFTER && !threadOpen;
   const liked = isLiked(comment.id);
 
-  function submitReply() {
+  // 답글과 고치기는 서버가 받아 준 뒤에야 칸을 비우거나 닫습니다 — 실패하면
+  // 쓴 글이 그대로 남고 그 아래에 이유가 보입니다.
+  async function submitReply() {
     if (draft.trim().length === 0) return;
-    props.onReply(props.threadId ?? comment.id, draft.trim());
-    setDraft("");
+    setFailure(null);
+    try {
+      await props.onReply(props.threadId ?? comment.id, draft.trim());
+      setDraft("");
+    } catch (caught) {
+      setFailure(failureText(caught));
+    }
   }
 
   async function submitEdit() {
     const body = edited.trim();
     if (body.length === 0 || !props.onEdit) return;
-    await props.onEdit(comment.id, body);
-    setEditing(false);
+    setFailure(null);
+    try {
+      await props.onEdit(comment.id, body);
+      setEditing(false);
+    } catch (caught) {
+      setFailure(failureText(caught));
+    }
   }
 
   return (
@@ -371,6 +389,7 @@ function CommentItem(props: CommentProps) {
             onSubmit={() => void submitEdit()}
             onCancel={() => {
               setEdited(comment.body);
+              setFailure(null);
               setEditing(false);
             }}
             authorName={props.authorName}
@@ -428,9 +447,10 @@ function CommentItem(props: CommentProps) {
           <Composer
             value={draft}
             onChange={setDraft}
-            onSubmit={submitReply}
+            onSubmit={() => void submitReply()}
             onCancel={() => {
               setDraft("");
+              setFailure(null);
               props.onOpenReply(null);
             }}
             authorName={props.authorName}
@@ -438,6 +458,12 @@ function CommentItem(props: CommentProps) {
             small
             autoFocus
           />
+        )}
+
+        {failure && (
+          <p className={styles.failure} role="alert">
+            {failure}
+          </p>
         )}
 
         {replies.length > 0 && (
@@ -487,8 +513,9 @@ export interface CommentThread {
   comments: Comment[];
   /** 답글까지 센 수. 탭에 적는 "댓글 7"의 7입니다. */
   count: number;
-  add: (body: string) => void;
-  addReply: (parentId: string, body: string) => void;
+  /** 실제 댓글은 약속(Promise)을 돌려주고, 입력칸은 성공해야 비웁니다. */
+  add: (body: string) => void | Promise<void>;
+  addReply: (parentId: string, body: string) => void | Promise<void>;
   /** 실제 댓글(promo-videos): 저장되고, 내 것은 고치고 지우고, 남의 것은 신고. */
   live?: boolean;
   edit?: (id: string, body: string) => Promise<void>;
@@ -549,6 +576,7 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
   const [openThreads, setOpenThreads] = useState<string[]>([]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [postFailure, setPostFailure] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -608,18 +636,25 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
     );
   }
 
-  function postComment() {
+  async function postComment() {
     const body = draft.trim();
     if (body.length === 0) return;
-    thread.add(body);
+    setPostFailure(null);
+    try {
+      await thread.add(body);
+    } catch (caught) {
+      // 쓴 글은 칸에 그대로 — 지우면 긴 댓글을 다시 쓰게 됩니다.
+      setPostFailure(failureText(caught));
+      return;
+    }
     setDraft("");
     // 새 댓글이 바로 보이도록 최신순으로 되돌립니다. 인기순으로 보던
     // 중이라면 방금 쓴 글이 맨 아래에 묻혀 사라진 것처럼 보입니다.
     setSort("newest");
   }
 
-  function postReply(parentId: string, body: string) {
-    thread.addReply(parentId, body);
+  async function postReply(parentId: string, body: string) {
+    await thread.addReply(parentId, body); // throws → the reply box keeps the text
     // 답글을 달면 그 실타래는 펼쳐 둡니다.
     setOpenThreads((current) => (current.includes(parentId) ? current : [...current, parentId]));
     setReplyTo(null);
@@ -678,10 +713,15 @@ export function CommentSection({ thread, fill = false }: { thread: CommentThread
         <Composer
           value={draft}
           onChange={setDraft}
-          onSubmit={postComment}
+          onSubmit={() => void postComment()}
           authorName={me.displayName}
           placeholder="댓글을 남겨보세요"
         />
+        {postFailure && (
+          <p className={styles.failure} role="alert">
+            {postFailure}
+          </p>
+        )}
         {!live && (
           <p className={styles.mockNote}>
             댓글 기능은 아직 준비 중입니다. 지금 쓴 댓글은 저장되지 않습니다.

@@ -375,3 +375,10 @@
   color: var(--text-dim);
   font-size: var(--fs-meta);
 }
+
+/* 올리기·고치기가 실패했을 때 입력칸 아래 한 줄. */
+.failure {
+  margin: 0.3rem 0 0;
+  color: var(--danger, #c0392b);
+  font-size: var(--fs-meta);
+}

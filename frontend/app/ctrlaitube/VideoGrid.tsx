@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { CreatorLine } from "@/app/components/Community";
 import { MOCK_VIDEOS, totalComments, totalReactions } from "@/lib/mock-data";
+import { exactDate } from "@/lib/relative-time";
 import { formatDuration, listTubeVideos, type TubeVideo } from "@/lib/tube";
 
 import { softTint } from "@/app/ctrlaistore/softTint";
@@ -147,7 +148,7 @@ export default function VideoGrid() {
                   <span className={styles.metaItem}>
                     <MessageCircle size={12} aria-hidden="true" /> {video.comment_count}
                   </span>
-                  <span className={`${styles.metaItem} ${styles.metaDate}`}>{video.published_at.slice(0, 10)}</span>
+                  <span className={`${styles.metaItem} ${styles.metaDate}`}>{exactDate(video.published_at)}</span>
                 </p>
               </div>
             </Link>

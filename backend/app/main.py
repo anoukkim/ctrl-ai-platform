@@ -8,13 +8,15 @@ Interactive API documentation is then served at
 http://localhost:8000/docs
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.api.routes import app_platform
 from app.core.config import get_settings
 from app.core.json_only import JsonOnlyMiddleware
+from app.services.tube import TubeError
 
 settings = get_settings()
 
@@ -64,6 +66,14 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(TubeError)
+async def _tube_error(_: Request, error: TubeError) -> JSONResponse:
+    """CtrlAITube's service errors carry their status; one handler, not a
+    try/except per route (promo-videos)."""
+    return JSONResponse(status_code=error.status_code, content={"detail": str(error)})
+
 # The apps origin's own routes (app-platform), outside /api: only Caddy's
 # apps.<domain> block reaches them; the club's site forwards /api/* only.
 app.include_router(app_platform.router)

@@ -112,11 +112,28 @@ export default function TubeVideoView({ slug }: { slug: string }) {
     comments,
     count: video.comment_count,
     live: true,
-    add: (body) => void attempt(() => addTubeComment(slug, body)),
-    addReply: (parentId, body) => void attempt(() => addTubeComment(slug, body, Number(parentId))),
+    // 쓰기는 약속을 돌려줍니다: 댓글칸은 성공해야 입력칸을 비우고, 실패하면
+    // 그 아래에 이유를 적습니다. 어느 쪽이든 서버의 상태를 다시 읽습니다.
+    add: async (body) => {
+      try {
+        await addTubeComment(slug, body);
+      } finally {
+        await reload();
+      }
+    },
+    addReply: async (parentId, body) => {
+      try {
+        await addTubeComment(slug, body, Number(parentId));
+      } finally {
+        await reload();
+      }
+    },
     edit: async (id, body) => {
-      await editTubeComment(Number(id), body);
-      await reload();
+      try {
+        await editTubeComment(Number(id), body);
+      } finally {
+        await reload();
+      }
     },
     remove: async (id) => {
       await deleteTubeComment(Number(id));

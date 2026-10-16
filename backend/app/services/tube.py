@@ -193,6 +193,20 @@ def comment_tree(db: Session, video: TubeVideo) -> list[CommentView]:
     return top
 
 
+def authors_in(tree: list[CommentView]) -> list[User]:
+    """Every author in a comment tree, once each."""
+    seen: dict[int, User] = {}
+
+    def walk(views: list[CommentView]) -> None:
+        for view in views:
+            if view.author is not None:
+                seen.setdefault(view.author.id, view.author)
+            walk(view.replies)
+
+    walk(tree)
+    return list(seen.values())
+
+
 def count_comments(db: Session, video: TubeVideo) -> int:
     return int(
         db.scalar(
@@ -215,8 +229,12 @@ def add_comment(db: Session, video: TubeVideo, user: User, body: object, parent_
             or parent.hidden_at is not None
         ):
             raise TubeError(COMMENT_NOT_FOUND, 404)
-        # One level only: a reply to a reply hangs under the same parent.
-        parent_id = parent.parent_id or parent.id
+        # One level only: a reply to a reply hangs under the same top-level
+        # comment — unless that one is gone (deleted or hidden), in which
+        # case the reply the member answered is itself shown at the top, and
+        # the new comment hangs under it.
+        top = db.get(TubeComment, parent.parent_id) if parent.parent_id else None
+        parent_id = top.id if top is not None and top.deleted_at is None and top.hidden_at is None else parent.id
     row = TubeComment(video_id=video.id, user_id=user.id, parent_id=parent_id, body=text)
     db.add(row)
     db.flush()

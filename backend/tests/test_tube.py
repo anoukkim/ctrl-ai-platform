@@ -139,6 +139,12 @@ def test_deleting_a_parent_keeps_its_replies_at_the_top(client: TestClient, memb
     view = detail(client)
     assert [c["id"] for c in view["comments"]] == [reply["id"]]
 
+    # A reply to that orphaned reply hangs under it, not under the dead parent.
+    nested = comment(client, "답글의 답글", parent_id=reply["id"])
+    view = detail(client)
+    assert [c["id"] for c in view["comments"]] == [reply["id"]]
+    assert [r["id"] for r in view["comments"][0]["replies"]] == [nested["id"]]
+
 
 # ------------------------------------------------------------------- reports
 

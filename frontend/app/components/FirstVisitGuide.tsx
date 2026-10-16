@@ -16,10 +16,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { Clapperboard, Code2, MessageSquare, PlayCircle, Wallet, X, type LucideIcon } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
+import { getTubeVideo } from "@/lib/tube";
+
 import PromoVideo, { type PromoSources } from "./PromoVideo";
 import styles from "./guide.module.css";
 
-/** 소개 영상의 파일. 이름의 판(v1)은 새로 인코딩할 때 올립니다. */
+/** 소개 영상의 파일 — 서버(`GET /api/tube/videos/ctrlai-intro`)가 정답이고,
+ *  이 값은 그 응답이 오기 전이나 실패했을 때의 대비입니다. 새 인코딩은
+ *  백엔드 `services/tube.py`의 OFFICIAL에 올리고 여기도 맞춥니다. */
 export const PROMO_SOURCES: PromoSources = {
   desktop: "/promo/ctrlai-intro-desktop-v1.mp4",
   mobile: "/promo/ctrlai-intro-mobile-v1.mp4",
@@ -125,6 +129,31 @@ export default function GuideProvider({
   );
 }
 
+/** 마지막 장의 영상. 파일 주소는 CtrlAITube와 같은 곳(서버)에서 읽습니다. */
+function GuideVideo() {
+  const [sources, setSources] = useState<PromoSources>(PROMO_SOURCES);
+  useEffect(() => {
+    let alive = true;
+    getTubeVideo("ctrlai-intro")
+      .then((row) => {
+        if (!alive || !row.hosted_desktop_src) return;
+        setSources({
+          desktop: row.hosted_desktop_src,
+          mobile: row.hosted_mobile_src,
+          posterDesktop: row.poster_desktop_src,
+          posterMobile: row.poster_mobile_src,
+        });
+      })
+      .catch(() => {
+        /* 서버가 답하지 않으면 위의 값으로 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return <PromoVideo sources={sources} title="CTRL+AI 소개 영상" className={styles.video} />;
+}
+
 function GuideDialog({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const primary = useRef<HTMLButtonElement>(null);
@@ -223,7 +252,7 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
               {title}
             </h2>
             <p className={styles.text}>{text}</p>
-            {video && <PromoVideo sources={PROMO_SOURCES} title="CTRL+AI 소개 영상" className={styles.video} />}
+            {video && <GuideVideo />}
           </motion.div>
         </AnimatePresence>
 

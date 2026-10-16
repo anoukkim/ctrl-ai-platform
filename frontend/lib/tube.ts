@@ -95,12 +95,7 @@ export function reportTubeComment(commentId: number, reason: string): Promise<{ 
   });
 }
 
-/** "1:00" — 길이를 사람이 읽는 꼴로. */
-export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+export { formatDuration } from "./duration";
 
 // ------------------------------------------------------------------ Admin › Content
 
