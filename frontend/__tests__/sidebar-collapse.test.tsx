@@ -144,12 +144,31 @@ describe("collapsible sidebar", () => {
     for (const name of NAV_NAMES) {
       const link = screen.getByRole("link", { name });
       expect(link.getAttribute("href")).toBeTruthy();
-      expect(link.getAttribute("title")).toBe(name);
+      // A locked item (Video Generator while owner-polish 6 holds) adds its
+      // reason after the name; every other tooltip is the name alone.
+      if (link.dataset.locked === "true") expect(link.getAttribute("title")).toBe(`${name} — 다음 분기에 열려요`);
+      else expect(link.getAttribute("title")).toBe(name);
     }
     // Admin becomes a single link to the dashboard, still announcing what waits.
     const admin = screen.getByRole("link", { name: /Admin/ });
     expect(admin.getAttribute("href")).toBe("/admin");
     expect(admin.getAttribute("title")).toContain("Admin");
+  });
+
+  test("Video Generator carries a lock and '다음 분기에 열려요' while the site says it is closed (owner-polish 6)", async () => {
+    who.user = MEMBER;
+    await renderShell();
+
+    const video = screen.getByRole("link", { name: "Video Generator" });
+    expect(video.dataset.locked).toBe("true");
+    expect(video.getAttribute("href")).toBe("/video"); // still a link — the screen explains
+    expect(video.textContent).toContain("다음 분기에 열려요");
+    expect(video.getAttribute("aria-describedby")).toBeTruthy();
+    // No other item is locked.
+    for (const name of NAV_NAMES.filter((n) => n !== "Video Generator")) {
+      expect(screen.getByRole("link", { name }).dataset.locked).toBeUndefined();
+    }
+    who.user = ADMIN;
   });
 
   test("the Admin item shows how many things are waiting, open or closed", async () => {

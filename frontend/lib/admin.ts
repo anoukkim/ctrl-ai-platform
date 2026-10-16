@@ -494,3 +494,26 @@ export function setChatLimits(limits: ChatLimitsWrite): Promise<ClaudeSettings> 
     body: JSON.stringify(limits),
   });
 }
+
+// ------------------------------------------------------------------ 기능 열기 (owner-polish 6)
+
+/** 관리자가 켜고 끄는 기능 스위치. 첫 번째는 회원에게 Video Generator 열기. */
+export interface FeatureSwitch {
+  key: string;
+  label: string;
+  open: boolean;
+  note: string;
+  set_by_username: string;
+  set_at: string | null;
+}
+
+export function listFeatures(): Promise<FeatureSwitch[]> {
+  return request<FeatureSwitch[]>("/admin/features");
+}
+
+export function setFeature(key: string, open: boolean, note: string): Promise<FeatureSwitch> {
+  return request<FeatureSwitch>(`/admin/features/${encodeURIComponent(key)}`, {
+    method: "POST",
+    body: JSON.stringify({ open, note }),
+  });
+}

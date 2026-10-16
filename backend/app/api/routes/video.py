@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_active_member
+from app.api.deps import get_current_user, require_active_member, require_video_open
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
@@ -167,7 +167,7 @@ def list_projects(
 def create_project(
     payload: VideoProjectCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
 ) -> VideoProject:
     model_id = payload.selected_model_id
     if model_id is not None and model_id not in {m.id for m in _allowed_models(db)}:
@@ -212,7 +212,7 @@ def update_project(
     project_id: int,
     payload: VideoProjectUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
 ) -> VideoProject:
     """Edit a project — prompt, model, final version.
 
@@ -260,7 +260,7 @@ def update_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
 ) -> None:
     """Delete a video project. The owner, while participating, only.
 
@@ -430,7 +430,7 @@ def create_version(
     project_id: int,
     settings: VideoVersionCreate | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
     # Named `config` because `settings` above is already taken by the
     # request body — the generation settings the member asked for.
     config: Settings = Depends(get_settings),
@@ -509,7 +509,7 @@ def edit_version(
     version_id: int,
     payload: VideoEditCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
     config: Settings = Depends(get_settings),
 ) -> VideoVersion:
     """Send a version and an instruction to its model's edit workflow.
@@ -585,7 +585,7 @@ def extend_version(
     version_id: int,
     payload: VideoExtendCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
     config: Settings = Depends(get_settings),
 ) -> VideoVersion:
     """Continue a version by `duration_seconds`, one of its model's lengths.
@@ -660,7 +660,7 @@ def prompt_help(
     project_id: int,
     payload: PromptHelpRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
+    user: User = Depends(require_video_open),
     config: Settings = Depends(get_settings),
 ) -> PromptHelpRead:
     """Ask Claude to rewrite the prompt. Text only — never generates video.

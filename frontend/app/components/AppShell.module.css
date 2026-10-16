@@ -171,6 +171,31 @@
   stroke-width: 1.75;
 }
 
+/* 회원에게 잠긴 항목 (owner-polish 6): 옅게, 자물쇠, 짧은 안내. 링크는
+   살아 있습니다 — 화면이 "다음 분기에 열려요"를 말합니다. */
+.navLocked {
+  color: var(--text-dim);
+}
+
+.navLocked .navIcon {
+  opacity: 0.6;
+}
+
+.navLockIcon {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.navLockHint {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 /* Project Builder와 Video Generator의 아이콘은 늘 영역 색입니다. */
 .tone-build .navIcon {
   color: var(--build);
@@ -492,6 +517,11 @@
 
   /* 이름은 화면에서만 감춥니다. 읽어 주기 프로그램에는 그대로 읽히고,
      마우스를 올리면 title 툴팁이 이름을 보여 줍니다. */
+  .shellCollapsed .navLockHint,
+  .shellCollapsed .navLockIcon {
+    display: none;
+  }
+
   .shellCollapsed .navLabel {
     position: absolute;
     width: 1px;

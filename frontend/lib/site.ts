@@ -27,8 +27,17 @@ export interface SiteInfo {
    * 없으면(null) 미리보기는 파일을 이 페이지 안에서 바로 돌립니다.
    */
   apps_base_url?: string | null;
+  /**
+   * 회원이 Video Generator를 쓸 수 있는지 (owner-polish 6). 관리자가
+   * Admin › System에서 켭니다. 기본은 잠김 — 메뉴와 화면이 "다음 분기에
+   * 열려요"라고 말합니다. 관리자는 잠겨 있어도 들어갈 수 있어요.
+   */
+  video_open?: boolean;
   test_mode: Record<TestModeArea, boolean>;
 }
+
+/** Video Generator가 잠겨 있을 때 회원이 보는 한 문장. */
+export const VIDEO_LOCKED_HINT = "다음 분기에 열려요";
 
 /**
  * 답을 받기 전, 또는 받지 못했을 때.
@@ -46,6 +55,8 @@ export const UNKNOWN_SITE: SiteInfo = {
   github_enabled: false,
   google_login: false,
   apps_base_url: null,
+  // owner-polish 6: 기본은 잠김 — /api/site가 열렸다고 말할 때만 엽니다.
+  video_open: false,
   test_mode: { chat: false, builder: false, video: false, community: false },
 };
 

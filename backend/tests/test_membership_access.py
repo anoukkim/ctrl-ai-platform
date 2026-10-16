@@ -440,13 +440,13 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/video/models"): "get_current_user",
     ("GET", "/api/video/projects"): "get_current_user",
     ("GET", "/api/video/projects/{project_id}"): "get_current_user",
-    ("POST", "/api/video/projects"): "require_active_member",
-    ("PATCH", "/api/video/projects/{project_id}"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/versions"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/edit"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/extend"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/prompt-help"): "require_active_member",
-    ("DELETE", "/api/video/projects/{project_id}"): "require_active_member",
+    ("POST", "/api/video/projects"): "require_video_open",
+    ("PATCH", "/api/video/projects/{project_id}"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/versions"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/edit"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/extend"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/prompt-help"): "require_video_open",
+    ("DELETE", "/api/video/projects/{project_id}"): "require_video_open",
     # Taking a copy of your own work out. Deliberately `get_current_user`:
     # a member who did not join this quarter may not create, but their
     # work is theirs and must stay downloadable.
@@ -517,6 +517,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # is a POST — and it is still admin-only, not participation-gated.
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
+    ("GET", "/api/admin/features"): "require_admin",
+    ("POST", "/api/admin/features/{key}"): "require_admin",
     ("GET", "/api/admin/claude-pricing/builder-eval"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/chat-models/providers"): "require_admin",

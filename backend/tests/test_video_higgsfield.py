@@ -422,7 +422,7 @@ def project_quarter(db_session: Session) -> int:
 
 
 def test_another_member_cannot_edit_my_version(
-    client: TestClient, other_user: User, project, source, other_participating
+    client: TestClient, other_user: User, project, source, other_participating, video_open
 ) -> None:
     # `client` and `other_client` are one TestClient with one cookie jar,
     # so sign in as the other member here, after `source` was made as dev.
