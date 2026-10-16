@@ -33,7 +33,7 @@ from app.models import (
     User,
     WalletAdjustment,
 )
-from app.services import accounting, audit
+from app.services import accounting, audit, notifications
 from app.services import quarter_budget as quarter_budget_service
 from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
@@ -327,6 +327,7 @@ def review_application(
             summary=f"{applicant.display_name if applicant else application.user_id}의 참여 신청을 거절했습니다.",
             detail={"admin_note": payload.admin_note},
         )
+        notifications.application_reviewed(db, application, approved=False, note=payload.admin_note or "")
         db.commit()
         db.refresh(application)
         return application
@@ -356,6 +357,7 @@ def review_application(
     allocation.budget_krw = application.requested_budget_krw + int(earlier or 0)
     allocation.approved_at = approved_at
     allocation.approved_by = admin.id
+    notifications.application_reviewed(db, application, approved=True, note=payload.admin_note or "")
     # Provider prices as they stood at approval. Kept so a member's quota
     # in tokens or generations stays consistent even if prices change.
     allocation.pricing_snapshot = {"captured_at": approved_at.isoformat()}

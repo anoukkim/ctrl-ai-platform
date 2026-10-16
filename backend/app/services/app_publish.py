@@ -26,7 +26,7 @@ from app.models import (
     BuilderProjectVersion,
     User,
 )
-from app.services import app_ai_access, app_runtime, audit, builder_versions
+from app.services import app_ai_access, app_runtime, audit, builder_versions, notifications
 
 MAX_DESCRIPTION = 2_000
 MAX_NOTE = 200
@@ -94,6 +94,7 @@ def publish(
         raise PublishError(str(error)) from error
     if chosen is not None:
         project.ai_access = chosen
+    was_published = project.published_version_id is not None
     project.published_version_id = version.id
     project.published_version = version
     project.published_at = datetime.now(timezone.utc)
@@ -101,6 +102,8 @@ def publish(
     project.description = description.strip()
     project.status = BuilderProjectStatus.PUBLISHED
     db.flush()
+    # 게시 완료 / 업데이트 게시 완료 — the owner's own notification list.
+    notifications.app_published(db, project, update=was_published)
     return version
 
 
@@ -122,6 +125,7 @@ def admin_unpublish(
     unpublish(db, settings, project)
     closed = _close_reports(db, project, admin)
     owner = db.get(User, project.owner_user_id)
+    notifications.app_taken_down(db, project, reason, was)
     audit.record(
         db,
         actor=admin,
@@ -183,6 +187,8 @@ def resolve_report(db: Session, admin: User, row: AppReport, note: str) -> None:
     row.resolved_at = datetime.now(timezone.utc)
     row.resolved_by = admin.id
     project = db.get(BuilderProject, row.project_id)
+    if project is not None and project.published_version_id is not None:
+        notifications.app_report_kept(db, project)
     audit.record(
         db,
         actor=admin,

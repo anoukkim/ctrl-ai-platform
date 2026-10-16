@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import QuarterAllocation, SpendMilestone, User
+from app.services import notifications
 from app.services.quarters import current_quarter
 
 #: 잔액이 이만큼 이하로 내려가면 차분한 경고 한 번.
@@ -89,6 +90,9 @@ def claim(db: Session, user: User) -> Claim | None:
     new = crossed(allocation.budget_krw, allocation.consumed_krw) - seen
     for kind in new:
         db.add(SpendMilestone(user_id=user.id, quarter_id=quarter.id, kind=kind))
+    # The same moments in the member's notification list (feat-notifications).
+    for kind in new:
+        notifications.milestone_crossed(db, user.id, quarter.id, kind, allocation.remaining_krw)
     try:
         db.commit()
     except IntegrityError:

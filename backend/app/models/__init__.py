@@ -59,6 +59,7 @@ from app.models.quarter import (
 )
 from app.models.usage import FundingSource, UsageEvent, UsageFeature
 from app.models.milestone import SpendMilestone
+from app.models.notification import Notification
 from app.models.membership import MembershipStatus, QuarterMembership
 from app.models.session import UserSession
 from app.models.signup_attempt import LoginAttempt, SignupAttempt
@@ -88,6 +89,7 @@ __all__ = [
     "AppLoginCode",
     "AppSession",
     "SpendMilestone",
+    "Notification",
     "AdjustmentKind",
     "CreditPurchase",
     "WalletAdjustment",
