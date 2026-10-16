@@ -33,7 +33,7 @@ from app.models import (
     User,
     WalletAdjustment,
 )
-from app.services import accounting, audit
+from app.services import accounting, audit, notifications
 from app.services import quarter_budget as quarter_budget_service
 from app.services import withdrawal as withdrawal_service
 from app.services.quarters import current_quarter, membership_for, set_membership
@@ -327,6 +327,7 @@ def review_application(
             summary=f"{applicant.display_name if applicant else application.user_id}의 참여 신청을 거절했습니다.",
             detail={"admin_note": payload.admin_note},
         )
+        notifications.application_reviewed(db, application, approved=False, note=payload.admin_note or "")
         db.commit()
         db.refresh(application)
         return application
@@ -371,6 +372,10 @@ def review_application(
     # membership row, so without this the member would have money they
     # could not spend.
     set_membership(db, application.user_id, application.quarter_id, MembershipStatus.ACTIVE)
+    # Told after the carry-over, with the wallet's own figure — never the request's.
+    notifications.application_reviewed(
+        db, application, approved=True, note=payload.admin_note or "", budget_krw=allocation.budget_krw
+    )
 
     applicant = db.get(User, application.user_id)
     audit.record(

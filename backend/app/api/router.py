@@ -35,6 +35,7 @@ from app.api.routes import (
     usage,
     users,
     video,
+    notifications,
 )
 
 api_router = APIRouter(prefix="/api")
@@ -65,4 +66,5 @@ api_router.include_router(admin_apps.router)
 api_router.include_router(admin_features.router)
 api_router.include_router(admin_withdrawals.router)
 api_router.include_router(feedback.router)
+api_router.include_router(notifications.router)
 api_router.include_router(app_connect.router)

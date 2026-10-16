@@ -356,6 +356,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # Feedback (prep-beta-launch). Sending spends nothing and is open to a
     # member who is not participating; the list is Admin's.
     ("POST", "/api/feedback"): "get_current_user",
+    # feat-notifications: one's own list — reading and marking read spend
+    # nothing and must work while not taking part.
+    ("GET", "/api/notifications"): "get_current_user",
+    ("GET", "/api/notifications/unread"): "get_current_user",
+    ("POST", "/api/notifications/read-all"): "get_current_user",
+    ("POST", "/api/notifications/{notification_id}/read"): "get_current_user",
     ("GET", "/api/admin/feedback"): "require_admin",
     # feedback-screenshots: a screenshot is uploaded before the note and
     # can be removed until sent; only an admin ever opens a stored one,
@@ -693,6 +699,8 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),
+        ("POST", "/api/notifications/read-all"),
+        ("POST", "/api/notifications/{notification_id}/read"),
         ("POST", "/api/feedback/images"),
         ("DELETE", "/api/feedback/images/{image_id}"),
         # Spend feedback (feat-spend-feedback): recording which milestone

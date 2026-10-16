@@ -75,6 +75,8 @@ the same commit that adds it.
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |
 | `POST /api/feedback/images` | `get_current_user` | One screenshot for the next note (bytes as the body, `?name=`, `application/octet-stream`); checked like a Chat image, then stored (feedback-screenshots) |
 | `DELETE /api/feedback/images/{image_id}` | `get_current_user` | ✕ on a picture not sent yet — own and waiting only, else 404 |
+| `GET /api/notifications`, `GET /api/notifications/unread` | `get_current_user` | One's own notification list (feat-notifications) and the bell's count — spends nothing, works while not taking part; reading prunes rows older than 90 days and writes the daily spend summaries up to yesterday from the ledger |
+| `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all` | `get_current_user` | Marking one's own rows read (JSON body `{}`); another member's row is a 404 |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
@@ -441,7 +443,11 @@ Alembic has migrated (`backend/app/models/`).
   exchange_rates, feedback + feedback_images (screenshots on a note,
   bytes in storage under `feedback/<user_id>/<id>`; cascade from the
   note), account_withdrawals, oauth_states / pending_google_signups,
-  audit_log (append-only).
+  audit_log (append-only), **notifications** (feat-notifications: one row
+  per thing that happened to the member — kind, title, body, link,
+  `dedupe_key` unique per member for the once-a-day spend summary and
+  the once-a-quarter milestones, `read_at`; written only by the server
+  code that did the thing, in its transaction; pruned at 90 days).
 
 Alembic owns the schema. `create_all` is not used, and a production
 database is migrated, never re-created.

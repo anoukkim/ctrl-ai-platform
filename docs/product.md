@@ -740,9 +740,32 @@ plain coloured cover with the name (CtrlAIApps) or a code icon (Builder).
 A Builder card shows a description only once the project is published;
 a request typed in Chat or the Builder never becomes a card's text.
 
-**Profile (owner-polish 2's first half, 2026-10-16).** 알림 is two aligned
-switch rows (사용 알림 표시, 띠링 소리) and 내가 만든 앱 is a plain list —
+**Profile (owner-polish 2, 2026-10-16).** 알림 is a card with the
+member's **notification list** on top and the two aligned switch rows
+(사용 알림 표시, 띠링 소리) under 알림 설정; 내가 만든 앱 is a plain list —
 name · vN · "N분 전 업데이트" · 열기 — with no pictures.
+
+**Notifications (feat-notifications, owner-polish 2: "게시가 완료됐습니다!
+사용이 차감됐습니다 etc").** A bell in the sidebar's account row carries
+the unread count; pressing it opens a small panel with the latest
+notifications, 모두 읽음, and a link to Profile › 알림, which lists them
+all (newest first, up to 50, an unread dot, read on click, 모두 읽음).
+Every row is **stored on the server and comes only from something that
+really happened**, written by the code that did it — never by the
+browser: `'앱 이름' 게시 완료 — v3` / 업데이트 게시 완료 (→ the app on
+CtrlAIApps); `2026 Q4 참여 신청이 승인됐어요` with the wallet amount (→
+Usage), or 거절 with the admin's note; the once-a-quarter spend
+milestones (첫 사용, 25 / 50 / 75 %, 잔액 10,000원 이하, 잔액 0 → Usage);
+an app taken down by an admin with the reason, or a report on it closed
+with the app kept; and **one spend summary per KST day** — "어제 지원금
+1,234원 사용 · 채팅 3회 · 빌더 1회" (→ Usage) — written from the usage
+ledger when the member next opens the list, never a row per reply (the
+toast already shows each charge as it happens) and only while 사용 알림
+표시 is on. Rows older than 90 days are removed the next time the member
+looks. The count is refreshed on open, when the tab comes back and every
+minute; nothing animates, so 동작 줄이기 has nothing to turn off. An
+admin's reply to 의견 보내기 is not a notification yet because there is
+no reply feature; it joins the list when one exists.
 
 ## Search
 
