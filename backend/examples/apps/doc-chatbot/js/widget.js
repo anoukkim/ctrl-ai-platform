@@ -32,7 +32,8 @@
   let framedByMaker = false;
   // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
   window.addEventListener("ctrlai:ai-mode", (event) => {
-    liveOn = Boolean(event.detail && event.detail.mode === "live") && liveOn;
+    if (event.detail && event.detail.mode === "live") checkLive();
+    else liveOn = false;
   });
 
   function fromStorage() {

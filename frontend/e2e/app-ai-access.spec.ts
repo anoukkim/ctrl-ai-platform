@@ -16,14 +16,6 @@ const PASSWORD = process.env.E2E_PASSWORD ?? "devpassword";
 
 declare global {
   interface Window {
-    ctrlai: {
-      version: string;
-      ai: {
-        ask(options: { prompt: string }): Promise<{ text: string; chargedKrw: number }>;
-        mode(): Promise<"live" | "demo">;
-      };
-      user(): Promise<{ displayName: string; appUserId: string } | null>;
-    };
     __modes: string[];
   }
 }
@@ -97,6 +89,19 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
     await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
     await page.getByRole("button", { name: "실제 AI 켜기" }).click();
     await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI");
+
+    // 3. Live again, signed out of the app: a call starts the sign-in window
+    // (the old path) — the local gate never mistakes "not signed in" for 데모.
+    await frame.evaluate(() => window.ctrlai.logout().catch(() => undefined));
+    const consentPromise = context.waitForEvent("page");
+    const pendingAsk = askOutcome(frame);
+    const consent = await consentPromise;
+    await consent.waitForLoadState();
+    expect(consent.url()).toContain("/apps/connect?app=");
+    await consent.close();
+    const cancelled = await pendingAsk;
+    expect(cancelled.ok).toBe(false);
+    if (!cancelled.ok) expect(cancelled.code).not.toBe("demo");
 
     // Nothing was charged by any of this: the ledger did not grow.
     const after = (await (await context.request.get(`${SITE}/api/usage/me`)).json()).events.length as number;

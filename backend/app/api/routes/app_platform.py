@@ -171,10 +171,11 @@ def app_info(call: AppCall = Depends(app_call)) -> dict:
         "scopes": list(call.visitor.consent.scopes) if call.visitor else [],
         "callCapKrw": app_ai.CALL_CAP_KRW,
         # app-ai-access: the shell's switch and the SDK's `ctrlai.ai.mode()`.
-        # The maker's 미리보기 is always "full" — they pay for their own tries.
+        # The maker's own 미리보기 is always "full" — they pay for their own
+        # tries; anyone else holding the preview link gets the app's setting.
         "ai": {
             "usesAi": project.published_uses_ai if call.target.mode == "app" else True,
-            "access": app_ai_access.FULL if call.target.mode == "preview" else project.ai_access,
+            "access": app_ai_access.FULL if _owners_preview(call) else project.ai_access,
         },
     }
 
@@ -311,11 +312,22 @@ class AskBody(BaseModel):
         )
 
 
+def _owners_preview(call: AppCall) -> bool:
+    """The Builder's 미리보기 used by the project's own maker (app-ai-access):
+    the one place the 데모만 setting does not apply — another member who
+    was handed the preview link is a visitor like any other."""
+    return (
+        call.target.mode == "preview"
+        and call.visitor is not None
+        and call.visitor.user.id == call.target.project.owner_user_id
+    )
+
+
 def _ai_allowed(call: AppCall) -> None:
     # app-ai-access: 데모만 — a visitor's call is refused before anything is
     # prepared or charged; the app shows its demo answer (code "demo"). The
     # maker's own 미리보기 is never limited.
-    if call.target.mode == "app" and call.target.project.ai_access != app_ai_access.FULL:
+    if not _owners_preview(call) and call.target.project.ai_access != app_ai_access.FULL:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"message": app_ai_access.DEMO_ONLY, "code": app_ai_access.DEMO_CODE},

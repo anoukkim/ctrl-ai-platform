@@ -11,8 +11,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import import_example_apps as cli
-from app.models import BuilderProject, UsageEvent, User
+from app.models import BuilderProject, MembershipStatus, UsageEvent, User
 from app.services import app_ai_access, app_publish, app_runtime, builder_versions
+from app.services.quarters import set_membership
 from tests.conftest import DEV_PASSWORD, MEMBER_PASSWORD
 from tests.test_app_platform_p2 import config, headers, shop, sign_in  # noqa: F401 — fixtures
 from tests.test_example_apps import settings  # noqa: F401 — fixture
@@ -47,8 +48,14 @@ def test_uses_ai_looks_at_pages_and_scripts_only() -> None:
     assert app_ai_access.uses_ai(PLAIN_FILES) is False
     # A README that merely mentions the call does not make an AI app.
     assert app_ai_access.uses_ai({"README.md": "ctrlai.ai.ask()를 쓰세요", "index.html": "<p>hi</p>"}) is False
-    # Through an alias, as the showcases do.
+    # Through an alias, as the showcases do — and the ways Claude writes it.
     assert app_ai_access.uses_ai({"js/a.js": "const sdk = window.ctrlai; sdk.ai.estimate({ prompt: 'x' })"}) is True
+    assert app_ai_access.uses_ai({"js/a.js": "const { ai } = window.ctrlai; ai.ask({ prompt: 'x' })"}) is True
+    assert app_ai_access.uses_ai({"js/a.js": "const ai = ctrlai.ai; ai.stream({}, chunk => {})"}) is True
+    assert app_ai_access.uses_ai({"js/a.js": 'ctrlai["ai"].ask({ prompt: "x" })'}) is True
+    assert app_ai_access.uses_ai({"js/a.js": "const ask = ctrlai.ai.ask; ask({ prompt: 'x' })"}) is True
+    # Another SDK's `ai.ask` in a file that never names ctrlai is not ours.
+    assert app_ai_access.uses_ai({"js/a.js": "openai.ai.ask({ prompt: 'x' })"}) is False
     assert app_ai_access.uses_ai({"js/a.js": "const ai = window.ctrlai.ai; // not called"}) is False
     # The version remembers it; the migration fills the same flag for old rows.
     assert app_ai_access.uses_ai([["index.html", "<script>ctrlai.ai.stream({})</script>"]]) is True
@@ -106,7 +113,8 @@ def test_the_owner_flips_the_switch_any_time_and_nobody_else_can(
     login(other_client, other_user, MEMBER_PASSWORD)
     owner = other_client.post(f"/api/builder/projects/{shop.id}/ai-access", json={"ai_access": "demo"})
     assert owner.status_code == 200 and owner.json()["ai_access"] == "demo"
-    assert client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕"}).status_code == 403
+    refused = client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕"})
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "demo"
 
     back = other_client.post(f"/api/builder/projects/{shop.id}/ai-access", json={"ai_access": "full"})
     assert back.status_code == 200 and back.json()["ai_access"] == "full"
@@ -138,6 +146,7 @@ def test_in_demo_every_visitor_call_is_refused_before_any_charge(
     asked = client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕"})
     assert asked.status_code == 403
     assert asked.json()["detail"] == {"message": app_ai_access.DEMO_ONLY, "code": "demo"}
+    # Not the "ai" consent refusal, which is a 403 too: the code says which.
     streamed = client.post("/_ctrlai/v1/ai/stream", headers=headers(shop), json={"prompt": "안녕"})
     assert streamed.status_code == 403 and streamed.json()["detail"]["code"] == "demo"
     # Pricing stays free and open — a button can still say what live would cost.
@@ -149,15 +158,38 @@ def test_in_demo_every_visitor_call_is_refused_before_any_charge(
     assert budgeted.consumed_krw == 0
 
 
-def test_the_makers_preview_is_never_limited(
-    client: TestClient, db_session: Session, dev_user: User, config  # noqa: F811
+def test_the_makers_own_preview_is_never_limited_but_a_guest_of_the_preview_is(
+    client: TestClient, db_session: Session, dev_user: User, other_user: User, budgeted, config  # noqa: F811
 ) -> None:
+    from tests.test_app_platform_p4 import sign_in_preview
+
     project = own_project(db_session, dev_user, AI_FILES)
     app_runtime.write_draft(db_session, config, project, AI_FILES)
     db_session.commit()
     assert project.ai_access == "demo"
-    info = client.get("/_ctrlai/v1/app", headers={"X-CtrlAI-App": project.draft_slug, "Sec-Fetch-Site": "same-origin"}).json()
-    assert info["mode"] == "preview" and info["ai"] == {"usesAi": True, "access": "full"}
+    preview = {"X-CtrlAI-App": project.draft_slug, "Sec-Fetch-Site": "same-origin"}
+    # Nobody signed in to the preview: the app's setting shows.
+    info = client.get("/_ctrlai/v1/app", headers=preview).json()
+    assert info["mode"] == "preview" and info["ai"] == {"usesAi": True, "access": "demo"}
+
+    # The maker (dev) signs in to their own 미리보기: full, and the call runs.
+    login(client, dev_user, DEV_PASSWORD)
+    sign_in_preview(client, project)
+    assert client.get("/_ctrlai/v1/app", headers=preview).json()["ai"]["access"] == "full"
+    own = client.post("/_ctrlai/v1/ai/ask", headers=preview, json={"prompt": "안녕"})
+    assert own.status_code == 200, own.text
+    assert db_session.query(UsageEvent).filter_by(feature="app_ai_preview").count() == 1
+
+    # Another member handed the preview link is a visitor: 데모만 applies.
+    client.cookies.clear()
+    login(client, other_user, MEMBER_PASSWORD)
+    set_membership(db_session, other_user.id, budgeted.quarter_id, MembershipStatus.ACTIVE)
+    db_session.commit()
+    sign_in_preview(client, project)
+    assert client.get("/_ctrlai/v1/app", headers=preview).json()["ai"]["access"] == "demo"
+    guest = client.post("/_ctrlai/v1/ai/ask", headers=preview, json={"prompt": "안녕"})
+    assert guest.status_code == 403 and guest.json()["detail"]["code"] == "demo"
+    assert db_session.query(UsageEvent).count() == 1
 
 
 # ------------------------------------------------------------ the shell, the SDK, the examples
@@ -166,8 +198,11 @@ def test_the_makers_preview_is_never_limited(
 def test_the_shell_and_the_sdk_carry_the_switch(anon_client: TestClient) -> None:
     shell = anon_client.get("/_ctrlai/shell.js").text
     sdk = anon_client.get("/_ctrlai/sdk.js").text
-    # The shell refuses locally in 데모 — before sign-in, before any request.
+    # The shell refuses locally in 데모 before sign-in (the gate runs first in
+    # askAI/streamAI); the browser spec proves no sign-in window opens.
     assert 'error.code = "demo"' in shell and 'case "ai.mode":' in shell and 'id = "ctrlai-ai"' in shell
+    assert shell.count("return demoGate().then(signedIn)") == 2
+    assert shell.index("function demoGate") < shell.index("function askAI")
     assert "실제 AI 켜기" in shell and "데모로 보기" in shell
     assert "mode: function" in sdk and '"ctrlai:ai-mode"' in sdk and 'version: "6"' in sdk
     # Outside CTRL+AI everything is a demo.

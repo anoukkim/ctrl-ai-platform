@@ -105,7 +105,8 @@ export default function PublishDialog({
   const suggested = summary.phase === "ready" ? summary.summary.description : "";
   const canReplace = Boolean(suggested) && values.description.trim() !== "" && values.description !== suggested;
   // AI를 쓰는 앱에서만 묻습니다 — 안 쓰는 앱에 "AI를 열까요?"는 뜬금없어요.
-  const usesAi = summary.phase === "ready" && summary.summary.uses_ai;
+  // 이미 전체 기능으로 열어 둔 앱은 표시가 빠졌더라도(별칭으로 부르는 코드) 다시 묻습니다.
+  const usesAi = summary.phase === "ready" && (summary.summary.uses_ai || summary.summary.ai_access === "full");
 
   return (
     <DialogShell onClose={onClose} labelledBy={`${id}-title`} describedBy={`${id}-effect`}>

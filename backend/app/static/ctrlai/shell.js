@@ -382,7 +382,9 @@
   }
 
   function aiUsed() {
-    return !!(info && info.ai && info.ai.usesAi);
+    // The flag can miss an app that reaches ctrlai.ai through an alias; an
+    // app the maker opened as 전체 기능 gets the switch regardless.
+    return !!(info && info.ai && (info.ai.usesAi || info.ai.access === "full"));
   }
 
   function visitorMode() {
@@ -469,9 +471,17 @@
     }
   }
 
+  /** In 데모 the call stops here — after the server has said what the app
+   *  is (never on a stale `info`), and never in the maker's 미리보기. */
+  function demoGate() {
+    if (mode === "preview") return Promise.resolve();
+    return (info ? Promise.resolve(info) : refresh()).then(function () {
+      if (aiMode() === "demo") throw demoRefusal();
+    });
+  }
+
   function askAI(options) {
-    if (aiMode() === "demo") return Promise.reject(demoRefusal());
-    return signedIn().then(function () {
+    return demoGate().then(signedIn).then(function () {
       return api("/v1/ai/ask", { method: "POST", body: options }).then(
         function (data) {
           charged(data.chargedKrw);
@@ -486,8 +496,7 @@
   }
 
   function streamAI(id, options) {
-    if (aiMode() === "demo") return Promise.reject(demoRefusal());
-    return signedIn().then(function () {
+    return demoGate().then(signedIn).then(function () {
       return api("/v1/ai/stream", { method: "POST", body: options, raw: true }).then(function (response) {
         if (!response.ok) {
           return response.text().then(function (text) {

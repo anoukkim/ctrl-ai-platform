@@ -877,7 +877,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               label="게시 메뉴 더 보기"
               title="더 보기"
               items={[
-                ...(project.published_uses_ai
+                // app-ai-access: offered for every published app — the
+                // "uses AI" flag can miss an app that reaches ctrlai.ai
+                // through an alias, and the server refuses visitors'
+                // calls while the setting is 데모만 whatever the flag says.
+                ...(project.published_uses_ai || project.ai_access === "full" || published !== null
                   ? [
                       {
                         label: project.ai_access === "full" ? "AI 기능: 전체 기능 → 데모만으로" : "AI 기능: 데모만 → 전체 기능으로 열기",

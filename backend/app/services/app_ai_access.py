@@ -38,11 +38,16 @@ LABEL = {DEMO: "데모만", FULL: "전체 기능"}
 DEMO_ONLY = "이 앱의 AI는 데모로만 열려 있어요. 데모 답변을 보여 드려요."
 DEMO_CODE = "demo"
 
-#: `ctrlai.ai.ask(` — or `sdk.ai.ask(` through any alias of `window.ctrlai`
-#: (the showcases keep one). A call built by hand is not caught; the flag
-#: is advisory (the dialog's question and the listing's note) — the
-#: enforcement is `ai_access` alone, on the server, whatever the files say.
-_USES_AI = re.compile(r"\.\s*ai\s*\.\s*(ask|stream|estimate)\s*\(")
+#: `ctrlai.ai.ask(`, `sdk.ai.ask(` through an alias of `window.ctrlai`, a
+#: destructured `ai.ask(`, `ctrlai["ai"].ask(`, or a reference taken
+#: (`const ask = ctrlai.ai.ask`) — in a file that names `ctrlai` at all
+#: (so `openai.ai.ask` in a file without it does not count). A call built
+#: by hand is still missed; the flag is advisory (the dialog's question,
+#: the listing's note, the shell's bar) — the enforcement is `ai_access`
+#: alone, on the server, whatever the files say, and the maker's switch
+#: and the shell's bar never depend on the flag alone.
+_USES_AI = re.compile(r"""(?:\bai\b|ai["']\])\s*\.\s*(ask|stream|estimate)\b""")
+_NAMES_SDK = re.compile(r"\bctrlai\b")
 
 #: Only text an app runs or shows — never the SDK's own comments in a
 #: README that merely mentions the call.
@@ -53,7 +58,9 @@ def uses_ai(files: dict[str, str] | list) -> bool:
     """Whether any page or script of the app calls `ctrlai.ai`."""
     pairs = files.items() if isinstance(files, dict) else ((p, c) for p, c in files)
     return any(
-        str(path).lower().endswith(_CODE_SUFFIXES) and _USES_AI.search(str(content)) is not None
+        str(path).lower().endswith(_CODE_SUFFIXES)
+        and _NAMES_SDK.search(str(content)) is not None
+        and _USES_AI.search(str(content)) is not None
         for path, content in pairs
     )
 

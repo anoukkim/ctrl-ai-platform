@@ -645,13 +645,17 @@ ctrlai.my (Builder / CtrlAIApps)
   `.ai.stream(` / `.ai.estimate(`), filled in by the migration for old
   versions, so the dialog, the listing and the shell read a flag. The
   게시 dialog asks "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?"
-  only when `publish-summary` says `uses_ai` (default 데모만); `publish`
-  takes `ai_access`, and `POST /api/builder/projects/{id}/ai-access` is
-  the owner's switch from the Builder's 게시 menu. **Enforcement is the
+  when `publish-summary` says `uses_ai` or the app is already 전체 기능
+  (default 데모만); `publish` takes `ai_access`, and `POST
+  /api/builder/projects/{id}/ai-access` is the owner's switch from the
+  Builder's 게시 menu — offered for every published app, since the flag
+  can miss a call made through an alias while the server still refuses. **Enforcement is the
   server's alone**: `_ai_allowed` on `/v1/ai/ask` and `/v1/ai/stream`
   refuses a visitor's call in mode "app" with 403 `{code: "demo"}` before
   `prepare()` — no provider call, no ledger row; `estimate` stays free and
-  open; the maker's 미리보기 (mode "preview") is never limited. The shell
+  open; the maker's **own** 미리보기 (mode "preview", the signed-in
+  visitor is the owner) is never limited — another member handed the
+  preview link is a visitor like any other. The shell
   (`shell.js`) adds a second, per-visitor switch — a thin bar above the
   app frame ("실제 AI · 내 지원금에서" / "데모 · 0원" + 실제 AI 켜기 / 데모로
   보기, the showcases' badge-and-button look; a bar, not a floating pill,
