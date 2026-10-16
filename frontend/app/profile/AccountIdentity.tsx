@@ -16,7 +16,7 @@ import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { describeError } from "@/lib/http";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
-import type { AccountStatus, UserRole } from "@/lib/auth";
+import { updateDisplayName, type AccountStatus, type UserRole } from "@/lib/auth";
 import { MEMBERSHIP_BADGE, MEMBERSHIP_LABEL } from "@/lib/quarters";
 
 import styles from "./profile.module.css";
@@ -123,11 +123,49 @@ export function NotificationSettings() {
   );
 }
 
+/**
+ * 계정 설정 — 아이디는 고정, 이름은 바꿀 수 있습니다 (owner-polish 9).
+ * 비밀번호는 아래 "로그인 방법" 카드에서 바꿉니다.
+ */
 export function AccountSettings() {
-  const { state, signOut } = useCurrentUser();
+  const { state, signOut, refresh } = useCurrentUser();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
   if (state.phase !== "authenticated") return null;
 
   const user = state.user;
+  const trimmed = draft.trim();
+  const draftValid = trimmed.length >= 1 && trimmed.length <= 100;
+
+  function startEdit() {
+    setDraft(user.display_name);
+    setError(null);
+    setSaved(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    if (!draftValid || busy) return;
+    if (trimmed === user.display_name) {
+      setEditing(false);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await updateDisplayName(trimmed);
+      await refresh();
+      setEditing(false);
+      setSaved(`이름을 "${updated.display_name}"으로 바꿨어요.`);
+    } catch (caught) {
+      setError(describeError(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="card">
@@ -135,12 +173,55 @@ export function AccountSettings() {
       <div className={styles.rows}>
         <p className={styles.row}>
           <span className={styles.rowLabel}>아이디</span>
-          <span className="mono">{user.username}</span>
+          <span className="mono" title="아이디는 바꿀 수 없어요">
+            {user.username}
+          </span>
         </p>
-        <p className={styles.row}>
-          <span className={styles.rowLabel}>이름</span>
-          <span>{user.display_name}</span>
-        </p>
+        {editing ? (
+          <form
+            className={styles.row}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+          >
+            <label className={styles.rowLabel} htmlFor="profile-display-name">
+              이름
+            </label>
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "0.4rem", alignItems: "center" }}>
+              <input
+                id="profile-display-name"
+                className="field"
+                value={draft}
+                maxLength={100}
+                autoFocus
+                disabled={busy}
+                onChange={(event) => setDraft(event.target.value)}
+              />
+              <button className="btn btn-sm btn-primary" type="submit" disabled={!draftValid || busy}>
+                {busy ? "저장 중…" : "저장"}
+              </button>
+              <button className="btn btn-sm" type="button" disabled={busy} onClick={() => setEditing(false)}>
+                취소
+              </button>
+            </span>
+            {!draftValid && (
+              <span className="small dim" style={{ flexBasis: "100%" }}>
+                이름은 1~100자로 적어 주세요.
+              </span>
+            )}
+          </form>
+        ) : (
+          <p className={styles.row}>
+            <span className={styles.rowLabel}>이름</span>
+            <span style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
+              {user.display_name}
+              <button className="btn btn-sm" type="button" onClick={startEdit}>
+                이름 바꾸기
+              </button>
+            </span>
+          </p>
+        )}
         <p className={styles.row}>
           <span className={styles.rowLabel}>이메일</span>
           <span className="mono">{user.email}</span>
@@ -154,6 +235,16 @@ export function AccountSettings() {
           <span>{ROLE_LABEL[user.role]}</span>
         </p>
       </div>
+      {saved && (
+        <p className="small" role="status" style={{ marginTop: "0.6rem" }}>
+          {saved}
+        </p>
+      )}
+      {error && (
+        <p className="small" role="alert" style={{ color: "var(--error-text)", marginTop: "0.6rem" }}>
+          {error}
+        </p>
+      )}
       <button
         className="btn btn-sm"
         type="button"

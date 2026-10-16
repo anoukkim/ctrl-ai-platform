@@ -475,6 +475,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/usage/me/milestones"): "get_current_user",
     ("GET", "/api/account/preferences"): "get_current_user",
     ("PATCH", "/api/account/preferences"): "get_current_user",
+    ("PATCH", "/api/account/profile"): "get_current_user",
     # Admin — role, not participation.
     ("GET", "/api/users"): "require_admin",
     ("GET", "/api/admin/quarters"): "require_admin",
@@ -655,6 +656,7 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # spend nothing and must work while not participating.
         ("POST", "/api/usage/me/milestones"),
         ("PATCH", "/api/account/preferences"),
+        ("PATCH", "/api/account/profile"),
         # app-platform P2: allowing an app and disconnecting it spend
         # nothing (AI inside the app is gated at the call, by
         # participation and the visitor's wallet), and disconnecting must

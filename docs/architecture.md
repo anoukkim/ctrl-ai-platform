@@ -83,6 +83,7 @@ the same commit that adds it.
 | `GET /api/account/google` | `get_current_user` | Is Google linked |
 | `GET /api/account/google/link/start` | `get_current_user` | Profile › 연결하기 |
 | `GET /api/auth/me` | `get_current_user` | |
+| `PATCH /api/account/profile` | `get_current_user` | 이름 바꾸기 (owner-polish 9); the 아이디 never changes; spends nothing |
 | `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
 | `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
 | `GET /api/account/sign-in` | `get_current_user` | Profile › 로그인 방법: password set? Google linked? |
