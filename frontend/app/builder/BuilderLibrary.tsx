@@ -497,9 +497,11 @@ export default function BuilderLibrary() {
               }
               thumbnailPlacement="top"
             >
-              <p className={styles.cardDescription}>
-                {project.description || "설명이 아직 없습니다."}
-              </p>
+              {/* 설명은 게시할 때 쓴 것만 — 작업 중 프로젝트의 칸에는 요청 문장이
+                  들어가 있던 때가 있어 보여 주지 않습니다(owner, 2026-10-16). */}
+              {project.status === "published" && project.description && (
+                <p className={styles.cardDescription}>{project.description}</p>
+              )}
               <p className={styles.cardMeta}>
                 <span className={styles.metaTime}>{formatRelative(project.updated_at)}</span>
                 <span className={styles.metaDot} aria-hidden="true">

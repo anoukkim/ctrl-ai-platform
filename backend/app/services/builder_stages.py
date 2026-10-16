@@ -463,10 +463,9 @@ def run(
     version = builder_versions.snapshot(db, project, note[:200], files)
     generation.version_id = version.id
     generation.status = "done"
-    # Only a 만들기 describes the app; a 고치기 request is not a description
-    # (게시 pre-fills the CtrlAIApps blurb from it — owner, 2026-10-16).
-    if generation.kind == "create" and not project.description.strip():
-        project.description = generation.request[:2000]
+    # A request is never the description (owner, 2026-10-16, ui-improvements):
+    # the card used to show "미니게임 테트리스 만들어줘…" as the project's
+    # blurb. 게시 writes the real one (publish-summary, from the files).
     providers.record_success(db, "claude", "빌더" + (" (mock)" if is_mock else ""))
     db.commit()
     emit(

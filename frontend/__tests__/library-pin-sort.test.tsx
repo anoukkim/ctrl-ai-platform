@@ -112,6 +112,18 @@ describe("Project Builder 목록의 고정과 정렬", () => {
     expect(window.localStorage.getItem("ctrlai.builder.list-sort.builder")).toBe("name");
   });
 
+  test("카드는 게시한 설명만 보여 주고, 작업 중 프로젝트의 요청 문장은 보여 주지 않는다", async () => {
+    listBuilderProjects.mockResolvedValue([
+      { ...project(1, "테트리스", "2026-10-02T00:00:00Z"), description: "미니게임 테트리스 만들어줘 3개레벨정도만" },
+      { ...project(2, "가계부", "2026-10-01T00:00:00Z"), status: "published", description: "한 달 지출을 적는 앱" },
+    ]);
+    render(<BuilderLibrary />);
+    await waitFor(() => expect(cardNames()).toEqual(["테트리스", "가계부"]));
+    expect(screen.queryByText(/미니게임 테트리스 만들어줘/)).toBeNull();
+    expect(screen.queryByText("설명이 아직 없습니다.")).toBeNull();
+    expect(screen.getByText("한 달 지출을 적는 앱")).toBeTruthy();
+  });
+
   test("기억해 둔 이름순으로 다시 열린다", async () => {
     window.localStorage.setItem("ctrlai.builder.list-sort.builder", "name");
     render(<BuilderLibrary />);

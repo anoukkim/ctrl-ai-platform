@@ -172,9 +172,10 @@ describe("코드 보기 · 다운로드 · Builder로 보내기", () => {
     renderReply("```html\n" + PAGE + "\n```");
     fireEvent.click(screen.getByRole("button", { name: "Builder로 보내기" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/builder/99"));
+    // The chat sentence is a request, never the project's description (ui-improvements).
     expect(projects.createProjectFromChat).toHaveBeenCalledWith({
       name: "동아리 소개",
-      description: "동아리 소개 페이지를 만들어 줘",
+      description: "",
       html: PAGE,
     });
   });
