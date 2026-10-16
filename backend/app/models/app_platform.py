@@ -14,9 +14,11 @@ Three tables, all scoped to one member and one app (a Builder project):
 
 P3 adds `ctrlai.db`, the per-app database (`services/app_data.py`):
 
-* `AppDataCollection` — one named list of an app, "private" (each visitor
-  sees only their own items) or "shared" (everyone reads, members write).
-  The kind is fixed by the first save. The Builder's 미리보기 has its own
+* `AppDataCollection` — one list of an app, a **(name, kind)** pair:
+  "private" (each visitor sees only their own items) or "shared" (everyone
+  reads, members write). `posts` private and `posts` shared are two lists,
+  so no visitor's first write can decide the kind for anyone else. The
+  Builder's 미리보기 has its own
   `space` ("preview"), so trying an app out never writes into the live
   app's data.
 * `AppDataItem` — one JSON object (≤ 4 KB) in a collection, with its
@@ -104,7 +106,9 @@ class AppSession(Base):
 class AppDataCollection(Base):
     __tablename__ = "app_data_collections"
     __table_args__ = (
-        UniqueConstraint("project_id", "space", "name", name="uq_app_data_collections_project_space_name"),
+        UniqueConstraint(
+            "project_id", "space", "name", "kind", name="uq_app_data_collections_project_space_name_kind"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -114,7 +118,7 @@ class AppDataCollection(Base):
     #: "app" (the published app) or "preview" (the Builder's 미리보기).
     space: Mapped[str] = mapped_column(String(8), nullable=False)
     name: Mapped[str] = mapped_column(String(40), nullable=False)
-    #: "private" or "shared" — fixed by the first save.
+    #: "private" or "shared" — part of the collection's identity.
     kind: Mapped[str] = mapped_column(String(8), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

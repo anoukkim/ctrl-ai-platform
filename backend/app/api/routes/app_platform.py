@@ -454,11 +454,13 @@ def _data_error(error: app_data.AppDataError) -> HTTPException:
 
 
 class DataListBody(BaseModel):
-    """`ctrlai.db.list` options, as the SDK sends them."""
+    """`ctrlai.db.list` options, as the SDK sends them. `shared` names
+    which of the two collections of that name (every data body has it)."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     collection: str = Field(max_length=40)
+    shared: bool = False
     where: dict | None = None
     order_by: str | None = Field(default=None, alias="orderBy", max_length=40)
     order: str | None = Field(default=None, max_length=4)
@@ -469,30 +471,33 @@ class DataListBody(BaseModel):
 
 class DataCountBody(BaseModel):
     collection: str = Field(max_length=40)
+    shared: bool = False
     where: dict | None = None
     mine: bool = False
 
 
 class DataGetBody(BaseModel):
     collection: str = Field(max_length=40)
+    shared: bool = False
     id: str = Field(max_length=20)
 
 
 class DataSaveBody(BaseModel):
     collection: str = Field(max_length=40)
+    shared: bool = False
     data: dict
-    #: Only the first save of a collection decides; later saves may repeat it.
-    shared: bool | None = None
 
 
 class DataUpdateBody(BaseModel):
     collection: str = Field(max_length=40)
+    shared: bool = False
     id: str = Field(max_length=20)
     data: dict
 
 
 class DataRemoveBody(BaseModel):
     collection: str = Field(max_length=40)
+    shared: bool = False
     id: str = Field(max_length=20)
 
 
@@ -508,7 +513,7 @@ def data_list(body: DataListBody, call: AppCall = Depends(running_app), db: Sess
         options = app_data.list_options(
             where=body.where, order_by=body.order_by, order=body.order, limit=body.limit, cursor=body.cursor, mine=body.mine
         )
-        return app_data.list_items(db, _reader(call), body.collection, options)
+        return app_data.list_items(db, _reader(call), body.collection, body.shared, options)
     except app_data.AppDataError as error:
         raise _data_error(error) from error
 
@@ -516,7 +521,7 @@ def data_list(body: DataListBody, call: AppCall = Depends(running_app), db: Sess
 @router.post("/v1/data/count", summary="ctrlai.db.count")
 def data_count(body: DataCountBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
     try:
-        return {"count": app_data.count_items(db, _reader(call), body.collection, body.where, body.mine)}
+        return {"count": app_data.count_items(db, _reader(call), body.collection, body.shared, body.where, body.mine)}
     except app_data.AppDataError as error:
         raise _data_error(error) from error
 
@@ -524,7 +529,7 @@ def data_count(body: DataCountBody, call: AppCall = Depends(running_app), db: Se
 @router.post("/v1/data/get", summary="ctrlai.db.get: one item, or null")
 def data_get(body: DataGetBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
     try:
-        return {"item": app_data.get_item(db, _reader(call), body.collection, body.id)}
+        return {"item": app_data.get_item(db, _reader(call), body.collection, body.shared, body.id)}
     except app_data.AppDataError as error:
         raise _data_error(error) from error
 
@@ -533,7 +538,7 @@ def data_get(body: DataGetBody, call: AppCall = Depends(running_app), db: Sessio
 def data_save(body: DataSaveBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
     reader = _writer(call)
     try:
-        item = app_data.save_item(db, reader, body.collection, body.data, body.shared)
+        item = app_data.save_item(db, reader, body.collection, body.shared, body.data)
     except app_data.AppDataError as error:
         db.rollback()
         raise _data_error(error) from error
@@ -545,7 +550,7 @@ def data_save(body: DataSaveBody, call: AppCall = Depends(running_app), db: Sess
 def data_update(body: DataUpdateBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
     reader = _writer(call)
     try:
-        item = app_data.update_item(db, reader, body.collection, body.id, body.data)
+        item = app_data.update_item(db, reader, body.collection, body.shared, body.id, body.data)
     except app_data.AppDataError as error:
         db.rollback()
         raise _data_error(error) from error
@@ -557,7 +562,7 @@ def data_update(body: DataUpdateBody, call: AppCall = Depends(running_app), db: 
 def data_remove(body: DataRemoveBody, call: AppCall = Depends(running_app), db: Session = Depends(get_db)) -> dict:
     reader = _writer(call)
     try:
-        app_data.remove_item(db, reader, body.collection, body.id)
+        app_data.remove_item(db, reader, body.collection, body.shared, body.id)
     except app_data.AppDataError as error:
         db.rollback()
         raise _data_error(error) from error

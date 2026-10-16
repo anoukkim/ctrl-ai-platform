@@ -26,9 +26,9 @@ interface Ctrlai {
   db: {
     save(collection: string, data: Record<string, unknown>, options?: { shared?: boolean }): Promise<CtrlaiItem>;
     list(collection: string, options?: Record<string, unknown>): Promise<{ items: CtrlaiItem[]; nextCursor: string | null }>;
-    get(collection: string, id: string): Promise<CtrlaiItem | null>;
-    update(collection: string, id: string, changes: Record<string, unknown>): Promise<CtrlaiItem>;
-    remove(collection: string, id: string): Promise<void>;
+    get(collection: string, id: string, options?: { shared?: boolean }): Promise<CtrlaiItem | null>;
+    update(collection: string, id: string, changes: Record<string, unknown>, options?: { shared?: boolean }): Promise<CtrlaiItem>;
+    remove(collection: string, id: string, options?: { shared?: boolean }): Promise<void>;
     count(collection: string, options?: Record<string, unknown>): Promise<number>;
     report(collection: string, id: string, reason: string): Promise<void>;
   };

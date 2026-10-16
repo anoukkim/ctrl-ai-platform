@@ -1,7 +1,10 @@
 """CTRL+AI 기능 상자 — `ctrlai.db`, the per-app database (app-platform P3).
 
-An app keeps its data in **collections** — named lists of JSON objects —
-of two kinds, fixed by the first save:
+An app keeps its data in **collections** — named lists of JSON objects.
+A collection is a **(name, kind)** pair, and the kind is part of every
+call (`shared: true/false`, false unless the app says so): `posts` private
+and `posts` shared are two different lists, so the first visitor to write
+can never decide what everyone else's writes mean. Two kinds:
 
 * **private** — each signed-in visitor sees and changes only their own
   items (a diary, a score history). Signed out: nothing.
@@ -190,18 +193,26 @@ class Reader:
         return self.user is not None and self.user.id == self.project.owner_user_id
 
 
-def _collection(db: Session, reader: Reader, name: str) -> AppDataCollection | None:
+def kind_of(shared: object) -> str:
+    """Only `True` means shared; anything else (false, null, missing) is private."""
+    return SHARED if shared is True else PRIVATE
+
+
+def _collection(db: Session, reader: Reader, name: str, kind: str) -> AppDataCollection | None:
     return db.scalar(
         select(AppDataCollection).where(
             AppDataCollection.project_id == reader.project.id,
             AppDataCollection.space == reader.space,
             AppDataCollection.name == name,
+            AppDataCollection.kind == kind,
         )
     )
 
 
-def _readable(collection: AppDataCollection, reader: Reader) -> None:
-    if collection.kind == PRIVATE and reader.user is None:
+def _readable(kind: str, reader: Reader) -> None:
+    """Checked before the lookup: a signed-out visitor learns nothing about
+    a private list, not even whether it exists."""
+    if kind == PRIVATE and reader.user is None:
         raise AppDataError("개인 목록은 로그인한 CTRL+AI 회원만 볼 수 있어요.", 401, "login_required")
 
 
@@ -302,11 +313,11 @@ def present(db: Session, reader: Reader, items: list[AppDataItem]) -> list[dict]
     return out
 
 
-def list_items(db: Session, reader: Reader, name: str, options: ListOptions) -> dict:
-    collection = _collection(db, reader, check_collection(name))
+def list_items(db: Session, reader: Reader, name: str, shared: object, options: ListOptions) -> dict:
+    _readable(kind_of(shared), reader)
+    collection = _collection(db, reader, check_collection(name), kind_of(shared))
     if collection is None:
         return {"items": [], "nextCursor": None}
-    _readable(collection, reader)
     rows = [item for item in _visible(db, collection, reader, options.mine) if _matches(item, options.where)]
     rows.sort(key=_sort_key(options.order_by), reverse=options.descending)
     page = rows[options.offset : options.offset + options.limit]
@@ -314,12 +325,14 @@ def list_items(db: Session, reader: Reader, name: str, options: ListOptions) -> 
     return {"items": present(db, reader, page), "nextCursor": f"c{after}" if after < len(rows) else None}
 
 
-def count_items(db: Session, reader: Reader, name: str, where: object = None, mine: object = False) -> int:
+def count_items(
+    db: Session, reader: Reader, name: str, shared: object, where: object = None, mine: object = False
+) -> int:
     conditions = check_where(where)
-    collection = _collection(db, reader, check_collection(name))
+    _readable(kind_of(shared), reader)
+    collection = _collection(db, reader, check_collection(name), kind_of(shared))
     if collection is None:
         return 0
-    _readable(collection, reader)
     return sum(1 for item in _visible(db, collection, reader, bool(mine)) if _matches(item, conditions))
 
 
@@ -343,11 +356,11 @@ def _item(db: Session, reader: Reader, collection: AppDataCollection, item_id: o
     return item
 
 
-def get_item(db: Session, reader: Reader, name: str, item_id: object) -> dict | None:
-    collection = _collection(db, reader, check_collection(name))
+def get_item(db: Session, reader: Reader, name: str, shared: object, item_id: object) -> dict | None:
+    _readable(kind_of(shared), reader)
+    collection = _collection(db, reader, check_collection(name), kind_of(shared))
     if collection is None:
         return None
-    _readable(collection, reader)
     try:
         item = _item(db, reader, collection, item_id)
     except AppDataError as error:
@@ -418,15 +431,17 @@ def _check_room(db: Session, reader: Reader, extra_items: int, extra_bytes: int)
         raise AppDataError("이 앱의 데이터가 가득 찼어요 (5MB까지). 오래된 항목을 지워 주세요.", 409, "full")
 
 
-def save_item(db: Session, reader: Reader, name: str, data: object, shared: bool | None = None) -> dict:
-    """A new item. The first save of a collection decides its kind
-    (private unless `shared`); a later save naming the other kind is refused."""
+def save_item(db: Session, reader: Reader, name: str, shared: object, data: object) -> dict:
+    """A new item in the (name, kind) collection — made on the first save.
+    A visitor's earlier write under the same name but the other kind is a
+    different collection and changes nothing here."""
     user = _writer(reader)
     name = check_collection(name)
+    kind = kind_of(shared)
     data, size = check_data(data)
     _lock_app(db, reader)
     _note_write(db, reader, user)
-    collection = _collection(db, reader, name)
+    collection = _collection(db, reader, name, kind)
     if collection is None:
         collections = db.scalar(
             select(func.count(AppDataCollection.id)).where(
@@ -435,16 +450,9 @@ def save_item(db: Session, reader: Reader, name: str, data: object, shared: bool
         )
         if int(collections or 0) >= MAX_COLLECTIONS:
             raise AppDataError(f"한 앱에는 목록을 {MAX_COLLECTIONS}개까지 만들 수 있어요.", 409, "full")
-        collection = AppDataCollection(
-            project_id=reader.project.id, space=reader.space, name=name, kind=SHARED if shared else PRIVATE
-        )
+        collection = AppDataCollection(project_id=reader.project.id, space=reader.space, name=name, kind=kind)
         db.add(collection)
         db.flush()
-    elif shared is not None and (collection.kind == SHARED) != bool(shared):
-        kind = "공유" if collection.kind == SHARED else "개인"
-        raise AppDataError(
-            f"'{name}'은(는) 이미 {kind} 목록이에요. 다른 이름을 쓰거나 같은 방식으로 저장해 주세요.", 409, "kind"
-        )
     _check_room(db, reader, 1, size)
     now = _now()
     item = AppDataItem(
@@ -468,19 +476,21 @@ def _own(item: AppDataItem, user: User) -> None:
         raise AppDataError("내가 쓴 항목만 바꿀 수 있어요.", 403, "not_yours")
 
 
-def _existing(db: Session, reader: Reader, name: str) -> AppDataCollection:
-    collection = _collection(db, reader, check_collection(name))
+def _existing(db: Session, reader: Reader, name: str, shared: object) -> AppDataCollection:
+    collection = _collection(db, reader, check_collection(name), kind_of(shared))
     if collection is None:
         raise AppDataError(NOT_FOUND, 404, "not_found")
     return collection
 
 
-def update_item(db: Session, reader: Reader, name: str, item_id: object, changes: object) -> dict:
+def update_item(
+    db: Session, reader: Reader, name: str, shared: object, item_id: object, changes: object
+) -> dict:
     """Change some fields of one's own item; the others stay."""
     user = _writer(reader)
     if not isinstance(changes, dict):
         raise AppDataError("바꿀 값은 객체({ ... })여야 해요.")
-    collection = _existing(db, reader, name)
+    collection = _existing(db, reader, name, shared)
     _lock_app(db, reader)
     item = _item(db, reader, collection, item_id)
     _own(item, user)
@@ -494,11 +504,11 @@ def update_item(db: Session, reader: Reader, name: str, item_id: object, changes
     return present(db, reader, [item])[0]
 
 
-def remove_item(db: Session, reader: Reader, name: str, item_id: object) -> None:
+def remove_item(db: Session, reader: Reader, name: str, shared: object, item_id: object) -> None:
     """The author removes their item; the app's owner may remove any
     shared item of their app (keeping their board tidy)."""
     user = _writer(reader)
-    collection = _existing(db, reader, name)
+    collection = _existing(db, reader, name, shared)
     item = _item(db, reader, collection, item_id)
     if not (item.author_user_id == user.id or (collection.kind == SHARED and reader.is_app_owner)):
         raise AppDataError("내가 쓴 항목만 지울 수 있어요.", 403, "not_yours")
@@ -515,9 +525,8 @@ def report_item(db: Session, reader: Reader, name: str, item_id: object, reason:
         raise AppDataError("신고 이유를 적어 주세요.")
     if len(text) > MAX_REASON_CHARS:
         raise AppDataError(f"신고 이유는 {MAX_REASON_CHARS}자까지예요.")
-    collection = _existing(db, reader, name)
-    if collection.kind != SHARED:
-        raise AppDataError("공유 목록의 항목만 신고할 수 있어요.")
+    # Only shared items can be reported — a private one is nobody else's to see.
+    collection = _existing(db, reader, name, True)
     item = _item(db, reader, collection, item_id)
     _note_write(db, reader, user)
     already = db.scalar(

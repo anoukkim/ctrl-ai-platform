@@ -470,11 +470,18 @@ ctrlai.my (Builder / CtrlAIApps)
   every `/_ctrlai/v1` call of that app is refused at once.
 * **P3 — `ctrlai.db`** (`services/app_data.py`, `/_ctrlai/v1/data/*`).
   An app's data is **collections** of JSON objects (`app_data_collections`,
-  `app_data_items`), each collection **private** (a visitor sees only their
-  own items) or **shared** (everyone reads, signed-out visitors too;
-  signed-in members write, and each item carries its author's display name
-  and per-app id — the consent screen's "data" line says so). The kind is
-  fixed by the first save. Items ≤ 4 KB; per app ≤ 2,000 items, 5 MB, 20
+  `app_data_items`). A collection is a **(name, kind)** pair — **private**
+  (a visitor sees only their own items) or **shared** (everyone reads,
+  signed-out visitors too; signed-in members write, and each item carries
+  its author's display name and per-app id — the consent screen's "data"
+  line says so) — and the kind is part of every call (`shared: true`,
+  else private): `posts` private and `posts` shared are two lists, so a
+  visitor who writes first can never decide what another call means
+  (security review 2026-10-16, Vuln 1: with the kind fixed by the first
+  save, Mallory could pre-create a name as shared and every later default
+  — private — save landed in public). A signed-out visitor's read of a
+  private list is refused before the lookup, so it learns nothing, not
+  even whether the list exists. Items ≤ 4 KB; per app ≤ 2,000 items, 5 MB, 20
   collections; per visitor ≤ 30 writes a minute in one app (`app_data_writes`,
   counted in the database so every API worker sees the same count); the
   app row is locked for a write so two saves cannot both slip under the

@@ -1,7 +1,7 @@
 """app-platform P3: ctrlai.db — the per-app database
 
-* `app_data_collections` — an app's named lists, private or shared, per
-  space ("app" / "preview").
+* `app_data_collections` — an app's lists, each a (name, kind) pair —
+  private or shared — per space ("app" / "preview").
 * `app_data_items` — the JSON items (≤ 4 KB each), with their author and
   an admin's hiding.
 * `app_data_writes` — one row per write, for the per-visitor rate limit.
@@ -39,7 +39,9 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=40), nullable=False),
         sa.Column("kind", sa.String(length=8), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.UniqueConstraint("project_id", "space", "name", name="uq_app_data_collections_project_space_name"),
+        sa.UniqueConstraint(
+            "project_id", "space", "name", "kind", name="uq_app_data_collections_project_space_name_kind"
+        ),
     )
     op.create_index("ix_app_data_collections_project_id", "app_data_collections", ["project_id"])
 

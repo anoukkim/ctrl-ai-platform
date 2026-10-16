@@ -82,13 +82,17 @@ def test_writes_need_the_app_cookie_and_reads_of_shared_work_signed_out(
     assert "email" not in json.dumps(item) and "username" not in json.dumps(item)
 
     # Signed out: shared is readable, nothing is writable.
-    listed = call(stranger, shop, "list", collection="posts")
+    listed = call(stranger, shop, "list", collection="posts", shared=True)
     assert listed.status_code == 200 and [row["data"] for row in listed.json()["items"]] == [{"text": "안녕"}]
     assert listed.json()["items"][0]["mine"] is False and listed.json()["items"][0]["canDelete"] is False
-    assert call(stranger, shop, "count", collection="posts").json()["count"] == 1
-    assert call(stranger, shop, "get", collection="posts", id=item["id"]).json()["item"]["data"] == {"text": "안녕"}
-    assert call(stranger, shop, "update", collection="posts", id=item["id"], data={"text": "x"}).status_code == 401
-    assert call(stranger, shop, "remove", collection="posts", id=item["id"]).status_code == 401
+    assert call(stranger, shop, "count", collection="posts", shared=True).json()["count"] == 1
+    assert call(stranger, shop, "get", collection="posts", shared=True, id=item["id"]).json()["item"]["data"] == {"text": "안녕"}
+    assert call(stranger, shop, "update", collection="posts", shared=True, id=item["id"], data={"text": "x"}).status_code == 401
+    assert call(stranger, shop, "remove", collection="posts", shared=True, id=item["id"]).status_code == 401
+    # Without `shared`, "posts" is the private list of that name — empty, and
+    # closed to a signed-out visitor.
+    assert call(stranger, shop, "list", collection="posts").status_code == 401
+    assert call(client, shop, "list", collection="posts").json()["items"] == []
 
 
 def test_private_collections_are_per_visitor_and_hidden_signed_out(
@@ -108,18 +112,48 @@ def test_private_collections_are_per_visitor_and_hidden_signed_out(
     signed_out = call(stranger, shop, "list", collection="diary")
     assert signed_out.status_code == 401 and signed_out.json()["detail"]["code"] == "login_required"
     assert call(stranger, shop, "count", collection="diary").status_code == 401
-    # A collection nobody made yet is simply empty.
-    assert call(stranger, shop, "list", collection="nothing").json() == {"items": [], "nextCursor": None}
+    # A shared collection nobody made yet is simply empty; a private one is
+    # refused signed out before any lookup — not even "it exists" leaks.
+    assert call(stranger, shop, "list", collection="nothing", shared=True).json() == {"items": [], "nextCursor": None}
+    assert call(stranger, shop, "list", collection="nothing").status_code == 401
+    assert call(client, shop, "list", collection="nothing").json() == {"items": [], "nextCursor": None}
 
 
-def test_the_kind_is_fixed_by_the_first_save(client: TestClient, shop: BuilderProject) -> None:
+def test_a_name_is_two_collections_one_private_one_shared(client: TestClient, shop: BuilderProject) -> None:
+    """(name, kind) is the identity: the same name holds two separate lists."""
     sign_in(client, shop)
     save(client, shop, "votes", {"v": 1}, shared=True)
-    save(client, shop, "votes", {"v": 2})  # no kind named: fine
+    mine = save(client, shop, "votes", {"v": 2})  # no kind named: the private list
     save(client, shop, "votes", {"v": 3}, shared=True)
-    clash = call(client, shop, "save", collection="votes", data={"v": 4}, shared=False)
-    assert clash.status_code == 409 and clash.json()["detail"]["code"] == "kind"
-    assert call(client, shop, "count", collection="votes").json()["count"] == 3
+    assert call(client, shop, "count", collection="votes", shared=True).json()["count"] == 2
+    assert call(client, shop, "count", collection="votes").json()["count"] == 1
+    # An id from one list is unknown to the other.
+    assert call(client, shop, "get", collection="votes", shared=True, id=mine["id"]).json()["item"] is None
+    assert call(client, shop, "remove", collection="votes", shared=True, id=mine["id"]).status_code == 404
+    assert call(client, shop, "remove", collection="votes", id=mine["id"]).status_code == 200
+
+
+def test_a_visitor_who_writes_first_cannot_make_others_private_data_shared(
+    client: TestClient, visitor_b: TestClient, stranger: TestClient, shop: BuilderProject
+) -> None:
+    """The security review's scenario: Mallory saves "diary" as shared before
+    anyone else; the app's default (private) saves and reads are untouched."""
+    sign_in(visitor_b, shop)
+    sign_in(client, shop)
+    mallory = save(visitor_b, shop, "diary", {"text": "miscast"}, shared=True)
+
+    secret = save(client, shop, "diary", {"text": "나만 아는 일"})  # the app's default call
+    assert [row["data"] for row in call(client, shop, "list", collection="diary").json()["items"]] == [{"text": "나만 아는 일"}]
+    # Mallory, and a signed-out visitor, see only the shared list she made.
+    seen = call(visitor_b, shop, "list", collection="diary", shared=True).json()["items"]
+    assert [row["data"] for row in seen] == [{"text": "miscast"}]
+    assert call(visitor_b, shop, "list", collection="diary").json()["items"] == []
+    assert call(visitor_b, shop, "get", collection="diary", id=secret["id"]).json()["item"] is None
+    assert call(visitor_b, shop, "get", collection="diary", shared=True, id=secret["id"]).json()["item"] is None
+    assert call(stranger, shop, "list", collection="diary").status_code == 401
+    assert [row["id"] for row in call(stranger, shop, "list", collection="diary", shared=True).json()["items"]] == [mallory["id"]]
+    assert call(stranger, shop, "count", collection="diary").status_code == 401
+    assert call(client, shop, "count", collection="diary").json()["count"] == 1
 
 
 def test_apps_cannot_reach_each_other_s_data(
@@ -129,12 +163,12 @@ def test_apps_cannot_reach_each_other_s_data(
     sign_in(client, shop)
     sign_in(client, second)
     item = save(client, shop, "posts", {"text": "A"}, shared=True)
-    assert call(client, second, "list", collection="posts").json()["items"] == []
-    assert call(client, second, "get", collection="posts", id=item["id"]).json()["item"] is None
+    assert call(client, second, "list", collection="posts", shared=True).json()["items"] == []
+    assert call(client, second, "get", collection="posts", shared=True, id=item["id"]).json()["item"] is None
     # Even naming the right id: another app's collection does not hold it.
     save(client, second, "posts", {"text": "B"}, shared=True)
-    assert call(client, second, "remove", collection="posts", id=item["id"]).status_code == 404
-    assert call(client, shop, "count", collection="posts").json()["count"] == 1
+    assert call(client, second, "remove", collection="posts", shared=True, id=item["id"]).status_code == 404
+    assert call(client, shop, "count", collection="posts", shared=True).json()["count"] == 1
 
 
 def test_only_the_author_changes_an_item_and_the_app_owner_may_delete_shared_ones(
@@ -144,15 +178,15 @@ def test_only_the_author_changes_an_item_and_the_app_owner_may_delete_shared_one
     sign_in(visitor_b, shop)  # other_user owns the app
     item = save(client, shop, "board", {"text": "원본", "likes": 0}, shared=True)
 
-    changed = call(client, shop, "update", collection="board", id=item["id"], data={"likes": 1})
+    changed = call(client, shop, "update", collection="board", shared=True, id=item["id"], data={"likes": 1})
     assert changed.status_code == 200 and changed.json()["item"]["data"] == {"text": "원본", "likes": 1}
-    not_yours = call(visitor_b, shop, "update", collection="board", id=item["id"], data={"likes": 2})
+    not_yours = call(visitor_b, shop, "update", collection="board", shared=True, id=item["id"], data={"likes": 2})
     assert not_yours.status_code == 403 and not_yours.json()["detail"]["code"] == "not_yours"
 
-    seen_by_owner = call(visitor_b, shop, "list", collection="board").json()["items"][0]
+    seen_by_owner = call(visitor_b, shop, "list", collection="board", shared=True).json()["items"][0]
     assert seen_by_owner["mine"] is False and seen_by_owner["canDelete"] is True
-    assert call(visitor_b, shop, "remove", collection="board", id=item["id"]).status_code == 200
-    assert call(client, shop, "count", collection="board").json()["count"] == 0
+    assert call(visitor_b, shop, "remove", collection="board", shared=True, id=item["id"]).status_code == 200
+    assert call(client, shop, "count", collection="board", shared=True).json()["count"] == 0
 
     # … but not a private item of a visitor, which the owner cannot even see.
     private = save(client, shop, "notes", {"text": "나만"})
@@ -169,7 +203,7 @@ def test_a_consent_from_before_p3_must_be_renewed_for_writes(
     refused = call(client, shop, "save", collection="posts", data={"a": 1}, shared=True)
     assert refused.status_code == 403 and refused.json()["detail"]["code"] == "consent_required"
     # Reads still work.
-    assert call(client, shop, "list", collection="posts").status_code == 200
+    assert call(client, shop, "list", collection="posts", shared=True).status_code == 200
     # Allowing again (the shell reopens the consent window) renews the scopes.
     sign_in(client, shop)
     assert db_session.query(AppConsent).one().scopes == ["profile", "ai", "data"]
@@ -187,29 +221,29 @@ def test_list_filters_sorts_and_pages(client: TestClient, shop: BuilderProject) 
             data["done"] = done
         save(client, shop, "scores", data, shared=True)
 
-    newest_first = call(client, shop, "list", collection="scores").json()["items"]
+    newest_first = call(client, shop, "list", collection="scores", shared=True).json()["items"]
     assert [row["data"]["name"] for row in newest_first] == ["라", "다", "나", "가"]
-    by_score = call(client, shop, "list", collection="scores", orderBy="score", order="desc").json()["items"]
+    by_score = call(client, shop, "list", collection="scores", shared=True, orderBy="score", order="desc").json()["items"]
     assert [row["data"]["name"] for row in by_score] == ["가", "다", "라", "나"]
-    done = call(client, shop, "list", collection="scores", where={"done": True}).json()["items"]
+    done = call(client, shop, "list", collection="scores", shared=True, where={"done": True}).json()["items"]
     assert [row["data"]["name"] for row in done] == ["다", "가"]
     # 1 is not true: equality keeps the type.
-    assert call(client, shop, "list", collection="scores", where={"done": 1}).json()["items"] == []
-    assert call(client, shop, "count", collection="scores", where={"score": 20}).json()["count"] == 2
+    assert call(client, shop, "list", collection="scores", shared=True, where={"done": 1}).json()["items"] == []
+    assert call(client, shop, "count", collection="scores", shared=True, where={"score": 20}).json()["count"] == 2
 
-    first = call(client, shop, "list", collection="scores", limit=3, orderBy="name").json()
+    first = call(client, shop, "list", collection="scores", shared=True, limit=3, orderBy="name").json()
     assert [row["data"]["name"] for row in first["items"]] == ["가", "나", "다"] and first["nextCursor"] == "c3"
-    rest = call(client, shop, "list", collection="scores", limit=3, orderBy="name", cursor=first["nextCursor"]).json()
+    rest = call(client, shop, "list", collection="scores", shared=True, limit=3, orderBy="name", cursor=first["nextCursor"]).json()
     assert [row["data"]["name"] for row in rest["items"]] == ["라"] and rest["nextCursor"] is None
 
-    mine = call(client, shop, "list", collection="scores", mine=True).json()["items"]
+    mine = call(client, shop, "list", collection="scores", shared=True, mine=True).json()["items"]
     assert len(mine) == 4
 
-    assert call(client, shop, "list", collection="scores", limit=101).status_code == 400
-    assert call(client, shop, "list", collection="scores", orderBy="a b").status_code == 400
-    assert call(client, shop, "list", collection="scores", where={"x": {"nested": 1}}).status_code == 400
+    assert call(client, shop, "list", collection="scores", shared=True, limit=101).status_code == 400
+    assert call(client, shop, "list", collection="scores", shared=True, orderBy="a b").status_code == 400
+    assert call(client, shop, "list", collection="scores", shared=True, where={"x": {"nested": 1}}).status_code == 400
     assert call(client, shop, "list", collection="bad name!").status_code == 400
-    assert call(client, shop, "list", collection="scores", cursor="zzz").status_code == 400
+    assert call(client, shop, "list", collection="scores", shared=True, cursor="zzz").status_code == 400
 
 
 # --------------------------------------------------------------- limits
@@ -256,13 +290,13 @@ def test_deleted_unpublished_and_stopped_apps_answer_nothing(
 
     stopped = client.post(f"/api/admin/apps/{shop.id}/sdk", json={"enabled": False, "reason": "확인 중"})
     assert stopped.status_code == 200
-    assert call(client, shop, "list", collection="posts").status_code == 403
+    assert call(client, shop, "list", collection="posts", shared=True).status_code == 403
     client.post(f"/api/admin/apps/{shop.id}/sdk", json={"enabled": True})
-    assert call(client, shop, "list", collection="posts").status_code == 200
+    assert call(client, shop, "list", collection="posts", shared=True).status_code == 200
 
     app_publish.unpublish(db_session, config, shop)
     db_session.commit()
-    assert call(client, shop, "list", collection="posts").status_code == 404
+    assert call(client, shop, "list", collection="posts", shared=True).status_code == 404
 
 
 def test_the_preview_has_its_own_space(
@@ -273,7 +307,7 @@ def test_the_preview_has_its_own_space(
     sign_in(client, shop)
     save(client, shop, "posts", {"live": True}, shared=True)
     preview_headers = {"X-CtrlAI-App": shop.draft_slug, "Sec-Fetch-Site": "same-origin"}
-    listed = client.post("/_ctrlai/v1/data/list", headers=preview_headers, json={"collection": "posts"})
+    listed = client.post("/_ctrlai/v1/data/list", headers=preview_headers, json={"collection": "posts", "shared": True})
     assert listed.status_code == 200 and listed.json()["items"] == []
 
 
@@ -289,7 +323,8 @@ def test_reporting_a_shared_item_reaches_the_admin_who_hides_or_deletes_it(
     private = save(client, shop, "notes", {"text": "나만"})
 
     assert call(visitor_b, shop, "report", collection="board", id=item["id"], reason="").status_code == 400
-    assert call(visitor_b, shop, "report", collection="notes", id=private["id"], reason="x").status_code == 400
+    # A private item cannot be reported: `report` only knows the shared list of that name.
+    assert call(visitor_b, shop, "report", collection="notes", id=private["id"], reason="x").status_code == 404
     reported = call(visitor_b, shop, "report", collection="board", id=item["id"], reason="욕설이에요")
     assert reported.status_code == 200
     # Once per visitor and item.
@@ -311,8 +346,8 @@ def test_reporting_a_shared_item_reaches_the_admin_who_hides_or_deletes_it(
     assert client.post(f"/api/admin/apps/data/{hidden_id}/hide", json={"reason": ""}).status_code == 400
     hidden = client.post(f"/api/admin/apps/data/{hidden_id}/hide", json={"reason": "욕설"})
     assert hidden.status_code == 200 and hidden.json()["reports_closed"] == 1
-    assert call(stranger, shop, "list", collection="board").json()["items"] == []
-    assert call(client, shop, "get", collection="board", id=item["id"]).json()["item"] is None
+    assert call(stranger, shop, "list", collection="board", shared=True).json()["items"] == []
+    assert call(client, shop, "get", collection="board", shared=True, id=item["id"]).json()["item"] is None
     assert client.get("/api/admin/apps/reports").json() == []
     assert client.post(f"/api/admin/apps/data/{hidden_id}/hide", json={"reason": "다시"}).status_code == 404
 

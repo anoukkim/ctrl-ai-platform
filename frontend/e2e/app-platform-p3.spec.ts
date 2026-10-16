@@ -40,9 +40,18 @@ test("a shared item: saved after the consent window, read signed out, changed an
   const frame = await appFrame(page, slug);
   expect(await frame.evaluate(() => window.ctrlai.version)).toBe("3");
 
-  // Signed out: a shared collection that does not exist yet is empty, a
-  // private one is refused, and a write starts the sign-in.
-  expect(await frame.evaluate((name) => window.ctrlai.db.list(name), collection)).toEqual({ items: [], nextCursor: null });
+  // Signed out: a shared collection that does not exist yet is empty, the
+  // private list of the same name is refused, and a write starts the sign-in.
+  expect(await frame.evaluate((name) => window.ctrlai.db.list(name, { shared: true }), collection)).toEqual({
+    items: [],
+    nextCursor: null,
+  });
+  const refusedRead = await frame.evaluate((name) =>
+    window.ctrlai.db.list(name).then(
+      () => "listed",
+      (error: Error & { code?: string }) => error.code,
+    ), collection);
+  expect(refusedRead).toBe("login_required");
   const consentPromise = context.waitForEvent("page");
   const saving = frame.evaluate(
     (name) =>
@@ -68,18 +77,20 @@ test("a shared item: saved after the consent window, read signed out, changed an
 
   // Change and count as the author.
   const changed = await frame.evaluate(
-    ([name, id]) => window.ctrlai.db.update(name, id, { likes: 1 }),
+    ([name, id]) => window.ctrlai.db.update(name, id, { likes: 1 }, { shared: true }),
     [collection, saved.item.id] as const,
   );
   expect(changed.data).toEqual({ text: "첫 글", likes: 1 });
-  expect(await frame.evaluate((name) => window.ctrlai.db.count(name, { where: { likes: 1 } }), collection)).toBe(1);
+  expect(await frame.evaluate((name) => window.ctrlai.db.count(name, { shared: true, where: { likes: 1 } }), collection)).toBe(1);
+  // The private list of that name is a different, empty list — even for the author.
+  expect(await frame.evaluate((name) => window.ctrlai.db.count(name), collection)).toBe(0);
 
   // A fresh browser, signed out: reads the shared item, cannot change it.
   const strangerContext = await page.context().browser()!.newContext();
   const stranger = await strangerContext.newPage();
   await stranger.goto(`${APPS}/${slug}/`);
   const strangerFrame = await appFrame(stranger, slug);
-  const seen = await strangerFrame.evaluate((name) => window.ctrlai.db.list(name), collection);
+  const seen = await strangerFrame.evaluate((name) => window.ctrlai.db.list(name, { shared: true }), collection);
   expect(seen.items.map((item) => item.data)).toEqual([{ text: "첫 글", likes: 1 }]);
   expect(seen.items[0].mine).toBe(false);
   expect(seen.items[0].canDelete).toBe(false);
@@ -88,7 +99,7 @@ test("a shared item: saved after the consent window, read signed out, changed an
   const popupPromise = strangerContext.waitForEvent("page");
   const refusedPromise = strangerFrame.evaluate(
     ([name, id]) =>
-      window.ctrlai.db.remove(name, id).then(
+      window.ctrlai.db.remove(name, id, { shared: true }).then(
         () => "removed",
         (error: Error & { code?: string }) => error.code,
       ),
@@ -97,10 +108,10 @@ test("a shared item: saved after the consent window, read signed out, changed an
   const popup = await popupPromise;
   await popup.close();
   expect(await refusedPromise).toBe("login_required");
-  expect(await strangerFrame.evaluate((name) => window.ctrlai.db.count(name), collection)).toBe(1);
+  expect(await strangerFrame.evaluate((name) => window.ctrlai.db.count(name, { shared: true }), collection)).toBe(1);
   await strangerContext.close();
 
   // The author removes it; the list is empty again.
-  await frame.evaluate(([name, id]) => window.ctrlai.db.remove(name, id), [collection, saved.item.id] as const);
-  expect(await frame.evaluate((name) => window.ctrlai.db.count(name), collection)).toBe(0);
+  await frame.evaluate(([name, id]) => window.ctrlai.db.remove(name, id, { shared: true }), [collection, saved.item.id] as const);
+  expect(await frame.evaluate((name) => window.ctrlai.db.count(name, { shared: true }), collection)).toBe(0);
 });

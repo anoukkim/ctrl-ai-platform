@@ -192,7 +192,9 @@ stop an app's 기능 상자. **Since P3** an app has a database of its own,
 **`ctrlai.db`**: named lists that are either 개인 (each signed-in visitor
 sees only their own — a diary, a score history) or 공유 (everyone reads,
 signed out too; members write, with their display name on each item — a
-board, a poll, a ranking). An item is at most 4 KB, an app holds 2,000
+board, a poll, a ranking). The app says which with every call
+(`shared: true`; otherwise the 개인 list of that name) — the same name is
+two separate lists, so no visitor can turn another's private data public. An item is at most 4 KB, an app holds 2,000
 items / 5 MB, a visitor writes 30 times a minute at most; the author can
 change or delete their item, the app's maker can delete any shared item,
 and 신고 of a shared item reaches Admin › Content, where the admin hides

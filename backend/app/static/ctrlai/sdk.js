@@ -31,19 +31,21 @@
  * `model` is "fast" (default) or "smart". `images` are data URLs, 5 MB each.
  *
  * P3 — ctrlai.db, the app's own database on the server. A collection is a
- * named list of JSON objects; the first save decides whether it is
- * private (each signed-in visitor sees only their own items) or shared
- * (everyone reads, signed-out visitors too; members write):
+ * list of JSON objects named by (name, kind): **private** (each signed-in
+ * visitor sees only their own items) or **shared** (everyone reads,
+ * signed-out visitors too; members write). Every call says which with
+ * `shared: true` — without it, the private list of that name. "posts"
+ * private and "posts" shared are two different lists, so nobody's write
+ * can change what another app's call means.
  *
- *   ctrlai.db.save(collection, data, { shared?: boolean })
- *                                    → Promise<item>
- *   ctrlai.db.list(collection, { where?, orderBy?, order?, limit?, cursor?, mine? })
- *                                    → Promise<{ items, nextCursor }>
- *   ctrlai.db.get(collection, id)    → Promise<item | null>
- *   ctrlai.db.update(collection, id, changes) → Promise<item>
- *   ctrlai.db.remove(collection, id) → Promise<void>
- *   ctrlai.db.count(collection, { where?, mine? }) → Promise<number>
- *   ctrlai.db.report(collection, id, reason) → Promise<void>   (shared only)
+ *   ctrlai.db.save(collection, data, { shared? })      → Promise<item>
+ *   ctrlai.db.list(collection, { shared?, where?, orderBy?, order?, limit?, cursor?, mine? })
+ *                                                      → Promise<{ items, nextCursor }>
+ *   ctrlai.db.get(collection, id, { shared? })         → Promise<item | null>
+ *   ctrlai.db.update(collection, id, changes, { shared? }) → Promise<item>
+ *   ctrlai.db.remove(collection, id, { shared? })      → Promise<void>
+ *   ctrlai.db.count(collection, { shared?, where?, mine? }) → Promise<number>
+ *   ctrlai.db.report(collection, id, reason)           → Promise<void>   (shared only)
  *
  * An item is { id, data, createdAt, updatedAt, mine, canDelete, author:
  * { displayName, appUserId } }. `where` is simple equality on top-level
@@ -311,17 +313,22 @@
     }
   }
 
+  // Only `shared: true` means the shared list; anything else is private.
+  function isShared(options) {
+    return !!(options && options.shared === true);
+  }
+
   var db = Object.freeze({
     save: function (collection, data, options) {
       return dbCall("db.save", {
         collection: checkedCollection(collection),
+        shared: isShared(options),
         data: checkedObject(data, "저장할 값"),
-        shared: options && typeof options.shared === "boolean" ? options.shared : null,
       });
     },
     list: function (collection, options) {
       options = options || {};
-      var query = { collection: checkedCollection(collection) };
+      var query = { collection: checkedCollection(collection), shared: isShared(options) };
       if (options.where) query.where = checkedObject(options.where, "where");
       if (options.orderBy) query.orderBy = String(options.orderBy);
       if (options.order) query.order = String(options.order);
@@ -330,22 +337,23 @@
       if (options.mine) query.mine = true;
       return dbCall("db.list", query);
     },
-    get: function (collection, id) {
-      return dbCall("db.get", { collection: checkedCollection(collection), item: checkedId(id) });
+    get: function (collection, id, options) {
+      return dbCall("db.get", { collection: checkedCollection(collection), shared: isShared(options), item: checkedId(id) });
     },
-    update: function (collection, id, changes) {
+    update: function (collection, id, changes, options) {
       return dbCall("db.update", {
         collection: checkedCollection(collection),
+        shared: isShared(options),
         item: checkedId(id),
         data: checkedObject(changes, "바꿀 값"),
       });
     },
-    remove: function (collection, id) {
-      return dbCall("db.remove", { collection: checkedCollection(collection), item: checkedId(id) });
+    remove: function (collection, id, options) {
+      return dbCall("db.remove", { collection: checkedCollection(collection), shared: isShared(options), item: checkedId(id) });
     },
     count: function (collection, options) {
       options = options || {};
-      var query = { collection: checkedCollection(collection) };
+      var query = { collection: checkedCollection(collection), shared: isShared(options) };
       if (options.where) query.where = checkedObject(options.where, "where");
       if (options.mine) query.mine = true;
       return dbCall("db.count", query);
@@ -353,6 +361,7 @@
     report: function (collection, id, reason) {
       return dbCall("db.report", {
         collection: checkedCollection(collection),
+        shared: true,
         item: checkedId(id),
         reason: typeof reason === "string" ? reason : "",
       });
