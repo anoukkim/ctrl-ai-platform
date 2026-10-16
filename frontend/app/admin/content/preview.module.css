@@ -19,3 +19,42 @@
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+/* 데이터 시트(app-platform P3): 공유 항목 목록. */
+.items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  max-height: 50dvh;
+  overflow: auto;
+}
+
+.item {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.item .content {
+  max-height: 10rem;
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.itemActions {
+  flex-shrink: 0;
+}
+
+.itemConfirm {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}

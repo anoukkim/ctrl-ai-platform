@@ -9,6 +9,10 @@
  *
  * 숨기더라도 만든 사람의 이름은 지우지 않습니다. 탈퇴한 회원의 작품에도
  * "탈퇴 회원"으로 이름이 남습니다. 영상(Phase 8)은 아직 없습니다.
+ *
+ * app-platform P3: 앱마다 ctrlai.db에 가진 데이터 크기와, "데이터" 단추로
+ * 여는 공유 항목 목록(숨기기 · 지우기, 사유 필수, 감사 기록). 공유 항목
+ * 하나를 신고한 건은 신고 표에 그 내용 일부와 함께 나옵니다.
  */
 
 import Link from "next/link";
@@ -18,7 +22,9 @@ import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDial
 import PageHeader from "@/app/components/PageHeader";
 import { useToast } from "@/app/components/ToastProvider";
 import {
+  adminDataItem,
   adminUnpublish,
+  formatBytes,
   listAdminApps,
   listAppReports,
   resolveAppReport,
@@ -30,6 +36,7 @@ import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
 
 import { sectionLabel } from "../sections";
+import AppDataPanel from "./AppDataPanel";
 import HandoffPreview from "./HandoffPreview";
 
 export default function AdminContentPage() {
@@ -41,6 +48,7 @@ export default function AdminContentPage() {
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [preview, setPreview] = useState<AdminApp | null>(null);
+  const [dataOf, setDataOf] = useState<AdminApp | null>(null);
 
   const load = useCallback(() => {
     Promise.all([listAdminApps(), listAppReports()])
@@ -109,6 +117,23 @@ export default function AdminContentPage() {
     }
   };
 
+  const askHideItem = (report: AdminReport) => {
+    if (report.data_item_id === null) return;
+    const itemId = report.data_item_id;
+    setConfirmError(null);
+    setConfirm({
+      title: "신고된 항목 숨기기",
+      effect: [
+        `'${report.app_name}'의 공유 데이터에서 이 항목을 모든 방문자에게 숨깁니다: ${report.item_excerpt}`,
+        "이 항목의 열린 신고는 처리된 것으로 닫힙니다. 감사 기록에 남습니다.",
+      ],
+      confirmLabel: "숨기기",
+      danger: true,
+      reason: { label: "사유", placeholder: "예: 욕설", required: true },
+      onConfirm: (reason) => run(() => adminDataItem(itemId, "hide", reason))(),
+    });
+  };
+
   const askResolve = (report: AdminReport) => {
     setConfirmError(null);
     setConfirm({
@@ -166,10 +191,28 @@ export default function AdminContentPage() {
                         </>
                       )}
                     </td>
-                    <td>{report.reason}</td>
+                    <td>
+                      {report.reason}
+                      {report.data_item_id !== null && (
+                        <>
+                          <br />
+                          <span className="small muted" data-testid="report-excerpt">
+                            공유 데이터: <code>{report.item_excerpt}</code>
+                            {!report.item_live && " · 이미 숨기거나 지웠어요"}
+                          </span>
+                        </>
+                      )}
+                    </td>
                     <td>{report.reporter_username || "—"}</td>
                     <td>{relativeTime(report.created_at)}</td>
                     <td className="actions-cell">
+                      {report.data_item_id !== null && report.item_live && (
+                        <>
+                          <button className="btn btn-sm btn-danger" type="button" onClick={() => askHideItem(report)}>
+                            항목 숨기기
+                          </button>{" "}
+                        </>
+                      )}
                       {report.still_listed && (
                         <button
                           className="btn btn-sm btn-danger"
@@ -207,6 +250,7 @@ export default function AdminContentPage() {
                   <th>앱</th>
                   <th>만든 사람</th>
                   <th>버전</th>
+                  <th>데이터</th>
                   <th>신고</th>
                   <th />
                 </tr>
@@ -221,6 +265,20 @@ export default function AdminContentPage() {
                     <td>
                       v{app.version_number}
                       {app.published_at ? ` · ${relativeTime(app.published_at)}` : ""}
+                    </td>
+                    <td>
+                      {app.data_items > 0 ? (
+                        <button
+                          className="btn btn-sm"
+                          type="button"
+                          onClick={() => setDataOf(app)}
+                          title="이 앱이 ctrlai.db에 가진 목록과 공유 항목"
+                        >
+                          {app.data_items.toLocaleString("ko-KR")}개 · {formatBytes(app.data_bytes)}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td>
                       {app.open_reports > 0 ? <span className="badge badge-warn">{app.open_reports}</span> : "—"}
@@ -265,6 +323,14 @@ export default function AdminContentPage() {
 
       {preview && (
         <HandoffPreview projectId={preview.id} name={preview.name} onClose={() => setPreview(null)} />
+      )}
+      {dataOf && (
+        <AppDataPanel
+          projectId={dataOf.id}
+          name={dataOf.name}
+          onChanged={load}
+          onClose={() => setDataOf(null)}
+        />
       )}
 
       <ConfirmDialog

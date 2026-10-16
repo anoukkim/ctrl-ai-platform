@@ -62,6 +62,9 @@ export interface AdminApp extends AppListing {
   /** 기능 상자(app-platform P2)가 켜져 있는지, 멈췄다면 그 이유. */
   sdk_enabled: boolean;
   sdk_disabled_reason: string;
+  /** app-platform P3: 게시된 앱이 ctrlai.db에 가진 항목 수와 크기. */
+  data_items: number;
+  data_bytes: number;
 }
 
 export interface AdminReport {
@@ -73,6 +76,58 @@ export interface AdminReport {
   reporter_username: string;
   created_at: string;
   still_listed: boolean;
+  /** app-platform P3: 공유 데이터 항목 하나에 대한 신고 — 그 내용 일부와 아직 있는지. */
+  data_item_id: number | null;
+  item_excerpt: string;
+  item_live: boolean;
+}
+
+/** 앱 하나의 ctrlai.db — 목록별 크기와 공유 항목(관리자용, app-platform P3). */
+export interface AdminDataCollection {
+  name: string;
+  kind: "private" | "shared";
+  items: number;
+  bytes: number;
+}
+
+export interface AdminDataItem {
+  id: number;
+  collection: string;
+  data: Record<string, unknown>;
+  size_bytes: number;
+  author_username: string;
+  created_at: string;
+  open_reports: number;
+}
+
+export interface AdminData {
+  items: number;
+  bytes: number;
+  collections: AdminDataCollection[];
+  shared: AdminDataItem[];
+}
+
+export function getAdminAppData(projectId: number): Promise<AdminData> {
+  return request<AdminData>(`/admin/apps/${projectId}/data`);
+}
+
+/** 관리자: 공유 항목 하나를 숨기거나(남김) 지웁니다(감사 기록). */
+export function adminDataItem(
+  itemId: number,
+  action: "hide" | "delete",
+  reason: string,
+): Promise<{ detail: string; reports_closed: number }> {
+  return request<{ detail: string; reports_closed: number }>(`/admin/apps/data/${itemId}/${action}`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/** 1,234 B · 12.3 KB · 1.2 MB */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function listAdminApps(): Promise<AdminApp[]> {
