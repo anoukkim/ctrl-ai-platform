@@ -100,7 +100,7 @@ batch below **"Yes, same rules"** — each item may be merged and deployed
 once its code review + security review are clean and all tests pass, one
 window at a time, the desktop session deploying and checking each;
 serious money/security findings stop and wait for the owner. **Scope,
-exactly:** ④ **owner-polish-3** (the four points below, one branch
+exactly:** ④ **owner-polish-3** (merged `03fb141`, deployed 2026-10-17 — Done row in the archive) (the four points below, one branch
 `fix-owner-polish-3`), then ⑤ **motion-modern** (spec 8b, unchanged).
 The owner's words, verbatim:
 
