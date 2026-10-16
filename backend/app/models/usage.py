@@ -55,6 +55,10 @@ class UsageFeature(str, enum.Enum):
     #: app-platform P2: AI inside a member app, paid by the visitor
     #: (`builder_project_id` names the app).
     APP_AI = "app_ai"
+    #: app-platform P4: the same, from the Builder's 미리보기 — the creator
+    #: trying their own app, charged to the creator. Kept apart so Usage
+    #: and Admin › Apps can tell a visitor's use from the maker's tries.
+    APP_AI_PREVIEW = "app_ai_preview"
 
 
 #: How a member's spending is broken down on their wallet card: 채팅 /

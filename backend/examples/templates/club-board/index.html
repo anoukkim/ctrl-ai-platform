@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>동아리 게시판</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <p class="eyebrow">CTRL+AI</p>
+        <h1>동아리 게시판</h1>
+      </div>
+      <button type="button" id="write-toggle">글쓰기</button>
+    </header>
+
+    <div class="notice" id="notice" hidden>
+      <span id="notice-text"></span>
+      <button type="button" class="small" id="login-button" hidden>로그인</button>
+    </div>
+
+    <nav class="tabs" aria-label="분류" id="tabs">
+      <button type="button" data-cat="" aria-pressed="true">전체</button>
+      <button type="button" data-cat="공지" aria-pressed="false">공지</button>
+      <button type="button" data-cat="자유" aria-pressed="false">자유</button>
+      <button type="button" data-cat="질문" aria-pressed="false">질문</button>
+    </nav>
+
+    <!-- 글쓰기 · 글 고치기 -->
+    <form class="sheet" id="editor" hidden>
+      <h2 id="editor-title">새 글</h2>
+      <label>분류
+        <select id="category">
+          <option>자유</option>
+          <option>공지</option>
+          <option>질문</option>
+        </select>
+      </label>
+      <label>제목
+        <input type="text" id="title" maxlength="80" required placeholder="제목">
+      </label>
+      <label>내용
+        <textarea id="body" rows="6" maxlength="2000" required placeholder="내용을 적어 주세요 (2,000자까지)"></textarea>
+      </label>
+      <div class="row">
+        <button type="button" class="ghost" id="editor-cancel">취소</button>
+        <button type="submit" id="editor-save">올리기</button>
+      </div>
+      <p class="error" id="editor-error" role="alert" hidden></p>
+    </form>
+
+    <!-- 목록 또는 글 하나 -->
+    <section id="list" class="list" aria-live="polite"></section>
+    <article id="detail" class="detail" hidden></article>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

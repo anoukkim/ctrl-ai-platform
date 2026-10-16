@@ -333,6 +333,7 @@ async def ai_ask(
             project=call.target.project,
             data=body.as_input(),
             is_mock=settings.provider_is_mock("claude"),
+            preview=call.target.mode == "preview",
         )
     except app_ai.AppAIError as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
@@ -367,6 +368,7 @@ async def ai_stream(
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
     limit = chat_limits.current(db).provider_concurrency
     user_id, project_id = call.visitor.user.id, call.target.project.id
+    preview = call.target.mode == "preview"
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
     provider = get_claude_provider(settings)
     is_mock = settings.provider_is_mock("claude")
@@ -386,6 +388,7 @@ async def ai_stream(
                     input_tokens=tally.input_tokens,
                     output_tokens=tally.output_tokens,
                     is_mock=is_mock,
+                    preview=preview,
                 )
             if failure is not None:
                 app_ai.record_failure(session, failure)

@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.models import BuilderGeneration, BuilderProject, ProviderErrorKind, UsageFeature, User
 from app.services import builder_choice, builder_files, builder_versions, chat_limits, chat_models
+from app.services.app_manifest import MANIFEST_FILE
 from app.services import pricing, provider_limiter, providers
 from app.services import usage as usage_service
 from app.services.builder_starter import StarterError, _record_absorbed
@@ -378,11 +379,13 @@ def run(
 
         usage = (written.input_tokens, written.output_tokens)
         try:
-            # Only files in the plan; anything else Claude wrote is dropped.
+            # Only files in the plan; anything else Claude wrote is dropped —
+            # except ctrlai.json, which the SDK rules make Claude write beside
+            # any file that uses ctrlai.db (app-platform P4).
             writes = [
                 (clean, content)
                 for raw, content in written.writes
-                if (clean := builder_files.clean_path(raw)) in planned_paths
+                if (clean := builder_files.clean_path(raw)) in planned_paths or clean == MANIFEST_FILE
             ]
             if path not in {clean for clean, _ in writes}:
                 raise builder_files.FileRuleError(
@@ -434,10 +437,12 @@ def run(
         if checked is not None:
             usage = (checked.input_tokens, checked.output_tokens)
             try:
+                # Existing files only — plus a ctrlai.json the check adds when
+                # the app uses ctrlai.db without declaring its lists (P4).
                 fixes = [
                     (clean, content)
                     for raw, content in checked.writes
-                    if (clean := builder_files.clean_path(raw)) in files
+                    if (clean := builder_files.clean_path(raw)) in files or clean == MANIFEST_FILE
                 ][:CHECK_MAX_FIXES]
                 updated_files, fixed = builder_files.apply_writes(files, fixes)
             except builder_files.FileRuleError:

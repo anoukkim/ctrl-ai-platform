@@ -148,6 +148,33 @@ export function createBuilderProject(input: {
   });
 }
 
+/** 시작 화면의 템플릿 하나 (app-platform P4). 백엔드 `builder_templates.TEMPLATES`. */
+export interface BuilderTemplate {
+  key: string;
+  name: string;
+  description: string;
+  /** 기능 상자에서 쓰는 것: "AI" · "로그인" · "공유 데이터" · "저장" · "신고". */
+  uses: string[];
+}
+
+export function listBuilderTemplates(): Promise<BuilderTemplate[]> {
+  return request<BuilderTemplate[]>("/builder/templates");
+}
+
+/**
+ * 템플릿으로 새 프로젝트. 파일을 복사할 뿐 Claude를 부르지 않으니 무료이고,
+ * 작업 공간이 바로 미리보기로 열립니다. 이름을 비우면 템플릿 이름이 됩니다.
+ */
+export function createBuilderProjectFromTemplate(input: {
+  template: string;
+  name?: string;
+}): Promise<BuilderProject> {
+  return request<BuilderProject>("/builder/projects/from-template", {
+    method: "POST",
+    body: JSON.stringify({ template: input.template, name: input.name ?? "" }),
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* 예시 앱 (chat-builder-starter)                                        */
 /* ------------------------------------------------------------------ */

@@ -66,10 +66,12 @@ def _label_for(db: Session, event) -> str:
             db.get(Conversation, event.conversation_id) if event.conversation_id else None
         )
         return f"Chat — {conversation.title}" if conversation and conversation.title else "Chat"
-    if event.feature == "app_ai":
-        # app-platform P2: AI inside a member app, paid by the visitor.
+    if event.feature in ("app_ai", "app_ai_preview"):
+        # app-platform P2: AI inside a member app, paid by the visitor; P4:
+        # the maker trying it in the Builder's 미리보기.
         project = db.get(BuilderProject, event.builder_project_id) if event.builder_project_id else None
-        return f"앱 · {project.name}" if project is not None else "앱"
+        head = "앱 미리보기" if event.feature == "app_ai_preview" else "앱"
+        return f"{head} · {project.name}" if project is not None else head
     if event.builder_project_id is not None:
         project = db.get(BuilderProject, event.builder_project_id)
         if project is not None:

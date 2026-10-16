@@ -112,3 +112,12 @@ def check_project(files: dict[str, str]) -> None:
         raise FileRuleError("프로젝트가 너무 큽니다(최대 2MB).")
     if files and ENTRY_FILE not in files:
         raise FileRuleError("앱의 시작 파일(index.html)이 없습니다.")
+    # app-platform P4: ctrlai.json names the app's ctrlai.db lists. A wrong
+    # one is refused here, with the reason, rather than ignored — an app
+    # whose list silently does not exist fails later for every visitor.
+    from app.services import app_manifest  # noqa: PLC0415 — keeps this module free of models
+
+    try:
+        app_manifest.parse(files)
+    except app_manifest.ManifestError as error:
+        raise FileRuleError(str(error)) from error

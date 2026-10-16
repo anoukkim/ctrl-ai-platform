@@ -1,0 +1,88 @@
+/* 색 맞추기 — 어두운 오락실 느낌, 네온 색. */
+:root {
+  --bg: #0b0f1a;
+  --panel: #141b2d;
+  --ink: #f2f4ff;
+  --muted: #8d97b5;
+  --line: #24304d;
+  --neon: #7cf5c8;
+  --red: #ff5c7a;
+  --blue: #5aa9ff;
+  --green: #5ff28a;
+  --yellow: #ffd95c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+/* hidden 속성이 display: flex/grid보다 세게 — 숨긴 칸은 정말 숨겨져요. */
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.5 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+.app { max-width: 30rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+.top h1 { margin: 0; font-size: 1.6rem; letter-spacing: .04em; color: var(--neon); text-transform: uppercase; }
+.rule { margin: .3rem 0 1rem; color: var(--muted); font-size: .9rem; }
+.rule b { color: var(--ink); }
+
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 1.2rem; padding: 1rem; text-align: center; }
+.hud { display: flex; justify-content: space-between; color: var(--muted); font-size: .9rem; }
+.hud b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.word {
+  font-size: 3rem; font-weight: 800; margin: 1.2rem 0; min-height: 4rem; letter-spacing: .05em;
+  text-shadow: 0 0 18px currentColor;
+}
+.pads { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.pads button {
+  font: inherit; font-weight: 700; font-size: 1.1rem; cursor: pointer;
+  border: 2px solid transparent; border-radius: .9rem; padding: 1rem .5rem; color: #0b0f1a;
+}
+.pads button[disabled] { opacity: .35; cursor: default; }
+.pads button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.pads .c-red { background: var(--red); }
+.pads .c-blue { background: var(--blue); }
+.pads .c-green { background: var(--green); }
+.pads .c-yellow { background: var(--yellow); }
+.pads button.hit { border-color: #fff; }
+.pads button.miss { border-color: #000; }
+
+.start { margin-top: .9rem; }
+button#start, #submit {
+  font: inherit; font-weight: 800; font-size: 1.1rem; cursor: pointer;
+  border: 0; border-radius: 999px; padding: .7rem 2rem; background: var(--neon); color: #0b0f1a;
+}
+button#start:focus-visible, #submit:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.hint { color: var(--muted); font-size: .85rem; margin: .6rem 0 0; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 1.2rem; padding: 1rem; margin-top: .9rem; }
+.card h2 { margin: 0 0 .4rem; font-size: 1.15rem; }
+.muted { color: var(--muted); font-size: .9rem; margin: 0 0 .6rem; }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; }
+button.ghost, button.small {
+  font: inherit; cursor: pointer; background: transparent; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 999px; padding: .6rem 1rem;
+}
+button.small { padding: .3rem .8rem; font-size: .85rem; }
+button[disabled] { opacity: .5; cursor: default; }
+.error { color: var(--red); font-size: .85rem; margin: .5rem 0 0; }
+
+.board-title { display: flex; align-items: center; gap: .5rem; }
+.badge { font-size: .7rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; background: var(--line); color: var(--muted); }
+.board { list-style: none; margin: 0; padding: 0; }
+.board li { display: grid; grid-template-columns: 2rem 1fr auto; gap: .5rem; padding: .45rem 0; border-top: 1px solid var(--line); align-items: center; }
+.board li:first-child { border-top: 0; }
+.board .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+.board li:nth-child(1) .rank { color: var(--yellow); }
+.board .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .me { color: var(--neon); }
+.board .pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+.board .empty { grid-template-columns: 1fr; color: var(--muted); text-align: center; }
+
+.notice {
+  margin-top: .9rem; padding: .6rem .8rem; border-radius: .8rem; background: #1d2742; font-size: .9rem;
+  display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .word { transition: color .1s; }
+  .pads button:active { transform: scale(.96); }
+}

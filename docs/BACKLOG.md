@@ -91,12 +91,22 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    **P3 merged 2026-10-16** (`739aacb`; `ctrlai.db` — collections as
    (name, kind) pairs after the security review, migration `1cc00c092902`;
    its first drafts were lost with the old computer and it was designed
-   again, RUN-2026-10-16). **P4 is next.** Two things to look at in P4
-   besides its spec: (a) the security review's stronger recommendation —
-   collections **defined by the app's owner** (a manifest in the project
-   files, or created only by the owner's first write) rather than by any
-   visitor's first write; (b) `app-libraries` (item 8) is reviewed after
-   P4, so P4's templates should not paint it in.
+   again, RUN-2026-10-16). **P4 is built in two halves** (owner,
+   2026-10-16): **P4a** = the owner-declared lists (`ctrlai.json`), the
+   Builder prompts knowing the SDK, the four templates, the 미리보기's own
+   label — branch `feat-app-platform-p4`, built 2026-10-16, **awaiting
+   approval**; **P4b** = the three showcase apps in LIVE mode (an in-app
+   toggle, the demo logic kept; an expensive call shows its maximum
+   beside the button first and has a per-call cap), Admin › Apps as a new
+   section (Content keeps 신고 and 게시 내리기), `/help/apps`. Each merged
+   and deployed after its own report and approval. Decided with the
+   split: (a) the security review's stronger recommendation is **in**
+   (collections are the owner's to declare — `ctrlai.json`, or the
+   owner's first save; `ctrlai.json` is served with the app, it holds
+   names only); (b) `app-libraries` (item 8) is reviewed after P4, so the
+   templates use no library; (c) AI templates work as a demo when
+   `window.ctrlai` is missing or the visitor is signed out — the basis of
+   app-ai-access.
 
 2. **app-ai-access** · M3 · branch `feat-app-ai-access`
     *Not pre-approved — branch, test, report, WAIT.* Owner decision

@@ -7,6 +7,7 @@ site's session cookie is never what signs anyone in to an app: only the
 app's own cookie, set by the callback.
 """
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -30,6 +31,26 @@ from app.services.quarters import set_membership
 
 APPS = "http://apps.test"
 
+#: app-platform P4: the lists the P3 tests write into as a *visitor* must be
+#: declared by the app's owner (ctrlai.json) — a visitor cannot make one.
+MANIFEST = json.dumps(
+    {
+        "db": [
+            {"name": "posts", "shared": True},
+            {"name": "diary"},
+            {"name": "votes", "shared": True},
+            {"name": "votes"},
+            {"name": "scores", "shared": True},
+            {"name": "board", "shared": True},
+            {"name": "notes"},
+            {"name": "big", "shared": True},
+            {"name": "few"},
+            {"name": "few2"},
+        ]
+    }
+)
+SHOP_FILES = {"index.html": "<!doctype html><head><title>t</title></head>", "ctrlai.json": MANIFEST}
+
 
 @pytest.fixture
 def config(tmp_path):
@@ -51,9 +72,8 @@ def shop(db_session: Session, other_user: User, config) -> BuilderProject:
     project = BuilderProject(owner_user_id=other_user.id, name="영수증 읽기", description="")
     db_session.add(project)
     db_session.flush()
-    files = {"index.html": "<!doctype html><head><title>t</title></head>"}
-    builder_versions.replace_files(db_session, project, files)
-    builder_versions.snapshot(db_session, project, "만들기", files)
+    builder_versions.replace_files(db_session, project, SHOP_FILES)
+    builder_versions.snapshot(db_session, project, "만들기", SHOP_FILES)
     app_publish.publish(db_session, config, project, description="영수증", note="")
     db_session.commit()
     return project

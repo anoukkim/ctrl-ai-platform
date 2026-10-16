@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 챗봇</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="who">
+        <span class="avatar" id="avatar" aria-hidden="true">봇</span>
+        <div>
+          <h1 id="bot-name">도움 봇</h1>
+          <p class="mode" id="mode" aria-live="polite">준비 중…</p>
+        </div>
+      </div>
+      <button type="button" class="ghost" id="settings-toggle" aria-expanded="false" aria-controls="settings">설정</button>
+    </header>
+
+    <!-- 설정: 봇의 이름과 말투. 이 기기에만 저장돼요(ctrlai.storage). -->
+    <section class="settings" id="settings" hidden>
+      <label>봇 이름
+        <input type="text" id="name-input" maxlength="20" placeholder="예: 동아리 안내 봇">
+      </label>
+      <label>어떤 봇인가요? (말투와 역할)
+        <textarea id="system-input" rows="3" maxlength="600" placeholder="예: 우리 동아리 신입 회원을 친절하게 안내하는 봇. 반말은 쓰지 않고, 모르는 건 모른다고 말해요."></textarea>
+      </label>
+      <div class="row">
+        <label class="inline">모델
+          <select id="model-select">
+            <option value="fast">빠른 모델 · 1회 약 10원</option>
+            <option value="smart">똑똑한 모델 · 1회 약 30원</option>
+          </select>
+        </label>
+        <button type="button" class="ghost danger" id="clear-chat">대화 지우기</button>
+      </div>
+      <p class="hint">설정과 대화는 이 기기에만 저장돼요.</p>
+    </section>
+
+    <!-- 로그인 전 · CTRL+AI 밖: 데모 답변. -->
+    <div class="notice" id="notice" hidden>
+      <span id="notice-text"></span>
+      <button type="button" class="small" id="login-button" hidden>로그인</button>
+    </div>
+
+    <ol class="messages" id="messages" role="log" aria-live="polite" aria-label="대화"></ol>
+
+    <form class="composer" id="composer">
+      <label class="sr-only" for="prompt">메시지</label>
+      <textarea id="prompt" rows="1" maxlength="1000" placeholder="무엇이든 물어보세요" autocomplete="off"></textarea>
+      <button type="submit" id="send" aria-label="보내기">↑</button>
+    </form>
+    <p class="cost" id="cost" aria-live="polite"></p>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

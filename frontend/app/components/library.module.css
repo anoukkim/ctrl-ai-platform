@@ -620,3 +620,67 @@
   color: var(--error-text);
   font-size: var(--fs-chip);
 }
+
+/* 시작 방법 — 빈 프로젝트와 템플릿 4종 (app-platform P4). 폭 390px에서는
+   한 줄에 하나씩 쌓입니다. */
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--lib-gap-sm);
+}
+
+.templateCard {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.templateCard:hover {
+  border-color: var(--accent-border);
+}
+
+.templateCard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.templateCard[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.templateName {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-strong);
+}
+
+.templateDesc {
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+  line-height: var(--lh-body);
+}
+
+.templateUses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+}
+
+.templateUse {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+}

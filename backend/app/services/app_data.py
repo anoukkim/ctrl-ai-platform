@@ -12,6 +12,13 @@ can never decide what everyone else's writes mean. Two kinds:
   members write (a board, a ranking, a poll). Each item shows its author's
   display name — the consent screen says so.
 
+A collection exists because the app's **owner** declared it — in the
+project's `ctrlai.json` (`services/app_manifest.py`, read when the files
+reach the runtime) or by saving into it first from inside the app. A
+visitor's save into a list that does not exist is refused
+(`no_collection`), so nobody but the owner decides what lists an app has
+(security review of P3, 2026-10-16).
+
 Who may change an item: its author. The app's owner may also delete any
 shared item of their app (from inside the app, as a visitor). An admin
 hides or deletes from Admin › Content (audited); hidden items are gone for
@@ -432,9 +439,10 @@ def _check_room(db: Session, reader: Reader, extra_items: int, extra_bytes: int)
 
 
 def save_item(db: Session, reader: Reader, name: str, shared: object, data: object) -> dict:
-    """A new item in the (name, kind) collection — made on the first save.
-    A visitor's earlier write under the same name but the other kind is a
-    different collection and changes nothing here."""
+    """A new item in the (name, kind) collection. The collection comes from
+    ctrlai.json or the **owner's** first save; a visitor's earlier write
+    under the same name but the other kind is a different collection and
+    changes nothing here."""
     user = _writer(reader)
     name = check_collection(name)
     kind = kind_of(shared)
@@ -443,6 +451,16 @@ def save_item(db: Session, reader: Reader, name: str, shared: object, data: obje
     _note_write(db, reader, user)
     collection = _collection(db, reader, name, kind)
     if collection is None:
+        # app-platform P4 (security review): a list exists because the app's
+        # owner declared it (ctrlai.json) or saved into it first — never
+        # because a visitor named it. So no visitor can use up an app's
+        # twenty lists, and a list's kind is always the app's own choice.
+        if not reader.is_app_owner:
+            raise AppDataError(
+                f"이 앱에 '{name}' 목록이 아직 없어요. 앱을 만든 사람이 ctrlai.json에 적어야 해요.",
+                404,
+                "no_collection",
+            )
         collections = db.scalar(
             select(func.count(AppDataCollection.id)).where(
                 AppDataCollection.project_id == reader.project.id, AppDataCollection.space == reader.space

@@ -1,0 +1,85 @@
+/* 투표·설문 — 또렷한 파랑, 큰 막대. */
+:root {
+  --bg: #eef3fb;
+  --card: #ffffff;
+  --ink: #15233a;
+  --muted: #5e6b82;
+  --line: #d9e2f1;
+  --blue: #1f5eff;
+  --blue-soft: #dbe6ff;
+  --win: #ffd166;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1726; --card: #182238; --ink: #eef2fb; --muted: #9aa8c4; --line: #2a3650;
+    --blue: #5b8cff; --blue-soft: #263a66; color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+/* hidden 속성이 display: flex/grid보다 세게 — 숨긴 칸은 정말 숨겨져요. */
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.5 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+.app { max-width: 40rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; margin-bottom: .8rem; }
+h1 { margin: 0; font-size: 1.35rem; letter-spacing: -.01em; }
+.sub { margin: .15rem 0 0; color: var(--muted); font-size: .85rem; }
+
+button {
+  font: inherit; font-weight: 600; cursor: pointer;
+  border: 0; border-radius: .7rem; padding: .55rem 1rem;
+  background: var(--blue); color: #fff;
+}
+button:focus-visible { outline: 3px solid var(--blue-soft); outline-offset: 2px; }
+button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+button.small { padding: .35rem .7rem; font-size: .85rem; }
+button[disabled] { opacity: .5; cursor: default; }
+.grow { flex: 1; }
+.row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+
+.notice {
+  margin: 0 0 .8rem; padding: .6rem .8rem; border-radius: .7rem;
+  background: var(--blue-soft); font-size: .9rem;
+  display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap;
+}
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 1rem;
+  padding: 1rem; margin-bottom: .8rem;
+}
+.card.new { display: grid; gap: .7rem; }
+.card.new label { display: grid; gap: .3rem; font-size: .9rem; color: var(--muted); }
+.card.new input, .options input {
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: .6rem; padding: .5rem .7rem; width: 100%;
+}
+.options { display: grid; gap: .4rem; }
+.error { margin: 0; color: #c62828; font-size: .85rem; }
+
+.poll h2 { margin: 0 0 .2rem; font-size: 1.05rem; }
+.poll .meta { color: var(--muted); font-size: .8rem; margin: 0 0 .7rem; }
+.poll .opt {
+  position: relative; display: block; width: 100%; text-align: left;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+  border-radius: .7rem; padding: .55rem .8rem; margin-bottom: .4rem; font-weight: 500; overflow: hidden;
+}
+.poll .opt .bar {
+  position: absolute; inset: 0 auto 0 0; background: var(--blue-soft); z-index: 0;
+  transition: width .4s ease;
+}
+.poll .opt.top .bar { background: var(--win); }
+.poll .opt .label { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: .5rem; }
+.poll .opt .count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .85rem; }
+.poll .opt.mine .label::before { content: "✓ "; color: var(--blue); }
+.poll .opt[disabled] { cursor: default; opacity: 1; }
+.poll .actions { display: flex; gap: .4rem; margin-top: .5rem; flex-wrap: wrap; }
+.poll .closed { display: inline-block; font-size: .75rem; padding: .1rem .5rem; border-radius: 999px; background: var(--line); margin-left: .4rem; }
+.poll .demo { color: #a05a1c; }
+.empty { text-align: center; color: var(--muted); padding: 2rem 0; }
+.foot { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.5rem; }
+
+@media (prefers-reduced-motion: reduce) { .poll .opt .bar { transition: none; } }

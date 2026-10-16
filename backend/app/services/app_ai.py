@@ -223,6 +223,11 @@ def sample_for(schema: Any) -> Any:
 # --------------------------------------------------------------- checks
 
 
+#: Both count toward the rates and the day cap: a maker trying their app
+#: in the 미리보기 spends the same wallet (app-platform P4).
+APP_AI_FEATURES = (UsageFeature.APP_AI.value, UsageFeature.APP_AI_PREVIEW.value)
+
+
 def ensure_member(db: Session, user: User) -> None:
     """The visitor must be taking part this quarter (`require_active_member`)."""
     quarter = current_quarter(db)
@@ -236,7 +241,7 @@ def ensure_member(db: Session, user: User) -> None:
 def _recent_calls(db: Session, **where: int) -> int:
     since = datetime.now(timezone.utc) - timedelta(minutes=1)
     query = select(func.count(UsageEvent.id)).where(
-        UsageEvent.feature == UsageFeature.APP_AI.value, UsageEvent.created_at >= since
+        UsageEvent.feature.in_(APP_AI_FEATURES), UsageEvent.created_at >= since
     )
     if "user_id" in where:
         query = query.where(UsageEvent.user_id == where["user_id"])
@@ -260,7 +265,7 @@ def app_ai_spent_today(db: Session, user_id: int) -> int:
     spent = db.scalar(
         select(func.coalesce(func.sum(UsageEvent.charged_krw), 0)).where(
             UsageEvent.user_id == user_id,
-            UsageEvent.feature == UsageFeature.APP_AI.value,
+            UsageEvent.feature.in_(APP_AI_FEATURES),
             UsageEvent.created_at >= chat_limits.kst_day_start(),
         )
     )
@@ -452,8 +457,10 @@ def charge(
     input_tokens: int,
     output_tokens: int,
     is_mock: bool,
+    preview: bool = False,
 ) -> int:
-    """One ledger row for the whole call (a JSON retry included)."""
+    """One ledger row for the whole call (a JSON retry included). `preview`:
+    the Builder's 미리보기 — the maker's own try, labelled apart."""
     price = prepared.price
     amount = price.krw(input_tokens, output_tokens)
     result = usage_service.charge(
@@ -461,7 +468,7 @@ def charge(
         user=user,
         amount_krw=amount,
         provider="claude",
-        feature=UsageFeature.APP_AI.value,
+        feature=(UsageFeature.APP_AI_PREVIEW if preview else UsageFeature.APP_AI).value,
         model_id=prepared.model.model_id,
         provider_units=input_tokens + output_tokens,
         provider_unit="tokens",
@@ -494,6 +501,7 @@ async def ask(
     project: BuilderProject,
     data: AskInput,
     is_mock: bool,
+    preview: bool = False,
 ) -> AskResult:
     """`ctrlai.ai.ask`: one answer, as text — or JSON checked against the
     schema, with one automatic retry inside the same per-call cap."""
@@ -512,7 +520,7 @@ async def ask(
         except ClaudeError as error:
             if total_in or total_out:
                 charge(db, settings, user=user, project=project, prepared=first_prepared,
-                       input_tokens=total_in, output_tokens=total_out, is_mock=is_mock)
+                       input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
             record_failure(db, error)
             raise AppAIError(str(error), 503, "provider") from error
         assert tally is not None
@@ -530,7 +538,7 @@ async def ask(
             break
         if attempt >= 2:
             charged = charge(db, settings, user=user, project=project, prepared=first_prepared,
-                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock)
+                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
             raise AppAIError(
                 f"AI 답이 정해 준 JSON 형식에 맞지 않았어요({problem}). {charged}원이 쓰였어요.",
                 502,
@@ -549,11 +557,11 @@ async def ask(
             prepared = prepare(db, settings, user=user, project=project, data=data, spent_krw=spent, messages=messages)
         except AppAIError:
             charge(db, settings, user=user, project=project, prepared=first_prepared,
-                   input_tokens=total_in, output_tokens=total_out, is_mock=is_mock)
+                   input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
             raise
 
     charged = charge(db, settings, user=user, project=project, prepared=first_prepared,
-                     input_tokens=total_in, output_tokens=total_out, is_mock=is_mock)
+                     input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
     return AskResult(
         text=tally.text,
         json=parsed if data.schema is not None else None,

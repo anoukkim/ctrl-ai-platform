@@ -1,0 +1,6 @@
+{
+  "db": [
+    { "name": "polls", "shared": true },
+    { "name": "votes", "shared": true }
+  ]
+}

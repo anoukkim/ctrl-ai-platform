@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>투표·설문</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <h1>우리 동아리 투표</h1>
+        <p class="sub" id="who" aria-live="polite">불러오는 중…</p>
+      </div>
+      <button type="button" id="new-toggle" aria-expanded="false" aria-controls="new-poll">+ 새 투표</button>
+    </header>
+
+    <div class="notice" id="notice" hidden>
+      <span id="notice-text"></span>
+      <button type="button" class="small" id="login-button" hidden>로그인</button>
+    </div>
+
+    <!-- 새 투표 만들기: 질문 하나와 보기 2~5개. -->
+    <form class="card new" id="new-poll" hidden>
+      <label>질문
+        <input type="text" id="question" maxlength="120" placeholder="예: 다음 모임 장소는?" required>
+      </label>
+      <div class="options" id="option-inputs">
+        <input type="text" maxlength="40" placeholder="보기 1" required>
+        <input type="text" maxlength="40" placeholder="보기 2" required>
+      </div>
+      <div class="row">
+        <button type="button" class="ghost small" id="add-option">+ 보기 추가</button>
+        <span class="grow"></span>
+        <button type="button" class="ghost" id="cancel-new">취소</button>
+        <button type="submit" id="create-poll">올리기</button>
+      </div>
+      <p class="error" id="new-error" role="alert" hidden></p>
+    </form>
+
+    <section id="polls" class="polls" aria-live="polite"></section>
+    <p class="foot">표는 회원마다 하나씩. 결과는 모두가 볼 수 있어요.</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

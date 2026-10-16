@@ -501,6 +501,33 @@ ctrlai.my (Builder / CtrlAIApps)
   item's open reports. A consent given before P3 lacks "data": the first
   write answers 403 `consent_required` and the shell reopens the consent
   window, then tries once more.
+* **P4 — the app's lists are the owner's to declare** (security review of
+  P3, 2026-10-16; `services/app_manifest.py`). A collection exists because
+  the project's **`ctrlai.json`** names it — `{"db": [{"name": "posts",
+  "shared": true}, {"name": "notes"}]}`, read whenever the files are
+  written to the runtime, so the 미리보기 space and the published space
+  each get their lists — or because the **owner** saved into it first. A
+  visitor's save into a list that is not there is a 404 `no_collection`;
+  reads of a missing list stay empty. A wrong `ctrlai.json` is refused by
+  the Builder's file check (`builder_files.check_project`) with the
+  reason, never ignored. The file is served with the app (names only,
+  nothing secret), ships in the ZIP, and taking an entry out never
+  deletes a list. **The Builder knows the SDK**: one `_SDK_RULES` block in
+  the starter, edit and staged prompts (`claude_provider.py`) — storage,
+  sign-in, `ctrlai.ai` only from a button with "1회 약 N원 · 최대 200원"
+  beside it and a demo answer marked "데모" when signed out or outside
+  CTRL+AI, `ctrlai.db` with `ctrlai.json`; the self-check looks for an
+  undeclared list and AI on page load. **Templates**
+  (`services/builder_templates.py`, files in `backend/examples/templates/`):
+  AI 챗봇, 투표·설문, 랭킹 게임, 동아리 게시판 — `POST
+  /api/builder/projects/from-template` copies one into a new project
+  (`require_active_member`, free, version note "템플릿: …"); each is checked
+  by the project file rules and declares its lists. **The 미리보기 is the
+  maker's own use**: AI from it is charged to the maker with feature
+  `app_ai_preview` (the same rates and day cap as `app_ai`), the shell's
+  toast says "미리보기 사용 · N원 · 내 지원금에서" and Usage lists "앱
+  미리보기 · <이름>"; its data stays in the preview space. Proven in a real
+  browser (`frontend/e2e/app-platform-p4.spec.ts`).
 * **Proven in a real browser** (`frontend/e2e/app-platform.spec.ts`,
   `npm run e2e`, run against the local apps server and against the real
   Caddyfile in a container): the app's origin is opaque and its fetches
