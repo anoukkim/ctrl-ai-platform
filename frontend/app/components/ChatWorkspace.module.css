@@ -359,7 +359,7 @@
   border-color: var(--accent-border);
 }
 
-/* 답장이 오는 중에 끝에서 깜빡이는 막대. */
+/* 답장이 오는 중에 끝에서 숨 쉬는 막대 (motion-modern (2): 깜빡임 대신 빛남). */
 .caret {
   display: inline-block;
   width: 8px;
@@ -368,12 +368,19 @@
   border-radius: 2px;
   vertical-align: text-bottom;
   background: var(--accent);
-  animation: blink 1s steps(2, start) infinite;
+  box-shadow: 0 0 0 0 var(--accent-soft);
+  animation: caret-glow 1.4s ease-in-out infinite;
 }
 
-@keyframes blink {
-  to {
-    visibility: hidden;
+@keyframes caret-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 10px 3px var(--accent-soft);
   }
 }
 
@@ -906,6 +913,40 @@
   box-shadow:
     var(--shadow),
     0 0 0 3px var(--accent-soft);
+}
+
+/* motion-modern (2): 답장이 오는 동안 입력창 둘레를 느리게 도는 색 고리 —
+   테두리 뒤에서 conic 그라데이션이 돕니다. 움직임 줄이기면 멈춘 테두리. */
+.composerBusy {
+  position: relative;
+  /* Its own stacking context, so the z-index: -1 ring sits behind this
+     box's background and not behind the whole composer area's. */
+  isolation: isolate;
+  border-color: transparent;
+  background-clip: padding-box;
+}
+
+.composerBusy::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: calc(var(--radius) + 6px);
+  background: conic-gradient(from var(--ring-angle, 0deg), var(--accent), #c9b6ff, #8ef0d4, var(--accent));
+  animation: ring-turn 6s linear infinite;
+  opacity: 0.9;
+}
+
+@property --ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes ring-turn {
+  to {
+    --ring-angle: 360deg;
+  }
 }
 
 .input {

@@ -34,6 +34,7 @@ import { createContext, useContext, useState } from "react";
 import { createProjectFromChat } from "@/lib/projects";
 import { describeError } from "@/lib/http";
 
+import AuroraCard, { AuroraReveal, chipsFromCode } from "./AuroraCard";
 import styles from "./ArtifactPreview.module.css";
 
 /** 액자 안 문서의 맨 앞에 붙는 CSP — 네트워크 없음, 인라인만. */
@@ -59,6 +60,9 @@ export interface ArtifactContextValue {
   conversationTitle: string;
   memberMessage: string;
   mayCreate: boolean;
+  /** motion-modern (1): 오로라 카드의 초와 지금까지의 비용 — 오는 중일 때만. */
+  startedAt?: number | null;
+  runningKrw?: number | null;
 }
 
 export const ArtifactContext = createContext<ArtifactContextValue | null>(null);
@@ -108,9 +112,30 @@ export default function ArtifactPreview({
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // motion-modern (1): the aurora melts into the preview only right after
+  // this card streamed — a saved conversation's cards just appear.
+  const streamingNow = context?.streaming ?? false;
+  const [wasStreaming, setWasStreaming] = useState(streamingNow);
+  const [reveal, setReveal] = useState(false);
+  if (wasStreaming !== streamingNow) {
+    setWasStreaming(streamingNow);
+    if (wasStreaming && !streamingNow) setReveal(true);
+  }
 
-  // 미리보기가 없는 곳(답장이 아직 오는 중, 다른 화면)에서는 코드 그대로.
-  if (context === null || context.streaming) return <>{codeView}</>;
+  // 미리보기 사정을 모르는 화면(다른 곳)에서는 코드 그대로.
+  if (context === null) return <>{codeView}</>;
+  // 오는 중 (motion-modern (1)): 코드가 흘러내리는 대신 오로라 카드 — 초,
+  // 지금까지의 비용, 단계 칩. 코드는 끝난 뒤 "코드 보기" 아래에 있습니다.
+  if (context.streaming) {
+    return (
+      <AuroraCard
+        title={language === "svg" ? "그림 만드는 중…" : "미리보기 만드는 중…"}
+        since={context.startedAt ?? null}
+        costKrw={context.runningKrw ?? null}
+        chips={chipsFromCode(code)}
+      />
+    );
+  }
   if (context.cutOffCode !== null && context.cutOffCode.trim() === code.trim()) {
     return (
       <>
@@ -163,6 +188,7 @@ export default function ArtifactPreview({
   }
 
   return (
+    <AuroraReveal play={reveal}>
     <div className={styles.card} data-testid="artifact">
       <div className={styles.head}>
         <span className={styles.title}>미리보기 · {language.toUpperCase()}</span>
@@ -233,5 +259,6 @@ export default function ArtifactPreview({
         </p>
       )}
     </div>
+    </AuroraReveal>
   );
 }

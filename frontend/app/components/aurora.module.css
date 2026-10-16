@@ -1,0 +1,159 @@
+/* 오로라 카드 (motion-modern (1)) — 느리게 흐르는 빛 위의 상태 한 줄. */
+.card {
+  position: relative;
+  overflow: hidden;
+  min-height: 7.5rem;
+  margin: 0.4rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  isolation: isolate;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  margin: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.aurora {
+  position: absolute;
+  inset: -40%;
+  z-index: 0;
+  filter: blur(42px) saturate(1.2);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  width: 55%;
+  height: 55%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--accent), transparent 70%);
+  animation: aurora-drift 14s ease-in-out infinite alternate;
+}
+
+.blob2 {
+  left: 45%;
+  top: 30%;
+  background: radial-gradient(closest-side, #c9b6ff, transparent 70%);
+  animation-duration: 18s;
+  animation-delay: -6s;
+}
+
+.blob3 {
+  left: 20%;
+  top: 45%;
+  background: radial-gradient(closest-side, #8ef0d4, transparent 70%);
+  animation-duration: 22s;
+  animation-delay: -11s;
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(22%, -12%) scale(1.15);
+  }
+  100% {
+    transform: translate(-14%, 18%) scale(0.95);
+  }
+}
+
+.body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.45rem;
+  height: 100%;
+  padding: 1rem 1.1rem;
+  align-content: center;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  font-weight: 650;
+}
+
+.titleText {
+  background: linear-gradient(90deg, var(--text) 0%, var(--text) 40%, var(--accent) 50%, var(--text) 60%, var(--text) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: aurora-shine 2.4s ease-in-out infinite;
+}
+
+@keyframes aurora-shine {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+.seconds {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+
+.chip[data-state="done"] {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.chip[data-state="now"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.cost {
+  margin: 0;
+  font-size: var(--fs-meta, 0.8rem);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .titleText {
+    animation: none;
+  }
+
+  .titleText {
+    background: none;
+    color: var(--text);
+  }
+}

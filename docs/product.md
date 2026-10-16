@@ -576,6 +576,33 @@ component hard-codes one, which is what makes the second theme a token
 swap rather than a redesign. Type is self-hosted Pretendard Variable.
 Under `prefers-reduced-motion` nothing moves (ui-friendly-motion).
 
+**Motion (motion-modern, 2026-10-16).** The owner asked for "더 현대적인
+느낌" and for the middle of a generation to be skipped: (1) while a Chat
+reply writes a preview's code, or the Builder writes files, the member
+sees an **aurora card** — "미리보기 만드는 중…" (그림 만드는 중… for an
+SVG) over a slow drifting gradient with the seconds, the running cost
+("지금까지 약 N원") and two or three step chips (뼈대 → 스타일 → 동작,
+read from what has arrived; in the Builder the first three planned
+files), and when the reply is done the aurora unblurs into the preview;
+the code stays under 코드 보기 as before. (2) Thinking is a calm stream:
+"생각하는 중…" shimmers with its seconds, a slowly turning colour ring
+runs around the composer while a reply is busy, words fade and unblur in,
+and the caret glows instead of blinking. (3) The Builder's steps fold
+while it works: only the current step is big ("index.html 작성 중… N초"),
+finished steps fold into "✓ N개 완료" (a button that unfolds them), the
+rest are dots with "남은 파일 N개", and the progress bar stays. (4) The
+띠링 moment is **별가루**: small pale-gold and white stars flow from the
+toast to the wallet and twinkle there, the number rolls down and the
+toast pops (the sound stays the Profile switch). (5) 게시 완료 is **쭈욱
+→ 팡!**: three thin lines shoot up and burst into rays with a white
+flash, confetti falls from the centre and the letters of "게시 완료!"
+pop one by one, in white, warm gold and a touch of lavender; it leaves
+by itself after about two seconds and nothing can be clicked on it.
+No dino. Under 동작 줄이기 every one of these keeps its text and loses
+its motion (the aurora is a still card, the stars and confetti do not
+appear), and nothing ever waits on an animation. CSS, motion/react and
+the Web Animations API only.
+
 Shared classes (`.card`, `.btn`, `.badge`, `.field`, `.meter`, `.table`) also
 live in `globals.css`. Anything used by one screen only lives in that screen's
 CSS module.
@@ -673,7 +700,10 @@ amount and the remaining wallet, so the moment is seen anywhere. A short
 two-tone **띠링** sound is a Profile › 알림 switch, **off by default and per
 device** (localStorage — sound is a device matter, not an account one).
 Still only on a real `charged_krw`; reduced motion keeps a plain toast,
-no pop, no flight, no sound.
+no pop, no flight, no sound. **v3 (motion-modern, 2026-10-16):** the
+flight is 별가루 — nine small stars instead of the "-12원" text, four
+more twinkling at the balance — everything else about the moment is
+unchanged.
 
 Estimated costs next to paid buttons (Chat's "답장 1회 약 N원", video's
 예상 비용) are compared with the one balance, and say so when it is short.
