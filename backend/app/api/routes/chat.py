@@ -35,7 +35,6 @@ import json
 from decimal import ROUND_CEILING, Decimal
 from collections.abc import AsyncIterator
 
-import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -44,6 +43,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_current_user, require_active_member
+from app.api.uploads import clean_upload_name, file_response, read_upload_body
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
@@ -93,7 +93,6 @@ from app.services.claude_provider import (
 #: Content types a browser may send cross-origin without a preflight —
 #: refused for every POST by `JsonOnlyMiddleware`; checked here again so
 #: the upload route is safe on its own.
-from app.core.json_only import SIMPLE_CONTENT_TYPES  # noqa: E402
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -467,38 +466,19 @@ async def upload_attachment(
     refused without being held in memory. Checked completely — kind, size,
     pages, count, quotas — before anything is stored.
     """
-    # A page on another origin — a member app on apps.ctrlai.my is
-    # same-site — may send a "simple" request (text/plain, a form type or
-    # no type at all) without a CORS preflight. Requiring a non-simple
-    # type forces that preflight, which the API refuses (CLAUDE.md §2).
-    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
-    if content_type in SIMPLE_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="파일은 application/octet-stream 형식으로 보내 주세요.",
-        )
     conversation = _owned(db, user, conversation_id)
     largest = max(
         settings.chat_attachment_image_max_mb,
         settings.chat_attachment_pdf_max_mb,
         settings.chat_attachment_text_max_mb,
     )
-    limit = largest * attachments_service.MB
-    chunks: list[bytes] = []
-    received = 0
-    async for chunk in request.stream():
-        received += len(chunk)
-        if received > limit:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=attachments_service.too_big(largest),
-            )
-        chunks.append(chunk)
-    data = b"".join(chunks)
-    # Only the last path part, printable characters only: the name is shown
-    # back to the member and used in a download header.
-    base = name.strip().replace("\\", "/").rsplit("/", 1)[-1]
-    original = "".join(ch for ch in base if ch.isprintable())[:255] or "file"
+    data = await read_upload_body(
+        request,
+        largest * attachments_service.MB,
+        attachments_service.too_big(largest),
+        "파일은 application/octet-stream 형식으로 보내 주세요.",
+    )
+    original = clean_upload_name(name, "file")
 
     try:
         checked = await run_in_threadpool(attachments_service.check_file, original, data, settings)
@@ -599,20 +579,8 @@ def attachment_file(
     except (FileNotFoundError, OSError) as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="파일을 찾을 수 없습니다.") from error
     inline = row.kind is AttachmentKind.IMAGE and not download
-    quoted = urllib.parse.quote(row.original_name)
-    disposition = f"{'inline' if inline else 'attachment'}; filename*=UTF-8''{quoted}"
     media_type = row.media_type if row.kind in (AttachmentKind.IMAGE, AttachmentKind.PDF) else "application/octet-stream"
-    return Response(
-        content=data,
-        media_type=media_type,
-        headers={
-            "Content-Disposition": disposition,
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "private, max-age=3600",
-            # The bytes are the member's own, but never a page of this site.
-            "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
-        },
-    )
+    return file_response(data, media_type, row.original_name, inline)
 
 
 # ------------------------------------------------------------- sending

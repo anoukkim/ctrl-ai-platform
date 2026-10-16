@@ -71,7 +71,9 @@ the same commit that adds it.
 | `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
 | `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
-| `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating |
+| `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |
+| `POST /api/feedback/images` | `get_current_user` | One screenshot for the next note (bytes as the body, `?name=`, `application/octet-stream`); checked like a Chat image, then stored (feedback-screenshots) |
+| `DELETE /api/feedback/images/{image_id}` | `get_current_user` | ✕ on a picture not sent yet — own and waiting only, else 404 |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
@@ -162,7 +164,9 @@ the same commit that adds it.
 | `POST /api/admin/invites` | `require_admin` | Generated or custom code; audited |
 | `POST /api/admin/invites/{invite_id}/deactivate` | `require_admin` | Stops new sign-ups only; audited |
 | `POST /api/admin/invites/{invite_id}/reactivate` | `require_admin` | Audited |
-| `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, read-only |
+| `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, with each note's pictures |
+| `GET /api/admin/feedback/images/{image_id}/file` | `require_admin` | A sent screenshot, inline — the only route that serves one (the uploader has none) |
+| `DELETE /api/admin/feedback/{feedback_id}` | `require_admin` | Removes a note and its pictures (rows and bytes); audited `feedback.deleted` |
 | `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows |
 | `GET /api/admin/members/{user_id}` | `require_admin` | Read-only; one member's history, budgets and audit trail |
 | `GET /api/admin/stats/applications` | `require_admin` | Read-only; grouped counts for one quarter |
@@ -411,8 +415,10 @@ Alembic has migrated (`backend/app/models/`).
 - **Supporting tables that exist today** — user_sessions (server-side
   sessions), invite_codes + signup_attempts + login_attempts, chat
   conversations/messages, chat_models (the AI Models catalogue),
-  exchange_rates, feedback, account_withdrawals, oauth_states /
-  pending_google_signups, audit_log (append-only).
+  exchange_rates, feedback + feedback_images (screenshots on a note,
+  bytes in storage under `feedback/<user_id>/<id>`; cascade from the
+  note), account_withdrawals, oauth_states / pending_google_signups,
+  audit_log (append-only).
 
 Alembic owns the schema. `create_all` is not used, and a production
 database is migrated, never re-created.

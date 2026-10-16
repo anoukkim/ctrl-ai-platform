@@ -508,6 +508,24 @@ has no menu item for members: the 의견 보내기 button in the sidebar footer
 is the one way to send a note (admin-and-nav-cleanup, 2026-10-14). A screen's own heading matches its
 menu name, so the two never disagree.
 
+**의견 보내기 with screenshots** (feedback-screenshots, 2026-10-16 — the
+owner: "no board, only 관리자 can see it, and be able to put in
+screenshots"). The dialog takes up to **3 pictures** (PNG, JPG, WebP, each
+5 MB or less) three ways: 스크린샷 붙이기 (the file picker; on a phone the
+photo library), dragging onto the dialog, and pasting (⌘V — a Mac
+screenshot taken to the clipboard). Each shows as a thumbnail with ✕. One
+line stays under them: "화면에 개인정보가 보이면 가린 뒤 올려 주세요."
+The server treats a picture exactly like a Chat attachment — kind read
+from the bytes, re-encoded (EXIF and location gone), stored on disk, a
+limit refused in Korean with nothing stored. **Only an admin ever sees a
+picture**: Admin › Feedback shows thumbnails that open large; the member
+who sent it has no route back to it, and another member gets 403.
+Closing the dialog without sending removes what was uploaded. An admin's
+지우기 removes the note and its pictures together, audited (의견 삭제);
+withdrawal anonymisation removes a former member's pictures and keeps the
+(now anonymous) notes. Profile photos are **not** part of this — letter
+avatars stay (owner, 2026-10-16: "letters okay for now").
+
 External service names (Claude, Higgsfield, GitHub, YouTube) and technical
 terms such as file names, code and repository names stay English as well.
 

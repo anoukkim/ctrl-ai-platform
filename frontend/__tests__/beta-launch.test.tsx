@@ -188,7 +188,7 @@ describe("의견 보내기", () => {
     await user.type(screen.getByLabelText("내용"), "  영상 화면이 느려요  ");
     await user.click(send);
 
-    expect(sendFeedback).toHaveBeenCalledWith("영상 화면이 느려요", "/video/12");
+    expect(sendFeedback).toHaveBeenCalledWith("영상 화면이 느려요", "/video/12", []);
     expect((await screen.findByRole("status")).textContent).toContain("고맙습니다");
   });
 

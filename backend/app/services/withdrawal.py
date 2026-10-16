@@ -618,6 +618,11 @@ def anonymise(db: Session, row: AccountWithdrawal, now: datetime | None = None) 
     from app.services.storage import get_storage
 
     attachments_service.delete_for_user(db, get_storage(get_settings()), member.id)
+    # Screenshots sent with 의견 보내기 (feedback-screenshots) are pictures
+    # of the member's screen; the notes stay (anonymous), the pictures go.
+    from app.services import feedback_images as feedback_images_service
+
+    feedback_images_service.delete_for_user(db, get_storage(get_settings()), member.id)
     row.anonymised_at = now
 
     audit.record(

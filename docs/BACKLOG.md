@@ -122,20 +122,14 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     지난 분기 selector. **Chat history at quarter end is ON HOLD** — the
     owner is asking members first (archive vs delete); do not build it.
 
-4. **feedback-screenshots** · M1 · branch `feat-feedback-screenshots`
-    *Not pre-approved — branch, test, report, WAIT.* **Replaces
-    anonymous-feedback-board** (owner, 2026-10-16: "no board — only the
-    관리자 can see it"). 의견 보내기 accepts screenshots; Admin › Feedback
-    shows them. The old board spec below is kept for history, not built.
-
-5. **builder-python** · M2 · branch `feat-builder-python`
+4. **builder-python** · M2 · branch `feat-builder-python`
     *Not pre-approved — branch, test, report, WAIT.* Python apps running
     in the visitor's browser through Pyodide, on the static runtime
     (builder-static-runtime, merged). Spec below. Owner, 2026-10-16: wanted
     — "a tetris game", "a 사주 site", made in the Builder and usable on the
     apps origin during the quarter.
 
-6. **app-remix** · M3 · branch `feat-app-remix`
+5. **app-remix** · M3 · branch `feat-app-remix`
     *Not pre-approved — order to be set by the owner.* From H4's optional
     point 4 (project-export-handoff), split out because it is not small: on
     a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
@@ -149,7 +143,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     project and its listing, audit-free (it is a member action), and tests
     (allowed/not allowed, deleted original, own app, inactive member).
 
-7. **owner-polish-2026-10-16** · M1 · one small branch per point
+6. **owner-polish-2026-10-16** · M1 · one small branch per point
     *Not pre-approved — branch, test, report, WAIT.* The owner's nine
     points from a walk through production (2026-10-16), to start **only
     after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
@@ -169,7 +163,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-8. **promo-videos** · M1 · branch `feat-promo-videos`
+7. **promo-videos** · M1 · branch `feat-promo-videos`
     *Not pre-approved — branch, test, report, WAIT. Order: after
     publish-summary (merged 2026-10-16).* **Status 2026-10-16: built on
     the branch, tests green, waiting for the owner** — see
@@ -208,7 +202,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     members read only; another member's comment), admin hide, 신고.
     Screenshots 1440 · 390, light and dark.
 
-9. **ui-improvements** · M1 · branch `feat-ui-improvements`
+8. **ui-improvements** · M1 · branch `feat-ui-improvements`
     *Not pre-approved — after promo-videos is approved and deployed, show
     the plan first and WAIT.* Owner, 2026-10-16 (relayed from another
     session): fold **owner-polish 15** (app detail screen) and **owner-polish
@@ -247,10 +241,10 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     `.env` list, builder check) in collapsed sections; (7) owner-polish 15
     and 4·5 as written.
 
-10. **app-libraries** · M3 · branch `feat-app-libraries`
+9. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
-    be set by the owner.* (Numbered 8 until publish-summary and promo-videos joined on
-    2026-10-16, 9 until ui-improvements did; publish-summary merged the same day.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    be set by the owner.* (Renumbered as items joined and merged on
+    2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
     높인다."** Member apps have no network (CSP `connect-src 'none'`, no
     CDN), so a game or a chart today means hand-written code. Review a
     bundle of **approved libraries that CTRL+AI hosts itself** on the apps
@@ -267,7 +261,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
 
-11. **dino-avatars** · M3 · branch `feat-dino-avatars`
+10. **dino-avatars** · M3 · branch `feat-dino-avatars`
     *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
     (decided in another session after four mock-ups; relayed): **"CTRL+AI
     공룡" profile avatars** replace the letter avatar. **No uploaded
@@ -498,6 +492,12 @@ Three things to carry into **budget-by-provider**:
 ## UI requests (collected, not started)
 
 New UI requests go here until they are folded into a UI batch.
+
+- **profile-photo** — later. Members keep the **letter avatar** for now
+  (owner, 2026-10-16: "letters okay for now", said while asking for
+  feedback-screenshots). When it comes: the same upload path as the
+  feedback screenshots (bytes checked, re-encoded, EXIF gone), one image
+  per member, shown wherever the letter is today.
 
 *(The two UI requests since UI batch 1, **admin-restructure** and
 **ui-naming**, were each large enough to get their own item and branch in

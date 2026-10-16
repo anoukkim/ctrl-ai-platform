@@ -8,7 +8,7 @@
 * `tube_reports` — 신고 of one comment for Admin › Content.
 
 Revision ID: e5f8b2c3d7a1
-Revises: d4e7a1b2c9f0
+Revises: c2d9e4f7a1b6
 Create Date: 2026-10-16
 
 """
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "e5f8b2c3d7a1"
-down_revision: str | None = "d4e7a1b2c9f0"
+down_revision: str | None = "c2d9e4f7a1b6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
