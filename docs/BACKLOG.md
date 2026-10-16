@@ -567,6 +567,23 @@ Three things to carry into **budget-by-provider**:
 
 New UI requests go here until they are folded into a UI batch.
 
+- **builder-snapshots** — owner, 2026-10-17: "하나 누를때마다 버전 올라가서
+  좀 부담스러움", then "이것저것 하고 이걸 버전으로 저장 하고 스냅샷
+  만들기? 그렇게 하자 괜찮을 것 같아" and "그냥 나가기하면 … 이 버전을
+  저장할까요? 를 물어보는..?". Today every file change is a version
+  (`builder_versions.snapshot`), **되돌리기 included** ("v5로 되돌리기" is a
+  new version), and only the newest 30 are kept (pinned and the published
+  one excepted) — so a few 되돌리기 clicks push useful old versions out.
+  Direction: versions become **saved snapshots** the member makes (버전
+  저장, with a name), not a by-product of each edit; leaving the Builder
+  with unsaved changes asks "이 버전을 저장할까요?" (저장 / 저장 안 함 /
+  취소); 되돌리기 to a snapshot changes the working copy only and adds no
+  version. Open points to settle before building: (1) Claude's own edits
+  cost money and need an undo — keep a short automatic rolling history
+  (e.g. the last few steps, not counted in the 30) besides the named
+  snapshots; (2) 게시 must snapshot automatically (`published_version_id`
+  needs a row); (3) what happens to the existing numbered versions (keep
+  them as snapshots). Not started; **needs the owner's "do it now"**.
 - **app-fonts** — owner, 2026-10-17 (Builder: "글씨체가 안 고쳐졌어, 동글체
   사용" — the app only had system fonts; "이것저것 한글 폰트", "더 많은 한글
   폰트 올리게", "응 이거 진행"). A catalogue of 32 Korean OFL families
