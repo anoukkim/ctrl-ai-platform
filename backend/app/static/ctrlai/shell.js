@@ -23,6 +23,11 @@
  * the club's consent page in a new window; the callback window tells this
  * page — accepted only from that window. Each AI charge is shown in a
  * small note: the visitor pays from their own 동아리 지원.
+ *
+ * P3: `ctrlai.db` — every call goes to /_ctrlai/v1/data/<op>. Reads work
+ * signed out (shared collections); a write that needs a sign-in, or a
+ * consent given before "data" was asked for, runs the sign-in first and
+ * tries once more.
  */
 (function () {
   "use strict";
@@ -151,8 +156,14 @@
   }
 
   function failure(status, detail) {
+    var code = null;
+    if (detail && typeof detail === "object") {
+      code = typeof detail.code === "string" ? detail.code : null;
+      detail = detail.message;
+    }
     var error = new Error(typeof detail === "string" ? detail : "요청을 처리하지 못했어요 (" + status + ").");
-    error.code = status === 401 ? "login_required" : status === 403 ? "forbidden" : status === 402 ? "budget" : status === 429 ? "rate" : "error";
+    error.code =
+      code || (status === 401 ? "login_required" : status === 403 ? "forbidden" : status === 402 ? "budget" : status === 429 ? "rate" : "error");
     error.status = status;
     return error;
   }
@@ -265,8 +276,8 @@
     return true;
   }
 
-  function login() {
-    if (info && info.signedIn) return Promise.resolve(info.user);
+  function login(again) {
+    if (info && info.signedIn && !again) return Promise.resolve(info.user);
     if (pendingLogin) return pendingLogin.promise;
     var pending = {};
     pending.promise = new Promise(function (resolve, reject) {
@@ -312,6 +323,38 @@
     return refresh().then(function (data) {
       return data.signedIn ? data.user : login();
     });
+  }
+
+  // ------------------------------------------------------------- P3: data
+  var DB_WRITES = { "db.save": 1, "db.update": 1, "db.remove": 1, "db.report": 1 };
+
+  function dbCall(type, fields, retried) {
+    var op = type.slice(3);
+    return api("/v1/data/" + op, { method: "POST", body: fields }).then(
+      function (data) {
+        if (op === "list") return data;
+        if (op === "count") return data.count;
+        if (op === "get" || op === "save" || op === "update") return data.item;
+        return null;
+      },
+      function (error) {
+        if (retried || !DB_WRITES[type]) throw error;
+        // Not signed in, or allowed before "data" was asked: sign in (the
+        // consent screen) and try once more.
+        if (error.code === "login_required") {
+          info = null;
+          return login().then(function () {
+            return dbCall(type, fields, true);
+          });
+        }
+        if (error.code === "consent_required") {
+          return login(true).then(function () {
+            return dbCall(type, fields, true);
+          });
+        }
+        throw error;
+      }
+    );
   }
 
   function charged(amount) {
@@ -448,6 +491,23 @@
         return askAI(message.options || {}).then(function (data) {
           return { value: data };
         });
+      case "db.save":
+      case "db.list":
+      case "db.get":
+      case "db.update":
+      case "db.remove":
+      case "db.count":
+      case "db.report": {
+        var fields = {};
+        for (var name in message) {
+          if (Object.prototype.hasOwnProperty.call(message, name) && name !== "type" && name !== "id" && name !== "ctrlai") {
+            fields[name] = message[name];
+          }
+        }
+        return dbCall(type, fields, false).then(function (data) {
+          return { value: data };
+        });
+      }
       case "ai.stream":
         return streamAI(typeof message.id === "string" ? message.id.slice(0, 40) : "", message.options || {}).then(
           function (data) {

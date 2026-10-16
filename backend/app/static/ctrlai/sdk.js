@@ -30,6 +30,28 @@
  * `json` is a JSON Schema; the answer comes back parsed and checked.
  * `model` is "fast" (default) or "smart". `images` are data URLs, 5 MB each.
  *
+ * P3 — ctrlai.db, the app's own database on the server. A collection is a
+ * named list of JSON objects; the first save decides whether it is
+ * private (each signed-in visitor sees only their own items) or shared
+ * (everyone reads, signed-out visitors too; members write):
+ *
+ *   ctrlai.db.save(collection, data, { shared?: boolean })
+ *                                    → Promise<item>
+ *   ctrlai.db.list(collection, { where?, orderBy?, order?, limit?, cursor?, mine? })
+ *                                    → Promise<{ items, nextCursor }>
+ *   ctrlai.db.get(collection, id)    → Promise<item | null>
+ *   ctrlai.db.update(collection, id, changes) → Promise<item>
+ *   ctrlai.db.remove(collection, id) → Promise<void>
+ *   ctrlai.db.count(collection, { where?, mine? }) → Promise<number>
+ *   ctrlai.db.report(collection, id, reason) → Promise<void>   (shared only)
+ *
+ * An item is { id, data, createdAt, updatedAt, mine, canDelete, author:
+ * { displayName, appUserId } }. `where` is simple equality on top-level
+ * fields; `orderBy` is "createdAt" (default, newest first), "updatedAt" or
+ * a field name; `limit` ≤ 100. Items are ≤ 4 KB; an app holds ≤ 2,000
+ * items / 5 MB; a visitor writes ≤ 30 times a minute. Writing asks the
+ * visitor to sign in (and to allow the app) when needed.
+ *
  * Storage is per app and per visitor (this browser), about 1 MB per app,
  * and works signed out. `localStorage` keeps working too: apps written
  * before the SDK use it, so it is replaced by a copy that the shell keeps
@@ -176,7 +198,8 @@
         return Promise.reject(error);
       }
     }
-    var long = type === "login" || type.indexOf("ai.") === 0;
+    // Signing in may be part of a write: db calls get the long timeout too.
+    var long = type === "login" || type.indexOf("ai.") === 0 || type.indexOf("db.") === 0;
     return new Promise(function (resolve, reject) {
       counter += 1;
       var id = "m" + counter;
@@ -200,7 +223,7 @@
     if (type === "storage.clear") loose = {};
     if (type === "hello") return { slug: null, mode: "alone" };
     if (type === "user.get") return null;
-    if (type === "login" || type.indexOf("ai.") === 0) {
+    if (type === "login" || type.indexOf("ai.") === 0 || type.indexOf("db.") === 0) {
       var error = new Error("CTRL+AI 안에서 열었을 때만 쓸 수 있어요.");
       error.code = "not_in_ctrlai";
       throw error;
@@ -261,12 +284,88 @@
     },
   });
 
+  function checkedCollection(name) {
+    if (typeof name !== "string" || !/^[A-Za-z0-9_-]{1,40}$/.test(name)) {
+      throw new TypeError("목록 이름은 영문·숫자·_·- 로 1~40자여야 해요.");
+    }
+    return name;
+  }
+
+  function checkedObject(value, what) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(what + "은(는) 객체({ ... })여야 해요.");
+    var text = JSON.stringify(value);
+    if (text === undefined) throw new TypeError("JSON으로 바꿀 수 있는 값만 저장할 수 있어요.");
+    return JSON.parse(text);
+  }
+
+  function checkedId(id) {
+    if (typeof id !== "string" || id.length === 0 || id.length > 20) throw new TypeError("항목 id가 올바르지 않아요.");
+    return id;
+  }
+
+  function dbCall(type, fields) {
+    try {
+      return ask(type, fields);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  var db = Object.freeze({
+    save: function (collection, data, options) {
+      return dbCall("db.save", {
+        collection: checkedCollection(collection),
+        data: checkedObject(data, "저장할 값"),
+        shared: options && typeof options.shared === "boolean" ? options.shared : null,
+      });
+    },
+    list: function (collection, options) {
+      options = options || {};
+      var query = { collection: checkedCollection(collection) };
+      if (options.where) query.where = checkedObject(options.where, "where");
+      if (options.orderBy) query.orderBy = String(options.orderBy);
+      if (options.order) query.order = String(options.order);
+      if (options.limit) query.limit = Number(options.limit);
+      if (options.cursor) query.cursor = String(options.cursor);
+      if (options.mine) query.mine = true;
+      return dbCall("db.list", query);
+    },
+    get: function (collection, id) {
+      return dbCall("db.get", { collection: checkedCollection(collection), id: checkedId(id) });
+    },
+    update: function (collection, id, changes) {
+      return dbCall("db.update", {
+        collection: checkedCollection(collection),
+        id: checkedId(id),
+        data: checkedObject(changes, "바꿀 값"),
+      });
+    },
+    remove: function (collection, id) {
+      return dbCall("db.remove", { collection: checkedCollection(collection), id: checkedId(id) });
+    },
+    count: function (collection, options) {
+      options = options || {};
+      var query = { collection: checkedCollection(collection) };
+      if (options.where) query.where = checkedObject(options.where, "where");
+      if (options.mine) query.mine = true;
+      return dbCall("db.count", query);
+    },
+    report: function (collection, id, reason) {
+      return dbCall("db.report", {
+        collection: checkedCollection(collection),
+        id: checkedId(id),
+        reason: typeof reason === "string" ? reason : "",
+      });
+    },
+  });
+
   var api = Object.freeze({
-    version: "2",
+    version: "3",
     /** True inside CTRL+AI (the shell around the app answers). */
     connected: !!parentWindow,
     storage: storage,
     ai: ai,
+    db: db,
     app: function () {
       return ask("hello");
     },

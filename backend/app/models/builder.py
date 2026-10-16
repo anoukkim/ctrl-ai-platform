@@ -215,6 +215,13 @@ class AppReport(TimestampMixin, Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    #: app-platform P3: a report of one shared item (`ctrlai.db.report`),
+    #: not of the whole app. The excerpt keeps what was reported even
+    #: after the item is deleted.
+    data_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("app_data_items.id", ondelete="SET NULL"), nullable=True
+    )
+    item_excerpt: Mapped[str] = mapped_column(Text, default="", nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

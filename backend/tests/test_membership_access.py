@@ -327,6 +327,15 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/_ctrlai/v1/user"): "signed_in_visitor",
     ("POST", "/_ctrlai/v1/ai/ask"): "signed_in_visitor",
     ("POST", "/_ctrlai/v1/ai/stream"): "signed_in_visitor",
+    # app-platform P3 — ctrlai.db: reads work signed out (shared
+    # collections); writes check the app cookie and the "data" consent inside.
+    ("POST", "/_ctrlai/v1/data/list"): "running_app",
+    ("POST", "/_ctrlai/v1/data/count"): "running_app",
+    ("POST", "/_ctrlai/v1/data/get"): "running_app",
+    ("POST", "/_ctrlai/v1/data/save"): "running_app",
+    ("POST", "/_ctrlai/v1/data/update"): "running_app",
+    ("POST", "/_ctrlai/v1/data/remove"): "running_app",
+    ("POST", "/_ctrlai/v1/data/report"): "running_app",
     ("GET", "/_ctrlai/callback.js"): None,
     # The end of signing in: the one-time code + the browser's state cookie.
     ("GET", "/{slug}/_ctrlai/callback"): None,
@@ -336,6 +345,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/me/app-consents"): "get_current_user",
     ("POST", "/api/me/app-consents/{consent_id}/revoke"): "get_current_user",
     ("POST", "/api/admin/apps/{project_id}/sdk"): "require_admin",
+    ("GET", "/api/admin/apps/{project_id}/data"): "require_admin",
+    ("POST", "/api/admin/apps/data/{item_id}/hide"): "require_admin",
+    ("POST", "/api/admin/apps/data/{item_id}/delete"): "require_admin",
     # The deployment as the frontend sees it (beta banner, test-mode labels,
     # the data-location notice on sign-up) — needed before signing in.
     ("GET", "/api/site"): None,

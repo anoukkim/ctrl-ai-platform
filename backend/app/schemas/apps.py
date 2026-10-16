@@ -37,6 +37,9 @@ class AdminAppRead(AppListing):
     #: app-platform P2: the 기능 상자 runs (False = stopped by an admin).
     sdk_enabled: bool = True
     sdk_disabled_reason: str = ""
+    #: app-platform P3: what the live app holds in `ctrlai.db`.
+    data_items: int = 0
+    data_bytes: int = 0
 
 
 class AdminReportRead(BaseModel):
@@ -49,6 +52,11 @@ class AdminReportRead(BaseModel):
     created_at: datetime
     #: The app is still on CtrlAIApps.
     still_listed: bool
+    #: app-platform P3: a report of one shared item, with what it said.
+    data_item_id: int | None = None
+    item_excerpt: str = ""
+    #: The item is still there to hide or delete.
+    item_live: bool = False
 
 
 class AdminUnpublish(BaseModel):
@@ -64,3 +72,38 @@ class AdminSdkSet(BaseModel):
 
 class AdminResolve(BaseModel):
     note: str = Field(default="", max_length=500)
+
+
+class AdminDataCollectionRead(BaseModel):
+    """One collection of an app's `ctrlai.db` (app-platform P3)."""
+
+    name: str
+    kind: str
+    items: int
+    bytes: int
+
+
+class AdminDataItemRead(BaseModel):
+    """A shared item, as the admin sees it: the data and who wrote it."""
+
+    id: int
+    collection: str
+    data: dict
+    size_bytes: int
+    author_username: str
+    created_at: datetime
+    open_reports: int = 0
+
+
+class AdminDataRead(BaseModel):
+    items: int
+    bytes: int
+    collections: list[AdminDataCollectionRead]
+    #: Shared items, newest first (at most 200).
+    shared: list[AdminDataItemRead]
+
+
+class AdminDataAction(BaseModel):
+    """숨기기 / 지우기 of one item (audited). A reason is required."""
+
+    reason: str = Field(default="", max_length=200)

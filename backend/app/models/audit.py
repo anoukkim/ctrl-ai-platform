@@ -58,6 +58,8 @@ class AuditAction:
     APP_CONSENT_GRANTED = "app_consent.granted"
     APP_CONSENT_REVOKED = "app_consent.revoked"
     APP_SDK_SET = "app.sdk_set"
+    APP_DATA_HIDDEN = "app_data.hidden"
+    APP_DATA_DELETED = "app_data.deleted"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -130,6 +132,8 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.APP_CONSENT_GRANTED: "앱 연결 허용",
     AuditAction.APP_CONSENT_REVOKED: "앱 연결 끊기",
     AuditAction.APP_SDK_SET: "앱 기능 상자 정지/재개",
+    AuditAction.APP_DATA_HIDDEN: "앱 공유 데이터 숨김",
+    AuditAction.APP_DATA_DELETED: "앱 공유 데이터 삭제",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",

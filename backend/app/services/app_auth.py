@@ -51,9 +51,11 @@ SESSION_DAYS = 30
 SCOPES: dict[str, str] = {
     "profile": "내 표시 이름을 이 앱에 알려 줘요 (이메일·아이디·잔액은 알려 주지 않아요)",
     "ai": "이 앱에서 Claude를 써요 — 쓸 때마다 내 동아리 지원금에서 차감돼요",
+    "data": "이 앱에 데이터를 저장해요 — 공유 목록에 올린 항목에는 내 표시 이름이 함께 보여요",
 }
-#: What P2 asks for. P3 adds "data".
-REQUESTED = ("profile", "ai")
+#: What the consent screen asks for (P2: profile, ai; P3 adds data). A
+#: consent given before P3 lacks "data": the first write asks again.
+REQUESTED = ("profile", "ai", "data")
 
 
 def cookie_name(slug: str) -> str:
