@@ -115,6 +115,16 @@ The owner's words, verbatim:
   cover (app name + colour) instead of `</>` until one exists;
   **CtrlAIApps cards show the thumbnail too** (the published version's).
   A visitor's browser never uploads a thumbnail.
+  **(a2) owner, same evening, verbatim:** "빌더일 때는 게시 전이니까
+  미리보기가 없을 수도 잇잖아.. 그래서 빌더에서는 일단 게시 전까진 그냥
+  화면 알맞게 크롭해서 보여주고 / 게시할때는 사용자가 고르고, 게시하면
+  빌더 안에서도 게시랑 같은 썸네일" → before 게시 the Builder card shows
+  the automatic, well-fitted capture; the **게시 dialog lets the creator
+  choose**: 2–3 automatic candidates (첫 화면, scrolled, phone width) plus
+  **「지금 화면으로」** (captures the 미리보기 as it is now); no choice →
+  the first screen; no AI involved. Once published, **the chosen image is
+  the thumbnail everywhere** (CtrlAIApps and the Builder card), and can be
+  changed later from the app's settings.
 - "환율은 그냥 자동 반영하면 안됨? 왜 굳이 여기다" → **(b) automatic
   exchange rate**: USD→KRW fetched once a day from a **free, keyless**
   public source (e.g. Frankfurter/ECB), behind a provider interface with
