@@ -15,6 +15,112 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const esc = L.esc;
   const won = L.won;
+
+  // ---------------------------------------------------------------- 실제 AI (CTRL+AI 기능 상자, app-platform P4b)
+  // CTRL+AI 안에서 로그인한 회원은 Claude가 영수증을 읽고 소비 패턴을 써 줘요 — 방문자 자신의
+  // 동아리 지원금에서, 버튼을 눌렀을 때만. 로그인 전이거나 밖에서 열면 데모 데이터예요.
+  const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
+  const MODE_KEY = "receipt-ledger-mode"; // "live" | "demo" — 이 기기에 기억해요
+  const live = { user: null, on: false, prices: {}, busy: false };
+  const RECEIPT_SCHEMA = {
+    type: "object",
+    required: ["shop", "date", "items", "total", "category"],
+    additionalProperties: false,
+    properties: {
+      shop: { type: "string" },
+      date: { type: "string" },
+      items: { type: "array", maxItems: 30, items: { type: "object", required: ["name", "amount"], additionalProperties: false, properties: { name: { type: "string" }, amount: { type: "integer" } } } },
+      total: { type: "integer" },
+      category: { type: "string", enum: L.CATEGORIES },
+    },
+  };
+  const PATTERN_SCHEMA = {
+    type: "object",
+    required: ["headline", "points", "tip"],
+    additionalProperties: false,
+    properties: { headline: { type: "string" }, points: { type: "array", minItems: 1, maxItems: 4, items: { type: "string" } }, tip: { type: "string" } },
+  };
+  const READ_SYSTEM = `한국 영수증 사진을 읽어 JSON으로 정리하는 도우미예요. 상호, 날짜(YYYY-MM-DD), 품목별 금액(원, 정수), 합계, 카테고리(${L.CATEGORIES.join("·")} 중 하나)를 채워요. 못 읽는 값은 빈 글자나 0으로 두세요.`;
+  const readOptions = (image) => ({ system: READ_SYSTEM, prompt: "이 영수증을 읽어 주세요.", images: image ? [image] : 1, json: RECEIPT_SCHEMA, maxTokens: 700 });
+  const patternOptions = (month, sums, prevSums) => ({
+    system: "가계부의 한 달 지출을 보고 짧은 한국어 분석을 써요. headline 한 문장, points 2~3개(숫자를 넣어 구체적으로), tip 한 문장(실천할 수 있는 절약 팁).",
+    prompt: `${monthLabel(month)} 카테고리별 지출(원): ${L.CATEGORIES.map((c) => `${c} ${sums[c] || 0}`).join(", ")}\n전월: ${L.CATEGORIES.map((c) => `${c} ${prevSums[c] || 0}`).join(", ")}`,
+    json: PATTERN_SCHEMA,
+    maxTokens: 400,
+  });
+  // "1회 약 N원 · 최대 M원" — 같은 옵션으로 부르면 최대 금액을 넘지 않아요 (재시도 포함).
+  function priceLine(key, options) {
+    const p = live.prices[key];
+    if (p === undefined) {
+      live.prices[key] = null; // 받는 중
+      sdk.ai.estimate(options).then(
+        (figures) => {
+          live.prices[key] = figures;
+          render();
+        },
+        () => {
+          live.prices[key] = false;
+          render();
+        },
+      );
+      return "비용 확인 중…";
+    }
+    if (!p) return "1회 최대 200원";
+    return `1회 약 ${p.typicalKrw}원 · 최대 ${p.maxKrw}원`;
+  }
+  function modeBadge() {
+    const badge = $(".badge.demoAll");
+    const toggle = $("#mode-toggle");
+    if (!badge) return;
+    if (!sdk) {
+      badge.textContent = "데모 데이터";
+      if (toggle) toggle.hidden = true;
+      return;
+    }
+    badge.textContent = live.on ? "실제 AI · 내 지원금에서" : "데모 데이터";
+    badge.classList.toggle("liveAll", live.on);
+    if (toggle) {
+      toggle.hidden = false;
+      toggle.textContent = live.on ? "데모 데이터로 보기" : live.user ? "실제 AI 켜기" : "실제 AI로 써 보기 (로그인)";
+    }
+  }
+  async function setMode(on) {
+    if (on && !live.user) {
+      try {
+        live.user = await sdk.login();
+      } catch (error) {
+        toast("로그인하지 않았어요. 데모로 계속해요.");
+        return;
+      }
+    }
+    live.on = on;
+    store.set(MODE_KEY, on ? "live" : "demo").catch(() => {});
+    modeBadge();
+    render();
+  }
+  // SVG 샘플은 PNG로 바꿔 보내요 (AI는 PNG·JPEG·WebP·GIF만 받아요).
+  function toPng(dataUrl) {
+    if (!dataUrl.startsWith("data:image/svg")) return Promise.resolve(dataUrl);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 720;
+        canvas.height = Math.max(200, Math.round((720 * (img.height || 1000)) / (img.width || 480)));
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve(canvas.toDataURL("image/png"));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error("이미지를 읽지 못했어요"));
+      img.src = dataUrl;
+    });
+  }
   // CtrlAIApps 미리보기처럼 다른 화면 안에 들어 있으면 파일 내려받기가 막혀요.
   // CTRL+AI 안에서는 앱이 늘 기능 상자(셸) 안에 있으니, 셸에게 물어봐요.
   let FRAMED_NOTE = "";
@@ -157,6 +263,23 @@
   }
 
   function patternHtml(month, sums) {
+    if (live.on && sdk) {
+      const made = (state.patterns || {})[month];
+      if (made) {
+        return `<section class="card pattern">
+          <h3>이번 달 소비 패턴 <span class="demo live">실제 AI · ${made.krw}원</span></h3>
+          <p class="headline">${esc(made.headline)}</p>
+          <ul>${made.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
+          <p class="tip">💡 ${esc(made.tip)}</p>
+          <button type="button" class="ghost" id="pattern-ai" data-month="${month}">다시 쓰기 · ${priceLine("pattern", patternOptions(month, sums, byCategory(inMonth(prevMonth(month)))))}</button>
+        </section>`;
+      }
+      return `<section class="card pattern">
+        <h3>이번 달 소비 패턴 <span class="demo live">실제 AI</span></h3>
+        <p class="muted">Claude가 이 달 내역을 보고 분석을 써 줘요. 버튼을 눌렀을 때만 내 지원금에서 나가요.</p>
+        <button type="button" class="primary" id="pattern-ai" data-month="${month}" ${live.busy ? "disabled" : ""}>${live.busy ? "쓰는 중…" : `분석 쓰기 · ${priceLine("pattern", patternOptions(month, sums, byCategory(inMonth(prevMonth(month)))))}`}</button>
+      </section>`;
+    }
     const note = L.PATTERN_NOTES[String(offsetOf(month))];
     if (!note) {
       return `<section class="card pattern"><h3>이번 달 소비 패턴 <span class="demo">데모 · AI 연결 전</span></h3><p class="muted">이 달의 분석은 AI 연결 후 Claude가 써 줘요.</p></section>`;
@@ -263,11 +386,13 @@
           <input id="file" type="file" accept="image/*" hidden>
           <span class="dropIcon" aria-hidden="true">🧾</span>
           <b>영수증 사진을 여기에 끌어다 놓거나 눌러서 고르세요</b>
-          <small>데모에서는 아래 샘플 영수증을 쓰면 미리 만든 추출 결과가 나와요. 다른 사진은 직접 입력하는 빈 양식이 열려요.</small>
+          <small>${live.on
+            ? `실제 AI(Claude)가 읽어요 · 사진 읽기 ${priceLine("read", readOptions(null))} · 버튼을 눌렀을 때만 내 지원금에서 나가요.`
+            : "데모에서는 아래 샘플 영수증을 쓰면 미리 만든 추출 결과가 나와요. 다른 사진은 직접 입력하는 빈 양식이 열려요."}</small>
         </label>
       </section>
       <section class="card">
-        <h3>샘플 영수증 12장 <span class="demo">데모 데이터</span></h3>
+        <h3>샘플 영수증 12장 <span class="demo">${live.on ? "실제 AI가 읽어요" : "데모 데이터"}</span></h3>
         <ul class="samples">${L.SAMPLES.map(
           (s) => `<li><button type="button" class="sample" data-sample="${s.id}"><img src="${L.receiptDataUrl(s.id)}" alt="${esc(s.shop)} 샘플 영수증"><span>${esc(s.shop)}</span></button>
             <a class="dl" href="${L.receiptDataUrl(s.id)}" download="sample-${s.id}.svg">내려받기</a></li>`,
@@ -279,6 +404,10 @@
   function startReading(image, sampleId) {
     draft = { stage: "reading", image };
     render();
+    if (live.on && sdk) {
+      readWithAi(image, sampleId);
+      return;
+    }
     setTimeout(() => {
       const result = sampleId ? L.extractionFor(sampleId) : null;
       draft = {
@@ -296,9 +425,44 @@
     }, 900);
   }
 
+  // 실제 AI: 사진을 Claude에게 보내 같은 모양의 JSON을 받아요. 실패하면 데모 경로로.
+  async function readWithAi(image, sampleId) {
+    const started = draft;
+    try {
+      const png = await toPng(image);
+      const result = await sdk.ai.ask(readOptions(png));
+      if (draft !== started) return; // 그사이 취소했어요
+      const out = result.json || {};
+      const items = (Array.isArray(out.items) ? out.items : []).map((i) => ({ name: String(i.name || ""), amount: Math.max(0, Math.round(Number(i.amount) || 0)) }));
+      const total = Number(out.total) || items.reduce((s, i) => s + i.amount, 0);
+      draft = {
+        stage: "review",
+        image,
+        fromSample: false,
+        fromAi: true,
+        krw: result.chargedKrw,
+        sampleId: null,
+        shop: String(out.shop || ""),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(String(out.date)) ? String(out.date) : L.dateFor(0, new Date().getDate()),
+        items: items.length ? items : [{ name: "", amount: 0 }],
+        total,
+        category: L.CATEGORIES.includes(out.category) ? out.category : "기타",
+      };
+      render();
+    } catch (error) {
+      if (draft !== started) return;
+      toast(`AI가 읽지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
+      live.on = false; // 데모로 이어가요 — 다시 켤 수 있어요
+      modeBadge();
+      startReading(image, sampleId);
+    }
+  }
+
   function reviewHtml() {
     const d = draft;
-    const note = d.fromSample
+    const note = d.fromAi
+      ? `<p class="notice"><span class="demo live">실제 AI · ${d.krw}원 · 내 동아리 지원금에서</span> Claude가 읽은 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
+      : d.fromSample
       ? `<p class="notice"><span class="demo">데모 · AI 연결 전</span> 미리 만든 추출 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
       : `<p class="notice">AI 연결 후 자동 추출돼요. 지금은 직접 입력해 주세요.</p>`;
     return `<section class="card review">
@@ -360,6 +524,28 @@
     };
     on("#dash-month", "change", (e) => {
       dashMonth = e.target.value;
+      render();
+    });
+    on("#pattern-ai", "click", async (e) => {
+      const month = e.target.dataset.month;
+      live.busy = true;
+      render();
+      try {
+        const sums = byCategory(inMonth(month));
+        const result = await sdk.ai.ask(patternOptions(month, sums, byCategory(inMonth(prevMonth(month)))));
+        const out = result.json || {};
+        state.patterns = state.patterns || {};
+        state.patterns[month] = {
+          headline: String(out.headline || ""),
+          points: (Array.isArray(out.points) ? out.points : []).map(String).slice(0, 4),
+          tip: String(out.tip || ""),
+          krw: result.chargedKrw,
+        };
+        save();
+      } catch (error) {
+        toast(`분석을 받지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
+      }
+      live.busy = false;
       render();
     });
     // 내역
@@ -533,14 +719,22 @@
       go("dashboard");
     }),
   );
+  const modeToggle = $("#mode-toggle");
+  if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
   Promise.all([
     store.get(KEY),
     window.ctrlai && window.ctrlai.connected
       ? window.ctrlai.app().then((info) => framedNote(Boolean(info && info.framed)), () => framedNote(true))
       : null,
+    sdk ? sdk.user().catch(() => null) : null,
+    sdk ? store.get(MODE_KEY).catch(() => null) : null,
   ])
-    .then(([saved]) => {
+    .then(([saved, , user, mode]) => {
       if (saved && Array.isArray(saved.transactions) && saved.budget) state = saved;
+      // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
+      live.user = user || null;
+      live.on = Boolean(sdk && user && mode !== "demo");
+      modeBadge();
     })
     .catch(() => {
       /* 저장소를 못 쓰면 데모 데이터로 시작합니다 */

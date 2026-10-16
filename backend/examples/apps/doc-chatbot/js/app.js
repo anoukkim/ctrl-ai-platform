@@ -19,6 +19,65 @@
   const esc = B.esc;
   const main = $("#main");
 
+  // ---------------------------------------------------------------- 실제 AI (CTRL+AI 기능 상자, app-platform P4b)
+  // 로그인한 CTRL+AI 회원은 Claude가 찾은 단락을 읽고 답을 정리해요 — 방문자 자신의 지원금에서,
+  // 질문을 보냈을 때만(근거 단락이 없으면 부르지 않아요). 로그인 전이거나 밖에서 열면 데모예요.
+  const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
+  const MODE_KEY = "doc-chatbot-mode";
+  const live = { user: null, on: false, price: undefined };
+  function priceText() {
+    if (!live.on || !sdk) return "";
+    if (live.price === undefined) {
+      live.price = null;
+      sdk.ai.estimate(B.priceOptions(state.settings, index)).then(
+        (figures) => {
+          live.price = figures;
+          const el = $("#chat-price");
+          if (el) el.textContent = priceText();
+        },
+        () => {
+          live.price = false;
+          const el = $("#chat-price");
+          if (el) el.textContent = priceText();
+        },
+      );
+      return "비용 확인 중…";
+    }
+    if (!live.price) return "질문 1회 최대 200원";
+    return `질문 1회 약 ${live.price.typicalKrw}원 · 최대 ${live.price.maxKrw}원 · 보냈을 때만`;
+  }
+  function modeBadge() {
+    const badge = $(".badge.demoAll");
+    const toggle = $("#mode-toggle");
+    if (!badge) return;
+    if (!sdk) {
+      badge.textContent = "데모 데이터";
+      if (toggle) toggle.hidden = true;
+      return;
+    }
+    badge.textContent = live.on ? "실제 AI · 내 지원금에서" : "데모 데이터";
+    badge.classList.toggle("liveAll", live.on);
+    if (toggle) {
+      toggle.hidden = false;
+      toggle.textContent = live.on ? "데모로 보기" : live.user ? "실제 AI 켜기" : "실제 AI로 써 보기 (로그인)";
+    }
+  }
+  async function setMode(on) {
+    if (on && !live.user) {
+      try {
+        live.user = await sdk.login();
+      } catch (error) {
+        say("로그인하지 않았어요. 데모로 계속해요.");
+        return;
+      }
+    }
+    live.on = on;
+    state.settings.mode = on ? "live" : "demo"; // 위젯도 같은 설정을 읽어요
+    save();
+    modeBadge();
+    show(view);
+  }
+
   // ---------------------------------------------------------------- 저장
   function seedLogs(docs) {
     const index = B.buildIndex(docs.flatMap(B.chunk));
@@ -118,7 +177,7 @@
               <li>그 단락을 <b>그대로 인용</b>하고 출처(문서 · 단락)를 붙여요.</li>
               <li>점수가 ${B.THRESHOLD}보다 낮으면 "못 찾을 때 문구"로 답해요.</li>
             </ol>
-            <p class="muted small">AI 연결 후에는 Claude가 찾은 단락을 읽고 자연스러운 문장으로 정리해 줘요.</p>
+            <p class="muted small" id="chat-price">${live.on ? priceText() : "로그인해서 실제 AI를 켜면 Claude가 찾은 단락을 읽고 자연스러운 문장으로 정리해 줘요."}</p>
           </section>
           <section class="panel" aria-live="polite">
             <h3>마지막 질문의 점수</h3>
@@ -129,6 +188,8 @@
     chat = B.mountChat($("#maker-chat"), {
       settings: () => state.settings,
       index: () => index,
+      live: () => live.on && Boolean(sdk),
+      sdk: () => sdk,
       summary,
       onLog: addLog,
       onRate: rate,
@@ -326,7 +387,9 @@
         tone: data.get("tone") === "공식" ? "공식" : "친근",
         welcome: String(data.get("welcome") || ""),
         notFound: String(data.get("notFound") || ""),
+        mode: state.settings.mode,
       };
+      live.price = undefined; // 이름·말투가 바뀌면 가격도 다시
       $(".phone").innerHTML = `<div class="miniHead"><span class="avatar">${esc(state.settings.name.slice(0, 1))}</span><b>${esc(state.settings.name)}</b></div>
         <div class="msg bot"><div class="bubble">${esc(state.settings.welcome)}</div></div>
         <div class="msg me"><div class="bubble">아이패드 앱도 있어요?</div></div>
@@ -569,13 +632,18 @@
     }),
   );
 
-  store
-    .get(KEY)
-    .then((saved) => {
+  const modeToggle = $("#mode-toggle");
+  if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
+  Promise.all([store.get(KEY), sdk ? sdk.user().catch(() => null) : null])
+    .then(([saved, user]) => {
       if (saved && Array.isArray(saved.docs) && Array.isArray(saved.logs)) {
         state = { ...saved, settings: { ...B.DEFAULT_SETTINGS, ...saved.settings } };
         reindex();
       }
+      // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
+      live.user = user || null;
+      live.on = Boolean(sdk && user && state.settings.mode !== "demo");
+      modeBadge();
     })
     .catch(() => {
       /* 저장소를 못 쓰면 샘플로 시작해요 */
