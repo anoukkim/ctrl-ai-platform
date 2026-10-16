@@ -20,7 +20,7 @@ router = APIRouter(prefix="/admin/tube", tags=["admin"])
 def list_reports(db: Session = Depends(get_db), _: User = Depends(require_admin)) -> list[TubeReportRead]:
     out = []
     for row in tube.open_reports(db):
-        comment = db.get(TubeComment, row.comment_id)
+        comment = db.get(TubeComment, row.comment_id) if row.comment_id is not None else None
         video = db.get(TubeVideo, comment.video_id) if comment else None
         reporter = db.get(User, row.reporter_id) if row.reporter_id else None
         author = db.get(User, comment.user_id) if comment and comment.user_id else None

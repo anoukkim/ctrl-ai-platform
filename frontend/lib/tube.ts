@@ -106,7 +106,8 @@ export function formatDuration(seconds: number): string {
 
 export interface AdminTubeReport {
   id: number;
-  comment_id: number;
+  /** null — 댓글이 완전히 지워진 뒤. */
+  comment_id: number | null;
   video_slug: string;
   video_title: string;
   reason: string;

@@ -74,7 +74,8 @@ class TubeResolve(BaseModel):
 
 class TubeReportRead(BaseModel):
     id: int
-    comment_id: int
+    #: None once the comment was deleted for good.
+    comment_id: int | None
     video_slug: str
     video_title: str
     reason: str

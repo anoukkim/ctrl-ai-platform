@@ -259,6 +259,9 @@ def report_comment(db: Session, reporter: User, comment_id: int, reason: object)
     row = db.get(TubeComment, comment_id)
     if row is None or row.deleted_at is not None or row.hidden_at is not None:
         raise TubeError(COMMENT_NOT_FOUND, 404)
+    video = db.get(TubeVideo, row.video_id)
+    if video is None or video.deleted_at is not None:
+        raise TubeError(NOT_FOUND, 404)
     existing = db.scalar(
         select(TubeReport).where(
             TubeReport.comment_id == row.id, TubeReport.reporter_id == reporter.id, TubeReport.resolved_at.is_(None)
@@ -327,7 +330,7 @@ def admin_delete(db: Session, admin: User, comment_id: int, reason: str) -> int:
         summary=f"영상 댓글 {row.id} 삭제: {reason}",
         detail={"video_id": row.video_id, "reason": reason, "excerpt": row.body[:EXCERPT], "reports_closed": closed},
     )
-    # Replies go with it; the reports keep their excerpt.
+    # Replies go with it; the reports stay (comment_id → NULL) with their excerpt.
     for reply in db.scalars(select(TubeComment).where(TubeComment.parent_id == row.id)):
         closed += _close_reports(db, admin, reply.id)
         db.delete(reply)

@@ -75,7 +75,9 @@ def upgrade() -> None:
     op.create_table(
         "tube_reports",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("comment_id", sa.Integer(), sa.ForeignKey("tube_comments.id", ondelete="CASCADE"), nullable=False),
+        # SET NULL, not CASCADE: an admin's hard delete of the comment keeps
+        # the report row (with its excerpt) as the record of what was reported.
+        sa.Column("comment_id", sa.Integer(), sa.ForeignKey("tube_comments.id", ondelete="SET NULL"), nullable=True),
         sa.Column("reporter_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
         sa.Column("reason", sa.Text(), nullable=False, server_default=""),
         sa.Column("excerpt", sa.String(length=300), nullable=False, server_default=""),

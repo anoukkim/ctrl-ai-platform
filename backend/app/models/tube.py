@@ -86,7 +86,8 @@ class TubeReport(TimestampMixin, Base):
     __tablename__ = "tube_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    comment_id: Mapped[int] = mapped_column(ForeignKey("tube_comments.id", ondelete="CASCADE"), index=True, nullable=False)
+    #: None once an admin hard-deleted the comment; the excerpt below remains.
+    comment_id: Mapped[int | None] = mapped_column(ForeignKey("tube_comments.id", ondelete="SET NULL"), index=True, nullable=True)
     reporter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
     #: What was reported, kept even after the comment is gone.

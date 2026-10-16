@@ -134,7 +134,7 @@ export default function AdminContentPage() {
       confirmLabel: hide ? "숨기기" : "지우기",
       danger: true,
       reason: { label: "사유", placeholder: "예: 욕설", required: true },
-      onConfirm: (reason) => run(() => adminTubeComment(report.comment_id, action, reason))(),
+      onConfirm: (reason) => run(() => adminTubeComment(report.comment_id as number, action, reason))(),
     });
   };
 

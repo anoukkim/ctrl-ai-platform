@@ -189,6 +189,8 @@ def test_the_admin_deletes_a_comment_for_good_and_the_report_keeps_its_excerpt(
     assert db_session.query(TubeComment).count() == 0  # the reply went with it
     report = db_session.query(TubeReport).one()
     assert report.resolved_at is not None and report.excerpt == "지워질 댓글"
+    # The report row survives the hard delete; the admin queue reads it without a comment.
+    assert client.get("/api/admin/tube/reports").json() == []
     assert db_session.query(AuditLog).filter(AuditLog.action == "tube_comment.deleted").count() == 1
     assert client.post(f"/api/admin/tube/comments/{parent['id']}/delete", json={"reason": "다시"}).status_code == 404
 
