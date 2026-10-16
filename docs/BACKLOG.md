@@ -584,11 +584,13 @@ New UI requests go here until they are folded into a UI batch.
   app's own cover (its colour + first letter, the same as the CtrlAIApps
   cover), drawn as an SVG data URL by the shell, so every app gets one
   without the member doing anything. Small.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim: "app-tab-icon이랑 chat-list-collapse도 서버 썸네일 다음에 같은 규칙으로 (리뷰 깨끗 + 테스트 통과하면 merge + 배포) 해줘") — after thumbnail-render-worker, one at a time.
 - **chat-list-collapse** — owner, 2026-10-17: "대화목록도 숨기기 기능 아니면
   줄이기? 모름". The Chat conversation list (새 대화 + 최근 대화) can be folded
   away like the main sidebar (a « button, remembered per browser), giving
   the conversation the full width; folded, a slim rail keeps 새 대화 and
   an open-list button. Phone width already hides it. Small.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim: "app-tab-icon이랑 chat-list-collapse도 서버 썸네일 다음에 같은 규칙으로 (리뷰 깨끗 + 테스트 통과하면 merge + 배포) 해줘") — after thumbnail-render-worker, one at a time.
 - **builder-prompt-polish** — owner, 2026-10-17, asked as "지금 아님 나중에
   가능한지 여부": in the Builder's request box, right-click (and a small
   button, for touch) → **Claude용 프롬프트로 다듬기**: a cheap model (Haiku)
