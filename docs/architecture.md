@@ -41,7 +41,7 @@ that route — there is no second check further in.
 | `get_current_user` | Is anyone signed in, and is the account usable? | 401, or 403 for a `former` account |
 | `require_admin` | Is this person an `admin`? | 403 |
 | `require_active_member` | Are they **participating in the current quarter**? | 403 |
-| `require_video_open` | `require_active_member`, and is the **Video Generator open** to members (Admin › System switch, locked by default; the 관리자 is never locked out)? | 403 "다음 분기에 열려요" |
+| `require_video_open` | `require_active_member`, and is the **Video Generator open** to members (Admin › System switch, locked by default; the 관리자 is never locked out)? | 403 "다음 단계에서 열려요" |
 
 `require_active_member` builds on `get_current_user`, so signing in is
 assumed. A **missing** `QuarterMembership` row means "not participating":

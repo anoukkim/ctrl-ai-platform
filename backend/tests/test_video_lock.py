@@ -34,7 +34,7 @@ def test_locked_by_default_for_members_but_not_for_the_admin(
     as_other(client, other_user)
     refused = client.post("/api/video/projects", json={"name": "회원 영상"})
     assert refused.status_code == 403
-    assert "다음 분기에 열려요" in refused.json()["detail"]
+    assert "다음 단계에서 열려요" in refused.json()["detail"]
     # Reading is not locked: the list and the catalogue still answer.
     assert client.get("/api/video/projects").status_code == 200
     assert client.get("/api/video/models").status_code == 200

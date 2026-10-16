@@ -3,23 +3,24 @@
 /**
  * Video Generator의 잠금 (owner-polish 6).
  *
- * 영상은 다음다음 분기에 시작합니다. 그때까지 관리자가 Admin › System에서
- * 스위치를 켤 때까지 회원에게는 이 영역 전체가 잠겨 있고, 화면은 그 이유를
- * 한 문장으로 말합니다 — "다음 분기에 열려요". 실제 차단은 백엔드의
- * `require_video_open`이 합니다; 여기서는 잠긴 화면을 보여 줄 뿐입니다.
+ * 영상은 다음 단계에 시작합니다. 관리자가 Admin › System에서 스위치를 켤
+ * 때까지 이 영역 전체가 잠겨 있고, 화면은 오너가 정한 모양 그대로입니다
+ * (2026-10-16): "가운데에 자물쇠 하나 걸어두고 다음 phase에 impl 예정이라고".
+ * 목록도 검색도 새 프로젝트 단추도 없이, 자물쇠 하나와 짧은 안내만.
+ * 관리자에게는 같은 화면에 "Admin › System에서 열 수 있어요" 한 줄이 더.
  *
- * 관리자는 잠겨 있어도 들어갑니다(공급자 연결을 미리 확인해 두려고). 그
- * 대신 회원에게는 잠겨 있다는 띠를 위에 둡니다.
+ * 실제 차단은 백엔드의 `require_video_open`이 합니다 — 여기서는 잠긴
+ * 화면을 보여 줄 뿐입니다.
  */
 
 import { Lock } from "lucide-react";
 import Link from "next/link";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
-import EmptyState from "@/app/components/EmptyState";
-import PageHeader from "@/app/components/PageHeader";
 import { useSite } from "@/app/components/SiteProvider";
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
+
+import styles from "./video-lock.module.css";
 
 export default function VideoGate({ children }: { children: React.ReactNode }) {
   const site = useSite();
@@ -28,33 +29,18 @@ export default function VideoGate({ children }: { children: React.ReactNode }) {
 
   if (site.video_open) return <>{children}</>;
 
-  if (isAdmin) {
-    return (
-      <>
-        <p className="notice" role="status" data-testid="video-admin-locked-notice" style={{ marginBottom: "0.8rem" }}>
-          <Lock size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: "0.35rem" }} />
-          회원에게는 Video Generator가 잠겨 있어요 ({VIDEO_LOCKED_HINT}). 관리자만 보고 있는 화면입니다 —{" "}
-          <Link href="/admin/system">Admin › System</Link>에서 열 수 있어요.
-        </p>
-        {children}
-      </>
-    );
-  }
-
   return (
-    <>
-      <PageHeader
-        eyebrow="Create"
-        tone="video"
-        title="Video Generator"
-        subtitle="아이디어를 적고, 다듬고, 여러 번 만들어 보면서 마음에 드는 영상을 고릅니다."
-      />
-      <EmptyState
-        icon={Lock}
-        title={`Video Generator는 ${VIDEO_LOCKED_HINT}`}
-        text="이번 분기에는 영상 만들기를 준비하는 중이에요. 열리면 메뉴의 자물쇠가 사라지고 여기서 바로 시작할 수 있어요. 그동안은 Chat과 Project Builder를 써 보세요."
-        action={{ label: "Project Builder로 가기", href: "/builder" }}
-      />
-    </>
+    <div className={styles.lock} role="status" data-testid="video-locked">
+      <span className={styles.lockIcon} aria-hidden="true">
+        <Lock size={34} strokeWidth={1.6} />
+      </span>
+      <p className={styles.title}>Video Generator는 {VIDEO_LOCKED_HINT}</p>
+      <p className={styles.text}>지금은 준비 중이에요. 열리면 메뉴의 자물쇠가 사라져요.</p>
+      {isAdmin && (
+        <p className={styles.admin} data-testid="video-admin-locked-notice">
+          관리자: <Link href="/admin/system">Admin › System</Link>에서 열 수 있어요.
+        </p>
+      )}
+    </div>
   );
 }

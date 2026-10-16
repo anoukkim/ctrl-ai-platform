@@ -73,7 +73,7 @@ interface NavItem {
   Icon: LucideIcon;
   /** 아이콘을 영역 색으로 칠합니다 — Project Builder는 보라, Video는 청록. */
   tone?: "build" | "video";
-  /** 회원에게 잠긴 화면 (owner-polish 6): 자물쇠와 "다음 분기에 열려요". 링크는 그대로 — 화면이 이유를 말합니다. */
+  /** 회원에게 잠긴 화면 (owner-polish 6): 자물쇠와 "다음 단계에서 열려요". 링크는 그대로 — 화면이 이유를 말합니다. */
   lockedHint?: string;
 }
 

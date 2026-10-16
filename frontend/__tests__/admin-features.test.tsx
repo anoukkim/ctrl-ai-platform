@@ -34,7 +34,7 @@ describe("기능 열기", () => {
     render(<FeaturePanel />);
 
     const row = await screen.findByTestId("feature-video");
-    expect(row.textContent).toContain("잠김 · 다음 분기에 열려요");
+    expect(row.textContent).toContain("잠김 · 다음 단계에서 열려요");
     expect(row.textContent).toContain("아직 바꾼 적 없음");
 
     await user.click(screen.getByRole("button", { name: "회원에게 열기" }));

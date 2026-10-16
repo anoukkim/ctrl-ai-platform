@@ -29,15 +29,15 @@ export interface SiteInfo {
   apps_base_url?: string | null;
   /**
    * 회원이 Video Generator를 쓸 수 있는지 (owner-polish 6). 관리자가
-   * Admin › System에서 켭니다. 기본은 잠김 — 메뉴와 화면이 "다음 분기에
-   * 열려요"라고 말합니다. 관리자는 잠겨 있어도 들어갈 수 있어요.
+   * Admin › System에서 켭니다. 기본은 잠김 — 메뉴와 화면이 "다음 단계에서
+   * 열려요"라고 말합니다 (오너, 2026-10-16: 가운데 자물쇠 하나 + 짧은 안내).
    */
   video_open?: boolean;
   test_mode: Record<TestModeArea, boolean>;
 }
 
 /** Video Generator가 잠겨 있을 때 회원이 보는 한 문장. */
-export const VIDEO_LOCKED_HINT = "다음 분기에 열려요";
+export const VIDEO_LOCKED_HINT = "다음 단계에서 열려요";
 
 /**
  * 답을 받기 전, 또는 받지 못했을 때.

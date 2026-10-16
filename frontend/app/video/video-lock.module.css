@@ -1,0 +1,43 @@
+/* Video Generator 잠김 화면 (owner-polish 6) — 가운데 자물쇠 하나와 두 줄. */
+
+.lock {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  min-height: min(60vh, 32rem);
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.lockIcon {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin-bottom: 0.6rem;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.text,
+.admin {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.admin {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
