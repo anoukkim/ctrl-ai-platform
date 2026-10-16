@@ -317,6 +317,11 @@ def update_project(
         # Clearing a choice is not offered: the picker always has one.
         if key in changes and changes[key] is None:
             del changes[key]
+    # 고정 (ui-improvements): a flag in the request, a timestamp on the row
+    # — so "pinned first, then by date" has a date to use. `null` = unchanged.
+    pinned = changes.pop("pinned", None)
+    if pinned is not None:
+        project.pinned_at = datetime.now(timezone.utc) if pinned else None
 
     for field, value in changes.items():
         setattr(project, field, value)

@@ -180,6 +180,13 @@
   display: inline-flex;
 }
 
+/* 고정한 카드의 핀 (ui-improvements) — 배지 옆, 줄지 않습니다. */
+.cardPin {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--accent);
+}
+
 .cardName {
   min-width: 0;
   font-size: var(--fs-card-name);

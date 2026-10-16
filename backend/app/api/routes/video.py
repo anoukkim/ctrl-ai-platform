@@ -225,6 +225,10 @@ def update_project(
 
     if "name" in changes:
         changes["name"] = _checked_name(changes["name"])
+    # 고정 (ui-improvements) — see the Builder's PATCH.
+    pinned = changes.pop("pinned", None)
+    if pinned is not None:
+        project.pinned_at = datetime.now(timezone.utc) if pinned else None
 
     if "selected_model_id" in changes and changes["selected_model_id"] is not None:
         if changes["selected_model_id"] not in {m.id for m in _allowed_models(db)}:

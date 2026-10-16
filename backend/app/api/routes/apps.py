@@ -6,13 +6,14 @@ filters on the project's `deleted_at` (CLAUDE.md section 10).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import AccountStatus, BuilderProject, User
-from app.schemas.apps import AppListing, AppReportCreate
+from app.models import AccountStatus, AppFavorite, BuilderProject, User
+from app.schemas.apps import AppFavoriteSet, AppListing, AppReportCreate
 from app.services import app_manifest, app_publish, app_runtime
 
 router = APIRouter(prefix="/apps", tags=["apps"])
@@ -33,7 +34,14 @@ def shared_lists_of(project: BuilderProject) -> bool:
         return False
 
 
-def listing_of(db: Session, settings: Settings, project: BuilderProject) -> AppListing:
+def favorites_of(db: Session, user: User) -> set[int]:
+    """The project ids this member keeps as 즐겨찾기."""
+    return set(db.scalars(select(AppFavorite.project_id).where(AppFavorite.user_id == user.id)))
+
+
+def listing_of(
+    db: Session, settings: Settings, project: BuilderProject, favorites: set[int] | None = None
+) -> AppListing:
     owner = db.get(User, project.owner_user_id)
     former = owner is None or owner.account_status is AccountStatus.FORMER
     return AppListing(
@@ -48,6 +56,7 @@ def listing_of(db: Session, settings: Settings, project: BuilderProject) -> AppL
         publish_note=project.publish_note,
         app_url=app_runtime.public_url(settings, project),
         shared_lists=shared_lists_of(project),
+        favorite=project.id in favorites if favorites else False,
     )
 
 
@@ -61,11 +70,12 @@ def _listed(db: Session, slug: str) -> BuilderProject:
 @router.get("", response_model=list[AppListing], summary="Every published app, newest update first")
 def list_apps(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> list[AppListing]:
     rows = db.scalars(app_publish.published_listing().order_by(BuilderProject.published_at.desc()))
-    return [listing_of(db, settings, row) for row in rows]
+    favorites = favorites_of(db, user)
+    return [listing_of(db, settings, row, favorites) for row in rows]
 
 
 @router.get("/mine", response_model=list[AppListing], summary="The signed-in member's own published apps")
@@ -83,17 +93,45 @@ def list_my_apps(
         .where(BuilderProject.owner_user_id == user.id)
         .order_by(BuilderProject.published_at.desc())
     )
-    return [listing_of(db, settings, row) for row in rows]
+    favorites = favorites_of(db, user)
+    return [listing_of(db, settings, row, favorites) for row in rows]
 
 
 @router.get("/{slug}", response_model=AppListing, summary="One published app")
 def read_app(
     slug: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> AppListing:
-    return listing_of(db, settings, _listed(db, slug))
+    return listing_of(db, settings, _listed(db, slug), favorites_of(db, user))
+
+
+@router.post(
+    "/{slug}/favorite",
+    response_model=AppListing,
+    summary="즐겨찾기: keep a published app first on my CtrlAIApps list",
+)
+def set_favorite(
+    slug: str,
+    payload: AppFavoriteSet,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> AppListing:
+    """Any signed-in member: a favourite is a reading preference, not a
+    creation (ui-improvements). Setting what is already set changes
+    nothing; the row is the member's own and never shown to the maker."""
+    project = _listed(db, slug)
+    row = db.scalar(
+        select(AppFavorite).where(AppFavorite.user_id == user.id, AppFavorite.project_id == project.id)
+    )
+    if payload.on and row is None:
+        db.add(AppFavorite(user_id=user.id, project_id=project.id))
+    elif not payload.on and row is not None:
+        db.delete(row)
+    db.commit()
+    return listing_of(db, settings, project, favorites_of(db, user))
 
 
 @router.post(

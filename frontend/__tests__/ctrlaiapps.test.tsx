@@ -26,12 +26,14 @@ const APP: AppListing = {
   publish_note: "메모 기능을 추가했어요",
   app_url: "http://apps.test/k3m9qx7pwa/",
   shared_lists: false,
+  favorite: false,
 };
 
 const appsApi = {
   listApps: vi.fn(),
   getApp: vi.fn(),
   reportApp: vi.fn(),
+  setAppFavorite: vi.fn(),
 };
 
 vi.mock("@/lib/apps", async (importOriginal) => {
@@ -41,6 +43,7 @@ vi.mock("@/lib/apps", async (importOriginal) => {
     listApps: (...args: unknown[]) => appsApi.listApps(...args),
     getApp: (...args: unknown[]) => appsApi.getApp(...args),
     reportApp: (...args: unknown[]) => appsApi.reportApp(...args),
+    setAppFavorite: (...args: unknown[]) => appsApi.setAppFavorite(...args),
   };
 });
 
@@ -128,11 +131,53 @@ describe("CtrlAIApps 목록", () => {
   test("카드: 이름 · 설명 · 만든 사람 · 'v3 · 3일 전 업데이트' · 메모", async () => {
     appsApi.listApps.mockResolvedValue([APP]);
     render(<AppGrid />);
-    const card = await screen.findByRole("link", { name: /오늘 할 일/ });
-    expect(card.getAttribute("href")).toBe("/ctrlaistore/k3m9qx7pwa");
+    const card = await screen.findByTestId("app-card");
+    const link = within(card).getByRole("link", { name: "오늘 할 일" });
+    expect(link.getAttribute("href")).toBe("/ctrlaistore/k3m9qx7pwa");
     expect(within(card).getByText("김유리")).toBeTruthy();
     expect(within(card).getByText("v3 · 3일 전 업데이트")).toBeTruthy();
     expect(within(card).getByText("메모 기능을 추가했어요")).toBeTruthy();
+    expect(screen.getByText("게시된 앱")).toBeTruthy();
+  });
+
+  test("즐겨찾기 ★는 서버에 켜고, 그 앱이 맨 앞으로 온다", async () => {
+    const other: AppListing = { ...APP, id: 8, slug: "zz8zz8zz8z", name: "두 번째 앱", published_at: new Date().toISOString() };
+    appsApi.listApps.mockResolvedValue([other, APP]);
+    appsApi.setAppFavorite.mockResolvedValue({ ...APP, favorite: true });
+    const user = userEvent.setup();
+    render(<AppGrid />);
+    const cards = await screen.findAllByTestId("app-card");
+    expect(cards.map((card) => within(card).getByRole("heading").textContent)).toEqual(["두 번째 앱", "오늘 할 일"]);
+
+    const star = screen.getByRole("button", { name: "오늘 할 일 즐겨찾기" });
+    expect(star.getAttribute("aria-pressed")).toBe("false");
+    await user.click(star);
+    expect(appsApi.setAppFavorite).toHaveBeenCalledWith("k3m9qx7pwa", true);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("app-card").map((card) => within(card).getByRole("heading").textContent)).toEqual([
+        "오늘 할 일",
+        "두 번째 앱",
+      ]),
+    );
+    expect(screen.getByRole("button", { name: "오늘 할 일 즐겨찾기 해제" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  test("정렬 단추로 이름순을 고르면 그렇게 줄 서고 기억된다", async () => {
+    window.localStorage.clear();
+    const other: AppListing = { ...APP, id: 8, slug: "zz8zz8zz8z", name: "가나다 앱", published_at: "2026-01-01T00:00:00Z" };
+    appsApi.listApps.mockResolvedValue([APP, other]);
+    const user = userEvent.setup();
+    render(<AppGrid />);
+    await screen.findAllByTestId("app-card");
+    await user.click(screen.getByRole("button", { name: "정렬: 마지막 수정순" }));
+    await user.click(screen.getByRole("menuitem", { name: "이름순" }));
+    await waitFor(() =>
+      expect(screen.getAllByTestId("app-card").map((card) => within(card).getByRole("heading").textContent)).toEqual([
+        "가나다 앱",
+        "오늘 할 일",
+      ]),
+    );
+    expect(window.localStorage.getItem("ctrlai.builder.list-sort.apps")).toBe("name");
   });
 });
 

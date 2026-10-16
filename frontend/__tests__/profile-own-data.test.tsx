@@ -48,6 +48,7 @@ const MINE: AppListing = {
   publish_note: "",
   app_url: null,
   shared_lists: false,
+  favorite: false,
 };
 
 describe("Profile › 내가 만든 앱", () => {

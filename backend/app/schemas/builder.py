@@ -60,6 +60,8 @@ class BuilderProjectUpdate(BaseModel):
     #: project. A level name only — the server decides every number.
     chat_model_id: int | None = None
     depth: Literal["low", "medium", "high", "max"] | None = None
+    #: ui-improvements: 고정 / 고정 해제 — the list keeps pinned ones first.
+    pinned: bool | None = None
 
 
 class BuilderProjectRead(BuilderProjectBase):
@@ -83,6 +85,10 @@ class BuilderProjectRead(BuilderProjectBase):
     #: quality-tuning Q1: the panel's remembered model and 생각 깊이.
     chat_model_id: int | None = None
     depth: str | None = None
+    #: ui-improvements: when the owner pinned it; None = not pinned.
+    pinned_at: datetime | None = None
+    #: ui-improvements: the working copy's thumbnail, if one was captured.
+    draft_thumbnail_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

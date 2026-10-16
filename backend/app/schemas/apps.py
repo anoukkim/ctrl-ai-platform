@@ -26,6 +26,14 @@ class AppListing(BaseModel):
     #: ui-improvements: the published version's `ctrlai.json` declares at
     #: least one shared list — the detail page says so in its honest note.
     shared_lists: bool = False
+    #: ui-improvements: the caller's 즐겨찾기 — kept first on their list.
+    favorite: bool = False
+
+
+class AppFavoriteSet(BaseModel):
+    """즐겨찾기 on or off — a JSON body, like every state-changing route."""
+
+    on: bool
 
 
 class AppReportCreate(BaseModel):

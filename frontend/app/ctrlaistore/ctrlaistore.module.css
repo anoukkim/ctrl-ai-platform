@@ -25,6 +25,7 @@
 }
 
 .card {
+  position: relative;
   display: grid;
   align-content: start;
   background: var(--panel);
@@ -41,6 +42,55 @@
 .card:hover {
   border-color: var(--accent-border);
   transform: translateY(-2px);
+}
+
+/* 카드를 덮는 링크 — 보이는 것은 없고 이름만 읽어 줍니다(LibraryCard와 같음). */
+.cardLink {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--radius);
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* 즐겨찾기 ★ — 표지의 오른쪽 위, 링크보다 위에. 쉬고 있을 때도 보입니다. */
+.favorite {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: var(--lib-menu-button);
+  height: var(--lib-menu-button);
+  padding: 0;
+  border: 1px solid color-mix(in oklch, var(--on-accent) 25%, transparent);
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--video-letterbox) 55%, transparent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition:
+    background-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.favorite:hover,
+.favorite:focus-visible {
+  background: color-mix(in oklch, var(--video-letterbox) 80%, transparent);
+  transform: scale(1.06);
+}
+
+.favorite:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.favoriteOn {
+  color: var(--warn-text, #f5c542);
 }
 
 /* 표지. 색은 softTint()가 정하고, 그 위의 글자는 늘 흰색입니다 — 표지는

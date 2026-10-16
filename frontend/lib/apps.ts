@@ -25,6 +25,8 @@ export interface AppListing {
   app_url: string | null;
   /** 게시된 버전의 ctrlai.json이 공유 목록을 선언했는지 — 상세의 안내 한 줄이 달라져요. */
   shared_lists: boolean;
+  /** 내 즐겨찾기 (ui-improvements) — 내 목록에서 먼저 보여요. */
+  favorite: boolean;
 }
 
 export function listApps(): Promise<AppListing[]> {
@@ -38,6 +40,14 @@ export function listMyApps(): Promise<AppListing[]> {
 
 export function getApp(slug: string): Promise<AppListing> {
   return request<AppListing>(`/apps/${encodeURIComponent(slug)}`);
+}
+
+/** 즐겨찾기 켜기/끄기 — 내 목록에서만 보이는 내 표시입니다. */
+export function setAppFavorite(slug: string, on: boolean): Promise<AppListing> {
+  return request<AppListing>(`/apps/${encodeURIComponent(slug)}/favorite`, {
+    method: "POST",
+    body: JSON.stringify({ on }),
+  });
 }
 
 export function reportApp(slug: string, reason: string): Promise<{ detail: string }> {

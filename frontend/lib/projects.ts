@@ -55,6 +55,10 @@ export interface BuilderProject {
   published_at?: string | null;
   /** 업데이트 메모. */
   publish_note?: string;
+  /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
+  pinned_at?: string | null;
+  /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5). */
+  draft_thumbnail_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -410,7 +414,10 @@ export const APP_LIMITS_NOTE =
 
 export function updateBuilderProject(
   id: number | string,
-  changes: Partial<Pick<BuilderProject, "name" | "description" | "status" | "chat_model_id" | "depth">>,
+  changes: Partial<Pick<BuilderProject, "name" | "description" | "status" | "chat_model_id" | "depth">> & {
+    /** 고정 / 고정 해제 (ui-improvements). */
+    pinned?: boolean;
+  },
 ): Promise<BuilderProject> {
   return request<BuilderProject>(`/builder/projects/${id}`, {
     method: "PATCH",
@@ -627,6 +634,8 @@ export interface VideoProject {
   thumbnail_aspect_ratio?: string | null;
   /** "image"(mock의 GIF)면 <img>, "video"(실제 MP4)면 <video>로 보여 줍니다. */
   thumbnail_kind?: "image" | "video" | null;
+  /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
+  pinned_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -670,7 +679,10 @@ export function updateVideoProject(
   id: number | string,
   changes: Partial<
     Pick<VideoProject, "name" | "prompt" | "selected_model_id" | "status" | "final_version_id">
-  >,
+  > & {
+    /** 고정 / 고정 해제 (ui-improvements). */
+    pinned?: boolean;
+  },
 ): Promise<VideoProjectDetail> {
   return request<VideoProjectDetail>(`/video/projects/${id}`, {
     method: "PATCH",

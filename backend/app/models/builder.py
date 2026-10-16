@@ -98,6 +98,13 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     depth: Mapped[str | None] = mapped_column(String(10), nullable=True)
     #: 업데이트 메모 — one line shown on the listing (optional).
     publish_note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    #: ui-improvements: 고정 — the owner keeps this project at the top of
+    #: their Builder list. When it was pinned (NULL = not pinned).
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: ui-improvements (owner-polish 5): when the working copy's thumbnail
+    #: was last captured in the maker's browser; the bytes live in storage
+    #: under `thumbnails.draft_key()`. NULL = none yet.
+    draft_thumbnail_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     published_version: Mapped["BuilderProjectVersion | None"] = relationship(
         foreign_keys=[published_version_id], post_update=True, lazy="joined"
@@ -199,9 +206,32 @@ class BuilderProjectVersion(TimestampMixin, Base):
     summary_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary_base_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     summary_model: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    #: ui-improvements (owner-polish 4): when this version's thumbnail was
+    #: captured — taken right after 게시, from the published app. NULL =
+    #: none; the listing falls back to the generated cover.
+    thumbnail_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:
         return f"<BuilderProjectVersion v{self.number} project={self.project_id}>"
+
+
+class AppFavorite(TimestampMixin, Base):
+    """즐겨찾기 (ui-improvements): a member keeps a published app at the
+    top of their CtrlAIApps list. Per member, per project; the listing
+    still filters the project's `deleted_at` and published state, so a
+    favourite of an app that is gone simply does not show."""
+
+    __tablename__ = "app_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "project_id", name="uq_app_favorites_user_project"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<AppFavorite user={self.user_id} project={self.project_id}>"
 
 
 class AppReport(TimestampMixin, Base):
