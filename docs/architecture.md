@@ -119,11 +119,15 @@ the same commit that adds it.
 | `GET /api/builder/projects/{id}/versions/{n}/files` | `get_current_user` | 이 버전 보기 — reading an old version (free, read-only) |
 | `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 되돌리기 — changing your work (free) |
 | `POST /api/builder/projects/{id}/runtime` | **`require_active_member`** | 미리보기 갱신 — writes the files to `apps.ctrlai.my` |
+| `POST /api/builder/projects/{id}/thumbnail?space=draft\|published` | **`require_active_member`** | A picture of the working copy or the published version, taken in the maker's browser (bytes as the body, `application/octet-stream`, ≤ 4 MB): kind and size checked from the bytes, re-encoded to 640×400 WebP, stored; 409 for `published` while nothing is published |
+| `GET /api/builder/projects/{id}/thumbnail?space=…` | `get_current_user` | The member's own project's picture (Builder cards) — works while inactive |
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |
 | `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
 | `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
+| `GET /api/apps/{slug}/thumbnail` | `get_current_user` | The published version's picture (CtrlAIApps cards and the detail head); 404 while there is none |
+| `POST /api/apps/{slug}/favorite` | `get_current_user` | ★ 즐겨찾기 on / off — the member's own `app_favorites` row; spends nothing, so not participating may still pin |
 | `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
@@ -335,7 +339,10 @@ static file in `frontend/public/promo/` (two H.264+AAC encodes, 5.3 MB
 `/promo/*` with `Cache-Control: public, max-age=31536000, immutable` —
 the file names carry a version (`-v1`), so a new encode is a new name and
 the year-long cache never serves a stale file. Member videos never go
-this way.
+this way. **App thumbnails (ui-improvements)** go through the same
+`AssetStorage` as video placeholders and feedback pictures —
+`thumbnails/<project_id>/draft.webp` for the working copy and
+`v<N>.webp` per published version — and are removed with the project.
 
 ### CtrlAITube rows (`promo-videos`)
 
@@ -400,16 +407,21 @@ Alembic has migrated (`backend/app/models/`).
 - **Project (BuilderProject) / BuilderProjectFile** — owner, name,
   description, status (`draft` / `building` / `ready` / `published`),
   github_repo, preview_url, **deleted_at** (soft delete — every member
-  listing filters on it).
+  listing filters on it); since ui-improvements **pinned_at** (맨 위에
+  고정) and **draft_thumbnail_at** (the working copy's picture exists in
+  storage), and each **BuilderProjectVersion** a **thumbnail_at** (the
+  published picture, kept per version).
 - **App** (Phase 5) — the published, community-facing object: project_id,
   owner, slug, thumbnail, launch_url, published_at. A project is the
   private working object; an app is the published listing. Listings must
-  filter the underlying project's `deleted_at`.
+  filter the underlying project's `deleted_at`. **AppFavorite**
+  (`app_favorites`, ui-improvements) — one row per member per project
+  (unique), the member's own ★ on CtrlAIApps; nothing public.
 - **Video (VideoProject / VideoVersion) / VideoModel** — owner, prompt,
   provider job id, `asset_storage_key` (served through the storage
   interface, never a provider URL), youtube_video_id (Phase 7/8), status,
   per-version settings validated against the model's capabilities,
-  **deleted_at** (soft delete, same rule).
+  **deleted_at** (soft delete, same rule), **pinned_at** (ui-improvements).
 - **Reactions / Comments** (Phases 5 and 8) — per app and per video, with
   `parent_comment_id` for threads; CTRL+AI comments stay separate from
   YouTube comments.
@@ -594,6 +606,28 @@ ctrlai.my (Builder / CtrlAIApps)
   미리보기); Admin › Content keeps the 신고 queue. **/help/apps** is the
   members' guide. A 고치기 request never becomes a project's description
   (only a 만들기 does); a template project starts with none.
+* **ui-improvements — thumbnails, SDK version "5".** A picture of an app
+  is taken **in the maker's browser**, never on the server (CLAUDE.md
+  §8·§10). The shell page carries `data-sites` (the site origins allowed
+  to ask); the site posts `{ctrlai: "capture", id, width, height}` to the
+  shell from the Builder preview frame (or, right after 게시, a hidden
+  1280×800 frame on the published address); the shell accepts it only
+  from `window.parent` with an origin in that list and relays
+  `{event: "capture"}` to the sandboxed app frame; the SDK clones the
+  DOM with computed styles (≤ 5,000 nodes, no scripts/iframes, canvases
+  as images, input values kept, long edge ≤ 1,600 px), draws it through
+  an SVG `foreignObject` into a canvas and answers `capture.result` with
+  a PNG data URL (or `capture.failed` in Korean); the shell posts it back
+  to the asking origin only. The site turns it into bytes and uploads
+  them (`POST /api/builder/projects/{id}/thumbnail`, octet-stream, the
+  JSON-body rule's one exception); `services/thumbnails.encode` sniffs
+  PNG/JPEG/WebP from the bytes, applies EXIF orientation, drops alpha on
+  white, fits 640×400 (top-anchored) and writes WebP q82 with no
+  metadata — the browser's picture is never stored as sent. Limits: an
+  app's own `<img>` files draw blank (no fetch across the opaque origin),
+  WebGL is skipped, Safari's `foreignObject` support is weak — the card
+  then keeps its coloured cover; a server-side renderer in an isolated
+  container is the later item `thumbnail-render-worker`.
 * **publish-summary** (`services/publish_summary.py`, `POST
   /api/builder/projects/{id}/publish-summary` with a JSON body — it
   writes and spends, CLAUDE.md §2 — `require_active_member`, owner only): the 게시 dialog's 설명 and 메모 written by the "fast"

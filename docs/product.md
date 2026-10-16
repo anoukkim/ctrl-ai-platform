@@ -686,6 +686,44 @@ A member who stops participating does not lose their published work:
 "탈퇴 회원" is used rather than anything meaning "deleted", because
 attribution on published apps and videos must continue to exist.
 
+## List screens — one header row, pins, sort, thumbnails (ui-improvements, 2026-10-16)
+
+The four list screens — Project Builder, Video Generator, CtrlAIApps,
+CtrlAITube — share one header row (`ListToolbar`): the count on the
+left ("내 프로젝트 6개", "게시된 앱 5개"), the search in the middle ending
+at the card row's right edge, and the controls (status filter, 정렬,
+the new-project button) on the right; below 44rem the three stack.
+
+**Pins and sort.** A Builder or Video card's ⋯ menu has **맨 위에 고정**
+/ **고정 해제**; a pinned card wears a small pin and always comes first
+(`pinned_at` on the project, `PATCH … {pinned}`). On CtrlAIApps a member's
+own **★ 즐겨찾기** on a card does the same for that member only
+(`app_favorites`, `POST /api/apps/{slug}/favorite`). The **정렬** menu
+offers 마지막 수정순 (default) and 이름순; the choice is remembered per
+screen on the device (`localStorage`, not an account setting). Pinned or
+favourite first, then the chosen order.
+
+**Thumbnails (owner-polish 4·5).** An app's picture is a real screenshot
+of the app, taken **in the maker's browser** — never by running member
+code on the server (CLAUDE.md §8). In the Builder workspace, a moment
+after the preview frame loads, the shell asks the app frame for a
+picture (the SDK draws the page into a canvas and answers with a PNG),
+the browser uploads the bytes, and the server checks the kind and size
+from the bytes, re-encodes it to a 640×400 WebP with no metadata (like
+의견 보내기 screenshots) and stores it as the project's **working-copy
+thumbnail**; ⋯ › **썸네일 다시 찍기** retakes it by hand. **게시** does the
+same once for the published version from its public address, in a hidden
+frame, so CtrlAIApps shows the published look while the Builder card
+shows the working copy. No picture yet (or a page the browser cannot
+draw — WebGL, an app's own image files, Safari's weaker support) → a
+plain coloured cover with the name (CtrlAIApps) or a code icon (Builder).
+A Builder card shows a description only once the project is published;
+a request typed in Chat or the Builder never becomes a card's text.
+
+**Profile (owner-polish 2's first half, 2026-10-16).** 알림 is two aligned
+switch rows (사용 알림 표시, 띠링 소리) and 내가 만든 앱 is a plain list —
+name · vN · "N분 전 업데이트" · 열기 — with no pictures.
+
 ## Search
 
 Contextual search, not one global search engine. Each list has the search
@@ -791,14 +829,20 @@ working version, kept on the version, free to the member (the club's cost
 is an absorbed 0원 row, feature `publish_summary`), never blocking 게시
 (a failure leaves the field empty, "직접 적어 주세요"). Only empty fields
 are filled; a field the member typed in is never overwritten, and an
-existing description gets a "Claude 요약으로 바꾸기" button. The detail page has
-**앱 실행** (new tab), the same app live in a sandboxed frame, an honest
-note on what an app can do, and **신고**. Admin › Content lists open
+existing description gets a "Claude 요약으로 바꾸기" button. **The detail page (ui-improvements, owner-polish 15, 2026-10-16)** is
+one head row — the app's small thumbnail · name · maker · "v5 · 3일 전
+업데이트" · 업데이트 메모, with **새 창에서 열기** and **신고하기** on the
+right — the description folded to one line (설명 더 보기), and right
+under it the app itself in its sandboxed frame, taking the first screen
+(the frame's height follows the viewport, at 390px too); the big colour
+block and the duplicate 앱 실행 button are gone. The honest note under the
+frame is per app: when the published version's `ctrlai.json` declares a
+shared list it says "이 앱의 공유 글은 다른 회원도 볼 수 있어요". Admin › Content lists open
 reports (the apps themselves are under Admin › Apps since app-platform
 P4b); **게시 내리기** (with a reason) is audited and
 closes the app's reports; closing a report without taking the app down is
-audited too. No mock listings remain. Later: screenshots, reactions (Like /
-Useful / Interesting), threaded comments, GitHub link. Published
+audited too. No mock listings remain. Later: reactions (Like / Useful /
+Interesting), threaded comments, GitHub link. Published
 apps stay visible when their developer is no longer participating —
 attribution is never erased, a former member shows as 탈퇴 회원.
 **Every listing query filters the project's `deleted_at`** — deleting is
