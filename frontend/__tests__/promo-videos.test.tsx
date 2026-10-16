@@ -74,7 +74,7 @@ const SOURCES = {
   desktop: "/promo/ctrlai-intro-desktop-v1.mp4",
   mobile: "/promo/ctrlai-intro-mobile-v1.mp4",
   posterDesktop: "/promo/ctrlai-intro-desktop-v1.jpg",
-  posterMobile: "/promo/ctrlai-intro-mobile-v1.jpg",
+  posterMobile: "/promo/ctrlai-intro-mobile-poster-v2.jpg",
 };
 const WIDE = { src: SOURCES.desktop, poster: SOURCES.posterDesktop, orientation: "wide" as const };
 const TALL = { src: SOURCES.mobile, poster: SOURCES.posterMobile, orientation: "tall" as const };
