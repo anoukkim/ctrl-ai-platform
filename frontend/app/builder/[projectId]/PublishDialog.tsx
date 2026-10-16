@@ -136,8 +136,12 @@ export default function PublishDialog({
         )}
         <li>{APP_LIMITS_NOTE}</li>
         <li>설명은 Claude가 미리 써 줘요 (무료) — 고쳐도 돼요. 게시는 비용이 들지 않고, 언제든 취소할 수 있어요. 버전 기록은 그대로 남아요.</li>
-        {/* 보안 검토(ui-improvements-a)의 한 줄: 첫 화면이 사진이 되니, 내 자료가 보이면 알고 게시하도록. */}
-        <li>게시하면 앱의 첫 화면을 사진으로 찍어 CtrlAIApps 카드에 보여 줘요 — 첫 화면에 내 자료가 보이면 그 사진에도 들어가요.</li>
+        {/* 보안 검토(ui-improvements-a)의 한 줄: 화면이 사진이 되니, 내 자료가 보이면 알고 게시하도록. */}
+        <li>
+          {captureThumbnail
+            ? "아래에서 고른 그림이 CtrlAIApps 카드에 보여요 — 화면에 내 자료가 보이면 그 그림에도 들어가요."
+            : "게시하면 앱의 첫 화면을 사진으로 찍어 CtrlAIApps 카드에 보여 줘요 — 첫 화면에 내 자료가 보이면 그 사진에도 들어가요."}
+        </li>
       </ul>
 
       <div className={styles.dialogField}>
