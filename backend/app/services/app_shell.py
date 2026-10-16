@@ -113,11 +113,14 @@ def resolve(db: Session, slug: str) -> ShellTarget | None:
     return ShellTarget(project, "preview")
 
 
-def render(target: ShellTarget) -> str:
+def render(target: ShellTarget, sites: list[str] | None = None) -> str:
     """The shell page. The app's name is escaped; the slug is read by
-    shell.js from the address itself, never from here."""
+    shell.js from the address itself, never from here. `sites` are the
+    club's own origins (`site_origins`): the only parents whose capture
+    requests (ui-improvements thumbnails) the shell answers."""
     name = html.escape(target.project.name)
     suffix = " · 미리보기" if target.mode == "preview" else ""
+    sites_attr = html.escape(" ".join(sites or []), quote=True)
     return (
         "<!doctype html>\n"
         '<html lang="ko"><head><meta charset="utf-8">'
@@ -130,7 +133,7 @@ def render(target: ShellTarget) -> str:
         "#ctrlai-message{margin:2rem auto;max-width:28rem;padding:1rem;font:15px/1.6 system-ui,sans-serif;"
         "text-align:center}"
         "</style></head>"
-        f'<body data-mode="{target.mode}">'
+        f'<body data-mode="{target.mode}" data-sites="{sites_attr}">'
         '<script src="/_ctrlai/shell.js"></script>'
         "</body></html>\n"
     )

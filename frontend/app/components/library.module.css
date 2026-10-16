@@ -108,24 +108,8 @@
   overflow: hidden;
 }
 
-/* Project Builder: 아직 미리보기가 없어 빗금 자리에 "미리보기 썸네일"
-   (Phase 3에서 실제 화면으로 바뀝니다). */
-.thumbPlaceholder {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--panel-2) 0,
-    var(--panel-2) var(--lib-stripe),
-    var(--panel) var(--lib-stripe),
-    var(--panel) calc(var(--lib-stripe) * 2)
-  );
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: var(--fs-label);
-}
+/* Project Builder 카드의 그림은 ctrlaistore/AppThumbnail(Thumbnail)이 그립니다:
+   찍어 둔 썸네일, 없으면 표지 (ui-improvements). */
 
 /* Video Generator: 버전의 실제 화면을 원래 비율 그대로, 어두운 바탕
    가운데에 둡니다(레터박스). 영상 무대는 밝은 테마에서도 어둡습니다. */

@@ -51,6 +51,7 @@ import {
   publicUrl,
   publishProject,
   unpublishProject,
+  uploadThumbnail,
   getBuilderProject,
   getGenerateEstimate,
   getVersionFiles,
@@ -90,6 +91,7 @@ import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
 import ClaudeHistory, { particleRo } from "./ClaudeHistory";
 import CodeView from "./CodeView";
+import HiddenCapture from "./HiddenCapture";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
 import PublishDialog, { type PublishValues } from "./PublishDialog";
@@ -177,6 +179,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [previewWhich, setPreviewWhich] = useState<"draft" | "published">("draft");
+  // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
+  const [captureUrl, setCaptureUrl] = useState<string | null>(null);
   const [labelling, setLabelling] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
 
@@ -468,13 +472,38 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setPublishOpen(false);
         listVersions(projectId).then(setVersions).catch(() => undefined);
         toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
+        // The published app's thumbnail: taken from the public address in a
+        // hidden frame, in this browser (owner-polish 4).
+        const publicAddress = publicUrl(updated, appsBase);
+        if (publicAddress) setCaptureUrl(`${publicAddress}?v=${encodeURIComponent(updated.published_at ?? "")}`);
       } catch (error) {
         setPublishError(describeError(error));
       } finally {
         setPublishing(false);
       }
     },
-    [projectId, toast],
+    [appsBase, projectId, toast],
+  );
+
+  /** 썸네일 하나 저장 — 미리보기가 보여 주는 쪽(작업 중 / 게시본)에. */
+  const storeThumbnail = useCallback(
+    async (image: Blob, manual: boolean, which: "draft" | "published" = previewWhich) => {
+      const updated = await uploadThumbnail(projectId, which, image);
+      setState((current) =>
+        current.phase === "ready"
+          ? {
+              phase: "ready",
+              project: {
+                ...current.project,
+                draft_thumbnail_at: updated.draft_thumbnail_at,
+                published_thumbnail_at: updated.published_thumbnail_at,
+              },
+            }
+          : current,
+      );
+      if (manual) toast.show("썸네일을 다시 찍었어요.");
+    },
+    [previewWhich, projectId, toast],
   );
 
   const askToUnpublish = useCallback(() => {
@@ -1050,7 +1079,15 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   }
                   toolbarStart={versionSelect}
                   toolbarEnd={claudeOpener}
+                  onCapture={mayCreate ? storeThumbnail : undefined}
                 />
+                {captureUrl && (
+                  <HiddenCapture
+                    url={captureUrl}
+                    onImage={(image) => storeThumbnail(image, false, "published")}
+                    onDone={() => setCaptureUrl(null)}
+                  />
+                )}
                 {runtimeError && (
                   <p className={styles.starterError} role="alert">
                     {runtimeError}

@@ -6,6 +6,7 @@
  * 바뀌지 않습니다.
  */
 
+import { API_BASE_URL } from "./api";
 import { request } from "./http";
 
 export interface AppListing {
@@ -27,6 +28,14 @@ export interface AppListing {
   shared_lists: boolean;
   /** 내 즐겨찾기 (ui-improvements) — 내 목록에서 먼저 보여요. */
   favorite: boolean;
+  /** 게시된 버전의 썸네일을 찍은 때. 없으면 표지를 그려요. */
+  thumbnail_at?: string | null;
+}
+
+/** 게시된 앱의 썸네일 주소 — 찍은 때를 뒤에 붙여 새 그림이 바로 보이게. 없으면 null. */
+export function appThumbnailUrl(app: Pick<AppListing, "slug" | "thumbnail_at">): string | null {
+  if (!app.thumbnail_at) return null;
+  return `${API_BASE_URL}/api/apps/${encodeURIComponent(app.slug)}/thumbnail?v=${encodeURIComponent(app.thumbnail_at)}`;
 }
 
 export function listApps(): Promise<AppListing[]> {

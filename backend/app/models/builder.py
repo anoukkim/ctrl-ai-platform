@@ -115,6 +115,11 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
         """"게시됨 v3" — the published version's number, or None."""
         return self.published_version.number if self.published_version is not None else None
 
+    @property
+    def published_thumbnail_at(self) -> datetime | None:
+        """When the published version's thumbnail was captured (ui-improvements)."""
+        return self.published_version.thumbnail_at if self.published_version is not None else None
+
     files: Mapped[list["BuilderProjectFile"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",

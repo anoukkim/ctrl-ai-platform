@@ -17,7 +17,7 @@ import type { AppListing } from "@/lib/apps";
 import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
 
-import AppThumbnail from "./AppThumbnail";
+import { AppThumbnail } from "./AppThumbnail";
 import styles from "./ctrlaistore.module.css";
 
 /** "v5 · 3일 전 업데이트" */

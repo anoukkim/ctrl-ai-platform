@@ -21,6 +21,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   LIBRARY_FILTERS,
   builderProjectDownloadUrl,
+  builderThumbnailUrl,
   createBuilderProject,
   createBuilderProjectFromTemplate,
   deleteBuilderProject,
@@ -42,6 +43,7 @@ import TestModeNotice from "@/app/components/TestModeNotice";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import SortMenu from "@/app/components/SortMenu";
+import Thumbnail from "@/app/ctrlaistore/AppThumbnail";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import { useChatIdea } from "@/app/components/useChatIdea";
@@ -493,7 +495,13 @@ export default function BuilderLibrary() {
               onRename={(name) => rename(project.id, name)}
               pinned={Boolean(project.pinned_at)}
               thumbnail={
-                <span className={styles.thumbPlaceholder}>미리보기 썸네일</span>
+                /* 찍어 둔 썸네일(작업 중 → 게시본), 없으면 표지 (owner-polish 5). */
+                <Thumbnail
+                  name={project.name}
+                  seed={project.draft_slug ?? project.app_slug ?? String(project.id)}
+                  imageUrl={builderThumbnailUrl(project)}
+                  label="icon"
+                />
               }
               thumbnailPlacement="top"
             >

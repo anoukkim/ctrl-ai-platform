@@ -35,6 +35,9 @@
   var match = /^\/([a-z2-9]{10})\/$/.exec(location.pathname);
   var body = document.body;
   var mode = body.getAttribute("data-mode") === "preview" ? "preview" : "app";
+  // The club's own site — the only parent whose thumbnail capture requests
+  // this shell answers (ui-improvements). Stamped by the server.
+  var sites = (body.getAttribute("data-sites") || "").split(" ").filter(Boolean);
   var LIMIT = 1024 * 1024; // characters of key + value, per app
   var SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads";
 
@@ -528,11 +531,49 @@
     }
   }
 
+  // ------------------------------------------------- thumbnails (ui-improvements)
+  // The site above (the maker's Builder page) asks; the app frame draws;
+  // the picture goes back up — only to a parent on one of `sites`.
+  var captures = {};
+
+  window.addEventListener("message", function (event) {
+    if (window.parent === window || event.source !== window.parent) return;
+    if (sites.indexOf(event.origin) < 0) return;
+    var data = event.data;
+    if (!data || data.ctrlai !== "capture" || typeof data.id !== "string") return;
+    var id = data.id.slice(0, 40);
+    captures[id] = event.origin;
+    send({
+      event: "capture",
+      id: id,
+      width: Number(data.width) || window.innerWidth,
+      height: Number(data.height) || window.innerHeight,
+    });
+  });
+
+  function captured(message) {
+    var id = typeof message.capture === "string" ? message.capture.slice(0, 40) : "";
+    var origin = captures[id];
+    if (!origin) return;
+    delete captures[id];
+    var ok = message.type === "capture.result" && typeof message.dataUrl === "string" && message.dataUrl.indexOf("data:image/png") === 0;
+    window.parent.postMessage(
+      ok
+        ? { ctrlai: "capture", id: id, ok: true, dataUrl: message.dataUrl, slug: slug, mode: mode }
+        : { ctrlai: "capture", id: id, ok: false, error: String(message.error || "썸네일을 만들지 못했어요."), slug: slug, mode: mode },
+      origin
+    );
+  }
+
   window.addEventListener("message", function (event) {
     // Only this page's own app frame, running sandboxed (opaque origin).
     if (event.source !== frame.contentWindow || event.origin !== "null") return;
     var message = event.data;
     if (!message || typeof message !== "object" || message.ctrlai !== 1 || typeof message.type !== "string") return;
+    if (message.type === "capture.result" || message.type === "capture.failed") {
+      captured(message);
+      return;
+    }
     var id = typeof message.id === "string" ? message.id.slice(0, 40) : null;
     Promise.resolve()
       .then(function () {

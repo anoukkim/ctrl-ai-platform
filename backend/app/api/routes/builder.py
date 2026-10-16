@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
+from app.api.uploads import file_response, read_upload_body
 from app.db.session import get_db
 from app.models import (
     BuilderGeneration,
@@ -80,7 +81,10 @@ from app.services import (
     publish_summary,
     project_zip,
 )
+from app.services import thumbnails
 from app.services import usage as usage_service
+from app.services.attachments import AttachmentRefusal
+from app.services.storage import get_storage
 from app.services.claude_provider import ClaudeError, get_claude_provider
 from app.services.work import InvalidNameError, clean_name
 
@@ -825,6 +829,67 @@ def label_version(
     db.commit()
     db.refresh(version)
     return _version_read(version, project)
+
+
+ThumbnailSpace = Literal["draft", "published"]
+
+
+@router.post(
+    "/projects/{project_id}/thumbnail",
+    response_model=BuilderProjectRead,
+    summary="Store a thumbnail captured in the maker's browser (the body is the image's bytes)",
+)
+async def upload_thumbnail(
+    project_id: int,
+    request: Request,
+    space: ThumbnailSpace = Query(default="draft"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderProject:
+    """ui-improvements (owner-polish 4·5). The picture was drawn by the SDK
+    inside the app frame and relayed by the shell; the server only checks
+    and re-encodes it (`thumbnails.encode`). `draft` stamps the working
+    copy; `published` stamps the version now published (409 without one).
+    Raw bytes, like Chat's and feedback's uploads — the JSON-body rule's
+    documented exception."""
+    project = _owned_project(project_id, db, user)
+    version = project.published_version if space == "published" else None
+    if space == "published" and version is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=thumbnails.NOT_PUBLISHED)
+    data = await read_upload_body(
+        request, thumbnails.MAX_UPLOAD_BYTES, thumbnails.TOO_BIG, "썸네일은 application/octet-stream 형식으로 보내 주세요."
+    )
+    storage = get_storage(settings)
+    try:
+        if version is not None:
+            await run_in_threadpool(thumbnails.save_version, db, storage, project, version, data)
+        else:
+            await run_in_threadpool(thumbnails.save_draft, db, storage, project, data)
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.get("/projects/{project_id}/thumbnail", summary="The project's thumbnail (WebP)")
+def read_thumbnail(
+    project_id: int,
+    space: ThumbnailSpace = Query(default="draft"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """Reading your own work: the draft's picture, or the published version's."""
+    project = _owned_project(project_id, db, user)
+    storage = get_storage(settings)
+    data = (
+        thumbnails.load_published(storage, project) if space == "published" else thumbnails.load_draft(storage, project)
+    )
+    if data is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="썸네일이 아직 없어요.")
+    return file_response(data, thumbnails.MEDIA_TYPE, f"project-{project.id}-{space}.webp", inline=True)
 
 
 @router.post(

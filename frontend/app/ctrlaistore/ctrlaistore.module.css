@@ -112,6 +112,20 @@
   z-index: 1;
 }
 
+/* 찍어 둔 썸네일: 표지 칸을 그림이 꽉 채웁니다. */
+.artworkPhoto {
+  padding: 0;
+  background: var(--panel-2);
+}
+
+.artworkImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* 상세 머리 줄의 작은 칸: 같은 표지를 첫 글자만으로. */
 .artworkSmall {
   width: 100%;

@@ -5,16 +5,18 @@ app. Every query comes from `app_publish.published_listing()`, which
 filters on the project's `deleted_at` (CLAUDE.md section 10).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.uploads import file_response
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import AccountStatus, AppFavorite, BuilderProject, User
 from app.schemas.apps import AppFavoriteSet, AppListing, AppReportCreate
-from app.services import app_manifest, app_publish, app_runtime
+from app.services import app_manifest, app_publish, app_runtime, thumbnails
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/apps", tags=["apps"])
 
@@ -57,6 +59,7 @@ def listing_of(
         app_url=app_runtime.public_url(settings, project),
         shared_lists=shared_lists_of(project),
         favorite=project.id in favorites if favorites else False,
+        thumbnail_at=project.published_thumbnail_at,
     )
 
 
@@ -105,6 +108,22 @@ def read_app(
     settings: Settings = Depends(get_settings),
 ) -> AppListing:
     return listing_of(db, settings, _listed(db, slug), favorites_of(db, user))
+
+
+@router.get("/{slug}/thumbnail", summary="The published version's thumbnail (WebP)")
+def read_thumbnail(
+    slug: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """A picture, never a page: sent with the file headers every stored
+    upload gets. 404 while the app has none (the card draws its cover)."""
+    project = _listed(db, slug)
+    data = thumbnails.load_published(get_storage(settings), project)
+    if data is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="썸네일이 아직 없어요.")
+    return file_response(data, thumbnails.MEDIA_TYPE, f"{slug}.webp", inline=True)
 
 
 @router.post(

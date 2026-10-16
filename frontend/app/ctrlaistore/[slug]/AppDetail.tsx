@@ -23,7 +23,7 @@ import { getApp, reportApp, type AppListing } from "@/lib/apps";
 import { describeError } from "@/lib/http";
 import { RUNTIME_SANDBOX } from "@/lib/static-preview";
 
-import AppThumbnail from "../AppThumbnail";
+import { AppThumbnail } from "../AppThumbnail";
 import { versionLine } from "../AppCard";
 import styles from "../ctrlaistore.module.css";
 

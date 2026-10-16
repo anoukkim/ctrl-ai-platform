@@ -424,6 +424,11 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # ctrlaiapps-publish
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
+    # ui-improvements: a thumbnail captured in the maker's browser — storing
+    # it changes your work; reading it is reading your own work.
+    ("POST", "/api/builder/projects/{project_id}/thumbnail"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/thumbnail"): "get_current_user",
+    ("GET", "/api/apps/{slug}/thumbnail"): "get_current_user",
     # publish-summary: a Claude call the club pays for — participating members only.
     ("POST", "/api/builder/projects/{project_id}/publish-summary"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",

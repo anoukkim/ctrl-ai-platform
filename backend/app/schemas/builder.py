@@ -87,8 +87,11 @@ class BuilderProjectRead(BuilderProjectBase):
     depth: str | None = None
     #: ui-improvements: when the owner pinned it; None = not pinned.
     pinned_at: datetime | None = None
-    #: ui-improvements: the working copy's thumbnail, if one was captured.
+    #: ui-improvements: the working copy's thumbnail, if one was captured,
+    #: and the published version's — the Builder card shows the first,
+    #: else the second, else the generated cover.
     draft_thumbnail_at: datetime | None = None
+    published_thumbnail_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

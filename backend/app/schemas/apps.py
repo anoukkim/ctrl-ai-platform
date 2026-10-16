@@ -28,6 +28,9 @@ class AppListing(BaseModel):
     shared_lists: bool = False
     #: ui-improvements: the caller's 즐겨찾기 — kept first on their list.
     favorite: bool = False
+    #: ui-improvements: when the published version's thumbnail was taken;
+    #: None = no picture, the card draws the generated cover.
+    thumbnail_at: datetime | None = None
 
 
 class AppFavoriteSet(BaseModel):

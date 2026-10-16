@@ -9,7 +9,7 @@
  */
 
 import type { DepthLevel, PickerModel } from "./depth";
-import { API_BASE_URL } from "./api";
+import { ApiError, API_BASE_URL } from "./api";
 import { describeError, request } from "./http";
 
 export { describeError };
@@ -57,8 +57,9 @@ export interface BuilderProject {
   publish_note?: string;
   /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
   pinned_at?: string | null;
-  /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5). */
+  /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5), 게시된 버전의 썸네일을 찍은 때 (4). */
   draft_thumbnail_at?: string | null;
+  published_thumbnail_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -700,6 +701,58 @@ export function updateVideoProject(
  * 제공자 링크는 만료되거나 그쪽 자격 증명을 요구할 수 있고, 내가 만든
  * 것을 받는 일이 거기에 매여서는 안 됩니다.
  */
+export type ThumbnailSpace = "draft" | "published";
+
+/**
+ * 프로젝트 썸네일 주소 (ui-improvements): 작업 중 것이 있으면 그것, 없으면
+ * 게시된 버전 것, 둘 다 없으면 null(카드는 표지를 그립니다). 찍은 때를
+ * 뒤에 붙여 새 그림이 바로 보이게 합니다.
+ */
+export function builderThumbnailUrl(project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at">): string | null {
+  const space: ThumbnailSpace | null = project.draft_thumbnail_at
+    ? "draft"
+    : project.published_thumbnail_at
+      ? "published"
+      : null;
+  if (!space) return null;
+  const at = space === "draft" ? project.draft_thumbnail_at : project.published_thumbnail_at;
+  return `${API_BASE_URL}/api/builder/projects/${project.id}/thumbnail?space=${space}&v=${encodeURIComponent(at ?? "")}`;
+}
+
+/**
+ * 만든 사람의 브라우저에서 찍은 썸네일을 올립니다 — 바이트 그대로
+ * (application/octet-stream; 의견 스크린샷과 같은 길). 서버가 종류와 크기를
+ * 확인하고 다시 인코딩합니다.
+ */
+export async function uploadThumbnail(
+  id: number | string,
+  space: ThumbnailSpace,
+  image: Blob,
+): Promise<BuilderProject> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/builder/projects/${id}/thumbnail?space=${space}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
+      body: image,
+    });
+  } catch {
+    throw new ApiError("서버에 연결할 수 없습니다", 0);
+  }
+  if (!response.ok) {
+    let detail = `썸네일을 저장하지 못했어요 (HTTP ${response.status})`;
+    try {
+      const body = await response.json();
+      if (body && typeof body.detail === "string") detail = body.detail;
+    } catch {
+      /* 기본 문구 */
+    }
+    throw new ApiError(detail, response.status);
+  }
+  return (await response.json()) as BuilderProject;
+}
+
 export function videoVersionDownloadUrl(
   projectId: number | string,
   versionId: number,
