@@ -139,6 +139,17 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
     Spec below ("owner-polish-2026-10-16"), with what the screenshots
     showed. Two are bugs (3, 8).
+    **10 (added 2026-10-16, chat screenshot):** "모션 추가하고 싶다고 한게 …
+    뭐 쓰면 그렇게 바로 바로 알림이 안 뜨는 것 같은데..? 약간 모션그래픽
+    띠링 이런식으로 하고 싶었던거" — spend-feedback v2. Today
+    (feat-spend-feedback) the toast appears only after a reply *finishes*,
+    slides in softly (opacity + 10px), and the countdown sits in the
+    sidebar's wallet card — which the expanded Admin menu pushes out of
+    view. Wanted: a livelier "띠링" moment — a pop/bounce with a coin or
+    sparkle, the "-N원" flying to the balance, maybe a short chime (off by
+    default or a Profile switch; browsers allow sound only after a click),
+    visible wherever the wallet card is. Still only on real `charged_krw`;
+    reduced motion keeps a plain toast.
 
 ---
 
