@@ -161,12 +161,16 @@ export default function ClaudePricingPanel() {
     const levels = settings?.chat_limits.depth_levels;
     if (!levels) return false;
     return DEPTH_SURFACES.some((surface) =>
-      DEPTH_LEVELS.some(
-        (level) =>
+      DEPTH_LEVELS.some((level) => {
+        // 비워 둔 전체 칸은 "그대로"라 바뀐 것으로 치지 않습니다 (depthTable과 같은 규칙).
+        const totalDraft = (depthDraft[`${surface}.${level}.total_cap_krw`] ?? "").trim();
+        const totalServer = levels[surface][level].total_cap_krw ?? 0;
+        return (
           Number(depthDraft[`${surface}.${level}.max_tokens`]) !== levels[surface][level].max_tokens ||
           Number(depthDraft[`${surface}.${level}.cap_krw`]) !== levels[surface][level].cap_krw ||
-          Number(depthDraft[`${surface}.${level}.total_cap_krw`] ?? 0) !== (levels[surface][level].total_cap_krw ?? 0),
-      ),
+          (totalDraft === "" ? totalServer : Number(totalDraft)) !== totalServer
+        );
+      }),
     );
   };
 

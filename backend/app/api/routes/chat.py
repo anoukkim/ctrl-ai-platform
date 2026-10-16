@@ -77,7 +77,7 @@ from app.services import depth as depth_service
 from app.services import attachments as attachments_service
 from app.services import chat as chat_service
 from app.services import chat_limits, chat_tools, provider_limiter
-from app.services import accounting, chat_models, pricing
+from app.services import chat_models, pricing
 from app.services import usage as usage_service
 from app.services.storage import get_storage
 from app.services.claude_provider import (
@@ -128,13 +128,10 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
     }
     if not groups:
         return {}
-    prices = accounting.catalogue_prices(db)
-    out: dict[int, ReplyReceipt] = {}
-    for first, ids in groups.items():
-        figures = chat_service.receipt_for_events(db, ids, prices)
-        if figures is not None:
-            out[first] = ReplyReceipt(**figures)
-    return out
+    return {
+        first: ReplyReceipt(**figures)
+        for first, figures in chat_service.receipts_for_groups(db, groups).items()
+    }
 
 
 @router.get(
@@ -790,7 +787,12 @@ def send_message(
                     break
                 # Cut by the call cap: plan the next call, or say why not.
                 raw_so_far = "".join(part.state.raw_text for part in segments)
+                # What the member saw taken (the screen's 지금까지 N원) and
+                # what the calls really cost — the ceiling is held against
+                # the cost, so a charge the wallet could only part-cover
+                # does not make room for another call.
                 charged_so_far = sum(part.charged_krw for part in segments)
+                cost_so_far = sum(part.cost_krw for part in segments)
                 # The provider's own figures for the call just made (its
                 # input, cached or not, plus what it wrote) are the next
                 # call's input — tighter than re-estimating.
@@ -801,8 +803,9 @@ def send_message(
                     _in_session,
                     session_factory,
                     lambda db: chat_service.plan_continuation(
-                        db, settings, turn, raw_so_far, charged_so_far,
+                        db, settings, turn, raw_so_far, cost_so_far,
                         measured_input_tokens=measured, calls_so_far=len(segments),
+                        raw_last_call=segment.state.raw_text,
                     ),
                 )
                 if isinstance(plan, chat_service.ContinuationStop):

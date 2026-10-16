@@ -730,10 +730,11 @@ def plan_continuation(
     settings: Settings,
     turn: PreparedTurn,
     raw_so_far: str,
-    charged_so_far_krw: int,
+    cost_so_far_krw: int,
     *,
     measured_input_tokens: int = 0,
     calls_so_far: int = 1,
+    raw_last_call: str | None = None,
 ) -> Continuation | ContinuationStop:
     """Plan the next call after a cut — or say why there is none.
 
@@ -743,6 +744,13 @@ def plan_continuation(
     the wallet is checked for its worst case like any call. Two stops:
     the whole reply's ceiling (`total_cap_krw`, the admin's 전체 한도) and
     the wallet. Nothing here spends anything.
+
+    `cost_so_far_krw` is what the calls so far *cost* — the full figure,
+    not what the wallet could still give when a charge was capped — so the
+    ceiling is held against the real spend. `measured_input_tokens` is the
+    input the call before reported; from the third call on that already
+    includes the earlier pieces and the request, so only the piece that
+    call wrote (`raw_last_call`) is new.
     """
     if turn.total_cap_krw <= 0:
         return ContinuationStop("total_cap", "")
@@ -761,10 +769,21 @@ def plan_continuation(
         )
     added = pricing.estimate_tokens(raw_so_far) + pricing.estimate_tokens(CONTINUE_PROMPT)
     estimated_input = turn.estimated_input_tokens + added
-    # The call before reported its real input (prompt + history); the next
-    # call sends that plus the partial and the request. The pre-call
-    # estimate stands in only while nothing was measured (security review).
-    calibrated_input = (measured_input_tokens or turn.calibrated_input_tokens) + added
+    if measured_input_tokens and calls_so_far > 1:
+        # The call before was itself a continuation: its measured input
+        # already holds the history, the earlier pieces and the request.
+        # Only what it wrote is new — counting the whole partial again
+        # would charge the earlier pieces twice in the estimate (0c review).
+        last = raw_so_far if raw_last_call is None else raw_last_call
+        calibrated_input = measured_input_tokens + pricing.estimate_tokens(last)
+    elif measured_input_tokens:
+        # The first call reported its real input (prompt + history); the
+        # next call sends that plus the partial and the request.
+        calibrated_input = measured_input_tokens + added
+    else:
+        # Nothing measured (stopped before any usage): the pre-call
+        # estimate stands in (security review).
+        calibrated_input = turn.calibrated_input_tokens + added
 
     max_tokens = turn.level_max_tokens
     if turn.level_cap_krw > 0:
@@ -780,7 +799,7 @@ def plan_continuation(
         max_tokens = min(max_tokens, affordable)
 
     worst_case = turn.price.worst_case_krw(calibrated_input, max_tokens) + turn.tool_extra_krw
-    if charged_so_far_krw + worst_case > turn.total_cap_krw:
+    if cost_so_far_krw + worst_case > turn.total_cap_krw:
         return ContinuationStop(
             "total_cap",
             f"답장이 전체 비용 한도({turn.total_cap_krw:,}원)에 닿아 여기서 멈췄어요. "
@@ -925,7 +944,12 @@ class SegmentCharge:
     splits a long reply into calls, each its own charge)."""
 
     event_id: int | None
+    #: What the wallet gave — less than `cost_krw` only when a charge was
+    #: capped to what was left (`cap_to_available`).
     charged_krw: int
+    #: What the call cost in won, in full — what the whole reply's ceiling
+    #: is held against.
+    cost_krw: int
     input_tokens: int
     output_tokens: int
     cache_write_tokens: int
@@ -975,6 +999,7 @@ def settle_segment(
         output_tokens = max(output_tokens, estimate_tokens(state.raw_text))
 
     charged = 0
+    cost = 0
     event_id: int | None = None
     split: dict | None = None
     wallet_remaining: int | None = None
@@ -986,6 +1011,7 @@ def settle_segment(
     )
     if input_tokens or output_tokens or written or read:
         amount = turn.price.krw(input_tokens, output_tokens, written, read) + tool_fee
+        cost = amount
         try:
             result = usage_service.charge(
                 db,
@@ -1037,6 +1063,7 @@ def settle_segment(
     return SegmentCharge(
         event_id=event_id,
         charged_krw=charged,
+        cost_krw=cost,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cache_write_tokens=written,
@@ -1055,38 +1082,60 @@ def unsettled_segment(state: TurnState) -> SegmentCharge:
     nothing — the provider's usage for a failed call is not known, as on
     the single-call error path."""
     return SegmentCharge(
-        event_id=None, charged_krw=0, input_tokens=0, output_tokens=0, cache_write_tokens=0,
+        event_id=None, charged_krw=0, cost_krw=0, input_tokens=0, output_tokens=0, cache_write_tokens=0,
         cache_read_tokens=0, web_search_count=0, tool_fee_krw=0, split=None, wallet_remaining_krw=None,
         state=state,
     )
 
 
-def receipt_for_events(db: Session, event_ids: list[int], prices: dict | None = None) -> dict | None:
-    """One reply's receipt figures from its usage events — the calls added
-    up (feat-auto-continue). The one place the sum is defined: the route
-    reads it for a conversation, `save_reply` for the `done` event. None
-    when no event is found (a refusal, or the quarter closed mid-stream)."""
-    if not event_ids:
-        return None
-    rows = list(db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids))))
+def receipts_for_groups(
+    db: Session, groups: dict[int, list[int | None]], prices: dict | None = None
+) -> dict[int, dict]:
+    """Each reply's receipt figures from its usage events — the calls added
+    up (feat-auto-continue), **one query for every reply asked for**.
+
+    `groups` maps a reply's key (its first event id) to the ids of all its
+    calls' events; a None stands for a call that was never charged (a
+    failed one) and is skipped. A reply none of whose events is found (a
+    refusal, or the quarter closed mid-stream) has no entry. The one place
+    the sum is defined: the route reads it for a conversation,
+    `receipt_for_events` for one reply.
+    """
+    wanted = {event_id for ids in groups.values() for event_id in ids if event_id is not None}
+    if not wanted:
+        return {}
+    rows = {row.id: row for row in db.scalars(select(UsageEvent).where(UsageEvent.id.in_(wanted)))}
     if not rows:
-        return None
-    rows.sort(key=lambda row: event_ids.index(row.id))
+        return {}
     if prices is None:
         prices = accounting.catalogue_prices(db)
-    cached = any(row.cache_write_tokens is not None or row.cache_read_tokens is not None for row in rows)
-    fields = _sum_splits([accounting.receipt_fields(row, prices) for row in rows]) or {}
-    return {
-        "input_tokens": sum(row.input_tokens or 0 for row in rows),
-        "output_tokens": sum(row.output_tokens or 0 for row in rows),
-        "cache_write_tokens": sum(row.cache_write_tokens or 0 for row in rows) if cached else None,
-        "cache_read_tokens": sum(row.cache_read_tokens or 0 for row in rows) if cached else None,
-        "web_search_count": sum(row.web_search_count or 0 for row in rows),
-        "tool_fee_krw": sum(row.tool_fee_krw or 0 for row in rows),
-        "charged_krw": sum(row.charged_krw for row in rows),
-        "thinking_shown": any(bool(row.thinking_shown) for row in rows),
-        **fields,
-    }
+    out: dict[int, dict] = {}
+    for key, ids in groups.items():
+        found = [rows[event_id] for event_id in ids if event_id is not None and event_id in rows]
+        if not found:
+            continue
+        cached = any(row.cache_write_tokens is not None or row.cache_read_tokens is not None for row in found)
+        fields = _sum_splits([accounting.receipt_fields(row, prices) for row in found]) or {}
+        out[key] = {
+            "input_tokens": sum(row.input_tokens or 0 for row in found),
+            "output_tokens": sum(row.output_tokens or 0 for row in found),
+            "cache_write_tokens": sum(row.cache_write_tokens or 0 for row in found) if cached else None,
+            "cache_read_tokens": sum(row.cache_read_tokens or 0 for row in found) if cached else None,
+            "web_search_count": sum(row.web_search_count or 0 for row in found),
+            "tool_fee_krw": sum(row.tool_fee_krw or 0 for row in found),
+            "charged_krw": sum(row.charged_krw for row in found),
+            "thinking_shown": any(bool(row.thinking_shown) for row in found),
+            **fields,
+        }
+    return out
+
+
+def receipt_for_events(db: Session, event_ids: list[int | None], prices: dict | None = None) -> dict | None:
+    """One reply's receipt figures — `receipts_for_groups` for a single reply."""
+    first = next((event_id for event_id in event_ids if event_id is not None), None)
+    if first is None:
+        return None
+    return receipts_for_groups(db, {first: list(event_ids)}, prices).get(first)
 
 
 def _sum_splits(splits: list[dict | None]) -> dict | None:
@@ -1147,16 +1196,21 @@ def save_reply(
     capped: int | None = None
     if status is ChatMessageStatus.TRUNCATED:
         # Cut at a cost ceiling — the figure the note names: the whole
-        # reply's, the call's own, or (continuation off) the call's cap.
+        # reply's, the call's own, or (continuation off) the call's cap. A
+        # tool turn still paused after every continuation ("pause_turn")
+        # was not cut by money, so it names none.
         if stop is None:
-            capped = turn.reply_cap_krw
+            capped = turn.reply_cap_krw if last.stop_reason == "max_tokens" else None
         elif stop.reason == "total_cap":
             capped = turn.total_cap_krw or turn.reply_cap_krw
         elif stop.reason == "call_cap":
             capped = turn.level_cap_krw
 
     charged = sum(segment.charged_krw for segment in segments)
-    event_ids = [segment.event_id for segment in segments if segment.event_id is not None]
+    # One entry per call, None for a call the ledger never saw (a failed
+    # one), so the call count survives a reload; the receipt skips the Nones.
+    call_event_ids = [segment.event_id for segment in segments]
+    event_ids = [event_id for event_id in call_event_ids if event_id is not None]
     wallet_remaining = next(
         (segment.wallet_remaining_krw for segment in reversed(segments) if segment.wallet_remaining_krw is not None),
         None,
@@ -1165,7 +1219,12 @@ def save_reply(
     output_tokens = sum(s.output_tokens for s in segments)
 
     message: ChatMessage | None = None
-    if conversation is not None and (text or status is ChatMessageStatus.REFUSED):
+    # A reply with no text is still saved when the server has a reason to
+    # show (nothing to continue from: the budget went to thinking) — the
+    # note must survive a reload. `build_context` skips an empty message.
+    if conversation is not None and (
+        text or status is ChatMessageStatus.REFUSED or (stop is not None and stop.note)
+    ):
         message = ChatMessage(
             conversation_id=conversation.id,
             user_id=user.id,
@@ -1183,7 +1242,7 @@ def save_reply(
             sources=_safe_sources(sources),
             thinking=thinking or None,
             usage_event_id=event_ids[0] if event_ids else None,
-            segment_event_ids=event_ids if len(event_ids) > 1 else None,
+            segment_event_ids=call_event_ids if len(call_event_ids) > 1 else None,
             stop_note=(stop.note[:300] if stop is not None and stop.note else None),
             created_at=datetime.now(timezone.utc),
         )
@@ -1216,18 +1275,20 @@ def save_reply(
     # Only what the ledger actually recorded gets a receipt: with no
     # event (the quarter closed mid-stream) a 0원 receipt would claim a
     # charge the ledger does not have, and vanish on reload. The figures
-    # come from the events themselves, the same way a reload reads them.
-    figures = receipt_for_events(db, event_ids)
-    if figures is not None:
-        split_keys = ("input_krw", "cache_write_krw", "cache_read_krw", "output_krw", "tool_krw", "cache_saved_krw", "split_estimated")
+    # are the charged calls' own — each carries its event's fields from
+    # `settle_segment`, so nothing is read back (0c review); a reload adds
+    # the same rows up in `receipts_for_groups`.
+    paid = [segment for segment in segments if segment.event_id is not None]
+    if paid:
+        cached = turn.request.cache_ttl is not None
         usage = ReplyUsage(
-            input_tokens=figures["input_tokens"],
-            output_tokens=figures["output_tokens"],
-            cache_write_tokens=figures["cache_write_tokens"],
-            cache_read_tokens=figures["cache_read_tokens"],
-            web_search_count=figures["web_search_count"],
-            tool_fee_krw=figures["tool_fee_krw"],
-            split={key: figures[key] for key in split_keys if key in figures} or None,
+            input_tokens=sum(s.input_tokens for s in paid),
+            output_tokens=sum(s.output_tokens for s in paid),
+            cache_write_tokens=sum(s.cache_write_tokens for s in paid) if cached else None,
+            cache_read_tokens=sum(s.cache_read_tokens for s in paid) if cached else None,
+            web_search_count=sum(s.web_search_count for s in paid),
+            tool_fee_krw=sum(s.tool_fee_krw for s in paid),
+            split=_sum_splits([s.split for s in paid]),
             thinking_shown=turn.request.show_thinking,
         )
     return TurnResult(

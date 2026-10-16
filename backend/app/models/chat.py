@@ -156,8 +156,10 @@ class ChatMessage(Base):
         ForeignKey("usage_events.id", ondelete="SET NULL"), nullable=True
     )
     #: feat-auto-continue: a reply the server wrote in several calls lists
-    #: every call's usage event here (the first is also `usage_event_id`);
-    #: the receipt adds them up. Null for a one-call reply.
+    #: every call's usage event here, in order (the first is also
+    #: `usage_event_id`; a call the ledger never saw — a failed one — is a
+    #: null entry, so the count stays right); the receipt adds the rows
+    #: up. Null for a one-call reply.
     segment_event_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     #: Why the server stopped continuing (the ceiling, the wallet, a failed
     #: call) — the Korean sentence the screen shows, after a reload too.
