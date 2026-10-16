@@ -286,6 +286,9 @@
      높이에서 빼는 만큼(사이트 머리말 · ← 링크 · 머리 줄 · 설명 · 여백). */
   --apps-head-thumb: 64px;
   --apps-detail-chrome: 15.5rem;
+  /* 좁은 화면: 머리 줄이 두 줄(글 · 단추)이라 그만큼 더 뺍니다 — 390px에서도
+     프레임의 아래가 첫 화면 안에 들어오도록. */
+  --apps-detail-chrome-narrow: 20rem;
 
   /* 화면별 큰 글자 */
   --page-amount: 32px; /* Usage 남은 금액 */

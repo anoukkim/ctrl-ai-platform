@@ -924,6 +924,11 @@
     grid-template-areas: "thumb text actions";
   }
 
+  /* 머리 줄이 한 줄이니 프레임은 그만큼 더 큽니다. */
+  .livePreviewFrame {
+    height: clamp(360px, calc(100dvh - var(--apps-detail-chrome)), 1400px);
+  }
+
   /* `auto-fill`로는 칸 수의 위를 막을 수 없어 여기서 못을 박습니다.
      넓은 화면에서 곁들이 카드가 여섯 장씩 서면 다시 눈을 끕니다. */
   .othersGrid {
@@ -997,7 +1002,7 @@
 .livePreviewFrame {
   display: block;
   width: 100%;
-  height: clamp(360px, calc(100dvh - var(--apps-detail-chrome)), 1400px);
+  height: clamp(360px, calc(100dvh - var(--apps-detail-chrome-narrow)), 1400px);
   border: 0;
   background: #fff;
 }
