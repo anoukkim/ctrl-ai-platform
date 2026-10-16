@@ -494,6 +494,11 @@
         return askAI(message.options || {}).then(function (data) {
           return { value: data };
         });
+      case "ai.estimate":
+        // Free and open signed out: a button can show its price first.
+        return api("/v1/ai/estimate", { method: "POST", body: message.options || {} }).then(function (data) {
+          return { value: data };
+        });
       case "db.save":
       case "db.list":
       case "db.get":

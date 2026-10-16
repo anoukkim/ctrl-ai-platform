@@ -573,8 +573,12 @@ whenever the app uses `ctrlai.db`.
 - Using the 기능 상자 well:
   · Call `ctrlai.ai` only from a button the visitor presses — never on \
 page load, never in a loop. Beside that button show "1회 약 N원 · 최대 \
-200원" (N: about 10 for "fast", 30 for "smart"; a photo adds 2–7), \
-and after the call show the real `chargedKrw`. Keep prompts short; use \
+M원", with N and M from `ctrlai.ai.estimate(sameOptions)` → \
+`{typicalKrw, maxKrw}` (free, works signed out, call it when the screen \
+draws; pass `images` as a count when the photo is not picked yet) — or, \
+without it, about 10 for "fast" and 30 for "smart", 최대 200원. A call \
+with the same options never costs more than maxKrw. After the call show \
+the real `chargedKrw`. Keep prompts short; use \
 `json` with a schema when the app needs structured data; say in Korean \
 when a call fails.
   · Every AI feature also has a **demo path**: when `window.ctrlai` is \
