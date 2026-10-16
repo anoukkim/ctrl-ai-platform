@@ -116,25 +116,37 @@ def _receipts_for(db: Session, messages: list) -> dict[int, ReplyReceipt]:
     One query for the whole conversation. A reply whose event is gone —
     or that never had one (a refusal) — simply has no receipt.
     """
-    event_ids = [m.usage_event_id for m in messages if m.usage_event_id is not None]
+    # feat-auto-continue: a reply written in several calls adds up every
+    # call's event; the receipt is keyed by the first (`usage_event_id`).
+    groups = {
+        m.usage_event_id: list(m.segment_event_ids or [m.usage_event_id])
+        for m in messages
+        if m.usage_event_id is not None
+    }
+    event_ids = [event_id for ids in groups.values() for event_id in ids]
     if not event_ids:
         return {}
-    rows = db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids)))
+    rows = {row.id: row for row in db.scalars(select(UsageEvent).where(UsageEvent.id.in_(event_ids)))}
     prices = accounting.catalogue_prices(db)
-    return {
-        row.id: ReplyReceipt(
-            input_tokens=row.input_tokens or 0,
-            output_tokens=row.output_tokens or 0,
-            cache_write_tokens=row.cache_write_tokens,
-            cache_read_tokens=row.cache_read_tokens,
-            web_search_count=row.web_search_count or 0,
-            tool_fee_krw=row.tool_fee_krw or 0,
-            charged_krw=row.charged_krw,
-            thinking_shown=bool(row.thinking_shown),
-            **accounting.receipt_fields(row, prices),
+    out: dict[int, ReplyReceipt] = {}
+    for first, ids in groups.items():
+        events = [rows[event_id] for event_id in ids if event_id in rows]
+        if not events:
+            continue
+        cached = any(row.cache_write_tokens is not None or row.cache_read_tokens is not None for row in events)
+        fields = chat_service._sum_splits([accounting.receipt_fields(row, prices) for row in events])
+        out[first] = ReplyReceipt(
+            input_tokens=sum(row.input_tokens or 0 for row in events),
+            output_tokens=sum(row.output_tokens or 0 for row in events),
+            cache_write_tokens=sum(row.cache_write_tokens or 0 for row in events) if cached else None,
+            cache_read_tokens=sum(row.cache_read_tokens or 0 for row in events) if cached else None,
+            web_search_count=sum(row.web_search_count or 0 for row in events),
+            tool_fee_krw=sum(row.tool_fee_krw or 0 for row in events),
+            charged_krw=sum(row.charged_krw for row in events),
+            thinking_shown=any(bool(row.thinking_shown) for row in events),
+            **(fields or {}),
         )
-        for row in rows
-    }
+    return out
 
 
 @router.get(
@@ -598,8 +610,8 @@ KEEPALIVE_SECONDS = 10.0
 _RUNNING: set[asyncio.Task] = set()
 
 
-def _finish(session_factory, settings: Settings, turn, state) -> chat_service.TurnResult:
-    """`finish_turn` in a session of its own.
+def _in_session(session_factory, work):
+    """Run `work(db)` in a session of its own.
 
     The request's session belongs to the request, which may already be
     over by the time a stopped reply is finished. The factory is the one
@@ -608,7 +620,7 @@ def _finish(session_factory, settings: Settings, turn, state) -> chat_service.Tu
     sessions = session_factory()
     db = next(sessions)
     try:
-        return chat_service.finish_turn(db, settings, turn, state)
+        return work(db)
     finally:
         sessions.close()
 
@@ -682,84 +694,154 @@ def send_message(
         It then saves and charges what was produced. Left inside the
         response, a disconnect at the wrong moment abandoned the turn:
         nothing saved, nothing charged, though Claude had been paid.
+
+        feat-auto-continue (owner-polish 11): a call that stops at
+        `max_tokens` is **continued by the server** — the partial goes back
+        as the assistant's turn with `CONTINUE_PROMPT`, under the same
+        per-call cap, each call charged on its own with the wallet checked
+        first — until the reply ends, the member presses 중지, the whole
+        reply reaches the admin's 전체 한도, or the wallet runs short. The
+        pieces are saved and shown as one reply.
         """
-        state = chat_service.TurnState()
         marker = chat_service.MarkerFilter()
         # A slot under the process-wide provider limit, waited for off the
         # event loop. Refused: a BUSY error — the provider was never
         # called, nothing is charged, and the status board is not marked.
         if not await run_in_threadpool(provider_limiter.acquire, concurrency_limit):
+            state = chat_service.TurnState()
             state.error = ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
-            result = await run_in_threadpool(_finish, session_factory, settings, turn, state)
+            result = await run_in_threadpool(
+                _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, state)
+            )
             queue.put_nowait(("end", result))
             return
+
+        segments: list[chat_service.SegmentCharge] = []
+        request = turn.request
+        estimated_input = turn.estimated_input_tokens
+        stop_reason: chat_service.ContinuationStop | None = None
+        error: ClaudeError | None = None
         try:
-            async for event in provider.stream_chat(turn.request):
-                if isinstance(event, TextDelta):
-                    state.raw_text += event.text
-                    visible = marker.feed(event.text)
-                    if visible:
-                        queue.put_nowait(("delta", visible))
-                elif isinstance(event, ThinkingDelta):
-                    # 생각 과정 보기 (chat-thinking-view): shown as it comes,
-                    # saved with the reply, never sent back to Claude.
-                    state.thinking += event.text
-                    queue.put_nowait(("thinking", event.text))
-                elif isinstance(event, UsageUpdate):
-                    state.input_tokens = event.input_tokens
-                    state.output_tokens = event.output_tokens
-                    state.cache_write_tokens = event.cache_write_tokens
-                    state.cache_read_tokens = event.cache_read_tokens
-                    state.web_search_count = event.web_search_count
-                    state.web_fetch_count = event.web_fetch_count
-                elif isinstance(event, ToolStatus):
-                    # 검색 중… / 페이지 읽는 중… / 코드 실행 중… — the
-                    # screen's line while a server tool runs. A finished
-                    # use carries what it just added in won, so the
-                    # running 약 N원 jumps the moment it lands (the
-                    # ledger's receipt still settles the real figure).
-                    added = 0
-                    if event.status == "done" and (event.result_tokens or event.searches):
-                        added = turn.price.krw(event.result_tokens, 0) + (
-                            chat_tools.search_fee_krw(
-                                turn.price, turn.web_search_usd_per_call, event.searches
+            while True:
+                state = chat_service.TurnState()
+                try:
+                    async for event in provider.stream_chat(request):
+                        if isinstance(event, TextDelta):
+                            state.raw_text += event.text
+                            visible = marker.feed(event.text)
+                            if visible:
+                                queue.put_nowait(("delta", visible))
+                        elif isinstance(event, ThinkingDelta):
+                            # 생각 과정 보기 (chat-thinking-view): shown as it comes,
+                            # saved with the reply, never sent back to Claude.
+                            state.thinking += event.text
+                            queue.put_nowait(("thinking", event.text))
+                        elif isinstance(event, UsageUpdate):
+                            state.input_tokens = event.input_tokens
+                            state.output_tokens = event.output_tokens
+                            state.cache_write_tokens = event.cache_write_tokens
+                            state.cache_read_tokens = event.cache_read_tokens
+                            state.web_search_count = event.web_search_count
+                            state.web_fetch_count = event.web_fetch_count
+                        elif isinstance(event, ToolStatus):
+                            # 검색 중… / 페이지 읽는 중… / 코드 실행 중… — the
+                            # screen's line while a server tool runs. A finished
+                            # use carries what it just added in won, so the
+                            # running 약 N원 jumps the moment it lands (the
+                            # ledger's receipt still settles the real figure).
+                            added = 0
+                            if event.status == "done" and (event.result_tokens or event.searches):
+                                added = turn.price.krw(event.result_tokens, 0) + (
+                                    chat_tools.search_fee_krw(
+                                        turn.price, turn.web_search_usd_per_call, event.searches
+                                    )
+                                )
+                            queue.put_nowait(
+                                ("tool", {"kind": event.kind, "status": event.status, "added_krw": added})
                             )
-                        )
-                    queue.put_nowait(
-                        (
-                            "tool",
-                            {
-                                "kind": event.kind,
-                                "status": event.status,
-                                "added_krw": added,
-                            },
-                        )
-                    )
-                elif isinstance(event, ToolSources):
-                    state.sources = [
-                        {
-                            "title": source[0],
-                            "url": source[1],
-                            "cited": bool(source[2]) if len(source) > 2 else False,
-                        }
-                        for source in event.sources
-                    ]
-                elif isinstance(event, StreamEnd):
-                    state.stop_reason = event.stop_reason
-                # 중지 closes the connection. Checked between pieces, so
-                # Claude stops generating — and the club stops paying —
-                # straight away.
-                if stop.is_set():
-                    state.stopped = True
+                        elif isinstance(event, ToolSources):
+                            state.sources = [
+                                {
+                                    "title": source[0],
+                                    "url": source[1],
+                                    "cited": bool(source[2]) if len(source) > 2 else False,
+                                }
+                                for source in event.sources
+                            ]
+                        elif isinstance(event, StreamEnd):
+                            state.stop_reason = event.stop_reason
+                        # 중지 closes the connection. Checked between pieces, so
+                        # Claude stops generating — and the club stops paying —
+                        # straight away.
+                        if stop.is_set():
+                            state.stopped = True
+                            break
+                except ClaudeError as caught:
+                    state.error = caught
+                except Exception as caught:  # noqa: BLE001 — anything else is still a failed call
+                    state.error = ClaudeError(ProviderErrorKind.UNKNOWN, type(caught).__name__)
+
+                if state.error is not None:
+                    error = state.error
                     break
-        except ClaudeError as error:
-            state.error = error
-        except Exception as error:  # noqa: BLE001 — anything else is still a failed call
-            state.error = ClaudeError(ProviderErrorKind.UNKNOWN, type(error).__name__)
+                # This call's charge — one `usage.charge()` per call, as always.
+                segment = await run_in_threadpool(
+                    _in_session,
+                    session_factory,
+                    lambda db, st=state, est=estimated_input: chat_service.settle_segment(
+                        db, settings, turn, st, estimated_input_tokens=est
+                    ),
+                )
+                segments.append(segment)
+                if state.stopped or state.stop_reason != "max_tokens":
+                    break
+                # Cut by the call cap: plan the next call, or say why not.
+                raw_so_far = "".join(part.state.raw_text for part in segments)
+                charged_so_far = sum(part.charged_krw for part in segments)
+                plan = await run_in_threadpool(
+                    _in_session,
+                    session_factory,
+                    lambda db: chat_service.plan_continuation(db, settings, turn, raw_so_far, charged_so_far),
+                )
+                if isinstance(plan, chat_service.ContinuationStop):
+                    stop_reason = plan
+                    break
+                request = plan.request
+                estimated_input = plan.estimated_input_tokens
+                queue.put_nowait(
+                    (
+                        "continue",
+                        {
+                            "segment": len(segments) + 1,
+                            "charged_so_far_krw": charged_so_far,
+                            "estimate": {
+                                "base_krw": plan.estimate_base_krw,
+                                "won_per_1k_output": turn.won_per_1k_output,
+                            },
+                        },
+                    )
+                )
         finally:
             provider_limiter.release()
 
-        result = await run_in_threadpool(_finish, session_factory, settings, turn, state)
+        if error is not None and not segments:
+            failed = chat_service.TurnState()
+            failed.error = error
+            result = await run_in_threadpool(
+                _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, failed)
+            )
+            queue.put_nowait(("end", result))
+            return
+        if error is not None:
+            # A continuation failed after earlier calls were paid: keep what
+            # was written as a cut reply and say why it stopped.
+            stop_reason = chat_service.ContinuationStop("wallet", f"{error} 답장은 여기까지 저장했어요.")
+            segments[-1].state.stop_reason = "max_tokens"
+        result = await run_in_threadpool(
+            _in_session,
+            session_factory,
+            lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason),
+        )
         if result.error is None:
             rest = marker.finish()
             if rest.strip():
@@ -808,6 +890,11 @@ def send_message(
                 if kind == "thinking":
                     yield _sse("thinking", {"text": payload})
                     continue
+                if kind == "continue":
+                    # feat-auto-continue: the server goes on by itself — the
+                    # screen shows "이어서 쓰는 중… 지금까지 N원".
+                    yield _sse("continue", payload)  # type: ignore[arg-type]
+                    continue
                 result: chat_service.TurnResult = payload  # type: ignore[assignment]
                 if result.error is not None:
                     yield _sse("error", {"detail": str(result.error), "kind": result.error.kind})
@@ -839,6 +926,10 @@ def send_message(
                                 else None
                             ),
                             "wallet_remaining_krw": result.wallet_remaining_krw,
+                            # feat-auto-continue: how many calls wrote the
+                            # reply, and why the server stopped continuing.
+                            "segments": result.segments,
+                            "stop_note": result.stop_note,
                             # token-guard: the composer's warning, fresh
                             # after this reply, without refetching.
                             "long_history": (

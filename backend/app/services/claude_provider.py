@@ -493,6 +493,10 @@ stop at an outline or leave steps "for later".
 - Explain as to a beginner: everyday words, short paragraphs; when a \
 technical term is unavoidable, say in one phrase what it means. Be warm and \
 practical.
+- If your previous turn was cut off by the length limit and the member's \
+message starts with [이어서], continue exactly where the text stopped — no \
+greeting, no recap, no restarting a code block or a list — as if the two \
+parts were one reply. Never start over.
 - The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
 - The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript, inline SVG for charts and drawings. No external scripts, fonts, images or network requests — they will not load. For a chart, use inline SVG or plain JavaScript on a canvas, never a chart library. Make the page complete and polished — every button works — rather than a bare sketch.
 
@@ -948,6 +952,25 @@ MOCK_REFUSAL = "[mock-refusal]"
 #: before replying, like a long think. quality-tuning Q1 uses it to prove a
 #: long reply survives every proxy on the way (keepalives every 10 s).
 MOCK_SLOW = re.compile(r"\[mock-slow:(\d+)\]")
+#: `[mock-long:N]` — a reply of about N characters: one ```html block of
+#: numbered lines (feat-auto-continue: long enough to stop at `max_tokens`
+#: two or three times and still be one page when joined).
+MOCK_LONG = re.compile(r"\[mock-long:(\d+)\]")
+#: How a continuation request begins (`chat.CONTINUE_PROMPT`); the mock
+#: answers it with the rest of the reply it cut off.
+MOCK_CONTINUE_PREFIX = "[이어서]"
+
+
+def mock_long_reply(length: int) -> str:
+    """A self-contained ```html block of at least `length` characters."""
+    head = "```html\n<!doctype html>\n<html lang=\"ko\"><body>\n<h1>긴 답장</h1>\n"
+    tail = "</body></html>\n```"
+    lines = []
+    n = 1
+    while len(head) + sum(len(line) for line in lines) + len(tail) < length:
+        lines.append(f"<p>줄 {n}: 이 줄은 긴 답장을 만들기 위한 문장이에요.</p>\n")
+        n += 1
+    return head + "".join(lines) + tail
 
 #: (pattern, reply, action) — checked in order. An action adds the button.
 #: chat-plus-rendering: canned replies that show what the screen renders —
@@ -1476,8 +1499,20 @@ class MockClaudeProvider:
                     await asyncio.sleep(self.delay)
                 yield ThinkingDelta(paragraph + "\n\n")
 
+        # feat-auto-continue: a continuation request carries the cut-off
+        # partial as the assistant turn before it; the mock answers with
+        # the rest of the reply it would have given the turn before that.
+        continued_from: str | None = None
+        if last.startswith(MOCK_CONTINUE_PREFIX) and len(request.messages) >= 3:
+            continued_from = _text_of(request.messages[-2]["content"])
+            whole = _text_of(request.messages[-3]["content"])
+            last = whole.rsplit("\n\n", 1)[-1]
+
         reply, action = _CHAT_FALLBACK, None
-        if tool_reply is not None:
+        long = MOCK_LONG.search(last)
+        if long:
+            reply = mock_long_reply(min(int(long.group(1)), 200_000))
+        elif tool_reply is not None:
             reply = tool_reply
         elif files and example_reply(whole) is None:
             reply = _files_reply(files)
@@ -1516,6 +1551,10 @@ class MockClaudeProvider:
             action = None
         if action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
+        if continued_from is not None:
+            # The rest, from where the previous call stopped (the real model
+            # is asked to do the same; the mock does it exactly).
+            reply = reply[len(continued_from):] if reply.startswith(continued_from) else reply
 
         # The mock honors `max_tokens` like the API does (one character =
         # one token, matching its usage figures), so token-guard's capped

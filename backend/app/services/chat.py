@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -475,6 +475,25 @@ class PreparedTurn:
     web_search_usd_per_call: Decimal = Decimal("0.01")
     #: 생각 깊이 the reply runs at (quality-tuning Q1); None: the model has none.
     depth: str | None = None
+    #: feat-auto-continue: the figures a continuation call is planned from —
+    #: the level's room and call cap, the whole reply's ceiling (0 = never
+    #: continue), the calibrated input of the first call and the tool
+    #: reserves the cap and the wallet check carry.
+    level_max_tokens: int = 0
+    level_cap_krw: int = 0
+    total_cap_krw: int = 0
+    calibrated_input_tokens: int = 0
+    cap_tool_extra_krw: int = 0
+    tool_extra_krw: int = 0
+
+
+#: How the server asks Claude to go on after a cut (feat-auto-continue).
+#: The system prompt's rule names this prefix; the mock answers it with
+#: the rest of the reply it cut.
+CONTINUE_PROMPT = (
+    "[이어서] 방금 답이 길이 제한에 닿아 끊겼어요. 인사말이나 요약 없이, "
+    "끊긴 바로 다음 글자부터 그대로 이어서 써 주세요."
+)
 
 
 @dataclass
@@ -667,6 +686,92 @@ def prepare_turn(
         tools=tools,
         web_search_usd_per_call=model.web_search_usd_per_call,
         depth=level.name if effort else None,
+        level_max_tokens=level.max_tokens,
+        level_cap_krw=level.cap_krw,
+        total_cap_krw=level.total_cap_krw,
+        calibrated_input_tokens=calibrated_input,
+        cap_tool_extra_krw=cap_tool_extra,
+        tool_extra_krw=tool_extra,
+    )
+
+
+# ------------------------------------------------- automatic continuation
+
+
+@dataclass(frozen=True)
+class Continuation:
+    """The next call of a reply that stopped at `max_tokens`."""
+
+    request: ChatRequest
+    estimated_input_tokens: int
+    #: The running-cost estimate's input half for this call, in won.
+    estimate_base_krw: int
+
+
+@dataclass(frozen=True)
+class ContinuationStop:
+    """Why the server will not continue: "total_cap" (the whole reply's
+    ceiling) or "wallet" (the member cannot afford the next call); the
+    Korean sentence the screen shows."""
+
+    reason: str
+    note: str
+
+
+def plan_continuation(
+    db: Session, settings: Settings, turn: PreparedTurn, raw_so_far: str, charged_so_far_krw: int
+) -> Continuation | ContinuationStop:
+    """Plan the next call after a cut — or say why there is none.
+
+    The next call sends the history, the partial reply as the assistant's
+    turn and `CONTINUE_PROMPT`; it runs under the same per-call cap (a
+    smaller `max_tokens` again, now with the partial counted as input) and
+    the wallet is checked for its worst case like any call. Two stops:
+    the whole reply's ceiling (`total_cap_krw`, the admin's 전체 한도) and
+    the wallet. Nothing here spends anything.
+    """
+    if turn.total_cap_krw <= 0:
+        return ContinuationStop("total_cap", "")
+    added = pricing.estimate_tokens(raw_so_far) + pricing.estimate_tokens(CONTINUE_PROMPT)
+    estimated_input = turn.estimated_input_tokens + added
+    calibrated_input = turn.calibrated_input_tokens + added
+
+    max_tokens = turn.level_max_tokens
+    if turn.level_cap_krw > 0:
+        affordable = chat_limits.output_budget(
+            turn.price, turn.level_cap_krw - turn.cap_tool_extra_krw, calibrated_input
+        )
+        if affordable < 1:
+            return ContinuationStop(
+                "total_cap",
+                f"이어 쓰려면 지금까지 쓴 글만으로 1회 비용 한도({turn.level_cap_krw:,}원)에 닿아 여기서 멈췄어요.",
+            )
+        max_tokens = min(max_tokens, affordable)
+
+    worst_case = turn.price.worst_case_krw(calibrated_input, max_tokens) + turn.tool_extra_krw
+    if charged_so_far_krw + worst_case > turn.total_cap_krw:
+        return ContinuationStop(
+            "total_cap",
+            f"답장이 전체 비용 한도({turn.total_cap_krw:,}원)에 닿아 여기서 멈췄어요. "
+            "'이어서 쓰기'로 이어 받을 수 있어요.",
+        )
+    user = db.get(User, turn.user_id)
+    assert user is not None
+    try:
+        usage_service.ensure_affordable(db, user=user, amount_krw=worst_case, settings=settings)
+    except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
+        return ContinuationStop("wallet", f"{error} 답장은 여기까지 저장했어요.")
+
+    messages = [
+        *turn.request.messages,
+        {"role": "assistant", "content": raw_so_far},
+        {"role": "user", "content": CONTINUE_PROMPT},
+    ]
+    request = replace(turn.request, messages=messages, max_tokens=max_tokens)
+    return Continuation(
+        request=request,
+        estimated_input_tokens=estimated_input,
+        estimate_base_krw=turn.price.worst_case_krw(calibrated_input, 0),
     )
 
 
@@ -749,6 +854,10 @@ class TurnResult:
     #: transaction — the sidebar updates from it without another request.
     #: None when nothing was charged.
     wallet_remaining_krw: int | None = None
+    #: feat-auto-continue: how many calls wrote the reply, and the Korean
+    #: sentence for a reply the server stopped continuing (None otherwise).
+    segments: int = 1
+    stop_note: str | None = None
 
 
 def _status_for(state: TurnState) -> ChatMessageStatus:
@@ -779,32 +888,43 @@ def _safe_sources(sources: list[dict] | None) -> list[dict] | None:
     return safe or None
 
 
-def finish_turn(
-    db: Session, settings: Settings, turn: PreparedTurn, state: TurnState
-) -> TurnResult:
-    """Charge what was used and save the reply — or, on an error, neither.
+@dataclass
+class SegmentCharge:
+    """One call of a reply, settled: what the ledger took (feat-auto-continue
+    splits a long reply into calls, each its own charge)."""
 
-    Runs after the stream, however it ended. Loads its rows by id rather
-    than reusing objects from `prepare_turn`: the request's session may
-    have been closed in between.
+    event_id: int | None
+    charged_krw: int
+    input_tokens: int
+    output_tokens: int
+    cache_write_tokens: int
+    cache_read_tokens: int
+    web_search_count: int
+    tool_fee_krw: int
+    split: dict | None
+    wallet_remaining_krw: int | None
+    #: The call's stream state — text, thinking, sources, how it ended.
+    state: TurnState
+
+
+def settle_segment(
+    db: Session,
+    settings: Settings,
+    turn: PreparedTurn,
+    state: TurnState,
+    *,
+    estimated_input_tokens: int | None = None,
+) -> SegmentCharge:
+    """Charge one call for what it used — `usage.charge()` once, as before.
+
+    `estimated_input_tokens` is the call's own input estimate (a
+    continuation's grows with the partial reply); it stands in only for a
+    call stopped before any usage arrived.
     """
-    label_suffix = " (mock)" if turn.is_mock else ""
-
-    if state.error is not None:
-        if state.error.kind != ProviderErrorKind.BUSY:
-            # BUSY is our own concurrency limit (PART F): the provider was
-            # never called, so the status board must not blame it.
-            providers.record_failure(db, "claude", state.error.kind, state.error.detail)
-        db.commit()
-        return TurnResult(message=None, charged_krw=0, error=state.error)
-
     user = db.get(User, turn.user_id)
     conversation = db.get(Conversation, turn.conversation_id)
     assert user is not None
-
-    action, action_title = action_of(state.raw_text)
-    text = visible_text(state.raw_text)
-    status = _status_for(state)
+    estimated = turn.estimated_input_tokens if estimated_input_tokens is None else estimated_input_tokens
 
     # A stopped stream has not reported its output count yet; the text
     # received stands in for it, generously. Its input count arrived with
@@ -816,9 +936,9 @@ def finish_turn(
     read = state.cache_read_tokens
     if state.stopped and not (input_tokens or written or read):
         if turn.request.cache_ttl is not None:
-            written = turn.estimated_input_tokens
+            written = estimated
         else:
-            input_tokens = turn.estimated_input_tokens
+            input_tokens = estimated
     output_tokens = state.output_tokens
     if state.stopped:
         output_tokens = max(output_tokens, estimate_tokens(state.raw_text))
@@ -855,7 +975,7 @@ def finish_turn(
                 output_tokens=output_tokens,
                 cache_write_tokens=written if turn.request.cache_ttl is not None else None,
                 cache_read_tokens=read if turn.request.cache_ttl is not None else None,
-                estimated_input_tokens=turn.estimated_input_tokens,
+                estimated_input_tokens=estimated,
                 exchange_rate_krw=turn.price.usd_krw,
                 conversation_id=conversation.id if conversation else None,
                 web_search_count=state.web_search_count or None,
@@ -882,6 +1002,91 @@ def finish_turn(
             # The quarter closed while the reply was streaming. There is no
             # quarter to charge against; the reply is still the member's.
             charged = 0
+    db.commit()
+    return SegmentCharge(
+        event_id=event_id,
+        charged_krw=charged,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_write_tokens=written,
+        cache_read_tokens=read,
+        web_search_count=state.web_search_count,
+        tool_fee_krw=tool_fee,
+        split=split,
+        wallet_remaining_krw=wallet_remaining,
+        state=state,
+    )
+
+
+def _sum_splits(splits: list[dict | None]) -> dict | None:
+    """The receipt's won split for the whole reply: the calls' added up."""
+    present = [split for split in splits if split]
+    if not present:
+        return None
+    out: dict = {}
+    for split in present:
+        for key, value in split.items():
+            if key == "split_estimated":
+                out[key] = bool(out.get(key)) or bool(value)
+            elif isinstance(value, (int, float)) and not isinstance(value, bool):
+                out[key] = round(out.get(key, 0) + value, 4)
+            else:
+                out.setdefault(key, value)
+    return out
+
+
+def save_reply(
+    db: Session,
+    settings: Settings,
+    turn: PreparedTurn,
+    segments: list[SegmentCharge],
+    *,
+    stop: ContinuationStop | None = None,
+) -> TurnResult:
+    """Save the reply the calls produced — one message, however many calls.
+
+    The text is the calls' joined as one; the status comes from the last
+    call (stopped · refused · cut) and from why the server did not go on
+    (`stop`: the whole reply's ceiling or the wallet → 잘림, with the
+    ceiling recorded as `capped_krw` so the screen can say why). The
+    receipt is the calls' ledger rows added up.
+    """
+    user = db.get(User, turn.user_id)
+    conversation = db.get(Conversation, turn.conversation_id)
+    assert user is not None
+    last = segments[-1].state
+    raw_text = "".join(segment.state.raw_text for segment in segments)
+    thinking = "\n\n".join(s.state.thinking.strip() for s in segments if s.state.thinking.strip())
+    sources: list[dict] = []
+    seen: set[str] = set()
+    for segment in segments:
+        for source in segment.state.sources or []:
+            if source.get("url") not in seen:
+                seen.add(source.get("url"))
+                sources.append(source)
+
+    action, action_title = action_of(raw_text)
+    text = visible_text(raw_text)
+    status = _status_for(last)
+    capped: int | None = None
+    if status is ChatMessageStatus.TRUNCATED:
+        # Cut at a cost ceiling: the whole reply's (after continuations)
+        # or — with continuation off — the call's own (token-guard).
+        if stop is not None and stop.reason == "total_cap":
+            capped = turn.total_cap_krw or turn.reply_cap_krw
+        elif stop is None:
+            capped = turn.reply_cap_krw
+    elif stop is not None and stop.reason == "wallet" and status is ChatMessageStatus.COMPLETE:
+        status = ChatMessageStatus.TRUNCATED
+
+    charged = sum(segment.charged_krw for segment in segments)
+    event_ids = [segment.event_id for segment in segments if segment.event_id is not None]
+    wallet_remaining = next(
+        (segment.wallet_remaining_krw for segment in reversed(segments) if segment.wallet_remaining_krw is not None),
+        None,
+    )
+    input_tokens = sum(s.input_tokens + s.cache_write_tokens + s.cache_read_tokens for s in segments)
+    output_tokens = sum(s.output_tokens for s in segments)
 
     message: ChatMessage | None = None
     if conversation is not None and (text or status is ChatMessageStatus.REFUSED):
@@ -896,21 +1101,19 @@ def finish_turn(
             model_id=turn.model_id,
             depth=turn.depth,
             # The whole prompt, cached or not — what the reply was written from.
-            input_tokens=input_tokens + written + read,
+            input_tokens=input_tokens,
             output_tokens=output_tokens,
-            # Stopped by the per-reply cap, not the global limit — so the
-            # screen can say so, after a reload too (token-guard).
-            capped_krw=(
-                turn.reply_cap_krw if state.stop_reason == "max_tokens" else None
-            ),
-            sources=_safe_sources(state.sources),
-            thinking=state.thinking.strip() or None,
-            usage_event_id=event_id,
+            capped_krw=capped,
+            sources=_safe_sources(sources),
+            thinking=thinking or None,
+            usage_event_id=event_ids[0] if event_ids else None,
+            segment_event_ids=event_ids if len(event_ids) > 1 else None,
             created_at=datetime.now(timezone.utc),
         )
         db.add(message)
         conversation.last_message_at = message.created_at
 
+    label_suffix = " (mock)" if turn.is_mock else ""
     providers.record_success(db, "claude", f"채팅 답변{label_suffix}")
     db.commit()
     if message is not None:
@@ -930,16 +1133,16 @@ def finish_turn(
     # Only what the ledger actually recorded gets a receipt: with no
     # event (the quarter closed mid-stream) a 0원 receipt would claim a
     # charge the ledger does not have, and vanish on reload.
-    if event_id is not None:
+    if event_ids:
         cached = turn.request.cache_ttl is not None
         usage = ReplyUsage(
-            input_tokens=input_tokens,
+            input_tokens=sum(s.input_tokens for s in segments),
             output_tokens=output_tokens,
-            cache_write_tokens=written if cached else None,
-            cache_read_tokens=read if cached else None,
-            web_search_count=state.web_search_count,
-            tool_fee_krw=tool_fee,
-            split=split,
+            cache_write_tokens=sum(s.cache_write_tokens for s in segments) if cached else None,
+            cache_read_tokens=sum(s.cache_read_tokens for s in segments) if cached else None,
+            web_search_count=sum(s.web_search_count for s in segments),
+            tool_fee_krw=sum(s.tool_fee_krw for s in segments),
+            split=_sum_splits([s.split for s in segments]),
             thinking_shown=turn.request.show_thinking,
         )
     return TurnResult(
@@ -948,4 +1151,25 @@ def finish_turn(
         long_history=long_history,
         usage=usage,
         wallet_remaining_krw=wallet_remaining,
+        segments=len(segments),
+        stop_note=stop.note if stop is not None and stop.note else None,
     )
+
+
+def finish_turn(
+    db: Session, settings: Settings, turn: PreparedTurn, state: TurnState
+) -> TurnResult:
+    """Charge what was used and save the reply — or, on an error, neither.
+
+    One call's worth: `settle_segment` then `save_reply`. The route uses
+    the two directly when it continues a cut reply (feat-auto-continue).
+    """
+    if state.error is not None:
+        if state.error.kind != ProviderErrorKind.BUSY:
+            # BUSY is our own concurrency limit (PART F): the provider was
+            # never called, so the status board must not blame it.
+            providers.record_failure(db, "claude", state.error.kind, state.error.detail)
+        db.commit()
+        return TurnResult(message=None, charged_krw=0, error=state.error)
+    segment = settle_segment(db, settings, turn, state)
+    return save_reply(db, settings, turn, [segment])

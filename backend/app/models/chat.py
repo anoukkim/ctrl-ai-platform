@@ -155,12 +155,22 @@ class ChatMessage(Base):
     usage_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("usage_events.id", ondelete="SET NULL"), nullable=True
     )
+    #: feat-auto-continue: a reply the server wrote in several calls lists
+    #: every call's usage event here (the first is also `usage_event_id`);
+    #: the receipt adds them up. Null for a one-call reply.
+    segment_event_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+    @property
+    def segments(self) -> int:
+        """How many calls wrote this reply (feat-auto-continue)."""
+        return len(self.segment_event_ids) if self.segment_event_ids else 1
+
     #: Files sent with this message (chat-plus-files). Read-only here: rows
     #: are created by the upload route and deleted with the conversation.
     attachments: Mapped[list["ChatAttachment"]] = relationship(
