@@ -598,6 +598,13 @@ New UI requests go here until they are folded into a UI batch.
   where, what to keep), shown for the member to edit before 고치기; charged
   from the wallet like any call (a few 원), the estimate shown first.
   Feasible; not scheduled.
+  **Owner's preferred shape (2026-10-17, verbatim):** "약간 지금처럼 뭐
+  물어보면 질문 던지고 답하고 ? 그 결과를 전송하는 거?" — Claude first asks
+  2–3 short questions with tap-to-answer choices (plus 직접 입력) about what
+  the request leaves open, the member answers, and the answers are folded
+  into one finished request shown for review before 고치기; a request that
+  is already clear skips the questions. Two Haiku calls (~몇 원–10원).
+  "아니 지금하라는게 아니라" — later, not now.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
