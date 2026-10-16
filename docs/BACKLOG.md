@@ -548,6 +548,13 @@ New UI requests go here until they are folded into a UI batch.
   feedback-screenshots). When it comes: the same upload path as the
   feedback screenshots (bytes checked, re-encoded, EXIF gone), one image
   per member, shown wherever the letter is today.
+- **chat-pins** — owner, 2026-10-16 evening: "채팅에 핀 기능
+  추가해야하는데". The same 고정 that Project Builder and Video Generator
+  got in ui-improvements-a (`pinned_at` on the row, a 고정 / 고정 해제
+  item in the conversation's ⋯ menu, pinned conversations first in the
+  Chat sidebar list under a small 고정됨 heading, newest pin first). Owner
+  only (a member pins their own chats), a JSON-body route, a migration.
+  Small; not yet scheduled or pre-approved.
 
 *(The two UI requests since UI batch 1, **admin-restructure** and
 **ui-naming**, were each large enough to get their own item and branch in
