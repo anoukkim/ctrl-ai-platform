@@ -2865,3 +2865,85 @@ The owner's words for every point stay in BACKLOG › "owner-polish-2026-10-16"
 - Checks at merge: backend 1063 (PG on, exit 0), frontend 535,
   tsc/lint/build OK, Playwright 14/14, screenshots
   `progress/screens/owner-polish-a/`; `/code-review high` findings fixed.
+
+## ui-improvements-a — delivery notes (merged 2026-10-16)
+
+Branch `feat-ui-improvements-a`, merged `89efa9c` under the owner's written
+pre-approval of 2026-10-16 (quoted in `progress/RUN-2026-10-16.md` › UI-A):
+own `/code-review high` and `/security-review`, every gate green, main
+merged with one Alembic head, the coordinating session asked before the
+merge. The owner's words stay in BACKLOG › "owner-polish-2026-10-16"
+(points 4, 5, 15) and › ui-improvements (the UI bundle; its admin half,
+points 3–6, is another session's branch). What was built:
+
+- **App detail (owner-polish 15).** One head row — small thumbnail, name,
+  maker, "vN · 3일 전 업데이트", 업데이트 메모; 새 창에서 열기 and 신고하기 on
+  the right — the description folded past 80 characters, the sandboxed
+  frame right under it sized `clamp(360px, 100dvh − chrome, 1400px)`
+  with a taller chrome figure on the phone (the head is two rows there),
+  so the frame ends inside the first screen at 390px. No colour block,
+  no duplicate 앱 실행. The honest note names shared lists only when the
+  published `ctrlai.json` declares one (`AppListing.shared_lists`,
+  parsed from that one file; a broken manifest counts as none).
+- **ListToolbar.** `label | search | controls` grid on the four lists
+  (Builder, CtrlAIApps, Video, CtrlAITube's header row); the search ends
+  at the card row's edge; stacked below 44rem. The global `.toolbar`
+  rules and the striped `--lib-stripe` placeholder are gone.
+- **Pins · favourites · sort** (migration `a3f7c1d9e2b4`: `pinned_at` on
+  builder and video projects, `draft_thumbnail_at`, versions'
+  `thumbnail_at`, table `app_favorites`). `POST
+  /api/builder/projects/{id}/pin` and `/api/video/projects/{id}/pin`
+  (`{on}`, `get_current_user` — a reading preference, like ★; never moves
+  `updated_at` via `services/quiet.quiet_update`); `POST
+  /api/apps/{slug}/favorite` (`get_current_user`, idempotent on the
+  unique row); `SortMenu` + `lib/list-sort` (마지막 수정순 / 이름순 in
+  `localStorage` per screen), pinned or favourite first with a stable sort.
+- **Thumbnails (owner-polish 4·5)** — method A of the plan: a capture in
+  the maker's browser, never member code on the server. SDK version "5"
+  answers the shell's `capture` event with a PNG (DOM clone with the
+  computed styles that differ from a bare element of the same tag → SVG
+  `foreignObject` → canvas; ≤ 5,000 nodes, ≤ 4 M characters, long edge
+  ≤ 1,600 px); the shell relays only for `window.parent` with an origin
+  in `data-sites`, answers only the asking origin, once per id; the site
+  (`lib/thumbnail-capture.ts`) checks source, origin and id, turns the
+  data URL into a Blob and uploads it (`POST
+  /api/builder/projects/{id}/thumbnail?space=draft|published`,
+  `application/octet-stream`, ≤ 4 MB, `require_active_member`);
+  `services/thumbnails.encode` sniffs PNG/JPEG/WebP from the bytes,
+  decodes through the shared `attachments.decode_image` (pixel guard,
+  EXIF applied then dropped), draws on white, fits 640×400 top-anchored,
+  writes WebP q82 with no metadata into `AssetStorage`
+  (`thumbnails/<project>/draft.webp`, `v<N>.webp`; pruned versions take
+  theirs along). `PreviewPane` captures 1.5 s after the frame loads and
+  on ⋯ › 썸네일 다시 찍기 (errors shown only for the manual one);
+  `HiddenCapture` photographs the published address right after 게시; the
+  게시 dialog says the first screen becomes the card. Served by `GET
+  /api/builder/projects/{id}/thumbnail` (owner) and `GET
+  /api/apps/{slug}/thumbnail` (any signed-in member, published only) with
+  nosniff and a sandboxed CSP. Known blanks — an app's own `<img>` files,
+  WebGL, Safari — keep the coloured cover; `thumbnail-render-worker` is
+  the later item.
+- **Add-ons the owner asked for on the way.** builder_stages, builder_edit
+  and builder_starter no longer copy a request into `description` and
+  `ArtifactPreview` sends none, so a card shows a description only once
+  published; Profile › 알림 as two `role="switch"` rows on one grid;
+  Profile › 내가 만든 앱 as `<ul>` rows (name · vN · time · 열기), no pictures.
+- **Tests.** Backend: `test_ui_improvements.py` (pins incl. an owner not
+  taking part, `updated_at` untouched, favourites per member),
+  `test_thumbnails.py` (encode, routes, pruning, shell `data-sites`),
+  guard-map rows, shared-lists listing, "a request never becomes the
+  description", SDK "5". Frontend: ListToolbar CSS contract and the four
+  screens, list-sort, pin/sort cards, thumbnail capture protocol,
+  thumbnails on cards and the preview, Profile rows, CtrlAIApps detail.
+  Playwright `e2e/ui-improvements.spec.ts` (4): a from-chat project's
+  preview is photographed and the stored WebP's RIFF/WEBP header checked,
+  the Builder card shows it, 게시 photographs the published app for the
+  CtrlAIApps card and head, the detail frame fits 390 × 844, pin · 이름순
+  · ★ survive a reload, Profile's two switches align and the list has no
+  image. Final: backend 1076, frontend 547, tsc/lint/build, Playwright
+  6/6 (with promo-videos), screenshots `progress/screens/ui-improvements-a/`.
+- **Reviews.** `/code-review high` 9 findings fixed in `028c5eb` (the
+  `updated_at` bump, the pin guard, pruned pictures, one decoder, the SDK
+  payload, the favourite race, manifest-only parsing, the `<img>` retry,
+  one upload helper); `/security-review` no findings; nothing touches
+  wallets or charging.

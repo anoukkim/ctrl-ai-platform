@@ -192,8 +192,9 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
 ---
 
 7. **ui-improvements** · M1 · two branches
-    **A — the member screens: merged 2026-10-16 as `feat-ui-improvements-a`**
-    (Done row and delivery notes in the archive; migration `a3f7c1d9e2b4`):
+    **A — the member screens: merged 2026-10-16 as `89efa9c`
+    (`feat-ui-improvements-a`; Done row and delivery notes in the archive;
+    migration `a3f7c1d9e2b4`):
     points (1), (2) and (7) below, plus three add-ons the owner asked for
     on the way — a Builder card never shows the last request as its
     description (the from-chat path fixed too), Profile › 알림 as two
