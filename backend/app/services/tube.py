@@ -29,9 +29,13 @@ MAX_COMMENT = 1000
 MAX_REPORT = 500
 EXCERPT = 200
 
-#: The club's own video (promo-videos): one hosted file per orientation,
-#: served from the site (frontend/public/promo). Versioned names: a new
-#: encode is a new name, so caches never serve the old one.
+#: The club's own video (promo-videos): two hosted files, served from the
+#: site (frontend/public/promo). **Which file goes where is a matter of
+#: place, not device** (owner, 2026-10-16, fix-promo-video-placement):
+#: `hosted_desktop_src` is the 16:9 cut, played in the first-visit guide;
+#: `hosted_mobile_src` is the 9:16 cut, played on CtrlAITube — on every
+#: device. Versioned names: a new encode is a new name, so caches never
+#: serve the old one.
 OFFICIAL_SLUG = "ctrlai-intro"
 OFFICIAL = dict(
     slug=OFFICIAL_SLUG,
@@ -40,7 +44,7 @@ OFFICIAL = dict(
     description=(
         "1분 안에 보는 CTRL+AI — 코딩을 몰라도 말만 하면 앱과 영상을 만들고 나눌 수 있어요. "
         "로그인, Chat, Project Builder, CtrlAIApps, 분기마다 받는 동아리 지원금까지. "
-        "휴대폰에서는 세로 영상, 데스크탑에서는 가로 영상이 나와요. 음악은 직접 만든 곡이에요."
+        "음악은 직접 만든 곡이에요. 가로 편은 처음 왔을 때의 안내 창에서 볼 수 있어요."
     ),
     official=True,
     hosted_desktop_src="/promo/ctrlai-intro-desktop-v1.mp4",
@@ -66,9 +70,18 @@ def _now() -> datetime:
 
 
 def ensure_official(db: Session) -> TubeVideo:
-    """The club's video row, made on first use (idempotent, race-safe)."""
+    """The club's video row, made on first use (idempotent, race-safe) and
+    kept in step with OFFICIAL: a new encode or wording lands by deploy,
+    with no data migration — the row is updated on the next read."""
     row = db.scalar(select(TubeVideo).where(TubeVideo.slug == OFFICIAL_SLUG))
     if row is not None:
+        changed = False
+        for key, value in OFFICIAL.items():
+            if getattr(row, key) != value:
+                setattr(row, key, value)
+                changed = True
+        if changed:
+            db.flush()
         return row
     try:
         with db.begin_nested():
