@@ -114,7 +114,7 @@ def test_a_failure_leaves_the_fields_empty_and_publishing_works(
 
     monkeypatch.setattr(service.app_ai, "run", broken)
     result = summary(client, project)
-    assert result == {"description": "", "note": "", "cached": False, "model": ""}
+    assert result == {"description": "", "note": "", "cached": False, "model": "", "uses_ai": False, "ai_access": "demo"}
     assert db_session.query(UsageEvent).count() == 0
     # Nothing was kept, so the next open tries again.
     monkeypatch.undo()
@@ -128,7 +128,7 @@ def test_no_index_html_means_no_summary(client: TestClient, db_session: Session,
     project = BuilderProject(owner_user_id=dev_user.id, name="빈 프로젝트", description="")
     db_session.add(project)
     db_session.commit()
-    assert summary(client, project) == {"description": "", "note": "", "cached": False, "model": ""}
+    assert summary(client, project) == {"description": "", "note": "", "cached": False, "model": "", "uses_ai": False, "ai_access": "demo"}
     assert db_session.query(UsageEvent).count() == 0
 
 

@@ -33,6 +33,7 @@ from app.models import (
     User,
 )
 from app.schemas.builder import (
+    AiAccessRequest,
     BuilderProjectCreate,
     BuilderProjectFromChat,
     BuilderProjectFromTemplate,
@@ -66,6 +67,7 @@ from app.schemas.builder import (
     VersionRead,
 )
 from app.services import (
+    app_ai_access,
     app_publish,
     app_runtime,
     builder_edit,
@@ -929,7 +931,7 @@ def publish_project(
         project.name = _checked_name(payload.name)
     try:
         app_publish.publish(
-            db, config, project, description=payload.description, note=payload.note
+            db, config, project, description=payload.description, note=payload.note, ai_access=payload.ai_access
         )
     except app_publish.PublishError as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
@@ -956,17 +958,45 @@ async def publish_summary_read(
     never an error the dialog has to handle — an empty answer means
     "write your own"."""
     project = _owned_project(project_id, db, user)
+    # app-ai-access: whether the working copy calls ctrlai.ai — the dialog
+    # asks "다른 회원에게 AI 기능을 열까요?" only then.
+    uses_ai = app_ai_access.uses_ai(builder_versions.current_files(db, project))
     hit = publish_summary.cached(db, project)
     if hit is None:
         # A provider slot only for a real call — a stored answer waits for nobody.
         limit = chat_limits.current(db).provider_concurrency
         if not await run_in_threadpool(provider_limiter.acquire, limit):
-            return PublishSummaryRead()
+            return PublishSummaryRead(uses_ai=uses_ai, ai_access=project.ai_access)
         try:
             hit = await publish_summary.summarize(db, config, get_claude_provider(config), user=user, project=project)
         finally:
             provider_limiter.release()
-    return PublishSummaryRead(description=hit.description, note=hit.note, cached=hit.cached, model=hit.model)
+    return PublishSummaryRead(
+        description=hit.description, note=hit.note, cached=hit.cached, model=hit.model,
+        uses_ai=uses_ai, ai_access=project.ai_access,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/ai-access",
+    response_model=BuilderProjectRead,
+    summary="app-ai-access: open the app's AI to other members (전체 기능) or keep it 데모만",
+)
+def set_ai_access(
+    project_id: int,
+    payload: AiAccessRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BuilderProject:
+    """The owner's switch, any time after 게시 (and before: the value waits
+    for the next 게시). `get_current_user`, like 게시 취소: closing one's
+    own app's AI must keep working after a quarter ends, and opening it
+    spends nothing of the owner's — a visitor pays for their own calls."""
+    project = _owned_project(project_id, db, user)
+    project.ai_access = payload.ai_access
+    db.commit()
+    db.refresh(project)
+    return project
 
 
 @router.post(

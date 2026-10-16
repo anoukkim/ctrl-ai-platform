@@ -90,6 +90,11 @@ class BuilderProjectRead(BuilderProjectBase):
     #: else the second, else the generated cover.
     draft_thumbnail_at: datetime | None = None
     published_thumbnail_at: datetime | None = None
+    #: app-ai-access: how the app's AI is opened to other members ("demo" |
+    #: "full"), and whether the published version's files call `ctrlai.ai`
+    #: at all — the Builder's 게시 menu shows the switch only then.
+    ai_access: str = "demo"
+    published_uses_ai: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -229,6 +234,10 @@ class PublishSummaryRead(BaseModel):
     note: str = ""
     cached: bool = False
     model: str = ""
+    #: app-ai-access: the working copy calls `ctrlai.ai` — the dialog then
+    #: asks "다른 회원에게 AI 기능을 열까요?" — and the project's current answer.
+    uses_ai: bool = False
+    ai_access: str = "demo"
 
 
 class PublishRequest(BaseModel):
@@ -238,6 +247,15 @@ class PublishRequest(BaseModel):
     description: str = Field(min_length=1, max_length=2000)
     #: 업데이트 메모 — one optional line on the listing.
     note: str = Field(default="", max_length=200)
+    #: app-ai-access: "demo" | "full" — the maker's answer when the app
+    #: uses AI; omitted keeps the project's setting (a new one is "demo").
+    ai_access: Literal["demo", "full"] | None = None
+
+
+class AiAccessRequest(BaseModel):
+    """The Builder's 게시 menu: change how the app's AI is opened, any time."""
+
+    ai_access: Literal["demo", "full"]
 
 
 class GenerateRead(BaseModel):

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.models import BuilderProject, BuilderProjectFile, BuilderProjectVersion
+from app.services import app_ai_access
 from app.services.storage import get_storage
 
 
@@ -80,6 +81,8 @@ def snapshot(
         number=number,
         note=note.strip()[:200],
         files=[[path, files[path]] for path in sorted(files)],
+        # app-ai-access: known now, so nobody reads the files again later.
+        uses_ai=app_ai_access.uses_ai(files),
     )
     db.add(version)
     # Pruned: everything older than the newest `KEEP` — except versions the

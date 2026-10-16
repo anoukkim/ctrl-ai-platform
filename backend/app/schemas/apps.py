@@ -31,6 +31,10 @@ class AppListing(BaseModel):
     #: ui-improvements: when the published version's thumbnail was taken;
     #: None = no picture, the card draws the generated cover.
     thumbnail_at: datetime | None = None
+    #: app-ai-access: the published version calls `ctrlai.ai`, and how the
+    #: maker opened it — "demo" (no call, 0원) or "full" (visitors pay).
+    uses_ai: bool = False
+    ai_access: str = "demo"
 
 
 class AppFavoriteSet(BaseModel):
@@ -85,6 +89,9 @@ class AdminAppOverview(BaseModel):
     example: bool = False
     sdk_enabled: bool = True
     sdk_disabled_reason: str = ""
+    #: app-ai-access: the published version uses AI, and the maker's setting.
+    uses_ai: bool = False
+    ai_access: str = "demo"
     open_reports: int = 0
     #: Members who allowed this app and have not disconnected.
     consents: int = 0

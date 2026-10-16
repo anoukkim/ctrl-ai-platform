@@ -20,14 +20,20 @@
     const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 1500));
     return Promise.race([sdk.app(), timeout])
       .then((info) => (info ? sdk.user() : null))
-      .then((user) => {
-        liveOn = Boolean(user) && settings.mode !== "demo";
+      // app-ai-access: CTRL+AI가 데모라고 하면(만든 사람의 설정이나 방문자의 스위치) 데모예요.
+      .then((user) => Promise.all([user, sdk.ai.mode ? sdk.ai.mode().catch(() => "live") : "live"]))
+      .then(([user, aiMode]) => {
+        liveOn = Boolean(user) && settings.mode !== "demo" && aiMode === "live";
       })
       .catch(() => {
         liveOn = false;
       });
   }
   let framedByMaker = false;
+  // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
+  window.addEventListener("ctrlai:ai-mode", (event) => {
+    liveOn = Boolean(event.detail && event.detail.mode === "live") && liveOn;
+  });
 
   function fromStorage() {
     const read =

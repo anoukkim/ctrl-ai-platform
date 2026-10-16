@@ -64,6 +64,8 @@ def listing_of(
         shared_lists=shared_lists_of(project),
         favorite=project.id in favorites if favorites else False,
         thumbnail_at=project.published_thumbnail_at,
+        uses_ai=project.published_uses_ai,
+        ai_access=project.ai_access,
     )
 
 

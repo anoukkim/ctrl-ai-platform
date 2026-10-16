@@ -114,7 +114,10 @@
     history.push({ role: "me", text });
     render();
 
-    if (!sdk || !user) {
+    // 데모: CTRL+AI 밖, 로그인 전, 또는 이 앱의 AI가 데모로 열려 있을 때(만든
+    // 사람이 '데모만'으로 두었거나 방문자가 데모 스위치를 켰을 때 — 0원).
+    const aiMode = sdk && sdk.ai.mode ? await sdk.ai.mode().catch(() => "live") : "demo";
+    if (!sdk || !user || aiMode === "demo") {
       // 데모: 잠깐 뒤에 미리 적어 둔 답.
       await new Promise((r) => setTimeout(r, 400));
       history.push({ role: "bot", text: demoAnswer(), demo: true });
@@ -150,6 +153,9 @@
       if (error && error.code === "login_required") {
         user = null;
         addError("로그인이 풀렸어요. 다시 로그인해 주세요.");
+      } else if (error && error.code === "demo") {
+        // 데모로 바뀌었어요(0원): 미리 적어 둔 답으로.
+        history.push({ role: "bot", text: demoAnswer(), demo: true });
       } else {
         addError(`답을 받지 못했어요: ${error && error.message ? error.message : "잠시 뒤 다시 시도해 주세요."}`);
       }

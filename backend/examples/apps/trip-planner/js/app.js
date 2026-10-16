@@ -121,6 +121,12 @@
         return;
       }
     }
+    // app-ai-access: 만든 사람이 '데모만'으로 두었거나 방문자가 CTRL+AI의 데모
+    // 스위치를 켰으면 실제 AI는 켜지지 않아요 (0원).
+    if (on && sdk.ai.mode && (await sdk.ai.mode().catch(() => "live")) === "demo") {
+      say("지금은 데모로만 볼 수 있어요. 실제 AI는 화면 왼쪽 아래 CTRL+AI 스위치에서 켜요.");
+      return;
+    }
     live.on = on;
     store.set(MODE_KEY, on ? "live" : "demo").catch(() => {});
     modeBadge();
@@ -631,7 +637,14 @@
         message = { text: `${text2} (실제 AI · ${result.chargedKrw}원)`, kind: "ok" };
       }
     } catch (error) {
-      message = { text: `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`, kind: "wait" };
+      if (error && error.code === "demo") {
+        // 데모로 바뀌었어요(0원): 데모 규칙으로 돌아가요.
+        live.on = false;
+        modeBadge();
+        message = { text: "데모로 보여 줘요 — AI는 부르지 않았어요 (0원). 데모 규칙으로 다시 눌러 보세요.", kind: "wait" };
+      } else {
+        message = { text: `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`, kind: "wait" };
+      }
     }
     render();
     say(message.text);
@@ -725,12 +738,26 @@
   });
   const modeToggle = $("#mode-toggle");
   if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
-  Promise.all([store.get(KEY), sdk ? sdk.user().catch(() => null) : null, sdk ? store.get(MODE_KEY).catch(() => null) : null])
-    .then(([saved, user, mode]) => {
+  // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
+  window.addEventListener("ctrlai:ai-mode", (event) => {
+    if (event.detail && event.detail.mode === "demo" && live.on) {
+      live.on = false;
+      modeBadge();
+      render();
+    }
+  });
+  Promise.all([
+    store.get(KEY),
+    sdk ? sdk.user().catch(() => null) : null,
+    sdk ? store.get(MODE_KEY).catch(() => null) : null,
+    sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "live") : "live",
+  ])
+    .then(([saved, user, mode, aiMode]) => {
       if (saved && saved.trip && saved.trip.input && T.CITIES[saved.trip.input.city]) state = saved;
       // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
+      // CTRL+AI가 데모라고 하면(만든 사람의 설정이나 방문자의 스위치) 데모예요.
       live.user = user || null;
-      live.on = Boolean(sdk && user && mode !== "demo");
+      live.on = Boolean(sdk && user && mode !== "demo" && aiMode === "live");
       modeBadge();
     })
     .catch(() => {

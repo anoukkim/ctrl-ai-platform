@@ -74,7 +74,7 @@ def shop(db_session: Session, other_user: User, config) -> BuilderProject:
     db_session.flush()
     builder_versions.replace_files(db_session, project, SHOP_FILES)
     builder_versions.snapshot(db_session, project, "만들기", SHOP_FILES)
-    app_publish.publish(db_session, config, project, description="영수증", note="")
+    app_publish.publish(db_session, config, project, description="영수증", note="", ai_access="full")
     db_session.commit()
     return project
 

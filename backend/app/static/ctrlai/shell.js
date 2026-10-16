@@ -367,7 +367,94 @@
     toast(mode === "preview" ? "미리보기 사용 · " + won + " · 내 지원금에서" : "앱 AI · " + won + " · 내 동아리 지원금에서");
   }
 
+  // ------------------------------------------- app-ai-access: 데모 / 실제 AI
+  // Two switches decide whether an AI call leaves this page at all. The
+  // maker's: "데모만" or "전체 기능" (the server tells us, and refuses on its
+  // own too). The visitor's: this pill, remembered in this browser per app.
+  // In 데모 nothing is sent — no sign-in window, no call, 0원 — and the app
+  // gets an error with code "demo" to show its demo answer instead.
+  var AI_MODE_KEY = PREFIX + "ai-mode"; // "demo" when the visitor chose 데모
+  var aiBox = null;
+
+  function aiAccess() {
+    return info && info.ai && info.ai.access === "full" ? "full" : "demo";
+  }
+
+  function aiUsed() {
+    return !!(info && info.ai && info.ai.usesAi);
+  }
+
+  function visitorMode() {
+    return store.getItem(AI_MODE_KEY) === "demo" ? "demo" : "live";
+  }
+
+  function aiMode() {
+    return aiAccess() === "full" && visitorMode() === "live" ? "live" : "demo";
+  }
+
+  function demoRefusal() {
+    var error = new Error(
+      aiAccess() === "full"
+        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). 실제 AI는 왼쪽 아래 스위치에서 켤 수 있어요."
+        : "이 앱의 AI는 데모로만 열려 있어요. 데모 답변을 보여 드려요."
+    );
+    error.code = "demo";
+    return error;
+  }
+
+  function setVisitorMode(next) {
+    if (next === "demo") store.setItem(AI_MODE_KEY, "demo");
+    else store.removeItem(AI_MODE_KEY);
+    drawAiSwitch();
+    send({ event: "ai-mode", mode: aiMode() });
+    toast(aiMode() === "demo" ? "데모로 봐요 — AI를 부르지 않아요 (0원)." : "실제 AI를 켰어요 — 버튼을 누를 때만 내 지원금에서 나가요.");
+  }
+
+  /** The pill at the bottom left: what mode the app is in, and the visitor's switch. */
+  function drawAiSwitch() {
+    // Only a published app that uses AI; the maker's 미리보기 has no switch.
+    if (mode !== "app" || !aiUsed()) return;
+    if (!aiBox) {
+      aiBox = document.createElement("div");
+      aiBox.id = "ctrlai-ai";
+      aiBox.setAttribute("role", "group");
+      aiBox.setAttribute("aria-label", "AI 모드");
+      aiBox.style.cssText =
+        "position:fixed;left:12px;bottom:12px;z-index:2147483646;display:flex;gap:6px;align-items:center;" +
+        "padding:4px 4px 4px 6px;border-radius:999px;background:rgba(20,20,24,.92);color:#fff;" +
+        "font:12px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)";
+      body.appendChild(aiBox);
+    }
+    while (aiBox.firstChild) aiBox.removeChild(aiBox.firstChild);
+    var live = aiMode() === "live";
+    var badge = document.createElement("span");
+    badge.setAttribute("data-mode", live ? "live" : "demo");
+    badge.textContent = live ? "실제 AI · 내 지원금에서" : aiAccess() === "full" ? "데모 · 0원" : "데모 · AI 호출 없음";
+    badge.title = live
+      ? "AI 버튼을 누를 때만 내 동아리 지원금에서 나가요."
+      : aiAccess() === "full"
+        ? "지금은 데모 답변만 봐요. AI는 부르지 않아요."
+        : "만든 사람이 AI를 데모로만 열었어요. 아무것도 나가지 않아요.";
+    badge.style.cssText =
+      "display:inline-block;padding:3px 9px;border-radius:999px;font-weight:700;" +
+      (live ? "background:rgba(94,234,160,.16);color:#7ff0b6" : "background:#2a3f3a;color:#ffc24b");
+    aiBox.appendChild(badge);
+    if (aiAccess() === "full") {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = live ? "데모로 보기" : "실제 AI 켜기";
+      button.style.cssText =
+        "padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;" +
+        "color:#fff;font:inherit;cursor:pointer";
+      button.addEventListener("click", function () {
+        setVisitorMode(live ? "demo" : "live");
+      });
+      aiBox.appendChild(button);
+    }
+  }
+
   function askAI(options) {
+    if (aiMode() === "demo") return Promise.reject(demoRefusal());
     return signedIn().then(function () {
       return api("/v1/ai/ask", { method: "POST", body: options }).then(
         function (data) {
@@ -383,6 +470,7 @@
   }
 
   function streamAI(id, options) {
+    if (aiMode() === "demo") return Promise.reject(demoRefusal());
     return signedIn().then(function () {
       return api("/v1/ai/stream", { method: "POST", body: options, raw: true }).then(function (response) {
         if (!response.ok) {
@@ -430,7 +518,7 @@
     });
   }
 
-  refresh().catch(function () {
+  refresh().then(drawAiSwitch).catch(function () {
     info = null;
   });
 
@@ -501,6 +589,11 @@
         // Free and open signed out: a button can show its price first.
         return api("/v1/ai/estimate", { method: "POST", body: message.options || {} }).then(function (data) {
           return { value: data };
+        });
+      case "ai.mode":
+        // "live" or "demo" — the maker's setting and the visitor's switch together.
+        return (info ? Promise.resolve(info) : refresh()).then(function () {
+          return { value: aiMode() };
         });
       case "db.save":
       case "db.list":
