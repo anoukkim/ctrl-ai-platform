@@ -368,3 +368,117 @@ def test_editing_a_quarter_obeys_the_same_rules(client: TestClient) -> None:
     assert client.patch(
         f"/api/admin/quarters/{first['id']}", json={"display_name": "2027 2분기"}
     ).status_code == 200
+
+
+# ------------------------------------------- 신청 기한 연장 (ui-improvements B)
+
+
+@pytest.fixture
+def open_quarter(db_session: Session) -> Quarter:
+    """A quarter taking applications now, with a deadline a week out."""
+    from datetime import timedelta
+
+    today = date.today()
+    quarter = Quarter(
+        code="2031-Q1",
+        display_name="2031 Q1",
+        starts_at=today - timedelta(days=10),
+        ends_at=today + timedelta(days=80),
+        application_opens_at=today - timedelta(days=20),
+        application_closes_at=today + timedelta(days=7),
+        status=QuarterStatus.APPLICATION_OPEN,
+        subsidy_limit_krw=80_000,
+    )
+    db_session.add(quarter)
+    db_session.commit()
+    db_session.refresh(quarter)
+    return quarter
+
+
+def test_the_deadline_can_be_pushed_later_and_is_named_in_the_audit_log(
+    client: TestClient, db_session: Session, open_quarter: Quarter
+) -> None:
+    later = (open_quarter.application_closes_at.toordinal() + 14)
+    later = date.fromordinal(later).isoformat()
+    response = client.patch(
+        f"/api/admin/quarters/{open_quarter.id}", json={"application_closes_at": later}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["application_closes_at"] == later
+    assert response.json()["status"] == "application_open"
+
+    row = db_session.query(AuditLog).filter_by(action=AuditAction.QUARTER_UPDATED).one()
+    assert "신청 마감일" in row.summary and later in row.summary
+    assert row.detail["after"]["application_closes_at"] == later
+
+
+def test_the_deadline_cannot_be_moved_into_the_past_once_open(
+    client: TestClient, open_quarter: Quarter
+) -> None:
+    yesterday = date.fromordinal(date.today().toordinal() - 1).isoformat()
+    response = client.patch(
+        f"/api/admin/quarters/{open_quarter.id}", json={"application_closes_at": yesterday}
+    )
+    assert response.status_code == 400
+    assert "오늘이거나 그 뒤" in response.json()["detail"]
+
+
+def test_the_deadline_stays_inside_the_quarter(client: TestClient, open_quarter: Quarter) -> None:
+    after_end = date.fromordinal(open_quarter.ends_at.toordinal() + 1).isoformat()
+    response = client.patch(
+        f"/api/admin/quarters/{open_quarter.id}", json={"application_closes_at": after_end}
+    )
+    assert response.status_code == 400
+    assert "분기 종료일보다 뒤일 수 없습니다" in response.json()["detail"]
+
+
+def test_a_running_quarter_reopens_applications_with_a_new_deadline(
+    client: TestClient, db_session: Session, open_quarter: Quarter
+) -> None:
+    """신청 마감 (active) is reversible; the wallets are untouched by it."""
+    assert client.patch(
+        f"/api/admin/quarters/{open_quarter.id}", json={"status": "active"}
+    ).status_code == 200
+
+    later = date.fromordinal(date.today().toordinal() + 21).isoformat()
+    response = client.patch(
+        f"/api/admin/quarters/{open_quarter.id}",
+        json={"status": "application_open", "application_closes_at": later},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "application_open"
+    assert response.json()["application_closes_at"] == later
+
+    rows = db_session.query(AuditLog).filter_by(action=AuditAction.QUARTER_UPDATED).all()
+    assert any("다시 열고" in row.summary and later in row.summary for row in rows)
+
+
+def test_reopening_with_a_past_deadline_is_refused(
+    client: TestClient, db_session: Session, open_quarter: Quarter
+) -> None:
+    open_quarter.status = QuarterStatus.ACTIVE
+    open_quarter.application_closes_at = date.fromordinal(date.today().toordinal() - 3)
+    db_session.commit()
+
+    response = client.patch(
+        f"/api/admin/quarters/{open_quarter.id}", json={"status": "application_open"}
+    )
+    assert response.status_code == 400
+    assert "마감일을 함께 늦춰" in response.json()["detail"]
+
+
+def test_a_closed_quarter_does_not_reopen_even_with_a_new_deadline(
+    client: TestClient, db_session: Session, open_quarter: Quarter
+) -> None:
+    """분기 마감 freezes wallets and records 회수; it is not the same as 신청 마감."""
+    assert client.post(
+        f"/api/admin/quarters/{open_quarter.id}/close", json={"carry_over_percent": 0}
+    ).status_code == 200
+
+    later = date.fromordinal(date.today().toordinal() + 21).isoformat()
+    response = client.patch(
+        f"/api/admin/quarters/{open_quarter.id}",
+        json={"status": "application_open", "application_closes_at": later},
+    )
+    assert response.status_code == 409
+    assert "다시 열 수 없습니다" in response.json()["detail"]
