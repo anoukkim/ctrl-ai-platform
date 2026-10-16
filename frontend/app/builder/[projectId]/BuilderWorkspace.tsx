@@ -28,7 +28,10 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pin,
+  Redo2,
+  Save,
   Tag,
+  Undo2,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
@@ -39,6 +42,7 @@ import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDial
 import MenuButton from "@/app/components/MenuButton";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
+import UnsavedDialog, { type UnsavedRequest } from "@/app/components/UnsavedDialog";
 import WorkspaceTitle from "@/app/components/WorkspaceTitle";
 import ws from "@/app/components/workspace.module.css";
 import {
@@ -47,7 +51,10 @@ import {
   appUrl,
   describeError,
   APP_LIMITS_NOTE,
+  getHistory,
   labelVersion,
+  restoreStep,
+  saveVersion,
   publicUrl,
   publishProject,
   setAiAccess,
@@ -66,6 +73,8 @@ import {
   builderPickerModel,
   type BuilderFile,
   type BuilderProject,
+  type BuilderHistory,
+  type BuilderStep,
   type BuilderVersion,
   type GenerateEstimate,
 } from "@/lib/projects";
@@ -90,7 +99,7 @@ import { NO_PROGRESS, PlanCard, StartForm, type Progress } from "./StagedGenerat
 import type { DepthLevel, PickerModel } from "@/lib/depth";
 import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
-import ClaudeHistory, { particleRo } from "./ClaudeHistory";
+import ClaudeHistory from "./ClaudeHistory";
 import CodeView from "./CodeView";
 
 import PublishCelebration from "@/app/components/PublishCelebration";
@@ -175,6 +184,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [generateEstimate, setGenerateEstimate] = useState<GenerateEstimate | null>(null);
   const [thread, setThread] = useState<{ role: "member" | "claude"; text: string }[]>([]);
   const [versions, setVersions] = useState<BuilderVersion[]>([]);
+  // builder-snapshots: 작업 단계(실행 취소)와 저장 안 한 작업 여부.
+  const [history, setHistory] = useState<BuilderHistory | null>(null);
+  const [unsavedAsk, setUnsavedAsk] = useState<UnsavedRequest | null>(null);
+  const [stepBusy, setStepBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   // ctrlaiapps-publish
@@ -314,6 +327,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     listVersions(projectId)
       .then(setVersions)
       .catch(() => setVersions([]));
+    getHistory(projectId)
+      .then(setHistory)
+      .catch(() => setHistory(null));
   }, [projectId]);
 
   useEffect(() => {
@@ -477,7 +493,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         });
         setState({ phase: "ready", project: updated });
         setPublishOpen(false);
-        listVersions(projectId).then(setVersions).catch(() => undefined);
+        loadVersions();
         toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
         setCelebrating((n) => n + 1);
         // The first screen of the public address, taken in a hidden frame in
@@ -490,7 +506,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setPublishing(false);
       }
     },
-    [appsBase, projectId, toast],
+    [appsBase, loadVersions, projectId, toast],
   );
 
   /** 썸네일 하나 저장 — 미리보기가 보여 주는 쪽(작업 중 / 게시본)에. */
@@ -556,7 +572,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           const updated = await unpublishProject(projectId);
           setState({ phase: "ready", project: updated });
           setPreviewWhich("draft");
-          listVersions(projectId).then(setVersions).catch(() => undefined);
+          loadVersions();
           setConfirm(null);
           toast.show("게시를 취소했어요.");
         } catch (error) {
@@ -566,9 +582,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         }
       },
     });
-  }, [projectId, toast]);
+  }, [loadVersions, projectId, toast]);
 
-  // 버전 저장: 이름 붙이기 / 고정하기.
+  // 버전 이름 붙이기 / 고정하기.
   const saveVersionLabel = useCallback(
     async (version: BuilderVersion, change: { label?: string; pinned?: boolean }) => {
       try {
@@ -581,6 +597,45 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     [projectId, toast],
   );
 
+  /** 지금 파일에 맞춘 새 번호의 버전을 만듭니다(이름은 선택). 이미 같으면 "이미 같아요". */
+  const saveNow = useCallback(
+    async (label = ""): Promise<boolean> => {
+      try {
+        const result = await saveVersion(projectId, label);
+        setState({ phase: "ready", project: result.project });
+        loadVersions();
+        toast.show(
+          result.created
+            ? `v${result.version.number} 버전으로 저장했어요.`
+            : "이미 같아요. 새 버전을 만들지 않았어요.",
+        );
+        return true;
+      } catch (error) {
+        toast.show(describeError(error));
+        return false;
+      }
+    },
+    [projectId, loadVersions, toast],
+  );
+
+  /** 버전 저장 단추: 이름(선택)을 묻고 저장합니다. */
+  const askToSave = useCallback(() => {
+    setDeleteError(null);
+    setConfirm({
+      title: "버전 저장",
+      effect:
+        "지금 파일을 다음 번호의 버전으로 저장해요. 비용은 들지 않아요. 나중에 언제든 이 버전을 불러올 수 있어요.",
+      confirmLabel: "저장",
+      reason: { label: "버전 이름 (선택)", placeholder: "예: 버튼 색 바꾸기 전" },
+      onConfirm: async (name) => {
+        setDeleting(true);
+        const saved = await saveNow(name);
+        setDeleting(false);
+        if (saved) setConfirm(null);
+      },
+    });
+  }, [saveNow]);
+
   // 확인 창은 스스로 닫히지 않습니다. 성공하면 닫고, 실패하면 창 안에 이유를.
   const restore = useCallback(
     async (number: number) => {
@@ -591,30 +646,121 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setFiles(result.files);
         setState({ phase: "ready", project: result.project });
         setViewing(null);
-        setVersions((list) => [result.version, ...list]);
+        loadVersions();
         setConfirm(null);
-        toast.show(`v${number}의 파일로 되돌렸어요. 되돌리기 전 상태도 버전으로 남아 있어요.`);
+        setUnsavedAsk(null);
+        toast.show(`v${number}을(를) 불러왔어요. 새 버전은 만들지 않았고, 실행 취소로 돌아올 수 있어요.`);
       } catch (error) {
         setDeleteError(describeError(error));
       } finally {
         setDeleting(false);
       }
     },
-    [projectId, toast],
+    [projectId, loadVersions, toast],
   );
 
+  /** 불러오기: 저장 안 한 작업이 있으면 먼저 "저장할까요?"를 묻습니다. */
   const askToRestore = useCallback(
     (version: BuilderVersion) => {
       setDeleteError(null);
+      if (history?.unsaved) {
+        setUnsavedAsk({
+          title: "저장 안 한 작업이 있어요. 저장할까요?",
+          effect: `v${version.number}을(를) 불러오면 지금 파일이 바뀌어요. 저장하면 다음 번호의 버전으로 남아요. 저장하지 않아도 실행 취소로 돌아올 수 있어요.`,
+          onSave: async () => {
+            setDeleting(true);
+            const saved = await saveNow();
+            setDeleting(false);
+            if (saved) await restore(version.number);
+          },
+          onDiscard: () => restore(version.number),
+        });
+        return;
+      }
       setConfirm({
-        title: `v${version.number}${particleRo(version.number)} 되돌리기`,
-        effect: `파일을 v${version.number} 때로 되돌립니다(${version.note}). 비용은 들지 않고, 지금 상태도 새 버전으로 남아 언제든 다시 돌아올 수 있어요.`,
-        confirmLabel: "되돌리기",
+        title: `v${version.number} 불러오기`,
+        effect: `파일을 v${version.number} 때로 바꿉니다(${version.note}). 비용은 들지 않고 새 버전은 만들지 않아요. 지금 상태는 실행 취소로 돌아올 수 있어요.`,
+        confirmLabel: "불러오기",
         onConfirm: () => restore(version.number),
       });
     },
-    [restore],
+    [restore, history, saveNow],
   );
+
+  /** 실행 취소 / 다시 실행 / 이 단계로. 무료, 새 버전 없음. */
+  const goToStep = useCallback(
+    async (seq: number) => {
+      setStepBusy(true);
+      try {
+        const result = await restoreStep(projectId, seq);
+        setFiles(result.files);
+        setState({ phase: "ready", project: result.project });
+        setViewing(null);
+        loadVersions();
+      } catch (error) {
+        toast.show(describeError(error));
+        loadVersions();
+      } finally {
+        setStepBusy(false);
+      }
+    },
+    [projectId, loadVersions, toast],
+  );
+
+  const stepNeighbour = (direction: "undo" | "redo"): BuilderStep | undefined => {
+    const steps = history?.steps ?? [];
+    const at = steps.find((step) => step.current);
+    if (!at) return undefined;
+    return direction === "undo"
+      ? [...steps].reverse().find((step) => step.seq < at.seq)
+      : steps.find((step) => step.seq > at.seq);
+  };
+
+  // 나가기: 저장 안 한 작업이 있으면 "이 버전을 저장할까요?" (builder-snapshots).
+  // 안쪽 링크는 문서 전체에서 가로채고(사이드바 포함), 탭을 닫거나 새로
+  // 고칠 때는 브라우저의 기본 안내를 씁니다.
+  const unsaved = history?.unsaved === true;
+  useEffect(() => {
+    if (!unsaved) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || (anchor.target && anchor.target !== "_self")) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const go = () => {
+        setUnsavedAsk(null);
+        // 이미 저장했거나 버렸으니 가로채기가 다시 걸리지 않게 먼저 비웁니다.
+        setHistory((current) => (current ? { ...current, unsaved: false } : current));
+        router.push(`${url.pathname}${url.search}${url.hash}`);
+      };
+      setUnsavedAsk({
+        title: "이 버전을 저장할까요?",
+        effect: "저장 안 한 작업이 있어요. 저장하지 않고 나가도 작업 중인 파일은 그대로 남아 있어요.",
+        onSave: async () => {
+          setDeleting(true);
+          const saved = await saveNow();
+          setDeleting(false);
+          if (saved) go();
+        },
+        onDiscard: go,
+      });
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [unsaved, router, saveNow]);
 
   const refreshRuntime = useCallback(async () => {
     setRefreshing(true);
@@ -723,11 +869,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const publishedUrl = publicUrl(project, appsBase);
   const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
   const latestVersion = versions.length > 0 ? versions[0].number : null;
-  /** owner-polish 13: at least one version Claude made (has a request). */
-  const hasClaudeHistory = versions.some((version) => Boolean(version.request));
+  /** 작업 파일이 서 있는 저장 버전(불러온 것, 아니면 가장 새 것). */
+  const standingVersion = history?.reference_version_number ?? latestVersion;
+  /** owner-polish 13: at least one step Claude made (has a request). */
+  const hasClaudeHistory = (history?.steps ?? []).some((step) => Boolean(step.request));
   const published = project.published_version_number ?? null;
-  // 작업 중인 버전이 이미 게시된 버전이면 업데이트 게시는 할 일이 없습니다.
-  const sameAsPublished = published !== null && latestVersion !== null && latestVersion === published;
+  // 작업 중인 파일이 게시된 버전 그대로면 업데이트 게시는 할 일이 없습니다.
+  const sameAsPublished =
+    published !== null && standingVersion !== null && standingVersion === published && !unsaved;
   const guideOpen = guidesOpen || isGuideDoc(activeFile);
 
   const openFile = (path: string) => {
@@ -768,7 +917,13 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     tabRefs.current[next]?.focus();
   };
 
-  const versionSelect = latestVersion !== null && (
+  const workingLabel = unsaved
+    ? standingVersion !== null
+      ? `작업 중 · v${standingVersion} 이후 바뀐 것`
+      : "작업 중 · 저장 안 함"
+    : `작업 중 v${standingVersion ?? latestVersion}`;
+
+  const versionSelect = (latestVersion !== null || unsaved) && (
     <label className={styles.versionSelect}>
       <span className="sr-only">미리볼 버전</span>
       <select
@@ -782,7 +937,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           }
         }}
       >
-        <option value="draft">작업 중 v{latestVersion}</option>
+        <option value="draft">{workingLabel}</option>
         {publishedUrl && published !== null && <option value="published">게시된 v{published}</option>}
         {viewing && <option value={`v${viewing.number}`}>v{viewing.number} 보는 중</option>}
       </select>
@@ -839,11 +994,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
 
         <ProjectStatusBadge status={project.status} />
-        {(published || latestVersion) && (
+        {(published || latestVersion || unsaved) && (
           <span className="badge badge-muted" data-testid="version-status">
             {sameAsPublished
               ? `게시됨 v${published} · 게시된 버전과 같아요`
-              : [published ? `게시됨 v${published}` : null, latestVersion ? `작업 중 v${latestVersion}` : null]
+              : [published ? `게시됨 v${published}` : null, latestVersion || unsaved ? workingLabel : null]
                   .filter(Boolean)
                   .join(" · ")}
           </span>
@@ -858,6 +1013,42 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
         <span className={ws.topbarSpacer} />
         <span className={ws.topbarActions}>
+          {/* builder-snapshots: 실행 취소 · 다시 실행(작업 단계)과 버전 저장. */}
+          <button
+            className={`btn btn-sm ${styles.iconOnly}`}
+            type="button"
+            aria-label="실행 취소"
+            title={history?.can_undo ? "마지막 작업을 되돌려요" : "되돌릴 작업이 없어요"}
+            disabled={!mayCreate || generating || stepBusy || !history?.can_undo}
+            onClick={() => {
+              const target = stepNeighbour("undo");
+              if (target) void goToStep(target.seq);
+            }}
+          >
+            <Undo2 size={15} aria-hidden="true" />
+          </button>
+          <button
+            className={`btn btn-sm ${styles.iconOnly}`}
+            type="button"
+            aria-label="다시 실행"
+            title={history?.can_redo ? "되돌린 작업을 다시 해요" : "다시 할 작업이 없어요"}
+            disabled={!mayCreate || generating || stepBusy || !history?.can_redo}
+            onClick={() => {
+              const target = stepNeighbour("redo");
+              if (target) void goToStep(target.seq);
+            }}
+          >
+            <Redo2 size={15} aria-hidden="true" />
+          </button>
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={askToSave}
+            disabled={!mayCreate || empty || files === null || generating}
+            title={mayCreate ? "지금 파일을 다음 번호의 버전으로 저장해요" : NOT_PARTICIPATING_HINT}
+          >
+            <Save size={14} aria-hidden="true" /> 버전 저장
+          </button>
           {/* 내보내기는 참여 여부와 무관합니다 — 내가 만든 것을 꺼내 오는
               일이고, 백엔드도 같은 이유로 열어 두었습니다. */}
           <MenuButton
@@ -1220,11 +1411,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     below shows, opened. */}
                 {hasClaudeHistory && (
                   <ClaudeHistory
-                    versions={versions}
-                    viewing={viewing?.number ?? null}
-                    onView={(version) => void viewVersion(version)}
-                    onRestore={askToRestore}
-                    restoreDisabled={!mayCreate || generating}
+                    steps={history?.steps ?? []}
+                    onGoTo={(step) => void goToStep(step.seq)}
+                    restoreDisabled={!mayCreate || generating || stepBusy}
                     restoreTitle={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                   />
                 )}
@@ -1254,20 +1443,20 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     onCancel={() => void dropPlan()}
                   />
                 )}
-                {versions.length === 0 && thread.length === 0 && !generating && !generation && (
+                {versions.length === 0 && !hasClaudeHistory && thread.length === 0 && !generating && !generation && (
                   <p className={styles.hint}>
                     {empty
                       ? "가운데에서 만들고 싶은 앱을 알려 주면 Claude가 먼저 계획을 보여 줘요."
-                      : "바꾸고 싶은 점을 아래에 적으면 Claude가 파일을 고쳐요. 바뀔 때마다 버전이 남아서 언제든 되돌릴 수 있어요."}
+                      : "바꾸고 싶은 점을 아래에 적으면 Claude가 파일을 고쳐요. 바뀐 것은 실행 취소로 되돌릴 수 있고, 마음에 드는 때에 버전 저장을 누르면 그 모습이 남아요."}
                   </p>
                 )}
               </div>
 
               {versions.length > 0 && (
                 <details className={styles.versions} open={!hasClaudeHistory || undefined} data-testid="all-versions">
-                  <summary>모든 버전 ({versions.length})</summary>
+                  <summary>저장한 버전 ({versions.length})</summary>
                   <ul className={styles.versionList}>
-                    {versions.map((version, index) => (
+                    {versions.map((version) => (
                       <li className={styles.versionRow} key={version.number}>
                         <span className={styles.versionNumber}>v{version.number}</span>
                         <span className={styles.versionNote} title={version.note}>
@@ -1330,30 +1519,28 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                             </button>
                           </form>
                         )}
-                        {index === 0 ? (
+                        {version.number === standingVersion && !unsaved ? (
                           <span className="badge badge-muted">지금</span>
                         ) : (
                           <>
-                            {!hasClaudeHistory && (
-                              <button
-                                className="btn btn-sm"
-                                type="button"
-                                aria-pressed={viewing?.number === version.number}
-                                aria-label={`v${version.number} 이 버전 보기`}
-                                onClick={() => void viewVersion(version)}
-                              >
-                                이 버전 보기
-                              </button>
-                            )}
                             <button
                               className="btn btn-sm"
                               type="button"
-                              aria-label={`v${version.number}${particleRo(version.number)} 되돌리기`}
+                              aria-pressed={viewing?.number === version.number}
+                              aria-label={`v${version.number} 이 버전 보기`}
+                              onClick={() => void viewVersion(version)}
+                            >
+                              이 버전 보기
+                            </button>
+                            <button
+                              className="btn btn-sm"
+                              type="button"
+                              aria-label={`v${version.number} 불러오기`}
                               onClick={() => askToRestore(version)}
                               disabled={!mayCreate || generating}
                               title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
                             >
-                              되돌리기
+                              불러오기
                             </button>
                           </>
                         )}
@@ -1478,6 +1665,13 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       )}
 
       {celebrating > 0 && <PublishCelebration key={celebrating} onDone={() => setCelebrating(0)} />}
+
+      <UnsavedDialog
+        busy={deleting}
+        error={deleteError}
+        request={unsavedAsk}
+        onClose={() => setUnsavedAsk(null)}
+      />
 
       <ConfirmDialog
         busy={deleting}

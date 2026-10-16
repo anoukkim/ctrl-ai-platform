@@ -11,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { request } from "@/lib/http";
-import type { BuilderFile, BuilderProject, BuilderVersion } from "@/lib/projects";
+import type { BuilderFile, BuilderHistory, BuilderProject, BuilderVersion } from "@/lib/projects";
 import {
   PREVIEW_CSP,
   PREVIEW_SANDBOX,
@@ -97,7 +97,21 @@ const V1: BuilderVersion = {
 const planGeneration = vi.fn();
 const runGeneration = vi.fn();
 const restoreVersion = vi.fn();
+const saveVersion = vi.fn();
+const restoreStep = vi.fn();
+const getHistory = vi.fn();
 const listVersions = vi.fn();
+const routerPush = vi.fn();
+
+const CLEAN: BuilderHistory = {
+  steps: [],
+  can_undo: false,
+  can_redo: false,
+  unsaved: false,
+  reference_version_number: 2,
+  latest_version_number: 2,
+};
+const UNSAVED: BuilderHistory = { ...CLEAN, unsaved: true };
 let appsBase: string | null = "http://apps.test";
 
 vi.mock("@/lib/projects", async (importOriginal) => {
@@ -109,6 +123,9 @@ vi.mock("@/lib/projects", async (importOriginal) => {
     listBuilderFiles: vi.fn().mockResolvedValue(FILES),
     listVersions: (...args: unknown[]) => listVersions(...args),
     restoreVersion: (...args: unknown[]) => restoreVersion(...args),
+    saveVersion: (...args: unknown[]) => saveVersion(...args),
+    restoreStep: (...args: unknown[]) => restoreStep(...args),
+    getHistory: (...args: unknown[]) => getHistory(...args),
     getGenerateEstimate: vi.fn().mockResolvedValue({
       estimated_krw: 70,
       worst_case_krw: 240,
@@ -130,6 +147,12 @@ vi.mock("@/lib/generation", async (importOriginal) => {
   };
 });
 
+const toastShow = vi.fn();
+vi.mock("@/app/components/ToastProvider", () => ({
+  useToast: () => ({ show: toastShow }),
+  default: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 vi.mock("@/app/components/SiteProvider", () => ({
   useSite: () => ({ apps_base_url: appsBase, test_mode: { builder: false } }),
   useSiteLoaded: () => true,
@@ -143,7 +166,7 @@ vi.mock("@/app/components/MyQuarterProvider", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/builder/7",
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -154,6 +177,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   appsBase = "http://apps.test";
   listVersions.mockResolvedValue([V1]);
+  getHistory.mockResolvedValue({ ...CLEAN, reference_version_number: 1, latest_version_number: 1 });
 });
 
 describe("앱 주소 미리보기", () => {
@@ -207,19 +231,28 @@ describe("말로 고치기와 버전", () => {
       handlers.onFileDone?.("style.css", 40);
       handlers.onCheckStart?.();
       handlers.onCheckDone?.([], "점검했어요 — 고칠 곳이 없어요.", 9);
-      listVersions.mockResolvedValue([
-        {
-          ...V1,
-          number: 2,
-          note: "고치기: 버튼 색을 바꿔 줘",
-          request: "버튼 색을 바꿔 줘",
-          summary: "버튼 색을 주황색으로 바꿔요.",
-          changed_count: 1,
-          charged_krw: 52,
-        },
-        V1,
-      ]);
-      return { kind: "done", versionNumber: 2, chargedKrw: 52, filesDone: ["style.css"], checkFixed: [] };
+      // builder-snapshots: a run is a 작업 step (no new version, but unsaved work).
+      getHistory.mockResolvedValue({
+        ...CLEAN,
+        unsaved: true,
+        can_undo: true,
+        reference_version_number: 1,
+        latest_version_number: 1,
+        steps: [
+          { seq: 1, note: "처음 상태", created_at: "2026-10-14T09:00:00Z", current: false },
+          {
+            seq: 2,
+            note: "고치기: 버튼 색을 바꿔 줘",
+            created_at: "2026-10-15T09:00:00Z",
+            current: true,
+            request: "버튼 색을 바꿔 줘",
+            summary: "버튼 색을 주황색으로 바꿔요.",
+            changed_count: 1,
+            charged_krw: 52,
+          },
+        ],
+      });
+      return { kind: "done", chargedKrw: 52, filesDone: ["style.css"], checkFixed: [] };
     });
     const user = userEvent.setup();
     render(<BuilderWorkspace projectId="7" />);
@@ -231,32 +264,129 @@ describe("말로 고치기와 버전", () => {
     // 고치기는 계획이 나오면 바로 시작합니다.
     expect(planGeneration).toHaveBeenCalledWith("7", { request: "버튼 색을 바꿔 줘" });
     expect(runGeneration).toHaveBeenCalledWith("7", 4, expect.anything());
-    // 끝나면 Claude 판의 대화에 부탁 → 한 일 + "v2 · 파일 1개 바뀜 · 52원" (Q3).
+    // 끝나면 Claude 판의 대화에 부탁 → 한 일 + "파일 1개 바뀜 · 52원" (Q3).
     const history = await screen.findByRole("list", { name: "바뀌어 온 기록" });
-    expect(await within(history).findByText(/v2 · 파일 1개 바뀜 · 52원/)).toBeTruthy();
+    expect(await within(history).findByText(/파일 1개 바뀜 · 52원/)).toBeTruthy();
     expect(within(history).getByText("버튼 색을 바꿔 줘")).toBeTruthy();
     expect(within(history).getByText(/버튼 색을 주황색으로 바꿔요\./)).toBeTruthy();
-    expect(within(history).getByRole("button", { name: "v1로 되돌리기" })).toBeTruthy();
-    expect(await screen.findByText("모든 버전 (2)")).toBeTruthy();
+    expect(within(history).getByRole("button", { name: /처음 상태 때로 되돌리기/ })).toBeTruthy();
+    // 새 버전은 안 생겼고, 저장 안 한 작업으로 보입니다.
+    expect(await screen.findByText("저장한 버전 (1)")).toBeTruthy();
+    expect(await screen.findByText("작업 중 · v1 이후 바뀐 것", { selector: "option" })).toBeTruthy();
   });
 
-  test("되돌리기는 확인을 받고, 무료라고 알린다", async () => {
+  test("불러오기는 확인을 받고, 새 버전을 만들지 않는다고 알린다", async () => {
     listVersions.mockResolvedValue([{ ...V1, number: 2, note: "고치기: 색" }, V1]);
-    restoreVersion.mockResolvedValue({
-      files: FILES,
-      version: { ...V1, number: 3, note: "v1로 되돌리기" },
-      project: PROJECT,
-    });
+    getHistory.mockResolvedValue(CLEAN);
+    restoreVersion.mockResolvedValue({ files: FILES, version: V1, project: PROJECT });
     const user = userEvent.setup();
     render(<BuilderWorkspace projectId="7" />);
 
-    await user.click(await screen.findByRole("button", { name: "v1로 되돌리기" }));
+    await user.click(await screen.findByText("저장한 버전 (2)"));
+    await user.click(await screen.findByRole("button", { name: "v1 불러오기" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/비용은 들지 않고/)).toBeTruthy();
-    expect(within(dialog).getByText("v1로 되돌리기")).toBeTruthy();
-    await user.click(within(dialog).getByRole("button", { name: "되돌리기" }));
+    expect(within(dialog).getByText(/비용은 들지 않고 새 버전은 만들지 않아요/)).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "불러오기" }));
 
     expect(restoreVersion).toHaveBeenCalledWith("7", 1);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  test("저장 안 한 작업이 있으면 불러오기 전에 저장할까요?를 묻는다 — 저장 / 저장 안 함 / 취소", async () => {
+    listVersions.mockResolvedValue([{ ...V1, number: 2, note: "저장" }, V1]);
+    getHistory.mockResolvedValue(UNSAVED);
+    saveVersion.mockResolvedValue({ created: true, version: { ...V1, number: 3 }, project: PROJECT });
+    restoreVersion.mockResolvedValue({ files: FILES, version: V1, project: PROJECT });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+    await user.click(await screen.findByText("저장한 버전 (2)"));
+
+    // 취소: 아무 일도 없다.
+    await user.click(await screen.findByRole("button", { name: "v1 불러오기" }));
+    let dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("저장 안 한 작업이 있어요. 저장할까요?")).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+    expect(restoreVersion).not.toHaveBeenCalled();
+    expect(saveVersion).not.toHaveBeenCalled();
+
+    // 저장 안 함: 저장 없이 불러온다.
+    await user.click(screen.getByRole("button", { name: "v1 불러오기" }));
+    dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "저장 안 함" }));
+    await waitFor(() => expect(restoreVersion).toHaveBeenCalledWith("7", 1));
+    expect(saveVersion).not.toHaveBeenCalled();
+
+    // 저장: 먼저 저장하고 불러온다.
+    restoreVersion.mockClear();
+    await user.click(await screen.findByRole("button", { name: "v1 불러오기" }));
+    dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(restoreVersion).toHaveBeenCalledWith("7", 1));
+    expect(saveVersion).toHaveBeenCalledWith("7", "");
+  });
+
+  test("버전 저장은 이름을 선택으로 받고, 같으면 이미 같아요라고 말한다", async () => {
+    getHistory.mockResolvedValue(CLEAN);
+    saveVersion.mockResolvedValue({ created: false, version: { ...V1, number: 2 }, project: PROJECT });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    await user.click(await screen.findByRole("button", { name: /버전 저장/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/버전 이름/), "버튼 색 전");
+    await user.click(within(dialog).getByRole("button", { name: "저장" }));
+    expect(saveVersion).toHaveBeenCalledWith("7", "버튼 색 전");
+    await waitFor(() => expect(toastShow).toHaveBeenCalledWith(expect.stringContaining("이미 같아요")));
+  });
+
+  test("실행 취소 / 다시 실행은 이웃한 작업 단계로 간다", async () => {
+    getHistory.mockResolvedValue({
+      ...CLEAN,
+      can_undo: true,
+      can_redo: true,
+      steps: [
+        { seq: 3, note: "a", created_at: "", current: false },
+        { seq: 5, note: "b", created_at: "", current: true },
+        { seq: 6, note: "c", created_at: "", current: false },
+      ],
+    });
+    restoreStep.mockResolvedValue({ files: FILES, project: PROJECT });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    await user.click(await screen.findByRole("button", { name: "실행 취소" }));
+    expect(restoreStep).toHaveBeenLastCalledWith("7", 3);
+    await user.click(await screen.findByRole("button", { name: "다시 실행" }));
+    expect(restoreStep).toHaveBeenLastCalledWith("7", 6);
+  });
+
+  test("저장 안 한 작업이 있을 때 나가면 이 버전을 저장할까요?를 묻는다", async () => {
+    getHistory.mockResolvedValue(UNSAVED);
+    saveVersion.mockResolvedValue({ created: true, version: { ...V1, number: 3 }, project: PROJECT });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    await user.click(await screen.findByRole("link", { name: /Project Builder/ }));
+    let dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("이 버전을 저장할까요?")).toBeTruthy();
+    expect(routerPush).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+    expect(routerPush).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("link", { name: /Project Builder/ }));
+    dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "저장 안 함" }));
+    expect(routerPush).toHaveBeenCalledWith("/builder");
+    expect(saveVersion).not.toHaveBeenCalled();
+  });
+
+  test("깨끗하면 묻지 않고 그냥 나간다", async () => {
+    getHistory.mockResolvedValue(CLEAN);
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    const link = await screen.findByRole("link", { name: /Project Builder/ });
+    await user.click(link);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

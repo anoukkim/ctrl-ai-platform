@@ -12,7 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { forgetPrefsInMemory } from "@/lib/layout-prefs";
-import type { BuilderFile, BuilderProject, BuilderVersion } from "@/lib/projects";
+import type { BuilderFile, BuilderHistory, BuilderProject, BuilderVersion } from "@/lib/projects";
 
 const PROJECT: BuilderProject = {
   id: 7,
@@ -63,6 +63,25 @@ let githubEnabled = false;
 const planGeneration = vi.fn();
 const getVersionFiles = vi.fn();
 let versions: BuilderVersion[] = [V2, V1];
+/** builder-snapshots: the 작업 steps the Claude panel shows, one per version here. */
+const unsaved = false;
+const historyOf = (): BuilderHistory => ({
+  steps: [...versions].reverse().map((version, index, all) => ({
+    seq: version.number,
+    note: version.note,
+    created_at: version.created_at,
+    current: index === all.length - 1,
+    request: version.request,
+    summary: version.summary,
+    changed_count: version.changed_count,
+    charged_krw: version.charged_krw,
+  })),
+  can_undo: versions.length > 1,
+  can_redo: false,
+  unsaved,
+  reference_version_number: versions[0]?.number ?? null,
+  latest_version_number: versions[0]?.number ?? null,
+});
 const unpublishProject = vi.fn();
 
 vi.mock("@/lib/projects", async (importOriginal) => {
@@ -73,6 +92,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
     listBuilderProjects: vi.fn().mockResolvedValue([]),
     listBuilderFiles: vi.fn(async () => FILES),
     listVersions: vi.fn(async () => versions),
+    getHistory: vi.fn(async () => historyOf()),
     getVersionFiles: (...args: unknown[]) => getVersionFiles(...args),
     unpublishProject: (...args: unknown[]) => unpublishProject(...args),
     getGenerateEstimate: vi.fn().mockResolvedValue({
@@ -347,10 +367,12 @@ describe("Claude 판", () => {
 
     const history = await screen.findByRole("list", { name: "바뀌어 온 기록" });
     expect(await within(history).findByText("다크 모드 버튼 만들어 줘")).toBeTruthy();
-    expect(within(history).getByText("v2 · 파일 2개 바뀜 · 31원")).toBeTruthy();
-    expect(within(history).getByText("v1 · 파일 3개 바뀜 · 180원")).toBeTruthy();
+    expect(within(history).getByText("파일 2개 바뀜 · 31원")).toBeTruthy();
+    expect(within(history).getByText("파일 3개 바뀜 · 180원")).toBeTruthy();
 
-    await user.click(within(history).getByRole("button", { name: "v1 이 버전 보기" }));
+    // 이 버전 보기는 저장한 버전 목록에 있습니다(작업 단계는 "이 단계로").
+    await user.click(await screen.findByText("저장한 버전 (2)"));
+    await user.click(screen.getByRole("button", { name: "v1 이 버전 보기" }));
     expect(getVersionFiles).toHaveBeenCalledWith("7", 1);
     expect(await screen.findByText(/v1을\(를\) 보는 중이에요/)).toBeTruthy();
     const frame = container.querySelector("iframe")!;
