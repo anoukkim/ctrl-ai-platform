@@ -95,6 +95,8 @@ import ClaudeHistory, { particleRo } from "./ClaudeHistory";
 import CodeView from "./CodeView";
 import { blobToDataUrl, captureFrame } from "@/lib/thumbnail-capture";
 
+import PublishCelebration from "@/app/components/PublishCelebration";
+
 import HiddenCapture from "./HiddenCapture";
 import ThumbnailDialog from "./ThumbnailDialog";
 import { type CandidateKind } from "./ThumbnailPicker";
@@ -187,6 +189,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [previewWhich, setPreviewWhich] = useState<"draft" | "published">("draft");
   // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
   const [captureUrl, setCaptureUrl] = useState<string | null>(null);
+  // motion-modern (5): the 게시 완료 moment, once per publish.
+  const [celebrating, setCelebrating] = useState(0);
   // owner-polish-3 (a2): the preview frame the 게시 dialog photographs its
   // candidates from, and the 게시 menu's 썸네일 바꾸기.
   const previewFrame = useRef<{ frame: HTMLIFrameElement | null; origin: string | null }>({ frame: null, origin: null });
@@ -513,6 +517,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setPublishOpen(false);
         listVersions(projectId).then(setVersions).catch(() => undefined);
         toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
+        setCelebrating((n) => n + 1);
         if (values.thumbnail) {
           // owner-polish-3 (a2): the picture the maker picked in the dialog.
           try {
@@ -1183,6 +1188,25 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   toolbarEnd={claudeOpener}
                   onCapture={mayCreate ? storeThumbnail : undefined}
                   onFrameReady={onFrameReady}
+                  working={
+                    genRunning && generation
+                      ? {
+                          costKrw: Object.values(progress.charged).reduce((sum, krw) => sum + krw, 0) || null,
+                          chips: [
+                            ...generation.plan.slice(0, 3).map((step) => ({
+                              label: step.path,
+                              state:
+                                generation.files_done.includes(step.path) || step.path in progress.charged
+                                  ? ("done" as const)
+                                  : progress.current === step.path
+                                    ? ("now" as const)
+                                    : ("todo" as const),
+                            })),
+                            ...(generation.plan.length > 3 ? [{ label: `+${generation.plan.length - 3}`, state: "todo" as const }] : []),
+                          ],
+                        }
+                      : null
+                  }
                 />
                 {captureUrl && (
                   <HiddenCapture
@@ -1509,6 +1533,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           onConfirm={(values) => void publish(values)}
         />
       )}
+
+      {celebrating > 0 && <PublishCelebration key={celebrating} onDone={() => setCelebrating(0)} />}
 
       {thumbnailOpen && (
         <ThumbnailDialog

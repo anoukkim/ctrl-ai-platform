@@ -7,7 +7,7 @@
  * "생각하는 중…" shimmers with the seconds beside it.
  */
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { Generation } from "@/lib/generation";
@@ -74,9 +74,13 @@ describe("Builder 계획 카드 — 일하는 중", () => {
         onCancel={() => {}}
       />,
     );
+    // motion-modern (3): the finished row folds into "✓ 1개 완료" (the ✓
+    // pops there); unfolding shows the row itself.
+    const fold = screen.getByTestId("done-fold");
+    expect(fold.querySelector("svg.success-pop")).toBeTruthy();
+    fireEvent.click(within(fold).getByRole("button", { name: /1개 완료/ }));
     const done = screen.getByText("index.html").closest("li")!;
     expect(done.dataset.state).toBe("done");
-    expect(done.querySelector("svg.success-pop")).toBeTruthy();
     expect(screen.getByTestId("plan-progress").textContent).toContain("1 / 2 파일");
     expect(screen.getByText("app.js").closest("li")!.dataset.state).toBe("writing");
     // The action buttons stay hidden while running.
@@ -103,5 +107,53 @@ describe("일하는 중인 단추는 🚫가 아니다", () => {
     expect(css).toContain(".btn:disabled");
     const stepCss = readFileSync(resolve(__dirname, "../app/builder/[projectId]/staged.module.css"), "utf8");
     expect(stepCss).toContain(".progressFill");
+  });
+});
+
+describe("motion-modern (3) — 접힌 단계", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  test("돌아가는 동안 끝난 파일은 '✓ N개 완료'로 접히고(펼칠 수 있음), 남은 파일은 점, 지금 파일만 크다", () => {
+    render(
+      <PlanCard
+        generation={{ ...PLAN, plan: [...PLAN.plan, { path: "style.css", purpose: "모양" }] }}
+        running
+        progress={{ ...NO_PROGRESS, current: "app.js", charged: { "index.html": 20 } }}
+        disabled={false}
+        onStart={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    const fold = screen.getByTestId("done-fold");
+    expect(fold.textContent).toContain("1개 완료");
+    // The finished row is folded away (not rendered) until asked for.
+    expect(screen.queryByText("index.html")).toBeNull();
+    fireEvent.click(within(fold).getByRole("button", { name: /1개 완료/ }));
+    expect(screen.getByText("index.html").closest("li")!.dataset.state).toBe("done");
+    fireEvent.click(within(fold).getByRole("button", { name: /1개 완료/ }));
+    expect(screen.queryByText("index.html")).toBeNull();
+    // The file being written is the big one; the rest are dots.
+    expect(screen.getByText("app.js").closest("li")!.className).toContain("stepNow");
+    const dots = screen.getByTestId("waiting-dots");
+    expect(dots.querySelectorAll("[title]").length).toBe(1);
+    expect(dots.textContent).toContain("남은 파일 1개");
+    expect(screen.queryByText("style.css")).toBeNull();
+  });
+
+  test("끝난 뒤에는 모든 줄이 그대로 보인다", () => {
+    render(
+      <PlanCard
+        generation={{ ...PLAN, files_done: ["index.html", "app.js"] }}
+        running={false}
+        progress={NO_PROGRESS}
+        disabled={false}
+        onStart={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId("done-fold")).toBeNull();
+    expect(screen.queryByTestId("waiting-dots")).toBeNull();
+    expect(screen.getByText("index.html").closest("li")!.dataset.state).toBe("done");
   });
 });

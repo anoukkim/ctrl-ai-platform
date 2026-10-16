@@ -1293,6 +1293,8 @@ export default function ChatWorkspace() {
                                   ? messages[index - 1].content
                                   : "",
                               mayCreate,
+                              startedAt: message.startedAt ?? null,
+                              runningKrw: message.continuing?.chargedKrw ?? message.estimateKrw ?? null,
                             }}
                             tail={
                               message.streaming ? (
@@ -1542,7 +1544,8 @@ export default function ChatWorkspace() {
                 void addFiles(picked);
               }}
             />
-            <div className={styles.composer}>
+            {/* motion-modern (2): 답장이 오는 동안 입력창 둘레를 느리게 도는 빛. */}
+            <div className={`${styles.composer} ${streaming ? styles.composerBusy : ""}`} data-busy={streaming ? "true" : undefined}>
               <button
                 type="button"
                 className={styles.attach}
