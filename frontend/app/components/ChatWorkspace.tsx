@@ -33,7 +33,10 @@ import {
   ListIcon,
   Lock,
   MessageSquare,
+  Pencil,
   Pin,
+  PinOff,
+  Trash2,
   Plus,
   SendHorizontal,
   Square,
@@ -1195,6 +1198,7 @@ export default function ChatWorkspace() {
                       items={[
                         {
                           label: "이름 바꾸기",
+                          icon: <Pencil size={14} />,
                           onSelect: () => {
                             setRenameDraft(conversation.title);
                             setRenamingId(conversation.id);
@@ -1202,9 +1206,10 @@ export default function ChatWorkspace() {
                         },
                         {
                           label: conversation.pinned_at ? "고정 해제" : "맨 위에 고정",
+                          icon: conversation.pinned_at ? <PinOff size={14} /> : <Pin size={14} />,
                           onSelect: () => void pin(conversation.id, !conversation.pinned_at),
                         },
-                        { label: "지우기", danger: true, onSelect: () => askDelete(conversation) },
+                        { label: "지우기", icon: <Trash2 size={14} />, danger: true, onSelect: () => askDelete(conversation) },
                       ]}
                     >
                       <span aria-hidden="true">⋯</span>
