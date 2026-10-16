@@ -133,6 +133,13 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     project and its listing, audit-free (it is a member action), and tests
     (allowed/not allowed, deleted original, own app, inactive member).
 
+7. **owner-polish-2026-10-16** · M1 · one small branch per point
+    *Not pre-approved — branch, test, report, WAIT.* The owner's nine
+    points from a walk through production (2026-10-16), to start **only
+    after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
+    Spec below ("owner-polish-2026-10-16"), with what the screenshots
+    showed. Two are bugs (3, 8).
+
 ---
 
 ## app-platform — full spec
@@ -696,6 +703,55 @@ development.
 → **project-video-management — full spec (merged 2026-10-07)** moved to [`archive/done-specs.md`](archive/done-specs.md#project-video-management--full-spec-merged-2026-10-07).
 
 → **test-database-isolation — full spec (merged 2026-10-13)** moved to [`archive/done-specs.md`](archive/done-specs.md#test-database-isolation--full-spec-merged-2026-10-13).
+
+## owner-polish-2026-10-16 — owner's words and what production showed
+
+Added by the owner on 2026-10-16 with screenshots of ctrlai.my (Chat,
+Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Admin ›
+Dashboard / Members / System, Profile): "이것도 일단 백로그에만 추가 —
+지금 하는 작업 전부 완료 후에." Saved as written, each with a note:
+
+1. **"초대코드 수용인원 늘릴 수 있게"** — Admin › Members › 초대 코드: an
+   existing code's 최대 가입 수 can be raised later (today it is set only
+   at creation; the one code is 소진 1/1). Audited; never below the uses
+   already made.
+2. **"프로필 정리 뭔가 알림 같은 것도 추가하면 좋겠어. 게시가
+   완료됐습니다 ! 사용이 차감됐습니다 etc"** — a tidier Profile and a
+   member-facing notification list (게시 완료, 지원금 차감, 신청 승인, …).
+   Today only the passing spend toast exists (feat-spend-feedback).
+3. **"내가 만든 앱은 프로필에 안 뜸"** — bug: Profile › 내가 만든 앱 says
+   "준비 중 · 아직 게시한 앱이 없어요" while the admin's 여행 일정 메이커 and
+   the showcases are published. Read the member's published apps there.
+4. **"게시할때 프로젝트 읽어서 압축해서 썸네일 만드는 기능"** — a
+   thumbnail made at 게시 (render the published version, store a small
+   image) for CtrlAIApps cards and the Builder list. Rendering must not
+   run member code on the backend (CLAUDE.md §8, §10) — e.g. a headless
+   browser in an isolated container, or a capture in the creator's
+   browser at publish time.
+5. **"draft도 저렇게 뭔가 썸네일 비슷하게"** — Builder project cards show
+   a striped "미리보기 썸네일" placeholder today; drafts get a thumbnail too
+   (same mechanism as 4, from the working copy).
+6. **"영상은 다음다음분기에 시작할거임.. 그래서 일단 전체 화면에 락
+   걸어두면 될 것 같아. 안보이게. 연결은 미리 해두러다로 이번 분기에는
+   추가 안할거임"** — Video Generator starts two quarters from now: lock
+   the whole Video area for members this quarter (hidden or a locked
+   screen, behind a switch the 관리자 controls); keep the provider wiring;
+   no new video work this quarter.
+7. **"AITube는 홍보 영상 하나 있거든 그거 추가로 해서 지금 영상은
+   준비단계이지만 홍보영상에는 댓글 달 수 있게 할 있기"** — CtrlAITube:
+   add the club's one promo video (the owner supplies the URL); the page
+   stays 준비 중, but the promo video takes real comments. The three
+   current cards are sample data.
+8. **"미신청에 유저가 왜 안뜨지"** — bug: Admin › Members shows **미신청
+   1명** on the card, but filtering 참여 = 미참여 lists nobody (0개 / 전체
+   2개) while both listed members are 활동 회원. Find which account the
+   card counts (perhaps one the list hides) and make card and filter agree.
+9. **"이름도 변경 가능하게? 아이디는 못바꾸지만 비번이랑 이름은 바꿀 수
+   있게.. 가능하면 프사도 ? 사실 크게필요없긴 해"** — Profile › 계정 설정:
+   display name editable (아이디 fixed); password change exists already
+   (로그인 방법 › 바꾸기); a profile picture optional, low priority.
+
+---
 
 ## app-ai-access, quarter-end-apps, feedback-screenshots — owner's words
 
