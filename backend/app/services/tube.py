@@ -50,7 +50,7 @@ OFFICIAL = dict(
     hosted_desktop_src="/promo/ctrlai-intro-desktop-v1.mp4",
     hosted_mobile_src="/promo/ctrlai-intro-mobile-v1.mp4",
     poster_desktop_src="/promo/ctrlai-intro-desktop-v1.jpg",
-    poster_mobile_src="/promo/ctrlai-intro-mobile-v1.jpg",
+    poster_mobile_src="/promo/ctrlai-intro-mobile-poster-v2.jpg",
     duration_seconds=60,
 )
 
