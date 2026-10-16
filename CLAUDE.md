@@ -283,7 +283,7 @@ what to build next is always [`docs/BACKLOG.md`](docs/BACKLOG.md) › Next.
 | 5 | CtrlAIApps (publish, listings, comments) | first slice done — `ctrlaiapps-publish` (게시 of a chosen version, 신고, admin unpublish); comments and reactions not started |
 | 6 | Video Generator (real Higgsfield adapter) | mock done |
 | 7 | YouTube (per-member OAuth upload) | not started |
-| 8 | CtrlAITube (feed from pasted YouTube URLs; **does not depend on 7**) | not started |
+| 8 | CtrlAITube (feed from pasted YouTube URLs; **does not depend on 7**) | first slice — `promo-videos` (the club's own hosted video first in the feed, with real reactions, comments, 신고 and admin hide/delete); the YouTube feed not started |
 | 9 | Go live beyond the beta (managed DB, Secret Manager, real callbacks) | beta subset done |
 
 Standing rules that bind future work:

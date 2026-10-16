@@ -171,7 +171,9 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 8. **promo-videos** · M1 · branch `feat-promo-videos`
     *Not pre-approved — branch, test, report, WAIT. Order: after
-    publish-summary (merged 2026-10-16).* Owner, 2026-10-16 (relayed from another session,
+    publish-summary (merged 2026-10-16).* **Status 2026-10-16: built on
+    the branch, tests green, waiting for the owner** — see
+    `progress/RUN-2026-10-16.md` › PV. Owner, 2026-10-16 (relayed from another session,
     their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
     — 2번(데스크탑), 3번(모바일 영상) — 이거를 각각 가이드 마지막(화면
     임베디드, 크게 보기 가능) 그리고 ctrl tube에 그냥 기본적으로 나오는
@@ -206,10 +208,49 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     members read only; another member's comment), admin hide, 신고.
     Screenshots 1440 · 390, light and dark.
 
-9. **app-libraries** · M3 · branch `feat-app-libraries`
+9. **ui-improvements** · M1 · branch `feat-ui-improvements`
+    *Not pre-approved — after promo-videos is approved and deployed, show
+    the plan first and WAIT.* Owner, 2026-10-16 (relayed from another
+    session): fold **owner-polish 15** (app detail screen) and **owner-polish
+    4·5** (thumbnails) together with the UI points below into one bundle.
+    The thumbnail method is decided in the plan from 2–3 compared options
+    (never running member code on the server, CLAUDE.md §8·§10). Do **not**
+    touch owner-polish 6 (video lock) — another session has it. Owner's
+    words, verbatim: "그거랑 같이 지금 검색도 이상함 뭔가 선도 끝에랑
+    안맞고 (video에는 보면 사용자별 드랍다운이 있는데 여기엔 없어서 그런지
+    뭔지 모르겠음) 모든 build, store, 빌드 영상 둘다 나중에 pin이랑 정렬
+    (마지막 수정일 이름) 으로 할 수 있게 / 분기 신청기한도 늘릴 수 있게 /
+    ai model budget 여기 화면 너무 복잡해 너무 줄줄이 길어 뭔가 차라리
+    하나씩 토글해서 볼 수 있으면 나을 듯 / deleted items는 관리자가
+    완전히 삭제할 수 있음. 그리고 분기 끝나면 관리자 안 삭제한거
+    전체적으로 자동 삭제 (이건 확정) / system도 뭔가 너무 많음;; 걍
+    연결상태를 전체적으로 health를 보고 싶은데 아래에 뭐가 저리 많음 /
+    그거까지 해서 ui개선". The relaying session's reading of the
+    screenshots, to confirm in the plan: (1) the search bar's right edge on
+    CtrlAIApps does not line up with the card row (Video has the
+    전체/작성 중/게시됨 filter beside it) — align the list screens' header
+    rows (Builder, CtrlAIApps, Video, CtrlAITube) on one grid; (2) pin +
+    sort (last modified / name, remembered) on the Builder, CtrlAIApps and
+    Video lists — pins per member (CtrlAIApps: a member's own favourites),
+    one migration if storage is needed; (3) Admin › Quarters: extend an
+    application deadline later (within the quarter; audited; whether a
+    closed quarter can reopen is proposed in the plan); (4) Admin › AI
+    Models and Budget: sections collapsed to a summary, opened one at a
+    time, state remembered; (5) Deleted Items: an admin's 완전히 삭제
+    (confirm, reason, audit) **and**, at 분기 마감, everything not restored
+    is purged automatically (owner's decision) — money rows (`UsageEvent`,
+    wallets, audit) are never deleted, so the design must survive the
+    project's removal (FKs, name snapshots), app folders and stored files
+    go too, and the decision is recorded in CLAUDE.md §2/§4; (6) Admin ›
+    System: an at-a-glance health row (server · DB · each provider,
+    green/red) on top, the rest (exchange rate, chat limits, depth table,
+    `.env` list, builder check) in collapsed sections; (7) owner-polish 15
+    and 4·5 as written.
+
+10. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
     be set by the owner.* (Numbered 8 until publish-summary and promo-videos joined on
-    2026-10-16; publish-summary merged the same day.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    2026-10-16, 9 until ui-improvements did; publish-summary merged the same day.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
     높인다."** Member apps have no network (CSP `connect-src 'none'`, no
     CDN), so a game or a chart today means hand-written code. Review a
     bundle of **approved libraries that CTRL+AI hosts itself** on the apps
