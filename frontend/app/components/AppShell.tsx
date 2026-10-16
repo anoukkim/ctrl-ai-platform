@@ -346,7 +346,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 onSelect: toggleTheme,
               },
               { label: "처음 안내 다시 보기", onSelect: () => { setMenuOpen(false); openGuide(); } },
-              { label: "의견 보내기", hint: "Admin › Feedback으로 바로 가요", onSelect: () => setFeedbackOpen(true) },
+              { label: "의견 보내기", hint: "관리자에게 한 줄 남겨요 (스크린샷도 함께)", onSelect: () => setFeedbackOpen(true) },
               { label: "로그아웃", danger: true, onSelect: () => void signOut() },
             ]}
           >

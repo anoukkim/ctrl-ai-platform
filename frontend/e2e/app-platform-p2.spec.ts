@@ -30,9 +30,10 @@ test("sign in through the consent window, then AI paid by the visitor", async ({
   // Signed in on the site — which by itself does not sign anyone in to an app.
   const login = await context.request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
   expect(login.ok()).toBeTruthy();
-  const apps = (await (await context.request.get(`${SITE}/api/apps`)).json()) as { slug: string; name: string }[];
+  const apps = (await (await context.request.get(`${SITE}/api/apps`)).json()) as { slug: string; name: string; ai_access?: string }[];
   expect(apps.length).toBeGreaterThan(0);
-  const slug = apps[0].slug;
+  // An app the maker opened as 전체 기능 (app-ai-access) — a 데모만 app would refuse before any window opens.
+  const slug = (apps.find((app) => app.ai_access === "full") ?? apps[0]).slug;
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);

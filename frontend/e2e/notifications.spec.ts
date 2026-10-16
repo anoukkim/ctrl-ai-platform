@@ -35,7 +35,7 @@ async function theme(page: Page, name: "light" | "dark") {
   await page.waitForTimeout(600);
 }
 
-test("게시 writes a notification: the bell counts it, the panel lists it, a row reads itself and leads to the app, Profile shows the list", async ({ page, context }) => {
+test("게시 writes a notification: the bell counts it, opening clears the count, a row leads to the app, Profile keeps only the switches", async ({ page, context }) => {
   test.setTimeout(120_000);
   await login(page);
   // Start clean: everything read.
@@ -60,37 +60,35 @@ test("게시 writes a notification: the bell counts it, the panel lists it, a ro
   await expect(dialog).toBeVisible();
   const row = dialog.getByRole("button", { name: new RegExp(`안 읽음 · .*'${name}' 게시 완료 — v1`) });
   await expect(row).toBeVisible();
+  // owner-polish-3 (c2): opening is reading — the number is gone at once, and 지우기 is there instead of 모두 읽음.
+  await expect(page.getByTestId("notification-count")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "지우기" })).toBeVisible();
   await theme(page, "light");
   await page.screenshot({ path: `${SHOTS}/1440-light-bell-panel.png` });
   await theme(page, "dark");
   await page.screenshot({ path: `${SHOTS}/1440-dark-bell-panel.png` });
 
-  // The row: read, and the app detail opens.
+  // The row leads to the app detail (it was read when the panel opened).
   await row.click();
   await expect(page).toHaveURL(new RegExp(`/ctrlaistore/${slug}$`));
   await expect(dialog).toBeHidden();
   const listed = (await (await context.request.get(`${SITE}/api/notifications`)).json()) as { items: { title: string; read_at: string | null }[] };
   expect(listed.items.find((n) => n.title.includes(name))?.read_at).not.toBeNull();
 
-  // Profile: the same list above the two switches; 모두 읽음 clears the bell.
-  await context.request.post(`${SITE}/api/notifications/read-all`, { data: {} });
+  // Profile: only the two switches — the list lives in the bell (owner-polish-3 (c2)).
   await page.goto(`${SITE}/profile`);
-  const feed = page.getByTestId("notification-feed");
-  await expect(feed).toBeVisible();
-  await expect(feed.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+  await expect(page.getByTestId("notification-feed")).toHaveCount(0);
   await expect(page.getByRole("switch")).toHaveCount(2);
   await theme(page, "light");
   await page.screenshot({ path: `${SHOTS}/1440-light-profile-notifications.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByTestId("notification-feed")).toBeVisible();
-  await page.getByTestId("notification-feed").scrollIntoViewIfNeeded();
+  await expect(page.getByRole("switch")).toHaveCount(2);
   await page.screenshot({ path: `${SHOTS}/390-light-profile-notifications.png` });
 
-  // The phone's menu holds the bell too.
-  await page.getByRole("button", { name: "메뉴" }).click();
-  await expect(page.getByRole("button", { name: /^알림/ })).toBeVisible();
-  await page.getByRole("button", { name: /^알림/ }).click();
+  // The phone's top bar holds the bell — no need to open 메뉴.
+  await expect(page.getByRole("banner").getByRole("button", { name: /^알림/ })).toBeVisible();
+  await page.getByRole("banner").getByRole("button", { name: /^알림/ }).click();
   const phoneDialog = page.getByRole("dialog", { name: "알림" });
   await expect(phoneDialog).toBeVisible();
   await expect(phoneDialog.getByRole("button", { name: new RegExp(name) })).toBeVisible();

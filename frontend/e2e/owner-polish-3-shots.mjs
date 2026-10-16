@@ -82,6 +82,7 @@ for (const [width, height, theme, tag] of [[1440, 900, "light", "1440-light"], [
   await page.getByRole("button", { name: "환율" }).waitFor();
   await page.getByRole("button", { name: "환율" }).click();
   await page.getByTestId("fx-status").waitFor();
+  await page.getByTestId("fx-status").scrollIntoViewIfNeeded();
   await shot(page, "admin-system-fx", tag);
   await page.goto(`${SITE}/admin/apps`);
   await page.getByTestId("thumbnail-maker").waitFor();

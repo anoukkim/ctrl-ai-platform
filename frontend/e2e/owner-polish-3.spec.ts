@@ -21,7 +21,11 @@ const HTML =
   "<body><section><h1>첫 화면</h1><p>위쪽</p></section><section><h1>두 번째 화면</h1><p>아래쪽</p></section></body></html>";
 
 async function signIn(page: Page) {
-  const login = await page.context().request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
+  const login = await page
+    .context()
+    .request.post(`${SITE}/api/auth/login`, {
+      data: { username: USER, password: PASSWORD },
+    });
   expect(login.ok()).toBeTruthy();
   await page.addInitScript(() => {
     try {
@@ -32,69 +36,112 @@ async function signIn(page: Page) {
   });
 }
 
-test("(a2) the 게시 dialog offers candidates from the preview and the pick becomes the thumbnail everywhere", async ({ page }) => {
+test("(a2) the 게시 dialog offers candidates from the preview and the pick becomes the thumbnail everywhere", async ({
+  page,
+}) => {
   test.setTimeout(150_000);
   await signIn(page);
   const request = page.context().request;
   const made = await request.post(`${SITE}/api/builder/projects/from-chat`, {
-    data: { name: `색 카드 ${Date.now().toString(36)}`, description: "", html: HTML },
+    data: {
+      name: `색 카드 ${Date.now().toString(36)}`,
+      description: "",
+      html: HTML,
+    },
   });
   expect(made.ok(), await made.text()).toBeTruthy();
   const project = (await made.json()) as { id: number };
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${SITE}/builder/${project.id}`);
+    await page.getByRole("button", { name: "CtrlAIApps에 게시" }).click();
+    const picker = page.getByTestId("thumbnail-picker");
+    await expect(picker).toBeVisible();
+    // Three automatic candidates arrive from the sandboxed app, one after another.
+    await expect(picker.locator("img")).toHaveCount(3, { timeout: 60_000 });
+    await expect(picker.getByRole("radio", { name: /첫 화면/ })).toBeChecked();
+    // 「지금 화면으로」 adds a fourth and selects it.
+    await picker.getByRole("button", { name: "지금 화면으로" }).click();
+    await expect(picker.locator("img")).toHaveCount(4, { timeout: 30_000 });
+    await expect(
+      picker.getByRole("radio", { name: /지금 화면/ }),
+    ).toBeChecked();
+    // Pick the phone-width one on purpose and publish.
+    // The radio itself is visually hidden under the picture: press its label.
+    await picker.getByText("폰 너비", { exact: true }).click();
+    await expect(picker.getByRole("radio", { name: /폰 너비/ })).toBeChecked();
+    await page.getByLabel(/CtrlAIApps에 보일 설명/).fill("색 카드예요.");
+    await page.getByRole("button", { name: "게시하기" }).click();
 
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`${SITE}/builder/${project.id}`);
-  await page.getByRole("button", { name: "CtrlAIApps에 게시" }).click();
-  const picker = page.getByTestId("thumbnail-picker");
-  await expect(picker).toBeVisible();
-  // Three automatic candidates arrive from the sandboxed app, one after another.
-  await expect(picker.locator("img")).toHaveCount(3, { timeout: 60_000 });
-  await expect(picker.getByRole("radio", { name: /첫 화면/ })).toBeChecked();
-  // 「지금 화면으로」 adds a fourth and selects it.
-  await picker.getByRole("button", { name: "지금 화면으로" }).click();
-  await expect(picker.locator("img")).toHaveCount(4, { timeout: 30_000 });
-  await expect(picker.getByRole("radio", { name: /지금 화면/ })).toBeChecked();
-  // Pick the phone-width one on purpose and publish.
-  // The radio itself is visually hidden under the picture: press its label.
-  await picker.getByText("폰 너비", { exact: true }).click();
-  await expect(picker.getByRole("radio", { name: /폰 너비/ })).toBeChecked();
-  await page.getByLabel(/CtrlAIApps에 보일 설명/).fill("색 카드예요.");
-  await page.getByRole("button", { name: "게시하기" }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            (await (
+              await request.get(`${SITE}/api/builder/projects/${project.id}`)
+            ).json()) as { thumbnail_chosen_at: string | null }
+          ).thumbnail_chosen_at,
+        { timeout: 40_000 },
+      )
+      .not.toBeNull();
+    const detail = (await (
+      await request.get(`${SITE}/api/builder/projects/${project.id}`)
+    ).json()) as { app_slug: string; published_thumbnail_at: string | null };
+    expect(detail.published_thumbnail_at).not.toBeNull();
+    const served = await request.get(
+      `${SITE}/api/apps/${detail.app_slug}/thumbnail`,
+    );
+    expect(served.ok()).toBeTruthy();
+    expect(served.headers()["content-type"]).toContain("image/webp");
+    const bytes = await served.body();
+    expect(bytes.subarray(0, 4).toString()).toBe("RIFF");
+    expect(bytes.subarray(8, 12).toString()).toBe("WEBP");
 
-  await expect
-    .poll(async () => ((await (await request.get(`${SITE}/api/builder/projects/${project.id}`)).json()) as { thumbnail_chosen_at: string | null }).thumbnail_chosen_at, { timeout: 40_000 })
-    .not.toBeNull();
-  const detail = (await (await request.get(`${SITE}/api/builder/projects/${project.id}`)).json()) as { app_slug: string; published_thumbnail_at: string | null };
-  expect(detail.published_thumbnail_at).not.toBeNull();
-  const served = await request.get(`${SITE}/api/apps/${detail.app_slug}/thumbnail`);
-  expect(served.ok()).toBeTruthy();
-  expect(served.headers()["content-type"]).toContain("image/webp");
-  const bytes = await served.body();
-  expect(bytes.subarray(0, 4).toString()).toBe("RIFF");
-  expect(bytes.subarray(8, 12).toString()).toBe("WEBP");
+    // The Builder card uses the chosen (published) picture, not a draft capture.
+    await page.goto(`${SITE}/builder`);
+    await expect(
+      page.locator(
+        `img[src*="/api/builder/projects/${project.id}/thumbnail?space=published"]`,
+      ),
+    ).toBeVisible();
+    await expect(
+      page.locator(
+        `img[src*="/api/builder/projects/${project.id}/thumbnail?space=draft"]`,
+      ),
+    ).toHaveCount(0);
 
-  // The Builder card uses the chosen (published) picture, not a draft capture.
-  await page.goto(`${SITE}/builder`);
-  await expect(page.locator(`img[src*="/api/builder/projects/${project.id}/thumbnail?space=published"]`)).toBeVisible();
-  await expect(page.locator(`img[src*="/api/builder/projects/${project.id}/thumbnail?space=draft"]`)).toHaveCount(0);
-
-  // 썸네일 바꾸기 from the 게시 menu opens the same picker.
-  await page.goto(`${SITE}/builder/${project.id}`);
-  await page.getByRole("button", { name: "게시 메뉴 더 보기" }).click();
-  await page.getByRole("menuitem", { name: /썸네일 바꾸기/ }).click();
-  await expect(page.getByRole("dialog", { name: "썸네일 바꾸기" })).toBeVisible();
-  await expect(page.getByTestId("thumbnail-picker").locator("img")).toHaveCount(3, { timeout: 60_000 });
-
-  await request.delete(`${SITE}/api/builder/projects/${project.id}`, { data: {} }).catch(() => undefined);
+    // 썸네일 바꾸기 from the 게시 menu opens the same picker.
+    await page.goto(`${SITE}/builder/${project.id}`);
+    await page.getByRole("button", { name: "게시 메뉴 더 보기" }).click();
+    await page.getByRole("menuitem", { name: /썸네일 바꾸기/ }).click();
+    await expect(
+      page.getByRole("dialog", { name: "썸네일 바꾸기" }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("thumbnail-picker").locator("img"),
+    ).toHaveCount(3, { timeout: 60_000 });
+  } finally {
+    // Whatever happened, the app leaves CtrlAIApps: the other specs pick the first published app.
+    await request
+      .delete(`${SITE}/api/builder/projects/${project.id}`, { data: {} })
+      .catch(() => undefined);
+  }
 });
 
-test("(c2) the bell in the header clears on open and 지우기 empties it; the account row is a menu; (d) the header", async ({ page }) => {
+test("(c2) the bell in the header clears on open and 지우기 empties it; the account row is a menu; (d) the header", async ({
+  page,
+}) => {
   await signIn(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${SITE}/ctrlaistore`);
   // (d)
-  await expect(page.getByText(/「데모」인 앱은 AI를 부르지 않고/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "자세히" })).toHaveAttribute("href", "/help/apps");
+  await expect(
+    page.getByText(/「데모」인 앱은 AI를 부르지 않고/),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "자세히" })).toHaveAttribute(
+    "href",
+    "/help/apps",
+  );
   // The bell is beside the name, in the navigation's header.
   const nav = page.getByRole("navigation", { name: "주요 메뉴" });
   const bell = nav.getByRole("button", { name: /^알림/ });
@@ -121,7 +168,9 @@ test("(c2) the bell in the header clears on open and 지우기 empties it; the a
   // Phone width: the menu lives inside the slide-down navigation.
   await page.setViewportSize({ width: 390, height: 844 });
   // The bell is reachable without opening the menu — in the top bar.
-  await expect(page.getByRole("banner").getByRole("button", { name: /^알림/ })).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByRole("button", { name: /^알림/ }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "메뉴" }).click();
   await nav.getByRole("button", { name: /계정 메뉴/ }).click();
   await expect(page.getByRole("menu")).toBeVisible();
