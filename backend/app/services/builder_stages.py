@@ -271,6 +271,10 @@ def _stop(db: Session, generation: BuilderGeneration, message: str, emit: Emit) 
     """Stop here: what is saved stays saved; 이어서 만들기 continues."""
     generation.status = "partial" if generation.files_done else "failed"
     generation.error = message
+    project = db.get(BuilderProject, generation.project_id)
+    if generation.files_done and project is not None:
+        first = generation.request.strip().splitlines()[0] if generation.request.strip() else ""
+        builder_versions.record_if_changed(db, project, f"중단됨: {first}"[:200])
     db.commit()
     emit(
         "error",

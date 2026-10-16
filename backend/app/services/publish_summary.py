@@ -157,8 +157,8 @@ def _base(project: BuilderProject) -> int | None:
 def cached(db: Session, project: BuilderProject) -> Summary | None:
     """What the version row already holds, or None when a call is needed.
     Checked by the route before it takes a provider slot."""
-    version = builder_versions.latest(db, project)
-    # Unsaved work is not the newest version: nothing stored for it.
+    version = builder_versions.reference_version(db, project)
+    # Unsaved work is not a saved version: nothing stored for it.
     if version is None or version.summary_description is None or builder_versions.has_unsaved(db, project):
         return None
     if version.summary_base_version != _base(project):
@@ -231,7 +231,7 @@ async def summarize(db: Session, settings: Settings, provider: Any, *, user: Use
     hit = cached(db, project)
     if hit is not None:
         return hit
-    version = builder_versions.latest(db, project)
+    version = builder_versions.reference_version(db, project)
     files = builder_versions.current_files(db, project)
     if version is None or "index.html" not in files:
         return EMPTY

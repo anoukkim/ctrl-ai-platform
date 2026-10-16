@@ -79,12 +79,15 @@ def snapshot(
     """
     if files is None:
         files = current_files(db, project)
+    _lock(db, project)
     last = db.scalar(
         select(func.max(BuilderProjectVersion.number)).where(
             BuilderProjectVersion.project_id == project.id
         )
     )
     number = (last or 0) + 1
+    # A new version is what the working copy stands on, not an older load.
+    project.base_version_number = None
     version = BuilderProjectVersion(
         project_id=project.id,
         number=number,
@@ -130,6 +133,21 @@ def ensure_baseline(db: Session, project: BuilderProject) -> None:
         record_step(db, project, "처음 상태" if current is None else "이전 상태", files)
 
 
+def _lock(db: Session, project: BuilderProject) -> None:
+    """Two saves at once (two tabs, a save racing 게시) would pick the same
+    number: take the project row first, the second waits and re-reads."""
+    db.scalar(select(BuilderProject.id).where(BuilderProject.id == project.id).with_for_update())
+
+
+def record_if_changed(db: Session, project: BuilderProject, note: str) -> None:
+    """A run that stopped half way has saved some files: make that state a
+    step, so 실행 취소 can undo it."""
+    files = current_files(db, project)
+    current = current_step(db, project)
+    if files and (current is None or _files_of(current) != files):
+        record_step(db, project, note, files)
+
+
 def _files_of(row: BuilderProjectVersion | BuilderProjectStep) -> dict[str, str]:
     return {str(path): str(content) for path, content in row.files}
 
@@ -167,6 +185,7 @@ def record_step(
     undo steps."""
     if files is None:
         files = current_files(db, project)
+    _lock(db, project)
     top = db.scalar(
         select(func.max(BuilderProjectStep.seq)).where(BuilderProjectStep.project_id == project.id)
     )
@@ -205,8 +224,14 @@ def go_to_step(db: Session, project: BuilderProject, seq: int) -> BuilderProject
     )
     if step is None:
         raise VersionError("그 단계는 이미 사라졌어요.", 404)
-    replace_files(db, project, _files_of(step))
+    files = _files_of(step)
+    replace_files(db, project, files)
     project.step_seq = step.seq
+    # Back at a saved version's files (undo out of a load, say): stand on it.
+    saved = list_versions(db, project)
+    match = next((v for v in saved if _files_of(v) == files), None)
+    if match is not None:
+        project.base_version_number = None if match is saved[0] else match.number
     db.flush()
     return step
 

@@ -329,7 +329,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       .catch(() => setVersions([]));
     getHistory(projectId)
       .then(setHistory)
-      .catch(() => setHistory(null));
+      .catch(() => undefined); // 저장 안 한 작업의 보호가 일시적 오류로 풀리지 않게 이전 값을 둡니다
   }, [projectId]);
 
   useEffect(() => {
@@ -730,10 +730,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       if (event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!anchor || (anchor.target && anchor.target !== "_self")) return;
+      if (!anchor || (anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download")) return;
       const url = new URL(anchor.href, window.location.href);
       if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname) return;
+      if (url.pathname === window.location.pathname || url.pathname.startsWith("/api/")) return;
       event.preventDefault();
       event.stopPropagation();
       const go = () => {

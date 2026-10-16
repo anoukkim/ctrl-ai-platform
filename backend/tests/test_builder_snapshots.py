@@ -148,11 +148,13 @@ def test_unsaved_work_is_measured_against_the_loaded_version(
     save(client, project)  # v2
     client.post(f"{base(project)}/versions/1/restore", json={})
     assert history(client, project)["unsaved"] is False
-    # Going back to v2's files by hand-steps still reads as "same as v2" only
-    # for the loaded v1: here the working copy is v1, so clean.
+    # Undoing out of the load lands on v2's files: the project stands on v2
+    # again, so nothing is unsaved and saving would not copy v2.
     undo = [s for s in history(client, project)["steps"] if not s["current"]][-1]
     client.post(f"{base(project)}/steps/{undo['seq']}/restore", json={})
-    assert history(client, project)["unsaved"] is True  # the step before the load differs from loaded v1
+    state = history(client, project)
+    assert state["unsaved"] is False and state["reference_version_number"] == 2
+    assert save(client, project)["created"] is False
 
 
 def test_loading_with_unsaved_work_can_be_undone(
