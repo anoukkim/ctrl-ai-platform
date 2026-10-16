@@ -238,6 +238,12 @@ def remove_public(settings: Settings, project: BuilderProject) -> None:
     _remove_folder(settings, project.app_slug)
 
 
+def remove_slugs(settings: Settings, *slugs: str | None) -> None:
+    """Drop the folders of slugs whose row no longer exists (purge)."""
+    for slug in slugs:
+        _remove_folder(settings, slug)
+
+
 def remove(settings: Settings, project: BuilderProject) -> None:
     """Stop serving everything of the project (it was deleted). The slugs
     stay on the row, so a restored project keeps its addresses."""

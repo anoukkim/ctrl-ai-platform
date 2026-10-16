@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.models import Quarter, UsageEvent, User
+from app.models import AuditAction, AuditLog, Quarter, UsageEvent, User
 from app.schemas.accounting import (
     AdjustmentCreate,
     AdjustmentRead,
@@ -40,7 +40,8 @@ from app.schemas.accounting import (
     ReconcileDayRead,
     ReconcileRead,
 )
-from app.services import accounting, cost_report
+from app.services import accounting, cost_report, purge
+from app.services.storage import get_storage
 from app.services.quarters import current_quarter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -345,7 +346,9 @@ def list_adjustments(
 # ------------------------------------------------------------ quarter close
 
 
-def _close_read(quarter: Quarter, percent: int, lines, closed: bool) -> ClosePreviewRead:
+def _close_read(
+    quarter: Quarter, percent: int, lines, closed: bool, purge_count: int
+) -> ClosePreviewRead:
     return ClosePreviewRead(
         quarter_id=quarter.id,
         quarter_name=quarter.display_name,
@@ -354,7 +357,18 @@ def _close_read(quarter: Quarter, percent: int, lines, closed: bool) -> ClosePre
         reclaimed_krw=sum(line.reclaimed_krw for line in lines),
         carry_over_krw=sum(line.carry_over_krw for line in lines),
         lines=[CloseLineRead(**line.__dict__) for line in lines],
+        purge_count=purge_count,
     )
+
+
+def _purged_at_close(db: Session, quarter: Quarter) -> int:
+    """How many deleted items the close removed — from its audit row."""
+    row = db.scalar(
+        select(AuditLog)
+        .where(AuditLog.action == AuditAction.WORK_PURGED_AT_CLOSE, AuditLog.target_id == quarter.id)
+        .order_by(AuditLog.id.desc())
+    )
+    return int((row.detail or {}).get("count", 0)) if row is not None else 0
 
 
 @router.get(
@@ -383,9 +397,16 @@ def preview_close(
             )
             for line in accounting.member_rows(db, quarter)
         ]
-        return _close_read(quarter, quarter.carry_over_percent, lines, closed=True)
+        return _close_read(
+            quarter, quarter.carry_over_percent, lines, closed=True,
+            purge_count=_purged_at_close(db, quarter),
+        )
     lines = accounting.close_preview(db, quarter, carry_over_percent)
-    return _close_read(quarter, carry_over_percent, lines, closed=False)
+    # 분기 마감 also purges everything still in Deleted Items (ui-improvements
+    # B) — the dialog says how many, so nothing disappears unannounced.
+    return _close_read(
+        quarter, carry_over_percent, lines, closed=False, purge_count=purge.deleted_count(db)
+    )
 
 
 @router.post(
@@ -398,6 +419,7 @@ def close_quarter(
     payload: CloseRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
 ) -> ClosePreviewRead:
     quarter = _quarter(db, quarter_id)
     try:
@@ -407,8 +429,12 @@ def close_quarter(
     except accounting.AccountingError as error:
         db.rollback()
         raise HTTPException(status_code=error.status_code, detail=str(error)) from None
+    # Everything nobody restored goes with the quarter (owner, 2026-10-16).
+    # Same transaction as the freeze: a close either does both or neither.
+    purged = purge.purge_all_deleted(db, admin=admin, quarter=quarter)
     db.commit()
-    return _close_read(quarter, payload.carry_over_percent, lines, closed=True)
+    purge.remove_files(settings, get_storage(settings), purged)
+    return _close_read(quarter, payload.carry_over_percent, lines, closed=True, purge_count=len(purged))
 
 
 # ----------------------------------------------------------- reconciliation

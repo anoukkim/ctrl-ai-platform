@@ -66,6 +66,7 @@ No longer up for debate:
 | Sign-in | **Google or username/password — both, for everyone** (owner, 2026-10-14, `member-password-login`). See section 5. |
 | Feedback | **No menu item** (`admin-and-nav-cleanup`, 2026-10-14). The 의견 보내기 button in the sidebar footer is the one way a member sends a note; `/issues` is gone (redirects to Chat). |
 | Club name | **CTRL+AI**, shown wherever a member reads the name. Product names and routes are unchanged. |
+| Deleted work | **Kept until 분기 마감, then purged** (owner, 2026-10-16, `ui-improvements` B). A member's 삭제 is soft and sits in Admin › Deleted Items, where an admin can restore it or — with a reason, audited — remove it for good; **분기 마감 removes everything still there**, in the same transaction as the wallet freeze, with one audit row listing the items. Rows, files, versions, app folders and stored videos go; **money rows never do** — usage events keep their amounts, lose the project link (`ON DELETE SET NULL`) and keep the project's name (`UsageEvent.work_label`), so Usage still says what each charge was for. |
 | Member apps origin | **`apps.ctrlai.my`** (owner, 2026-10-14, `builder-static-runtime`) — no separate domain is bought. Because a subdomain is same-site with `ctrlai.my`, three conditions are standing rules, each held by a test: CTRL+AI's session cookie stays **host-only** (no `Domain` attribute); every state-changing API route requires a **JSON body**; the API answers **no CORS** to `apps.ctrlai.my` (or any origin). |
 | Member app platform | **"CTRL+AI 기능 상자"** (owner, 2026-10-15, `app-platform`). (1) AI inside an app is paid by the **visitor**, from their own 동아리 지원 wallet through `usage.charge()` (feature `app_ai`, with the app's project id), and only an active member this quarter may use it; creator-pays is a later option. (2) Signed-out visitors and non-members may open apps and read **public** app data only; AI, writes, files and `ctrlai.user` need sign-in ("CTRL+AI 회원만 쓸 수 있어요" + 로그인). (3) Addresses stay **path-based** (`apps.ctrlai.my/<slug>/`) for the beta: isolation comes from a trusted shell + a sandboxed frame, not subdomains; per-app subdomains are the later item `app-subdomains`. (4) An app's `ctrlai.db` lists are **the owner's to declare** (P4, 2026-10-16): in the project's `ctrlai.json` or by the owner's first save — a visitor can never create one. How it works: [`docs/architecture.md`](docs/architecture.md) › Member app platform. |
 
@@ -148,6 +149,9 @@ soft-deleted member work.
     its own flow (`account-withdrawal`), never an overload of `former`.
 - Do **not** delete work because someone sat out a quarter. Account,
   quarterly participation and published work are three separate things.
+  The one thing 분기 마감 does remove is work **the member deleted
+  themselves** and nobody restored (section 2 › Deleted work); live work
+  is never touched, and the money rows of purged work stay.
 
 # 5. Accounts and sign-in
 
