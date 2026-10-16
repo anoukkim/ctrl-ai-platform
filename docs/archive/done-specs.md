@@ -2947,3 +2947,138 @@ points 3–6, is another session's branch). What was built:
   payload, the favourite race, manifest-only parsing, the `<img>` retry,
   one upload helper); `/security-review` no findings; nothing touches
   wallets or charging.
+
+## ui-improvements — full spec (A merged 2026-10-16 `89efa9c`, B merged 2026-10-16)
+
+Moved out of BACKLOG › Next when the B half merged. The item as it stood,
+with the owner's words:
+
+**ui-improvements** · M1 · two branches
+    **A — the member screens: merged 2026-10-16 as `89efa9c`
+    (`feat-ui-improvements-a`; Done row and delivery notes in the archive;
+    migration `a3f7c1d9e2b4`):
+    points (1), (2) and (7) below, plus three add-ons the owner asked for
+    on the way — a Builder card never shows the last request as its
+    description (the from-chat path fixed too), Profile › 알림 as two
+    aligned switch rows, Profile › 내가 만든 앱 as a plain list. **B — the
+    admin screens, points (3)–(6): merged 2026-10-16
+    (`feat-ui-improvements-b`; delivery notes below; migration
+    `a3c7e9b1d5f2`).** Owner, 2026-10-16 (relayed from another
+    session): fold **owner-polish 15** (app detail screen) and **owner-polish
+    4·5** (thumbnails) together with the UI points below into one bundle.
+    The thumbnail method is decided in the plan from 2–3 compared options
+    (never running member code on the server, CLAUDE.md §8·§10). Do **not**
+    touch owner-polish 6 (video lock) — another session has it. Owner's
+    words, verbatim: "그거랑 같이 지금 검색도 이상함 뭔가 선도 끝에랑
+    안맞고 (video에는 보면 사용자별 드랍다운이 있는데 여기엔 없어서 그런지
+    뭔지 모르겠음) 모든 build, store, 빌드 영상 둘다 나중에 pin이랑 정렬
+    (마지막 수정일 이름) 으로 할 수 있게 / 분기 신청기한도 늘릴 수 있게 /
+    ai model budget 여기 화면 너무 복잡해 너무 줄줄이 길어 뭔가 차라리
+    하나씩 토글해서 볼 수 있으면 나을 듯 / deleted items는 관리자가
+    완전히 삭제할 수 있음. 그리고 분기 끝나면 관리자 안 삭제한거
+    전체적으로 자동 삭제 (이건 확정) / system도 뭔가 너무 많음;; 걍
+    연결상태를 전체적으로 health를 보고 싶은데 아래에 뭐가 저리 많음 /
+    그거까지 해서 ui개선". The relaying session's reading of the
+    screenshots, to confirm in the plan: (1) the search bar's right edge on
+    CtrlAIApps does not line up with the card row (Video has the
+    전체/작성 중/게시됨 filter beside it) — align the list screens' header
+    rows (Builder, CtrlAIApps, Video, CtrlAITube) on one grid; (2) pin +
+    sort (last modified / name, remembered) on the Builder, CtrlAIApps and
+    Video lists — pins per member (CtrlAIApps: a member's own favourites),
+    one migration if storage is needed; (3) Admin › Quarters: extend an
+    application deadline later (within the quarter; audited; whether a
+    closed quarter can reopen is proposed in the plan); (4) Admin › AI
+    Models and Budget: sections collapsed to a summary, opened one at a
+    time, state remembered; (5) Deleted Items: an admin's 완전히 삭제
+    (confirm, reason, audit) **and**, at 분기 마감, everything not restored
+    is purged automatically (owner's decision) — money rows (`UsageEvent`,
+    wallets, audit) are never deleted, so the design must survive the
+    project's removal (FKs, name snapshots), app folders and stored files
+    go too, and the decision is recorded in CLAUDE.md §2/§4; (6) Admin ›
+    System: an at-a-glance health row (server · DB · each provider,
+    green/red) on top, the rest (exchange rate, chat limits, depth table,
+    `.env` list, builder check) in collapsed sections; (7) owner-polish 15
+    and 4·5 as written.
+
+## ui-improvements-b — delivery notes (merged 2026-10-16)
+
+Branch `feat-ui-improvements-b`, built in the worktree `../ctrl-ai-ui-b`
+under the owner's written pre-approval of 2026-10-16 (quoted in
+`progress/RUN-2026-10-16.md` › UI-B): own `/code-review high` and
+`/security-review`, every gate green, main merged with one Alembic head,
+the coordinating session asked before the merge. What was built:
+
+- **(4) 신청 기한 연장 / 신청 다시 열기** (`cddc2bc`). Admin › Quarters row
+  menu: 신청 기한 연장… while applications are open, 신청 다시 열기… once
+  they were closed by hand (`active`); off for `draft` and `closed`.
+  `ExtendDeadlineDialog` opens on the first valid day (the day after the
+  current deadline, or today) and is bounded by the quarter's end. The
+  rules are the backend's (`PATCH /api/admin/quarters/{id}`): once a
+  quarter is open or running its deadline is today or later and inside
+  the quarter; reopening `active` → `application_open` needs a deadline
+  that has not passed; a quarter that never had an application window
+  gets one from its first day when a deadline is set; **분기 마감
+  (`closed`) never reopens** (409). The audit summary names the change
+  ("…마감일을 D로 늦췄습니다" when it moved later, "바꿨습니다" otherwise,
+  "신청을 다시 열고…" on reopen).
+- **(1)+(2) Folds** (`e15b066`). `admin/components/Fold.tsx`: `FoldGroup`
+  keeps one open section per screen in `localStorage`
+  (`ctrlai.admin.<screen>.open`, "" = all closed) through
+  `lib/layout-prefs.makePrefs`; `Fold` is a `<section>` with an
+  `aria-expanded` button, a one-line summary while closed and the body
+  only while open. **AI Models**: StatCards (모델 · 회원 공개 · 기본 모델 ·
+  제공자), one fold per provider (all forced open while searching), 비용
+  보정 as a fold. **Budget**: the stat cards, then eight folds (이달 ·
+  지원금 대비 사용 · 크레딧 · 제공자별 · 모델·깊이별 · 회원별 · 캐시 · 대조)
+  each with a figure in its summary line. **System**: `HealthStrip` on top
+  — 서버 · 데이터베이스 from `/api/health`, each provider from its last
+  recorded success/error (`providerTone`: mock → grey; an error newer
+  than the last success → red; otherwise green) — nothing is called on
+  open, 모두 확인 runs every provider check in turn; below it the server
+  card, 기능 상자, providers, 환율, 채팅 한도 (with the depth table), `.env`
+  and the builder check as folds.
+- **(3) Deleted Items 완전히 삭제 + purge at 분기 마감** (`32a25e5`, owner's
+  decision recorded in CLAUDE.md §2/§4). `services/purge.py`:
+  `purge(db, item)` locks the row, re-checks `deleted_at` (a restore in
+  between wins), copies the name onto its usage events
+  (`usage_events.work_label`, migration `a3c7e9b1d5f2`) and nulls their
+  project/video links, then deletes every child explicitly youngest first
+  (reports, data items/collections/writes, login codes, sessions,
+  consents, favourites, generations, files, versions; video versions)
+  and the row — explicitly because the tests run on SQLite, which does not
+  cascade. `DELETE /api/admin/work/{kind}/{id}/purge` (`require_admin`,
+  JSON `{reason}` 1–500 characters, blank refused, Deleted Items only)
+  writes `work.purged` with the reason in `detail` (the summary column
+  holds 300). `POST /api/admin/quarters/{id}/close` purges everything in
+  Deleted Items **deleted by the quarter's last day (KST)** in the same
+  transaction as the wallet freeze — a late close leaves this week's
+  deletions for their own quarter — with one `work.purged_at_close` row
+  listing the items; the close preview carries `purge_count` and the
+  dialog says how many. App folders and stored videos are removed after
+  commit (`remove_files`, tolerant of a missing file or a bad key). Usage
+  labels purged work "… (삭제됨)". **Money rows never go**: usage events
+  keep their amounts, wallets freeze as before, audit rows are appended.
+- **Tests.** Backend `test_purge.py` (12): project purge removes the row,
+  one row of every child table and the folder but keeps the charge with
+  its amount and name; video purge removes the stored file; app charges
+  keep the name; live work refused; reason required, blank refused, a
+  500-character reason fits (proven on the PG run); only admins; close
+  purges what was deleted by the last day and keeps a later deletion; a
+  restore between the list and the purge wins; nothing deleted → no row.
+  `test_admin_quarter_form.py` +7 (extend, past, outside the quarter,
+  reopen, reopen with a past deadline, closed never, no window). Guard
+  table row for the purge route. Frontend: `admin-fold`,
+  `admin-health-strip`, `admin-extend-deadline`, `admin-deleted`,
+  `cost-clarity` (purge count), catalogue and wallet tests adapted to the
+  folds. Screenshots `progress/screens/ui-improvements-b/` (18, by
+  `e2e/ui-b-shots.mjs`).
+- **Reviews.** `/security-review` (subagent on the worktree diff): no
+  findings; one note applied (`remove_files` catches `StorageKeyError`).
+  `/code-review high` (subagent on the worktree diff): 8 findings, all
+  fixed in `0097817` — the audit summary overflowing 300 characters on
+  PostgreSQL, a quarter without an application window unable to reopen,
+  the extend dialog opening in an error state, `AppFavorite` rows not
+  purged, the close purging deletions after the quarter's last day, no
+  re-check of `deleted_at` under a lock, a whitespace reason, and
+  "늦췄습니다" for a deadline that moved earlier. Nothing touches
+  `usage.charge()` or the wallets.
