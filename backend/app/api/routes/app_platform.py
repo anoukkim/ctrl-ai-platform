@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import BuilderProject, User
-from app.services import app_ai, app_ai_access, app_auth, app_data, app_shell, chat_limits, provider_limiter
+from app.services import app_ai, app_ai_access, app_auth, app_data, app_fonts, app_shell, chat_limits, provider_limiter
 from app.services.claude_provider import ClaudeError, get_claude_provider
 
 router = APIRouter(prefix="/_ctrlai", tags=["app-platform"])
@@ -69,6 +69,38 @@ def sdk_script() -> Response:
 def shell_script() -> Response:
     """Loaded only by the shell page, on this origin."""
     return _script("shell.js", "same-origin")
+
+
+#: Public files, the same for everyone. A font is fetched with CORS and the
+#: app's origin is opaque, so `*` is what lets the browser use it; there is
+#: nothing in these files about anyone.
+FONT_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "X-Content-Type-Options": "nosniff",
+}
+
+
+@router.get("/fonts.css", include_in_schema=False)
+def fonts_stylesheet() -> Response:
+    """The `@font-face` rules for the font catalogue (`app_fonts`)."""
+    return Response(
+        content=app_fonts.fonts_css(),
+        media_type="text/css; charset=utf-8",
+        headers={**FONT_HEADERS, "Cache-Control": "public, max-age=3600"},
+    )
+
+
+@router.get("/fonts/{name}", include_in_schema=False)
+def font_file(name: str) -> Response:
+    path = app_fonts.file_path(name)
+    if path is None:
+        return Response(status_code=404)
+    return Response(
+        content=path.read_bytes(),
+        media_type="font/woff2",
+        headers={**FONT_HEADERS, "Cache-Control": "public, max-age=604800"},
+    )
 
 
 @router.get("/shell/{slug}", include_in_schema=False)

@@ -51,6 +51,7 @@ from typing import Any, Protocol
 
 from app.core.config import Settings
 from app.models import ProviderErrorKind
+from app.services import app_fonts
 from app.services.pricing import estimate_tokens
 
 # ------------------------------------------------------------------ errors
@@ -611,6 +612,25 @@ ctrlai.storage : { get: async (k) => JSON.parse(localStorage.getItem(k) \
 lists read as empty, the visitor counts as signed out, AI shows the demo.
 """
 
+#: The Korean fonts CTRL+AI serves to member apps (feat-app-fonts). Built
+#: from the catalogue, so a font added there reaches every prompt.
+_FONT_RULES = (
+    """\
+- 글씨체 (fonts) — CTRL+AI serves these Korean fonts to every app; use \
+them by name in CSS, nothing to link or download (CTRL+AI adds the font \
+file itself, and the font-face rules are not yours to write): """
+    + app_fonts.prompt_list()
+    + """. Write e.g. font-family: "Jua", "Apple SD Gothic Neo", \
+"Malgun Gothic", sans-serif — always keep the system fonts after the name \
+as a fallback, and use the name exactly as listed, in quotes. Pick one for \
+headings and one for body text at most; Pretendard is a good body font, \
+and a bold or rounded one suits a title. Use the weights the app needs \
+(400 and 700 exist for most; Pretendard, Noto Sans KR, Noto Serif KR and \
+Hahmlet are variable). A font that is not in the list does not load.
+"""
+)
+_SDK_RULES += _FONT_RULES
+
 STARTER_SYSTEM = (
     """\
 You build small starter web apps for CTRL+AI, a Korean club where \
@@ -636,9 +656,10 @@ code, so a beginner can follow it.
 files. Every button works; no placeholders, no "준비 중" stubs, no \
 lorem ipsum. The layout fits a phone and a laptop.
 - Give each app its own look that fits the idea and the requested style \
-(colours, type, layout, mood) — not a default white card. Fonts only from \
-local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
-monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
+(colours, type, layout, mood) — not a default white card. Fonts: the \
+글씨체 list above, then local stacks (system-ui, "Apple SD Gothic Neo", \
+"Malgun Gothic", serif, monospace, cursive); no other web fonts or CDNs. \
+Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs in the visitor's browser. What it keeps in ctrlai.storage \
 stays on that visitor's device and is never shared with others; what it \
@@ -708,9 +729,10 @@ all in this one reply. Do not call it for files that stay the same.
 the code. The layout fits a phone and a laptop.
 - At most 30 files, 200 KB each.
 - Give each app its own look that fits the idea and the requested style \
-(colours, type, layout, mood) — not a default white card. Fonts only from \
-local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
-monospace, cursive); no web fonts or CDNs. Keep text readable (contrast).
+(colours, type, layout, mood) — not a default white card. Fonts: the \
+글씨체 list above, then local stacks (system-ui, "Apple SD Gothic Neo", \
+"Malgun Gothic", serif, monospace, cursive); no other web fonts or CDNs. \
+Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs in the visitor's browser. What it keeps in ctrlai.storage \
 stays on that visitor's device and is never shared with others; what it \
@@ -791,9 +813,10 @@ the code. The layout fits a phone and a laptop.
 files. Every button works; no placeholders, no "준비 중" stubs, no lorem \
 ipsum.
 - Give each app its own look that fits the idea and the requested style \
-(colours, type, layout, mood) — not a default white card. Fonts only from \
-local stacks (system-ui, "Apple SD Gothic Neo", "Malgun Gothic", serif, \
-monospace, cursive). Keep text readable (contrast).
+(colours, type, layout, mood) — not a default white card. Fonts: the \
+글씨체 list above, then local stacks (system-ui, "Apple SD Gothic Neo", \
+"Malgun Gothic", serif, monospace, cursive); no other web fonts or CDNs. \
+Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show \
 messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs in the visitor's browser. ctrlai.storage stays on that \

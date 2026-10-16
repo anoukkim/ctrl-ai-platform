@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import BACKEND_DIR, Settings
 from app.models import BuilderProject
-from app.services import app_data, app_manifest, builder_files
+from app.services import app_data, app_fonts, app_manifest, builder_files
 
 #: Lower-case letters and digits, no look-alikes — a slug is read aloud.
 _SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
@@ -110,22 +110,24 @@ def ensure_draft_slug(db: Session, project: BuilderProject) -> str:
     return project.draft_slug
 
 
-def with_shim(path: str, content: str) -> str:
-    """HTML pages get `SDK_TAG` first thing in `<head>` (or the top)."""
+def with_shim(path: str, content: str, fonts: bool = False) -> str:
+    """HTML pages get `SDK_TAG` first thing in `<head>` (or the top), and,
+    when the app names a catalogue font (`fonts`), `app_fonts.FONTS_TAG`."""
     if not path.lower().endswith(".html"):
         return content
+    tags = SDK_TAG + (app_fonts.FONTS_TAG if fonts else "")
     lower = content.lower()
     head = lower.find("<head")
     if head != -1:
         end = content.find(">", head)
         if end != -1:
-            return content[: end + 1] + SDK_TAG + content[end + 1 :]
+            return content[: end + 1] + tags + content[end + 1 :]
     doctype = lower.find("<!doctype")
     if doctype != -1:
         end = content.find(">", doctype)
         if end != -1:
-            return content[: end + 1] + SDK_TAG + content[end + 1 :]
-    return SDK_TAG + content
+            return content[: end + 1] + tags + content[end + 1 :]
+    return tags + content
 
 
 def _folder_bytes(folder: Path) -> int:
@@ -197,7 +199,8 @@ def _write(settings: Settings, slug: str, cleaned: dict[str, str]) -> None:
     root.mkdir(parents=True, exist_ok=True)
     target = root / slug
 
-    rendered = {path: with_shim(path, content).encode("utf-8") for path, content in cleaned.items()}
+    fonts = app_fonts.used_in(cleaned)
+    rendered = {path: with_shim(path, content, fonts).encode("utf-8") for path, content in cleaned.items()}
     new_bytes = sum(len(data) for data in rendered.values())
     used = _folder_bytes(root) - (_folder_bytes(target) if target.exists() else 0)
     if used + new_bytes > settings.apps_max_total_mb * 1024 * 1024:
