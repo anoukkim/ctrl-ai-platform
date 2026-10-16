@@ -571,7 +571,7 @@ New UI requests go here until they are folded into a UI batch.
   Small. **Scheduled and pre-approved** (owner, 2026-10-16 evening,
   verbatim: "chat-pins도 motion-modern 다음에 같은 규칙으로 (리뷰 깨끗 +
   테스트 통과하면 merge + 배포) 해줘") — ⑥ after ⑤ motion-modern, branch
-  `feat-chat-pins`, same rules as ④–⑤.
+  `feat-chat-pins`, same rules as ④–⑤. **Merged `d224240`, deployed 2026-10-17** — Done row in the archive.
 
 *(The two UI requests since UI batch 1, **admin-restructure** and
 **ui-naming**, were each large enough to get their own item and branch in
