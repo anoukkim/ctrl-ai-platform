@@ -37,7 +37,13 @@
   overflow: hidden;
 }
 
-/* 실제 영상의 포스터(promo-videos). 카드 비율에 맞춰 가운데를 채웁니다. */
+/* 세로 영상의 썸네일 칸: 3:4 (fix-promo-video-placement). */
+.thumbnailTall {
+  aspect-ratio: 3 / 4;
+  background: var(--video-letterbox);
+}
+
+/* 실제 영상의 포스터(promo-videos). 칸에 맞춰 가운데를 채웁니다. */
 .poster {
   position: absolute;
   inset: 0;
@@ -133,3 +139,18 @@
   text-align: center;
 }
 
+/* 머리 줄의 수 — CtrlAIApps와 같은 꼴 (ui-improvements). */
+.sectionLabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--lib-gap-xs);
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+  color: var(--text-muted);
+}
+
+.count {
+  font-size: var(--fs-count);
+  font-weight: 500;
+  color: var(--text-dim);
+}

@@ -21,7 +21,6 @@
  * 아직 목업인 화면(게시된 앱·영상의 만든 사람 표시, Phase 5/8)이 이 이름을
  * 쓰고 있어 재export를 남겨 둡니다.
  */
-import type { Aspect } from "./aspect";
 import type { MembershipStatus } from "./quarters";
 
 export type { MembershipStatus };
@@ -282,150 +281,10 @@ export function totalComments(comments: Comment[]): number {
   );
 }
 
-// CtrlAIApps의 예시 앱(MOCK_APPS)은 ctrlaiapps-publish(2026-10-14)에서
-// 지웠습니다 — 목록은 이제 회원이 실제로 게시한 앱입니다(`lib/apps.ts`).
-
-export interface CommunityVideo {
-  id: string;
-  title: string;
-  description: string;
-  creator: Creator;
-  publishedAt: string;
-  duration: string;
-  /**
-   * 만들어진 영상의 가로세로 비율.
-   *
-   * 재생 화면의 틀을 정하는 값입니다. 세로 영상과 가로 영상을 같은 틀에
-   * 넣으면 한쪽은 잘리거나 양옆이 비어 보이므로, 영상이 자기 비율을
-   * 들고 다닙니다. Phase 8에서 실제 기록으로 옮길 때도 남는 값입니다.
-   */
-  aspectRatio: Aspect;
-  /** 실제 기록에서는 YouTube 영상 ID가 저장됩니다. */
-  youtubeVideoId: string | null;
-  prompt: string;
-  artwork: [string, string];
-  reactions: Record<ReactionType, number>;
-  /** CTRL+AI에 저장되는 커뮤니티 댓글. YouTube 댓글과 섞지 않습니다. */
-  comments: Comment[];
-  /** 별도 영역에 따로 표시되는 YouTube 댓글 수. */
-  youtubeCommentCount: number;
-}
-
-/**
- * 예시 영상 세 편. 비율이 서로 다른 것은 일부러입니다.
- *
- * 재생 화면은 9:16·16:9·1:1을 모두 같은 두 칸 배치 안에서 보여 줘야
- * 합니다. 세 가지가 모두 들어 있지 않으면 세로 영상에서만 생기는 문제를
- * 화면을 열어 보고도 모르게 됩니다.
- */
-export const MOCK_VIDEOS: CommunityVideo[] = [
-  {
-    id: "v-seoul-rain",
-    title: "비 오는 서울의 밤",
-    description: "Claude로 프롬프트를 다듬고 Higgsfield로 만든 15초 영상입니다.",
-    creator: { username: "yurikim", displayName: "김유리", membership: "active" },
-    publishedAt: "2026-09-25",
-    duration: "15초",
-    aspectRatio: "9:16",
-    youtubeVideoId: null,
-    prompt: MOCK_VIDEO_PROMPT,
-    artwork: ["#1e1b4b", "#7c3aed"],
-    reactions: { like: 86, useful: 5, interesting: 31 },
-    comments: [
-      {
-        id: "vc1",
-        author: { username: "minji", displayName: "박민지", membership: "active" },
-        body: "젖은 도로에 비치는 불빛이 정말 예뻐요. 길이는 어떻게 정하셨어요?",
-        createdAt: "2026-09-26",
-        likes: 7,
-        // 답글이 셋을 넘으면 재생 화면에서 접힙니다. 긴 실타래가 댓글
-        // 칸을 다 차지하지 않는지 보려면 실제로 긴 것이 하나 있어야 합니다.
-        replies: [
-          {
-            id: "vc1r1",
-            author: { username: "yurikim", displayName: "김유리", membership: "active" },
-            body: "15초에 9:16으로 만들었어요. 프롬프트는 Claude로 한 번 다듬었습니다.",
-            createdAt: "2026-09-26",
-            likes: 4,
-          },
-          {
-            id: "vc1r2",
-            author: { username: "minji", displayName: "박민지", membership: "active" },
-            body: "9:16이라 휴대폰으로 보기 좋네요. Shorts로 올리실 건가요?",
-            createdAt: "2026-09-27",
-            likes: 1,
-          },
-          {
-            id: "vc1r3",
-            author: { username: "yurikim", displayName: "김유리", membership: "active" },
-            body: "네, 채널 연결되면 올려 볼 생각이에요.",
-            createdAt: "2026-09-28",
-            likes: 2,
-          },
-          {
-            id: "vc1r4",
-            author: { username: "seojun", displayName: "이서준", membership: "active" },
-            body: "저도 같은 분위기로 만들어 보고 싶어요. 프롬프트 참고하겠습니다.",
-            createdAt: "2026-09-30",
-            likes: 0,
-          },
-        ],
-      },
-      {
-        id: "vc3",
-        author: { username: "daeun", displayName: "최다은", membership: "inactive" },
-        body: "빗소리까지 들리는 것 같아요. 다음 분기에 저도 다시 만들어 볼게요.",
-        createdAt: "2026-10-01",
-        likes: 3,
-      },
-    ],
-    youtubeCommentCount: 12,
-  },
-  {
-    id: "v-busan-dawn",
-    title: "새벽 부산 해안",
-    description: "해 뜰 무렵 해안선을 따라 천천히 날아가는 20초 영상입니다.",
-    creator: { username: "minji", displayName: "박민지", membership: "active" },
-    publishedAt: "2026-09-19",
-    duration: "20초",
-    aspectRatio: "16:9",
-    youtubeVideoId: null,
-    prompt:
-      "해가 막 떠오르는 부산 해안선을 따라 천천히 날아가는 장면. 잔잔한 바다와 따뜻한 햇빛, 20초 영상으로 만들어줘.",
-    artwork: ["#0369a1", "#f59e0b"],
-    reactions: { like: 54, useful: 3, interesting: 22 },
-    comments: [],
-    youtubeCommentCount: 4,
-  },
-  {
-    id: "v-paper-city",
-    title: "종이로 만든 도시",
-    description: "종이를 접어 만든 도시를 스톱모션처럼 표현한 10초 영상입니다.",
-    creator: { username: "jihoon", displayName: "서지훈", membership: "former" },
-    publishedAt: "2026-07-08",
-    duration: "10초",
-    aspectRatio: "1:1",
-    youtubeVideoId: null,
-    prompt:
-      "종이를 접어 만든 것 같은 도시를 스톱모션 느낌으로 보여줘. 부드러운 조명에 10초 정도 길이로.",
-    artwork: ["#be123c", "#fb7185"],
-    reactions: { like: 39, useful: 2, interesting: 18 },
-    comments: [
-      {
-        id: "vc2",
-        author: { username: "seojun", displayName: "이서준", membership: "active" },
-        body: "가끔 생각나서 다시 보게 되는 영상이에요.",
-        createdAt: "2026-07-10",
-        likes: 5,
-      },
-    ],
-    youtubeCommentCount: 0,
-  },
-];
-
-export function findVideo(id: string): CommunityVideo | undefined {
-  return MOCK_VIDEOS.find((video) => video.id === id);
-}
+// CtrlAIApps의 예시 앱(MOCK_APPS)은 ctrlaiapps-publish(2026-10-14)에서,
+// CtrlAITube의 예시 영상(MOCK_VIDEOS)은 fix-promo-video-placement
+// (2026-10-16)에서 지웠습니다 — 두 목록 모두 이제 실제 행입니다
+// (`lib/apps.ts`, `lib/tube.ts`).
 
 /* ------------------------------------------------------------------ */
 /* Admin                                                               */
@@ -507,7 +366,3 @@ export function formatCompact(value: number): string {
   return String(value);
 }
 
-/** 반응 수의 합계. 카드와 "인기순" 정렬이 같은 값을 쓰도록 한 곳에 둡니다. */
-export function totalReactions(reactions: Record<ReactionType, number>): number {
-  return reactions.like + reactions.useful + reactions.interesting;
-}

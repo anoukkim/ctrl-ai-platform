@@ -348,7 +348,10 @@ this way. **App thumbnails (ui-improvements)** go through the same
 ### CtrlAITube rows (`promo-videos`)
 
 `tube_videos` (slug, `kind` hosted | youtube, title, description,
-`official`, nullable creator, the hosted/poster paths per orientation,
+`official`, nullable creator, the hosted/poster paths per cut — the
+columns are named `desktop` (16:9, played in the first-visit guide) and
+`mobile` (9:16, played on CtrlAITube) for their shape, not the viewer's
+device (`fix-promo-video-placement`),
 `youtube_video_id`, duration, `published_at`, `deleted_at`),
 `tube_reactions` (video, user, kind — unique, a toggle), `tube_comments`
 (video, author, one-level `parent_id`, body, the author's `deleted_at`,

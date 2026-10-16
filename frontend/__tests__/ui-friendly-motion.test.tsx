@@ -152,11 +152,14 @@ describe("첫 안내", () => {
       await user.click(screen.getByRole("button", { name: "다음" }));
       expect(await screen.findByText(GUIDE_STEPS[i].title)).toBeTruthy();
     }
-    // The last step holds the promo video: no autoplay, muted until asked.
+    // The last step holds the promo video: the 16:9 file whatever the
+    // width (jsdom has no matchMedia, like a phone it is not "desktop"),
+    // no autoplay, muted until asked.
     const video = document.querySelector("video") as HTMLVideoElement;
     expect(video).not.toBeNull();
     expect(video.hasAttribute("autoplay")).toBe(false);
-    expect(video.getAttribute("src")).toMatch(/\/promo\/ctrlai-intro-(desktop|mobile)-v1\.mp4$/);
+    expect(video.getAttribute("src")).toBe("/promo/ctrlai-intro-desktop-v1.mp4");
+    expect(video.getAttribute("data-orientation")).toBe("wide");
     expect(screen.getByRole("button", { name: "소리 켜기" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "시작하기" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

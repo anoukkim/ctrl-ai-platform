@@ -2,11 +2,12 @@
  * promo-videos — the club's intro video in the guide and on CtrlAITube.
  *
  * jsdom has no layout, media playback or fullscreen, so this proves the
- * ingredients: which file is picked at which width, that nothing plays by
- * itself, that sound is off until asked, that the official card leads the
- * grid, and that reactions and comments talk to the API and show the right
- * actions for mine vs. others'. The admin queue shows the report with its
- * three actions.
+ * ingredients: the guide always plays the 16:9 file and CtrlAITube always
+ * the 9:16 file whatever the width (fix-promo-video-placement), nothing
+ * plays by itself, sound is off until asked, the grid holds only real
+ * videos (the official one, no sample cards), and reactions and comments
+ * talk to the API and show the right actions for mine vs. others'. The
+ * admin queue shows the report with its three actions.
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -75,6 +76,8 @@ const SOURCES = {
   posterDesktop: "/promo/ctrlai-intro-desktop-v1.jpg",
   posterMobile: "/promo/ctrlai-intro-mobile-v1.jpg",
 };
+const WIDE = { src: SOURCES.desktop, poster: SOURCES.posterDesktop, orientation: "wide" as const };
+const TALL = { src: SOURCES.mobile, poster: SOURCES.posterMobile, orientation: "tall" as const };
 
 function setWidth(desktop: boolean) {
   window.matchMedia = ((query: string) => ({
@@ -139,27 +142,28 @@ beforeEach(() => {
 });
 
 describe("PromoVideo", () => {
-  test("데스크탑 너비에서는 가로 파일, 휴대폰 너비에서는 세로 파일을 고르고, 저절로 재생하지 않는다", () => {
-    setWidth(true);
-    const { unmount } = render(<PromoVideo sources={SOURCES} title="소개" />);
+  test("받은 편을 그대로 틀고 (너비와 상관없이), 저절로 재생하지 않는다", () => {
+    setWidth(false); // a phone width changes nothing
+    const { unmount } = render(<PromoVideo clip={WIDE} title="소개" />);
     let video = document.querySelector("video") as HTMLVideoElement;
     expect(video.getAttribute("src")).toBe(SOURCES.desktop);
     expect(video.getAttribute("poster")).toBe(SOURCES.posterDesktop);
+    expect(video.getAttribute("data-orientation")).toBe("wide");
     expect(video.hasAttribute("autoplay")).toBe(false);
     expect(video.hasAttribute("controls")).toBe(true);
     expect(video.getAttribute("preload")).toBe("metadata");
     unmount();
 
-    setWidth(false);
-    render(<PromoVideo sources={SOURCES} title="소개" />);
+    setWidth(true); // a desktop width changes nothing either
+    render(<PromoVideo clip={TALL} title="소개" />);
     video = document.querySelector("video") as HTMLVideoElement;
     expect(video.getAttribute("src")).toBe(SOURCES.mobile);
-    expect(video.getAttribute("data-orientation")).toBe("mobile");
+    expect(video.getAttribute("data-orientation")).toBe("tall");
   });
 
   test("소리는 꺼진 채 시작하고 '소리 켜기'로 켠다; '크게 보기'는 전체 화면을 요청한다", async () => {
     const user = userEvent.setup();
-    render(<PromoVideo sources={SOURCES} title="소개" />);
+    render(<PromoVideo clip={WIDE} title="소개" />);
     const video = document.querySelector("video") as HTMLVideoElement;
     expect(video.muted).toBe(true);
 
@@ -175,7 +179,7 @@ describe("PromoVideo", () => {
 });
 
 describe("CtrlAITube 목록", () => {
-  test("공식 영상 카드가 맨 앞에, 저장된 반응·댓글 수와 함께", async () => {
+  test("공식 영상 카드만 있고 (예시 카드 없음), 세로 포스터와 저장된 반응·댓글 수", async () => {
     render(<VideoGrid />);
     const card = await screen.findByTestId("official-card");
     expect(card.getAttribute("href")).toBe("/ctrlaitube/ctrlai-intro");
@@ -184,9 +188,16 @@ describe("CtrlAITube 목록", () => {
     expect(card.textContent).toContain("1:00");
     expect(within(card).getByText("4")).toBeTruthy(); // 3 + 1 + 0
     expect(within(card).getByText("2")).toBeTruthy();
-    // First in the grid, before the sample cards.
-    const links = screen.getAllByRole("link");
-    expect(links[0]).toBe(card);
+    expect(card.querySelector("img")?.getAttribute("src")).toBe(SOURCES.posterMobile);
+    // Nothing else: the sample cards are gone.
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.queryByText("비 오는 서울의 밤")).toBeNull();
+  });
+
+  test("영상이 없으면 빈 상태를 보여 준다", async () => {
+    api.listTubeVideos.mockResolvedValue([]);
+    render(<VideoGrid />);
+    expect(await screen.findByText("아직 영상이 없어요.")).toBeTruthy();
   });
 });
 
@@ -198,7 +209,9 @@ describe("공식 영상 화면", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: /CTRL\+AI 한눈에 보기/ })).toBeTruthy();
     expect(screen.getByText("공식")).toBeTruthy();
-    expect((document.querySelector("video") as HTMLVideoElement).getAttribute("src")).toBe(SOURCES.desktop);
+    // CtrlAITube plays the 9:16 file even at a desktop width.
+    expect((document.querySelector("video") as HTMLVideoElement).getAttribute("src")).toBe(SOURCES.mobile);
+    expect(screen.getByText("9:16 세로")).toBeTruthy();
 
     // Counts come from the server; my pressed state too.
     const useful = screen.getByRole("button", { name: /유용해요/ });

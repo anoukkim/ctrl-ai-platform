@@ -4,8 +4,8 @@
  * 처음 온 회원을 위한 짧은 안내 — 다섯 장(ui-friendly-motion, promo-videos).
  *
  * Chat, Project Builder, Video Generator, 지원금, 그리고 마지막에 1분짜리
- * 소개 영상(`PromoVideo` — 데스크탑은 가로, 휴대폰은 세로 파일; 저절로
- * 재생하지 않고 소리는 켜야 들립니다). 처음 로그인했을 때
+ * 소개 영상(`PromoVideo` — **어느 기기에서나 16:9 가로 편**; 세로 편은
+ * CtrlAITube의 것입니다. 저절로 재생하지 않고 소리는 켜야 들립니다). 처음 로그인했을 때
  * 한 번 뜨고, 닫거나 끝까지 보면 이 브라우저에 기억해 다시 뜨지 않습니다
  * (`ctrlai.guide-done`). 사이드바 아래의 물음표 단추로 언제든 다시 엽니다.
  *
@@ -18,17 +18,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { getTubeVideo } from "@/lib/tube";
 
-import PromoVideo, { type PromoSources } from "./PromoVideo";
+import PromoVideo, { type PromoClip } from "./PromoVideo";
 import styles from "./guide.module.css";
 
-/** 소개 영상의 파일 — 서버(`GET /api/tube/videos/ctrlai-intro`)가 정답이고,
+/** 안내 창의 영상 — 16:9 가로 편, 기기와 상관없이. 서버
+ *  (`GET /api/tube/videos/ctrlai-intro`의 `hosted_desktop_src`)가 정답이고,
  *  이 값은 그 응답이 오기 전이나 실패했을 때의 대비입니다. 새 인코딩은
  *  백엔드 `services/tube.py`의 OFFICIAL에 올리고 여기도 맞춥니다. */
-export const PROMO_SOURCES: PromoSources = {
-  desktop: "/promo/ctrlai-intro-desktop-v1.mp4",
-  mobile: "/promo/ctrlai-intro-mobile-v1.mp4",
-  posterDesktop: "/promo/ctrlai-intro-desktop-v1.jpg",
-  posterMobile: "/promo/ctrlai-intro-mobile-v1.jpg",
+export const GUIDE_CLIP: PromoClip = {
+  src: "/promo/ctrlai-intro-desktop-v1.mp4",
+  poster: "/promo/ctrlai-intro-desktop-v1.jpg",
+  orientation: "wide",
 };
 
 export const GUIDE_STORAGE_KEY = "ctrlai.guide-done";
@@ -129,20 +129,15 @@ export default function GuideProvider({
   );
 }
 
-/** 마지막 장의 영상. 파일 주소는 CtrlAITube와 같은 곳(서버)에서 읽습니다. */
+/** 마지막 장의 영상 — 가로 편. 파일 주소는 CtrlAITube와 같은 곳(서버)에서 읽습니다. */
 function GuideVideo() {
-  const [sources, setSources] = useState<PromoSources>(PROMO_SOURCES);
+  const [clip, setClip] = useState<PromoClip>(GUIDE_CLIP);
   useEffect(() => {
     let alive = true;
     getTubeVideo("ctrlai-intro")
       .then((row) => {
         if (!alive || !row.hosted_desktop_src) return;
-        setSources({
-          desktop: row.hosted_desktop_src,
-          mobile: row.hosted_mobile_src,
-          posterDesktop: row.poster_desktop_src,
-          posterMobile: row.poster_mobile_src,
-        });
+        setClip({ src: row.hosted_desktop_src, poster: row.poster_desktop_src, orientation: "wide" });
       })
       .catch(() => {
         /* 서버가 답하지 않으면 위의 값으로 */
@@ -151,7 +146,7 @@ function GuideVideo() {
       alive = false;
     };
   }, []);
-  return <PromoVideo sources={sources} title="CTRL+AI 소개 영상" className={styles.video} />;
+  return <PromoVideo clip={clip} title="CTRL+AI 소개 영상" className={styles.video} />;
 }
 
 function GuideDialog({ onClose }: { onClose: () => void }) {

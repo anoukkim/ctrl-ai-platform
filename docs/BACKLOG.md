@@ -76,6 +76,23 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
+**Pre-approval and order (owner, 2026-10-16 ~16:20 KST, in the desktop
+session, before being away for a few hours).** The owner's words:
+"keep 9 on hold … bring motions to 1st and app ai access next … if it is
+different, add to third [Polish 2] … i am going to not have access to
+this computer for the next few hours and i want you to run current +
+1,2,3", and the owner's answers to two questions: **"Yes, merge + deploy"**
+— each item may be merged and deployed once its code review + security
+review are clean and all tests pass, one at a time, the desktop session
+deploying and checking each; serious money/security findings stop and
+wait for the owner — and **"Build directly"** — no plan step; follow the
+specs, take the safest default on open questions and list them in the
+report. **Scope, exactly:** the three running items (ui-improvements A,
+ui-improvements B, auto-continue / polish 11), then **① motion-modern,
+② app-ai-access, ③ owner-polish 2 (tidier Profile + notification list)**.
+**dino-avatars stays on hold.** Not covered: the CtrlAITube poster branch
+`fix-tube-poster` (waits for the owner), anything else in Next.
+
 1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
    "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
    apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
@@ -238,6 +255,36 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     sizes and a load-time check belong to the review. **Example apps the
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
+
+8b. **motion-modern** · M1 · branch `feat-motion-modern`
+    *Not pre-approved — branch, test, report, WAIT.* Owner, 2026-10-16
+    ("motion ui를 개선할 수 있는 방법? 뭔가 더 현대적인 느낌으로…
+    미리보기 생성 같은거 할때 약간 중간부터 좀 생략해도 될 것 같아…
+    생성 중 뭔가 오로라 같은거, 답변 생성도 그럼"), after a demo page
+    the owner approved (the demo lives in the owner's desktop session;
+    refs looked at: motionsites.ai, prompt-motion.com). Final choices:
+    (1) **aurora card instead of streaming code** — while a Chat reply
+    writes a preview's code (or the Builder writes files) show
+    "미리보기 만드는 중…" over a slow aurora gradient with a timer and
+    the running cost and 2–3 step chips; when done the aurora melts into
+    the preview; the code stays under a folded "코드 보기";
+    (2) **thinking → calm stream** — "생각하는 중…" with a shimmer and
+    seconds, a slowly rotating colour ring around the composer while
+    busy, words fade/unblur in, a glowing caret;
+    (3) **Builder collapsed steps** — only the current step big
+    ("index.html 작성 중… N초"), finished steps fold into "✓ N개 완료"
+    (pop), the rest as dots, a progress bar, spinner not 🚫 (overlaps
+    polish 14 — extend it);
+    (4) **띠링 = 별가루** — small twinkling stars (pale gold/white) flow
+    from the price into the wallet, a few twinkle there, the number rolls
+    down, the toast pops (replaces the current toast motion; sound stays
+    the Profile switch);
+    (5) **게시 완료 = 쭈욱 → 팡! + 색종이** — thin glowing lines shoot up and
+    burst into rays with a white flash (calm colours: white, warm gold, a
+    touch of lavender), confetti from the centre, "게시 완료!" letters pop.
+    **No dino** in the motion (owner: "쟤만 너무 픽셀레이트 되어있어서").
+    Everything off with 동작 줄이기 (text stays); no click waits on an
+    animation; CSS + motion/react + Web Animations only, no paid service.
 
 9. **dino-avatars** · M3 · branch `feat-dino-avatars`
     *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
