@@ -71,12 +71,13 @@ the same commit that adds it.
 | `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
 | `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
+| `POST /api/admin/apps/{project_id}/thumbnail` | `require_admin` | owner-polish-3 (a): 썸네일 만들기 — raw image bytes taken in the admin's own browser from the published app, re-encoded like the maker's (409 without a published version) |
 | `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |
 | `POST /api/feedback/images` | `get_current_user` | One screenshot for the next note (bytes as the body, `?name=`, `application/octet-stream`); checked like a Chat image, then stored (feedback-screenshots) |
 | `DELETE /api/feedback/images/{image_id}` | `get_current_user` | ✕ on a picture not sent yet — own and waiting only, else 404 |
-| `GET /api/notifications`, `GET /api/notifications/unread` | `get_current_user` | One's own notification list (feat-notifications) and the bell's count — spends nothing, works while not taking part; reading prunes rows older than 90 days and writes the daily spend summaries up to yesterday from the ledger |
-| `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all` | `get_current_user` | Marking one's own rows read (JSON body `{}`); another member's row is a 404 |
+| `GET /api/notifications`, `GET /api/notifications/unread` | `get_current_user` | One's own notification list (feat-notifications) and the bell's count — spends nothing, works while not taking part; reading prunes rows older than 90 days. Only approvals, 게시 완료, 반응을 얻었어요 and 신고 처리 are listed or counted (owner-polish-3) |
+| `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`, `POST /api/notifications/clear` | `get_current_user` | Marking one's own rows read (JSON body `{}`; the bell does read-all when it opens) and 지우기 (`{ids}` or `{}` = all of mine — no history kept); another member's row is a 404 or simply untouched |
 | `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
@@ -190,6 +191,7 @@ the same commit that adds it.
 | `POST /api/admin/chat-models` | `require_admin` | Audited |
 | `PATCH /api/admin/chat-models/{id}` | `require_admin` | Audited (prices incl. cache-read price) |
 | `GET /api/admin/chat-models/calibration` | `require_admin` | Cost calibration: estimates vs real replies, read-only |
+| `POST /api/admin/claude-pricing/exchange-rate/auto`, `POST /api/admin/claude-pricing/exchange-rate/refresh` | `require_admin` | owner-polish-3 (b): the automatic rate's pin switch (`{on}`, audited) and 지금 새로 고침 (`{}`; the daily job's rules — 409 while pinned) |
 | `POST /api/admin/claude-pricing/exchange-rate` | `require_admin` | A new rate row; history kept; audited |
 | `GET /api/admin/providers` | `require_admin` | Read-only; never returns a credential |
 | `POST /api/admin/providers/{provider}/check` | `require_admin` | Runs on request only; records the outcome |
@@ -771,3 +773,27 @@ platform where members who do not code can still:
 **Use AI → Create → Develop → Publish → Share**
 
 through one environment, with the infrastructure hidden from them.
+
+## The exchange rate (owner-polish-3 (b))
+
+`services/fx.py`. The rate the ledger converts dollars with is still the
+newest `exchange_rates` row (`pricing.current_rate`), read inside each
+charge as before; what changed is who writes rows. `FX_PROVIDER=mock|
+frankfurter` picks a provider behind one interface (`FxProvider.fetch()
+→ FxQuote(rate, as_of, source)`): the mock quotes a fixed rate with no
+network; Frankfurter reads the ECB's daily reference rate from
+`api.frankfurter.app` — free, keyless, never a paid service (the owner's
+rule: stop and ask if one were needed). `fx.refresh()` runs from
+`app/jobs/refresh_fx.py` (in `deploy/daily-jobs.sh`, so once a day by
+cron — never inside a request) and from Admin › System's 지금 새로 고침:
+unchanged → nothing; a move over `MAX_JUMP_PCT` (5%) → held back, the
+reason stored in the one `fx_status` row and shown as a warning, an
+`exchange_rate.blocked` audit row; otherwise a new `exchange_rates` row
+with `source` = the provider and `fetched_for` = the quoted day, an
+`exchange_rate.auto` audit row. A failed fetch records the failure and
+keeps the last rate. The admin's **환율 고정** (`fx_status.auto_enabled`
+off; `exchange_rate.auto_set` audited) stops the fetch entirely; typing a
+rate on Admin › System pins by itself. `fx` is also a provider card on the
+health strip (`providers.PROVIDERS`), whose 연결 확인 fetches a quote and
+applies nothing. Every usage event keeps the rate it was priced at
+(`UsageEvent.exchange_rate_krw`), so a new rate reaches only new charges.

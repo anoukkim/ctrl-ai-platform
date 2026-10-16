@@ -376,6 +376,15 @@ crontab -e
 15 19 * * * $HOME/ctrl-ai-platform/deploy/daily-jobs.sh >> $HOME/ctrlai-jobs.log 2>&1
 ```
 
+`daily-jobs.sh`는 백업, 탈퇴 계정 익명화에 더해 **환율 새로 고침**
+(`python -m app.jobs.refresh_fx`, owner-polish-3)도 돌립니다 — `.env`의
+`FX_PROVIDER=frankfurter`일 때 ECB 환율(무료, 키 없음)을 받아 5% 규칙으로
+반영하고, 실패하면 마지막 환율을 그대로 둡니다. 결과는 `~/ctrlai-jobs.log`와
+Admin › System › 환율에 보입니다.
+
+```
+```
+
 서버 시계는 UTC입니다(`timedatectl`로 확인). 19:15 UTC는 **한국 시각 새벽
 4:15**입니다. 다음 날 `tail ~/ctrlai-jobs.log`로 돌았는지 봅니다.
 
