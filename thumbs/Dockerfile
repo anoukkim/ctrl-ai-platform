@@ -3,8 +3,9 @@
 # A pinned Playwright image: Chromium and the Python bindings at exactly
 # this version, nothing fetched at run time. Built by GitHub Actions like
 # the api and web images; the server only pulls. The container runs
-# read-only as the image's unprivileged user (docker-compose.prod.yml adds
-# the network, memory, CPU and capability limits).
+# read-only as the image's unprivileged user, with Chromium's own sandbox
+# on (docker-compose.prod.yml adds the seccomp profile, the socket volume,
+# the memory, CPU and capability limits — and no network to the others).
 FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -24,6 +25,6 @@ USER pwuser
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4)"
+    CMD python worker.py --probe
 
 CMD ["python", "worker.py"]

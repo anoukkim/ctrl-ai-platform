@@ -180,6 +180,10 @@ class Settings(BaseSettings):
     #: shared secret; the in-browser capture stays as the fallback.
     thumbnail_renderer: str = "browser"
     thumbnail_worker_url: str = ""
+    #: On the server the worker listens on a unix socket in a volume the
+    #: api shares with it (no network between the two); blank = TCP at
+    #: the URL (development).
+    thumbnail_worker_socket: str = ""
     thumbnail_worker_secret: str = ""
     #: The worker's deadline per picture, seconds (the spec's 20).
     thumbnail_render_timeout_s: int = 20

@@ -34,6 +34,7 @@ import logging
 import queue
 import re
 import threading
+import time
 from collections.abc import Callable
 from typing import Protocol
 from urllib.parse import quote
@@ -85,41 +86,74 @@ class Renderer(Protocol):
 
 class WorkerRenderer:
     """The real thing: `POST {worker_url}/render {"url"}` with the shared
-    secret in a header; the body back is the PNG."""
+    secret in a header; the body back is the PNG.
+
+    On the server the worker is reached over a **unix socket** in a volume
+    the two containers share (`socket_path`) — no network between them.
+    The answer is read as a stream and refused as soon as it is not a
+    PNG, has no length, or passes `MAX_IMAGE_BYTES`, so a worker that
+    misbehaves cannot make the api buffer gigabytes; the whole call has a
+    wall-clock deadline on top of the worker's own.
+    """
 
     def __init__(
         self,
         worker_url: str,
         secret: str,
         timeout_s: int = DEFAULT_TIMEOUT_S,
-        post: Callable[..., object] | None = None,
+        socket_path: str = "",
+        client_factory: Callable[[], object] | None = None,
     ) -> None:
         self.worker_url = worker_url.rstrip("/")
         self.secret = secret
         self.timeout_s = timeout_s
-        self._post = post
+        self.socket_path = socket_path
+        self._client_factory = client_factory
 
-    def render(self, url: str) -> bytes:
+    def _client(self):
         import httpx2 as httpx
 
-        post = self._post or httpx.post
+        if self._client_factory is not None:
+            return self._client_factory()
+        # The worker's own deadline plus the time to connect and answer —
+        # for every phase (connect, write, read, pool), not per byte.
+        timeout = httpx.Timeout(self.timeout_s + 5)
+        transport = httpx.HTTPTransport(uds=self.socket_path) if self.socket_path else httpx.HTTPTransport()
+        return httpx.Client(transport=transport, timeout=timeout)
+
+    def render(self, url: str) -> bytes:
+        deadline = time.monotonic() + self.timeout_s + 5
         try:
-            response = post(
+            with self._client() as client, client.stream(
+                "POST",
                 f"{self.worker_url}/render",
                 json={"url": url, "timeout_s": self.timeout_s},
                 headers={SECRET_HEADER: self.secret},
-                # The worker's own deadline, plus the time to connect and answer.
-                timeout=self.timeout_s + 5,
-            )
+            ) as response:
+                status = getattr(response, "status_code", 0)
+                if status != 200:
+                    logger.warning("thumbnail worker answered %s", status)
+                    raise RenderError(FAILED)
+                headers = response.headers
+                if not str(headers.get("content-type", "")).startswith("image/png"):
+                    raise RenderError(FAILED)
+                length = headers.get("content-length")
+                if length is None or not str(length).isdigit() or int(length) > MAX_IMAGE_BYTES or int(length) == 0:
+                    raise RenderError(FAILED)
+                chunks: list[bytes] = []
+                size = 0
+                for chunk in response.iter_bytes():
+                    size += len(chunk)
+                    if size > MAX_IMAGE_BYTES or time.monotonic() > deadline:
+                        raise RenderError(FAILED)
+                    chunks.append(chunk)
+        except RenderError:
+            raise
         except Exception as error:  # noqa: BLE001 — any transport failure: the old picture stays
             logger.warning("thumbnail worker unreachable: %s", type(error).__name__)
             raise RenderError(FAILED) from error
-        status = getattr(response, "status_code", 0)
-        if status != 200:
-            logger.warning("thumbnail worker answered %s", status)
-            raise RenderError(FAILED)
-        data = getattr(response, "content", b"")
-        if not data or len(data) > MAX_IMAGE_BYTES:
+        data = b"".join(chunks)
+        if not data:
             raise RenderError(FAILED)
         return data
 
@@ -177,7 +211,10 @@ def get_renderer(settings: Settings) -> Renderer | None:
     if not enabled(settings):
         return None
     return WorkerRenderer(
-        settings.thumbnail_worker_url, settings.thumbnail_worker_secret, settings.thumbnail_render_timeout_s
+        settings.thumbnail_worker_url,
+        settings.thumbnail_worker_secret,
+        settings.thumbnail_render_timeout_s,
+        socket_path=settings.thumbnail_worker_socket.strip(),
     )
 
 
@@ -358,11 +395,16 @@ def use_queue(instance: RenderQueue | None) -> None:
 
 def enqueue(settings: Settings, project_id: int) -> bool:
     """After 게시: ask for the published version's picture, in the
-    background. A no-op (False) while the renderer is `browser`."""
-    if get_renderer(settings) is None:
+    background. A no-op (False) while the renderer is `browser`. Never
+    raises — 게시 has already happened and must answer normally."""
+    try:
+        if get_renderer(settings) is None:
+            return False
+        instance = shared_queue()
+        queued = instance.submit(project_id)
+        if queued:
+            instance.start()
+        return queued
+    except Exception:  # noqa: BLE001 — the in-browser capture still ran
+        logger.exception("thumbnail render not queued for project %s", project_id)
         return False
-    instance = shared_queue()
-    queued = instance.submit(project_id)
-    if queued:
-        instance.start()
-    return queued

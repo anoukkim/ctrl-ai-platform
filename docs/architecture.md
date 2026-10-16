@@ -301,11 +301,12 @@ Member code runs in that container and nowhere else, so it is fenced in
 at three levels, each a test holds where it can:
 
 ```text
-                     default network                 thumbs_net
-caddy ── web ── api ───────────────────────── api ── thumbs (Chromium)
-          │      │                                      │
-          └─ db ─┘  (db, web, caddy: not on thumbs_net)  └─▶ https://apps.<domain>/<slug>/_app/index.html
-                                                             (the public address, as a visitor; nothing else)
+   default network                      thumbs_sock volume        thumbs_egress (its own bridge)
+caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ──── thumbs (Chromium)
+          │      │                                                   │
+          └─ db ─┘   no network is shared with thumbs                └─▶ out through the host's NAT to
+                     (Docker drops traffic between bridges)              https://apps.<domain>/<slug>/_app/index.html
+                                                                         — the public address, as a visitor; nothing else
 ```
 
 1. **The api asks for one address only** (`services/thumbnail_render`):
@@ -317,31 +318,52 @@ caddy ── web ── api ─────────────────�
    `thumbnails.encode` like an upload; any failure keeps the old picture
    or cover. The api never waits for a render inside a member's request
    and never fails to start because the worker is down.
-2. **The worker** (`thumbs/worker.py`, a stdlib HTTP server on its own
-   port) accepts `POST /render` only with the shared secret
-   (`THUMBNAIL_WORKER_SECRET`, compared in constant time) and checks the
-   address again: the configured host only, https, the
-   `/<slug>/_app/index.html` path, no userinfo. Chromium is launched with
-   `--host-resolver-rules="MAP * ~NOTFOUND, EXCLUDE apps.<domain>"`, so
-   no other name resolves, and a Playwright route aborts every request
-   whose host is not the apps host — so an IP address written into the
-   page (`http://172.18.0.2:8000`) goes nowhere either. Service workers
-   are blocked, downloads refused, no permissions granted, a fresh
-   browser per picture, navigation capped at 15 s and the whole job at
-   20 s, one job at a time behind a lock (a second caller waits, then
-   gets 503). The files themselves are served under the apps origin's
-   `sandbox … connect-src 'none'` policy, a third fence.
+2. **The worker** (`thumbs/worker.py`, a stdlib HTTP server on a unix
+   socket in a volume only the api shares) accepts `POST /render` only
+   with the shared secret (`THUMBNAIL_WORKER_SECRET`, compared in
+   constant time) and checks the address again: the configured host
+   only, https, the `/<slug>/_app/index.html` path, no userinfo.
+   Chromium is launched with `--host-resolver-rules="MAP * ~NOTFOUND,
+   EXCLUDE apps.<domain>"`, so no other name resolves; a Playwright route
+   aborts every request whose host is not the apps host — so an IP
+   address written into the page goes nowhere either; a WebSocket route
+   closes every WebSocket; WebRTC may not open UDP
+   (`--webrtc-ip-handling-policy=disable_non_proxied_udp`). Service
+   workers are blocked, downloads refused, no permissions granted,
+   dialogs dismissed, popups closed, a fresh browser per picture,
+   navigation capped at 15 s and the whole job at 20 s, one job at a
+   time behind a lock (a second caller waits, then gets 503). The files
+   themselves are served under the apps origin's `sandbox …
+   connect-src 'none'` policy, a third fence. The api, for its part,
+   reads the answer as a stream and stops at the first sign of trouble
+   (not `image/png`, no or too large a `Content-Length`, more than 4 MB
+   arriving, the deadline passing), so a misbehaving worker cannot make
+   the api buffer gigabytes.
 3. **The container** (`docker-compose.prod.yml`): the pinned
-   `mcr.microsoft.com/playwright/python` image plus the one script, on
-   `thumbs_net` with the api only (db, web and caddy are not on it; the
-   browser reaches `apps.<domain>` through the public address like any
-   visitor), `mem_limit: 768m`, `cpus: 1`, `pids_limit: 256`,
-   `read_only: true` with a tmpfs for Chromium's profile, the image's
-   non-root user, `cap_drop: ALL`, `no-new-privileges`. Chromium's own
-   sandbox is off (it would need capabilities the container does not
-   have); the container is the sandbox. The service starts only with
+   `mcr.microsoft.com/playwright/python` image plus the one script.
+   **No network with the other four**: the api reaches it through the
+   `thumbs_sock` volume, and its only network, `thumbs_egress`, is a
+   bridge of its own whose way out is the host's NAT — the browser
+   reaches `apps.<domain>` through the public address like any visitor,
+   and Docker's inter-bridge isolation leaves db, api, web and caddy
+   without a route from it. **Chromium's own sandbox stays on**: the
+   container runs under `deploy/chromium-seccomp.json` (Playwright's
+   published profile — Docker's default plus the namespace syscalls)
+   with `cap_drop: ALL` and `no-new-privileges` still in force, so a
+   renderer bug in member HTML lands inside Chromium's sandbox before it
+   lands inside the container. Then `mem_limit: 768m`, `cpus: 1`,
+   `pids_limit: 256`, `read_only: true` with a tmpfs for Chromium's
+   profile, the image's non-root user. The service starts only with
    `COMPOSE_PROFILES=thumbs` in the server `.env`, so a server on
-   `browser` runs the four services exactly as before. Secrets sit
+   `browser` runs the four services exactly as before.
+
+Residual, accepted for the beta: code that escapes Chromium's sandbox
+*and* the seccomp profile runs as the worker's user inside a read-only
+container with no capabilities, whose only reach is the public internet
+(through the NAT) and the socket to the api — which still demands the
+secret and a well-formed PNG. The hairpin from a container to the VM's
+own public address is the one thing that cannot be verified off the
+server; the deploy steps check it first. Secrets sit
 in a `chmod 600` `.env` on the VM — the beta-only exception in
 `CLAUDE.md` section 17. The full decision is in `docs/archive/done-specs.md` ›
 prep-beta-launch › **Hosting decisions — 2026-10-13**; running it is

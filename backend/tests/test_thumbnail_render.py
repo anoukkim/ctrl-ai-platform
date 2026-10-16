@@ -132,43 +132,85 @@ def test_the_address_is_built_from_the_configuration_and_the_slug_only(db_sessio
 
 
 class FakeResponse:
-    def __init__(self, status_code: int, content: bytes = b"") -> None:
+    """What `client.stream(...)` yields: status, headers, a body in chunks."""
+
+    def __init__(self, status_code: int, content: bytes = b"", headers: dict | None = None) -> None:
         self.status_code = status_code
         self.content = content
+        self.headers = {"content-type": "image/png", "content-length": str(len(content))}
+        if headers is not None:
+            self.headers = headers
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        pass
+
+    def iter_bytes(self):
+        for start in range(0, len(self.content), 65536):
+            yield self.content[start : start + 65536]
 
 
-def test_the_worker_renderer_posts_the_url_with_the_secret_and_a_bounded_timeout() -> None:
+class FakeClient:
+    def __init__(self, answer, calls: list[dict]) -> None:
+        self.answer = answer
+        self.calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        pass
+
+    def stream(self, method, url, **kwargs):
+        self.calls.append({"method": method, "url": url, **kwargs})
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        return self.answer
+
+
+def test_the_worker_renderer_posts_the_url_with_the_secret_and_reads_a_bounded_png() -> None:
     calls: list[dict] = []
     png = picture(1024, 640)
-
-    def post(url, **kwargs):
-        calls.append({"url": url, **kwargs})
-        return FakeResponse(200, png)
-
-    renderer = thumbnail_render.WorkerRenderer(WORKER + "/", SECRET, timeout_s=20, post=post)
+    renderer = thumbnail_render.WorkerRenderer(
+        WORKER + "/", SECRET, timeout_s=20, client_factory=lambda: FakeClient(FakeResponse(200, png), calls)
+    )
     assert renderer.render("http://apps.test/abcdefgh23/_app/index.html") == png
-    assert calls[0]["url"] == "http://thumbs:8080/render"
+    assert calls[0]["method"] == "POST" and calls[0]["url"] == "http://thumbs:8080/render"
     assert calls[0]["json"] == {"url": "http://apps.test/abcdefgh23/_app/index.html", "timeout_s": 20}
     assert calls[0]["headers"] == {thumbnail_render.SECRET_HEADER: SECRET}
-    assert calls[0]["timeout"] == 25
+
+
+def test_the_real_client_uses_the_unix_socket_and_one_deadline_for_every_phase() -> None:
+    import httpx2 as httpx
+
+    over_socket = thumbnail_render.WorkerRenderer("http://thumbs", SECRET, timeout_s=20, socket_path="/run/thumbs/t.sock")
+    client = over_socket._client()
+    assert isinstance(client, httpx.Client)
+    assert client.timeout == httpx.Timeout(25)
+    client.close()
+    assert thumbnail_render.WorkerRenderer(WORKER, SECRET, timeout_s=20)._client().timeout == httpx.Timeout(25)
 
 
 @pytest.mark.parametrize(
     "answer",
     [
-        FakeResponse(503, b'{"detail":"busy"}'),
+        FakeResponse(503, b'{"detail":"busy"}', {"content-type": "application/json", "content-length": "17"}),
         FakeResponse(200, b""),
-        FakeResponse(200, b"x" * (thumbnail_render.MAX_IMAGE_BYTES + 1)),
+        # Says PNG, is too big (the length header): refused before a byte is read.
+        FakeResponse(200, b"x", {"content-type": "image/png", "content-length": str(thumbnail_render.MAX_IMAGE_BYTES + 1)}),
+        # Lies about its length: refused while reading, past the cap.
+        FakeResponse(200, b"x" * (thumbnail_render.MAX_IMAGE_BYTES + 1), {"content-type": "image/png", "content-length": "10"}),
+        # No length at all.
+        FakeResponse(200, b"x" * 10, {"content-type": "image/png"}),
+        # Not an image.
+        FakeResponse(200, b"<html>", {"content-type": "text/html", "content-length": "6"}),
         ConnectionError("down"),
     ],
 )
 def test_a_failed_worker_answer_is_a_render_error(answer) -> None:
-    def post(url, **kwargs):
-        if isinstance(answer, Exception):
-            raise answer
-        return answer
-
-    renderer = thumbnail_render.WorkerRenderer(WORKER, SECRET, post=post)
+    renderer = thumbnail_render.WorkerRenderer(WORKER, SECRET, client_factory=lambda: FakeClient(answer, []))
     with pytest.raises(thumbnail_render.RenderError):
         renderer.render("http://apps.test/abcdefgh23/_app/index.html")
 
@@ -360,6 +402,10 @@ def test_the_worker_opens_only_the_published_files_on_the_allowed_host(worker) -
 def test_the_browser_may_reach_the_allowed_host_and_nothing_else(worker) -> None:
     assert worker.resolver_rules("apps.ctrlai.my") == "MAP * ~NOTFOUND, EXCLUDE apps.ctrlai.my"
     assert worker.resolver_rules("localhost:9000") == "MAP * ~NOTFOUND, EXCLUDE localhost"
+    args = worker.launch_args("apps.ctrlai.my")
+    assert "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE apps.ctrlai.my" in args
+    assert "--webrtc-ip-handling-policy=disable_non_proxied_udp" in args
+    assert "--force-webrtc-ip-handling-policy" in args
     allowed = worker.request_allowed
     assert allowed("https://apps.ctrlai.my/abcdefgh23/_app/app.js", "apps.ctrlai.my")
     assert allowed("https://apps.ctrlai.my/_ctrlai/sdk.js", "apps.ctrlai.my")
@@ -370,7 +416,22 @@ def test_the_browser_may_reach_the_allowed_host_and_nothing_else(worker) -> None
         "http://172.18.0.2:8000/api/health",  # an IP written into the page
         "https://ctrlai.my/api/health",
         "https://evil.example/x",
+        # WebSockets never reach the HTTP route: `render` closes them with
+        # a WebSocket route and the files' CSP refuses them — this gate
+        # would refuse the scheme as well.
         "ws://apps.ctrlai.my/socket",
         "ftp://apps.ctrlai.my/x",
     ]:
         assert not allowed(blocked, "apps.ctrlai.my"), blocked
+    # The sandbox stays on unless development says otherwise.
+    import os
+
+    env = dict(os.environ, THUMBS_SECRET="x", THUMBS_ALLOWED_HOST="apps.ctrlai.my", THUMBS_SOCKET="/run/thumbs/t.sock")
+    env.pop("THUMBS_NO_SANDBOX", None)
+    os.environ.update(env)
+    try:
+        cfg = worker.config()
+    finally:
+        for name in ("THUMBS_SECRET", "THUMBS_ALLOWED_HOST", "THUMBS_SOCKET"):
+            os.environ.pop(name, None)
+    assert cfg["sandbox"] is True and cfg["socket"] == "/run/thumbs/t.sock"

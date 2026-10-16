@@ -8,6 +8,12 @@ with a real headless Chromium:
                    → 200 image/png (1024×640), or 4xx/5xx {"detail": "…"}
     GET  /health   → 200 {"ok": true}   (the compose healthcheck)
 
+On the server it listens on a **unix socket** in a volume shared with the
+api only (`THUMBS_SOCKET`), so the api and this container share no
+network at all — the browser has no route to api, db or web, only the
+public address of apps.<domain> like any visitor. A TCP port
+(`THUMBS_PORT`) is for development.
+
 Member code runs here and nowhere else, so this process assumes it is
 hostile and fences it in three ways:
 
@@ -24,11 +30,15 @@ hostile and fences it in three ways:
   caller waits, then gets 503), navigation gets at most
   `timeout_s - 5` seconds and the screenshot the rest; every render runs
   in a fresh browser that is closed afterwards, so nothing carries over.
+  WebSockets are closed by a route, WebRTC may not open UDP to anything.
 
-The container adds the rest (docker-compose.prod.yml): its own network
-with the api only, 768 MB, one CPU, read-only filesystem, non-root, no
-capabilities. Chromium's own sandbox is off (`--no-sandbox`) because the
-container grants no capabilities for it; the container is the sandbox.
+Chromium's own sandbox (user namespaces) stays **on**: the container runs
+with a seccomp profile that allows the namespace syscalls
+(deploy/chromium-seccomp.json, Playwright's published one) while still
+dropping every capability. `THUMBS_NO_SANDBOX=1` turns it off for a
+development machine that cannot create namespaces — never on the server.
+The container adds the rest (docker-compose.prod.yml): 768 MB, one CPU,
+read-only filesystem, non-root, no capabilities, no privilege escalation.
 
 Runs on mcr.microsoft.com/playwright/python (thumbs/Dockerfile). Only the
 standard library plus `playwright`, which is imported when the first
@@ -42,9 +52,11 @@ import json
 import logging
 import os
 import re
+import socket
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -80,7 +92,9 @@ def config() -> dict[str, Any]:
         "host": host,
         "allow_http": os.environ.get("THUMBS_ALLOW_HTTP", "") == "1",
         "port": int(os.environ.get("THUMBS_PORT", "8080")),
+        "socket": os.environ.get("THUMBS_SOCKET", "").strip() or None,
         "channel": os.environ.get("THUMBS_CHROMIUM_CHANNEL", "") or None,
+        "sandbox": os.environ.get("THUMBS_NO_SANDBOX", "") != "1",
     }
 
 
@@ -123,7 +137,25 @@ def request_allowed(request_url: str, allowed_host: str) -> bool:
     return parts.netloc.lower() == allowed_host
 
 
-def render(url: str, allowed_host: str, timeout_s: int, channel: str | None = None) -> bytes:
+def launch_args(allowed_host: str) -> list[str]:
+    """Chromium's command line: the resolver rules, and no side channels —
+    WebRTC may not open UDP to anything (a Playwright route sees only
+    HTTP(S), and CSP does not govern RTCPeerConnection)."""
+    return [
+        f"--host-resolver-rules={resolver_rules(allowed_host)}",
+        "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--force-webrtc-ip-handling-policy",
+        "--disable-dev-shm-usage",
+        "--disable-background-networking",
+        "--disable-sync",
+        "--no-first-run",
+        "--mute-audio",
+    ]
+
+
+def render(
+    url: str, allowed_host: str, timeout_s: int, channel: str | None = None, sandbox: bool = True
+) -> bytes:
     """A PNG of the page's first screen. Raises `Refusal(504)` on a
     timeout and `Refusal(502)` when the page could not be loaded."""
     from playwright.sync_api import Error as PlaywrightError
@@ -133,18 +165,7 @@ def render(url: str, allowed_host: str, timeout_s: int, channel: str | None = No
     timeout_s = max(5, min(int(timeout_s), TIMEOUT_CAP_S))
     nav_ms = (timeout_s - 5) * 1000
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            channel=channel,
-            chromium_sandbox=False,
-            args=[
-                f"--host-resolver-rules={resolver_rules(allowed_host)}",
-                "--disable-dev-shm-usage",
-                "--disable-background-networking",
-                "--disable-sync",
-                "--no-first-run",
-                "--mute-audio",
-            ],
-        )
+        browser = pw.chromium.launch(channel=channel, chromium_sandbox=sandbox, args=launch_args(allowed_host))
         try:
             context = browser.new_context(
                 viewport=VIEWPORT,
@@ -168,6 +189,9 @@ def render(url: str, allowed_host: str, timeout_s: int, channel: str | None = No
                     route.abort("blockedbyclient")
 
             context.route("**/*", gate)
+            # WebSockets are not HTTP requests to the route above: closed here
+            # (the files' CSP connect-src 'none' refuses them as well).
+            context.route_web_socket("**/*", lambda ws: ws.close())
             page = context.new_page()
             # Nothing a page can open: dialogs are dismissed, popups closed.
             page.on("dialog", lambda dialog: dialog.dismiss())
@@ -190,7 +214,9 @@ class Handler(BaseHTTPRequestHandler):
     lock = threading.Lock()
 
     def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003 — BaseHTTPRequestHandler's name
-        logger.info("%s " + fmt, self.client_address[0], *args)
+        # On a unix socket the client address is an empty string.
+        peer = self.client_address[0] if isinstance(self.client_address, tuple) else "unix"
+        logger.info("%s " + fmt, peer or "unix", *args)
 
     def _json(self, status: int, body: dict[str, Any]) -> None:
         data = json.dumps(body).encode()
@@ -240,7 +266,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(503, {"detail": "busy"})
             return
         try:
-            png = render(url, self.cfg["host"], timeout_s, self.cfg["channel"])
+            png = render(url, self.cfg["host"], timeout_s, self.cfg["channel"], self.cfg["sandbox"])
         except Refusal as refusal:
             self._json(refusal.status, {"detail": refusal.detail})
             return
@@ -257,13 +283,60 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(png)
 
 
+class UnixHTTPServer(ThreadingHTTPServer):
+    """The same server on a unix socket (`THUMBS_SOCKET`)."""
+
+    address_family = socket.AF_UNIX
+
+    def server_bind(self) -> None:
+        import socketserver
+
+        path = Path(self.server_address)  # type: ignore[arg-type]
+        if path.exists():
+            path.unlink()  # a socket left by the previous run
+        # TCPServer's bind, not HTTPServer's: that one looks up a host name
+        # from the address, which a path does not have.
+        socketserver.TCPServer.server_bind(self)
+        # The api runs as another user: it only needs to connect; the
+        # directory (the shared volume) is what keeps everyone else out.
+        path.chmod(0o666)
+        self.server_name = "thumbs"
+        self.server_port = 0
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
     Handler.cfg = config()
-    server = ThreadingHTTPServer(("0.0.0.0", Handler.cfg["port"]), Handler)
-    logger.info("thumbs listening on %s for %s", Handler.cfg["port"], Handler.cfg["host"])
+    if Handler.cfg["socket"]:
+        server: ThreadingHTTPServer = UnixHTTPServer(Handler.cfg["socket"], Handler)  # type: ignore[arg-type]
+        logger.info("thumbs listening on %s for %s", Handler.cfg["socket"], Handler.cfg["host"])
+    else:
+        server = ThreadingHTTPServer(("0.0.0.0", Handler.cfg["port"]), Handler)
+        logger.info("thumbs listening on port %s for %s", Handler.cfg["port"], Handler.cfg["host"])
+    if not Handler.cfg["sandbox"]:
+        logger.warning("Chromium sandbox OFF (THUMBS_NO_SANDBOX=1) — development only")
     server.serve_forever()
 
 
+def probe() -> int:
+    """`python worker.py --probe`: GET /health over the configured socket
+    or port; exit 0 when the worker answers (the compose healthcheck)."""
+    import http.client
+
+    path = os.environ.get("THUMBS_SOCKET", "").strip()
+    if path:
+        conn = http.client.HTTPConnection("thumbs", timeout=4)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(4)
+        sock.connect(path)
+        conn.sock = sock
+    else:
+        conn = http.client.HTTPConnection("127.0.0.1", int(os.environ.get("THUMBS_PORT", "8080")), timeout=4)
+    conn.request("GET", "/health")
+    return 0 if conn.getresponse().status == 200 else 1
+
+
 if __name__ == "__main__":
+    if "--probe" in sys.argv[1:]:
+        sys.exit(probe())
     main()
