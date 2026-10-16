@@ -197,6 +197,9 @@ class ClosePreviewRead(BaseModel):
     reclaimed_krw: int
     carry_over_krw: int
     lines: list[CloseLineRead]
+    #: Deleted Items the close will remove for good (preview) or did
+    #: (closed) — ui-improvements B.
+    purge_count: int = 0
 
 
 class ReconcileDayRead(BaseModel):

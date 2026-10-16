@@ -105,11 +105,7 @@ export default function CreditPanel({
   }
 
   return (
-    <section aria-labelledby="budget-credit">
-      <h2 className="section-title" id="budget-credit">
-        동아리 크레딧
-        <span className={styles.sectionNote}>제공자별 · 남은 크레딧은 추정, 제공자 콘솔이 최종 기준</span>
-      </h2>
+    <>
 
       <div className={styles.providerGrid}>
         {credit.providers.map((line) => (
@@ -224,7 +220,7 @@ export default function CreditPanel({
       )}
 
       <ConfirmDialog request={confirm} busy={busy} onClose={() => setConfirm(null)} />
-    </section>
+    </>
   );
 }
 

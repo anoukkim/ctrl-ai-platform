@@ -79,6 +79,11 @@ class AuditAction:
     # admin reaching into someone else's library is.
     WORK_DELETED = "work.deleted"
     WORK_RESTORED = "work.restored"
+    # ui-improvements B: a deleted project or video removed for good — by
+    # an admin from Deleted Items (with a reason), or all of them at 분기
+    # 마감 (one summary row). Money rows are never touched.
+    WORK_PURGED = "work.purged"
+    WORK_PURGED_AT_CLOSE = "work.purged_at_close"
     # An admin removing a member's note from Admin › Feedback — with its
     # screenshots (feedback-screenshots). The one way a note disappears.
     FEEDBACK_DELETED = "feedback.deleted"
@@ -158,6 +163,8 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.USAGE_SIMULATED: "사용량 시뮬레이션",
     AuditAction.WORK_DELETED: "작업물 삭제",
     AuditAction.WORK_RESTORED: "작업물 복구",
+    AuditAction.WORK_PURGED: "작업물 영구 삭제",
+    AuditAction.WORK_PURGED_AT_CLOSE: "분기 마감 영구 삭제",
     AuditAction.FEEDBACK_DELETED: "의견 삭제",
     AuditAction.ACCOUNT_WITHDRAWN: "회원 탈퇴",
     AuditAction.ACCOUNT_RESTORED: "탈퇴 복구",

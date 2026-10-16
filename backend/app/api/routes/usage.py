@@ -71,7 +71,9 @@ def _label_for(db: Session, event) -> str:
         # the maker trying it in the Builder's 미리보기.
         project = db.get(BuilderProject, event.builder_project_id) if event.builder_project_id else None
         head = "앱 미리보기" if event.feature == "app_ai_preview" else "앱"
-        return f"{head} · {project.name}" if project is not None else head
+        if project is not None:
+            return f"{head} · {project.name}"
+        return f"{head} · {event.work_label} (삭제됨)" if event.work_label else head
     if event.builder_project_id is not None:
         project = db.get(BuilderProject, event.builder_project_id)
         if project is not None:
@@ -80,6 +82,15 @@ def _label_for(db: Session, event) -> str:
         project = db.get(VideoProject, event.video_project_id)
         if project is not None:
             return f"{_VIDEO_FEATURE_LABEL.get(event.feature or '', '영상')} — {project.name}"
+    # The project was purged for good (ui-improvements B): its name was
+    # copied onto the row first, so the charge still says what it was for.
+    if event.work_label:
+        head = (
+            _VIDEO_FEATURE_LABEL.get(event.feature or "", "영상")
+            if spending_group(event.feature) == "video"
+            else "Project Builder"
+        )
+        return f"{head} — {event.work_label} (삭제됨)"
     if event.feature == "build":
         return "Project Builder"
     return "영상" if spending_group(event.feature) == "video" else "기타"

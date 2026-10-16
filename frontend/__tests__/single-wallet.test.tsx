@@ -311,18 +311,30 @@ describe("Admin › Budget", () => {
     total_charged_krw: 27_700,
   };
 
-  test("제공자별 사용액과 회원별 지갑을 보여 준다", async () => {
+  test("제공자별 사용액과 회원별 지갑을 보여 준다 — 섹션은 하나씩 펼쳐서", async () => {
     getQuarterBudget.mockResolvedValue(budget);
+    const user = userEvent.setup();
     render(<BudgetAdmin />);
 
     await waitFor(() => expect(getQuarterBudget).toHaveBeenCalledWith(QUARTER.id));
+    // 위의 숫자 카드와 분기 줄은 늘 보이고, 섹션은 접힌 채 요약만 보입니다 (ui-improvements B).
+    expect(await screen.findByText("1인 지원금 80,000원")).toBeTruthy();
+    const providers = screen.getByRole("button", { name: "제공자별 사용액" });
+    expect(providers.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("$9.07")).toBeNull();
+
+    await user.click(providers);
     expect(await screen.findByText("Claude (Anthropic)")).toBeTruthy();
     expect(screen.getByText("Higgsfield")).toBeTruthy();
     expect(screen.getByText("$9.07")).toBeTruthy();
     expect(screen.getByText("55%")).toBeTruthy();
-    expect(screen.getByText("김유리")).toBeTruthy();
-    expect(screen.getByText("1인 지원금 80,000원")).toBeTruthy();
     // prompt-caching: how much of Claude's input came from the cache.
     expect(screen.getByText(/캐시 읽기 175,000 · 쓰기 50,000 토큰 \(입력의 70% 캐시\)/)).toBeTruthy();
+
+    // 다른 섹션을 펼치면 앞의 것은 접힙니다.
+    await user.click(screen.getByRole("button", { name: "회원별" }));
+    expect(await screen.findByText("김유리")).toBeTruthy();
+    expect(screen.queryByText("$9.07")).toBeNull();
+    expect(providers.getAttribute("aria-expanded")).toBe("false");
   });
 });

@@ -9,6 +9,11 @@
  * 있어야 한다**는 조건이 붙습니다. 되살릴 수 없는 soft delete는 회원을
  * 속이면서 데이터베이스만 키우는 셈입니다. 이 화면이 그 자리입니다.
  *
+ * 보관은 분기까지입니다(ui-improvements B, 오너 확정 2026-10-16): 분기
+ * 마감이 되면 여기 남아 있는 것은 모두 완전히 삭제되고, 관리자는 그 전에도
+ * "완전히 삭제…"로 사유와 함께 지울 수 있습니다. 어느 쪽이든 사용량
+ * 기록과 지갑은 그대로입니다.
+ *
  * 분기와 상관없는 목록입니다. 작업물은 분기에 묶이지 않고 회원에게
  * 속하므로, 보고 있는 분기를 바꿔도 이 목록은 그대로입니다 — 충전
  * 신청과 같은 이유입니다.
@@ -26,6 +31,7 @@ import { describeError } from "@/lib/http";
 import {
   WORK_KIND_LABEL,
   listDeletedItems,
+  purgeWork,
   restoreWork,
   type DeletedItem,
 } from "@/lib/projects";
@@ -77,6 +83,28 @@ export default function DeletedWorkAdmin() {
         setResult({
           kind: "ok",
           text: `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'을 되살렸습니다.`,
+        });
+        await load();
+      } catch (caught) {
+        setResult({ kind: "error", text: describeError(caught) });
+      } finally {
+        setBusy(false);
+        setConfirm(null);
+      }
+    },
+    [load],
+  );
+
+  // 완전히 삭제 (ui-improvements B): 되살릴 수 없으므로 사유를 받고, 감사
+  // 기록에 남깁니다. 사용량 기록과 지갑은 그대로입니다.
+  const purge = useCallback(
+    async (item: DeletedItem, reason: string) => {
+      setBusy(true);
+      try {
+        await purgeWork(item.kind, item.id, reason);
+        setResult({
+          kind: "ok",
+          text: `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'을 완전히 삭제했습니다. 사용량 기록은 그대로 남아 있습니다.`,
         });
         await load();
       } catch (caught) {
@@ -191,6 +219,31 @@ export default function DeletedWorkAdmin() {
                     onConfirm: () => restore(item),
                   }),
               },
+              {
+                label: "완전히 삭제…",
+                danger: true,
+                disabled: busy,
+                onSelect: () =>
+                  setConfirm({
+                    title: `완전히 삭제 — ${item.name}`,
+                    effect: [
+                      `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'이 데이터베이스와 서버에서 사라집니다. 되살릴 수 없습니다.`,
+                      item.kind === "builder"
+                        ? "파일, 버전 기록, 앱 폴더(apps.ctrlai.my), 앱의 저장 데이터와 동의가 함께 지워집니다."
+                        : "모든 버전과 저장된 영상 파일이 함께 지워집니다.",
+                      "사용량 기록과 지갑은 그대로입니다 — 이미 쓴 돈은 그대로 남고, 내역에는 이름이 '(삭제됨)'으로 남습니다.",
+                      "사유와 함께 감사 기록에 남습니다.",
+                    ],
+                    confirmLabel: "완전히 삭제",
+                    danger: true,
+                    reason: {
+                      label: "사유",
+                      placeholder: "예: 회원이 완전 삭제를 요청함",
+                      required: true,
+                    },
+                    onConfirm: (reason) => purge(item, reason),
+                  }),
+              },
             ]}
           />
         )}
@@ -202,8 +255,10 @@ export default function DeletedWorkAdmin() {
       />
 
       <p className="small dim" style={{ marginTop: "0.6rem" }}>
-        삭제된 작업물은 지워지지 않고 보관됩니다. 사용량 기록과 지원금 내역은 삭제와 무관하게
-        그대로 남습니다 — 이미 쓴 돈은 되돌려지지 않습니다.
+        삭제된 작업물은 삭제된 분기가 마감될 때까지 보관됩니다 — <strong>분기 마감</strong>이 되면
+        그 분기 마지막 날까지 삭제된 것은 모두 완전히 삭제됩니다. 관리자는 그 전에도 사유를 적고
+        완전히 삭제할 수 있습니다. 사용량 기록과 지원금 내역은 어느 쪽이든 그대로 남습니다 — 이미 쓴 돈은
+        되돌려지지 않습니다.
       </p>
 
       <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />

@@ -199,6 +199,12 @@ class UsageEvent(TimestampMixin, Base):
         ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
+    #: The project's or video's name, written just before that row is
+    #: purged for good (ui-improvements B): the money row outlives the
+    #: work, and Usage must still say what the charge was for. Null while
+    #: the project exists — its live name is read instead.
+    work_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
     def __repr__(self) -> str:
         return (
             f"<UsageEvent user={self.user_id} {self.feature or self.provider}"

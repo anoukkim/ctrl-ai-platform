@@ -865,6 +865,17 @@ export function deleteWork(kind: WorkKind, id: number): Promise<void> {
   return request<void>(`/admin/work/${kind}/${id}`, { method: "DELETE" });
 }
 
+/**
+ * 삭제된 작업물을 완전히 지웁니다 (ui-improvements B). 되살릴 수 없고,
+ * 사유는 감사 로그에 남습니다. 사용량 기록과 지갑은 그대로입니다.
+ */
+export function purgeWork(kind: WorkKind, id: number, reason: string): Promise<void> {
+  return request<void>(`/admin/work/${kind}/${id}/purge`, {
+    method: "DELETE",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export function listAdminVideoModels(): Promise<AdminVideoModel[]> {
   return request<AdminVideoModel[]>("/admin/video-models");
 }

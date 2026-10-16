@@ -80,12 +80,32 @@ describe("Admin › AI Models — 제공자별 묶음", () => {
     expect(headings[1].textContent).toContain("DeepSeek (미국 호스팅)");
     expect(headings[1].textContent).toContain("연결 준비 중");
     expect(headings[0].textContent).not.toContain("연결 준비 중");
+    // 첫 제공자(Anthropic)만 펼쳐져 있고, 나머지는 접힌 줄에 요약만 보입니다.
+    expect(screen.getByRole("button", { name: /Anthropic \(Claude\)/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /DeepSeek/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByText("모델 1개 · 회원 공개 0개")).toBeTruthy();
+    expect(screen.queryByLabelText("DeepSeek V4.1 Flash 공개 범위")).toBeNull();
+  });
+
+  test("검색 중에는 모든 제공자가 펼쳐지고, 위 숫자 카드는 늘 보인다", async () => {
+    serve(CATALOGUE);
+    const user = userEvent.setup();
+    render(<ModelCatalog />);
+
+    expect((await screen.findAllByText("기본 모델")).length).toBeGreaterThan(0);
+    // 기본 모델 카드에 한 번, 펼쳐진 Anthropic 표에 한 번.
+    expect(screen.getAllByText("균형 잡힌 답변 (Sonnet 5.5)").length).toBe(2);
+    await user.type(screen.getByRole("searchbox"), "flash");
+    expect(await screen.findByLabelText("DeepSeek V4.1 Flash 공개 범위")).toBeTruthy();
   });
 
   test("연결 준비 중 제공자의 닫힌 모델은 열 수도, 기본으로 정할 수도 없다", async () => {
     serve(CATALOGUE);
+    const user = userEvent.setup();
     render(<ModelCatalog />);
 
+    // 제공자 섹션은 접혀 있고 한 번에 하나만 펼쳐집니다 (ui-improvements B).
+    await user.click(await screen.findByRole("button", { name: /DeepSeek \(미국 호스팅\)/ }));
     const select = await screen.findByLabelText("DeepSeek V4.1 Flash 공개 범위");
     expect((select as HTMLSelectElement).disabled).toBe(true);
 
@@ -105,8 +125,10 @@ describe("Admin › AI Models — 제공자별 묶음", () => {
         visibility: "admin",
       }),
     ]);
+    const user = userEvent.setup();
     render(<ModelCatalog />);
 
+    await user.click(await screen.findByRole("button", { name: /openrouter/ }));
     const select = (await screen.findByLabelText("옛 행 공개 범위")) as HTMLSelectElement;
     expect(select.disabled).toBe(false);
     const values = [...select.options].map((option) => option.value);

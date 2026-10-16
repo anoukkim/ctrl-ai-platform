@@ -7,7 +7,7 @@ Every route is behind `require_admin`. Authorization is checked here, not
 by hiding a button in the frontend.
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -167,6 +167,17 @@ def update_quarter(
         field: changes.get(field, getattr(quarter, field))
         for field in ("starts_at", "ends_at", "application_opens_at", "application_closes_at")
     }
+    # A deadline set on a quarter that never had an application window
+    # (both dates empty) opens the window from the quarter's first day —
+    # the dialog sends only the deadline, and the date rule wants both.
+    if (
+        changes.get("application_closes_at") is not None
+        and "application_opens_at" not in changes
+        and after["application_opens_at"] is None
+    ):
+        changes["application_opens_at"] = after["application_opens_at"] = min(
+            after["starts_at"], changes["application_closes_at"]
+        )
     problem = date_problem(
         after["starts_at"], after["ends_at"],
         after["application_opens_at"], after["application_closes_at"],
@@ -175,9 +186,47 @@ def update_quarter(
         raise HTTPException(status_code=400, detail=problem)
     if "starts_at" in changes or "ends_at" in changes:
         _refuse_overlap(db, after["starts_at"], after["ends_at"], ignore_id=quarter.id)
+    # 신청 기한 연장 (ui-improvements B): once a quarter is open or running,
+    # its deadline only moves to a day that has not passed — a deadline in
+    # the past with 신청 접수 중 on the badge tells members two different
+    # things. Draft quarters are still being written and keep every date.
+    extending = (
+        "application_closes_at" in changes
+        and changes["application_closes_at"] is not None
+        and quarter.status in (QuarterStatus.APPLICATION_OPEN, QuarterStatus.ACTIVE)
+    )
+    if extending and changes["application_closes_at"] < date.today():
+        raise HTTPException(
+            status_code=400, detail="신청 마감일은 오늘이거나 그 뒤여야 합니다."
+        )
+    reopening = (
+        quarter.status is QuarterStatus.ACTIVE
+        and changes.get("status") is QuarterStatus.APPLICATION_OPEN
+    )
+    if reopening and after["application_closes_at"] is not None and after["application_closes_at"] < date.today():
+        raise HTTPException(
+            status_code=400,
+            detail="신청 마감일이 이미 지났습니다. 신청을 다시 열려면 마감일을 함께 늦춰 주세요.",
+        )
     before = {field: getattr(quarter, field) for field in changes}
     for field, value in changes.items():
         setattr(quarter, field, value)
+
+    if extending:
+        # Named in the log for what it was, so the admin who reads 분기
+        # 수정 rows next month does not have to diff dates. "늦췄습니다"
+        # only when the day really moved later; a deadline set where there
+        # was none, or moved earlier by a direct call, is "바꿨습니다".
+        closes = changes["application_closes_at"].isoformat()
+        was = before["application_closes_at"]
+        moved = "늦췄습니다" if was is not None and changes["application_closes_at"] > was else "바꿨습니다"
+        summary = (
+            f"{quarter.display_name} 분기의 신청을 다시 열고 마감일을 {closes}로 {moved}."
+            if reopening
+            else f"{quarter.display_name} 분기의 신청 마감일을 {closes}로 {moved}."
+        )
+    else:
+        summary = f"{quarter.display_name} 분기를 수정했습니다."
 
     audit.record(
         db,
@@ -186,7 +235,7 @@ def update_quarter(
         target_type="quarter",
         target_id=quarter.id,
         target_label=quarter.code,
-        summary=f"{quarter.display_name} 분기를 수정했습니다.",
+        summary=summary,
         detail={"before": {k: str(v) for k, v in before.items()},
                 "after": {k: str(v) for k, v in changes.items()}},
     )

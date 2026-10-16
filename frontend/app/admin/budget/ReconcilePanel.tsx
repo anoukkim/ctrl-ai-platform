@@ -46,11 +46,7 @@ export default function ReconcilePanel({ reportProvider }: { reportProvider: str
   const mismatches = result?.days.filter((day) => !day.matches).length ?? 0;
 
   return (
-    <section aria-labelledby="budget-reconcile">
-      <h2 className="section-title" id="budget-reconcile">
-        Anthropic 비용과 대조
-        <span className={styles.sectionNote}>선택 기능 · 날짜는 UTC 기준</span>
-      </h2>
+    <>
       <div className="card" style={{ display: "grid", gap: "0.7rem" }}>
         {reportProvider === "mock" ? (
           <p className="small muted" data-testid="reconcile-mock">
@@ -125,6 +121,6 @@ export default function ReconcilePanel({ reportProvider }: { reportProvider: str
           </>
         )}
       </div>
-    </section>
+    </>
   );
 }

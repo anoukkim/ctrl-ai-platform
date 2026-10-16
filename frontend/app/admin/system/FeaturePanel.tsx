@@ -17,7 +17,6 @@ import Skeleton from "@/app/components/Skeleton";
 import { formatWhen, listFeatures, setFeature, type FeatureSwitch } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 
-import styles from "../admin.module.css";
 
 export default function FeaturePanel() {
   const [features, setFeatures] = useState<FeatureSwitch[] | null>(null);
@@ -77,11 +76,7 @@ export default function FeaturePanel() {
   };
 
   return (
-    <section aria-labelledby="admin-features">
-      <h2 className="section-title" id="admin-features">
-        기능 열기
-        <span className={styles.sectionNote}>회원에게 열어 둘 기능. 바꾸면 감사 기록에 남습니다.</span>
-      </h2>
+    <>
 
       {features === null && error === null && <Skeleton />}
       {error !== null && <p className="small muted">기능 스위치를 불러오지 못했습니다. {error}.</p>}
@@ -139,6 +134,6 @@ export default function FeaturePanel() {
       )}
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} busy={busy} error={confirmError} />
-    </section>
+    </>
   );
 }
