@@ -83,6 +83,13 @@ class BuilderProjectRead(BuilderProjectBase):
     #: quality-tuning Q1: the panel's remembered model and 생각 깊이.
     chat_model_id: int | None = None
     depth: str | None = None
+    #: ui-improvements: when the owner pinned it; None = not pinned.
+    pinned_at: datetime | None = None
+    #: ui-improvements: the working copy's thumbnail, if one was captured,
+    #: and the published version's — the Builder card shows the first,
+    #: else the second, else the generated cover.
+    draft_thumbnail_at: datetime | None = None
+    published_thumbnail_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -205,6 +212,13 @@ class VersionLabel(BaseModel):
 
 class EmptyBody(BaseModel):
     """A POST that needs no fields still needs a JSON body (CLAUDE.md §2)."""
+
+
+class ProjectPinSet(BaseModel):
+    """맨 위에 고정 / 고정 해제 (ui-improvements) — `POST …/pin`. Builder
+    and Video projects alike; `on: false` unpins."""
+
+    on: bool
 
 
 class PublishSummaryRead(BaseModel):

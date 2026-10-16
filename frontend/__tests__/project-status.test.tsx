@@ -134,7 +134,8 @@ describe("Project Builder 목록", () => {
     expect(shown.sort()).toEqual(["작성 중", "작성 중", "게시됨", "생성 중…"].sort());
     expect(screen.queryByText("Ready")).toBeNull();
     expect(screen.queryByText("Building")).toBeNull();
-    // 빗금 자리는 Phase 3까지 "미리보기 썸네일"이라고 적혀 있습니다.
-    expect(screen.getAllByText("미리보기 썸네일")).toHaveLength(4);
+    // 그림 자리는 찍어 둔 썸네일이거나 표지(ui-improvements) — 빗금 글자는 없습니다.
+    expect(screen.queryByText("미리보기 썸네일")).toBeNull();
+    expect(document.querySelectorAll('article [aria-hidden="true"]').length).toBeGreaterThanOrEqual(4);
   });
 });

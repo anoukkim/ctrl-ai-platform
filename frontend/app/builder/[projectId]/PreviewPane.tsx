@@ -27,10 +27,12 @@
  */
 
 import { ExternalLink, Info, Maximize2, Minimize2, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import MenuButton from "@/app/components/MenuButton";
+import { describeError } from "@/lib/http";
 import { PREVIEW_SANDBOX, RUNTIME_SANDBOX, buildSrcdoc } from "@/lib/static-preview";
+import { captureFrame, originOf } from "@/lib/thumbnail-capture";
 
 import styles from "./workspace.module.css";
 
@@ -54,7 +56,16 @@ export interface AppRuntimeProps {
   refreshing?: boolean;
   /** 앱 주소에 마지막으로 올린 때 — 바뀌면 프레임을 다시 읽습니다. */
   stamp?: string | null;
+  /**
+   * 썸네일 (ui-improvements): 프레임이 뜨고 잠시 뒤 찍은 그림, 그리고 ⋯의
+   * "썸네일 다시 찍기". 주어지지 않으면 찍지 않습니다. `manual`이면 실패를
+   * 화면에 보여 줍니다(자동은 조용히).
+   */
+  onCapture?: (image: Blob, manual: boolean) => Promise<void>;
 }
+
+/** 프레임이 뜬 뒤 이만큼 기다렸다 찍습니다 — 앱의 첫 그림이 그려질 시간. */
+export const CAPTURE_DELAY_MS = 1500;
 
 /** 작업 공간이 미리보기 도구 줄에 끼워 넣는 것 (quality-tuning Q3). */
 export interface PreviewToolbarProps {
@@ -158,16 +169,26 @@ const StaticRuntime: PreviewRuntime = {
  * 그 주소 그대로 띄웁니다. 다른 출처라서 CTRL+AI의 쿠키·화면에 닿지 않고,
  * sandbox도 그대로 둡니다(`RUNTIME_SANDBOX`).
  */
-function AppFrame({ url }: { url: string }) {
+function AppFrame({
+  url,
+  frameRef,
+  onLoaded,
+}: {
+  url: string;
+  frameRef?: (node: HTMLIFrameElement | null) => void;
+  onLoaded?: () => void;
+}) {
   return (
     <div className={styles.staticPreview}>
       <SafetyNote full="앱 주소(apps.ctrlai.my)에서 실행 중이에요 — CTRL+AI 계정과는 분리되어 있어요. 여기에 비밀번호나 개인 정보를 입력하지 마세요." />
       <iframe
         className={styles.staticPreviewFrame}
+        ref={frameRef}
         sandbox={RUNTIME_SANDBOX}
         src={url}
         title="앱 미리보기"
         referrerPolicy="no-referrer"
+        onLoad={onLoaded}
       />
     </div>
   );
@@ -188,8 +209,49 @@ export default function PreviewPane({
   stamp = null,
   toolbarStart,
   toolbarEnd,
+  onCapture,
 }: PreviewRuntimeProps & AppRuntimeProps & PreviewToolbarProps) {
   const [fullscreen, setFullscreen] = useState(false);
+  // 썸네일 (ui-improvements): 프레임이 뜨고 CAPTURE_DELAY_MS 뒤 한 번, 그리고
+  // ⋯의 "썸네일 다시 찍기". 셸이 없는 주소(앱 서버 꺼짐)면 조용히 실패합니다.
+  // The frame element is state (a callback ref), so the capture callbacks
+  // read no ref during render.
+  const [frameEl, setFrameEl] = useState<HTMLIFrameElement | null>(null);
+  const captureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const captureNow = useCallback(
+    async (manual: boolean) => {
+      const frame = frameEl;
+      const origin = originOf(appUrl);
+      if (!frame || !origin || !onCapture) return;
+      setCapturing(true);
+      if (manual) setCaptureError(null);
+      try {
+        const image = await captureFrame(frame, origin);
+        await onCapture(image, manual);
+        setCaptureError(null);
+      } catch (error) {
+        // The capture helper throws plain Errors with a Korean sentence;
+        // an upload failure is an ApiError — describeError reads those.
+        if (manual) setCaptureError(error instanceof Error && !("status" in error) ? error.message : describeError(error));
+      } finally {
+        setCapturing(false);
+      }
+    },
+    [appUrl, frameEl, onCapture],
+  );
+  const scheduleCapture = useCallback(() => {
+    if (!onCapture) return;
+    if (captureTimer.current) clearTimeout(captureTimer.current);
+    captureTimer.current = setTimeout(() => void captureNow(false), CAPTURE_DELAY_MS);
+  }, [captureNow, onCapture]);
+  useEffect(
+    () => () => {
+      if (captureTimer.current) clearTimeout(captureTimer.current);
+    },
+    [],
+  );
   // 새로 고침: key를 바꾸면 iframe이 처음부터 다시 실행됩니다.
   const [run, setRun] = useState(0);
   const runtime = runtimeFor(files, entry);
@@ -209,6 +271,9 @@ export default function PreviewPane({
       : []),
     ...(canUpload
       ? [{ label: "미리보기 갱신", hint: "지금 파일을 앱 주소에 다시 올려요", onSelect: () => onRefreshRuntime?.(), disabled: refreshing }]
+      : []),
+    ...(frameUrl && onCapture
+      ? [{ label: "썸네일 다시 찍기", hint: "지금 보이는 화면을 목록 카드의 그림으로", onSelect: () => void captureNow(true), disabled: capturing }]
       : []),
   ];
 
@@ -276,10 +341,15 @@ export default function PreviewPane({
           미리보기를 올리는 중…
         </p>
       )}
+      {captureError && (
+        <p className={styles.captureError} role="alert">
+          썸네일을 찍지 못했어요: {captureError}
+        </p>
+      )}
 
       <div className={styles.previewBody}>
         {frameUrl ? (
-          <AppFrame key={`${run}-${frameUrl}`} url={frameUrl} />
+          <AppFrame key={`${run}-${frameUrl}`} url={frameUrl} frameRef={setFrameEl} onLoaded={scheduleCapture} />
         ) : (
           <Runtime key={run} files={files} entry={entry} />
         )}

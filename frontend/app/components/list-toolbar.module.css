@@ -1,0 +1,59 @@
+/* 목록 머리 줄의 공통 격자 (ui-improvements). 네 목록이 같은 값을 씁니다. */
+
+.toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "label search controls";
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin-bottom: var(--card-gap);
+}
+
+.label {
+  grid-area: label;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+}
+
+/* 검색은 오른쪽 끝에 서고, 폭은 최대 --lib-search-max — 그래서 검색창의
+   오른쪽 끝이 카드 줄의 끝(조절 단추가 있으면 그 왼쪽)과 맞습니다. */
+.search {
+  grid-area: search;
+  justify-self: end;
+  width: 100%;
+  max-width: var(--lib-search-max);
+  min-width: 0;
+}
+
+/* SearchBar는 혼자 쓰일 때 아래 여백을 둡니다. 줄 안에서는 줄이 맡습니다. */
+.search > * {
+  margin-bottom: 0;
+}
+
+.controls {
+  grid-area: controls;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* 좁은 화면: 라벨과 조절 단추가 한 줄, 검색은 아래 한 줄을 다 씁니다. */
+@media (max-width: 44rem) {
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label controls"
+      "search search";
+  }
+
+  .search {
+    max-width: none;
+  }
+}

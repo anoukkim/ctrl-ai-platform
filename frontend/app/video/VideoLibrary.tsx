@@ -17,6 +17,7 @@ import {
   describeError,
   formatRelative,
   listVideoProjects,
+  setVideoPinned,
   updateVideoProject,
   videoVersionDownloadUrl,
   type LibraryFilter,
@@ -25,14 +26,17 @@ import {
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import LibraryCard from "@/app/components/LibraryCard";
+import ListToolbar from "@/app/components/ListToolbar";
 import PageHeader from "@/app/components/PageHeader";
 import TestModeNotice from "@/app/components/TestModeNotice";
 import ProjectStatusBadge from "@/app/components/ProjectStatusBadge";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+import SortMenu from "@/app/components/SortMenu";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
 import NotParticipatingBanner from "@/app/components/NotParticipatingBanner";
 import { useChatIdea } from "@/app/components/useChatIdea";
 import { ASPECT_RATIO_CSS, type Aspect } from "@/lib/aspect";
+import { sortItems, useSortPref, writeSortPref } from "@/lib/list-sort";
 import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
@@ -61,6 +65,8 @@ export default function VideoLibrary() {
   // 전체 / 작성 중 / 게시됨. 거르기는 백엔드가 합니다(`?status=`) — 검색만
   // 브라우저 안에서 합니다.
   const [statusFilter, setStatusFilter] = useState<LibraryFilter>("all");
+  // 정렬 (ui-improvements): 고정 먼저, 그다음 마지막 수정순 / 이름순 — 이 기기에 기억.
+  const sort = useSortPref("video");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -119,6 +125,19 @@ export default function VideoLibrary() {
     );
   }, [toast]);
 
+  /** 고정 / 고정 해제 — 그 줄만 바꿉니다. */
+  const pin = useCallback(async (id: number, next: boolean) => {
+    const updated = await setVideoPinned(id, next);
+    setState((current) =>
+      current.phase === "ready"
+        ? {
+            phase: "ready",
+            projects: current.projects.map((item) => (item.id === id ? { ...item, ...updated } : item)),
+          }
+        : current,
+    );
+  }, []);
+
   const remove = useCallback(async (id: number) => {
     setRemoving(true);
     setRemoveError(null);
@@ -156,8 +175,10 @@ export default function VideoLibrary() {
   // 브라우저 안에서 거릅니다. 서버 검색으로 옮길 때는 이 블록만 요청으로
   // 바뀌고 화면 구조는 그대로입니다.
   const projects = state.phase === "ready" ? state.projects : [];
-  const visible = projects.filter((project) =>
-    matchesQuery(query, project.name, project.prompt),
+  const visible = sortItems(
+    projects.filter((project) => matchesQuery(query, project.name, project.prompt)),
+    sort,
+    (project) => ({ name: project.name, updated: project.updated_at, pinned: Boolean(project.pinned_at) }),
   );
 
   return (
@@ -236,42 +257,49 @@ export default function VideoLibrary() {
         </div>
       )}
 
-      <div className={`toolbar ${styles.toolbar}`}>
-        <p className={`toolbar-count ${styles.sectionLabel}`}>
-          내 영상 프로젝트
-          {state.phase === "ready" && (
-            <span className={styles.count}>{state.projects.length}개</span>
-          )}
-        </p>
-
-        {state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") && (
-          <>
-            <div className={styles.toolbarSearch}>
-              <SearchBar
-                value={query}
-                onChange={setQuery}
-                placeholder="영상 제목이나 프롬프트로 검색"
-                resultCount={visible.length}
-                totalCount={state.projects.length}
-              />
-            </div>
-            {/* 전체 / 작성 중 / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
-            <div className="segmented" role="group" aria-label="상태">
-              {LIBRARY_FILTERS.map((option) => (
-                <button
-                  aria-pressed={statusFilter === option.value}
-                  className="chip"
-                  key={option.value}
-                  onClick={() => setStatusFilter(option.value)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      <ListToolbar
+        label={
+          <p className={styles.sectionLabel}>
+            내 영상 프로젝트
+            {state.phase === "ready" && (
+              <span className={styles.count}>{state.projects.length}개</span>
+            )}
+          </p>
+        }
+        search={
+          state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") ? (
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="영상 제목이나 프롬프트로 검색"
+              resultCount={visible.length}
+              totalCount={state.projects.length}
+              grow
+            />
+          ) : null
+        }
+        controls={
+          state.phase === "ready" && (state.projects.length > 0 || statusFilter !== "all") ? (
+            <>
+              {/* 전체 / 작성 중 / 게시됨 — 백엔드의 ?status=와 같은 값입니다. */}
+              <div className="segmented" role="group" aria-label="상태">
+                {LIBRARY_FILTERS.map((option) => (
+                  <button
+                    aria-pressed={statusFilter === option.value}
+                    className="chip"
+                    key={option.value}
+                    onClick={() => setStatusFilter(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <SortMenu value={sort} onChange={(key) => writeSortPref("video", key)} />
+            </>
+          ) : null
+        }
+      />
 
       {state.phase === "loading" && (
         <div className={styles.skeletonGrid} aria-busy="true" aria-label="불러오는 중">
@@ -360,7 +388,9 @@ export default function VideoLibrary() {
               mayEdit={mayCreate}
               name={project.name}
               onDelete={() => askToDelete(project)}
+              onPin={(next) => pin(project.id, next)}
               onRename={(name) => rename(project.id, name)}
+              pinned={Boolean(project.pinned_at)}
               thumbnail={<VideoThumbnail project={project} />}
               thumbnailPlacement="top"
             >

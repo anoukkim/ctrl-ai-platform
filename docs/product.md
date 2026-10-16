@@ -46,7 +46,7 @@ principles.
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet. **Locked for members by default** (owner-polish 6, 2026-10-16): the 관리자 opens it in Admin › System › 기능 열기 the quarter video starts; until then the menu item carries a lock and the whole screen is one centred lock with "다음 단계에서 열려요 — 지금은 준비 중이에요" (owner's shape, 2026-10-16); the 관리자 sees the same screen plus "Admin › System에서 열 수 있어요", and the API never locks the 관리자 out |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
-| CtrlAITube            | The club's intro video first (공식 — a hosted file, played in the page, real reactions and comments since `promo-videos`); the rest a mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
+| CtrlAITube            | Real rows only: the club's intro video (공식 — the 9:16 cut, played in the page on every device, real reactions and comments since `promo-videos`; no sample cards since `fix-promo-video-placement`); watch page is two columns — a vertical player with the text beside it, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/빌더/영상/기타 breakdown, 대화별 / 날짜별 totals split into 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구, this quarter's 캐시로 아낀 금액, and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
 | Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
 | Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
@@ -691,6 +691,47 @@ A member who stops participating does not lose their published work:
 "탈퇴 회원" is used rather than anything meaning "deleted", because
 attribution on published apps and videos must continue to exist.
 
+## List screens — one header row, pins, sort, thumbnails (ui-improvements, 2026-10-16)
+
+The four list screens — Project Builder, Video Generator, CtrlAIApps,
+CtrlAITube — share one header row (`ListToolbar`): the count on the
+left ("내 프로젝트 6개", "게시된 앱 5개"), the search in the middle ending
+at the card row's right edge, and the controls (status filter, 정렬,
+the new-project button) on the right; below 44rem the three stack.
+
+**Pins and sort.** A Builder or Video card's ⋯ menu has **맨 위에 고정**
+/ **고정 해제**; a pinned card wears a small pin and always comes first
+(`pinned_at` on the project, `POST …/pin {on}`). On CtrlAIApps a member's
+own **★ 즐겨찾기** on a card does the same for that member only
+(`app_favorites`, `POST /api/apps/{slug}/favorite`). Both are how a
+member reads their own list, not a change to the work: they work while
+not taking part this quarter, and neither a pin nor a thumbnail moves a
+project's 마지막 수정 time. The **정렬** menu
+offers 마지막 수정순 (default) and 이름순; the choice is remembered per
+screen on the device (`localStorage`, not an account setting). Pinned or
+favourite first, then the chosen order.
+
+**Thumbnails (owner-polish 4·5).** An app's picture is a real screenshot
+of the app, taken **in the maker's browser** — never by running member
+code on the server (CLAUDE.md §8). In the Builder workspace, a moment
+after the preview frame loads, the shell asks the app frame for a
+picture (the SDK draws the page into a canvas and answers with a PNG),
+the browser uploads the bytes, and the server checks the kind and size
+from the bytes, re-encodes it to a 640×400 WebP with no metadata (like
+의견 보내기 screenshots) and stores it as the project's **working-copy
+thumbnail**; ⋯ › **썸네일 다시 찍기** retakes it by hand. **게시** does the
+same once for the published version from its public address, in a hidden
+frame, so CtrlAIApps shows the published look while the Builder card
+shows the working copy. No picture yet (or a page the browser cannot
+draw — WebGL, an app's own image files, Safari's weaker support) → a
+plain coloured cover with the name (CtrlAIApps) or a code icon (Builder).
+A Builder card shows a description only once the project is published;
+a request typed in Chat or the Builder never becomes a card's text.
+
+**Profile (owner-polish 2's first half, 2026-10-16).** 알림 is two aligned
+switch rows (사용 알림 표시, 띠링 소리) and 내가 만든 앱 is a plain list —
+name · vN · "N분 전 업데이트" · 열기 — with no pictures.
+
 ## Search
 
 Contextual search, not one global search engine. Each list has the search
@@ -796,14 +837,20 @@ working version, kept on the version, free to the member (the club's cost
 is an absorbed 0원 row, feature `publish_summary`), never blocking 게시
 (a failure leaves the field empty, "직접 적어 주세요"). Only empty fields
 are filled; a field the member typed in is never overwritten, and an
-existing description gets a "Claude 요약으로 바꾸기" button. The detail page has
-**앱 실행** (new tab), the same app live in a sandboxed frame, an honest
-note on what an app can do, and **신고**. Admin › Content lists open
+existing description gets a "Claude 요약으로 바꾸기" button. **The detail page (ui-improvements, owner-polish 15, 2026-10-16)** is
+one head row — the app's small thumbnail · name · maker · "v5 · 3일 전
+업데이트" · 업데이트 메모, with **새 창에서 열기** and **신고하기** on the
+right — the description folded to one line (설명 더 보기), and right
+under it the app itself in its sandboxed frame, taking the first screen
+(the frame's height follows the viewport, at 390px too); the big colour
+block and the duplicate 앱 실행 button are gone. The honest note under the
+frame is per app: when the published version's `ctrlai.json` declares a
+shared list it says "이 앱의 공유 글은 다른 회원도 볼 수 있어요". Admin › Content lists open
 reports (the apps themselves are under Admin › Apps since app-platform
 P4b); **게시 내리기** (with a reason) is audited and
 closes the app's reports; closing a report without taking the app down is
-audited too. No mock listings remain. Later: screenshots, reactions (Like /
-Useful / Interesting), threaded comments, GitHub link. Published
+audited too. No mock listings remain. Later: reactions (Like / Useful /
+Interesting), threaded comments, GitHub link. Published
 apps stay visible when their developer is no longer participating —
 attribution is never erased, a former member shows as 탈퇴 회원.
 **Every listing query filters the project's `deleted_at`** — deleting is
@@ -840,11 +887,14 @@ never mixed). The same `deleted_at` listing rule as CtrlAIApps.
 **First real rows — `promo-videos` (2026-10-16).** One video row has a
 *kind*: **hosted** (a file CTRL+AI serves itself) or **youtube**. The only
 hosted video is the club's own 1-minute intro, **"CTRL+AI 한눈에 보기"**:
-first in the grid with a **공식** badge, two files (a 16:9 one at desktop
-widths, a 9:16 one at phone widths — the 60rem sidebar breakpoint
-decides), played in the page with the browser's controls, never
-autoplaying, muted until the member presses **소리 켜기**, with **크게
-보기** for fullscreen. Its reactions (좋아요 · 유용해요 · 흥미로워요, a
+the only card in the grid for now, with a **공식** badge. Two cuts, placed
+by **shape, not device** (owner, 2026-10-16, `fix-promo-video-placement`):
+the **9:16 cut plays on CtrlAITube** — on a wide screen a vertical player
+sized by height with the title and description beside it, the reactions
+and comments in the right column; on a phone stacked — and the **16:9 cut
+plays in the first-visit guide**. Both in the page with the browser's
+controls, never autoplaying, muted until the member presses **소리
+켜기**, with **크게 보기** for fullscreen. Its reactions (좋아요 · 유용해요 · 흥미로워요, a
 toggle per member) and comments (one level of replies) are stored:
 reading needs a signed-in account, reacting and commenting a member taking
 part this quarter; a comment is its author's to edit or delete (anyone
@@ -852,9 +902,10 @@ else's is a 404); a member may 신고 a comment; Admin › Content lists those
 reports and the admin hides (for everyone, with a reason) or deletes
 (replies included) the comment — both audited — or closes the report and
 keeps it. Per-comment 공감 is not stored yet, so the official video shows
-no 공감 button and no 인기순. The same video is the last step of the
-first-visit guide. The other cards remain sample data until the YouTube
-feed lands.
+no 공감 button and no 인기순. The 16:9 cut is the last step of the
+first-visit guide. **The sample cards are gone** (owner, 2026-10-16):
+the feed lists real rows only, and the "테스트 모드 – 예시" tag left the
+screen with them.
 
 ### Admin, eventually
 

@@ -456,8 +456,9 @@ Standing facts that do not change when the queue is reordered:
   append-only audit log work end to end on a real database. No mock data
   remains in the money path.
 - Still mock: the Claude replies (`CLAUDE_PROVIDER=mock`), video assets
-  (placeholder clips), Google sign-in in development, and the CtrlAIApps
-  / CtrlAITube listings (Phases 5 and 8).
+  (placeholder clips) and Google sign-in in development. The CtrlAIApps
+  and CtrlAITube listings are real rows (CtrlAITube holds only the club's
+  own video until the YouTube feed, Phase 8).
 - The invite-only beta's code is deployed to `ctrlai-server` on mock
   providers ([`docs/deployment.md`](docs/deployment.md)); done items and
   dates are in [`docs/archive/done.md`](docs/archive/done.md).

@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * CTRL+AI 소개 영상 (promo-videos).
+ * CTRL+AI 소개 영상 (promo-videos, fix-promo-video-placement).
  *
- * 한 영상이 두 파일로 있습니다: 데스크탑용 가로(16:9)와 휴대폰용
- * 세로(9:16). 어느 쪽을 틀지는 **사이드바가 펼쳐지는 너비**(60rem,
- * AppShell.module.css)로 정합니다 — 휴대폰에서 가로 영상은 손톱만 하고,
- * 데스크탑에서 세로 영상은 양옆이 비어 보입니다.
+ * 영상은 두 편이고 **자리가 다릅니다** — 기기가 아니라: 16:9 가로 편은
+ * 처음 온 회원을 위한 안내 창(튜토리얼)에, 9:16 세로 편은 CtrlAITube에
+ * 들어갑니다. 어느 기기에서 열든 같은 편이 나옵니다 (오너, 2026-10-16;
+ * 처음에는 화면 너비로 가로/세로를 골랐는데, 그것이 아니었습니다).
  *
  * 저절로 재생하지 않습니다. 포스터(첫 장면)가 보이고, 회원이 재생을
  * 누릅니다. 소리는 꺼진 채로 시작하고 "소리 켜기"로 켭니다 — 안내 창이
@@ -20,52 +20,28 @@
  */
 
 import { Maximize2, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import styles from "./promo-video.module.css";
 
-export interface PromoSources {
-  desktop: string;
-  mobile: string;
-  posterDesktop: string;
-  posterMobile: string;
-}
-
-/** 사이드바가 펼쳐지는 너비와 같은 값(AppShell.module.css). */
-export const DESKTOP_QUERY = "(min-width: 60rem)";
-
-function subscribe(onChange: () => void): () => void {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
-  const media = window.matchMedia(DESKTOP_QUERY);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function isDesktop(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
-  return window.matchMedia(DESKTOP_QUERY).matches;
-}
-
-/** 지금 화면이 데스크탑 너비인지. 서버에서는 데스크탑으로 그리고 브라우저가 바로잡습니다. */
-export function useDesktopWidth(): boolean {
-  return useSyncExternalStore(subscribe, isDesktop, () => true);
+export interface PromoClip {
+  src: string;
+  poster: string;
+  /** "wide" 16:9 (안내 창) · "tall" 9:16 (CtrlAITube). */
+  orientation: "wide" | "tall";
 }
 
 export default function PromoVideo({
-  sources,
+  clip,
   title,
   className = "",
 }: {
-  sources: PromoSources;
+  clip: PromoClip;
   title: string;
   className?: string;
 }) {
-  const desktop = useDesktopWidth();
   const video = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
-
-  const src = desktop ? sources.desktop : sources.mobile;
-  const poster = desktop ? sources.posterDesktop : sources.posterMobile;
 
   const toggleSound = useCallback(() => {
     setMuted((current) => {
@@ -83,21 +59,21 @@ export default function PromoVideo({
   }, []);
 
   return (
-    <figure className={`${styles.figure} ${desktop ? styles.wide : styles.tall} ${className}`}>
+    <figure className={`${styles.figure} ${clip.orientation === "wide" ? styles.wide : styles.tall} ${className}`}>
       <video
-        // 너비가 바뀌면 다른 파일이므로 요소를 새로 만듭니다 — src만 바꾸면
-        // 브라우저가 옛 파일을 계속 틉니다.
-        key={src}
+        // 다른 파일이 오면 요소를 새로 만듭니다 — src만 바꾸면 브라우저가
+        // 옛 파일을 계속 틉니다.
+        key={clip.src}
         ref={video}
         className={styles.video}
-        src={src}
-        poster={poster}
+        src={clip.src}
+        poster={clip.poster}
         controls
         playsInline
         muted={muted}
         preload="metadata"
         aria-label={title}
-        data-orientation={desktop ? "desktop" : "mobile"}
+        data-orientation={clip.orientation}
       />
       <figcaption className={styles.caption}>
         <span className={styles.captionText}>{title} · 1분</span>

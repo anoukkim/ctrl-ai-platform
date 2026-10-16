@@ -76,6 +76,23 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
+**Pre-approval and order (owner, 2026-10-16 ~16:20 KST, in the desktop
+session, before being away for a few hours).** The owner's words:
+"keep 9 on hold … bring motions to 1st and app ai access next … if it is
+different, add to third [Polish 2] … i am going to not have access to
+this computer for the next few hours and i want you to run current +
+1,2,3", and the owner's answers to two questions: **"Yes, merge + deploy"**
+— each item may be merged and deployed once its code review + security
+review are clean and all tests pass, one at a time, the desktop session
+deploying and checking each; serious money/security findings stop and
+wait for the owner — and **"Build directly"** — no plan step; follow the
+specs, take the safest default on open questions and list them in the
+report. **Scope, exactly:** the three running items (ui-improvements A,
+ui-improvements B, auto-continue / polish 11), then **① motion-modern,
+② app-ai-access, ③ owner-polish 2 (tidier Profile + notification list)**.
+**dino-avatars stays on hold.** Not covered: the CtrlAITube poster branch
+`fix-tube-poster` (waits for the owner), anything else in Next.
+
 1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
    "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
    apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
@@ -147,10 +164,15 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     *Not pre-approved — branch, test, report, WAIT.* **Points 3, 8, 1, 9,
     6, 13, 14, 10 merged as `806f563`** (owner-polish-a, owner approved
     2026-10-16 — Done row and the eight points' spec in the archive; the
-    deploy runs migration `d7e1f3a9b5c2`). Left in this item: 2
-    (notification list), 4–5 (thumbnails), 7 (promo video → now
-    `promo-videos`), 11 (continue past the cap), 12 (image provider
-    research), 15 (app detail layout). The owner's nine
+    deploy runs migration `d7e1f3a9b5c2`). **Points 4·5 (thumbnails)
+    and 15 (app detail) merged with ui-improvements-a (2026-10-16),
+    together with the first half of 2 — Profile's 알림 as two switch rows
+    and 내가 만든 앱 as a plain list.** Left in this item: 2's notification
+    list (next: `feat-notifications` — 게시 완료 · 지원금 차감 · 신청 승인,
+    a bell with read marks, stored on the server, from real events),
+    7 (promo video → now `promo-videos`), 11 (continue past the cap —
+    `feat-auto-continue`, built, waiting on the owner), 12 (image provider
+    research). The owner's nine
     points from a walk through production (2026-10-16), to start **only
     after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
     Spec below ("owner-polish-2026-10-16"), with what the screenshots
@@ -169,9 +191,16 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-7. **ui-improvements** · M1 · branch `feat-ui-improvements`
-    *Not pre-approved — promo-videos merged 2026-10-16; once it is deployed, show
-    the plan first and WAIT.* Owner, 2026-10-16 (relayed from another
+7. **ui-improvements** · M1 · two branches
+    **A — the member screens: merged 2026-10-16 as `89efa9c`
+    (`feat-ui-improvements-a`; Done row and delivery notes in the archive;
+    migration `a3f7c1d9e2b4`):
+    points (1), (2) and (7) below, plus three add-ons the owner asked for
+    on the way — a Builder card never shows the last request as its
+    description (the from-chat path fixed too), Profile › 알림 as two
+    aligned switch rows, Profile › 내가 만든 앱 as a plain list. **B — the
+    admin screens, points (3)–(6): another session (UI B in the owner's
+    queue of 2026-10-16).** Owner, 2026-10-16 (relayed from another
     session): fold **owner-polish 15** (app detail screen) and **owner-polish
     4·5** (thumbnails) together with the UI points below into one bundle.
     The thumbnail method is decided in the plan from 2–3 compared options
@@ -227,6 +256,36 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     sizes and a load-time check belong to the review. **Example apps the
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
+
+8b. **motion-modern** · M1 · branch `feat-motion-modern`
+    *Not pre-approved — branch, test, report, WAIT.* Owner, 2026-10-16
+    ("motion ui를 개선할 수 있는 방법? 뭔가 더 현대적인 느낌으로…
+    미리보기 생성 같은거 할때 약간 중간부터 좀 생략해도 될 것 같아…
+    생성 중 뭔가 오로라 같은거, 답변 생성도 그럼"), after a demo page
+    the owner approved (the demo lives in the owner's desktop session;
+    refs looked at: motionsites.ai, prompt-motion.com). Final choices:
+    (1) **aurora card instead of streaming code** — while a Chat reply
+    writes a preview's code (or the Builder writes files) show
+    "미리보기 만드는 중…" over a slow aurora gradient with a timer and
+    the running cost and 2–3 step chips; when done the aurora melts into
+    the preview; the code stays under a folded "코드 보기";
+    (2) **thinking → calm stream** — "생각하는 중…" with a shimmer and
+    seconds, a slowly rotating colour ring around the composer while
+    busy, words fade/unblur in, a glowing caret;
+    (3) **Builder collapsed steps** — only the current step big
+    ("index.html 작성 중… N초"), finished steps fold into "✓ N개 완료"
+    (pop), the rest as dots, a progress bar, spinner not 🚫 (overlaps
+    polish 14 — extend it);
+    (4) **띠링 = 별가루** — small twinkling stars (pale gold/white) flow
+    from the price into the wallet, a few twinkle there, the number rolls
+    down, the toast pops (replaces the current toast motion; sound stays
+    the Profile switch);
+    (5) **게시 완료 = 쭈욱 → 팡! + 색종이** — thin glowing lines shoot up and
+    burst into rays with a white flash (calm colours: white, warm gold, a
+    touch of lavender), confetti from the centre, "게시 완료!" letters pop.
+    **No dino** in the motion (owner: "쟤만 너무 픽셀레이트 되어있어서").
+    Everything off with 동작 줄이기 (text stays); no click waits on an
+    animation; CSS + motion/react + Web Animations only, no paid service.
 
 9. **dino-avatars** · M3 · branch `feat-dino-avatars`
     *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
@@ -315,6 +374,19 @@ Everything Korean for members, light/dark, 390px. Progress in docs/progress/RUN-
 ---
 
 ## After the beta (specced, not in Next)
+
+### thumbnail-render-worker
+
+*Later, not pre-approved.* ui-improvements-a (2026-10-16) takes an app's
+thumbnail in the **maker's browser** (SDK capture → server re-encode),
+which cannot draw an app's own image files, WebGL, or much of anything in
+Safari — such cards keep their coloured cover. When that is not enough:
+a headless browser in an **isolated container** on the server (no
+network, CPU/memory/time limits, one job per published version, never
+the main backend — CLAUDE.md §8·§10) renders the published address and
+stores the same 640×400 WebP through `services/thumbnails`. Costs a
+container image and memory on the VM; decide after seeing how many
+real apps come out blank.
 
 ### app-subdomains
 
@@ -861,13 +933,16 @@ Dashboard / Members / System, Profile): "이것도 일단 백로그에만 추가
 3. **"내가 만든 앱은 프로필에 안 뜸"** — bug: Profile › 내가 만든 앱 says
    "준비 중 · 아직 게시한 앱이 없어요" while the admin's 여행 일정 메이커 and
    the showcases are published. Read the member's published apps there.
-4. **"게시할때 프로젝트 읽어서 압축해서 썸네일 만드는 기능"** — a
+4. **"게시할때 프로젝트 읽어서 압축해서 썸네일 만드는 기능"** *(merged
+   2026-10-16, ui-improvements-a: a capture in the maker's browser,
+   re-encoded on the server)* — a
    thumbnail made at 게시 (render the published version, store a small
    image) for CtrlAIApps cards and the Builder list. Rendering must not
    run member code on the backend (CLAUDE.md §8, §10) — e.g. a headless
    browser in an isolated container, or a capture in the creator's
    browser at publish time.
-5. **"draft도 저렇게 뭔가 썸네일 비슷하게"** — Builder project cards show
+5. **"draft도 저렇게 뭔가 썸네일 비슷하게"** *(merged 2026-10-16,
+   ui-improvements-a)* — Builder project cards show
    a striped "미리보기 썸네일" placeholder today; drafts get a thumbnail too
    (same mechanism as 4, from the working copy).
 6. **"영상은 다음다음분기에 시작할거임.. 그래서 일단 전체 화면에 락
@@ -903,7 +978,7 @@ above.)
 
 15. **CtrlAIApps 앱 상세 — "뭔가 너무 화면이 비효율적"** (owner,
     2026-10-16, screenshot of '동아리 게시판' v5, relayed from another
-    session). What the screenshot showed: the top half of the detail screen
+    session). *(Merged 2026-10-16, ui-improvements-a — built as proposed.)* What the screenshot showed: the top half of the detail screen
     is a colour-gradient placeholder block repeating the app's name; the
     live app frame sits below it and needs a scroll; 앱 실행 duplicates the
     frame right under it. Proposal: a one-line head (small thumbnail or

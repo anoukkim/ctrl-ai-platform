@@ -23,6 +23,20 @@ class AppListing(BaseModel):
     publish_note: str = ""
     #: https://apps.ctrlai.my/<slug>/ — None while the runtime is off.
     app_url: str | None = None
+    #: ui-improvements: the published version's `ctrlai.json` declares at
+    #: least one shared list — the detail page says so in its honest note.
+    shared_lists: bool = False
+    #: ui-improvements: the caller's 즐겨찾기 — kept first on their list.
+    favorite: bool = False
+    #: ui-improvements: when the published version's thumbnail was taken;
+    #: None = no picture, the card draws the generated cover.
+    thumbnail_at: datetime | None = None
+
+
+class AppFavoriteSet(BaseModel):
+    """즐겨찾기 on or off — a JSON body, like every state-changing route."""
+
+    on: bool
 
 
 class AppReportCreate(BaseModel):

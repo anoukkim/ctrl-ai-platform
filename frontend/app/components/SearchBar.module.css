@@ -18,6 +18,12 @@
   align-items: center;
 }
 
+/* 목록 머리 줄 안에서는 줄이 폭을 정합니다(list-toolbar.module.css). */
+.searchWrapGrow {
+  flex: 1 1 auto;
+  max-width: none;
+}
+
 .glyph {
   position: absolute;
   left: 0.75rem;

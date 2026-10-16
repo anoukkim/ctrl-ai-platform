@@ -421,9 +421,18 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/versions/{number}/files"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/versions/{number}/restore"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/runtime"): "require_active_member",
+    # ui-improvements: 맨 위에 고정 is how the owner reads their list — open
+    # like ★, and never a change to the work.
+    ("POST", "/api/builder/projects/{project_id}/pin"): "get_current_user",
+    ("POST", "/api/video/projects/{project_id}/pin"): "get_current_user",
     # ctrlaiapps-publish
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
+    # ui-improvements: a thumbnail captured in the maker's browser — storing
+    # it changes your work; reading it is reading your own work.
+    ("POST", "/api/builder/projects/{project_id}/thumbnail"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/thumbnail"): "get_current_user",
+    ("GET", "/api/apps/{slug}/thumbnail"): "get_current_user",
     # publish-summary: a Claude call the club pays for — participating members only.
     ("POST", "/api/builder/projects/{project_id}/publish-summary"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
@@ -431,6 +440,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/apps/mine"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
+    # ui-improvements: 즐겨찾기 is a reading preference, not a creation.
+    ("POST", "/api/apps/{slug}/favorite"): "get_current_user",
     # promo-videos: CtrlAITube — reads for any account, writes for participants, 신고 any account.
     ("GET", "/api/tube/videos"): "get_current_user",
     ("GET", "/api/tube/videos/{slug}"): "get_current_user",
@@ -672,6 +683,9 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # not creating anything.
         ("POST", "/api/builder/projects/{project_id}/unpublish"),
         ("POST", "/api/apps/{slug}/report"),
+        ("POST", "/api/apps/{slug}/favorite"),
+        ("POST", "/api/builder/projects/{project_id}/pin"),
+        ("POST", "/api/video/projects/{project_id}/pin"),
         # promo-videos: 신고 of a CtrlAITube comment, likewise.
         ("POST", "/api/tube/comments/{comment_id}/report"),
         # Feedback. Spends nothing; a member who cannot create is exactly

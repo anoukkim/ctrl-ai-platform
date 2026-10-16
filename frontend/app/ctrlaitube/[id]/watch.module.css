@@ -124,6 +124,70 @@
   opacity: 0.85;
 }
 
+/* ---------- 세로 영상의 무대 (fix-promo-video-placement) ---------- */
+
+/* 세로 플레이어는 높이로 크기를 정합니다: 화면 높이의 70%를 9:16으로
+   환산한 너비(폭이 더 좁으면 폭). 양옆이 비는 레터박스 대신 틀 자체가
+   영상 크기입니다. */
+.playerFrameTall {
+  /* 너비가 정해지면 aspect-ratio가 높이를 정합니다. 가로 편의 틀이 쓰는
+     크기 컨테이너(container-type: size)와 flex는 여기서 끕니다 — 크기
+     컨테이너는 안쪽 높이를 0으로 보고, 세로 편은 그 계산이 필요 없습니다. */
+  width: min(100%, calc(70vh * 9 / 16));
+  max-height: none;
+  margin-inline: auto;
+  container-type: normal;
+  display: block;
+}
+
+/* 높이는 영상(9:16) + 자막 줄: 틀의 비율을 풀고 영상이 제 비율로 서게 합니다 —
+   틀에 비율을 두면 자막 줄만큼 영상 아래가 검게 남습니다. */
+.playerFrameTall {
+  aspect-ratio: auto;
+}
+
+.playerFrameTall .playerVideo {
+  height: auto;
+}
+
+.playerFrameTall .playerVideo video {
+  height: auto;
+  aspect-ratio: 9 / 16;
+}
+
+.about {
+  min-width: 0;
+}
+
+.about .title {
+  margin-top: 1.25rem;
+}
+
+/* 무대 칸이 넓으면 플레이어 왼쪽, 제목·설명 오른쪽. 뒤로 가기 줄은 둘 위에. */
+@container (min-width: 51rem) {
+  .stageTall {
+    display: grid;
+    /* 플레이어 칸의 너비를 트랙이 정합니다 — auto 트랙 안의 100%는 순환이라
+       틀이 손톱만 해집니다. */
+    grid-template-columns: minmax(0, calc(70vh * 9 / 16)) minmax(0, 1fr);
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+
+  .stageTall .back {
+    grid-column: 1 / -1;
+  }
+
+  .stageTall .playerFrameTall {
+    width: 100%;
+    margin-inline: 0;
+  }
+
+  .about .title {
+    margin-top: 0;
+  }
+}
+
 .panelHeading {
   margin: 0;
   padding: 0.6rem 1rem 0;

@@ -1,20 +1,6 @@
 /* CtrlAITube — 영상 피드. 카드가 주인공이 되도록 구성합니다. */
 
-/* 정렬 칩(왼쪽)과 검색(오른쪽)이 한 줄에 섭니다. */
-.toolbar {
-  margin-bottom: 18px;
-}
-
-.searchSlot {
-  flex: 1 1 18rem;
-  max-width: 30rem;
-  margin-left: auto;
-}
-
-.searchSlot > * {
-  margin-bottom: 0;
-  flex-wrap: nowrap;
-}
+/* 머리 줄(정렬 칩 · 검색)은 ListToolbar가 그립니다 — 네 목록이 같은 격자. */
 
 .grid {
   display: grid;
@@ -51,7 +37,13 @@
   overflow: hidden;
 }
 
-/* 실제 영상의 포스터(promo-videos). 카드 비율에 맞춰 가운데를 채웁니다. */
+/* 세로 영상의 썸네일 칸: 3:4 (fix-promo-video-placement). */
+.thumbnailTall {
+  aspect-ratio: 3 / 4;
+  background: var(--video-letterbox);
+}
+
+/* 실제 영상의 포스터(promo-videos). 칸에 맞춰 가운데를 채웁니다. */
 .poster {
   position: absolute;
   inset: 0;
@@ -147,3 +139,18 @@
   text-align: center;
 }
 
+/* 머리 줄의 수 — CtrlAIApps와 같은 꼴 (ui-improvements). */
+.sectionLabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--lib-gap-xs);
+  font-size: var(--fs-count);
+  font-weight: var(--fw-strong);
+  color: var(--text-muted);
+}
+
+.count {
+  font-size: var(--fs-count);
+  font-weight: 500;
+  color: var(--text-dim);
+}
