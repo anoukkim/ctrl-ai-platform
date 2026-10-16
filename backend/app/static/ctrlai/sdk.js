@@ -245,7 +245,11 @@
     if (defaults[tag]) return defaults[tag];
     if (!probe) {
       probe = document.createElement("div");
-      probe.setAttribute("style", "position:absolute;left:-100000px;top:0;width:0;height:0;overflow:hidden;pointer-events:none");
+      // `all:initial` (2026-10-17): the probe must not inherit the page's
+      // font, size, line height or colour — otherwise a bare element looks
+      // like the page, inherited values are never inlined, and the picture
+      // falls back to the browser's serif font with different wrapping.
+      probe.setAttribute("style", "all:initial;position:absolute;left:-100000px;top:0;width:0;height:0;overflow:hidden;pointer-events:none");
       (document.body || document.documentElement).appendChild(probe);
     }
     var bare = document.createElement(tag);
@@ -321,17 +325,37 @@
       } else if (tag === "TEXTAREA") {
         target.textContent = source.value;
       } else if (tag === "SELECT") {
-        var options = target.querySelectorAll("option");
-        for (var option = 0; option < options.length; option += 1) {
-          if (option === source.selectedIndex) options[option].setAttribute("selected", "selected");
-          else options[option].removeAttribute("selected");
-        }
+        // A picture draws a select as an empty box: show the chosen text in
+        // a box with the select's own look instead (2026-10-17).
+        var shown = document.createElement("span");
+        var chosen = source.options && source.selectedIndex >= 0 ? source.options[source.selectedIndex] : null;
+        shown.textContent = chosen ? chosen.text + " \u25BE" : "";
+        shown.setAttribute("style", (target.getAttribute("style") || "") + ";display:inline-flex;align-items:center;white-space:nowrap;overflow:hidden;box-sizing:border-box");
+        target.parentNode.replaceChild(shown, target);
       }
     }
     for (var dead = 0; dead < drop.length; dead += 1) {
       if (drop[dead].parentNode) drop[dead].parentNode.removeChild(drop[dead]);
     }
     clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+    // A browser paints the body's background over the whole screen when
+    // the page's root has none (CSS background propagation); a picture does
+    // not — the area outside the body came out white (2026-10-17).
+    var body = document.body;
+    var cloneBody = clone.querySelector("body");
+    if (body && cloneBody) {
+      var rootLook = window.getComputedStyle(root);
+      var bodyLook = window.getComputedStyle(body);
+      var bare = rootLook.backgroundImage === "none" && /rgba\(0, 0, 0, 0\)|transparent/.test(rootLook.backgroundColor);
+      if (bare) {
+        clone.style.backgroundColor = bodyLook.backgroundColor;
+        clone.style.backgroundImage = bodyLook.backgroundImage;
+        clone.style.backgroundSize = bodyLook.backgroundSize;
+        clone.style.backgroundRepeat = bodyLook.backgroundRepeat;
+        clone.style.backgroundPosition = bodyLook.backgroundPosition;
+      }
+      cloneBody.style.minHeight = height + offset + "px";
+    }
     clone.style.width = width + "px";
     // A scrolled candidate: the page laid out taller, shifted up by `offset`.
     clone.style.height = height + offset + "px";
