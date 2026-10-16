@@ -8,7 +8,8 @@ Paste into the new session: "Read docs/progress/HANDOFF-2026-10-16-evening.md an
   `a8c4e2f6b1d9`, re-parented onto `c4e8a2d6f0b3`; single head) and the CtrlAITube
   poster (merge `4b0bbf6`). Owner approved both in the desktop session ("yes, ship it", "Yes").
 - **NOT YET DEPLOYED.** The GitHub Actions `images` build for `de6bef7` was running.
-  Do not push to main until it is green (a push cancels it).
+  Do not push to main until it is green (a push cancels it). Local main has unpushed
+  docs commits (BACKLOG (c2) + this note) — push them right after the deploy.
 
 ## Step 1 — deploy (when `images` for de6bef7 is green)
 
