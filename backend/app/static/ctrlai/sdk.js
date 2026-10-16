@@ -54,6 +54,11 @@
  * items / 5 MB; a visitor writes ≤ 30 times a minute. Writing asks the
  * visitor to sign in (and to allow the app) when needed.
  *
+ * P4 — the app's lists are the **app maker's** to define: in the project's
+ * `ctrlai.json` — { "db": [ { "name": "posts", "shared": true },
+ * { "name": "notes" } ] } — or by the maker's own first save. A visitor's
+ * save into a list that is not there fails with code "no_collection".
+ *
  * Storage is per app and per visitor (this browser), about 1 MB per app,
  * and works signed out. `localStorage` keeps working too: apps written
  * before the SDK use it, so it is replaced by a copy that the shell keeps

@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import BACKEND_DIR, Settings
 from app.models import BuilderProject
-from app.services import builder_files
+from app.services import app_data, app_manifest, builder_files
 
 #: Lower-case letters and digits, no look-alikes — a slug is read aloud.
 _SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
@@ -165,6 +165,9 @@ def write_draft(
     slug = ensure_draft_slug(db, project)
     _write_or_explain(settings, slug, cleaned)
     project.app_runtime_at = datetime.now(timezone.utc)
+    # The lists ctrlai.json names exist in the preview's own data space
+    # (app-platform P4), so trying the app works before anyone saves.
+    app_manifest.declare(db, project, app_data.space_of("preview"), cleaned)
     return draft_url(settings, project) or ""
 
 
@@ -175,6 +178,7 @@ def write_public(
     cleaned = _checked(settings, files)
     slug = ensure_slug(db, project)
     _write_or_explain(settings, slug, cleaned)
+    app_manifest.declare(db, project, app_data.space_of("app"), cleaned)
 
 
 def _write_or_explain(settings: Settings, slug: str, cleaned: dict[str, str]) -> None:

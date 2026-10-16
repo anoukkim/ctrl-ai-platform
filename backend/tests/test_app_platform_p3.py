@@ -18,7 +18,7 @@ from app.main import app
 from app.models import AppConsent, AppDataItem, AppReport, AuditLog, BuilderProject, User
 from app.services import app_data, app_publish, app_runtime, builder_versions
 from tests.conftest import JSON_HEADERS, MEMBER_PASSWORD
-from tests.test_app_platform_p2 import config, headers, shop, sign_in  # noqa: F401 — fixtures
+from tests.test_app_platform_p2 import SHOP_FILES, config, headers, shop, sign_in  # noqa: F401 — fixtures
 
 pytestmark = pytest.mark.usefixtures("config")
 
@@ -46,9 +46,8 @@ def publish(db: Session, owner: User, name: str, settings) -> BuilderProject:
     project = BuilderProject(owner_user_id=owner.id, name=name, description="")
     db.add(project)
     db.flush()
-    files = {"index.html": "<!doctype html><head><title>t</title></head>"}
-    builder_versions.replace_files(db, project, files)
-    builder_versions.snapshot(db, project, "만들기", files)
+    builder_versions.replace_files(db, project, SHOP_FILES)
+    builder_versions.snapshot(db, project, "만들기", SHOP_FILES)
     app_publish.publish(db, settings, project, description=name, note="")
     db.commit()
     return project
@@ -250,7 +249,7 @@ def test_list_filters_sorts_and_pages(client: TestClient, shop: BuilderProject) 
 
 
 def test_item_size_app_quota_and_the_write_rate(
-    client: TestClient, shop: BuilderProject, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, visitor_b: TestClient, shop: BuilderProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     sign_in(client, shop)
     too_big = call(client, shop, "save", collection="big", data={"text": "가" * 2000}, shared=True)
@@ -270,9 +269,12 @@ def test_item_size_app_quota_and_the_write_rate(
     assert bytes_full.status_code == 409 and "5MB" in bytes_full.json()["detail"]["message"]
     monkeypatch.setattr(app_data, "MAX_APP_BYTES", 5 * 1024 * 1024)
 
-    # A refused save leaves no collection behind ("few2" above): one so far.
+    # The list cap binds the owner's ad-hoc lists (P4: only the owner makes
+    # one — a visitor's save into an undeclared list is a 404, see test_app_platform_p4).
     monkeypatch.setattr(app_data, "MAX_COLLECTIONS", 1)
-    assert call(client, shop, "save", collection="second", data={"n": 1}).status_code == 409
+    sign_in(visitor_b, shop)
+    capped = call(visitor_b, shop, "save", collection="second", data={"n": 1})
+    assert capped.status_code == 409 and capped.json()["detail"]["code"] == "full"
 
     # A refused write is rolled back and does not count: two so far this minute.
     monkeypatch.setattr(app_data, "WRITES_PER_MINUTE", 2)
@@ -337,7 +339,10 @@ def test_reporting_a_shared_item_reaches_the_admin_who_hides_or_deletes_it(
 
     data = client.get(f"/api/admin/apps/{shop.id}/data").json()
     assert data["items"] == 2 and data["bytes"] > 0
-    assert [(row["name"], row["kind"], row["items"]) for row in data["collections"]] == [("board", "shared", 1), ("notes", "private", 1)]
+    # Lists ctrlai.json declared are there too, empty (P4); the two written into hold one each.
+    held = [(row["name"], row["kind"], row["items"]) for row in data["collections"] if row["items"]]
+    assert held == [("board", "shared", 1), ("notes", "private", 1)]
+    assert ("diary", "private", 0) in [(row["name"], row["kind"], row["items"]) for row in data["collections"]]
     assert [row["data"] for row in data["shared"]] == [{"text": "이상한 글"}]
     assert data["shared"][0]["open_reports"] == 1 and data["shared"][0]["author_username"] == "dev"
     assert client.get("/api/admin/apps").json()[0]["data_items"] == 2
