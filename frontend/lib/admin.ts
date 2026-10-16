@@ -470,11 +470,12 @@ export interface ChatLimitsWrite {
   timeout_seconds?: number;
 }
 
-/** 채팅·빌더 × 낮음·보통·높음·최고 → 최대 출력 토큰과 1회 한도(원). */
+/** 채팅·빌더 × 낮음·보통·높음·최고 → 최대 출력 토큰, 1회 한도(원), 전체 한도(원 —
+ *  feat-auto-continue: 서버가 이어 쓰는 답장 전체의 상한; 0이면 이어 쓰지 않음). */
 export type DepthSurface = "chat" | "builder";
 export type DepthTable = Record<
   DepthSurface,
-  Record<"low" | "medium" | "high" | "max", { max_tokens: number; cap_krw: number }>
+  Record<"low" | "medium" | "high" | "max", { max_tokens: number; cap_krw: number; total_cap_krw?: number }>
 >;
 
 export function getClaudeSettings(): Promise<ClaudeSettings> {

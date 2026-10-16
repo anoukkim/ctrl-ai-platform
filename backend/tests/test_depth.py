@@ -187,11 +187,14 @@ def test_a_member_cannot_default_to_an_admin_only_model(
 def test_continuing_a_capped_reply_is_a_new_charged_reply(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
-    """이어서 쓰기: the button sends "이어서 써 줘" — an ordinary, priced turn."""
+    """이어서 쓰기: the button sends "이어서 써 줘" — an ordinary, priced turn.
+
+    With automatic continuation off (전체 한도 0, feat-auto-continue) a
+    capped reply stops after one call, as before."""
     db_session.add(
         ChatLimits(
             reply_cap_krw=200, long_history_tokens=8000, daily_cap_krw=0,
-            depth_levels={"chat": {"medium": {"cap_krw": 15}}},
+            depth_levels={"chat": {"medium": {"cap_krw": 15, "total_cap_krw": 0}}},
         )
     )
     db_session.commit()

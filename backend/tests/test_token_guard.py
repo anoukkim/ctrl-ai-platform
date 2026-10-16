@@ -33,13 +33,21 @@ pytestmark = pytest.mark.usefixtures("config")
 
 
 def set_limits(
-    db: Session, reply: int = 100, history: int = 8_000, daily: int = 0, max_tokens: int | None = None
+    db: Session,
+    reply: int = 100,
+    history: int = 8_000,
+    daily: int = 0,
+    max_tokens: int | None = None,
+    total: int = 0,
 ) -> None:
     """Every chat depth gets the cap `reply` (0 = off) and, if given, the
-    output room `max_tokens` (quality-tuning Q1: the depth decides both)."""
+    output room `max_tokens` (quality-tuning Q1: the depth decides both).
+    `total` is the whole-reply ceiling (feat-auto-continue); 0 here keeps
+    these tests on the one-call behaviour they describe — the cap cutting a
+    reply — since with a ceiling the server would go on by itself."""
     from app.services.depth import LEVELS
 
-    level = {"cap_krw": reply, **({"max_tokens": max_tokens} if max_tokens else {})}
+    level = {"cap_krw": reply, "total_cap_krw": total, **({"max_tokens": max_tokens} if max_tokens else {})}
     db.add(
         ChatLimits(
             reply_cap_krw=reply,

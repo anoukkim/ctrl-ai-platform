@@ -10,7 +10,13 @@ surface (chat or builder):
   Haiku 4.5 rejects `effort` — it gets no slider and no effort at all);
 * `max_tokens` — the most the reply may write;
 * `cap_krw` — the most one call may cost, enforced before the call as a
-  smaller `max_tokens` (token-guard).
+  smaller `max_tokens` (token-guard);
+* `total_cap_krw` — feat-auto-continue (owner-polish 11, 2026-10-16): when a
+  chat reply stops at `max_tokens`, the server **continues it by itself**
+  in further calls, each under `cap_krw` again, until the reply ends or the
+  whole reply reaches this figure. 0 = no automatic continuation (the old
+  behaviour: one call, then 이어서 쓰기 by hand). Builder calls do not
+  continue (they write whole files per stage), so their value is unused.
 
 The numbers are admin settings (Admin › System › 채팅 한도, audited) kept in
 `chat_limits.depth_levels`; with nothing set the `DEFAULTS` below apply.
@@ -42,33 +48,43 @@ class Level:
     name: str
     max_tokens: int
     cap_krw: int
+    #: The whole reply's ceiling across automatic continuations (chat).
+    total_cap_krw: int = 0
 
     @property
     def effort(self) -> str:
         return self.name
 
 
-#: (max_tokens, cap_krw) per surface and level, in force with no admin row.
-DEFAULTS: dict[str, dict[str, tuple[int, int]]] = {
+#: (max_tokens, cap_krw, total_cap_krw) per surface and level, in force
+#: with no admin row. The total caps (feat-auto-continue): 보통's 1,500원
+#: is about seven continuations of its 200원 call — roughly 50,000 output
+#: tokens on Sonnet, far past any answer a member has asked for, so a
+#: runaway reply is what it stops, not a long one; the others scale with
+#: their call cap (낮음 3×, 높음 7.5×, 최고 7.5×). The owner's example was
+#: 보통 1,500원 · 높음 3,000원.
+DEFAULTS: dict[str, dict[str, tuple[int, int, int]]] = {
     "chat": {
-        "low": (4096, 200),
-        "medium": (8192, 200),
-        "high": (16000, 400),
-        "max": (32000, 800),
+        "low": (4096, 200, 600),
+        "medium": (8192, 200, 1500),
+        "high": (16000, 400, 3000),
+        "max": (32000, 800, 6000),
     },
     # Builder calls write whole files; today's "약 275원 · 최대 443원" sits
-    # inside 보통's 500원.
+    # inside 보통's 500원. No automatic continuation there (0).
     "builder": {
-        "low": (16000, 500),
-        "medium": (16000, 500),
-        "high": (32000, 900),
-        "max": (32000, 1200),
+        "low": (16000, 500, 0),
+        "medium": (16000, 500, 0),
+        "high": (32000, 900, 0),
+        "max": (32000, 1200, 0),
     },
 }
 
 #: Bounds an admin may set — they catch typos (a cap in dollars).
 MAX_TOKENS_RANGE = (1024, 64000)
 CAP_RANGE = (10, 5000)
+#: 0 turns automatic continuation off; otherwise at least the call cap.
+TOTAL_CAP_RANGE = (0, 50_000)
 
 
 def levels_for(model_id: str) -> tuple[str, ...]:
@@ -88,12 +104,13 @@ def table(stored: dict | None, surface: str) -> dict[str, Level]:
     out: dict[str, Level] = {}
     saved = (stored or {}).get(surface) or {}
     for name in LEVELS:
-        tokens, cap = DEFAULTS[surface][name]
+        tokens, cap, total = DEFAULTS[surface][name]
         row = saved.get(name) or {}
         out[name] = Level(
             name=name,
             max_tokens=int(row.get("max_tokens", tokens)),
             cap_krw=int(row.get("cap_krw", cap)),
+            total_cap_krw=int(row.get("total_cap_krw", total)),
         )
     return out
 
@@ -146,6 +163,8 @@ def options(stored: dict | None, surface: str, model_id: str, base_krw: int | No
                 "hint": HINTS[name],
                 "estimate_krw": estimate,
                 "max_krw": level.cap_krw,
+                # feat-auto-continue: the whole reply's ceiling (0 = one call only).
+                "total_krw": level.total_cap_krw,
             }
         )
     return out
@@ -162,7 +181,7 @@ def full_table(stored: dict | None) -> dict:
     """Both surfaces as plain numbers — what Admin › System shows."""
     return {
         surface: {
-            name: {"max_tokens": level.max_tokens, "cap_krw": level.cap_krw}
+            name: {"max_tokens": level.max_tokens, "cap_krw": level.cap_krw, "total_cap_krw": level.total_cap_krw}
             for name, level in table(stored, surface).items()
         }
         for surface in SURFACES
@@ -178,16 +197,22 @@ def checked_table(wanted: dict) -> dict:
         out[surface] = {}
         for name in LEVELS:
             row = rows.get(name) or {}
-            tokens, cap = DEFAULTS[surface][name]
+            tokens, cap, total = DEFAULTS[surface][name]
             tokens = int(row.get("max_tokens", tokens))
             cap = int(row.get("cap_krw", cap))
+            total = int(row.get("total_cap_krw", total))
             if not MAX_TOKENS_RANGE[0] <= tokens <= MAX_TOKENS_RANGE[1]:
                 raise ValueError(
                     f"{LABELS[name]}의 최대 토큰은 {MAX_TOKENS_RANGE[0]:,}–{MAX_TOKENS_RANGE[1]:,} 사이여야 해요."
                 )
             if not CAP_RANGE[0] <= cap <= CAP_RANGE[1]:
                 raise ValueError(f"{LABELS[name]}의 1회 한도는 {CAP_RANGE[0]}–{CAP_RANGE[1]:,}원 사이여야 해요.")
-            out[surface][name] = {"max_tokens": tokens, "cap_krw": cap}
+            if total != 0 and not cap <= total <= TOTAL_CAP_RANGE[1]:
+                raise ValueError(
+                    f"{LABELS[name]}의 전체 한도는 0(이어 쓰기 없음)이거나 1회 한도 이상 "
+                    f"{TOTAL_CAP_RANGE[1]:,}원 이하여야 해요."
+                )
+            out[surface][name] = {"max_tokens": tokens, "cap_krw": cap, "total_cap_krw": total}
     return out
 
 
@@ -195,9 +220,15 @@ def summary(stored: dict) -> str:
     """One line for the audit log: 채팅 낮음 4,096/200원 · …"""
     parts = []
     for surface, title in (("chat", "채팅"), ("builder", "빌더")):
-        steps = " · ".join(
+        steps = "·".join(
             f"{LABELS[name]} {stored[surface][name]['max_tokens']:,}/{stored[surface][name]['cap_krw']:,}원"
             for name in LEVELS
         )
+        # feat-auto-continue: the whole-reply ceilings in one short clause
+        # (the audit summary column is 300 characters; the full table is
+        # in the row's detail either way).
+        totals = [stored[surface][name].get("total_cap_krw") or 0 for name in LEVELS]
+        if any(totals):
+            steps += "·전체 " + "/".join(f"{total:,}" for total in totals) + "원"
         parts.append(f"{title} {steps}")
     return " | ".join(parts)

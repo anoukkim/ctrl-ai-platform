@@ -44,7 +44,7 @@ export const PREVIEW_SANDBOX = "allow-scripts";
 /** 이보다 큰 블록은 코드만. */
 export const PREVIEW_MAX_BYTES = 200 * 1024;
 export const PREVIEW_LABEL = "Claude가 만든 미리보기입니다. 여기에 비밀번호나 개인 정보를 입력하지 마세요.";
-export const CUT_OFF_NOTE = '답장이 길어 미리보기를 만들 수 없습니다 — "계속"이라고 보내 주세요.';
+export const CUT_OFF_NOTE = "답장이 끝까지 오지 않아 미리보기를 만들 수 없어요 — 아래 '이어서 쓰기'를 눌러 주세요.";
 
 /** 미리보기에 필요한 답장의 사정. ChatWorkspace가 답장마다 줍니다. */
 export interface ArtifactContextValue {

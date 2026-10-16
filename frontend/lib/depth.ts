@@ -27,6 +27,8 @@ export interface DepthOption {
   estimate_krw: number | null;
   /** "(최대 M원)" — 이 깊이의 1회 한도. */
   max_krw: number;
+  /** 길어진 답장을 서버가 이어 쓸 때의 전체 상한(feat-auto-continue). 0이면 한 번만. */
+  total_krw?: number;
 }
 
 /** 고르기 창의 모델 한 줄 — Chat과 Builder의 응답을 같은 모양으로. */
@@ -79,6 +81,14 @@ export function priceText(model: PickerModel, level: DepthLevel | null | undefin
   const max = step ? step.max_krw : model.flat_max_krw;
   if (estimate === null) return max > 0 ? `1회 최대 ${won(max)}` : "요금 정보 없음";
   return max > 0 ? `1회 약 ${won(estimate)} (최대 ${won(max)})` : `1회 약 ${won(estimate)}`;
+}
+
+/** 길면 자동으로 이어 쓴다는 한 줄 — 전체 상한이 1회 한도보다 클 때만. */
+export function continueText(model: PickerModel, level: DepthLevel | null | undefined): string {
+  const step = levelFor(model, level);
+  const total = step?.total_krw ?? 0;
+  if (!step || total <= step.max_krw) return "";
+  return `길면 자동으로 이어 써요 · 전체 최대 ${won(total)}`;
 }
 
 /** 목록의 모델 줄 값: 지금 고른 깊이에서의 "1회 약 N원"(그 깊이가 없으면 보통). */

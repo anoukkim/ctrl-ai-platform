@@ -18,6 +18,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import {
+  continueText,
   type DepthLevel,
   levelFor,
   modelCostText,
@@ -193,6 +194,13 @@ export default function ModelDepthPicker({
                 <p className={styles.price} data-testid="depth-price">
                   {priceText(current, level)}
                 </p>
+                {continueText(current, level) && (
+                  // feat-auto-continue: 1회 한도에 닿으면 서버가 스스로 이어 쓰고,
+                  // 답장 전체는 이 금액을 넘지 않아요.
+                  <p className={styles.hint} data-testid="depth-continue">
+                    {continueText(current, level)}
+                  </p>
+                )}
               </div>
             )}
             <p className={styles.footnote}>

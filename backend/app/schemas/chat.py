@@ -147,9 +147,14 @@ class ChatMessageRead(BaseModel):
     #: it ran at (None: the model has none) — the receipt shows both.
     model_id: str | None = None
     depth: str | None = None
-    #: Set when the reply stopped at the per-reply cost cap (token-guard):
-    #: the cap in force, in won. Null for every other ending.
+    #: Set when the reply stopped at a cost ceiling: the whole reply's
+    #: (feat-auto-continue) or, with continuation off, the call's
+    #: (token-guard) — in won. Null for every other ending.
     capped_krw: int | None = None
+    #: feat-auto-continue: how many calls wrote this reply (1 = one call),
+    #: and why the server stopped continuing (None: it ended by itself).
+    segments: int = 1
+    stop_note: str | None = None
     #: Web-search sources the reply cited (chat-plus-tools), in order.
     sources: list["SourceRead"] | None = None
     #: Claude's summarized thinking (chat-thinking-view). Display only.
@@ -207,8 +212,11 @@ class DepthOption(BaseModel):
     hint: str
     #: "1회 약 N원" at this depth — an estimate (None without a rate).
     estimate_krw: int | None
-    #: "(최대 M원)" — the cap this depth runs under.
+    #: "(최대 M원)" — the cap one call runs under.
     max_krw: int
+    #: feat-auto-continue: the whole reply's ceiling across automatic
+    #: continuations (0 = one call only, then 이어서 쓰기 by hand).
+    total_krw: int = 0
 
 
 class ChatModelOption(BaseModel):

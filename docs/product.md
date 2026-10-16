@@ -419,12 +419,24 @@ Chat is the opening screen and a real conversation with Claude, behind
   (응답 대기, 180 s), a long-conversation warning threshold and an
   optional daily cap per member (0 = off), all audited. The cap is
   enforced **before** the call: it buys a `max_tokens` budget after the
-  estimated input cost, so a capped reply simply stops, is saved and
-  charged its real usage, says 상한에 도달 next to model · depth, and offers
+  estimated input cost. **Since `feat-auto-continue` (owner-polish 11,
+  2026-10-16) a capped chat reply does not stop there:** the server
+  continues it by itself, in the same bubble — the partial goes back as
+  the assistant's turn with a "[이어서] 끊긴 바로 다음 글자부터" request,
+  each call under the same per-call cap, each charged on its own with the
+  wallet checked first — until the reply ends, the member presses 중지,
+  the whole reply reaches that depth's **전체 한도** (Admin › System › 채팅
+  한도, default 낮음 600 · 보통 1,500 · 높음 3,000 · 최고 6,000원; 0 = one
+  call only), eight calls have been made, or the wallet runs short. While it continues the screen says
+  "이어서 쓰는 중… (n번째) · 지금까지 N원" and 중지 stays; the pieces are
+  saved as one message whose receipt adds the calls up ("3번에 나눠 씀"),
+  so a code block split across calls previews as one page. A reply the
+  server stopped says why (전체 한도 or the wallet) and still offers
   **이어서 쓰기** (a new, priced reply; the price shows on the button). If
   the input alone reaches the cap, the message is refused free with a 새
   대화 / 생각 깊이를 높여 suggestion. The daily cap counts every paid feature
-  per KST day and refuses before anything is spent.
+  per KST day and refuses before anything is spent. Builder calls do not
+  continue: they write whole files per stage under their own caps.
 - **Tools in Chat** (chat-plus-tools — **mock only** until Phase 9: no
   real API call, no real fee). 웹 검색, 웹 페이지 읽기 and 코드 실행 as
   Anthropic server tools. An admin opens each tool per model in Admin ›

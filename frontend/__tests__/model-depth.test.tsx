@@ -8,7 +8,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import ModelDepthPicker from "@/app/components/ModelDepthPicker";
-import { levelFor, priceText, receiptHead, triggerText, type PickerModel } from "@/lib/depth";
+import { continueText, levelFor, priceText, receiptHead, triggerText, type PickerModel } from "@/lib/depth";
 
 const LEVELS = [
   { level: "low", label: "낮음", hint: "짧은 질문에 빨라요", estimate_krw: 7, max_krw: 200 },
@@ -50,6 +50,11 @@ describe("lib/depth", () => {
   test("값은 서버가 보낸 어림과 한도 그대로", () => {
     expect(priceText(SONNET, "high")).toBe("1회 약 18원 (최대 400원)");
     expect(priceText(HAIKU, "high")).toBe("1회 약 4원 (최대 200원)");
+    // feat-auto-continue: the whole reply's ceiling, said only when it is above the call cap.
+    expect(continueText({ ...SONNET, levels: SONNET.levels.map((l) => ({ ...l, total_krw: 1500 })) }, "medium")).toBe(
+      "길면 자동으로 이어 써요 · 전체 최대 1,500원",
+    );
+    expect(continueText(SONNET, "medium")).toBe("");
   });
 
   test("모르는 깊이는 보통으로", () => {

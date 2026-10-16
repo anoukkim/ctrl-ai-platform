@@ -153,8 +153,14 @@ interface ViewMessage {
   modelId: string | null;
   /** 답장을 쓴 생각 깊이(quality-tuning Q1). */
   depth?: string | null;
-  /** 1회 비용 한도에 닿아 멈춘 답장이면 그 한도(원). */
+  /** 비용 한도(전체 한도, 또는 이어 쓰기가 꺼져 있으면 1회 한도)에 닿아 멈춘 답장이면 그 한도(원). */
   cappedKrw?: number | null;
+  /** 몇 번의 호출로 쓴 답장인지(feat-auto-continue). */
+  segments?: number;
+  /** 서버가 이어 쓰기를 멈춘 이유 — 지갑이 모자랐을 때의 한국어 문장. */
+  stopNote?: string | null;
+  /** 서버가 스스로 이어 쓰는 중: 몇 번째 호출인지와 지금까지 차감된 금액. */
+  continuing?: { segment: number; chargedKrw: number } | null;
   /** 답장의 영수증 — 장부의 숫자(live-cost-display). */
   receipt?: ReplyReceipt | null;
   /** 웹 검색이 인용한 출처(chat-plus-tools). */
@@ -184,6 +190,8 @@ function toView(message: ChatMessage): ViewMessage {
     modelId: message.model_id,
     depth: message.depth ?? null,
     cappedKrw: message.capped_krw ?? null,
+    segments: message.segments ?? 1,
+    stopNote: message.stop_note ?? null,
     receipt: message.receipt ?? null,
     sources: message.sources ?? null,
     thinking: message.thinking ?? null,
@@ -381,11 +389,16 @@ const STATUS_NOTE: Partial<Record<ChatMessageStatus, string>> = {
   refused: "이 질문에는 답할 수 없어요. 다른 방식으로 물어봐 주세요.",
 };
 
-/** 한도에 닿아 멈춘 답장은 왜 멈췄는지와 잇는 방법을 말합니다(token-guard). */
+/**
+ * 한도에 닿아 멈춘 답장은 왜 멈췄는지와 잇는 방법을 말합니다(token-guard).
+ * 서버가 스스로 이어 쓰다 멈춘 답장(feat-auto-continue)은 서버가 보낸 이유
+ * (전체 한도·지갑)를 그대로 보여 줍니다.
+ */
 export function statusNote(message: ViewMessage): string | undefined {
+  if (message.status === "truncated" && message.stopNote) return message.stopNote;
   if (message.status === "truncated" && message.cappedKrw) {
     return (
-      `답장이 1회 비용 한도(${formatKrw(message.cappedKrw)})에 닿아 여기서 멈췄어요. ` +
+      `답장이 비용 한도(${formatKrw(message.cappedKrw)})에 닿아 여기서 멈췄어요. ` +
       "아래 '이어서 쓰기'로 이어 받거나, 생각 깊이를 높여 다시 물어보세요."
     );
   }
@@ -902,6 +915,15 @@ export default function ChatWorkspace() {
               paintEstimate();
             }
           },
+          onContinue: (segment, chargedSoFar, nextEstimate) => {
+            // 서버가 스스로 이어 씁니다(feat-auto-continue): 어림값은 지금까지
+            // 차감된 금액 위에 이번 호출의 글자 수를 더해 갑니다.
+            estimate = nextEstimate ?? estimate;
+            streamedChars = 0;
+            toolKrw = chargedSoFar;
+            patchReply((row) => ({ ...row, continuing: { segment, chargedKrw: chargedSoFar } }));
+            paintEstimate();
+          },
         },
         controller.signal,
         files.map((file) => file.id),
@@ -912,7 +934,16 @@ export default function ChatWorkspace() {
         // 영수증은 장부의 숫자(done 이벤트)로 그 자리에서 채웁니다.
         const receipt: ReplyReceipt | null =
           saved && outcome.usage ? { ...outcome.usage, charged_krw: outcome.chargedKrw } : null;
-        patchReply(() => (saved ? { ...toView(saved), receipt: receipt ?? saved.receipt ?? null } : null));
+        patchReply(() =>
+          saved
+            ? {
+                ...toView(saved),
+                receipt: receipt ?? saved.receipt ?? null,
+                segments: outcome.segments ?? saved.segments ?? 1,
+                stopNote: outcome.stopNote ?? saved.stop_note ?? null,
+              }
+            : null,
+        );
         setLongHistory(outcome.longHistory ?? null);
         // 들고 온 잔액이 있으면 그 자리에서 반영하고, 반영할 곳이 없거나
         // (아직 불러오는 중) 잔액이 없으면 새로 읽습니다.
@@ -1303,6 +1334,14 @@ export default function ChatWorkspace() {
                           : TOOL_META[toolStatus.kind].running}
                       </p>
                     )}
+                    {message.streaming && message.continuing && (
+                      // 서버가 스스로 이어 쓰는 중(feat-auto-continue). 멈춤(■)은
+                      // 그대로 있고, 누르면 그 자리에서 멈춥니다.
+                      <p className={styles.toolStatus} data-testid="continuing" role="status">
+                        이어서 쓰는 중… ({message.continuing.segment}번째) · 지금까지{" "}
+                        {formatKrw(message.continuing.chargedKrw)}
+                      </p>
+                    )}
                     {message.streaming && message.estimateKrw != null && (
                       // 흐르는 동안의 어림값. 반드시 약을 붙입니다 —
                       // 정산은 끝난 뒤의 영수증(장부)이 합니다.
@@ -1323,6 +1362,7 @@ export default function ChatWorkspace() {
                       modelLabel(info, message.modelId) && (
                         <p className={styles.modelNote} data-testid="reply-model">
                           {receiptHead(modelLabel(info, message.modelId), message.depth)}
+                          {(message.segments ?? 1) > 1 ? ` · ${message.segments}번에 나눠 씀` : ""}
                           {message.cappedKrw ? " · 상한에 도달" : ""}
                         </p>
                       )}

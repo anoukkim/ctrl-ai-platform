@@ -170,24 +170,28 @@ def set_chat_limits(
     def won(value: int) -> str:
         return f"{value:,}원" if value > 0 else "끔"
 
+    head = (
+        f"답장 1회 한도 {won(payload.reply_cap_krw)} · "
+        f"긴 대화 경고 {payload.long_history_tokens:,} 토큰 · "
+        f"하루 한도 {won(payload.daily_cap_krw)} · "
+        f"동시 호출 {payload.provider_concurrency} · "
+        f"페이지 읽기 {payload.web_fetch_max_uses}회×"
+        f"{payload.web_fetch_max_content_tokens:,}토큰 · "
+        f"웹 검색 {payload.web_search_max_uses}회 · "
+        f"앱 AI 하루 한도 {won(payload.app_ai_daily_cap_krw)} · "
+        f"대화 기억 {payload.context_tokens:,}토큰 · 응답 대기 {payload.timeout_seconds}초 · "
+    )
+    summary = head + f"생각 깊이 {depth_service.summary(levels)}"
+    if len(summary) > 300:
+        # The summary column is 300 characters; the full table is in `detail`.
+        summary = head + "생각 깊이 표 변경 (상세 참고)"
     audit.record(
         db,
         actor=admin,
         action=AuditAction.CHAT_LIMITS_SET,
         target_type="chat_limits",
         target_label="채팅 한도",
-        summary=(
-            f"답장 1회 한도 {won(payload.reply_cap_krw)} · "
-            f"긴 대화 경고 {payload.long_history_tokens:,} 토큰 · "
-            f"하루 한도 {won(payload.daily_cap_krw)} · "
-            f"동시 호출 {payload.provider_concurrency} · "
-            f"페이지 읽기 {payload.web_fetch_max_uses}회×"
-            f"{payload.web_fetch_max_content_tokens:,}토큰 · "
-            f"웹 검색 {payload.web_search_max_uses}회 · "
-            f"앱 AI 하루 한도 {won(payload.app_ai_daily_cap_krw)} · "
-            f"대화 기억 {payload.context_tokens:,}토큰 · 응답 대기 {payload.timeout_seconds}초 · "
-            f"생각 깊이 {depth_service.summary(levels)}"
-        ),
+        summary=summary,
         detail={
             "before": {
                 "reply_cap_krw": before.reply_cap_krw,

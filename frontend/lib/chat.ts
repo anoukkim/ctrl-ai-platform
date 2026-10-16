@@ -95,6 +95,10 @@ export interface ChatMessage {
   /** 이 메시지에 붙인 파일(chat-plus-files). 바이트가 아니라 정보만. */
   attachments?: ChatAttachment[];
   created_at: string;
+  /** 몇 번의 호출로 쓴 답장인지(feat-auto-continue). 1이면 한 번. */
+  segments?: number;
+  /** 서버가 이어 쓰기를 멈춘 이유(전체 한도·지갑·오류). 끝까지 썼으면 null. */
+  stop_note?: string | null;
 }
 
 /** 답장 하나가 실제로 쓴 토큰. 캐시 칸은 캐시가 꺼져 있으면 null입니다. */
@@ -372,6 +376,10 @@ export type StreamOutcome =
       usage?: ReplyUsage | null;
       /** 차감 직후 남은 동아리 지원(원). 차감이 없었으면 null. */
       walletRemainingKrw?: number | null;
+      /** 몇 번의 호출로 쓴 답장인지(feat-auto-continue). */
+      segments?: number;
+      /** 서버가 이어 쓰기를 멈춘 이유(전체 한도·지갑). 끝까지 썼으면 null. */
+      stopNote?: string | null;
     }
   /** 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이 확실합니다. */
   | { kind: "error"; detail: string }
@@ -399,6 +407,12 @@ export interface StreamHandlers {
     status: "running" | "done" | "error",
     addedKrw?: number,
   ) => void;
+  /**
+   * 답장이 1회 한도에 닿아 서버가 **스스로 이어 쓰기** 시작했습니다
+   * (feat-auto-continue): 몇 번째 호출인지, 지금까지 차감된 금액, 이 호출의
+   * 어림값 재료. 화면은 "이어서 쓰는 중… 지금까지 N원"을 보여 줍니다.
+   */
+  onContinue?: (segment: number, chargedSoFarKrw: number, estimate: StreamEstimate | null) => void;
 }
 
 /**
@@ -465,6 +479,8 @@ export async function sendMessage(
     else if (name === "thinking") handlers.onThinking?.(payload.text);
     else if (name === "tool")
       handlers.onTool?.(payload.kind, payload.status, payload.added_krw ?? 0);
+    else if (name === "continue")
+      handlers.onContinue?.(payload.segment, payload.charged_so_far_krw ?? 0, payload.estimate ?? null);
     else if (name === "done")
       outcome = {
         kind: "done",
@@ -473,6 +489,9 @@ export async function sendMessage(
         longHistory: payload.long_history ?? null,
         usage: payload.usage ?? null,
         walletRemainingKrw: payload.wallet_remaining_krw ?? null,
+        // feat-auto-continue: only when the server sent them (older bodies have neither).
+        ...(payload.segments != null ? { segments: payload.segments } : {}),
+        ...(payload.stop_note ? { stopNote: payload.stop_note } : {}),
       };
     else if (name === "error") outcome = { kind: "error", detail: payload.detail };
   };

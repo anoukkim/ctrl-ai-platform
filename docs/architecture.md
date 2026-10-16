@@ -373,6 +373,27 @@ a 404 from `own_comment`), `POST /comments/{id}/report`
 row (`tube_comment.hidden` / `.deleted`, `tube_report.resolved`).
 Migration `e5f8b2c3d7a1`.
 
+### Chat: one reply, several calls (`feat-auto-continue`)
+
+A chat call runs under its depth's per-call cap (token-guard: a smaller
+`max_tokens`). When it ends with `stop_reason == "max_tokens"` the route's
+`produce` task does not finish the turn: it settles that call
+(`chat.settle_segment` — one `usage.charge()`, the wallet row locked as
+always), asks `chat.plan_continuation` for the next call (history + the
+partial as the assistant turn + `CONTINUE_PROMPT`, `max_tokens` from the
+same cap with the partial counted as input, refused when
+`charged_so_far + worst_case` would pass the depth's `total_cap_krw` or
+`usage.ensure_affordable` fails), sends SSE `continue` and streams again.
+`chat.save_reply` then writes **one** `ChatMessage` from every call: joined
+text, summed tokens, `usage_event_id` = the first call's event and
+`segment_event_ids` = all of them and `stop_note` = why the server did
+not go on (migration `a8c4e2f6b1d9`), status from the last call and the
+stop reason (`capped_krw` = the ceiling that stopped it — the whole
+reply's or the call's). `GET /conversations/{id}` sums the events
+into the receipt. 중지 closes the connection; the running call is settled
+like any stopped call and nothing further is started. The guard map is
+unchanged: the same `POST …/messages` route, `require_active_member`.
+
 ## Core data model
 
 Moved here from `CLAUDE.md` section 14 (docs-cleanup, 2026-10-14); this
