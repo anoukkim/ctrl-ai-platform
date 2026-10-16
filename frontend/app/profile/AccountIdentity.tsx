@@ -73,7 +73,7 @@ export function Identity() {
  * 켜고 끕니다. 움직임은 기기의 "움직임 줄이기" 설정을 따릅니다.
  */
 export function NotificationSettings() {
-  const { enabled, setEnabled } = useSpendFeedback();
+  const { enabled, setEnabled, sound, setSound } = useSpendFeedback();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,9 +110,24 @@ export function NotificationSettings() {
           </span>
         </span>
       </label>
+      <label className={styles.row} style={{ alignItems: "center", gap: "0.6rem" }}>
+        <input
+          type="checkbox"
+          checked={sound}
+          disabled={!enabled}
+          onChange={() => setSound(!sound)}
+          data-testid="spend-sound-toggle"
+        />
+        <span>
+          <strong>띠링 소리</strong>
+          <span className="small dim" style={{ display: "block" }}>
+            돈이 빠질 때 짧은 소리를 함께 냅니다. 이 기기에만 적용되고, 기본은 꺼져 있어요.
+          </span>
+        </span>
+      </label>
       <p className="small dim" style={{ marginTop: "0.6rem" }}>
         움직임 줄이기: 기기에서 &ldquo;동작 줄이기&rdquo;를 켜 두면 숫자가 세어 내려가지 않고
-        알림만 나옵니다.
+        튀어오르는 동전과 소리 없이 알림만 나옵니다.
       </p>
       {error && (
         <p className="small" role="alert" style={{ color: "var(--error-text)" }}>

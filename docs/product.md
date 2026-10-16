@@ -617,6 +617,17 @@ quarter's spend **by provider** — the figure the club leader reads before
 buying the next round of credit from Anthropic and from Higgsfield. The club
 still buys per provider; members just do not have to guess the split.
 
+**v2 — the "띠링" moment (owner-polish 10, 2026-10-16).** The toast springs
+in with a coin that pops and sparks, the amount "-12원" is large, and when
+the sidebar balance is on screen the "-12원" flies from the toast to the
+balance (which then glows, as before). When the balance is not visible
+(collapsed sidebar, phone, scrolled away) the toast itself carries the
+amount and the remaining wallet, so the moment is seen anywhere. A short
+two-tone **띠링** sound is a Profile › 알림 switch, **off by default and per
+device** (localStorage — sound is a device matter, not an account one).
+Still only on a real `charged_krw`; reduced motion keeps a plain toast,
+no pop, no flight, no sound.
+
 Estimated costs next to paid buttons (Chat's "답장 1회 약 N원", video's
 예상 비용) are compared with the one balance, and say so when it is short.
 

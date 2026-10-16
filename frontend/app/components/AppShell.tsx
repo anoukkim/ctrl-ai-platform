@@ -685,6 +685,7 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
             <span
               className={`${styles.meterValue} ${lastSpend ? styles.spendPulse : ""}`}
               key={lastSpend ? `pulse-${lastSpend.id}` : "balance"}
+              data-wallet-balance="true"
             >
               {/* 차감되면 약 0.6초 동안 새 값까지 세어 내려갑니다. */}
               <AnimatedNumber value={allocation.remaining_krw} format={formatKrw} duration={0.6} />
