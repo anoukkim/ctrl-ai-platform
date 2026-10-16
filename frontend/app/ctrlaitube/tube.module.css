@@ -51,7 +51,13 @@
   overflow: hidden;
 }
 
-/* 실제 영상의 포스터(promo-videos). 카드 비율에 맞춰 가운데를 채웁니다. */
+/* 세로 영상의 썸네일 칸: 3:4 (fix-promo-video-placement). */
+.thumbnailTall {
+  aspect-ratio: 3 / 4;
+  background: var(--video-letterbox);
+}
+
+/* 실제 영상의 포스터(promo-videos). 칸에 맞춰 가운데를 채웁니다. */
 .poster {
   position: absolute;
   inset: 0;

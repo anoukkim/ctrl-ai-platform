@@ -3,15 +3,13 @@
 /**
  * CtrlAITube 피드와 검색.
  *
- * 제목, 설명, 만든 사람으로 찾습니다. 정렬은 최신순/인기순 정도만 두고,
- * 복잡한 추천 알고리즘은 만들지 않습니다.
+ * 목록은 백엔드의 영상(`tube_videos`)입니다 — 지금은 CTRL+AI 소개 영상
+ * 하나(공식, 9:16 세로 편). 예시 카드 세 장은 오너의 뜻대로 지웠습니다
+ * (fix-promo-video-placement, 2026-10-16): 목록에 실제가 아닌 것은 없습니다.
+ * 회원들의 YouTube 영상은 Phase 8에서 같은 표에 들어옵니다.
  *
- * 정렬은 둘뿐이라 칩으로 펼쳐 두고, 만든 사람 거르기는 검색창 옆의 작은
- * 고르기로 남깁니다.
- *
- * promo-videos: 맨 앞 카드는 **실제 영상**(백엔드의 `tube_videos` —
- * CTRL+AI 소개 영상, 공식 꼬리표)이고, 반응·댓글 수도 저장된 값입니다.
- * 나머지 카드는 아직 예시입니다(Phase 8).
+ * 세로 영상의 카드는 세로 포스터를 씁니다. 썸네일 칸은 3:4 — 9:16을 그대로
+ * 두면 카드가 너무 길고, 16:10으로 자르면 글자가 잘립니다.
  */
 
 import { Heart, MessageCircle, Play } from "lucide-react";
@@ -19,116 +17,74 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
-import { CreatorLine } from "@/app/components/Community";
-import { MOCK_VIDEOS, totalComments, totalReactions } from "@/lib/mock-data";
+import { describeError } from "@/lib/http";
 import { exactDate } from "@/lib/relative-time";
 import { formatDuration, listTubeVideos, type TubeVideo } from "@/lib/tube";
 
-import { softTint } from "@/app/ctrlaistore/softTint";
-
 import styles from "./tube.module.css";
 
-type SortKey = "newest" | "popular";
-
-const SORT_OPTIONS = [
-  { value: "newest", label: "최신순" },
-  { value: "popular", label: "인기순" },
-];
+function reactionTotal(video: TubeVideo): number {
+  return Object.values(video.reactions).reduce((sum, n) => sum + n, 0);
+}
 
 export default function VideoGrid() {
   const [query, setQuery] = useState("");
-  const [creator, setCreator] = useState("all");
-  const [sort, setSort] = useState<SortKey>("newest");
-  const [real, setReal] = useState<TubeVideo[]>([]);
+  const [videos, setVideos] = useState<TubeVideo[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     listTubeVideos()
-      .then(setReal)
-      .catch(() => setReal([])); // 서버가 없으면 예시만 — 목록은 그래도 뜹니다
+      .then(setVideos)
+      .catch((caught: unknown) => setError(describeError(caught)));
   }, []);
 
-  // 실제 영상은 검색에만 걸리고 정렬·만든 사람 거르기와 상관없이 맨 앞입니다.
-  const realVisible = real.filter(
-    (video) => creator === "all" && matchesQuery(query, video.title, video.description, "CTRL+AI"),
+  const all = videos ?? [];
+  const visible = all.filter((video) =>
+    matchesQuery(query, video.title, video.description, video.creator?.display_name ?? "CTRL+AI"),
   );
-
-  const creators = Array.from(
-    new Map(MOCK_VIDEOS.map((v) => [v.creator.username, v.creator.displayName])).entries(),
-  );
-
-  const visible = MOCK_VIDEOS.filter(
-    (video) =>
-      matchesQuery(query, video.title, video.description, video.creator.displayName) &&
-      (creator === "all" || video.creator.username === creator),
-  ).sort((a, b) => {
-    if (sort === "popular") return totalReactions(b.reactions) - totalReactions(a.reactions);
-    return b.publishedAt.localeCompare(a.publishedAt);
-  });
 
   return (
     <>
       <div className={`toolbar ${styles.toolbar}`}>
-        <div className="chips" role="group" aria-label="정렬">
-          {SORT_OPTIONS.map((option) => (
-            <button
-              className="chip"
-              type="button"
-              key={option.value}
-              aria-pressed={sort === option.value}
-              onClick={() => setSort(option.value as SortKey)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
         <div className={styles.searchSlot}>
           <SearchBar
             value={query}
             onChange={setQuery}
             placeholder="영상 제목, 설명, 만든 사람으로 검색"
-            resultCount={visible.length + realVisible.length}
-            totalCount={MOCK_VIDEOS.length + real.length}
-            filters={[
-              {
-                key: "creator",
-                label: "만든 사람",
-                value: creator,
-                onChange: setCreator,
-                options: [
-                  { value: "all", label: "전체" },
-                  ...creators.map(([username, displayName]) => ({
-                    value: username,
-                    label: displayName,
-                  })),
-                ],
-              },
-            ]}
+            resultCount={visible.length}
+            totalCount={all.length}
           />
         </div>
       </div>
 
-      {visible.length + realVisible.length === 0 ? (
+      {error ? (
+        <p className="small" role="alert">
+          {error}
+        </p>
+      ) : videos === null ? (
+        <p className="small muted">불러오는 중…</p>
+      ) : visible.length === 0 ? (
         <div className={styles.searchEmpty}>
-          <p>검색 결과가 없습니다. 다른 낱말로 찾아보세요.</p>
-          <button
-            className="btn btn-sm"
-            type="button"
-            onClick={() => {
-              setQuery("");
-              setCreator("all");
-            }}
-          >
-            검색 조건 지우기
-          </button>
+          <p>{all.length === 0 ? "아직 영상이 없어요." : "검색 결과가 없습니다. 다른 낱말로 찾아보세요."}</p>
+          {all.length > 0 && (
+            <button className="btn btn-sm" type="button" onClick={() => setQuery("")}>
+              검색 조건 지우기
+            </button>
+          )}
         </div>
       ) : (
         <div className={styles.grid}>
-          {realVisible.map((video) => (
-            <Link className={styles.card} href={`/ctrlaitube/${video.slug}`} key={video.slug} data-testid="official-card">
-              <div className={styles.thumbnail}>
-                {/* 포스터: 영상의 첫 장면. 가로 파일의 것이 카드 비율에 맞습니다. */}
+          {visible.map((video) => (
+            <Link
+              className={styles.card}
+              href={`/ctrlaitube/${video.slug}`}
+              key={video.slug}
+              data-testid={video.official ? "official-card" : "video-card"}
+            >
+              <div className={`${styles.thumbnail} ${styles.thumbnailTall}`}>
+                {/* 세로 편의 포스터 — CtrlAITube는 어느 기기에서나 세로 편입니다. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className={styles.poster} src={video.poster_desktop_src} alt="" />
+                <img className={styles.poster} src={video.poster_mobile_src} alt="" />
                 <span className={styles.playGlyph} aria-hidden="true">
                   <Play size={14} fill="currentColor" aria-hidden="true" />
                 </span>
@@ -143,38 +99,12 @@ export default function VideoGrid() {
                 </span>
                 <p className={styles.meta}>
                   <span className={styles.metaItem}>
-                    <Heart size={12} aria-hidden="true" /> {totalReactions(video.reactions)}
+                    <Heart size={12} aria-hidden="true" /> {reactionTotal(video)}
                   </span>
                   <span className={styles.metaItem}>
                     <MessageCircle size={12} aria-hidden="true" /> {video.comment_count}
                   </span>
                   <span className={`${styles.metaItem} ${styles.metaDate}`}>{exactDate(video.published_at)}</span>
-                </p>
-              </div>
-            </Link>
-          ))}
-          {visible.map((video) => (
-            <Link className={styles.card} href={`/ctrlaitube/${video.id}`} key={video.id}>
-              <div
-                className={styles.thumbnail}
-                style={{ background: softTint(video.artwork) }}
-              >
-                <span className={styles.playGlyph} aria-hidden="true">
-                  <Play size={14} fill="currentColor" aria-hidden="true" />
-                </span>
-                <span className={styles.duration}>{video.duration}</span>
-              </div>
-              <div className={styles.cardBody}>
-                <h2 className={styles.title}>{video.title}</h2>
-                <CreatorLine creator={video.creator} />
-                <p className={styles.meta}>
-                  <span className={styles.metaItem}>
-                    <Heart size={12} aria-hidden="true" /> {totalReactions(video.reactions)}
-                  </span>
-                  <span className={styles.metaItem}>
-                    <MessageCircle size={12} aria-hidden="true" /> {totalComments(video.comments)}
-                  </span>
-                  <span className={`${styles.metaItem} ${styles.metaDate}`}>{video.publishedAt}</span>
                 </p>
               </div>
             </Link>
