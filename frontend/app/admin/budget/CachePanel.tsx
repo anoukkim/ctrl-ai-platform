@@ -47,11 +47,7 @@ export default function CachePanel() {
   const saved = rows?.reduce((sum, row) => sum + row.saved_krw, 0) ?? 0;
 
   return (
-    <section aria-labelledby="budget-cache">
-      <h2 className="section-title" id="budget-cache">
-        캐시
-        <span className={styles.sectionNote}>모델별 · 날짜별(KST) · 채팅 답장만</span>
-      </h2>
+    <>
       <div className={styles.actionRow} role="group" aria-label="기간">
         {DAY_CHOICES.map((choice) => (
           <button
@@ -132,6 +128,6 @@ export default function CachePanel() {
           </p>
         </>
       )}
-    </section>
+    </>
   );
 }

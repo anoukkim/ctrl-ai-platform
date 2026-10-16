@@ -54,13 +54,7 @@ export default function CalibrationPanel() {
   }, []);
 
   return (
-    <section aria-labelledby="claude-calibration" style={{ marginTop: "2rem" }}>
-      <h2 className="section-title" id="claude-calibration">
-        비용 보정
-        <span className="small dim" style={{ marginLeft: "0.5rem", fontWeight: 400 }}>
-          어림값과 실제 답장 비교 · 최근 200회까지
-        </span>
-      </h2>
+    <>
 
       {error !== null ? (
         <p className="small muted">보정 정보를 불러오지 못했습니다. {error}.</p>
@@ -161,6 +155,6 @@ export default function CalibrationPanel() {
           </p>
         </>
       )}
-    </section>
+    </>
   );
 }
