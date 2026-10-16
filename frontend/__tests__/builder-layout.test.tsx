@@ -62,6 +62,7 @@ let project: BuilderProject = PROJECT;
 let githubEnabled = false;
 const planGeneration = vi.fn();
 const getVersionFiles = vi.fn();
+let versions: BuilderVersion[] = [V2, V1];
 const unpublishProject = vi.fn();
 
 vi.mock("@/lib/projects", async (importOriginal) => {
@@ -71,7 +72,7 @@ vi.mock("@/lib/projects", async (importOriginal) => {
     getBuilderProject: vi.fn(async () => project),
     listBuilderProjects: vi.fn().mockResolvedValue([]),
     listBuilderFiles: vi.fn(async () => FILES),
-    listVersions: vi.fn(async () => [V2, V1]),
+    listVersions: vi.fn(async () => versions),
     getVersionFiles: (...args: unknown[]) => getVersionFiles(...args),
     unpublishProject: (...args: unknown[]) => unpublishProject(...args),
     getGenerateEstimate: vi.fn().mockResolvedValue({
@@ -316,6 +317,29 @@ describe("코드 보기", () => {
 });
 
 describe("Claude 판", () => {
+  test("가져온 버전만 있으면 대화 기록 없이 모든 버전만, 열린 채로 (owner-polish 13)", async () => {
+    /**
+     * Every version came from 예시 앱 / 가져오기 (no request behind it). The
+     * history would repeat 모든 버전 row for row, so it stays away until the
+     * first 만들기/고치기; 이 버전 보기 moves onto the list meanwhile.
+     */
+    versions = [
+      { ...V2, request: "", summary: "", changed_count: null, charged_krw: null, note: "예시 앱" },
+      { ...V1, request: "", summary: "", changed_count: null, charged_krw: null, note: "예시 앱" },
+    ];
+    getVersionFiles.mockResolvedValue([{ path: "index.html", content: "<h1>예전</h1>" }]);
+    const user = userEvent.setup();
+    await ready();
+
+    expect(screen.queryByRole("list", { name: "바뀌어 온 기록" })).toBeNull();
+    const all = screen.getByTestId("all-versions") as HTMLDetailsElement;
+    expect(all.open).toBe(true);
+    expect(screen.getAllByText("예시 앱")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "v1 이 버전 보기" }));
+    expect(getVersionFiles).toHaveBeenCalledWith("7", 1);
+    versions = [V2, V1];
+  });
+
   test("고친 기록이 대화로, 지난 버전은 이 버전 보기로 미리본다", async () => {
     getVersionFiles.mockResolvedValue([{ path: "index.html", content: "<h1>예전</h1>" }]);
     const user = userEvent.setup();

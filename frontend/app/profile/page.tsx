@@ -7,19 +7,17 @@
  *   3. 언제까지 쓸 수 있는지
  *   4. 지난 작업물이 그대로 남는지
  *
- * 전부 로그인한 회원 자신의 데이터입니다. 게시된 앱 목록만 아직 비어
- * 있습니다 — 앱 게시는 Phase 5(CtrlAIApps)에서 생기므로, 그때까지는
- * 누구에게나 빈 상태를 보여 줍니다. 목업 데이터는 쓰지 않습니다
- * (fix-beta-blockers, 2026-10-14).
+ * 전부 로그인한 회원 자신의 데이터입니다. 내가 만든 앱도 내가 게시한
+ * 것만 읽습니다 (`/api/apps/mine`, owner-polish 3). 목업 데이터는 쓰지
+ * 않습니다 (fix-beta-blockers, 2026-10-14).
  */
 
 import type { Metadata } from "next";
 
-import EmptyState from "@/app/components/EmptyState";
 import PageHeader from "@/app/components/PageHeader";
-import { LayoutGrid } from "lucide-react";
 
 import { AccountSettings, Identity, NotificationSettings } from "./AccountIdentity";
+import MyAppsSection from "./MyAppsSection";
 import ProjectSummary from "./ProjectSummary";
 import QuarterParticipation from "./QuarterParticipation";
 import ConnectedAppsSection from "./ConnectedAppsSection";
@@ -95,20 +93,7 @@ export default function ProfilePage() {
         <ConnectedAppsSection />
         <ProjectSummary />
 
-        {/* 앱 게시는 Phase 5에서 생깁니다. 그때까지 이 목록은 누구에게나
-            비어 있습니다 — 다른 사람의 목업 앱을 보여 주지 않습니다. */}
-        <section className="card">
-          <h2 className="section-title">
-            내가 만든 앱 <span className="badge badge-mock">준비 중</span>
-          </h2>
-          <EmptyState
-            compact
-            icon={LayoutGrid}
-            title="아직 게시한 앱이 없어요"
-            text="Project Builder에서 만든 앱을 게시하면 여기에 모여요. 앱 게시는 준비 중입니다."
-            action={{ label: "앱 만들러 가기", href: "/builder" }}
-          />
-        </section>
+        <MyAppsSection />
 
       </div>
 

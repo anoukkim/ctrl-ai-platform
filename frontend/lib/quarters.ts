@@ -159,6 +159,19 @@ export interface MemberWithMembership {
   role: "admin" | "member";
   account_status: MembershipStatus;
   membership_status: MembershipStatus | null;
+  /** 이번 분기 신청 상태. null이면 신청한 적이 없음 — 참여 기록도 없으면
+   *  미신청 (owner-polish 8). */
+  application_status: ApplicationStatus | null;
+}
+
+/** 미신청: 이번 분기에 신청도, 참여 기록도 없는 사람 — 카드와 거르기가 같은 뜻.
+ *  탈퇴 회원은 백엔드의 카드 숫자처럼 빼고 셉니다 (아직 신청할 사람이 아니므로). */
+export function isNotApplied(member: MemberWithMembership): boolean {
+  return (
+    member.account_status !== "former" &&
+    member.membership_status === null &&
+    member.application_status === null
+  );
 }
 
 export function listQuarterMembers(quarterId: number): Promise<MemberWithMembership[]> {

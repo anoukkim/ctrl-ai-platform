@@ -29,6 +29,7 @@ import {
   MoreHorizontal,
   Pin,
   Tag,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -657,6 +658,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const publishedUrl = publicUrl(project, appsBase);
   const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
   const latestVersion = versions.length > 0 ? versions[0].number : null;
+  /** owner-polish 13: at least one version Claude made (has a request). */
+  const hasClaudeHistory = versions.some((version) => Boolean(version.request));
   const published = project.published_version_number ?? null;
   // 작업 중인 버전이 이미 게시된 버전이면 업데이트 게시는 할 일이 없습니다.
   const sameAsPublished = published !== null && latestVersion !== null && latestVersion === published;
@@ -1102,7 +1105,12 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
-                {versions.length > 0 && (
+                {/* owner-polish 13: the conversation needs a Claude-made version
+                    to be a conversation. A project whose versions all came from
+                    예시 앱 / 가져오기 / 되돌리기 would show the same rows here and
+                    in 모든 버전 — so until the first 만들기/고치기 only the list
+                    below shows, opened. */}
+                {hasClaudeHistory && (
                   <ClaudeHistory
                     versions={versions}
                     viewing={viewing?.number ?? null}
@@ -1148,7 +1156,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               </div>
 
               {versions.length > 0 && (
-                <details className={styles.versions}>
+                <details className={styles.versions} open={!hasClaudeHistory || undefined} data-testid="all-versions">
                   <summary>모든 버전 ({versions.length})</summary>
                   <ul className={styles.versionList}>
                     {versions.map((version, index) => (
@@ -1217,15 +1225,29 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                         {index === 0 ? (
                           <span className="badge badge-muted">지금</span>
                         ) : (
-                          <button
-                            className="btn btn-sm"
-                            type="button"
-                            onClick={() => askToRestore(version)}
-                            disabled={!mayCreate || generating}
-                            title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                          >
-                            되돌리기
-                          </button>
+                          <>
+                            {!hasClaudeHistory && (
+                              <button
+                                className="btn btn-sm"
+                                type="button"
+                                aria-pressed={viewing?.number === version.number}
+                                aria-label={`v${version.number} 이 버전 보기`}
+                                onClick={() => void viewVersion(version)}
+                              >
+                                이 버전 보기
+                              </button>
+                            )}
+                            <button
+                              className="btn btn-sm"
+                              type="button"
+                              aria-label={`v${version.number}${particleRo(version.number)} 되돌리기`}
+                              onClick={() => askToRestore(version)}
+                              disabled={!mayCreate || generating}
+                              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+                            >
+                              되돌리기
+                            </button>
+                          </>
                         )}
                       </li>
                     ))}
@@ -1260,19 +1282,34 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     : "이번 분기에는 사용할 수 없습니다"
                 }
                 disabled={!mayCreate || generating || empty}
+                data-working={generating || undefined}
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
               <span className="sr-only" id="builder-ask-keys">
                 Enter로 보내고, Shift+Enter로 줄을 바꿔요.
               </span>
               <div className={styles.askActions}>
+                {/* owner-polish 14: while working the button is busy, not
+                    disabled — disabled gives the 🚫 cursor; busy gives
+                    cursor: progress and a spinner. */}
                 <button
-                  className="btn btn-primary btn-sm"
+                  className={`btn btn-primary btn-sm ${generating ? "btn-working" : ""}`}
                   type="button"
-                  onClick={() => void makePlan({ request: ask.trim() })}
-                  disabled={!mayCreate || generating || empty || !ask.trim()}
+                  onClick={() => {
+                    if (generating) return;
+                    void makePlan({ request: ask.trim() });
+                  }}
+                  aria-disabled={generating || undefined}
+                  aria-busy={generating || undefined}
+                  disabled={!generating && (!mayCreate || empty || !ask.trim())}
                 >
-                  {generating ? "만드는 중…" : "고치기"}
+                  {generating ? (
+                    <>
+                      <Loader2 size={14} className="spin" aria-hidden="true" /> 만드는 중…
+                    </>
+                  ) : (
+                    "고치기"
+                  )}
                 </button>
                 {generateEstimate && (
                   <span className={styles.starterCost}>

@@ -8,6 +8,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import VideoGate from "./VideoGate";
 import VideoLibrary from "./VideoLibrary";
 import Skeleton from "@/app/components/Skeleton";
 
@@ -17,9 +18,12 @@ export const metadata: Metadata = {
 
 export default function VideoLibraryPage() {
   // 목록이 주소의 ?idea=(Chat의 액션 단추)를 읽으므로 Suspense로 감쌉니다.
+  // owner-polish 6: 회원에게 잠겨 있으면 목록 대신 잠긴 화면이 나옵니다.
   return (
-    <Suspense fallback={<Skeleton />}>
-      <VideoLibrary />
-    </Suspense>
+    <VideoGate>
+      <Suspense fallback={<Skeleton />}>
+        <VideoLibrary />
+      </Suspense>
+    </VideoGate>
   );
 }

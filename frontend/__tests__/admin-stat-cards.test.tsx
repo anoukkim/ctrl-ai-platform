@@ -40,6 +40,7 @@ const MEMBERS: MemberWithMembership[] = [
     role: "member",
     account_status: "active",
     membership_status: "active",
+    application_status: "approved",
   },
   {
     user_id: 2,
@@ -48,6 +49,7 @@ const MEMBERS: MemberWithMembership[] = [
     role: "member",
     account_status: "active",
     membership_status: "inactive",
+    application_status: "approved",
   },
   {
     user_id: 3,
@@ -56,6 +58,17 @@ const MEMBERS: MemberWithMembership[] = [
     role: "member",
     account_status: "active",
     membership_status: null,
+    application_status: null,
+  },
+  {
+    // 신청은 했지만 아직 승인 전 — 미참여이지만 미신청은 아닙니다 (owner-polish 8).
+    user_id: 6,
+    username: "pending",
+    display_name: "대기중",
+    role: "member",
+    account_status: "active",
+    membership_status: null,
+    application_status: "submitted",
   },
   {
     user_id: 4,
@@ -63,7 +76,9 @@ const MEMBERS: MemberWithMembership[] = [
     display_name: "떠난회원",
     role: "member",
     account_status: "former",
-    membership_status: "former",
+    // 탈퇴 회원: 참여 기록도 신청도 없지만 미신청에는 세지 않습니다 (카드와 같게).
+    membership_status: null,
+    application_status: null,
   },
   {
     user_id: 5,
@@ -72,6 +87,8 @@ const MEMBERS: MemberWithMembership[] = [
     role: "admin",
     account_status: "active",
     membership_status: "active",
+    // 관리자가 직접 넣은 사람 — 신청 없이 활동 중. 미신청에 세지 않습니다.
+    application_status: null,
   },
 ];
 
@@ -157,7 +174,7 @@ describe("회원 숫자 카드", () => {
     const user = userEvent.setup();
     render(<MemberList />);
     await screen.findByText("김유리");
-    expect(rows()).toHaveLength(5);
+    expect(rows()).toHaveLength(6);
 
     await user.click(card("활동 회원")!);
 
@@ -178,7 +195,14 @@ describe("회원 숫자 카드", () => {
     expect(screen.getByText("박민호")).toBeTruthy();
   });
 
-  test("미신청 카드는 참여 기록이 없는 회원만 남긴다", async () => {
+  test("미신청 카드는 신청도 참여 기록도 없는 회원만 남긴다 (owner-polish 8)", async () => {
+    /**
+     * 2026-10-16 production: the card said 미신청 1명 and the 미참여 filter
+     * showed nobody — the card counted "no application", the filter "no
+     * participation". Both now mean "neither": the admin enrolled without
+     * an application (관리담당) and the pending applicant (대기중) are not
+     * 미신청; 이소라 is.
+     */
     const user = userEvent.setup();
     render(<MemberList />);
     await screen.findByText("김유리");
@@ -187,6 +211,23 @@ describe("회원 숫자 카드", () => {
 
     await waitFor(() => expect(rows()).toHaveLength(1));
     expect(screen.getByText("이소라")).toBeTruthy();
+    expect(screen.queryByText("대기중")).toBeNull();
+    expect(screen.queryByText("떠난회원")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "참여" })).toHaveProperty("value", "not_applied");
+  });
+
+  test("미참여 거르기는 승인 전 신청자도 보여 주고, 그 신청 상태를 적는다", async () => {
+    const user = userEvent.setup();
+    render(<MemberList />);
+    await screen.findByText("김유리");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "참여" }), "none");
+
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    expect(screen.getByText("이소라")).toBeTruthy();
+    expect(screen.getByText("대기중")).toBeTruthy();
+    expect(screen.getByText("떠난회원")).toBeTruthy(); // no participation row — but not 미신청
+    expect(screen.getByText("신청 승인 대기")).toBeTruthy();
   });
 
   test("탈퇴 카드는 탈퇴 회원만 남긴다", async () => {
@@ -238,7 +279,7 @@ describe("회원 숫자 카드", () => {
 
     // 걸 수 있으면 풀 수도 있어야 합니다.
     await user.click(screen.getByRole("button", { name: /전체 보기/ }));
-    await waitFor(() => expect(rows()).toHaveLength(5));
+    await waitFor(() => expect(rows()).toHaveLength(6));
   });
 
   test("거르기를 걸어도 카드의 숫자는 전체를 가리킨다", async () => {

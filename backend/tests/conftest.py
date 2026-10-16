@@ -379,6 +379,17 @@ def other_client(anon_client: TestClient, other_user) -> TestClient:
 
 
 @pytest.fixture
+def video_open(db_session: Session, dev_user):
+    """owner-polish 6: the Video Generator opened to members. Locked by
+    default — a test where a *member* (not the admin) creates or edits a
+    video needs this, exactly as production will."""
+    from app.services import feature_switches
+
+    feature_switches.set_open(db_session, dev_user, feature_switches.VIDEO, True, "test")
+    db_session.commit()
+
+
+@pytest.fixture
 def video_models(db_session: Session):
     """The seeded video catalogue: two member-visible, one hidden."""
     from app.db.init_db import seed_video_models

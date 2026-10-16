@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import MembershipStatus, User, UserRole, UserSession
+from app.services import feature_switches
 from app.services.quarters import current_quarter, membership_for
 
 CREDENTIALS_REQUIRED = "로그인이 필요합니다."
@@ -144,4 +145,24 @@ def require_active_member(
             detail=NOT_PARTICIPATING,
         )
 
+    return user
+
+
+def require_video_open(
+    user: User = Depends(require_active_member),
+    db: Session = Depends(get_db),
+) -> User:
+    """Guard for every Video Generator route that creates, edits or spends
+    (owner-polish 6).
+
+    On top of participation, the area must be **open**: the 관리자 flips
+    `feature_switches` (Admin › System), and it is locked by default — the
+    owner starts video two quarters from now and keeps only the wiring.
+    The API never locks the 관리자 out, so the wiring can be tried (by API
+    or a script) before the area opens — the screens show every account the
+    same lock, as the owner asked. Reads and deletes stay on their old
+    guards: what a member already made is still theirs to fetch or remove.
+    """
+    if user.role is not UserRole.ADMIN and not feature_switches.is_open(db, feature_switches.VIDEO):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=feature_switches.VIDEO_LOCKED)
     return user

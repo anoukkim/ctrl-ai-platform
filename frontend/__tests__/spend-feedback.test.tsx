@@ -47,6 +47,12 @@ vi.mock("motion/react", async (importOriginal) => {
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
+const chime = vi.hoisted(() => ({ playChime: vi.fn() }));
+vi.mock("@/lib/chime", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/chime")>();
+  return { ...actual, playChime: () => chime.playChime() };
+});
+
 const { default: SpendFeedbackProvider, useSpendFeedback, toastMainText } = await import(
   "@/app/components/SpendFeedbackProvider"
 );
@@ -85,6 +91,8 @@ beforeEach(() => {
   });
   user.spend_notifications = true;
   motion.reduced = false;
+  chime.playChime.mockReset();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -242,6 +250,47 @@ describe("설정", () => {
     act(() => report({ chargedKrw: 12 }));
     expect(screen.getByTestId("spend-toast")).toBeTruthy();
     expect(screen.getByTestId("chip").textContent).toBe("");
+  });
+
+  test("v2: 금액이 크게, 동전이 튀고, 잔액이 보이면 -N원이 그쪽으로 날아간다 (owner-polish 10)", () => {
+    setup();
+    // The sidebar balance, on screen: the chip has somewhere to fly to.
+    const balance = document.createElement("span");
+    balance.dataset.walletBalance = "true";
+    balance.getBoundingClientRect = () =>
+      ({ left: 20, top: 500, width: 80, height: 20, right: 100, bottom: 520 }) as DOMRect;
+    document.body.appendChild(balance);
+
+    act(() => report({ chargedKrw: 12, label: "채팅 · Sonnet" }));
+    const toast = screen.getByTestId("spend-toast");
+    expect(screen.getByTestId("spend-amount").textContent).toBe("-12원");
+    expect(toast.querySelector("svg.lucide-coins")).toBeTruthy();
+    expect(toast.textContent).toContain("12원을 사용했어요!");
+    expect(screen.getByTestId("spend-fly").textContent).toBe("-12원");
+    // Sound is off by default — nothing plays.
+    expect(chime.playChime).not.toHaveBeenCalled();
+    balance.remove();
+  });
+
+  test("v2: 잔액이 안 보이면 날아가는 것은 없고 알림이 금액을 든다", () => {
+    setup();
+    act(() => report({ chargedKrw: 7 }));
+    expect(screen.queryByTestId("spend-fly")).toBeNull();
+    expect(screen.getByTestId("spend-amount").textContent).toBe("-7원");
+  });
+
+  test("v2: 움직임 줄이기면 날아가는 금액도 동전 튀기도 없다", () => {
+    motion.reduced = true;
+    setup();
+    const balance = document.createElement("span");
+    balance.dataset.walletBalance = "true";
+    balance.getBoundingClientRect = () =>
+      ({ left: 20, top: 500, width: 80, height: 20, right: 100, bottom: 520 }) as DOMRect;
+    document.body.appendChild(balance);
+    act(() => report({ chargedKrw: 12 }));
+    expect(screen.queryByTestId("spend-fly")).toBeNull();
+    expect(screen.getByTestId("spend-toast").querySelector("[class*='coinPop']")).toBeNull();
+    balance.remove();
   });
 
   test("알림은 초점을 가져가지 않는다", () => {

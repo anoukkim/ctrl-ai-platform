@@ -43,6 +43,7 @@ const MEMBER: MemberWithMembership = {
   role: "member",
   account_status: "active",
   membership_status: "active",
+  application_status: "approved",
 };
 
 /**

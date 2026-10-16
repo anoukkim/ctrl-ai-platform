@@ -15,6 +15,7 @@ import BackendStatus from "@/app/components/BackendStatus";
 
 import BuilderEvalPanel from "./BuilderEvalPanel";
 import ClaudePricingPanel from "./ClaudePricingPanel";
+import FeaturePanel from "./FeaturePanel";
 import ProviderPanel from "./ProviderPanel";
 import { sectionLabel } from "../sections";
 
@@ -40,6 +41,8 @@ export default function AdminSystemPage() {
         </h2>
         <BackendStatus />
       </section>
+
+      <FeaturePanel />
 
       <ProviderPanel />
 

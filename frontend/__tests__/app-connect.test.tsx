@@ -31,6 +31,7 @@ vi.mock("@/lib/app-platform", async (importOriginal) => {
 });
 
 vi.mock("@/app/components/SiteProvider", () => ({
+  useSiteLoaded: () => true,
   useSite: () => ({ apps_base_url: "https://apps.example.test" }),
 }));
 

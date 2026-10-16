@@ -172,6 +172,8 @@ def test_every_member_endpoint_refuses_a_logged_out_visitor(anon_client: TestCli
         ("get", "/api/users"),
         ("get", "/api/builder/projects"),
         ("post", "/api/builder/projects"),
+        ("get", "/api/apps/mine"),
+        ("patch", "/api/account/profile"),
         ("get", "/api/video/projects"),
         ("get", "/api/video/models"),
         ("get", "/api/quarters/current"),
@@ -182,8 +184,27 @@ def test_every_member_endpoint_refuses_a_logged_out_visitor(anon_client: TestCli
         ("get", "/api/admin/video-models"),
         ("get", "/api/admin/top-ups"),
     ]:
-        response = getattr(anon_client, method)(path, **({"json": {}} if method == "post" else {}))
+        response = getattr(anon_client, method)(path, **({"json": {}} if method in ("post", "patch") else {}))
         assert response.status_code == 401, f"{method.upper()} {path} returned {response.status_code}"
+
+
+def test_a_member_changes_their_display_name_but_never_the_username(
+    client: TestClient, db_session: Session, dev_user
+) -> None:
+    """owner-polish 9: Profile › 계정 설정 › 이름 바꾸기. Trimmed, 1~100
+    characters, spends nothing; published apps read the owner's name live."""
+    changed = client.patch("/api/account/profile", json={"display_name": "  새 이름  "})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["display_name"] == "새 이름"
+    assert changed.json()["username"] == dev_user.username
+    assert client.get("/api/auth/me").json()["display_name"] == "새 이름"
+
+    assert client.patch("/api/account/profile", json={"display_name": "   "}).status_code == 400
+    assert client.patch("/api/account/profile", json={"display_name": ""}).status_code == 422
+    assert client.patch("/api/account/profile", json={"display_name": "x" * 101}).status_code == 422
+    # Nothing but the name is accepted — the 아이디 stays what it was.
+    assert client.patch("/api/account/profile", json={"username": "other"}).status_code == 422
+    assert client.get("/api/auth/me").json()["username"] == dev_user.username
 
 
 def test_health_stays_public(anon_client: TestClient) -> None:

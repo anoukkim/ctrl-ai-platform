@@ -37,4 +37,8 @@ class SiteInfo(BaseModel):
     #: (`https://apps.ctrlai.my`), or None while the runtime is off and the
     #: preview runs the files inside the page.
     apps_base_url: str | None = None
+    #: owner-polish 6: whether members may use the Video Generator now. The
+    #: 관리자 flips it (Admin › System); locked by default. The menu and
+    #: the Video screens say "다음 단계에서 열려요" while it is false.
+    video_open: bool = False
     test_mode: TestMode

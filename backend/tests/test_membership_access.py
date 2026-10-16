@@ -428,6 +428,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/builder/projects/{project_id}/publish-summary"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/unpublish"): "get_current_user",
     ("GET", "/api/apps"): "get_current_user",
+    ("GET", "/api/apps/mine"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
     # promo-videos: CtrlAITube — reads for any account, writes for participants, 신고 any account.
@@ -460,12 +461,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/video/models"): "get_current_user",
     ("GET", "/api/video/projects"): "get_current_user",
     ("GET", "/api/video/projects/{project_id}"): "get_current_user",
-    ("POST", "/api/video/projects"): "require_active_member",
-    ("PATCH", "/api/video/projects/{project_id}"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/versions"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/edit"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/extend"): "require_active_member",
-    ("POST", "/api/video/projects/{project_id}/prompt-help"): "require_active_member",
+    ("POST", "/api/video/projects"): "require_video_open",
+    ("PATCH", "/api/video/projects/{project_id}"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/versions"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/edit"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/versions/{version_id}/extend"): "require_video_open",
+    ("POST", "/api/video/projects/{project_id}/prompt-help"): "require_video_open",
     ("DELETE", "/api/video/projects/{project_id}"): "require_active_member",
     # Taking a copy of your own work out. Deliberately `get_current_user`:
     # a member who did not join this quarter may not create, but their
@@ -495,6 +496,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/usage/me/milestones"): "get_current_user",
     ("GET", "/api/account/preferences"): "get_current_user",
     ("PATCH", "/api/account/preferences"): "get_current_user",
+    ("PATCH", "/api/account/profile"): "get_current_user",
     # Admin — role, not participation.
     ("GET", "/api/users"): "require_admin",
     ("GET", "/api/admin/quarters"): "require_admin",
@@ -536,6 +538,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # is a POST — and it is still admin-only, not participation-gated.
     # Claude's prices and the exchange rate. Admin-only; both audited.
     ("GET", "/api/admin/claude-pricing"): "require_admin",
+    ("GET", "/api/admin/features"): "require_admin",
+    ("POST", "/api/admin/features/{key}"): "require_admin",
     ("GET", "/api/admin/claude-pricing/builder-eval"): "require_admin",
     ("GET", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/chat-models/providers"): "require_admin",
@@ -544,6 +548,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/chat-models"): "require_admin",
     ("GET", "/api/admin/invites"): "require_admin",
     ("POST", "/api/admin/invites"): "require_admin",
+    ("PATCH", "/api/admin/invites/{invite_id}"): "require_admin",
     ("POST", "/api/admin/invites/{invite_id}/deactivate"): "require_admin",
     ("POST", "/api/admin/invites/{invite_id}/reactivate"): "require_admin",
     ("PATCH", "/api/admin/chat-models/{chat_model_id}"): "require_admin",
@@ -678,6 +683,7 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # spend nothing and must work while not participating.
         ("POST", "/api/usage/me/milestones"),
         ("PATCH", "/api/account/preferences"),
+        ("PATCH", "/api/account/profile"),
         # app-platform P2: allowing an app and disconnecting it spend
         # nothing (AI inside the app is gated at the call, by
         # participation and the visitor's wallet), and disconnecting must

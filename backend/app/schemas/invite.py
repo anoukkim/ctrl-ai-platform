@@ -15,6 +15,14 @@ class InviteCreate(BaseModel):
     expires_at: datetime | None = None
 
 
+class InviteUpdate(BaseModel):
+    """owner-polish 1: raise (or lower) a code's 최대 가입 수 later. Never
+    below the sign-ups already made — the route checks that against the
+    row, since the schema cannot see it."""
+
+    max_uses: int = Field(ge=1, le=1000)
+
+
 class InviteSignup(BaseModel):
     user_id: int
     username: str

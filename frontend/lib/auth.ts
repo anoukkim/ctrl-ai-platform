@@ -68,6 +68,14 @@ export function fetchCurrentUser(): Promise<CurrentUser> {
   return request<CurrentUser>("/auth/me");
 }
 
+/** Profile › 계정 설정 › 이름 바꾸기 (owner-polish 9). 아이디는 바뀌지 않습니다. */
+export function updateDisplayName(displayName: string): Promise<CurrentUser> {
+  return request<CurrentUser>("/account/profile", {
+    method: "PATCH",
+    body: JSON.stringify({ display_name: displayName }),
+  });
+}
+
 // ------------------------------------------------------------ Google (google-login)
 
 /** "Google로 계속하기" — 백엔드가 Google로 보냅니다. 토큰은 브라우저에 오지 않습니다. */

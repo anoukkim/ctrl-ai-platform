@@ -176,6 +176,38 @@
   font-size: var(--fs-meta);
 }
 
+/* owner-polish 14: n / m 파일 — 얇은 막대 하나. 끝난 파일만큼 찹니다. */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.2rem 0 0.4rem;
+}
+
+.progressTrack {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.35s ease;
+}
+
+.progressText {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }

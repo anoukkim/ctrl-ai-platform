@@ -220,6 +220,9 @@ class MemberWithMembership(BaseModel):
     account_status: AccountStatus
     #: None이면 이번 분기에 참여 기록이 없다는 뜻입니다.
     membership_status: MembershipStatus | None
+    #: 이번 분기 신청의 상태. None이면 신청한 적이 없습니다 — 참여 기록도
+    #: 없으면 그 사람이 미신청 카드의 한 명입니다 (owner-polish 8).
+    application_status: ApplicationStatus | None = None
 
 
 class RoleUpdate(BaseModel):

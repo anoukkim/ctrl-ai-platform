@@ -22,7 +22,9 @@ import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { ROLE_LABEL, getMemberStats, type MemberStats } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import {
+  APPLICATION_STATUS_LABEL,
   MEMBERSHIP_LABEL,
+  isNotApplied,
   listQuarterMembers,
   setQuarterMembership,
   type MemberWithMembership,
@@ -107,7 +109,9 @@ export default function MemberList() {
         (roleFilter === "all" || member.role === roleFilter) &&
         (accountFilter === "all" || member.account_status === accountFilter) &&
         (membershipFilter === "all" ||
-          (member.membership_status ?? "none") === membershipFilter),
+          (membershipFilter === "not_applied"
+            ? isNotApplied(member)
+            : (member.membership_status ?? "none") === membershipFilter)),
     );
 
     const collator = new Intl.Collator("ko");
@@ -235,7 +239,16 @@ export default function MemberList() {
     {
       key: "membership",
       header: `참여 (${selected.display_name})`,
-      render: (member) => <MembershipBadge status={member.membership_status} />,
+      render: (member) => (
+        <>
+          <MembershipBadge status={member.membership_status} />
+          {member.membership_status === null && member.application_status !== null && (
+            <span className="small dim" style={{ marginLeft: "0.4rem" }}>
+              신청 {APPLICATION_STATUS_LABEL[member.application_status]}
+            </span>
+          )}
+        </>
+      ),
     },
   ];
 
@@ -252,7 +265,7 @@ export default function MemberList() {
       ? "active"
       : membershipFilter === "inactive"
         ? "inactive"
-        : membershipFilter === "none"
+        : membershipFilter === "not_applied"
           ? "not_applied"
           : accountFilter === "former"
             ? "former"
@@ -269,7 +282,7 @@ export default function MemberList() {
         : key === "inactive"
           ? "inactive"
           : key === "not_applied"
-            ? "none"
+            ? "not_applied"
             : "all",
     );
     if (key === "admins") setRoleFilter("admin");
@@ -340,6 +353,7 @@ export default function MemberList() {
               { value: "all", label: "전체" },
               ...Object.entries(MEMBERSHIP_LABEL).map(([value, label]) => ({ value, label })),
               { value: "none", label: "미참여" },
+              { value: "not_applied", label: "미신청" },
             ],
           },
           {

@@ -340,6 +340,7 @@ def test_invite_admin_is_admin_only(other_client: TestClient, db_session: Sessio
     assert other_client.post("/api/admin/invites", json={}).status_code == 403
     assert other_client.post(f"/api/admin/invites/{invite.id}/deactivate").status_code == 403
     assert other_client.post(f"/api/admin/invites/{invite.id}/reactivate").status_code == 403
+    assert other_client.patch(f"/api/admin/invites/{invite.id}", json={"max_uses": 5}).status_code == 403
 
 
 def test_admin_creates_a_generated_code_and_it_is_audited(
@@ -385,6 +386,43 @@ def test_the_list_shows_status_and_who_signed_up(
     assert rows["OLD-CODE"]["status"] == "expired"
     assert rows["OFF-CODE"]["status"] == "disabled"
     assert rows["SEEN-CODE"]["uses"] == 1 == invite.max_uses
+
+
+def test_the_admin_raises_a_codes_max_uses_later_never_below_the_signups(
+    client: TestClient, db_session: Session
+) -> None:
+    """owner-polish 1: the one production code read 소진 1/1. Raising it
+    reopens it; lowering below the sign-ups already made is refused."""
+    invite = make_code(db_session, "GROW-CODE", max_uses=1)
+    guest = TestClient(app, headers=JSON_HEADERS)
+    assert signup(guest, "GROW-CODE").status_code == 201
+    assert client.get("/api/admin/invites").json()[0]["status"] == "exhausted"
+
+    raised = client.patch(f"/api/admin/invites/{invite.id}", json={"max_uses": 5})
+    assert raised.status_code == 200, raised.text
+    assert (raised.json()["max_uses"], raised.json()["uses"], raised.json()["status"]) == (5, 1, "usable")
+
+    # Not below the people who already used it; the row is untouched.
+    refused = client.patch(f"/api/admin/invites/{invite.id}", json={"max_uses": 0})
+    assert refused.status_code == 422
+    lowered = client.patch(f"/api/admin/invites/{invite.id}", json={"max_uses": 1})
+    assert lowered.status_code == 200 and lowered.json()["max_uses"] == 1
+    db_session.add(invite)
+    db_session.refresh(invite)
+    invite.uses = 3
+    invite.max_uses = 3
+    db_session.commit()
+    too_low = client.patch(f"/api/admin/invites/{invite.id}", json={"max_uses": 2})
+    assert too_low.status_code == 400 and "3명" in too_low.json()["detail"]
+    assert client.get("/api/admin/invites").json()[0]["max_uses"] == 3
+
+    # The same value changes nothing and logs nothing; a missing code is 404.
+    client.patch(f"/api/admin/invites/{invite.id}", json={"max_uses": 3})
+    assert client.patch("/api/admin/invites/9999", json={"max_uses": 3}).status_code == 404
+
+    entries = db_session.query(AuditLog).filter_by(action="invite.updated").order_by(AuditLog.id).all()
+    assert [(e.detail["before"], e.detail["after"]) for e in entries] == [(1, 5), (5, 1)]
+    assert "1명 → 5명" in entries[0].summary and entries[0].target_label == "GROW-CODE"
 
 
 def test_deactivating_and_reactivating_are_audited(

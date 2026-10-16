@@ -144,7 +144,13 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     (allowed/not allowed, deleted original, own app, inactive member).
 
 6. **owner-polish-2026-10-16** · M1 · one small branch per point
-    *Not pre-approved — branch, test, report, WAIT.* The owner's nine
+    *Not pre-approved — branch, test, report, WAIT.* **Points 3, 8, 1, 9,
+    6, 13, 14, 10 are built on `fix-owner-polish-a`** (2026-10-16, eight
+    commits, pushed, awaiting the owner's approval — see
+    `progress/RUN-2026-10-16.md` › polish-a). Left in this item: 2
+    (notification list), 4–5 (thumbnails), 7 (promo video → now
+    `promo-videos`), 11 (continue past the cap), 12 (image provider
+    research), 15 (app detail layout). The owner's nine
     points from a walk through production (2026-10-16), to start **only
     after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
     Spec below ("owner-polish-2026-10-16"), with what the screenshots

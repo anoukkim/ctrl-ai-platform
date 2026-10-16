@@ -20,6 +20,25 @@
   display: inline;
 }
 
+/* owner-polish 14: 오는 중인 답장에서 새로 생기는 덩어리(문단, 목록, 코드)는
+   살짝 떠오르며 나타납니다 — 글자가 "도로록" 흐르는 느낌의 가벼운 판.
+   글자 하나하나를 움직이면 Markdown을 다시 그릴 때마다 깜빡이므로 덩어리
+   단위로만. 움직임 줄이기면 전체 규칙(globals.css)이 멈춥니다. */
+.withTail > * {
+  animation: flow-in 0.22s ease-out;
+}
+
+@keyframes flow-in {
+  from {
+    opacity: 0.35;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .markdown p,
 .markdown ul,
 .markdown ol,

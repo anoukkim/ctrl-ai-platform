@@ -233,6 +233,27 @@ describe("ChatWorkspace", () => {
     expect(chatApi.createConversation).toHaveBeenCalledTimes(1);
   });
 
+  test("before the first words: '생각하는 중…' with the seconds beside it (owner-polish 14)", async () => {
+    let finish!: (outcome: StreamOutcome) => void;
+    chatApi.sendMessage.mockImplementation(
+      (): Promise<StreamOutcome> =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await renderChat();
+
+    typeAndSend("안녕");
+
+    const waiting = await screen.findByTestId("waiting-live");
+    expect(waiting.textContent).toContain("생각하는 중…");
+    expect(screen.getByTestId("working-since").textContent).toMatch(/^\d+초$/);
+
+    finish({ kind: "done", chargedKrw: 1, message: { ...SAVED_REPLY, content: "안녕하세요!" } });
+    expect(await screen.findByText("안녕하세요!")).toBeTruthy();
+    expect(screen.queryByTestId("waiting-live")).toBeNull();
+  });
+
   test("a failed reply shows the Korean reason under the message", async () => {
     chatApi.sendMessage.mockResolvedValue({
       kind: "error",

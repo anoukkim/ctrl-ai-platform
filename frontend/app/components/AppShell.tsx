@@ -23,6 +23,7 @@ import {
   Code2,
   Gauge,
   LayoutGrid,
+  Lock,
   LogOut,
   MessageSquare,
   Moon,
@@ -40,6 +41,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
 
+import { VIDEO_LOCKED_HINT } from "@/lib/site";
 import { useTheme } from "@/lib/theme";
 
 import AnimatedNumber from "./AnimatedNumber";
@@ -51,6 +53,7 @@ import Skeleton from "./Skeleton";
 import { useAdminNav } from "./AdminNavProvider";
 import { isPublicPath, useCurrentUser } from "./CurrentUserProvider";
 import { useMyQuarter } from "./MyQuarterProvider";
+import { useSite, useSiteLoaded } from "./SiteProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 
 import {
@@ -165,6 +168,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const { state, signOut } = useCurrentUser();
   const { theme, toggle: toggleTheme } = useTheme();
+  // owner-polish 6: Video Generator가 회원에게 잠겨 있으면 메뉴가 그렇게 말합니다.
+  const site = useSite();
+  const siteLoaded = useSiteLoaded();
 
   // 로그인/회원가입 화면에는 사이드바를 두지 않습니다.
   if (isPublicPath(pathname)) {
@@ -266,6 +272,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 pathname={pathname}
                 onNavigate={() => setMenuOpen(false)}
                 collapsed={collapsed}
+                lockedHints={siteLoaded && !site.video_open ? { "/video": VIDEO_LOCKED_HINT } : {}}
               />
             ))}
 
@@ -398,12 +405,15 @@ function NavGroupBlock({
   pathname,
   onNavigate,
   collapsed = false,
+  lockedHints = {},
 }: {
   group: NavGroup;
   pathname: string;
   onNavigate: () => void;
   /** 접힌 사이드바: 이름은 화면에서 감추고(읽어 주기는 그대로) 툴팁으로. */
   collapsed?: boolean;
+  /** 주소별 잠김 안내 (owner-polish 6). 없으면 잠기지 않은 항목입니다. */
+  lockedHints?: Record<string, string>;
 }) {
   return (
     <div className={styles.navGroup}>
@@ -412,20 +422,38 @@ function NavGroupBlock({
         {group.items.map((item) => {
           // "/"는 Chat이므로 정확히 일치할 때만 선택 표시를 합니다.
           const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          // 회원에게 잠긴 화면 (owner-polish 6): 자물쇠와 "다음 단계에서 열려요".
+          // 링크는 그대로 — 화면이 이유를 말합니다.
+          const lockedHint = lockedHints[item.href];
+          const hintId = lockedHint ? `nav-locked-${item.href.replace(/\W+/g, "")}` : undefined;
 
           return (
             <li key={item.href}>
               <Link
                 className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""} ${
                   item.tone ? styles[`tone-${item.tone}`] : ""
-                }`}
+                } ${lockedHint ? styles.navLocked : ""}`}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
+                aria-describedby={hintId}
                 onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
+                title={
+                  lockedHint ? (collapsed ? `${item.label} — ${lockedHint}` : lockedHint) : collapsed ? item.label : undefined
+                }
+                data-locked={lockedHint ? "true" : undefined}
               >
                 <item.Icon className={styles.navIcon} aria-hidden="true" />
                 <span className={styles.navLabel}>{item.label}</span>
+                {lockedHint && (
+                  <>
+                    <Lock className={styles.navLockIcon} aria-hidden="true" />
+                    {/* aria-hidden keeps the link's name "Video Generator"; the
+                        hint still reaches readers through aria-describedby. */}
+                    <span className={styles.navLockHint} id={hintId} aria-hidden="true">
+                      {lockedHint}
+                    </span>
+                  </>
+                )}
               </Link>
             </li>
           );
@@ -658,6 +686,7 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
             <span
               className={`${styles.meterValue} ${lastSpend ? styles.spendPulse : ""}`}
               key={lastSpend ? `pulse-${lastSpend.id}` : "balance"}
+              data-wallet-balance="true"
             >
               {/* 차감되면 약 0.6초 동안 새 값까지 세어 내려갑니다. */}
               <AnimatedNumber value={allocation.remaining_krw} format={formatKrw} duration={0.6} />

@@ -6,6 +6,7 @@
 
 import type { Metadata } from "next";
 
+import VideoGate from "../VideoGate";
 import VideoWorkspace from "./VideoWorkspace";
 
 export const metadata: Metadata = {
@@ -23,5 +24,9 @@ export default async function VideoProjectPage({ params }: Props) {
   // 프로젝트의 인스턴스를 재사용하지 않고 새로 만들게 하려는 것으로,
   // 한 인스턴스가 보는 프로젝트가 도중에 바뀌지 않는다는 뜻입니다.
   // VideoWorkspace의 불러오기는 그 보장 위에 서 있습니다.
-  return <VideoWorkspace key={projectId} projectId={projectId} />;
+  return (
+    <VideoGate>
+      <VideoWorkspace key={projectId} projectId={projectId} />
+    </VideoGate>
+  );
 }

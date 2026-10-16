@@ -9,7 +9,9 @@
  *
  * 사용 중지는 **새 가입만** 막습니다. 이미 그 코드로 가입한 계정은 그대로
  * 이고, 그 사람들을 비활동이나 탈퇴로 바꾸는 일은 위의 회원 목록에서
- * 따로 합니다. 만들기, 사용 중지, 다시 사용은 모두 감사 기록에 남습니다.
+ * 따로 합니다. 최대 가입 수는 나중에 바꿀 수 있습니다 — 소진된 1/1 코드를
+ * 더 열어 주는 식으로, 단 이미 가입한 수 아래로는 안 됩니다 (owner-polish
+ * 1). 만들기, 사용 중지, 다시 사용, 가입 수 변경은 모두 감사 기록에 남습니다.
  *
  * Admin의 새 구역이 아니라 Members 화면 안의 한 칸입니다 — 초대는 회원을
  * 들이는 일이라 회원 화면에 있는 것이 맞습니다.
@@ -27,6 +29,7 @@ import {
   listInvites,
   setInviteActive,
   signupLink,
+  updateInviteMaxUses,
   type Invite,
 } from "@/lib/invites";
 
@@ -44,6 +47,8 @@ export default function InviteCodePanel() {
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  /** 어느 코드의 최대 가입 수를 고치고 있는지와 적어 둔 값. */
+  const [editing, setEditing] = useState<{ id: number; value: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -144,6 +149,37 @@ export default function InviteCodePanel() {
         return turningOff
           ? `${invite.code} 사용을 중지했습니다.`
           : `${invite.code}를 다시 쓸 수 있습니다.`;
+      },
+    );
+  };
+
+  const editValue = editing ? Number(editing.value) : NaN;
+  const editTarget = editing ? invites?.find((invite) => invite.id === editing.id) : undefined;
+  const editValid =
+    editTarget !== undefined &&
+    Number.isInteger(editValue) &&
+    editValue >= Math.max(1, editTarget.uses) &&
+    editValue <= 1000;
+
+  const askResize = (invite: Invite) => {
+    if (!editValid) return;
+    const next = editValue;
+    run(
+      {
+        title: `${invite.code}의 최대 가입 수를 ${invite.max_uses}명에서 ${next}명으로 바꿀까요?`,
+        effect: [
+          next > invite.max_uses
+            ? `이 코드로 ${next - invite.uses}명이 더 가입할 수 있게 됩니다.`
+            : `남은 자리가 ${Math.max(0, next - invite.uses)}명으로 줄어듭니다.`,
+          `이미 가입한 ${invite.uses}명은 그대로입니다.`,
+          "감사 기록에 남습니다.",
+        ],
+        confirmLabel: "바꾸기",
+      },
+      async () => {
+        const made = await updateInviteMaxUses(invite.id, next);
+        setEditing(null);
+        return `${made.code}의 최대 가입 수를 ${made.max_uses}명으로 바꿨습니다.`;
       },
     );
   };
@@ -250,7 +286,52 @@ export default function InviteCodePanel() {
                   </td>
                   <td>{invite.label || "—"}</td>
                   <td className="numeric">
-                    {invite.uses} / {invite.max_uses}
+                    {editing?.id === invite.id ? (
+                      <form
+                        className={styles.inviteActions}
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          askResize(invite);
+                        }}
+                      >
+                        <span>{invite.uses} /</span>
+                        <input
+                          className={`field numeric ${styles.priceInput}`}
+                          inputMode="numeric"
+                          aria-label={`${invite.code} 최대 가입 수`}
+                          value={editing.value}
+                          min={Math.max(1, invite.uses)}
+                          max={1000}
+                          autoFocus
+                          onChange={(event) => setEditing({ id: invite.id, value: event.target.value })}
+                        />
+                        <button className="btn btn-sm btn-primary" type="submit" disabled={!editValid || busy}>
+                          바꾸기
+                        </button>
+                        <button className="btn btn-sm" type="button" onClick={() => setEditing(null)}>
+                          취소
+                        </button>
+                        {!editValid && (
+                          <span className="small dim">
+                            {Math.max(1, invite.uses)}~1000 사이로 적어 주세요
+                            {invite.uses > 0 ? ` (이미 ${invite.uses}명 가입)` : ""}.
+                          </span>
+                        )}
+                      </form>
+                    ) : (
+                      <>
+                        {invite.uses} / {invite.max_uses}{" "}
+                        <button
+                          className="btn btn-sm"
+                          type="button"
+                          aria-label={`${invite.code} 최대 가입 수 바꾸기`}
+                          disabled={busy}
+                          onClick={() => setEditing({ id: invite.id, value: String(invite.max_uses) })}
+                        >
+                          바꾸기
+                        </button>
+                      </>
+                    )}
                   </td>
                   <td className="numeric">
                     {invite.expires_at ? formatWhen(invite.expires_at) : "없음"}

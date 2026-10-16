@@ -44,7 +44,7 @@ principles.
 | Navigation & shell    | Built — sidebar (230px; Create · Explore · Manage (admins) · Account, collapsible to an icon rail) with quarterly participation status; menu button on narrow screens |
 | Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, live 약 N원 + ledger receipts, per-reply/daily cost caps, tool toggles (웹 검색·페이지 읽기·코드 실행, mock), 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
-| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet |
+| Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet. **Locked for members by default** (owner-polish 6, 2026-10-16): the 관리자 opens it in Admin › System › 기능 열기 the quarter video starts; until then the menu item carries a lock and the whole screen is one centred lock with "다음 단계에서 열려요 — 지금은 준비 중이에요" (owner's shape, 2026-10-16); the 관리자 sees the same screen plus "Admin › System에서 열 수 있어요", and the API never locks the 관리자 out |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
 | CtrlAITube            | The club's intro video first (공식 — a hosted file, played in the page, real reactions and comments since `promo-videos`); the rest a mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/빌더/영상/기타 breakdown, 대화별 / 날짜별 totals split into 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구, this quarter's 캐시로 아낀 금액, and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
@@ -634,6 +634,17 @@ and native units** (tokens, seconds), so Admin › Budget can total each
 quarter's spend **by provider** — the figure the club leader reads before
 buying the next round of credit from Anthropic and from Higgsfield. The club
 still buys per provider; members just do not have to guess the split.
+
+**v2 — the "띠링" moment (owner-polish 10, 2026-10-16).** The toast springs
+in with a coin that pops and sparks, the amount "-12원" is large, and when
+the sidebar balance is on screen the "-12원" flies from the toast to the
+balance (which then glows, as before). When the balance is not visible
+(collapsed sidebar, phone, scrolled away) the toast itself carries the
+amount and the remaining wallet, so the moment is seen anywhere. A short
+two-tone **띠링** sound is a Profile › 알림 switch, **off by default and per
+device** (localStorage — sound is a device matter, not an account one).
+Still only on a real `charged_krw`; reduced motion keeps a plain toast,
+no pop, no flight, no sound.
 
 Estimated costs next to paid buttons (Chat's "답장 1회 약 N원", video's
 예상 비용) are compared with the one balance, and say so when it is short.

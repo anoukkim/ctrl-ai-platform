@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import DialogShell from "@/app/components/DialogShell";
 
 vi.mock("@/app/components/SiteProvider", () => ({
+  useSiteLoaded: () => true,
   useSite: () => ({ is_beta: true, top_ups_enabled: false, test_mode: {} }),
   default: ({ children }: { children: React.ReactNode }) => children,
 }));

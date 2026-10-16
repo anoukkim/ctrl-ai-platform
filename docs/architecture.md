@@ -41,6 +41,7 @@ that route — there is no second check further in.
 | `get_current_user` | Is anyone signed in, and is the account usable? | 401, or 403 for a `former` account |
 | `require_admin` | Is this person an `admin`? | 403 |
 | `require_active_member` | Are they **participating in the current quarter**? | 403 |
+| `require_video_open` | `require_active_member`, and is the **Video Generator open** to members (Admin › System switch, locked by default; the 관리자 is never locked out)? | 403 "다음 단계에서 열려요" |
 
 `require_active_member` builds on `get_current_user`, so signing in is
 assumed. A **missing** `QuarterMembership` row means "not participating":
@@ -85,6 +86,7 @@ the same commit that adds it.
 | `GET /api/account/google` | `get_current_user` | Is Google linked |
 | `GET /api/account/google/link/start` | `get_current_user` | Profile › 연결하기 |
 | `GET /api/auth/me` | `get_current_user` | |
+| `PATCH /api/account/profile` | `get_current_user` | 이름 바꾸기 (owner-polish 9); the 아이디 never changes; spends nothing |
 | `GET /api/account/withdrawal` | `get_current_user` | What withdrawing would do |
 | `POST /api/account/withdrawal` | `get_current_user` | **Deliberately open** — leaving must not need participation; password re-checked |
 | `GET /api/account/sign-in` | `get_current_user` | Profile › 로그인 방법: password set? Google linked? |
@@ -120,20 +122,20 @@ the same commit that adds it.
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |
 | `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
-| `GET /api/apps`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing and detail |
+| `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
 | `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |
 | `GET /api/video/projects/{id}` | `get_current_user` | Reading your own work |
-| `POST /api/video/projects` | **`require_active_member`** | Creating |
-| `PATCH /api/video/projects/{id}` | **`require_active_member`** | Editing |
-| `POST /api/video/projects/{id}/versions` | **`require_active_member`** | Generating — spends budget |
-| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_active_member`** | Editing a version — spends the wallet |
-| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_active_member`** | Extending a version — spends the wallet |
-| `POST /api/video/projects/{id}/prompt-help` | **`require_active_member`** | Claude rewrites the prompt — spends the wallet |
-| `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work |
+| `POST /api/video/projects` | **`require_video_open`** | Creating |
+| `PATCH /api/video/projects/{id}` | **`require_video_open`** | Editing |
+| `POST /api/video/projects/{id}/versions` | **`require_video_open`** | Generating — spends budget |
+| `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_video_open`** | Editing a version — spends the wallet |
+| `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_video_open`** | Extending a version — spends the wallet |
+| `POST /api/video/projects/{id}/prompt-help` | **`require_video_open`** | Claude rewrites the prompt — spends the wallet |
+| `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work — deleting spends nothing, so the lock does not apply |
 | `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
 | `GET /api/quarters/me` | `get_current_user` | |
@@ -160,8 +162,10 @@ the same commit that adds it.
 | `GET /api/admin/video-models` | `require_admin` | |
 | `PATCH /api/admin/video-models/{id}` | `require_admin` | |
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
+| `GET /api/admin/features`, `POST /api/admin/features/{key}` | `require_admin` | Admin › System › 기능 열기 (owner-polish 6): run-time switches, the first locks the Video Generator for members; audited |
 | `GET /api/admin/invites` | `require_admin` | Invite codes, with who signed up with each |
 | `POST /api/admin/invites` | `require_admin` | Generated or custom code; audited |
+| `PATCH /api/admin/invites/{invite_id}` | `require_admin` | Change 최대 가입 수 later, never below the sign-ups made; audited |
 | `POST /api/admin/invites/{invite_id}/deactivate` | `require_admin` | Stops new sign-ups only; audited |
 | `POST /api/admin/invites/{invite_id}/reactivate` | `require_admin` | Audited |
 | `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, with each note's pictures |

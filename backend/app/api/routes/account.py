@@ -9,14 +9,16 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.routes.auth import as_current_user
 from app.core.config import Settings, get_settings
 from app.core.security import UNUSABLE_PASSWORD_HASH, verify_password
 from app.db.session import get_db
 from app.models import User
+from app.schemas.auth import CurrentUser
 from app.schemas.withdrawal import WithdrawalPreviewRead, WithdrawalRead, WithdrawRequest
 from app.services import chat_models
 from app.services import rate_limit
@@ -93,6 +95,33 @@ def withdraw(
         path="/",
     )
     return WithdrawalRead.of(row)
+
+
+# --------------------------------------------- profile (owner-polish 9)
+
+
+class ProfileUpdate(BaseModel):
+    #: The name other members see. The 아이디 (username) stays fixed: it
+    #: is the sign-in name and the one stable handle on published work.
+    display_name: str = Field(min_length=1, max_length=100)
+
+
+@router.patch("/profile", response_model=CurrentUser, summary="Change my display name")
+def update_profile(
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CurrentUser:
+    """Profile › 계정 설정 › 이름 바꾸기. The same 1~100-character rule as
+    the sign-up screens; spends nothing, so a member sitting out the
+    quarter may still fix their name. Published apps read the owner's
+    display_name live, so they pick the new name up at once."""
+    display_name = payload.display_name.strip()
+    if not display_name or len(display_name) > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이름을 1~100자로 적어 주세요.")
+    user.display_name = display_name
+    db.commit()
+    return as_current_user(user)
 
 
 # --------------------------------------------- preferences (spend feedback)

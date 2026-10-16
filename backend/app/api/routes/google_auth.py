@@ -42,7 +42,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.api.routes.auth import TERMS_REQUIRED, _as_current_user, _start_session
+from app.api.routes.auth import TERMS_REQUIRED, as_current_user, _start_session
 from app.core.config import Settings, get_settings
 from app.core.security import UNUSABLE_PASSWORD_HASH
 from app.db.session import get_db
@@ -536,7 +536,7 @@ def google_complete(
 
     _clear(response, settings, SIGNUP_COOKIE)
     _start_session(db, response, member, settings)
-    return _as_current_user(member)
+    return as_current_user(member)
 
 
 class GoogleConnection(BaseModel):

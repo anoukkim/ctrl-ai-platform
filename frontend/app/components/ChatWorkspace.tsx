@@ -100,6 +100,7 @@ import BrandMark from "./BrandMark";
 import ChatMarkdown from "./ChatMarkdown";
 import ModelDepthPicker from "./ModelDepthPicker";
 import TestModeNotice from "./TestModeNotice";
+import WorkingSince from "./WorkingSince";
 import styles from "./ChatWorkspace.module.css";
 import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
@@ -166,6 +167,8 @@ interface ViewMessage {
   estimateKrw?: number | null;
   /** 답장이 아직 오고 있습니다. */
   streaming?: boolean;
+  /** 보낸 시각 — 첫 글자가 오기까지 "생각하는 중… N초"가 셉니다 (owner-polish 14). */
+  startedAt?: number;
   /** 이 메시지 다음에 보여 줄 오류. 답장이 실패했을 때 붙습니다. */
   error?: string;
 }
@@ -832,6 +835,7 @@ export default function ChatWorkspace() {
         actionTitle: "",
         modelId: null,
         streaming: true,
+        startedAt: stamp,
       },
     ]);
 
@@ -1269,11 +1273,14 @@ export default function ChatWorkspace() {
                           message.content
                         )}
                         {message.streaming && !message.content && (
-                          // 첫 글자가 오기 전: 세 점이 차례로 뛰는 "쓰는 중"(ui-friendly-motion).
-                          <span className={styles.typing}>
-                            <span aria-hidden="true" />
-                            <span aria-hidden="true" />
-                            <span aria-hidden="true" />
+                          // 첫 글자가 오기 전 (owner-polish 14): "생각하는 중…"이
+                          // 시머로 빛나고 옆에서 초가 흐릅니다. 움직임 줄이기면
+                          // 시머만 멈추고 글과 초는 그대로입니다.
+                          <span className={styles.waiting} data-testid="waiting-live">
+                            <span className={styles.shimmer}>생각하는 중…</span>
+                            {message.startedAt !== undefined && (
+                              <WorkingSince since={message.startedAt} className={styles.waitingSeconds} />
+                            )}
                             <span className="sr-only">답장을 쓰는 중</span>
                           </span>
                         )}
