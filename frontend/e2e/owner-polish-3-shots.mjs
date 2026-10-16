@@ -30,7 +30,7 @@ for (const [width, height, theme, tag] of [[1440, 900, "light", "1440-light"], [
   // simplest is a publish row — publish the showcase again is heavy, so seed one row through the API is not
   // possible (the browser never creates rows). We show the bell with whatever exists.
   await page.goto(`${SITE}/ctrlaistore`);
-  await page.getByText("CtrlAIApps", { exact: true }).first().waitFor();
+  await page.getByRole("heading", { name: "CtrlAIApps" }).waitFor();
   if (phone) await page.getByRole("button", { name: "메뉴" }).click();
   await shot(page, "sidebar", tag);
   await page.getByRole("button", { name: /^알림/ }).click();
@@ -53,7 +53,7 @@ for (const [width, height, theme, tag] of [[1440, 900, "light", "1440-light"], [
   // (d) the header, (a) the covers.
   await shot(page, "ctrlaiapps-header", tag);
   await page.goto(`${SITE}/builder`);
-  await page.getByText("Project Builder", { exact: true }).first().waitFor();
+  await page.getByRole("heading", { name: "Project Builder" }).waitFor();
   await page.waitForTimeout(800);
   await shot(page, "builder-covers", tag);
 

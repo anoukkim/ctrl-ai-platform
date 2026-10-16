@@ -63,6 +63,12 @@
   display: none;
 }
 
+.topbarTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .menuButton {
   padding: 0.25rem 0.65rem;
   border: 1px solid var(--border-strong);

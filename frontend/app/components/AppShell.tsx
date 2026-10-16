@@ -38,6 +38,7 @@ import { useEffect, useRef, useState } from "react";
 import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
 
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
+import { useMediaQuery } from "@/lib/layout-prefs";
 import { useTheme } from "@/lib/theme";
 
 import AnimatedNumber from "./AnimatedNumber";
@@ -175,6 +176,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const { state, signOut } = useCurrentUser();
   const { theme, toggle: toggleTheme } = useTheme();
+  // The sidebar's header is hidden under 60rem (the top bar takes over): one bell, in the right place.
+  const narrow = useMediaQuery("(max-width: 59.99rem)");
   // owner-polish 6: Video Generator가 회원에게 잠겨 있으면 메뉴가 그렇게 말합니다.
   const site = useSite();
   const siteLoaded = useSiteLoaded();
@@ -230,15 +233,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             CTRL+AI
           </span>
         </Link>
-        <button
-          className={styles.menuButton}
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-expanded={menuOpen}
-          aria-controls="primary-navigation"
-        >
-          {menuOpen ? "닫기" : "메뉴"}
-        </button>
+        <span className={styles.topbarTools}>
+          {/* owner-polish-3 (c2): on a phone the sidebar's header is hidden, so
+              the bell lives in the top bar — reachable without opening 메뉴. */}
+          {narrow && <NotificationBell className={styles.footerButton} onNavigate={() => setMenuOpen(false)} />}
+          <button
+            className={styles.menuButton}
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-controls="primary-navigation"
+          >
+            {menuOpen ? "닫기" : "메뉴"}
+          </button>
+        </span>
       </header>
 
       <nav
@@ -255,7 +263,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {/* owner-polish-3 (c2): the bell lives up here beside the name — its
                 popover opens below it, over nothing. The footer was too crowded. */}
             <span className={styles.navBrandTools}>
-              <NotificationBell className={styles.footerButton} onNavigate={() => setMenuOpen(false)} />
+              {!narrow && <NotificationBell className={styles.footerButton} onNavigate={() => setMenuOpen(false)} />}
             <button
               className={`${styles.footerButton} ${styles.collapseButton}`}
               type="button"

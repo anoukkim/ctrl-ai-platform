@@ -55,7 +55,9 @@ test("(a2) the 게시 dialog offers candidates from the preview and the pick bec
   await expect(picker.locator("img")).toHaveCount(4, { timeout: 30_000 });
   await expect(picker.getByRole("radio", { name: /지금 화면/ })).toBeChecked();
   // Pick the phone-width one on purpose and publish.
-  await picker.getByRole("radio", { name: /폰 너비/ }).check();
+  // The radio itself is visually hidden under the picture: press its label.
+  await picker.getByText("폰 너비", { exact: true }).click();
+  await expect(picker.getByRole("radio", { name: /폰 너비/ })).toBeChecked();
   await page.getByLabel(/CtrlAIApps에 보일 설명/).fill("색 카드예요.");
   await page.getByRole("button", { name: "게시하기" }).click();
 
@@ -73,8 +75,8 @@ test("(a2) the 게시 dialog offers candidates from the preview and the pick bec
 
   // The Builder card uses the chosen (published) picture, not a draft capture.
   await page.goto(`${SITE}/builder`);
-  const card = page.getByRole("link", { name: new RegExp(detail.app_slug ? "색 카드" : "색 카드") }).first();
-  await expect(card.locator("img")).toHaveAttribute("src", /space=published/);
+  await expect(page.locator(`img[src*="/api/builder/projects/${project.id}/thumbnail?space=published"]`)).toBeVisible();
+  await expect(page.locator(`img[src*="/api/builder/projects/${project.id}/thumbnail?space=draft"]`)).toHaveCount(0);
 
   // 썸네일 바꾸기 from the 게시 menu opens the same picker.
   await page.goto(`${SITE}/builder/${project.id}`);
@@ -118,6 +120,8 @@ test("(c2) the bell in the header clears on open and 지우기 empties it; the a
   await page.getByRole("button", { name: "사이드바 펼치기" }).click();
   // Phone width: the menu lives inside the slide-down navigation.
   await page.setViewportSize({ width: 390, height: 844 });
+  // The bell is reachable without opening the menu — in the top bar.
+  await expect(page.getByRole("banner").getByRole("button", { name: /^알림/ })).toBeVisible();
   await page.getByRole("button", { name: "메뉴" }).click();
   await nav.getByRole("button", { name: /계정 메뉴/ }).click();
   await expect(page.getByRole("menu")).toBeVisible();
