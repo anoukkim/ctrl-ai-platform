@@ -18,6 +18,8 @@ export interface SiteInfo {
   /** 회원가입 화면의 "정보가 어디에 저장되는지" 안내. 서버 .env에서 고칩니다. */
   data_location_notice: string;
   top_ups_enabled: boolean;
+  /** Builder의 GitHub 배지·버튼 (Phase 4). 꺼져 있으면 아예 보이지 않아요. */
+  github_enabled?: boolean;
   /** "Google로 계속하기"를 보여 줄지 (google-login). */
   google_login: boolean;
   /**
@@ -41,6 +43,7 @@ export const UNKNOWN_SITE: SiteInfo = {
   data_location_notice: "",
   // personal-topup-off: 기본은 꺼짐 — /api/site가 켜져 있다고 말할 때만 켭니다.
   top_ups_enabled: false,
+  github_enabled: false,
   google_login: false,
   apps_base_url: null,
   test_mode: { chat: false, builder: false, video: false, community: false },

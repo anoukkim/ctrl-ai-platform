@@ -26,8 +26,10 @@
  * 않습니다. 미리보기는 브라우저 안에서만 격리되어 돌아갑니다.
  */
 
+import { ExternalLink, Info, Maximize2, Minimize2, MoreHorizontal, RefreshCw, Upload } from "lucide-react";
 import { useState } from "react";
 
+import MenuButton from "@/app/components/MenuButton";
 import { PREVIEW_SANDBOX, RUNTIME_SANDBOX, buildSrcdoc } from "@/lib/static-preview";
 
 import styles from "./workspace.module.css";
@@ -52,6 +54,37 @@ export interface AppRuntimeProps {
   refreshing?: boolean;
   /** 앱 주소에 마지막으로 올린 때 — 바뀌면 프레임을 다시 읽습니다. */
   stamp?: string | null;
+}
+
+/** 작업 공간이 미리보기 도구 줄에 끼워 넣는 것 (quality-tuning Q3). */
+export interface PreviewToolbarProps {
+  /** 맨 앞: 어느 버전을 볼지 (작업 중 vN / 게시된 vN). */
+  toolbarStart?: React.ReactNode;
+  /** 맨 뒤: 접어 둔 Claude 판을 다시 여는 단추 등. */
+  toolbarEnd?: React.ReactNode;
+}
+
+/**
+ * 안전 안내 — 한 줄로 두고, ⓘ를 누르면 전체 글 (quality-tuning Q3).
+ */
+function SafetyNote({ full }: { full: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={styles.staticPreviewLabel}>
+      <span>앱은 CTRL+AI 계정과 분리된 칸에서 돌아가요.</span>
+      <button
+        className={styles.infoButton}
+        type="button"
+        aria-expanded={open}
+        aria-label="안전 안내 자세히"
+        title="안전 안내 자세히"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Info size={13} aria-hidden="true" />
+      </button>
+      {open && <p className={styles.safetyFull}>{full}</p>}
+    </div>
+  );
 }
 
 /**
@@ -107,10 +140,7 @@ const StaticRuntime: PreviewRuntime = {
     }
     return (
       <div className={styles.staticPreview}>
-        <p className={styles.staticPreviewLabel}>
-          Claude가 만든 앱을 이 칸 안에서만 실행합니다. 인터넷 연결과 CTRL+AI 계정에는 닿지
-          않아요. 여기에 비밀번호나 개인 정보를 입력하지 마세요.
-        </p>
+        <SafetyNote full="Claude가 만든 앱을 이 칸 안에서만 실행합니다. 인터넷 연결과 CTRL+AI 계정에는 닿지 않아요. 여기에 비밀번호나 개인 정보를 입력하지 마세요." />
         <iframe
           className={styles.staticPreviewFrame}
           sandbox={PREVIEW_SANDBOX}
@@ -131,10 +161,7 @@ const StaticRuntime: PreviewRuntime = {
 function AppFrame({ url }: { url: string }) {
   return (
     <div className={styles.staticPreview}>
-      <p className={styles.staticPreviewLabel}>
-        앱 주소에서 실행 중이에요 — CTRL+AI 계정과는 분리되어 있어요. 여기에 비밀번호나 개인
-        정보를 입력하지 마세요.
-      </p>
+      <SafetyNote full="앱 주소(apps.ctrlai.my)에서 실행 중이에요 — CTRL+AI 계정과는 분리되어 있어요. 여기에 비밀번호나 개인 정보를 입력하지 마세요." />
       <iframe
         className={styles.staticPreviewFrame}
         sandbox={RUNTIME_SANDBOX}
@@ -159,7 +186,9 @@ export default function PreviewPane({
   onRefreshRuntime,
   refreshing = false,
   stamp = null,
-}: PreviewRuntimeProps & AppRuntimeProps) {
+  toolbarStart,
+  toolbarEnd,
+}: PreviewRuntimeProps & AppRuntimeProps & PreviewToolbarProps) {
   const [fullscreen, setFullscreen] = useState(false);
   // 새로 고침: key를 바꾸면 iframe이 처음부터 다시 실행됩니다.
   const [run, setRun] = useState(0);
@@ -167,54 +196,86 @@ export default function PreviewPane({
   const Runtime = runtime.Component;
   const hasEntry = files[entry] !== undefined;
   // 올린 때를 주소 뒤에 붙여, 갱신할 때마다 브라우저가 새 파일을 읽게 합니다.
+  // 고치기가 끝나면 백엔드가 앱 주소에 다시 올리고 이 값이 바뀌므로,
+  // 미리보기는 저절로 새로 읽힙니다 (quality-tuning Q3).
   const frameUrl =
     appUrl && hasEntry ? `${appUrl}?v=${encodeURIComponent(stamp ?? "")}` : null;
+  const canUpload = runtimeAvailable && hasEntry && Boolean(onRefreshRuntime);
+
+  // 좁은 칸에서는 자주 쓰지 않는 둘(새 창 · 미리보기 갱신)을 ⋯ 안으로.
+  const overflow = [
+    ...(frameUrl
+      ? [{ label: "새 창에서 열기", onSelect: () => window.open(appUrl ?? "", "_blank", "noopener,noreferrer") }]
+      : []),
+    ...(canUpload
+      ? [{ label: "미리보기 갱신", hint: "지금 파일을 앱 주소에 다시 올려요", onSelect: () => onRefreshRuntime?.(), disabled: refreshing }]
+      : []),
+  ];
 
   return (
     <div className={`${styles.preview} ${fullscreen ? styles.previewFullscreen : ""}`}>
-      <div className={styles.previewBar}>
-        <span className={styles.previewBarTitle}>
-          미리보기
-          <span className={`badge ${runtime.available ? "badge-ok" : "badge-mock"}`}>
-            {frameUrl ? "앱 주소" : runtime.label}
-          </span>
-        </span>
-        <span style={{ flex: "1 1 auto" }} />
-        {runtimeAvailable && hasEntry && onRefreshRuntime && (
+      <div className={styles.previewBar} role="toolbar" aria-label="미리보기 도구">
+        {toolbarStart}
+        <span className={styles.previewBarSpacer} />
+        {runtime.available && (
           <button
-            className="btn btn-sm"
+            className={styles.toolButton}
             type="button"
-            onClick={onRefreshRuntime}
-            disabled={refreshing}
-            title="지금 파일을 앱 주소에 올립니다"
+            onClick={() => setRun((n) => n + 1)}
+            aria-label="새로 고침"
+            title="새로 고침 — 앱을 처음부터 다시 실행해요"
           >
-            {refreshing ? "올리는 중…" : "미리보기 갱신"}
+            <RefreshCw size={15} aria-hidden="true" />
           </button>
         )}
         {frameUrl && (
           <a
-            className="btn btn-sm"
+            className={`${styles.toolButton} ${styles.toolSecondary}`}
             href={appUrl ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="새 창에서 열기"
+            title="새 창에서 열기"
           >
-            새 창에서 열기
+            <ExternalLink size={15} aria-hidden="true" />
           </a>
         )}
-        {runtime.available && (
-          <button className="btn btn-sm" type="button" onClick={() => setRun((n) => n + 1)}>
-            새로 고침
+        {canUpload && (
+          <button
+            className={`${styles.toolButton} ${styles.toolSecondary}`}
+            type="button"
+            onClick={onRefreshRuntime}
+            disabled={refreshing}
+            aria-label="미리보기 갱신"
+            title={refreshing ? "올리는 중…" : "미리보기 갱신 — 지금 파일을 앱 주소에 다시 올려요"}
+          >
+            <Upload size={15} aria-hidden="true" />
           </button>
         )}
+        {overflow.length > 0 && (
+          <span className={styles.toolOverflow}>
+            <MenuButton className={styles.toolButton} label="미리보기 도구 더 보기" title="더 보기" items={overflow}>
+              <MoreHorizontal size={15} aria-hidden="true" />
+            </MenuButton>
+          </span>
+        )}
         <button
-          className="btn btn-sm"
+          className={styles.toolButton}
           type="button"
           onClick={() => setFullscreen((value) => !value)}
           aria-pressed={fullscreen}
+          aria-label={fullscreen ? "작게 보기" : "크게 보기"}
+          title={fullscreen ? "작게 보기" : "크게 보기"}
         >
-          {fullscreen ? "작게 보기" : "크게 보기"}
+          {fullscreen ? <Minimize2 size={15} aria-hidden="true" /> : <Maximize2 size={15} aria-hidden="true" />}
         </button>
+        {toolbarEnd}
       </div>
+      {refreshing && (
+        <p className="sr-only" role="status">
+          미리보기를 올리는 중…
+        </p>
+      )}
 
       <div className={styles.previewBody}>
         {frameUrl ? (

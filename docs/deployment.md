@@ -831,6 +831,17 @@ dc exec api python -m app.db.rewrite_app_runtime
 출력: `게시된 앱 N개, 작업 중 사본 M개를 다시 썼습니다.` 예전 주소
 (`/<앱>/index.html`)는 새 주소로 넘어갑니다(301).
 
+### Builder 화면 정리(quality-tuning Q3)를 올린 뒤 한 번
+
+Q3부터 안내 문서(README.md · CLAUDE.md · HANDOFF_PROMPT.md · HISTORY.md ·
+SPEC.md)는 앱 주소(`apps.<도메인>`)에 올리지 않습니다 — 프로젝트와 내려받는
+ZIP에만 있습니다. 이미 올라가 있는 앱 폴더에는 남아 있으니, 배포한 뒤 **한 번**
+모든 앱 폴더를 다시 씁니다(데이터베이스는 바뀌지 않음, 두 번 해도 같음):
+
+```bash
+dc exec api python -m app.db.rewrite_app_runtime
+```
+
 ## 13. 나중에 키울 때 (지금은 하지 않음) 💳
 
 같은 이미지를 그대로 쓰므로 코드를 고치지 않고 옮길 수 있습니다. 어느 쪽이든

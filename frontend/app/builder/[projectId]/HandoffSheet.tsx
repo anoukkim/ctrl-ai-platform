@@ -24,6 +24,8 @@ import {
   describeError,
   fillExtra,
   getHandoff,
+  GUIDE_DOC_HINT,
+  isGuideDoc,
   type HandoffInfo,
   type HandoffVersion,
 } from "@/lib/projects";
@@ -60,7 +62,7 @@ async function writeClipboard(text: string): Promise<boolean> {
 }
 
 /** 복사 단추 — 누르면 2초 동안 "복사됨". 화면 읽기 프로그램에도 알립니다. */
-function CopyButton({ text, label }: { text: string; label: string }) {
+export function CopyButton({ text, label }: { text: string; label: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -150,6 +152,8 @@ export default function HandoffSheet({ projectId, mode, onClose }: Props) {
   const published = info?.published_version_number ?? null;
   const zipUrl = builderProjectDownloadUrl(projectId, version, mode === "claude" ? extra : "");
   const prompt = info ? fillExtra(info.prompt, info.extra_marker, info.extra_label, extra) : "";
+  const guides = (info?.files ?? []).filter((file) => isGuideDoc(file.path));
+  const appFiles = (info?.files ?? []).filter((file) => !isGuideDoc(file.path));
   const title = mode === "download" ? "프로젝트 내려받기" : "내 Claude로 이어서 만들기";
 
   const versionPicker =
@@ -214,17 +218,43 @@ export default function HandoffSheet({ projectId, mode, onClose }: Props) {
       {info && mode === "download" && (
         <>
           {versionPicker}
-          <div>
-            <p className={dialog.fieldLabel}>ZIP에 들어가는 파일 ({info.files.length}개)</p>
-            <ul className={styles.fileList} data-testid="handoff-files">
-              {info.files.map((file) => (
-                <li key={file.path} className={styles.fileRow}>
-                  <code className={styles.filePath}>{file.path}</code>
-                  {file.generated && <span className="badge badge-muted">안내</span>}
-                  <span className={styles.fileSize}>{sizeLabel(file.bytes)}</span>
-                </li>
-              ))}
-            </ul>
+          {/* 안내 문서를 한 묶음으로 먼저, 그다음 앱 파일 (quality-tuning Q3). */}
+          <div data-testid="handoff-files">
+            {guides.length > 0 && (
+              <div className={styles.fileGroup}>
+                <p className={dialog.fieldLabel} id={`${id}-guides`}>
+                  내 Claude용 안내 문서 ({guides.length}개)
+                </p>
+                <ul className={styles.fileList} aria-labelledby={`${id}-guides`} data-testid="handoff-guides">
+                  {guides.map((file) => (
+                    <li
+                      key={file.path}
+                      className={styles.fileRow}
+                      title={GUIDE_DOC_HINT[file.path as keyof typeof GUIDE_DOC_HINT]}
+                    >
+                      <code className={styles.filePath}>{file.path}</code>
+                      <span className={styles.fileHint}>
+                        {GUIDE_DOC_HINT[file.path as keyof typeof GUIDE_DOC_HINT]}
+                      </span>
+                      <span className={styles.fileSize}>{sizeLabel(file.bytes)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className={styles.fileGroup}>
+              <p className={dialog.fieldLabel} id={`${id}-apps`}>
+                앱 파일 ({appFiles.length}개)
+              </p>
+              <ul className={styles.fileList} aria-labelledby={`${id}-apps`} data-testid="handoff-app-files">
+                {appFiles.map((file) => (
+                  <li key={file.path} className={styles.fileRow}>
+                    <code className={styles.filePath}>{file.path}</code>
+                    <span className={styles.fileSize}>{sizeLabel(file.bytes)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
           <p className={styles.note}>
             비밀값, 사용량·비용, 다른 회원의 정보는 들어가지 않아요. 파일 이름: <code>{info.filename}</code>

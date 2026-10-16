@@ -6,7 +6,7 @@
  * "복사됨"(2초), 탭의 키보드 이동, Esc로 닫기.
  */
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -88,7 +88,16 @@ describe("프로젝트 내려받기", () => {
     const list = await screen.findByTestId("handoff-files");
     expect(list.textContent).toContain("index.html");
     expect(list.textContent).toContain("README.md");
-    expect(screen.getAllByText("안내")).toHaveLength(2);
+    // 안내 문서는 이름 붙은 묶음으로 앱 파일 위에, 한 줄 설명과 함께 (Q3).
+    const guides = screen.getByRole("list", { name: "내 Claude용 안내 문서 (2개)" });
+    expect(within(guides).getByText("README.md")).toBeTruthy();
+    expect(within(guides).getByText("CLAUDE.md")).toBeTruthy();
+    expect(within(guides).queryByText("index.html")).toBeNull();
+    expect(guides.textContent).toContain("Claude가 먼저 읽는 파일 구조와 규칙");
+    const apps = screen.getByRole("list", { name: "앱 파일 (1개)" });
+    expect(within(apps).getByText("index.html")).toBeTruthy();
+    expect(guides.compareDocumentPosition(apps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("안내")).toBeNull();
     const link = screen.getByTestId("handoff-download");
     expect(link.getAttribute("href")).toBe("/api/builder/projects/7/download");
     expect(link.hasAttribute("download")).toBe(true);

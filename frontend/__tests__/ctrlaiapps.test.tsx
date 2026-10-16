@@ -191,7 +191,8 @@ describe("Builder의 게시", () => {
     await waitFor(() => expect(container.querySelector("iframe")).not.toBeNull());
     expect(container.querySelector("iframe")!.getAttribute("src")).toContain("/d7r4ftw2pq/");
 
-    await user.click(await screen.findByRole("button", { name: "게시된 버전 (v1)" }));
+    // 도구 줄 맨 앞의 버전 고르기 (quality-tuning Q3).
+    await user.selectOptions(await screen.findByLabelText("미리볼 버전"), "게시된 v1");
     expect(container.querySelector("iframe")!.getAttribute("src")).toContain("/k3m9qx7pwa/");
   });
 
@@ -199,7 +200,7 @@ describe("Builder의 게시", () => {
     projectsApi.labelVersion.mockResolvedValue({ ...versions(3)[1], pinned: true });
     const user = userEvent.setup();
     render(<BuilderWorkspace projectId="7" />);
-    await user.click(await screen.findByText("버전 기록 (3)"));
+    await user.click(await screen.findByText("모든 버전 (3)"));
     await user.click(screen.getByRole("button", { name: "v2 고정하기" }));
     expect(projectsApi.labelVersion).toHaveBeenCalledWith("7", 2, { pinned: true });
 

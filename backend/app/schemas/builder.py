@@ -163,6 +163,21 @@ class VersionRead(BaseModel):
     pinned: bool = False
     #: The version CtrlAIApps serves.
     published: bool = False
+    #: 만들기 / 고치기 that made it (quality-tuning Q3, the Claude panel's
+    #: history): the member's request, Claude's summary, how many files it
+    #: wrote, and what it cost in all. Empty / None for versions made
+    #: otherwise (되돌리기, 예시 앱, the generation row gone).
+    request: str = ""
+    summary: str = ""
+    changed_count: int | None = None
+    charged_krw: int | None = None
+
+
+class VersionFileRead(BaseModel):
+    """One file as it was in a saved version (이 버전 보기, quality-tuning Q3)."""
+
+    path: str
+    content: str
 
 
 class VersionLabel(BaseModel):

@@ -143,6 +143,7 @@ def test_someone_elses_project_is_not_found(
 ) -> None:
     assert generate(other_client, project, "바꿔 줘").status_code == 404
     assert other_client.get(f"/api/builder/projects/{project.id}/versions").status_code == 404
+    assert other_client.get(f"/api/builder/projects/{project.id}/versions/1/files").status_code == 404
 
 
 # ------------------------------------------------------------ the file rules
@@ -196,6 +197,23 @@ def test_restoring_a_version_is_free_and_is_itself_a_version(
     assert db_session.query(UsageEvent).count() == charged
 
     assert client.post(f"/api/builder/projects/{project.id}/versions/99/restore", json={}).status_code == 404
+
+
+def test_a_versions_files_can_be_read_without_changing_anything(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    """이 버전 보기 (quality-tuning Q3): free, read-only, owner only."""
+    generate(client, project, "앱을 만들어 줘")
+    first = files_of(db_session, project)
+    generate(client, project, "버튼 색을 바꿔 줘")
+    charged = db_session.query(UsageEvent).count()
+
+    response = client.get(f"/api/builder/projects/{project.id}/versions/1/files")
+    assert response.status_code == 200, response.text
+    assert {row["path"]: row["content"] for row in response.json()} == first
+    assert files_of(db_session, project) != first
+    assert db_session.query(UsageEvent).count() == charged
+    assert client.get(f"/api/builder/projects/{project.id}/versions/99/files").status_code == 404
 
 
 def test_only_the_last_thirty_versions_are_kept(db_session: Session, project) -> None:
@@ -255,6 +273,33 @@ def test_a_projects_folder_holds_only_that_project(
     assert not (apps_dir / one.draft_slug / "two.js").exists()
     # Nothing is public until 게시 (ctrlaiapps-publish).
     assert one.app_slug is None and two.app_slug is None
+
+
+def test_guide_docs_stay_in_the_project_and_are_never_served(
+    client: TestClient, db_session: Session, project, budgeted, config, apps_dir
+) -> None:
+    """quality-tuning Q3: README / CLAUDE / HANDOFF_PROMPT / HISTORY / SPEC
+    belong to the project and its ZIP, not to the app on apps.ctrlai.my —
+    neither the working copy nor the published version. A file of the
+    same name inside a folder is the app's own and is served."""
+    files = {"index.html": "<p>앱</p>", "notes/README.md": "앱 안의 글"}
+    files.update({name: f"# {name}" for name in builder_files.GUIDE_DOCS})
+    builder_versions.replace_files(db_session, project, files)
+    db_session.commit()
+
+    assert client.post(f"/api/builder/projects/{project.id}/runtime", json={}).status_code == 200
+    db_session.refresh(project)
+    draft = apps_dir / project.draft_slug
+    assert sorted(p.name for p in draft.iterdir()) == ["index.html", "notes"]
+    assert (draft / "notes" / "README.md").is_file()
+
+    app_runtime.write_public(db_session, config, project, files)
+    public = apps_dir / project.app_slug
+    for name in builder_files.GUIDE_DOCS:
+        assert not (public / name).exists()
+    assert (public / "index.html").is_file()
+    # The project itself keeps every guide.
+    assert set(builder_files.GUIDE_DOCS) <= set(files_of(db_session, project))
 
 
 def test_deleting_a_project_stops_serving_it(

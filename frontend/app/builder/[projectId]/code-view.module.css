@@ -1,0 +1,111 @@
+/* 코드 보기 (quality-tuning Q3). */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--panel);
+}
+
+.scroll:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: -2px;
+}
+
+/* 줄마다 [번호 | 내용] 한 줄. 줄 바꿈을 켜도 번호는 그 줄의 첫 줄에 붙어 있습니다. */
+.code {
+  display: grid;
+  min-width: max-content;
+  padding: 10px 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 3.6em 1fr;
+}
+
+.number {
+  padding: 0 12px 0 0;
+  color: var(--text-dim);
+  opacity: 0.75;
+  text-align: right;
+  user-select: none;
+}
+
+.text {
+  padding-right: 16px;
+  color: var(--text);
+  font: inherit;
+  white-space: pre;
+}
+
+.wrap {
+  min-width: 0;
+}
+
+.wrap .text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* .md를 펼친 모습 — 채팅 답장과 같은 글꼴과 간격, 옆으로 밀리지 않게. */
+.markdown {
+  max-width: 48rem;
+  padding: 14px 20px 24px;
+  overflow-wrap: anywhere;
+}
+
+/* 글자 색칠. 색은 토큰이라 밝은 테마에서는 어두운 쪽 값으로 바뀝니다. */
+.tokKeyword {
+  color: var(--code-keyword);
+}
+
+.tokString {
+  color: var(--code-string);
+}
+
+.tokTag {
+  color: var(--accent);
+}
+
+.tokComment {
+  color: var(--text-dim);
+  font-style: italic;
+}

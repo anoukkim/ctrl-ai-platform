@@ -30,6 +30,22 @@ MAX_PROJECT_BYTES = 2_000_000
 MAX_DEPTH = 3
 ENTRY_FILE = "index.html"
 
+#: 안내 문서 (quality-tuning Q3): the guides CTRL+AI writes for the
+#: member's own Claude, at the project's top level. They belong to the
+#: project and its ZIP, never to the app — the runtime does not serve them
+#: on apps.ctrlai.my, and the Builder groups them apart from the app files.
+GUIDE_DOCS = ("README.md", "CLAUDE.md", "HANDOFF_PROMPT.md", "HISTORY.md", "SPEC.md")
+
+
+def is_guide(path: str) -> bool:
+    """True for a top-level 안내 문서 (README.md, CLAUDE.md, …)."""
+    return path in GUIDE_DOCS
+
+
+def app_files(files: dict[str, str]) -> dict[str, str]:
+    """The files that make up the app itself — everything but 안내 문서."""
+    return {path: content for path, content in files.items() if not is_guide(path)}
+
 
 class FileRuleError(Exception):
     """A Korean sentence for the member."""

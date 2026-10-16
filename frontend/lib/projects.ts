@@ -234,6 +234,34 @@ export interface BuilderVersion {
   pinned?: boolean;
   /** CtrlAIApps에 게시된 버전. */
   published?: boolean;
+  /**
+   * 이 버전을 만든 만들기 / 고치기 (quality-tuning Q3 — Claude 판의 대화).
+   * 되돌리기·예시 앱처럼 Claude가 만들지 않은 버전은 비어 있어요.
+   */
+  request?: string;
+  summary?: string;
+  changed_count?: number | null;
+  charged_krw?: number | null;
+}
+
+/**
+ * 안내 문서 (quality-tuning Q3) — 내 Claude가 읽을 글. 앱 파일과 따로 묶고,
+ * 앱 주소(apps.ctrlai.my)에는 올라가지 않아요. 백엔드 builder_files.GUIDE_DOCS와 같은 목록.
+ */
+export const GUIDE_DOCS = ["README.md", "CLAUDE.md", "HANDOFF_PROMPT.md", "HISTORY.md", "SPEC.md"] as const;
+
+/** 안내 문서마다 한 줄 설명. */
+export const GUIDE_DOC_HINT: Record<(typeof GUIDE_DOCS)[number], string> = {
+  "README.md": "앱 설명과 여는 법, 다음에 해 볼 만한 것",
+  "CLAUDE.md": "Claude가 먼저 읽는 파일 구조와 규칙",
+  "HANDOFF_PROMPT.md": "claude.ai에 그대로 붙여 넣을 부탁 글",
+  "HISTORY.md": "버전마다 무엇을 요청했는지",
+  "SPEC.md": "이 앱의 원래 기획",
+};
+
+/** 맨 위에 있는 안내 문서인지. 폴더 안의 같은 이름은 앱 파일이에요. */
+export function isGuideDoc(path: string): boolean {
+  return (GUIDE_DOCS as readonly string[]).includes(path);
 }
 
 export interface GenerateResult {
@@ -264,6 +292,14 @@ export function generateProject(
 
 export function listVersions(id: number | string): Promise<BuilderVersion[]> {
   return request<BuilderVersion[]>(`/builder/projects/${id}/versions`);
+}
+
+/** 이 버전 보기: 저장된 버전의 파일(읽기만, 무료). */
+export function getVersionFiles(
+  id: number | string,
+  number: number,
+): Promise<{ path: string; content: string }[]> {
+  return request<{ path: string; content: string }[]>(`/builder/projects/${id}/versions/${number}/files`);
 }
 
 export interface RestoreResult {

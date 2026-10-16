@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # move (personal-topup-off, 2026-10-14); the tables and routes stay,
     # refusing with a Korean message. personal-topup-ui turns it back on.
     personal_topup_enabled: bool = False
+    # GitHub in the Builder (Phase 4). Off until that phase lands
+    # (quality-tuning Q3): the Builder shows no GitHub badge or button
+    # rather than a dead one.
+    github_enabled: bool = False
     # Admin > Budget shows the month's Anthropic spend (USD, summed from
     # provider_cost) against this figure, warning at 80%. Empty = no bar.
     # Informational only — the real stop is the Console's own monthly

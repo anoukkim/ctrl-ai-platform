@@ -146,9 +146,11 @@ def _checked(settings: Settings, files: dict[str, str]) -> dict[str, str]:
         raise AppRuntimeError("index.html이 있어야 미리보기를 갱신할 수 있습니다.", 409)
     try:
         builder_files.check_project(files)
-        return {builder_files.clean_path(path): content for path, content in files.items()}
+        cleaned = {builder_files.clean_path(path): content for path, content in files.items()}
     except builder_files.FileRuleError as error:
         raise AppRuntimeError(str(error), 400) from error
+    # 안내 문서 stay in the project and its ZIP; only the app is served (Q3).
+    return builder_files.app_files(cleaned)
 
 
 def write_draft(

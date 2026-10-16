@@ -110,6 +110,7 @@ the same commit that adds it.
 | `GET /api/builder/projects/{id}/generate-estimate` | `get_current_user` | A price, nothing spent |
 | `POST /api/builder/projects/{id}/generate` | **`require_active_member`** | 만들기 / 고치기: Claude writes files — spends the wallet |
 | `GET /api/builder/projects/{id}/versions` | `get_current_user` | Reading your own work |
+| `GET /api/builder/projects/{id}/versions/{n}/files` | `get_current_user` | 이 버전 보기 — reading an old version (free, read-only) |
 | `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 되돌리기 — changing your work (free) |
 | `POST /api/builder/projects/{id}/runtime` | **`require_active_member`** | 미리보기 갱신 — writes the files to `apps.ctrlai.my` |
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |

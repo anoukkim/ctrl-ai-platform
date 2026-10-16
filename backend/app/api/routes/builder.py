@@ -56,6 +56,7 @@ from app.schemas.builder import (
     StarterEstimateRead,
     StarterRead,
     StarterRequest,
+    VersionFileRead,
     VersionRead,
 )
 from app.services import (
@@ -518,8 +519,17 @@ def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -
         logger.warning("app runtime write failed for project %s: %s", project.id, error)
 
 
-def _version_read(version: BuilderProjectVersion, project: BuilderProject | None = None) -> VersionRead:
+def _version_read(
+    version: BuilderProjectVersion,
+    project: BuilderProject | None = None,
+    generation: BuilderGeneration | None = None,
+) -> VersionRead:
+    made = generation is not None
     return VersionRead(
+        request=generation.request if made else "",
+        summary=generation.summary if made else "",
+        changed_count=len(set(generation.files_done) | set(generation.check_fixed)) if made else None,
+        charged_krw=generation.charged_krw if made else None,
         number=version.number,
         note=version.note,
         created_at=version.created_at,
@@ -633,8 +643,41 @@ def list_versions(
 ) -> list[VersionRead]:
     """Readable while not participating, like the files themselves."""
     project = _owned_project(project_id, db, user)
+    versions = builder_versions.list_versions(db, project)
+    # The generation that made each version, for the Claude panel's history.
+    made_by = {
+        generation.version_id: generation
+        for generation in db.scalars(
+            select(BuilderGeneration).where(
+                BuilderGeneration.version_id.in_([version.id for version in versions]),
+                BuilderGeneration.status == "done",
+            )
+        )
+    }
+    return [_version_read(version, project, made_by.get(version.id)) for version in versions]
+
+
+@router.get(
+    "/projects/{project_id}/versions/{number}/files",
+    response_model=list[VersionFileRead],
+    summary="이 버전 보기: a saved version's files, read-only",
+)
+def version_files(
+    project_id: int,
+    number: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[VersionFileRead]:
+    """Readable while not participating, like the files themselves. Free;
+    nothing changes — the Builder previews these in the page."""
+    project = _owned_project(project_id, db, user)
+    try:
+        version = builder_versions.find(db, project, number)
+    except builder_versions.VersionError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
     return [
-        _version_read(version, project) for version in builder_versions.list_versions(db, project)
+        VersionFileRead(path=str(path), content=str(content))
+        for path, content in sorted(version.files, key=lambda pair: str(pair[0]))
     ]
 
 
