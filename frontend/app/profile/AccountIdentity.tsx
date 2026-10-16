@@ -94,37 +94,50 @@ export function NotificationSettings() {
       <h2 className="section-title" id="profile-notifications">
         알림
       </h2>
-      <label className={styles.row} style={{ alignItems: "center", gap: "0.6rem" }}>
-        <input
-          type="checkbox"
-          checked={enabled}
-          disabled={busy}
-          onChange={() => void toggle()}
-          data-testid="spend-notifications-toggle"
-        />
-        <span>
-          <strong>사용 알림 표시</strong>
-          <span className="small dim" style={{ display: "block" }}>
-            지원금에서 돈이 빠질 때 &ldquo;12원을 사용했어요!&rdquo; 알림과 사이드바의 &ldquo;-12원&rdquo;,
-            25·50·75% 같은 이정표를 보여 줍니다.
-          </span>
-        </span>
-      </label>
-      <label className={styles.row} style={{ alignItems: "center", gap: "0.6rem" }}>
-        <input
-          type="checkbox"
-          checked={sound}
-          disabled={!enabled}
-          onChange={() => setSound(!sound)}
-          data-testid="spend-sound-toggle"
-        />
-        <span>
-          <strong>띠링 소리</strong>
-          <span className="small dim" style={{ display: "block" }}>
-            돈이 빠질 때 짧은 소리를 함께 냅니다. 이 기기에만 적용되고, 기본은 꺼져 있어요.
-          </span>
-        </span>
-      </label>
+      {/* 두 줄이 같은 모양: 제목과 한 줄 설명은 왼쪽, 스위치는 오른쪽
+          (owner, 2026-10-16). 체크박스가 스위치로 보이고, 키보드와 화면
+          읽기는 체크박스 그대로입니다. */}
+      <div className={styles.switchRows}>
+        <div className={styles.switchRow}>
+          <label className={styles.switchText} htmlFor="spend-notifications-toggle">
+            <strong>사용 알림 표시</strong>
+            <span className="small dim">
+              지원금에서 돈이 빠질 때 &ldquo;12원을 사용했어요!&rdquo; 알림과 사이드바의 &ldquo;-12원&rdquo;,
+              25·50·75% 같은 이정표를 보여 줍니다.
+            </span>
+          </label>
+          <input
+            className={styles.switch}
+            id="spend-notifications-toggle"
+            type="checkbox"
+            role="switch"
+            aria-checked={enabled}
+            checked={enabled}
+            disabled={busy}
+            onChange={() => void toggle()}
+            data-testid="spend-notifications-toggle"
+          />
+        </div>
+        <div className={styles.switchRow}>
+          <label className={styles.switchText} htmlFor="spend-sound-toggle">
+            <strong>띠링 소리</strong>
+            <span className="small dim">
+              돈이 빠질 때 짧은 소리를 함께 냅니다. 이 기기에만 적용되고, 기본은 꺼져 있어요.
+            </span>
+          </label>
+          <input
+            className={styles.switch}
+            id="spend-sound-toggle"
+            type="checkbox"
+            role="switch"
+            aria-checked={sound}
+            checked={sound}
+            disabled={!enabled}
+            onChange={() => setSound(!sound)}
+            data-testid="spend-sound-toggle"
+          />
+        </div>
+      </div>
       <p className="small dim" style={{ marginTop: "0.6rem" }}>
         움직임 줄이기: 기기에서 &ldquo;동작 줄이기&rdquo;를 켜 두면 숫자가 세어 내려가지 않고
         튀어오르는 동전과 소리 없이 알림만 나옵니다.
