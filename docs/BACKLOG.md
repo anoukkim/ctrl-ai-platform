@@ -163,47 +163,8 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-7. **promo-videos** · M1 · branch `feat-promo-videos`
-    *Not pre-approved — branch, test, report, WAIT. Order: after
-    publish-summary (merged 2026-10-16).* **Status 2026-10-16: built on
-    the branch, tests green, waiting for the owner** — see
-    `progress/RUN-2026-10-16.md` › PV. Owner, 2026-10-16 (relayed from another session,
-    their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
-    — 2번(데스크탑), 3번(모바일 영상) — 이거를 각각 가이드 마지막(화면
-    임베디드, 크게 보기 가능) 그리고 ctrl tube에 그냥 기본적으로 나오는
-    영상 하나(리액션 댓글 가능하게. 나머지 영상들은 유튜브일텐데 얘는 그냥
-    기본으로) 나오게 해줘" — this is owner-polish 7. Sources on
-    `origin/chore-promo-videos`: `promo-videos/02-swiss-garage.mp4`
-    (1920×1080, 13.8 MB, desktop) and `03-y2k-jersey.mp4` (1080×1920,
-    23.9 MB, mobile); original music per its README. Do not commit the
-    originals: re-encode with ffmpeg for the web (H.264 + AAC, +faststart,
-    about 1280×720 and 720×1280, roughly 5–8 MB each, check the quality)
-    plus a JPG poster, commit only those; decide and report where they are
-    served from (e.g. `frontend/public`) and the cache headers;
-    `preload="metadata"`, never autoplay (data, sound). (1) FirstVisitGuide
-    (four steps today) gets a last step "CTRL+AI 한눈에 보기": the video in
-    the page with controls, 크게 보기 / fullscreen; 02 on desktop, 03 at
-    phone widths; sound only when the viewer turns it on; reduced motion,
-    keyboard and screen readers considered. Also *propose* in the report
-    (owner decides) replacing step 3 "Video Generator — 영상 만들기", which
-    contradicts owner-polish 6 (video locked this quarter), with a
-    CtrlAIApps introduction. (2) CtrlAITube: a default video first in the
-    grid marked "공식", played in the page from our file (02/03 by width),
-    with real reactions and comments on its detail screen. CtrlAITube is
-    all `MOCK_VIDEOS` today, so this needs the backend: design the video
-    rows with a source kind (hosted / youtube) with Phase 8 in view,
-    reaction and comment tables + an Alembic migration + routes (reads
-    `get_current_user`, writes `require_active_member`, another member's
-    comment 404/403), admin hide/delete (reason, audited) and 신고 through
-    the existing report queue, the CLAUDE.md §10 `deleted_at` rule, the
-    guard map. The other sample cards stay marked as test data. Tests: the
-    guide's last step (desktop/mobile choice, 크게 보기), the Tube default
-    video element, reaction/comment CRUD and permissions (non-participating
-    members read only; another member's comment), admin hide, 신고.
-    Screenshots 1440 · 390, light and dark.
-
-8. **ui-improvements** · M1 · branch `feat-ui-improvements`
-    *Not pre-approved — after promo-videos is approved and deployed, show
+7. **ui-improvements** · M1 · branch `feat-ui-improvements`
+    *Not pre-approved — promo-videos merged 2026-10-16; once it is deployed, show
     the plan first and WAIT.* Owner, 2026-10-16 (relayed from another
     session): fold **owner-polish 15** (app detail screen) and **owner-polish
     4·5** (thumbnails) together with the UI points below into one bundle.
@@ -241,7 +202,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     `.env` list, builder check) in collapsed sections; (7) owner-polish 15
     and 4·5 as written.
 
-9. **app-libraries** · M3 · branch `feat-app-libraries`
+8. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
     be set by the owner.* (Renumbered as items joined and merged on
     2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
@@ -261,7 +222,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
 
-10. **dino-avatars** · M3 · branch `feat-dino-avatars`
+9. **dino-avatars** · M3 · branch `feat-dino-avatars`
     *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
     (decided in another session after four mock-ups; relayed): **"CTRL+AI
     공룡" profile avatars** replace the letter avatar. **No uploaded
