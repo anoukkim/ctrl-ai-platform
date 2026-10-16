@@ -583,7 +583,17 @@ New UI requests go here until they are folded into a UI batch.
   (e.g. the last few steps, not counted in the 30) besides the named
   snapshots; (2) 게시 must snapshot automatically (`published_version_id`
   needs a row); (3) what happens to the existing numbered versions (keep
-  them as snapshots). Not started; **needs the owner's "do it now"**.
+  them as snapshots). **Settled by the owner (2026-10-17):** versions are
+  saved snapshots (v1 → 작업1, 작업2 → 저장 → v2); between snapshots only
+  작업-step undo/redo; loading an old snapshot (v1) changes the working copy
+  only, and if there is unsaved work first asks "저장 안 한 작업이 있어요.
+  저장할까요?"; saving after that is simply **v3** (no branch numbers).
+  **Scheduled** (owner, 2026-10-17: "지금 main run 뭐 돌리고 있어서 그거
+  끝나고 돌리고 코드체크 배포까지") — starts only after the run now in
+  progress on main has finished; then build on `feat-builder-snapshots`,
+  code check (review) and tests, then merge + deploy under the same rules
+  as the other pre-approved items (review clean + tests pass; backup →
+  update.sh → verify → roll back + STOP on failure).
 - **app-fonts** — owner, 2026-10-17 (Builder: "글씨체가 안 고쳐졌어, 동글체
   사용" — the app only had system fonts; "이것저것 한글 폰트", "더 많은 한글
   폰트 올리게", "응 이거 진행"). A catalogue of 32 Korean OFL families
