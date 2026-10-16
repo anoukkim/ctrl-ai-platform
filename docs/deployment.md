@@ -25,11 +25,14 @@ ctrlai-server (Google Cloud, 서울)
    ├─ caddy   80/443 — HTTPS 인증서를 스스로 받고, www를 ctrlai.my로 돌려보냄
    ├─ web     Next.js — 화면, 그리고 /api/* 요청을 api로 넘김
    ├─ api     FastAPI — 서버의 .env를 읽음 (비밀 값은 여기에만)
-   └─ db      PostgreSQL 16 — 바깥에서 접속할 수 없음
+   ├─ db      PostgreSQL 16 — 바깥에서 접속할 수 없음
+   └─ thumbs  (켜면) 서버 안의 진짜 브라우저가 게시된 앱의 썸네일을 찍음 —
+              다른 넷과 망을 같이 쓰지 않고 api와 소켓으로만 이야기함
+              (thumbnail-render-worker)
 ```
 
-네 개는 모두 **Docker Compose** 하나(`docker-compose.prod.yml`)로 함께
-켜고 끕니다. 프로그램(이미지)은 GitHub Actions가 만들어 ghcr.io(GitHub의
+네 개(켜면 다섯 개)는 모두 **Docker Compose** 하나(`docker-compose.prod.yml`)로
+함께 켜고 끕니다. 프로그램(이미지)은 GitHub Actions가 만들어 ghcr.io(GitHub의
 이미지 저장소)에 올리고, 서버는 **받아 오기만** 합니다.
 
 ### 서버 정보
@@ -674,7 +677,9 @@ dc up -d
    ```
 
    백업 → `git pull` → 새 이미지 받기 → 마이그레이션 → 다시 시작을 차례로
-   합니다. 사이트는 api와 web이 바뀌는 몇 초 동안만 멈춥니다.
+   합니다. 사이트는 api와 web이 바뀌는 몇 초 동안만 멈춥니다. `thumbs`를
+   켜 두었으면(아래 "서버 썸네일 렌더러 켜기") 그 이미지도 같이 받고 다시
+   만듭니다 — 따로 할 일은 없습니다.
 3. https://ctrlai.my 를 열어 로그인해 봅니다.
 
 **되돌리기:** 새 버전에 문제가 있으면 `.env`의 `IMAGE_TAG=`를 이전 커밋의
@@ -722,6 +727,12 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 ---
 
 ## 11. 보안 점검표
+
+- `thumbs`를 켰다면: 위 12장 "서버 썸네일 렌더러 켜기" (b)의 IP 확인 셋이
+  모두 **실패**해야 정상입니다(브라우저 컨테이너는 db·api·web과 망을 같이
+  쓰지 않음). `dc logs thumbs`에 "Chromium sandbox OFF"가 없어야 합니다.
+  비밀 값 `THUMBNAIL_WORKER_SECRET`은 `.env`에만 있고, 바꾸면
+  `dc up -d thumbs api`.
 
 키 하나로 여러 회원이 쓰는 구조와 그 보호 장치(동시 호출 한도, 월 예산
 막대, 크레딧 소진 시의 동작, Console 쪽 규칙)는
@@ -851,6 +862,67 @@ ZIP에만 있습니다. 이미 올라가 있는 앱 폴더에는 남아 있으�
 ```bash
 dc exec api python -m app.db.rewrite_app_runtime
 ```
+
+### 서버 썸네일 렌더러 켜기 (thumbnail-render-worker) — 한 번
+
+2026-10-17부터 게시된 앱의 카드 그림을 **서버 안의 진짜 브라우저**(Chromium)가
+찍을 수 있습니다(`thumbs` 서비스). 기본값은 예전처럼 만든 사람·관리자의
+브라우저가 찍는 `browser`라서, 아무것도 바꾸지 않으면 배포 뒤에도 그대로입니다.
+켜려면 배포(`update.sh`)를 마친 뒤 **한 번**:
+
+1. 비밀 값을 하나 만들어 `.env`에 세 줄을 더합니다(`.env`는 그대로 `chmod 600`):
+
+   ```bash
+   cd ~/ctrl-ai-platform
+   secret=$(openssl rand -hex 32)
+   printf 'THUMBNAIL_RENDERER=server\nTHUMBNAIL_WORKER_SECRET=%s\nCOMPOSE_PROFILES=thumbs\n' "$secret" >> .env
+   ```
+
+   (`THUMBNAIL_WORKER_URL`과 유닉스 소켓 경로는 compose 파일이 정해 둡니다 —
+   `.env`에 적지 않습니다. api와 thumbs는 네트워크를 같이 쓰지 않고 공유
+   볼륨의 소켓으로만 이야기합니다.)
+2. 새 서비스의 이미지를 받고 둘을 다시 켭니다:
+
+   ```bash
+   dc pull thumbs
+   dc up -d thumbs api
+   ```
+
+3. 확인 — 셋 다 보고 나서 켜진 것으로 칩니다:
+
+   ```bash
+   dc ps                       # thumbs가 healthy
+   dc logs --tail 5 thumbs     # "thumbs listening on /run/thumbs/thumbs.sock for apps.ctrlai.my"
+                               # "Chromium sandbox OFF"가 보이면 안 됩니다
+   # (a) api가 소켓으로 닿는지
+   dc exec api python -c "import socket,http.client as h; s=socket.socket(socket.AF_UNIX); s.connect('/run/thumbs/thumbs.sock'); c=h.HTTPConnection('thumbs'); c.sock=s; c.request('GET','/health'); print(c.getresponse().status)"
+   # (b) thumbs에서 db·api·web으로 가는 길이 없는지 — 이름이 아니라 IP로
+   #     (같은 망이 아니면 이름은 어차피 안 풀립니다). 셋 다 "막힘"이어야 정상.
+   ip_of() { docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$(dc ps -q "$1")" | awk '{print $1}'; }
+   for pair in db:5432 api:8000 web:3000; do
+     s=${pair%%:*}; port=${pair##*:}; ip=$(ip_of "$s")
+     if dc exec thumbs python -c "import socket; socket.create_connection(('$ip', $port), timeout=3)" 2>/dev/null; then
+       echo "!! thumbs가 $s($ip:$port)에 닿음 — 켜지 말고 알려 주세요"
+     else
+       echo "thumbs → $s($ip:$port) 막힘 (정상)"
+     fi
+   done
+   ```
+
+   그다음 https://ctrlai.my/admin/apps 에서 **썸네일 다시 만들기**를 누르면
+   안내가 "서버의 브라우저가 … 찍어요"로 바뀌고, 앱 하나에 10초쯤 걸리며
+   저장된 수가 늘어납니다. 첫 앱이 **실패**로 나오면 `dc logs thumbs`를
+   봅니다 — `page failed`/`render timed out`이면 컨테이너가 자기 서버의
+   공개 주소(apps.ctrlai.my)로 되돌아오지 못하는 것이니(GCE에서는 되는 것이
+   보통입니다) 켜지 말고 알려 주세요; 그동안 그림은 회원 브라우저가 찍은
+   것이 그대로 남습니다. 그 뒤로는 회원이 게시할 때마다 몇 초 뒤 서버가
+   찍은 그림으로 바뀝니다(그 전에 회원 브라우저가 찍은 그림이 먼저 저장되니,
+   서버가 실패해도 그림은 남습니다).
+
+끄려면 `.env`에서 `THUMBNAIL_RENDERER=browser`로 돌리고(또는 줄을 지우고)
+`COMPOSE_PROFILES=` 비운 뒤 `dc up -d --remove-orphans api` — thumbs가
+내려가고 예전 방식으로 돌아갑니다. 메모리: thumbs는 768 MB까지만 씁니다
+(e2-medium의 남은 ~2.8 GB 안).
 
 ## 13. 나중에 키울 때 (지금은 하지 않음) 💳
 

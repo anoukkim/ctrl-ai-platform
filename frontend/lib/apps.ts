@@ -143,6 +143,18 @@ export function adminUploadThumbnail(projectId: number, image: Blob): Promise<Ad
   return uploadBytes<AdminAppOverview>(`/admin/apps/${projectId}/thumbnail`, image, {}, "썸네일을 저장하지 못했어요");
 }
 
+/** thumbnail-render-worker: 누가 썸네일을 찍는지 — 관리자 브라우저(browser) 또는 서버의 브라우저(server). */
+export type ThumbnailRenderer = "browser" | "server";
+
+export function getThumbnailRenderer(): Promise<{ renderer: ThumbnailRenderer }> {
+  return request<{ renderer: ThumbnailRenderer }>("/admin/apps/thumbnail-renderer");
+}
+
+/** thumbnail-render-worker: 서버가 게시된 앱을 직접 찍어 저장해요 — 한 번에 하나, 20초 안에. */
+export function adminRenderThumbnail(projectId: number): Promise<AdminAppOverview> {
+  return request<AdminAppOverview>(`/admin/apps/${projectId}/thumbnail/render`, { method: "POST", body: JSON.stringify({}) });
+}
+
 export function getAdminApp(projectId: number): Promise<AdminAppOverview> {
   return request<AdminAppOverview>(`/admin/apps/${projectId}`);
 }

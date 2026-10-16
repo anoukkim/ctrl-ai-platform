@@ -84,7 +84,7 @@ from app.services import (
     publish_summary,
     project_zip,
 )
-from app.services import thumbnails
+from app.services import thumbnail_render, thumbnails
 from app.services import usage as usage_service
 from app.services.attachments import AttachmentRefusal
 from app.services.quiet import quiet_update
@@ -937,6 +937,11 @@ def publish_project(
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
     db.commit()
     db.refresh(project)
+    # thumbnail-render-worker: with THUMBNAIL_RENDERER=server the published
+    # version is photographed by the server's own browser, in the
+    # background, after this answer; the Builder's in-browser capture
+    # still runs and is the fallback. A no-op while `browser`.
+    thumbnail_render.enqueue(config, project.id)
     return project
 
 

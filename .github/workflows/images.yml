@@ -1,8 +1,11 @@
 # Build the two images the server runs and push them to GitHub's container
 # registry (ghcr.io). The server only pulls (docs/deployment.md).
 #
-#   ghcr.io/anoukkim/ctrl-ai-platform-api:latest   (and :<commit sha>)
-#   ghcr.io/anoukkim/ctrl-ai-platform-web:latest   (and :<commit sha>)
+#   ghcr.io/anoukkim/ctrl-ai-platform-api:latest    (and :<commit sha>)
+#   ghcr.io/anoukkim/ctrl-ai-platform-web:latest    (and :<commit sha>)
+#   ghcr.io/anoukkim/ctrl-ai-platform-thumbs:latest (and :<commit sha>) —
+#       the thumbnail render worker (thumbnail-render-worker), a pinned
+#       Playwright image plus thumbs/worker.py
 #
 # Runs on every push to main — that is, after an item is merged — and can
 # be started by hand from the Actions tab. The tests run first; a red test
@@ -68,6 +71,9 @@ jobs:
             context: frontend
             # Compiled into the Next.js /api/* rewrite. Not a secret.
             build-args: BACKEND_ORIGIN=http://api:8000
+          - name: thumbs
+            context: thumbs
+            build-args: ""
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

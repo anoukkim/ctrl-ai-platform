@@ -1,12 +1,16 @@
 # CTRL+AI — the beta server (ctrlai-server, Google Cloud, Seoul).
 #
-# Four services on one VM:
+# Four services on one VM, and a fifth behind a profile:
 #
 #   caddy  80/443, HTTPS from Let's Encrypt     — the only published ports
 #          (ctrlai.my, and member apps on apps.ctrlai.my from `apps_data`)
 #   web    Next.js (standalone)                 — pages + /api/* rewrite
 #   api    FastAPI                              — reads the server's .env
 #   db     PostgreSQL 16                        — NO published port
+#   thumbs headless Chromium (thumbnail-render-worker) — only with
+#          COMPOSE_PROFILES=thumbs in .env; shares NO network with the
+#          other four (the api talks to it over a unix socket in a shared
+#          volume), see the service
 #
 # The server only PULLS images; GitHub Actions builds them
 # (.github/workflows/images.yml). Step-by-step: docs/deployment.md.
@@ -79,9 +83,16 @@ services:
       # Caddy serves the same volume read-only on apps.<domain>.
       APPS_DIR: /app/var/apps
       APPS_BASE_URL: https://apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
+      # thumbnail-render-worker: the `thumbs` service answers on a unix
+      # socket in the `thumbs_sock` volume — no network between the two.
+      # Fixed here like APPS_BASE_URL; the .env chooses THUMBNAIL_RENDERER
+      # and holds THUMBNAIL_WORKER_SECRET.
+      THUMBNAIL_WORKER_URL: http://thumbs
+      THUMBNAIL_WORKER_SOCKET: /run/thumbs/thumbs.sock
     volumes:
       - api_storage:/app/var/storage
       - apps_data:/app/var/apps
+      - thumbs_sock:/run/thumbs
     depends_on:
       db:
         condition: service_healthy
@@ -126,9 +137,70 @@ services:
     mem_limit: 1g
     logging: *logging
 
+  # thumbnail-render-worker: a real headless Chromium that photographs a
+  # published app for its card (THUMBNAIL_RENDERER=server). Member code
+  # runs in this container and nowhere else, so it is fenced in:
+  #   - NO network shared with api, db, web or caddy: the api asks it over
+  #     a unix socket in the `thumbs_sock` volume, and the only network it
+  #     has (`thumbs_egress`, its own bridge) leads outside — the browser
+  #     reaches apps.<domain> the way a visitor does (the public address)
+  #     and nothing else: every other host name is refused inside
+  #     Chromium, every request to another host is aborted, WebSockets
+  #     closed, WebRTC may not open UDP (thumbs/worker.py); Docker drops
+  #     traffic between bridges, so db/api/web have no route from here;
+  #   - the socket answers only with the shared secret the api presents;
+  #   - Chromium's own sandbox stays ON: the seccomp profile below is
+  #     Playwright's published one (Docker's default plus the namespace
+  #     syscalls), with every capability still dropped;
+  #   - 768 MB, one CPU, 256 processes, read-only filesystem with a tmpfs
+  #     for Chromium's profile, non-root, no privilege escalation; one
+  #     picture at a time, 20 s each.
+  # Started only with `COMPOSE_PROFILES=thumbs` in .env, so a server on
+  # `browser` keeps running exactly as before.
+  thumbs:
+    image: ${IMAGE_PREFIX:-ghcr.io/anoukkim/ctrl-ai-platform}-thumbs:${IMAGE_TAG:-latest}
+    profiles: ["thumbs"]
+    restart: unless-stopped
+    environment:
+      THUMBS_SECRET: ${THUMBNAIL_WORKER_SECRET:?Set THUMBNAIL_WORKER_SECRET in .env (openssl rand -hex 32)}
+      THUMBS_ALLOWED_HOST: apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
+      THUMBS_SOCKET: /run/thumbs/thumbs.sock
+    volumes:
+      - thumbs_sock:/run/thumbs
+    networks:
+      - thumbs_egress
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    shm_size: 256m
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 256
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:./deploy/chromium-seccomp.json
+    healthcheck:
+      test: ["CMD", "python", "worker.py", "--probe"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *logging
+
+networks:
+  default:
+  # thumbs alone. Its way out is the host's NAT — to apps.<domain> through
+  # the public address, like a visitor. Not `internal` for that reason;
+  # what the browser may reach is decided inside Chromium.
+  thumbs_egress:
+
 volumes:
   pgdata:
   api_storage:
   apps_data:
   caddy_data:
   caddy_config:
+  # thumbnail-render-worker: the unix socket between api and thumbs.
+  thumbs_sock:
