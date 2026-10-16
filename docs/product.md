@@ -90,7 +90,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/budget`       | Budget          | Stat cards on top; the rest (month bar, 지급 vs 사용, 크레딧, 제공자별, 모델×깊이, 회원별, 캐시, 대조) as sections opened one at a time, each row summarising its figures (`ui-improvements` B) |
 | `/admin/video-models` | Video Models    | Which models members may pick                |
 | `/admin/ai-models`    | AI Models       | A summary strip, then one section per provider opened one at a time (all open while searching) and 비용 보정 last; prices, who may pick them, the default (`/admin/claude-models` redirects) |
-| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted, or remove it for good (reason, audited); whatever is still here at 분기 마감 is purged |
+| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted, or remove it for good (reason, audited); whatever is still here at 분기 마감 and was deleted by that quarter's last day is purged |
 | `/admin/audit`        | Audit Log       | Every admin change, read-only                |
 | `/admin/system`       | System          | A health strip on top (서버 · DB · each provider, green/red/grey), then collapsed sections: 서버 상세, 기능 열기, 외부 서비스, 환율, 채팅 한도 (with the depth table), read-only 서버 설정 (.env), 빌더 점검 — the default model lives in AI Models |
 
@@ -597,9 +597,11 @@ quarter (nothing is charged to it again), records each member's unspent
 money as **회수**, and — at the carry-over % the admin chooses (default 0) —
 adds that share to the member's next approved wallet, once. No wallet or
 usage row is deleted; a closed quarter does not reopen. The close also
-**purges everything still in Deleted Items** (`ui-improvements` B, owner
-2026-10-16) — the dialog says how many — and usage events of purged work
-keep the work's name (`(삭제됨)` in Usage). **신청 마감** is different: it
+**purges everything still in Deleted Items that was deleted by the
+quarter's last day** (`ui-improvements` B, owner 2026-10-16; a quarter
+closed late leaves this week's deletions for their own quarter) — the
+dialog says how many — and usage events of purged work keep the work's
+name (`(삭제됨)` in Usage). **신청 마감** is different: it
 stops new applications and makes the quarter *active*; wallets keep
 working, and it can be undone — Admin › Quarters › 신청 다시 열기… sets a
 new deadline (today or later, inside the quarter) and reopens; 신청 기한

@@ -71,8 +71,8 @@ export default function CloseQuarterDialog({
         <li>남은 지원금은 회원마다 &ldquo;회수&rdquo;로 기록되고 동아리로 돌아갑니다.</li>
         <li>아래 비율만큼은 다음 분기 참여가 승인될 때 그 회원의 새 지갑에 더해집니다.</li>
         <li>
-          Deleted Items에 남아 있는(되살리지 않은) 작업물은 마감과 함께 <strong>완전히 삭제</strong>
-          됩니다 — 사용량 기록과 지갑은 그대로입니다.
+          Deleted Items에 남아 있는(되살리지 않은) 작업물 가운데 이 분기 마지막 날까지 삭제된 것은
+          마감과 함께 <strong>완전히 삭제</strong>됩니다 — 사용량 기록과 지갑은 그대로입니다.
         </li>
         <li>지갑은 지우지 않고, 감사 기록에 남습니다. 마감한 분기는 다시 열 수 없습니다.</li>
       </ul>

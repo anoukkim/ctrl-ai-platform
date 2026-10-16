@@ -26,6 +26,7 @@ so a failed commit leaves nothing half-done on disk.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, time, timedelta
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
@@ -36,6 +37,7 @@ from app.models import (
     AppDataCollection,
     AppDataItem,
     AppDataWrite,
+    AppFavorite,
     AppLoginCode,
     AppReport,
     AppSession,
@@ -51,6 +53,7 @@ from app.models import (
     VideoVersion,
 )
 from app.services import app_runtime, audit
+from app.services.chat_limits import KST
 from app.services.storage import AssetStorage, StorageKeyError
 
 #: What each kind is called in Korean, for audit summaries.
@@ -89,18 +92,35 @@ class Purged:
         }
 
 
-def deleted_items(db: Session) -> list[BuilderProject | VideoProject]:
-    """Everything in Deleted Items, both products."""
+def close_cutoff(quarter: Quarter) -> datetime:
+    """분기 마감 purges what was deleted up to the quarter's last day (KST).
+
+    A quarter closed late — 1월에 닫는 4분기 — must not take with it the
+    work a member deleted this week, expecting the grace the Deleted Items
+    footnote promises; that work waits for the quarter it was deleted in.
+    """
+    return datetime.combine(quarter.ends_at + timedelta(days=1), time.min, tzinfo=KST)
+
+
+def _deleted(model, until: datetime | None):
+    condition = model.deleted_at.is_not(None)
+    if until is not None:
+        condition = condition & (model.deleted_at < until)
+    return condition
+
+
+def deleted_items(db: Session, *, until: datetime | None = None) -> list[BuilderProject | VideoProject]:
+    """Everything in Deleted Items, both products — deleted before `until` when given."""
     rows: list[BuilderProject | VideoProject] = list(
-        db.scalars(select(BuilderProject).where(BuilderProject.deleted_at.is_not(None)))
+        db.scalars(select(BuilderProject).where(_deleted(BuilderProject, until)))
     )
-    rows.extend(db.scalars(select(VideoProject).where(VideoProject.deleted_at.is_not(None))))
+    rows.extend(db.scalars(select(VideoProject).where(_deleted(VideoProject, until))))
     return rows
 
 
-def deleted_count(db: Session) -> int:
-    builder = db.scalar(select(func.count()).select_from(BuilderProject).where(BuilderProject.deleted_at.is_not(None))) or 0
-    video = db.scalar(select(func.count()).select_from(VideoProject).where(VideoProject.deleted_at.is_not(None))) or 0
+def deleted_count(db: Session, *, until: datetime | None = None) -> int:
+    builder = db.scalar(select(func.count()).select_from(BuilderProject).where(_deleted(BuilderProject, until))) or 0
+    video = db.scalar(select(func.count()).select_from(VideoProject).where(_deleted(VideoProject, until))) or 0
     return int(builder) + int(video)
 
 
@@ -122,8 +142,16 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
     there would be a purge nobody trusts. The usage events are detached
     explicitly for the same reason.
     """
-    if item.deleted_at is None:
+    # Lock the row and look again: an admin who restores it between the
+    # list and this call wins — a restore that a purge then overrides
+    # would leave an audit row about work that no longer exists.
+    model = BuilderProject if isinstance(item, BuilderProject) else VideoProject
+    fresh = db.execute(
+        select(model).where(model.id == item.id).with_for_update().execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    if fresh is None or fresh.deleted_at is None:
         raise ValueError("삭제된 항목만 완전히 삭제할 수 있습니다.")
+    item = fresh
 
     if isinstance(item, BuilderProject):
         pid = item.id
@@ -145,7 +173,7 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
         ).rowcount
         # The project points at its published version; cut that first.
         db.execute(update(BuilderProject).where(BuilderProject.id == pid).values(published_version_id=None))
-        for model in (
+        for child in (
             AppReport,
             AppDataItem,
             AppDataCollection,
@@ -153,11 +181,12 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
             AppLoginCode,
             AppSession,
             AppConsent,
+            AppFavorite,
             BuilderGeneration,
             BuilderProjectFile,
             BuilderProjectVersion,
         ):
-            db.execute(delete(model).where(model.project_id == pid))
+            db.execute(delete(child).where(child.project_id == pid))
         db.execute(delete(BuilderProject).where(BuilderProject.id == pid))
     else:
         vid = item.id
@@ -192,9 +221,15 @@ def _count(db: Session, model, condition) -> int:
 
 
 def purge_all_deleted(db: Session, *, admin: User, quarter: Quarter) -> list[Purged]:
-    """분기 마감: purge everything in Deleted Items and write one audit row.
-    Does not commit."""
-    purged = [purge(db, item) for item in deleted_items(db)]
+    """분기 마감: purge everything in Deleted Items that was deleted by the
+    quarter's last day (`close_cutoff`) and write one audit row. Does not
+    commit. An item restored meanwhile is skipped, not recorded."""
+    purged: list[Purged] = []
+    for item in deleted_items(db, until=close_cutoff(quarter)):
+        try:
+            purged.append(purge(db, item))
+        except ValueError:
+            continue
     if not purged:
         return purged
     audit.record(

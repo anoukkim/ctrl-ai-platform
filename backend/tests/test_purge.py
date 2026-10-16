@@ -22,18 +22,28 @@ from app.api.routes.usage import _label_for
 from app.core.config import Settings, get_settings
 from app.main import app
 from app.models import (
+    AppConsent,
+    AppDataCollection,
+    AppDataItem,
+    AppDataWrite,
+    AppFavorite,
+    AppReport,
+    AppSession,
     AuditAction,
     AuditLog,
+    BuilderGeneration,
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectVersion,
     FundingSource,
+    Quarter,
     QuarterAllocation,
     UsageEvent,
     User,
     VideoProject,
     VideoVersion,
 )
+from app.services import purge as purge_service
 from app.services.storage import get_storage
 
 NOW = datetime(2026, 10, 16, 3, 0, tzinfo=timezone.utc)
@@ -56,14 +66,39 @@ def config(tmp_path: Path) -> Settings:
 
 @pytest.fixture
 def deleted_project(db_session: Session, dev_user: User, config: Settings) -> BuilderProject:
-    """A deleted project with a version, a file, an app folder and a charge."""
+    """A deleted project with a version, a file, an app folder, a charge and
+    one row in every 기능 상자 table that points at a project."""
     project = BuilderProject(
         owner_user_id=dev_user.id, name="가계부", description="", deleted_at=NOW, draft_slug="abc123xy"
     )
     db_session.add(project)
     db_session.flush()
-    db_session.add(BuilderProjectVersion(project_id=project.id, number=1, note="예시 앱", files=[["index.html", "<p>hi</p>"]]))
+    version = BuilderProjectVersion(project_id=project.id, number=1, note="예시 앱", files=[["index.html", "<p>hi</p>"]])
+    db_session.add(version)
     db_session.add(BuilderProjectFile(project_id=project.id, path="index.html", content="<p>hi</p>"))
+    db_session.flush()
+    collection = AppDataCollection(project_id=project.id, space="shared", name="posts", kind="list")
+    db_session.add(collection)
+    db_session.flush()
+    item = AppDataItem(
+        public_id="p0000001", collection_id=collection.id, project_id=project.id, space="shared",
+        author_user_id=dev_user.id, data={"text": "hi"}, size_bytes=12,
+    )
+    db_session.add(item)
+    db_session.flush()
+    db_session.add_all(
+        [
+            AppDataWrite(user_id=dev_user.id, project_id=project.id, created_at=NOW),
+            AppConsent(user_id=dev_user.id, project_id=project.id, scopes=["profile"], app_user_id="u" * 20),
+            AppSession(token_hash="t" * 64, user_id=dev_user.id, project_id=project.id, expires_at=NOW),
+            AppFavorite(user_id=dev_user.id, project_id=project.id),
+            AppReport(project_id=project.id, reporter_id=dev_user.id, reason="이상해요", data_item_id=item.id),
+            BuilderGeneration(
+                project_id=project.id, user_id=dev_user.id, kind="edit", request="댓글", style="",
+                summary="", plan=[], files_done=[], check_fixed=[], status="done", version_id=version.id,
+            ),
+        ]
+    )
     db_session.add(
         UsageEvent(
             user_id=dev_user.id, funding_source=FundingSource.COMMUNITY, provider="anthropic",
@@ -119,6 +154,9 @@ def test_purging_a_project_removes_the_row_its_children_and_its_folder_but_not_t
     assert db_session.get(BuilderProject, project_id) is None
     assert db_session.scalar(select(BuilderProjectVersion).where(BuilderProjectVersion.project_id == project_id)) is None
     assert db_session.scalar(select(BuilderProjectFile).where(BuilderProjectFile.project_id == project_id)) is None
+    # SQLite does not cascade, so every child table is proven empty here.
+    for child in (AppDataItem, AppDataCollection, AppDataWrite, AppConsent, AppSession, AppFavorite, AppReport, BuilderGeneration):
+        assert db_session.scalar(select(child).where(child.project_id == project_id)) is None, child
     assert not (Path(config.apps_dir) / "abc123xy").exists()
     assert client.get("/api/admin/deleted-items").json() == []
 
@@ -131,8 +169,44 @@ def test_purging_a_project_removes_the_row_its_children_and_its_folder_but_not_t
 
     row = db_session.query(AuditLog).filter_by(action=AuditAction.WORK_PURGED).one()
     assert row.actor_username == "dev" and row.target_label == "dev"
-    assert "가계부" in row.summary and "회원이 완전 삭제를 요청함" in row.summary
+    assert "가계부" in row.summary and row.detail["reason"] == "회원이 완전 삭제를 요청함"
     assert row.detail["versions"] == 1 and row.detail["files"] == 1 and row.detail["usage_events"] == 1
+
+
+def test_a_long_reason_fits_because_it_lives_in_the_detail(
+    client: TestClient, db_session: Session, deleted_project: BuilderProject
+) -> None:
+    # The summary column holds 300 characters (PostgreSQL enforces it; the
+    # PG test run proves this), the reason up to 500 — so the reason is
+    # kept in `detail`, and the summary stays short whatever its length.
+    reason = "가" * 500
+    assert purge(client, "builder", deleted_project.id, reason).status_code == 204
+    row = db_session.query(AuditLog).filter_by(action=AuditAction.WORK_PURGED).one()
+    assert len(row.summary) <= 300 and row.detail["reason"] == reason
+
+
+def test_a_blank_reason_is_refused(client: TestClient, db_session: Session, deleted_project: BuilderProject) -> None:
+    assert purge(client, "builder", deleted_project.id, "   ").status_code == 422
+    assert purge(client, "builder", deleted_project.id, " 회원 요청 ").status_code == 204
+    row = db_session.query(AuditLog).filter_by(action=AuditAction.WORK_PURGED).one()
+    assert row.detail["reason"] == "회원 요청"
+
+
+def test_a_restore_in_between_wins_over_the_purge(
+    db_session: Session, deleted_project: BuilderProject, dev_user: User, budgeted: QuarterAllocation
+) -> None:
+    """The purge locks the row and looks at `deleted_at` again: an admin who
+    restored it after the list was drawn keeps it."""
+    from sqlalchemy import update
+
+    stale = deleted_project  # loaded while still deleted
+    db_session.execute(update(BuilderProject).where(BuilderProject.id == stale.id).values(deleted_at=None))
+    with pytest.raises(ValueError):
+        purge_service.purge(db_session, stale)
+    quarter = db_session.get(Quarter, budgeted.quarter_id)
+    assert purge_service.purge_all_deleted(db_session, admin=dev_user, quarter=quarter) == []
+    db_session.expire_all()
+    assert db_session.get(BuilderProject, stale.id) is not None
 
 
 def test_purging_a_video_removes_its_stored_file(
@@ -243,6 +317,28 @@ def test_closing_the_quarter_purges_everything_still_deleted(
     # The closed quarter's preview reports what the close removed.
     after = client.get(f"/api/admin/quarters/{quarter_id}/close-preview").json()
     assert after["closed"] is True and after["purge_count"] == 2
+
+
+def test_closing_keeps_work_deleted_after_the_quarters_last_day(
+    client: TestClient, db_session: Session, dev_user: User, budgeted: QuarterAllocation, deleted_project: BuilderProject
+) -> None:
+    """A quarter closed late does not take this week's deletions with it;
+    they wait for the quarter they were deleted in."""
+    quarter = db_session.get(Quarter, budgeted.quarter_id)
+    after_end = datetime(quarter.ends_at.year + 1, 1, 2, 3, 0, tzinfo=timezone.utc)
+    late = BuilderProject(owner_user_id=dev_user.id, name="나중에 지움", description="", deleted_at=after_end)
+    db_session.add(late)
+    db_session.commit()
+    quarter_id = budgeted.quarter_id
+
+    assert client.get(f"/api/admin/quarters/{quarter_id}/close-preview").json()["purge_count"] == 1
+    closed = client.post(f"/api/admin/quarters/{quarter_id}/close", json={"carry_over_percent": 0})
+    assert closed.status_code == 200 and closed.json()["purge_count"] == 1
+
+    db_session.expire_all()
+    assert db_session.get(BuilderProject, deleted_project.id) is None
+    assert db_session.get(BuilderProject, late.id) is not None
+    assert [row["name"] for row in client.get("/api/admin/deleted-items").json()] == ["나중에 지움"]
 
 
 def test_closing_with_nothing_deleted_writes_no_purge_row(

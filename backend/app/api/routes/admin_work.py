@@ -17,7 +17,7 @@ reaching into someone else's library is the thing worth recording.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -195,6 +195,14 @@ class PurgeRequest(BaseModel):
 
     reason: str = Field(min_length=1, max_length=500)
 
+    @field_validator("reason")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        # Spaces alone pass min_length; the barrier is here, not in the form.
+        if not value.strip():
+            raise ValueError("사유를 적어 주세요.")
+        return value.strip()
+
 
 @router.delete(
     "/work/{kind}/{item_id}/purge",
@@ -233,11 +241,13 @@ def purge_item(
         target_type=kind,
         target_id=facts.id,
         target_label=facts.owner_username,
+        # The reason (up to 500 characters) lives in `detail`; the summary
+        # column holds 300, so it carries the name and the fact only.
         summary=(
             f"{facts.owner_username or '알 수 없는 회원'}의 {KIND_LABEL[kind]} '{facts.name}'을 "
-            f"완전히 삭제했습니다. 사유: {payload.reason.strip()}"
+            "완전히 삭제했습니다. 사유는 자세히 보기에 있습니다."
         ),
-        detail={**facts.as_detail(), "reason": payload.reason.strip()},
+        detail={**facts.as_detail(), "reason": payload.reason},
     )
     db.commit()
     purge.remove_files(settings, get_storage(settings), [facts])

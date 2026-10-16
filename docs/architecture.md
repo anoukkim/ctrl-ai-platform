@@ -193,7 +193,7 @@ the same commit that adds it.
 | `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
 | `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
 | `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |
-| `DELETE /api/admin/work/{kind}/{id}/purge` | `require_admin` | Deleted work only, JSON `{reason}`; removes the row, children, app folders and stored files; money rows stay with the work's name (`services/purge.py`); audited. 분기 마감 (`POST …/close`) does the same for everything in Deleted Items |
+| `DELETE /api/admin/work/{kind}/{id}/purge` | `require_admin` | Deleted work only, JSON `{reason}`; removes the row, children, app folders and stored files; money rows stay with the work's name (`services/purge.py`); audited. 분기 마감 (`POST …/close`) does the same for everything in Deleted Items deleted by the quarter's last day (KST); the reason stays in the audit `detail` |
 | `GET /api/admin/members/{user_id}/withdrawal` | `require_admin` | Read-only; what withdrawing would do |
 | `POST /api/admin/members/{user_id}/withdrawal` | `require_admin` | Same rules as the member's own; audited |
 | `POST /api/admin/members/{user_id}/withdrawal/restore` | `require_admin` | 복구, within 30 days only; audited |

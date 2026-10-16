@@ -58,7 +58,11 @@ describe("신청 기한 연장", () => {
     render(<ExtendDeadlineDialog quarter={OPEN} onClose={onClose} onExtended={onExtended} />);
 
     expect(screen.getByRole("heading", { name: "2026 Q4 신청 기한 연장" })).toBeTruthy();
-    expect(dateField().min).toBe("2026-10-20");
+    // The day after the current deadline: the dialog opens on a valid date,
+    // with no alert and the button enabled.
+    expect(dateField().min).toBe("2026-10-21");
+    expect(dateField().value).toBe("2026-10-21");
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(dateField().max).toBe("2026-12-31");
 
     fireEvent.change(dateField(), { target: { value: "2026-11-05" } });

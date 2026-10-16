@@ -41,10 +41,16 @@ export default function ExtendDeadlineDialog({
 }) {
   const reopening = quarter.status === "active";
   const today = todayKst();
-  // 지금 마감일이 아직 안 지났으면 그보다 뒤, 지났으면 오늘부터.
-  const min =
-    quarter.application_closes_at && quarter.application_closes_at > today
-      ? quarter.application_closes_at
+  const deadline = quarter.application_closes_at;
+  // 연장: 지금 마감일이 아직 안 지났으면 그 다음 날부터, 지났으면 오늘부터 —
+  // 창이 열릴 때부터 유효한 날짜가 들어 있어야 빈 경고로 시작하지 않습니다.
+  // 다시 열기: 마감일을 그대로 둘 수도 있으므로 지금 마감일(또는 오늘)부터.
+  const min = reopening
+    ? deadline && deadline > today
+      ? deadline
+      : today
+    : deadline && deadline >= today
+      ? nextDay(deadline)
       : today;
   const [closesAt, setClosesAt] = useState(min);
   const [busy, setBusy] = useState(false);
@@ -135,4 +141,11 @@ export default function ExtendDeadlineDialog({
       </div>
     </DialogShell>
   );
+}
+
+/** The day after an ISO date (YYYY-MM-DD), in the calendar — no time zone. */
+function nextDay(iso: string): string {
+  const day = new Date(`${iso}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + 1);
+  return day.toISOString().slice(0, 10);
 }

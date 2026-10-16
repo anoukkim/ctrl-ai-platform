@@ -405,7 +405,7 @@ def preview_close(
     # 분기 마감 also purges everything still in Deleted Items (ui-improvements
     # B) — the dialog says how many, so nothing disappears unannounced.
     return _close_read(
-        quarter, carry_over_percent, lines, closed=False, purge_count=purge.deleted_count(db)
+        quarter, carry_over_percent, lines, closed=False, purge_count=purge.deleted_count(db, until=purge.close_cutoff(quarter))
     )
 
 

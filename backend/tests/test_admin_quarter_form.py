@@ -482,3 +482,37 @@ def test_a_closed_quarter_does_not_reopen_even_with_a_new_deadline(
     )
     assert response.status_code == 409
     assert "다시 열 수 없습니다" in response.json()["detail"]
+
+
+def test_a_quarter_without_an_application_window_can_open_one_with_a_deadline(
+    client: TestClient, db_session: Session
+) -> None:
+    """The dialog sends only the deadline; a quarter that never had an
+    application window gets one from its first day."""
+    from datetime import timedelta
+
+    today = date.today()
+    quarter = Quarter(
+        code="2031-Q2",
+        display_name="2031 Q2",
+        starts_at=today - timedelta(days=10),
+        ends_at=today + timedelta(days=80),
+        status=QuarterStatus.ACTIVE,
+        subsidy_limit_krw=80_000,
+    )
+    db_session.add(quarter)
+    db_session.commit()
+
+    later = (today + timedelta(days=14)).isoformat()
+    response = client.patch(
+        f"/api/admin/quarters/{quarter.id}", json={"status": "application_open", "application_closes_at": later}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "application_open"
+    assert response.json()["application_opens_at"] == quarter.starts_at.isoformat()
+    assert response.json()["application_closes_at"] == later
+
+    row = db_session.query(AuditLog).filter_by(action=AuditAction.QUARTER_UPDATED).one()
+    # Nothing was "늦춰진": there was no deadline before.
+    assert "다시 열고" in row.summary and "바꿨습니다" in row.summary
+    assert row.detail["before"]["application_opens_at"] in (None, "None")
