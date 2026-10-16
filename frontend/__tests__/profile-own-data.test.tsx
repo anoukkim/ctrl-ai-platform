@@ -65,16 +65,22 @@ describe("Profile › 내가 만든 앱", () => {
     expect(document.body.textContent).not.toContain("준비 중");
   });
 
-  test("내가 게시한 앱은 CtrlAIApps와 같은 카드로, 상세 화면으로 이어진다", async () => {
-    listMyApps.mockResolvedValue([MINE]);
+  test("내가 게시한 앱은 간단한 목록 — 이름 · 버전 · 업데이트 시각 · 열기, 이미지 없이", async () => {
+    listMyApps.mockResolvedValue([{ ...MINE, app_url: "http://apps.test/trip-planner/" }]);
     render(<ProfilePage />);
 
-    await waitFor(() => expect(screen.getByTestId("my-apps-grid")).toBeDefined());
-    const card = screen.getByRole("link", { name: /여행 일정 메이커/ });
-    expect(card.getAttribute("href")).toBe("/ctrlaistore/trip-planner");
-    expect(screen.getByText(/v3/)).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId("my-apps-list")).toBeDefined());
+    const row = screen.getByRole("link", { name: "여행 일정 메이커" });
+    expect(row.getAttribute("href")).toBe("/ctrlaistore/trip-planner");
+    expect(screen.getByText("v3")).toBeDefined();
+    expect(screen.getByText(/업데이트/)).toBeDefined();
+    const open = screen.getByRole("link", { name: "여행 일정 메이커 열기" });
+    expect(open.getAttribute("href")).toBe("http://apps.test/trip-planner/");
+    expect(open.getAttribute("target")).toBe("_blank");
     expect(screen.getByText("1개")).toBeDefined();
     expect(screen.queryByText("아직 게시한 앱이 없어요")).toBeNull();
+    // No cover image / card grid on Profile (owner, 2026-10-16).
+    expect(screen.queryByTestId("app-card")).toBeNull();
   });
 
   test("불러오지 못하면 그렇게 말하고, 다른 사람의 앱을 대신 보여 주지 않는다", async () => {
