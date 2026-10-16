@@ -14,7 +14,7 @@
  * 게시는 막히지 않습니다. 회원 지갑에서는 나가지 않아요.
  */
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import DialogShell from "@/app/components/DialogShell";
 import styles from "@/app/components/confirm-dialog.module.css";
@@ -56,8 +56,8 @@ export default function PublishDialog({
   onConfirm,
 }: Props) {
   const [values, setValues] = useState<PublishValues>(initial);
-  // 회원이 손댄 칸은 요약이 덮지 않습니다.
-  const [touched, setTouched] = useState<{ description: boolean; note: boolean }>({ description: false, note: false });
+  // 회원이 손댄 칸은 요약이 덮지 않습니다 — 효과의 닫힘이 아니라 ref로 읽어, 늦게 온 요약도 지켜요.
+  const touched = useRef({ description: false, note: false });
   const [summary, setSummary] = useState<SummaryState>({ phase: "loading" });
   const id = useId();
   const update = publishedVersion !== null;
@@ -72,8 +72,8 @@ export default function PublishDialog({
         setValues((current) => {
           const next = { ...current };
           // 빈 칸만 채웁니다 — 적어 둔 설명과 타이핑 중인 글은 그대로.
-          if (!touched.description && !current.description.trim() && result.description) next.description = result.description;
-          if (update && !touched.note && !current.note.trim() && result.note) next.note = result.note;
+          if (!touched.current.description && !current.description.trim() && result.description) next.description = result.description;
+          if (update && !touched.current.note && !current.note.trim() && result.note) next.note = result.note;
           return next;
         });
       })
@@ -83,8 +83,6 @@ export default function PublishDialog({
     return () => {
       cancelled = true;
     };
-    // 창이 열릴 때 한 번만 — touched는 그 뒤의 타이핑을 지키는 용도입니다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, update]);
 
   const suggested = summary.phase === "ready" ? summary.summary.description : "";
@@ -136,7 +134,7 @@ export default function PublishDialog({
           value={values.description}
           placeholder={summary.phase === "loading" ? "Claude가 설명을 쓰는 중…" : "예: 오늘 할 일을 적고, 끝낸 일은 눌러서 지우는 앱이에요."}
           onChange={(event) => {
-            setTouched((t) => ({ ...t, description: true }));
+            touched.current.description = true;
             setValues({ ...values, description: event.target.value });
           }}
         />
@@ -148,7 +146,7 @@ export default function PublishDialog({
               className="btn btn-sm"
               type="button"
               onClick={() => {
-                setTouched((t) => ({ ...t, description: true }));
+                touched.current.description = true;
                 setValues({ ...values, description: suggested });
               }}
             >
@@ -170,7 +168,7 @@ export default function PublishDialog({
           maxLength={200}
           placeholder={update && summary.phase === "loading" ? "Claude가 바뀐 점을 요약하는 중…" : "예: 메모 기능을 추가했어요"}
           onChange={(event) => {
-            setTouched((t) => ({ ...t, note: true }));
+            touched.current.note = true;
             setValues({ ...values, note: event.target.value });
           }}
         />

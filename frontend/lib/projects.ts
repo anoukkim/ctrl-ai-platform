@@ -399,9 +399,9 @@ export interface PublishSummary {
   model: string;
 }
 
-/** 무료(동아리 부담) — 회원 지갑에서 나가지 않고, 실패하면 빈 글이 와요. */
+/** 무료(동아리 부담) — 회원 지갑에서 나가지 않고, 실패하면 빈 글이 와요. POST: 서버가 결과를 버전에 남겨요. */
 export function getPublishSummary(projectId: number | string): Promise<PublishSummary> {
-  return request<PublishSummary>(`/builder/projects/${projectId}/publish-summary`);
+  return request<PublishSummary>(`/builder/projects/${projectId}/publish-summary`, { method: "POST", body: "{}" });
 }
 
 /** 만든 앱이 할 수 있는 일, 솔직하게 (ctrlaiapps-publish F3). */

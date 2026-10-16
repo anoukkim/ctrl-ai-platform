@@ -36,7 +36,7 @@ def make(db: Session, owner, name: str, note: str = "만들기: 메모장 앱") 
 
 
 def summary(client: TestClient, project: BuilderProject) -> dict:
-    response = client.get(f"/api/builder/projects/{project.id}/publish-summary")
+    response = client.post(f"/api/builder/projects/{project.id}/publish-summary", json={})
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -49,7 +49,7 @@ def test_the_description_is_written_once_free_to_the_member(
 
     first = summary(client, project)
     assert "메모장" in first["description"] and first["note"] == "" and first["cached"] is False
-    assert first["model"] == "fast"
+    assert first["model"] and first["model"] != "fast"  # the catalogue model id, not the picker name
     rows = db_session.query(UsageEvent).all()
     assert len(rows) == 1
     assert rows[0].feature == "publish_summary" and rows[0].club_absorbed is True and rows[0].charged_krw == 0
@@ -135,11 +135,48 @@ def test_no_index_html_means_no_summary(client: TestClient, db_session: Session,
 def test_only_the_owner(client: TestClient, db_session: Session, dev_user, other_user, budgeted, config) -> None:
     mine = make(db_session, dev_user, "메모장")
     theirs = make(db_session, other_user, "남의 앱")
-    assert client.get(f"/api/builder/projects/{theirs.id}/publish-summary").status_code == 404
-    assert client.get(f"/api/builder/projects/{mine.id}/publish-summary").status_code == 200
+    assert client.post(f"/api/builder/projects/{theirs.id}/publish-summary", json={}).status_code == 404
+    assert client.post(f"/api/builder/projects/{mine.id}/publish-summary", json={}).status_code == 200
+    # A state-changing route: a JSON body is required (CLAUDE.md §2), and GET does nothing.
+    assert client.post(f"/api/builder/projects/{mine.id}/publish-summary", content=b"{}", headers={"content-type": "text/plain"}).status_code == 415
+    assert client.get(f"/api/builder/projects/{mine.id}/publish-summary").status_code == 405
 
 
 def test_only_while_participating(other_client: TestClient, db_session: Session, other_user, config) -> None:
     # `client` and `other_client` share one cookie jar (conftest), so this stays its own test.
     theirs = make(db_session, other_user, "남의 앱")
-    assert other_client.get(f"/api/builder/projects/{theirs.id}/publish-summary").status_code == 403
+    assert other_client.post(f"/api/builder/projects/{theirs.id}/publish-summary", json={}).status_code == 403
+
+
+def test_a_moved_base_without_new_versions_costs_nothing_and_a_new_version_costs_only_a_note(
+    client: TestClient, db_session: Session, dev_user, budgeted, config
+) -> None:
+    """Publishing does not throw the description away: the base moves, the
+    note is recomputed — without a call when nothing changed."""
+    project = make(db_session, dev_user, "메모장")
+    first = summary(client, project)
+    app_publish.publish(db_session, config, project, description=first["description"], note="")
+    db_session.commit()
+    again = summary(client, project)
+    assert again["description"] == first["description"] and again["note"] == "" and again["cached"] is False
+    assert db_session.query(UsageEvent).count() == 1  # no second call
+    assert summary(client, project)["cached"] is True
+
+
+def test_a_paid_but_unusable_reply_is_kept_so_reopening_does_not_pay_again(
+    client: TestClient, db_session: Session, dev_user, budgeted, config
+) -> None:
+    # The mock answers prose, not JSON, when the files carry this marker.
+    project = BuilderProject(owner_user_id=dev_user.id, name="메모장", description="")
+    db_session.add(project)
+    db_session.flush()
+    files = {"index.html": "<!doctype html><h1>메모</h1>", "app.js": "// MOCK_ALWAYS_BAD_JSON"}
+    builder_versions.replace_files(db_session, project, files)
+    builder_versions.snapshot(db_session, project, "만들기", files)
+    db_session.commit()
+    first = summary(client, project)
+    assert first["description"] == "" and first["note"] == "" and first["cached"] is False and first["model"]
+    assert db_session.query(UsageEvent).count() == 1  # the club paid once
+    second = summary(client, project)
+    assert second["description"] == "" and second["cached"] is True
+    assert db_session.query(UsageEvent).count() == 1

@@ -94,6 +94,20 @@ describe("게시 창의 Claude 요약", () => {
     expect(screen.getByRole("button", { name: "Claude 요약으로 바꾸기" })).toBeTruthy();
   });
 
+  test("적었다가 지운 칸도 회원이 손댄 칸이라 요약이 덮지 않는다", async () => {
+    const pending = deferred<{ description: string; note: string; cached: boolean; model: string }>();
+    getPublishSummary.mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    open({ name: "메모장", description: "", note: "" });
+    const field = screen.getByLabelText(/CtrlAIApps에 보일 설명/);
+    await user.type(field, "직접");
+    await user.clear(field);
+    await act(async () => {
+      pending.resolve({ description: "Claude 설명", note: "", cached: false, model: "fast" });
+    });
+    expect((field as HTMLTextAreaElement).value).toBe("");
+  });
+
   test("업데이트 게시면 메모도 채운다", async () => {
     getPublishSummary.mockResolvedValue({ description: "Claude 설명", note: "댓글 기능을 넣었어요", cached: false, model: "fast" });
     open({ name: "메모장", description: "", note: "" }, 3);

@@ -203,6 +203,10 @@ class VersionLabel(BaseModel):
     pinned: bool | None = None
 
 
+class EmptyBody(BaseModel):
+    """A POST that needs no fields still needs a JSON body (CLAUDE.md §2)."""
+
+
 class PublishSummaryRead(BaseModel):
     """publish-summary: the 게시 dialog's pre-filled text. Empty strings
     when nothing could be written — the member types their own."""

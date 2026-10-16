@@ -18,11 +18,14 @@ Rules the owner set:
   changed.
 * **Never blocks 게시.** No catalogue model, a provider error, a reply
   that is not JSON — the result is empty fields and the member writes
-  their own. Nothing here raises past the route.
+  their own. Nothing here raises past the route. A reply the club paid
+  for but could not use is kept as an empty description, so reopening the
+  dialog does not pay again; a call that never answered keeps nothing.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -77,7 +80,28 @@ class Summary:
     note: str
     #: True when the fields came from the version row, not a new call.
     cached: bool
+    #: The catalogue model id that wrote them ("" when nothing was written).
     model: str = ""
+
+
+NOTE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["note"],
+    "additionalProperties": False,
+    "properties": {"note": {"type": "string", "maxLength": 120}},
+}
+
+EMPTY = Summary("", "", cached=False)
+
+
+def _system(schema: dict[str, Any]) -> str:
+    """The listing writer's own instructions — not the 기능 상자's visitor
+    preamble, which would tell Haiku it is an app's chat AI."""
+    return (
+        f"{SYSTEM}\n{MARKER}\n\n"
+        "Reply with ONLY a JSON value (no prose, no code fence) that matches this JSON Schema.\n"
+        f"{app_ai.JSON_MARKER}\n{json.dumps(schema, ensure_ascii=False)}"
+    )
 
 
 def _digest(name: str, files: dict[str, str]) -> str:
@@ -125,31 +149,35 @@ def _changes(db: Session, project: BuilderProject, since_number: int | None) -> 
     return lines
 
 
-async def summarize(db: Session, settings: Settings, provider: Any, *, user: User, project: BuilderProject) -> Summary:
-    """The dialog's defaults for the project's working version."""
-    version = builder_versions.latest(db, project)
-    files = builder_versions.current_files(db, project)
-    if version is None or "index.html" not in files:
-        return Summary("", "", cached=False)
+def _base(project: BuilderProject) -> int | None:
     published = project.published_version
-    base = published.number if published is not None else None
-    if version.summary_description is not None and version.summary_base_version == base:
-        return Summary(version.summary_description, version.summary_note or "", cached=True, model=version.summary_model or "")
+    return published.number if published is not None else None
 
-    try:
-        model, label = app_ai.choose_model(db, settings, "fast")
-        price = pricing.price_for(db, model)
-    except (app_ai.AppAIError, chat_models.ModelChoiceError, pricing.PricingError) as error:
-        logger.warning("publish summary: no model (%s)", error)
-        return Summary("", "", cached=False)
 
-    changes = _changes(db, project, base)
-    prompt = _digest(project.name, files)
-    if changes:
-        prompt += "\n\n게시된 버전 v%d 이후 바뀐 것:\n%s" % (base, "\n".join(changes))
-    system = app_ai.system_prompt(SYSTEM + f"\n{MARKER}", SCHEMA)
+def cached(db: Session, project: BuilderProject) -> Summary | None:
+    """What the version row already holds, or None when a call is needed.
+    Checked by the route before it takes a provider slot."""
+    version = builder_versions.latest(db, project)
+    if version is None or version.summary_description is None:
+        return None
+    if version.summary_base_version != _base(project):
+        return None
+    return Summary(version.summary_description, version.summary_note or "", cached=True, model=version.summary_model or "")
+
+
+@dataclass(frozen=True)
+class _Prepared:
+    """What `app_ai.run` reads: the request only."""
+
+    request: ChatRequest
+
+
+async def _call(db: Session, settings: Settings, provider: Any, *, user: User, project: BuilderProject,
+                model: chat_models.ChosenModel, price: pricing.Price, system: str, prompt: str,
+                schema: dict[str, Any]) -> tuple[dict | None, bool]:
+    """One Haiku call. Returns (parsed JSON or None, answered) — `answered`
+    is False when the provider never replied (nothing paid, nothing to keep)."""
     request = ChatRequest(system=system, messages=[{"role": "user", "content": prompt}], max_tokens=MAX_TOKENS, model=model.model_id)
-
     tally: app_ai.Tally | None = None
     try:
         async for kind, value in app_ai.run(provider, _Prepared(request)):
@@ -159,18 +187,8 @@ async def summarize(db: Session, settings: Settings, provider: Any, *, user: Use
         app_ai.record_failure(db, error)
         db.commit()
         logger.warning("publish summary: provider failed (%s)", error)
-        return Summary("", "", cached=False)
+        return None, False
     assert tally is not None
-
-    description, note = "", ""
-    try:
-        parsed = app_ai.parse_json(tally.text)
-        if app_ai.validate(parsed, SCHEMA) is None:
-            description = " ".join(str(parsed["description"]).split())
-            note = " ".join(str(parsed["note"]).split())[:120] if changes else ""
-    except (ValueError, TypeError, KeyError):
-        description, note = "", ""
-
     if tally.input_tokens or tally.output_tokens:
         usage_service.record_absorbed(
             db,
@@ -186,17 +204,66 @@ async def summarize(db: Session, settings: Settings, provider: Any, *, user: Use
             commit=False,
         )
     providers.record_success(db, "claude", "게시 요약" + (" (mock)" if settings.provider_is_mock("claude") else ""))
-    if description:
-        version.summary_description = description
+    try:
+        parsed = app_ai.parse_json(tally.text)
+    except (ValueError, TypeError):
+        return None, True
+    if app_ai.validate(parsed, schema) is not None:
+        return None, True
+    return parsed, True
+
+
+async def summarize(db: Session, settings: Settings, provider: Any, *, user: User, project: BuilderProject) -> Summary:
+    """The dialog's defaults for the project's working version (see the
+    module docstring for the rules). `cached()` first, then at most one
+    call: the whole text for a version not asked about yet, or only the
+    note when the description is kept and the published base moved."""
+    hit = cached(db, project)
+    if hit is not None:
+        return hit
+    version = builder_versions.latest(db, project)
+    files = builder_versions.current_files(db, project)
+    if version is None or "index.html" not in files:
+        return EMPTY
+    try:
+        model, _label = app_ai.choose_model(db, settings, "fast")
+        price = pricing.price_for(db, model)
+    except (app_ai.AppAIError, chat_models.ModelChoiceError, pricing.PricingError) as error:
+        logger.warning("publish summary: no model (%s)", error)
+        return EMPTY
+
+    base = _base(project)
+    changes = _changes(db, project, base)
+    common = dict(user=user, project=project, model=model, price=price)
+
+    if version.summary_description:
+        # The description stands; only the published base moved.
+        note = ""
+        if changes:
+            prompt = f"프로젝트 이름: {project.name}\n\n게시된 버전 v{base} 이후 바뀐 것:\n" + "\n".join(changes)
+            parsed, answered = await _call(db, settings, provider, system=_system(NOTE_SCHEMA), prompt=prompt, schema=NOTE_SCHEMA, **common)
+            if not answered:
+                db.commit()
+                return Summary(version.summary_description, "", cached=False, model=version.summary_model or "")
+            note = " ".join(str(parsed["note"]).split()) if parsed else ""
         version.summary_note = note
         version.summary_base_version = base
-        version.summary_model = label
+        db.commit()
+        return Summary(version.summary_description, note, cached=False, model=version.summary_model or "")
+
+    prompt = _digest(project.name, files)
+    if changes:
+        prompt += f"\n\n게시된 버전 v{base} 이후 바뀐 것:\n" + "\n".join(changes)
+    parsed, answered = await _call(db, settings, provider, system=_system(SCHEMA), prompt=prompt, schema=SCHEMA, **common)
+    if not answered:
+        return EMPTY
+    description = " ".join(str(parsed["description"]).split()) if parsed else ""
+    note = " ".join(str(parsed["note"]).split()) if parsed and changes else ""
+    # Kept even when empty: the club paid once; the member writes their own
+    # rather than paying again on every open.
+    version.summary_description = description
+    version.summary_note = note
+    version.summary_base_version = base
+    version.summary_model = model.model_id
     db.commit()
-    return Summary(description, note, cached=False, model=label)
-
-
-@dataclass(frozen=True)
-class _Prepared:
-    """What `app_ai.run` reads: the request only."""
-
-    request: ChatRequest
+    return Summary(description, note, cached=False, model=model.model_id)
