@@ -777,7 +777,15 @@ above.)
     Free use is only in the consumer Gemini app (not an API). Other
     options (third-party roundups, unverified): FLUX.2 [klein] ≈ $0.014,
     FLUX.2 [pro] ≈ $0.03, OpenAI gpt-image-2 ≈ $0.05–0.06 medium. At
-    1,400원/$ a $0.034 image ≈ 48원. Whether the GCP free-trial credits
+    1,400원/$ a $0.034 image ≈ 48원. **Cheapest found ("싼 이미지 토큰 있는지",
+    same day): Cloudflare Workers AI** (official pricing page,
+    developers.cloudflare.com/workers-ai/platform/pricing): 10,000 neurons
+    free per day, then $0.011 / 1,000 neurons; one 1024² image ≈ 58 neurons
+    on FLUX.1 schnell (4 steps — step billing not fully stated) or ≈ 104 on
+    FLUX.2 klein 4B (≈ $0.0011 ≈ 1.5원; ≈ 95 free images a day). Lower
+    quality and weaker editing than Nano Banana; English prompts work best
+    (Claude can write them, as the video prompt helper does). Possible
+    plan: Cloudflare klein 4B as the default, Gemini as a 고품질 option. Whether the GCP free-trial credits
     cover Gemini through Vertex AI is **not checked**. If approved: an
     `IMAGE_PROVIDER` (mock default) behind the provider interface,
     charged through `usage.charge()` (feature `image`), images stored like
