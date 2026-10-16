@@ -150,6 +150,7 @@
   async function backToList() {
     open = null;
     await loadPosts();
+    notice(); // 저장하면서 로그인했을 수 있어요
     renderList();
   }
 
@@ -245,6 +246,7 @@
     try {
       await saveComment(open, body);
       await loadComments(open);
+      notice(); // 저장하면서 로그인했을 수 있어요
       renderDetail();
     } catch (error) {
       $("comment-error").textContent = error && error.code === "login_required" ? "로그인해야 댓글을 쓸 수 있어요." : `달지 못했어요: ${error.message}`;

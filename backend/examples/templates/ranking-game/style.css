@@ -13,6 +13,8 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+/* hidden 속성이 display: flex/grid보다 세게 — 숨긴 칸은 정말 숨겨져요. */
+[hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 16px/1.5 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;

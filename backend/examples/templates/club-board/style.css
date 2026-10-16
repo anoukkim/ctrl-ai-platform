@@ -14,6 +14,8 @@
   :root { --bg: #15171a; --card: #1f2226; --ink: #ecebe6; --muted: #9b978f; --line: #30343a; --accent: #7fc8a0; --accent-soft: #24352c; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
+/* hidden 속성이 display: flex/grid보다 세게 — 숨긴 칸은 정말 숨겨져요. */
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
 .app { max-width: 42rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
 h1, h2, .post-title { font-family: Georgia, "Apple SD Gothic Neo", "Malgun Gothic", serif; letter-spacing: -.01em; }

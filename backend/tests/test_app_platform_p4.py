@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AppDataCollection, BuilderProject, User
 from app.services import app_manifest, app_publish, app_runtime, builder_files, builder_versions
-from tests.test_app_platform_p2 import config, headers, shop, sign_in  # noqa: F401 — fixtures
+from tests.test_app_platform_p2 import SHOP_FILES, config, headers, shop, sign_in  # noqa: F401 — fixtures
 from tests.test_app_platform_p3 import call, save, visitor_b  # noqa: F401 — fixtures
 
 pytestmark = pytest.mark.usefixtures("config")
@@ -170,3 +170,48 @@ def test_a_member_not_participating_gets_no_template_project(other_client: TestC
     assert other_client.get("/api/builder/templates").status_code == 200
     assert other_client.post("/api/builder/projects/from-template", json={"template": "poll"}).status_code == 403
     assert db_session.query(BuilderProject).count() == 0
+
+
+# ------------------------------------------------------ the preview's own label
+
+
+def sign_in_preview(client: TestClient, project: BuilderProject) -> dict:
+    """The consent flow against the working copy's slug (the Builder's 미리보기)."""
+    slug = project.draft_slug
+    preview = {"X-CtrlAI-App": slug, "Sec-Fetch-Site": "same-origin"}
+    start = client.post("/_ctrlai/v1/login/start", headers=preview, json={})
+    assert start.status_code == 200, start.text
+    state = start.json()["connectUrl"].split("state=")[1]
+    info = client.get(f"/api/app-connect/{slug}").json()
+    assert info["mode"] == "preview" and info["name"] == project.name
+    allowed = client.post(f"/api/app-connect/{slug}", json={"state": state})
+    assert allowed.status_code == 200, allowed.text
+    query = allowed.json()["redirect_url"].split("?", 1)[1]
+    assert client.get(f"/{slug}/_ctrlai/callback?{query}").status_code == 200
+    return preview
+
+
+def test_ai_in_the_preview_is_the_maker_s_own_spend_labelled_apart(
+    client: TestClient, db_session: Session, shop: BuilderProject, budgeted, dev_user: User, config
+) -> None:
+    from app.models import UsageEvent
+    from app.services import app_ai, app_shell
+
+    app_runtime.write_draft(db_session, config, shop, dict(SHOP_FILES))
+    db_session.commit()
+    preview = sign_in_preview(client, shop)
+
+    answer = client.post("/_ctrlai/v1/ai/ask", headers=preview, json={"prompt": "안녕?"})
+    assert answer.status_code == 200, answer.text
+    event = db_session.query(UsageEvent).one()
+    assert event.feature == "app_ai_preview" and event.builder_project_id == shop.id and event.user_id == dev_user.id
+    assert event.charged_krw == answer.json()["chargedKrw"] > 0
+    usage = client.get("/api/usage/me").json()
+    assert any(row["label"] == "앱 미리보기 · 영수증 읽기" for row in usage["events"])
+    # It counts toward the same day cap and rates as a visitor's use.
+    assert app_ai.app_ai_spent_today(db_session, dev_user.id) == event.charged_krw
+
+    with client.stream("POST", "/_ctrlai/v1/ai/stream", headers=preview, json={"prompt": "안녕"}) as response:
+        "".join(response.iter_text())
+    assert db_session.query(UsageEvent).filter_by(feature="app_ai_preview").count() == 2
+    assert "미리보기 사용 · " in app_shell.static_file("shell.js")

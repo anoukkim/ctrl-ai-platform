@@ -358,7 +358,10 @@
   }
 
   function charged(amount) {
-    if (amount > 0) toast("앱 AI · " + amount.toLocaleString("ko-KR") + "원 · 내 동아리 지원금에서");
+    if (amount <= 0) return;
+    var won = amount.toLocaleString("ko-KR") + "원";
+    // In the Builder's 미리보기 the maker is the visitor: their own wallet pays (P4).
+    toast(mode === "preview" ? "미리보기 사용 · " + won + " · 내 지원금에서" : "앱 AI · " + won + " · 내 동아리 지원금에서");
   }
 
   function askAI(options) {
