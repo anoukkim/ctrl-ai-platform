@@ -76,7 +76,8 @@ const MEMBERS: MemberWithMembership[] = [
     display_name: "떠난회원",
     role: "member",
     account_status: "former",
-    membership_status: "former",
+    // 탈퇴 회원: 참여 기록도 신청도 없지만 미신청에는 세지 않습니다 (카드와 같게).
+    membership_status: null,
     application_status: null,
   },
   {
@@ -211,6 +212,7 @@ describe("회원 숫자 카드", () => {
     await waitFor(() => expect(rows()).toHaveLength(1));
     expect(screen.getByText("이소라")).toBeTruthy();
     expect(screen.queryByText("대기중")).toBeNull();
+    expect(screen.queryByText("떠난회원")).toBeNull();
     expect(screen.getByRole("combobox", { name: "참여" })).toHaveProperty("value", "not_applied");
   });
 
@@ -221,9 +223,10 @@ describe("회원 숫자 카드", () => {
 
     await user.selectOptions(screen.getByRole("combobox", { name: "참여" }), "none");
 
-    await waitFor(() => expect(rows()).toHaveLength(2));
+    await waitFor(() => expect(rows()).toHaveLength(3));
     expect(screen.getByText("이소라")).toBeTruthy();
     expect(screen.getByText("대기중")).toBeTruthy();
+    expect(screen.getByText("떠난회원")).toBeTruthy(); // no participation row — but not 미신청
     expect(screen.getByText("신청 승인 대기")).toBeTruthy();
   });
 

@@ -17,16 +17,20 @@ import { Lock } from "lucide-react";
 import Link from "next/link";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
-import { useSite } from "@/app/components/SiteProvider";
+import { useSite, useSiteLoaded } from "@/app/components/SiteProvider";
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
 
 import styles from "./video-lock.module.css";
 
 export default function VideoGate({ children }: { children: React.ReactNode }) {
   const site = useSite();
+  const loaded = useSiteLoaded();
   const { state } = useCurrentUser();
   const isAdmin = state.phase === "authenticated" && state.user.is_admin;
 
+  // /api/site의 답을 받기 전에는 아무것도 그리지 않습니다 — 열려 있는데
+  // 잠긴 화면이 잠깐 번쩍이면 안 되니까요.
+  if (!loaded) return null;
   if (site.video_open) return <>{children}</>;
 
   return (

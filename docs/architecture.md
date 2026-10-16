@@ -133,7 +133,7 @@ the same commit that adds it.
 | `POST /api/video/projects/{id}/versions/{vid}/edit` | **`require_video_open`** | Editing a version — spends the wallet |
 | `POST /api/video/projects/{id}/versions/{vid}/extend` | **`require_video_open`** | Extending a version — spends the wallet |
 | `POST /api/video/projects/{id}/prompt-help` | **`require_video_open`** | Claude rewrites the prompt — spends the wallet |
-| `DELETE /api/video/projects/{id}` | **`require_video_open`** | Changing your work |
+| `DELETE /api/video/projects/{id}` | **`require_active_member`** | Changing your work — deleting spends nothing, so the lock does not apply |
 | `GET /api/video/projects/{id}/versions/{vid}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/quarters/current` | `get_current_user` | |
 | `GET /api/quarters/me` | `get_current_user` | |

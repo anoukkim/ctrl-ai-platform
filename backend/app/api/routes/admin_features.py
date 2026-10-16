@@ -39,7 +39,7 @@ def _read(db: Session, key: str) -> FeatureRead:
     return FeatureRead(
         key=key,
         label=feature_switches.LABELS[key],
-        open=feature_switches.is_open(db, key),
+        open=feature_switches.DEFAULTS[key] if row is None else row.enabled,
         note=row.note if row is not None else "",
         set_by_username=setter.username if setter else "",
         set_at=row.created_at if row is not None else None,

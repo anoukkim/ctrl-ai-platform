@@ -260,7 +260,7 @@ def update_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_video_open),
+    user: User = Depends(require_active_member),
 ) -> None:
     """Delete a video project. The owner, while participating, only.
 

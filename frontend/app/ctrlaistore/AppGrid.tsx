@@ -18,10 +18,8 @@ import Skeleton from "@/app/components/Skeleton";
 import { listApps, type AppListing } from "@/lib/apps";
 import { describeError } from "@/lib/http";
 
-import AppCard, { versionLine } from "./AppCard";
+import AppCard from "./AppCard";
 import styles from "./ctrlaistore.module.css";
-
-export { versionLine };
 
 type State =
   | { phase: "loading" }

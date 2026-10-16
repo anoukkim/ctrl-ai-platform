@@ -22,7 +22,7 @@ DEFAULTS: dict[str, bool] = {VIDEO: False}
 LABELS: dict[str, str] = {VIDEO: "Video Generator"}
 
 #: What a member is told when the area is locked. Names what still works.
-VIDEO_LOCKED = "Video Generator는 다음 단계에서 열려요 — 지금은 준비 중이에요. 지금까지 만든 영상은 그대로 볼 수 있어요."
+VIDEO_LOCKED = "Video Generator는 다음 단계에서 열려요 — 지금은 준비 중이에요."
 
 
 def current(db: Session, key: str) -> FeatureSwitch | None:

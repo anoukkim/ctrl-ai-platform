@@ -20,12 +20,13 @@ const EVENT = "ctrlai-spend-sound";
 let memory: boolean | null = null;
 
 export function readSoundPref(): boolean {
-  if (memory !== null) return memory;
   try {
-    return window.localStorage.getItem(KEY) === "1";
+    const stored = window.localStorage.getItem(KEY);
+    if (stored !== null) return stored === "1";
   } catch {
-    return false;
+    /* 저장소가 막혔으면 이 페이지의 기억으로 */
   }
+  return memory ?? false;
 }
 
 export function writeSoundPref(on: boolean): void {

@@ -10,7 +10,7 @@
  * 바꾼 사람과 때가 옆에 보입니다.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import Skeleton from "@/app/components/Skeleton";
@@ -26,15 +26,6 @@ export default function FeaturePanel() {
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setFeatures(await listFeatures());
-      setError(null);
-    } catch (caught) {
-      setError(describeError(caught));
-    }
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,8 +53,8 @@ export default function FeaturePanel() {
             "감사 기록에 남습니다.",
           ]
         : [
-            "회원은 만들기·수정이 막히고, 메뉴와 화면에 '다음 단계에서 열려요'가 보입니다.",
-            "이미 만든 영상은 그대로 볼 수 있습니다. 관리자는 계속 들어갈 수 있습니다.",
+            "Video Generator 화면이 모두에게(관리자 포함) 자물쇠 하나로 바뀌고, 메뉴에 '다음 단계에서 열려요'가 보입니다.",
+            "회원의 만들기·수정 요청은 백엔드가 거절합니다. 이미 만든 프로젝트는 지워지지 않습니다.",
             "감사 기록에 남습니다.",
           ],
       confirmLabel: opening ? "회원에게 열기" : "잠그기",
@@ -73,7 +64,7 @@ export default function FeaturePanel() {
         setBusy(true);
         try {
           const changed = await setFeature(feature.key, opening, note);
-          await load();
+          setFeatures((rows) => (rows ?? []).map((row) => (row.key === changed.key ? changed : row)));
           setSaved(`${changed.label}를 ${changed.open ? "회원에게 열었습니다" : "잠갔습니다"}.`);
           setConfirm(null);
         } catch (caught) {

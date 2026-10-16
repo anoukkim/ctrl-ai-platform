@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe("기능 열기", () => {
-  test("잠김으로 시작하고, 열기 전에 묻고, 메모와 함께 보낸 뒤 다시 읽는다", async () => {
+  test("잠김으로 시작하고, 열기 전에 묻고, 메모와 함께 보낸 뒤 그 답으로 줄을 바꾼다", async () => {
     const user = userEvent.setup();
     render(<FeaturePanel />);
 
@@ -47,8 +47,11 @@ describe("기능 열기", () => {
     await user.click(confirms[confirms.length - 1]);
 
     await waitFor(() => expect(setFeature).toHaveBeenCalledWith("video", true, "2027 Q1부터"));
-    await waitFor(() => expect(listFeatures).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole("status")).toBeTruthy();
+    // The row is updated from the POST's answer — no second GET.
+    expect(listFeatures).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByTestId("feature-video").textContent).toContain("열림"));
+    expect(screen.getByTestId("feature-video").textContent).toContain("2027 Q1부터");
   });
 
   test("열려 있으면 잠그기 단추가 빨갛게, 바꾼 사람과 때가 보인다", async () => {

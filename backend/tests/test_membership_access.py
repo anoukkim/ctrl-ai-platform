@@ -446,7 +446,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/video/projects/{project_id}/versions/{version_id}/edit"): "require_video_open",
     ("POST", "/api/video/projects/{project_id}/versions/{version_id}/extend"): "require_video_open",
     ("POST", "/api/video/projects/{project_id}/prompt-help"): "require_video_open",
-    ("DELETE", "/api/video/projects/{project_id}"): "require_video_open",
+    ("DELETE", "/api/video/projects/{project_id}"): "require_active_member",
     # Taking a copy of your own work out. Deliberately `get_current_user`:
     # a member who did not join this quarter may not create, but their
     # work is theirs and must stay downloadable.

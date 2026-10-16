@@ -32,7 +32,8 @@ from app.services import invites, rate_limit
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _as_current_user(user: User) -> CurrentUser:
+def as_current_user(user: User) -> CurrentUser:
+    """The signed-in member as every account route answers them."""
     return CurrentUser(
         id=user.id,
         username=user.username,
@@ -177,7 +178,7 @@ def register(
     db.refresh(user)
 
     _start_session(db, response, user, settings)
-    return _as_current_user(user)
+    return as_current_user(user)
 
 
 @router.post("/login", response_model=CurrentUser, summary="Sign in")
@@ -215,7 +216,7 @@ def login(
         )
 
     _start_session(db, response, user, settings)
-    return _as_current_user(user)
+    return as_current_user(user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Sign out")
@@ -251,4 +252,4 @@ def logout(
 
 @router.get("/me", response_model=CurrentUser, summary="Who am I")
 def me(user: User = Depends(get_current_user)) -> CurrentUser:
-    return _as_current_user(user)
+    return as_current_user(user)

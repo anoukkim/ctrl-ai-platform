@@ -158,9 +158,10 @@ def require_video_open(
     On top of participation, the area must be **open**: the 관리자 flips
     `feature_switches` (Admin › System), and it is locked by default — the
     owner starts video two quarters from now and keeps only the wiring.
-    The 관리자 is never locked out, so the connection can be tried before
-    the area opens. Reads stay on `get_current_user`: what a member already
-    made never disappears.
+    The API never locks the 관리자 out, so the wiring can be tried (by API
+    or a script) before the area opens — the screens show every account the
+    same lock, as the owner asked. Reads and deletes stay on their old
+    guards: what a member already made is still theirs to fetch or remove.
     """
     if user.role is not UserRole.ADMIN and not feature_switches.is_open(db, feature_switches.VIDEO):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=feature_switches.VIDEO_LOCKED)
