@@ -76,6 +76,23 @@ then the three Chat items, then the Builder runtime and the first slice
 of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
 are pre-approved to merge and deploy one at a time (see **Now**).
 
+**Pre-approval and order (owner, 2026-10-16 ~16:20 KST, in the desktop
+session, before being away for a few hours).** The owner's words:
+"keep 9 on hold … bring motions to 1st and app ai access next … if it is
+different, add to third [Polish 2] … i am going to not have access to
+this computer for the next few hours and i want you to run current +
+1,2,3", and the owner's answers to two questions: **"Yes, merge + deploy"**
+— each item may be merged and deployed once its code review + security
+review are clean and all tests pass, one at a time, the desktop session
+deploying and checking each; serious money/security findings stop and
+wait for the owner — and **"Build directly"** — no plan step; follow the
+specs, take the safest default on open questions and list them in the
+report. **Scope, exactly:** the three running items (ui-improvements A,
+ui-improvements B, auto-continue / polish 11), then **① motion-modern,
+② app-ai-access, ③ owner-polish 2 (tidier Profile + notification list)**.
+**dino-avatars stays on hold.** Not covered: the CtrlAITube poster branch
+`fix-tube-poster` (waits for the owner), anything else in Next.
+
 1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
    "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
    apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
