@@ -30,7 +30,6 @@ kept on purpose. A member sees only their own — someone else's id is a
 
 from __future__ import annotations
 
-import re
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
@@ -153,7 +152,9 @@ def _kst_day(moment: datetime) -> date:
     return moment.astimezone(KST).date()
 
 
-_COUNT = re.compile(r"반응 (\d+)개")
+def _day_label(day: date) -> str:
+    """The date itself — a row lives 90 days, so "오늘" would go stale."""
+    return f"{day.month}월 {day.day}일"
 
 
 def reaction_received(
@@ -166,36 +167,56 @@ def reaction_received(
     item_label: str,
     what: str,
     link: str | None,
+    token: str | None = None,
     now: datetime | None = None,
 ) -> Notification | None:
     """반응을 얻었어요 — one row per (item, KST day) that counts up.
 
-    `what` is a reaction kind ("like" …), "comment" or "reply". Nothing
-    for the member's own reaction on their own thing, and nothing when
-    the item has no owner (the club's own video). Does not commit."""
+    `what` is a reaction kind ("like" …), "comment" or "reply". `token`
+    names what is being counted — "r:<user id>" for a reaction (a member
+    counts once a day whatever they press), "c:<comment id>" for a
+    comment; the same token twice changes nothing. Nothing for the
+    member's own reaction on their own thing, and nothing when the item
+    has no owner (the club's own video). Does not commit."""
     if owner_id is None or owner_id == actor_id:
         return None
     moment = now or datetime.now(timezone.utc)
-    key = f"reaction:{item_kind}:{item_id}:{_kst_day(moment).isoformat()}"
+    day = _kst_day(moment)
+    key = f"reaction:{item_kind}:{item_id}:{day.isoformat()}"
     word = REACTION_WORD.get(what, "댓글" if what == "comment" else "답글" if what == "reply" else what)
+    token = token or f"{what}:{actor_id}"
+    # The label is cut so the count's suffix always fits in the 200-character title.
+    label = item_label[:60]
+
+    def title(count: int) -> str:
+        return f"'{label}'이(가) {_day_label(day)} 반응 {count}개를 얻었어요"
+
+    def bump(row: Notification) -> Notification:
+        counted = list(row.counted or [])
+        if token in counted:
+            return row  # pressed again: nothing new for the maker
+        counted.append(token)
+        row.counted = counted
+        row.title = title(len(counted))
+        row.body = f"방금: {word}"[:600]
+        row.created_at = moment
+        row.read_at = None  # new since it was last seen
+        db.flush()
+        return row
+
     existing = db.scalar(
         select(Notification).where(Notification.user_id == owner_id, Notification.dedupe_key == key)
     )
     if existing is not None:
-        found = _COUNT.search(existing.title)
-        count = (int(found.group(1)) if found else 1) + 1
-        existing.title = f"'{item_label}'이(가) 오늘 반응 {count}개를 얻었어요"[:200]
-        existing.body = f"방금: {word}"[:600]
-        existing.created_at = moment
-        existing.read_at = None  # new since it was last seen
+        return bump(existing)
+    created = notify(db, owner_id, "reaction", title(1), f"방금: {word}", link, dedupe_key=key)
+    if created is not None:
+        created.counted = [token]
         db.flush()
-        return existing
-    return notify(
-        db, owner_id, "reaction",
-        f"'{item_label}'이(가) 오늘 반응 1개를 얻었어요",
-        f"방금: {word}", link,
-        dedupe_key=key,
-    )
+        return created
+    # Two first reactions at once: the other one wrote the row — count on it.
+    row = db.scalar(select(Notification).where(Notification.user_id == owner_id, Notification.dedupe_key == key))
+    return bump(row) if row is not None else None
 
 
 # ------------------------------------------------------------ reading

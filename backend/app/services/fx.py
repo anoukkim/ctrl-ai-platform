@@ -153,6 +153,7 @@ def set_auto(db: Session, *, admin: User, on: bool) -> FxStatus:
     row.auto_enabled = on
     if on:
         row.note = ""
+        row.outcome = ""
     audit.record(
         db,
         actor=admin,
@@ -165,13 +166,18 @@ def set_auto(db: Session, *, admin: User, on: bool) -> FxStatus:
     return row
 
 
-def pin_by_hand(db: Session, *, admin: User) -> FxStatus:
-    """A rate typed in by the admin must stay: the switch goes off with it."""
+def pin_by_hand(db: Session, *, admin: User, rate: Decimal) -> bool:
+    """A rate typed in by the admin must stay: the switch goes off with it —
+    unless the admin typed exactly the quote that was held back, which is
+    accepting it, not pinning. Returns whether the rate was pinned."""
     row = status_row(db)
-    if row.auto_enabled:
-        row.auto_enabled = False
-        row.note = ""
-    return row
+    accepted = row.outcome == "blocked" and row.fetched_rate is not None and Decimal(row.fetched_rate) == rate
+    row.note = ""
+    row.outcome = ""
+    if accepted or not row.auto_enabled:
+        return False
+    row.auto_enabled = False
+    return True
 
 
 # ------------------------------------------------------------ the refresh
@@ -224,7 +230,8 @@ def refresh(db: Session, settings: Settings, *, now: datetime | None = None) -> 
             status.outcome = "blocked"
             status.note = (
                 f"받아 온 환율 1달러 = {quote.rate:,}원은 지금 환율 {previous:,}원과 {moved}% 차이가 나서 "
-                f"반영하지 않았어요 ({MAX_JUMP_PCT}% 넘는 변동은 보류). 맞는 값이면 직접 입력해 주세요."
+                f"반영하지 않았어요 ({MAX_JUMP_PCT}% 넘는 변동은 보류). 맞는 값이면 그 값을 그대로 입력해 주세요 — "
+                "그러면 자동 반영은 켜진 채로 반영돼요. 다른 값을 적으면 환율이 고정됩니다."
             )
             audit.record(
                 db,

@@ -225,25 +225,47 @@ def test_reactions_and_comments_on_my_video_become_one_row_per_day_that_counts_u
     rows = db_session.query(Notification).filter_by(user_id=other_user.id).all()
     assert len(rows) == 1
     row = rows[0]
-    assert row.kind == "reaction" and row.title == "'다른 회원의 영상'이(가) 오늘 반응 2개를 얻었어요"
+    today = notifications._day_label(notifications._kst_day(datetime.now(timezone.utc)))
+    assert row.kind == "reaction" and row.title == f"'다른 회원의 영상'이(가) {today} 반응 2개를 얻었어요"
     assert row.body == "방금: 댓글" and row.link == "/ctrlaitube/otherclip" and row.read_at is None
 
-    # Read, then another reaction: the same row, counted up and unread again.
+    # Read, then a second comment: the same row, counted up and unread again.
     row.read_at = datetime.now(timezone.utc)
     db_session.commit()
-    assert client.post(f"/api/tube/videos/{my_video.slug}/reactions", json={"kind": "useful"}).status_code == 200
+    assert client.post(f"/api/tube/videos/{my_video.slug}/comments", json={"body": "또 멋져요"}).status_code == 201
     db_session.expire_all()
     row = db_session.query(Notification).filter_by(user_id=other_user.id).one()
-    assert row.title.endswith("반응 3개를 얻었어요") and row.body == "방금: 유용해요" and row.read_at is None
+    assert row.title.endswith("반응 3개를 얻었어요") and row.body == "방금: 댓글" and row.read_at is None
+
+    # Pressing 좋아요 off and on, or adding a second kind, is not a new reaction for the maker.
+    row.read_at = datetime.now(timezone.utc)
+    db_session.commit()
+    for kind in ("like", "like", "useful"):
+        assert client.post(f"/api/tube/videos/{my_video.slug}/reactions", json={"kind": kind}).status_code == 200
+    db_session.expire_all()
+    row = db_session.query(Notification).filter_by(user_id=other_user.id).one()
+    assert row.title.endswith("반응 3개를 얻었어요") and row.read_at is not None
 
     # Other answers dev's comment: dev hears of the reply (one row for that comment).
     _sign_in(client, other_user.username, MEMBER_PASSWORD)
     reply = client.post(f"/api/tube/videos/{my_video.slug}/comments", json={"body": "고마워요", "parent_id": first.json()["id"]})
     assert reply.status_code == 201
     mine = db_session.query(Notification).filter_by(user_id=dev_user.id).one()
-    assert mine.kind == "reaction" and mine.title == "'멋져요!'이(가) 오늘 반응 1개를 얻었어요" and mine.body == "방금: 답글"
+    assert mine.kind == "reaction" and mine.title == f"'멋져요!'이(가) {today} 반응 1개를 얻었어요" and mine.body == "방금: 답글"
     # The maker's own reply on their own video adds nothing for themselves.
     assert db_session.query(Notification).filter_by(user_id=other_user.id).count() == 1
+
+
+def test_the_count_is_what_was_counted_never_the_label_and_a_token_counts_once(db_session: Session, dev_user, other_user) -> None:
+    for token in ("r:1", "r:1", "c:5", "c:5", "r:2"):
+        notifications.reaction_received(
+            db_session, owner_id=other_user.id, actor_id=dev_user.id, item_kind="video", item_id=9,
+            item_label="반응 100개 모으기", what="like", link="/ctrlaitube/x", token=token,
+        )
+    db_session.commit()
+    row = db_session.query(Notification).filter_by(user_id=other_user.id).one()
+    assert row.title.endswith("반응 3개를 얻었어요") and row.title.startswith("'반응 100개 모으기'")
+    assert row.counted == ["r:1", "c:5", "r:2"]
 
 
 def test_the_clubs_own_video_has_no_maker_to_tell(client: TestClient, db_session: Session, participating) -> None:

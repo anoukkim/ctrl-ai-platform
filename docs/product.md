@@ -763,7 +763,7 @@ owner-polish-3 (c)·(c2), 2026-10-16: "매번 쓸 때마다 알림 오면 너무
 … 걍 벨 누르면 숫자는 사라지고 clear 누르면 알림 없애기").** A bell in the
 sidebar's **header**, beside the CTRL+AI name, carries the unread count;
 pressing it opens a small panel under it with the latest notifications —
-**and the number disappears as it opens** (what is shown is marked read).
+**and the number disappears as it opens** (everything is marked read).
 A row leads where the thing happened; **지우기** deletes the rows shown,
 and nothing is kept elsewhere: Profile has no list any more, only the
 알림 설정 switches. Every row is **stored on the server and comes only
@@ -773,8 +773,9 @@ v3` / 업데이트 게시 완료 (→ the app on CtrlAIApps); `2026 Q4 참여 �
 승인됐어요` with the wallet amount (→ Usage), or 거절 with the admin's
 note; **반응을 얻었어요** — a reaction or comment on the member's
 CtrlAITube video, or a reply to their comment, **one row per item per KST
-day** that counts up ("'내 영상'이(가) 오늘 반응 3개를 얻었어요 · 방금:
-댓글"; the club's own video has no maker to tell, and a ★ 즐겨찾기 on an
+day** that counts up ("'내 영상'이(가) 10월 16일 반응 3개를 얻었어요 · 방금:
+댓글" — a member counts once a day whatever they press, each comment
+once; the club's own video has no maker to tell, and a ★ 즐겨찾기 on an
 app stays the visitor's private preference); and 신고 처리 — an app taken
 down by an admin with the reason, or a report on it closed with the app
 kept. No spending notifications any more (the toast and Usage say what

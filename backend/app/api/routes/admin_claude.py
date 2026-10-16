@@ -132,8 +132,7 @@ def set_exchange_rate(
     db.add(ExchangeRate(currency="USD", krw_per_unit=payload.krw_per_usd, set_by=admin.id, source="admin"))
     # owner-polish-3 (b): a rate typed in is a pin — the daily refresh
     # must not overwrite it tomorrow. The switch turns it back on.
-    was_auto = fx.status_row(db).auto_enabled
-    fx.pin_by_hand(db, admin=admin)
+    pinned = fx.pin_by_hand(db, admin=admin, rate=payload.krw_per_usd)
     audit.record(
         db,
         actor=admin,
@@ -143,12 +142,12 @@ def set_exchange_rate(
         summary=(
             f"환율: 1달러 = {payload.krw_per_usd:,}원"
             + (f" (이전 {previous.krw_per_unit:,}원)" if previous else "")
-            + (" · 자동 반영 꺼짐 (고정)" if was_auto else "")
+            + (" · 자동 반영 꺼짐 (고정)" if pinned else "")
         ),
         detail={
             "before": str(previous.krw_per_unit) if previous else None,
             "after": str(payload.krw_per_usd),
-            "auto_enabled": False,
+            "auto_enabled": fx.status_row(db).auto_enabled,
         },
     )
     db.commit()

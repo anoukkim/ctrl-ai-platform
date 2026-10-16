@@ -120,6 +120,10 @@
   user-select: none;
 }
 
+.artworkInitial::before {
+  content: attr(data-initial);
+}
+
 .artwork {
   overflow: hidden;
 }

@@ -91,11 +91,13 @@ describe("의견 보내기 — both entry points open the same dialog", () => {
         <p>본문</p>
       </AppShell>,
     );
+    // owner-polish-3 (c2): 의견 보내기 lives in the account row's menu now.
     const nav = document.getElementById("primary-navigation") as HTMLElement;
-    const button = [...nav.querySelectorAll("button")].find(
-      (element) => element.getAttribute("aria-label") === "의견 보내기",
+    const account = [...nav.querySelectorAll("button")].find((element) =>
+      (element.getAttribute("aria-label") ?? "").endsWith("계정 메뉴"),
     ) as HTMLElement;
-    fireEvent.click(button);
+    fireEvent.click(account);
+    fireEvent.click(screen.getByRole("menuitem", { name: /의견 보내기/ }));
     return { view, dialog: screen.getByRole("dialog", { name: "의견 보내기" }) };
   }
 

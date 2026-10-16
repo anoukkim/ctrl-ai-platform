@@ -112,6 +112,7 @@ def test_the_admin_pins_a_rate_by_typing_it_and_the_switch_turns_the_refresh_bac
     settings = client.get("/api/admin/claude-pricing").json()
     assert settings["fx"]["auto_enabled"] is True and settings["fx"]["is_mock"] is True
     assert settings["fx"]["max_jump_pct"] == "5"
+    assert client.get("/api/admin/claude-pricing").json()["rate_history"][-1]["source"] == "seed"
 
     pinned = client.post("/api/admin/claude-pricing/exchange-rate", json={"krw_per_usd": "1300"})
     assert pinned.status_code == 200
@@ -134,6 +135,13 @@ def test_the_admin_pins_a_rate_by_typing_it_and_the_switch_turns_the_refresh_bac
     body = refreshed.json()
     assert body["fx"]["outcome"] == "blocked" and "6.5%" in body["fx"]["note"]
     assert body["exchange_rate"]["krw_per_usd"] == "1300.00"
+
+    # Typing exactly the held-back quote accepts it — the refresh stays on and the warning goes.
+    accepted = client.post("/api/admin/claude-pricing/exchange-rate", json={"krw_per_usd": "1385"})
+    assert accepted.status_code == 200
+    assert accepted.json()["fx"] == {**accepted.json()["fx"], "auto_enabled": True, "outcome": "", "note": ""}
+    assert accepted.json()["exchange_rate"]["krw_per_usd"] == "1385.00"
+    assert "자동 반영 꺼짐" not in db_session.query(AuditLog).filter_by(action="exchange_rate.set").order_by(AuditLog.id.desc()).first().summary
 
 
 def test_the_routes_are_admin_only(anon_client: TestClient, other_user, config) -> None:
@@ -206,3 +214,27 @@ def test_the_job_runs_and_a_dry_run_writes_nothing(db_session: Session, config, 
     assert len(rates(db_session)) == before
     assert refresh_fx.main([]) == 0
     assert len(rates(db_session)) == before + 1
+
+
+def test_only_new_charges_use_a_new_rate(client: TestClient, db_session: Session, budgeted, config, mock_rate) -> None:
+    """Money: a charge keeps the rate it was priced at; the refresh reaches
+    only what comes after it, and never touches the wallet's past."""
+    from app.models import UsageEvent
+    from tests.test_chat import new_conversation, send
+
+    pricing.seed_defaults(db_session)
+    db_session.commit()
+    conversation = new_conversation(client)
+    send(client, conversation, "안녕")
+    first = db_session.query(UsageEvent).order_by(UsageEvent.id).first()
+    before_rate, before_krw = Decimal(first.exchange_rate_krw), first.charged_krw
+
+    mock_rate["rate"] = before_rate + Decimal("40.00")  # inside the 5% band
+    assert fx.refresh(db_session, config).outcome == "applied"
+    db_session.commit()
+    send(client, conversation, "또 안녕")
+
+    db_session.expire_all()
+    events = db_session.query(UsageEvent).order_by(UsageEvent.id).all()
+    assert (Decimal(events[0].exchange_rate_krw), events[0].charged_krw) == (before_rate, before_krw)
+    assert Decimal(events[-1].exchange_rate_krw) == before_rate + Decimal("40.00")

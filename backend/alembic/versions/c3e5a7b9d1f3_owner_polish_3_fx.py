@@ -10,6 +10,10 @@ the day the provider quoted. `fx_status` is one row: the pin switch
 published thumbnail — the Builder card then shows that picture, and the
 automatic draft captures stop replacing it.
 
+`notifications.counted` (c): what a 반응을 얻었어요 row has counted — one
+token per member per day for reactions, one per comment — so the count
+never comes out of the title and a 좋아요 pressed on and off stays one.
+
 Revision ID: c3e5a7b9d1f3
 Revises: a8c4e2f6b1d9
 Create Date: 2026-10-16
@@ -29,6 +33,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("builder_projects", sa.Column("thumbnail_chosen_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column("notifications", sa.Column("counted", sa.JSON(), nullable=True))
     op.add_column(
         "exchange_rates", sa.Column("source", sa.String(length=20), nullable=False, server_default="admin")
     )
@@ -47,6 +52,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("notifications", "counted")
     op.drop_column("builder_projects", "thumbnail_chosen_at")
     op.drop_table("fx_status")
     op.drop_column("exchange_rates", "fetched_for")

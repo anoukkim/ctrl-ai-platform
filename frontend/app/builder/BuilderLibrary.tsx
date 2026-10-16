@@ -501,6 +501,7 @@ export default function BuilderLibrary() {
                   name={project.name}
                   seed={project.draft_slug ?? project.app_slug ?? String(project.id)}
                   imageUrl={builderThumbnailUrl(project)}
+                  label="initial"
                 />
               }
               thumbnailPlacement="top"
