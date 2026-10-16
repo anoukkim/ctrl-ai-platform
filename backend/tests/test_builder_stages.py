@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.api.routes import builder as builder_route
 from app.core.config import Settings, get_settings
 from app.main import app
-from app.models import BuilderGeneration, BuilderProject, BuilderProjectVersion, UsageEvent
+from app.models import BuilderGeneration, BuilderProject, BuilderProjectStep, BuilderProjectVersion, UsageEvent
 from app.services import builder_stages, builder_versions
 from app.services.claude_provider import (
     MOCK_ACCENT,
@@ -102,9 +102,12 @@ def test_a_new_app_is_planned_then_written_file_by_file_then_checked(
     done = dict(events)["done"]
     assert done["charged_krw"] == sum(amounts)
     generation = db_session.get(BuilderGeneration, body["id"])
-    assert generation.status == "done" and generation.version_id is not None
-    version = db_session.get(BuilderProjectVersion, generation.version_id)
-    assert version.note.startswith("만들기: 할 일 앱")
+    # builder-snapshots: a run is a 작업 step, not a version.
+    assert generation.status == "done" and generation.version_id is None and generation.step_id is not None
+    assert dict(events)["done"]["step_seq"] >= 1
+    step = db_session.get(BuilderProjectStep, generation.step_id)
+    assert step.note.startswith("만들기: 할 일 앱")
+    assert db_session.query(BuilderProjectVersion).count() == 0
     assert client.get(f"/api/builder/projects/{project.id}/generation").json() is None
 
 
@@ -123,29 +126,32 @@ def test_a_change_writes_only_the_planned_file(
     assert MOCK_ACCENT_NEW in css and MOCK_ACCENT not in css
 
 
-def test_versions_carry_the_request_summary_and_cost_that_made_them(
+def test_steps_carry_the_request_summary_and_cost_that_made_them(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
-    """quality-tuning Q3: the Claude panel shows the edit history as a
-    conversation — each version says what was asked, what Claude did,
-    how many files changed and what it cost. A 되돌리기 has none of that."""
+    """quality-tuning Q3, builder-snapshots: the Claude panel shows the
+    edit history as a conversation — each 작업 step says what was asked,
+    what Claude did, how many files changed and what it cost. A load has
+    none of that, and no run made a numbered version."""
     first = plan(client, project, "할 일 앱").json()
     run(client, project, first["id"])
     edit = plan(client, project, "버튼 색을 바꿔 줘").json()
     done = dict(run(client, project, edit["id"]))["done"]
 
-    versions = client.get(f"/api/builder/projects/{project.id}/versions").json()
-    latest, made = versions[0], versions[1]
-    assert latest["request"] == "버튼 색을 바꿔 줘"
+    assert client.get(f"/api/builder/projects/{project.id}/versions").json() == []
+    history = client.get(f"/api/builder/projects/{project.id}/steps").json()
+    made, latest = [step for step in history["steps"] if step["request"]][-2:]
+    assert latest["request"] == "버튼 색을 바꿔 줘" and latest["current"] is True
     assert latest["summary"] == edit["summary"]
     assert latest["changed_count"] == 1
     assert latest["charged_krw"] == done["charged_krw"] > 0
     assert made["changed_count"] == 3
+    assert history["unsaved"] is True and history["can_undo"] is True and history["can_redo"] is False
 
-    restored = client.post(f"/api/builder/projects/{project.id}/versions/{made['number']}/restore", json={})
-    assert restored.status_code == 200, restored.text
-    newest = client.get(f"/api/builder/projects/{project.id}/versions").json()[0]
-    assert newest["request"] == "" and newest["changed_count"] is None and newest["charged_krw"] is None
+    # Going back to the first run's step is no version either, and the step has no request.
+    gone = client.post(f"/api/builder/projects/{project.id}/steps/{made['seq']}/restore", json={})
+    assert gone.status_code == 200, gone.text
+    assert client.get(f"/api/builder/projects/{project.id}/versions").json() == []
 
 
 class FailsOnce(MockClaudeProvider):

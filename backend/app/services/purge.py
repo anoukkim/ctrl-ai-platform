@@ -45,6 +45,7 @@ from app.models import (
     BuilderGeneration,
     BuilderProject,
     BuilderProjectFile,
+    BuilderProjectStep,
     BuilderProjectVersion,
     Quarter,
     UsageEvent,
@@ -184,6 +185,7 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
             AppFavorite,
             BuilderGeneration,
             BuilderProjectFile,
+            BuilderProjectStep,
             BuilderProjectVersion,
         ):
             db.execute(delete(child).where(child.project_id == pid))

@@ -2,8 +2,10 @@
 
 Mock Claude only. The member's wallet never moves (an absorbed row at
 0원); the text is kept per version and written once; an update's note
-reads the versions since the published one; nothing here can block 게시.
+reads the runs since the published version; nothing here can block 게시.
 """
+
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -73,11 +75,13 @@ def test_an_update_gets_a_note_from_the_versions_since_the_published_one(
     # Two more versions, one made by Claude (a generation), one by hand.
     files = {"index.html": "<!doctype html><h1>메모 v2</h1>", "app.js": "// 댓글"}
     builder_versions.replace_files(db_session, project, files)
-    v2 = builder_versions.snapshot(db_session, project, "고치기: 댓글 기능 넣어 줘", files)
+    builder_versions.snapshot(db_session, project, "버전 저장", files)
+    # The run after the 게시 (dated in the future: the test's transaction has one clock).
     db_session.add(
         BuilderGeneration(
             project_id=project.id, user_id=dev_user.id, kind="edit", request="댓글 기능 넣어 줘", style="",
-            summary="댓글을 달 수 있게 했어요.", plan=[], files_done=[], check_fixed=[], status="done", version_id=v2.id,
+            summary="댓글을 달 수 있게 했어요.", plan=[], files_done=[], check_fixed=[], status="done",
+            created_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
     )
     builder_versions.snapshot(db_session, project, "v1로 되돌리기", files)
@@ -91,10 +95,17 @@ def test_an_update_gets_a_note_from_the_versions_since_the_published_one(
 
     # Published again (v3 is now the base): the same working version needs no new note.
     app_publish.publish(db_session, config, project, description="메모장이에요", note="")
-    db_session.commit()
+    project.published_at = datetime.now(timezone.utc) + timedelta(minutes=90)
     files = {"index.html": "<!doctype html><h1>메모 v4</h1>", "app.js": "// 색"}
     builder_versions.replace_files(db_session, project, files)
-    builder_versions.snapshot(db_session, project, "고치기: 색 바꿔 줘", files)
+    builder_versions.snapshot(db_session, project, "버전 저장", files)
+    db_session.add(
+        BuilderGeneration(
+            project_id=project.id, user_id=dev_user.id, kind="edit", request="색 바꿔 줘", style="",
+            summary="색을 바꿨어요.", plan=[], files_done=[], check_fixed=[], status="done",
+            created_at=datetime.now(timezone.utc) + timedelta(hours=2),
+        )
+    )
     db_session.commit()
     again = summary(client, project)
     assert again["cached"] is False and again["note"] != ""

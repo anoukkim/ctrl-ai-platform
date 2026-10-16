@@ -258,17 +258,74 @@ class AiAccessRequest(BaseModel):
     ai_access: Literal["demo", "full"]
 
 
+class StepRead(BaseModel):
+    """One 작업 step (builder-snapshots): a point in the short undo history
+    between saved versions. Not numbered like a version. `request` /
+    `summary` / `changed_count` / `charged_krw` are set for a step Claude
+    made (the Claude panel's history), empty / None otherwise."""
+
+    seq: int
+    note: str
+    created_at: datetime
+    #: The step the working copy is at.
+    current: bool = False
+    request: str = ""
+    summary: str = ""
+    changed_count: int | None = None
+    charged_krw: int | None = None
+
+
+class HistoryRead(BaseModel):
+    """The undo history and whether there is unsaved work —
+    `GET …/steps`, read after every change."""
+
+    #: Oldest first.
+    steps: list[StepRead]
+    can_undo: bool
+    can_redo: bool
+    #: The working copy differs from the version it stands on
+    #: (`reference_version_number`) — the 저장할까요? prompts ask on this.
+    unsaved: bool
+    #: The saved version the working copy stands on: the one loaded, else
+    #: the newest. None while there is no version yet.
+    reference_version_number: int | None = None
+    latest_version_number: int | None = None
+
+
+class VersionSave(BaseModel):
+    """버전 저장: an optional name for the new version."""
+
+    label: str = Field(default="", max_length=80)
+
+
+class SaveRead(BaseModel):
+    """`created=False`: the files were already the version they stand on —
+    nothing was made ("이미 같아요")."""
+
+    created: bool
+    version: VersionRead
+    project: BuilderProjectRead
+
+
+class StepGoRead(BaseModel):
+    files: list[BuilderFileRead]
+    project: BuilderProjectRead
+
+
 class GenerateRead(BaseModel):
     files: list[BuilderFileRead]
     #: Paths Claude created or changed, in the order it wrote them.
     changed: list[str]
     summary: str
     charged_krw: int
-    version: VersionRead
+    #: The 작업 step this run made (not a version — builder-snapshots).
+    step: StepRead
     project: BuilderProjectRead
 
 
 class RestoreRead(BaseModel):
+    """불러오기: the files now in the working copy and the version they came from."""
+
     files: list[BuilderFileRead]
     version: VersionRead
     project: BuilderProjectRead
@@ -341,6 +398,8 @@ class GenerationRead(BaseModel):
     #: The last failure, in Korean. Empty when none.
     error: str
     version_number: int | None = None
+    #: builder-snapshots: the 작업 step a finished run made (None once it rolled out).
+    step_seq: int | None = None
     created_at: datetime
     #: "약 N원" for the rest of the run and "최대 M원" per call — shown by
     #: 시작 and 이어서 만들기. None when the run is over.

@@ -69,9 +69,10 @@ def publish(
     "다른 회원에게 AI 기능을 열까요?"; None keeps what the project has
     (a new project starts as "demo").
 
-    The working copy always has a version (every change writes one; a
-    project made before versions gets "처음 상태" here), so what is
-    published is exactly a version the member can see in 버전 기록.
+    builder-snapshots: 게시 publishes the working copy, saving it as the
+    next version first when it differs from the version it stands on — so
+    what is published is always a numbered version the member can see in
+    버전 기록 (and it is never pruned).
     """
     if "index.html" not in builder_versions.current_files(db, project):
         raise PublishError("index.html이 있어야 게시할 수 있어요. 먼저 앱을 만들어 주세요.", 409)
@@ -82,10 +83,10 @@ def publish(
     if len(note) > MAX_NOTE:
         raise PublishError("업데이트 메모는 200자까지 적을 수 있어요.")
 
-    builder_versions.ensure_baseline(db, project)
-    version = builder_versions.latest(db, project)
-    if version is None:  # pragma: no cover — ensure_baseline wrote one
-        raise PublishError("게시할 버전이 없습니다.", 409)
+    try:
+        version, _created = builder_versions.save(db, project, note="게시", settings=settings)
+    except builder_versions.VersionError as error:
+        raise PublishError(str(error), error.status_code) from error
     files = {str(path): str(content) for path, content in version.files}
     try:
         app_runtime.write_public(db, settings, project, files)

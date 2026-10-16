@@ -460,8 +460,10 @@ def run(
 
     files = builder_versions.current_files(db, project)
     note = ("만들기: " if generation.kind == "create" else "고치기: ") + generation.request.splitlines()[0]
-    version = builder_versions.snapshot(db, project, note[:200], files, settings)
-    generation.version_id = version.id
+    # A 작업 step, not a version (builder-snapshots): 실행 취소 can undo this
+    # run; the member saves a version when they want one.
+    step = builder_versions.record_step(db, project, note[:200], files)
+    generation.step_id = step.id
     generation.status = "done"
     # A request is never the description (owner, 2026-10-16, ui-improvements):
     # the card used to show "미니게임 테트리스 만들어줘…" as the project's
@@ -471,7 +473,8 @@ def run(
     emit(
         "done",
         {
-            "version_number": version.number,
+            "step_seq": step.seq,
+            "unsaved": builder_versions.has_unsaved(db, project),
             "charged_krw": generation.charged_krw,
             "files_done": list(generation.files_done),
             "check_fixed": fixed,
