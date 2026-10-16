@@ -402,7 +402,17 @@ Everything Korean for members, light/dark, 390px. Progress in docs/progress/RUN-
 
 ### thumbnail-render-worker
 
-*Later, not pre-approved.* ui-improvements-a (2026-10-16) takes an app's
+**Scheduled and pre-approved (owner, 2026-10-17, verbatim):** "서버에서 진짜
+브라우저로 썸네일 찍는 것(thumbnail-render-worker) 만들어줘. 격리 조건 그대로,
+리뷰 깨끗하고 테스트 통과하면 merge + 배포까지 해도 돼." — branch
+`feat-thumbnail-render-worker`. The isolation conditions the owner accepted:
+a separate container (never the api/db network; the browser reaches only
+`apps.ctrlai.my`, every other host refused), 768 MB / 1 CPU caps, one job at
+a time, ≤ 20 s per picture, read-only filesystem, non-root, no new paid
+resource (fits the e2-medium: ~2.8 GB free). The in-browser capture stays
+as the fallback when the worker is off or fails.
+
+*(Original note:)* ui-improvements-a (2026-10-16) takes an app's
 thumbnail in the **maker's browser** (SDK capture → server re-encode),
 which cannot draw an app's own image files, WebGL, or much of anything in
 Safari — such cards keep their coloured cover. When that is not enough:
