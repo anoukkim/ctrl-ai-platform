@@ -196,7 +196,7 @@ export default function PublishDialog({
       </div>
 
       {usesAi && (
-        <fieldset className={styles.dialogField} data-testid="ai-access">
+        <fieldset className={`${styles.dialogField} ${styles.choices}`} data-testid="ai-access">
           <legend className={styles.fieldLabel}>{AI_ACCESS_QUESTION}</legend>
           {(["demo", "full"] as const).map((choice) => (
             <label key={choice} className={styles.choice}>

@@ -174,6 +174,7 @@
   function refresh() {
     return api("/v1/app").then(function (data) {
       info = data;
+      drawAiSwitch(); // app-ai-access: the pill follows what the server says (and sign-in)
       return data;
     });
   }
@@ -395,7 +396,7 @@
   function demoRefusal() {
     var error = new Error(
       aiAccess() === "full"
-        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). 실제 AI는 왼쪽 아래 스위치에서 켤 수 있어요."
+        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켤 수 있어요."
         : "이 앱의 AI는 데모로만 열려 있어요. 데모 답변을 보여 드려요."
     );
     error.code = "demo";
@@ -410,7 +411,9 @@
     toast(aiMode() === "demo" ? "데모로 봐요 — AI를 부르지 않아요 (0원)." : "실제 AI를 켰어요 — 버튼을 누를 때만 내 지원금에서 나가요.");
   }
 
-  /** The pill at the bottom left: what mode the app is in, and the visitor's switch. */
+  /** A thin bar above the app: what mode it is in, and the visitor's switch.
+   *  A bar, not a floating pill — a pill would sit on top of whatever the
+   *  app keeps in that corner (a tab bar on a phone, its own buttons). */
   function drawAiSwitch() {
     // Only a published app that uses AI; the maker's 미리보기 has no switch.
     if (mode !== "app" || !aiUsed()) return;
@@ -420,31 +423,44 @@
       aiBox.setAttribute("role", "group");
       aiBox.setAttribute("aria-label", "AI 모드");
       aiBox.style.cssText =
-        "position:fixed;left:12px;bottom:12px;z-index:2147483646;display:flex;gap:6px;align-items:center;" +
-        "padding:4px 4px 4px 6px;border-radius:999px;background:rgba(20,20,24,.92);color:#fff;" +
-        "font:12px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)";
-      body.appendChild(aiBox);
+        "position:fixed;left:0;right:0;top:0;height:34px;z-index:2147483646;display:flex;gap:8px;align-items:center;" +
+        "padding:0 10px;box-sizing:border-box;background:rgba(20,20,24,.96);color:#fff;" +
+        "font:12px/1.4 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.25)";
+      body.insertBefore(aiBox, frame);
+      // The app keeps its whole height below the bar — nothing is covered.
+      frame.style.marginTop = "34px";
+      frame.style.height = "calc(100% - 34px)";
     }
     while (aiBox.firstChild) aiBox.removeChild(aiBox.firstChild);
     var live = aiMode() === "live";
+    var signed = !!(info && info.signedIn);
     var badge = document.createElement("span");
     badge.setAttribute("data-mode", live ? "live" : "demo");
-    badge.textContent = live ? "실제 AI · 내 지원금에서" : aiAccess() === "full" ? "데모 · 0원" : "데모 · AI 호출 없음";
-    badge.title = live
-      ? "AI 버튼을 누를 때만 내 동아리 지원금에서 나가요."
+    badge.textContent = live
+      ? signed
+        ? "실제 AI · 내 지원금에서"
+        : "실제 AI · 로그인하면 내 지원금에서"
       : aiAccess() === "full"
-        ? "지금은 데모 답변만 봐요. AI는 부르지 않아요."
-        : "만든 사람이 AI를 데모로만 열었어요. 아무것도 나가지 않아요.";
+        ? "데모 · 0원"
+        : "데모 · AI 호출 없음";
     badge.style.cssText =
-      "display:inline-block;padding:3px 9px;border-radius:999px;font-weight:700;" +
+      "display:inline-block;padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap;" +
       (live ? "background:rgba(94,234,160,.16);color:#7ff0b6" : "background:#2a3f3a;color:#ffc24b");
     aiBox.appendChild(badge);
+    var note = document.createElement("span");
+    note.textContent = live
+      ? "AI 버튼을 누를 때만 나가요."
+      : aiAccess() === "full"
+        ? "데모 답변만 봐요. AI는 부르지 않아요."
+        : "만든 사람이 AI를 데모로만 열었어요.";
+    note.style.cssText = "opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1";
+    aiBox.appendChild(note);
     if (aiAccess() === "full") {
       var button = document.createElement("button");
       button.type = "button";
       button.textContent = live ? "데모로 보기" : "실제 AI 켜기";
       button.style.cssText =
-        "padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;" +
+        "flex:none;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;" +
         "color:#fff;font:inherit;cursor:pointer";
       button.addEventListener("click", function () {
         setVisitorMode(live ? "demo" : "live");
@@ -518,7 +534,7 @@
     });
   }
 
-  refresh().then(drawAiSwitch).catch(function () {
+  refresh().catch(function () {
     info = null;
   });
 

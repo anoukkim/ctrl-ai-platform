@@ -517,7 +517,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       title: next === "full" ? "AI 기능을 전체 기능으로 열기" : "AI 기능을 데모만으로",
       effect:
         next === "full"
-          ? "로그인한 회원이 이 앱에서 AI 버튼을 누르면 자기 동아리 지원금에서 나가요. 방문자는 앱 왼쪽 아래 스위치로 언제든 데모로 볼 수 있어요."
+          ? "로그인한 회원이 이 앱에서 AI 버튼을 누르면 자기 동아리 지원금에서 나가요. 방문자는 앱 맨 위 CTRL+AI 줄의 스위치로 언제든 데모로 볼 수 있어요."
           : "방문자에게는 데모 답변만 보여요. AI를 부르지 않고, 누구의 지원금도 나가지 않아요. 미리보기에서는 내가 계속 실제 AI를 쓸 수 있어요.",
       confirmLabel: next === "full" ? "전체 기능으로 열기" : "데모만으로",
       onConfirm: async () => {

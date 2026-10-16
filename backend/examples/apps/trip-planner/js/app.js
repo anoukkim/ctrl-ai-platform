@@ -124,7 +124,7 @@
     // app-ai-access: 만든 사람이 '데모만'으로 두었거나 방문자가 CTRL+AI의 데모
     // 스위치를 켰으면 실제 AI는 켜지지 않아요 (0원).
     if (on && sdk.ai.mode && (await sdk.ai.mode().catch(() => "live")) === "demo") {
-      say("지금은 데모로만 볼 수 있어요. 실제 AI는 화면 왼쪽 아래 CTRL+AI 스위치에서 켜요.");
+      say("지금은 데모로만 볼 수 있어요. 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켜요.");
       return;
     }
     live.on = on;

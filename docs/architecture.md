@@ -652,10 +652,13 @@ ctrlai.my (Builder / CtrlAIApps)
   refuses a visitor's call in mode "app" with 403 `{code: "demo"}` before
   `prepare()` — no provider call, no ledger row; `estimate` stays free and
   open; the maker's 미리보기 (mode "preview") is never limited. The shell
-  (`shell.js`) adds a second, per-visitor switch — a pill at the bottom
-  left ("실제 AI · 내 지원금에서" / "데모 · 0원" + 실제 AI 켜기 / 데모로 보기,
-  the showcases' look), remembered in the shell origin's `localStorage`
-  per app, shown only for a published app that uses AI — and in 데모
+  (`shell.js`) adds a second, per-visitor switch — a thin bar above the
+  app frame ("실제 AI · 내 지원금에서" / "데모 · 0원" + 실제 AI 켜기 / 데모로
+  보기, the showcases' badge-and-button look; a bar, not a floating pill,
+  so nothing of the app is covered — the frame keeps its full height
+  below it), remembered in the shell origin's `localStorage` per app
+  (`ctrlai:<slug>:ai-mode`, outside the app's `l:`/`k:` prefixes), shown
+  only for a published app that uses AI — and in 데모
   rejects `ai.ask` / `ai.stream` locally with code "demo" (no sign-in
   window, no request). `/v1/app` carries `ai: {usesAi, access}`; the SDK
   gains `ctrlai.ai.mode()` → "live" | "demo" and fires the window event

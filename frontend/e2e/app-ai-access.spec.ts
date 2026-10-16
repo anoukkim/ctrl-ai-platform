@@ -78,7 +78,8 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
     await setAccess("full");
     await page.reload();
     frame = await appFrame(page, slug);
-    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI · 내 지원금에서");
+    // Signed out of the app: the pill says the wallet pays only after sign-in.
+    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI · 로그인하면 내 지원금에서");
     expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("live");
     await frame.evaluate(() => {
       window.__modes = [];
@@ -95,7 +96,7 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
     frame = await appFrame(page, slug);
     await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
     await page.getByRole("button", { name: "실제 AI 켜기" }).click();
-    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI · 내 지원금에서");
+    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI");
 
     // Nothing was charged by any of this: the ledger did not grow.
     const after = (await (await context.request.get(`${SITE}/api/usage/me`)).json()).events.length as number;

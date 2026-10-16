@@ -48,7 +48,7 @@ export function honestNote(app: Pick<AppListing, "shared_lists">): string {
 /** app-ai-access: AI를 쓰는 앱에만 한 줄 더 — 만든 사람이 AI를 어떻게 열었는지. */
 export const AI_DEMO_NOTE = "이 앱의 AI는 데모로만 열려 있어요 — AI를 부르지 않고, 아무것도 나가지 않아요.";
 export const AI_FULL_NOTE =
-  "이 앱의 AI는 전체 기능이에요 — 로그인한 회원이 버튼을 누를 때만 자기 지원금에서 나가요. 앱 왼쪽 아래 스위치로 언제든 데모로 볼 수 있어요.";
+  "이 앱의 AI는 전체 기능이에요 — 로그인한 회원이 버튼을 누를 때만 자기 지원금에서 나가요. 앱 맨 위 CTRL+AI 줄의 스위치로 언제든 데모로 볼 수 있어요.";
 
 export function aiNote(app: Pick<AppListing, "uses_ai" | "ai_access">): string | null {
   if (!app.uses_ai) return null;
