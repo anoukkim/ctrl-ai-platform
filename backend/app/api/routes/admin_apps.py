@@ -248,7 +248,7 @@ def preview_handoff(
     readable here: its HISTORY holds their own requests, and nothing about
     checking our templates needs them."""
     project = db.get(BuilderProject, project_id)
-    if project is None or project.deleted_at is not None or not _is_example(db, project):
+    if project is None or project.deleted_at is not None or not _is_example(db.get(User, project.owner_user_id)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예시 앱을 찾을 수 없습니다.")
     return handoff_read(db, project, build_bundle(db, project, version, ""), with_content=True)
 
