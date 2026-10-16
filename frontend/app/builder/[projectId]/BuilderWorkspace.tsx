@@ -1650,7 +1650,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         <PublishDialog
           projectId={project.id}
           publishedVersion={project.published_version_number ?? null}
-          nextVersion={latestVersion}
+          nextVersion={unsaved ? (latestVersion ?? 0) + 1 : standingVersion}
+          savesNew={unsaved}
           initial={{
             name: project.name,
             description: project.description,

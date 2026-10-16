@@ -121,15 +121,18 @@ the same commit that adds it.
 | `POST /api/builder/projects/{id}/starter` | **`require_active_member`** | Claude writes a starter app — spends the wallet |
 | `GET /api/builder/projects/{id}/generate-estimate` | `get_current_user` | A price, nothing spent |
 | `POST /api/builder/projects/{id}/generate` | **`require_active_member`** | 만들기 / 고치기: Claude writes files — spends the wallet |
-| `GET /api/builder/projects/{id}/versions` | `get_current_user` | Reading your own work |
+| `GET /api/builder/projects/{id}/versions` | `get_current_user` | Reading your own work — the saved versions (v1, v2, …) |
+| `POST /api/builder/projects/{id}/versions` | **`require_active_member`** | builder-snapshots: 버전 저장 (`{label?}`) — the working copy as the next numbered version, free; files equal to the version they stand on make nothing (`created: false`, "이미 같아요") |
+| `GET /api/builder/projects/{id}/steps` | `get_current_user` | builder-snapshots: the 작업 steps (실행 취소 / 다시 실행 history) and `unsaved` — reading your own work |
+| `POST /api/builder/projects/{id}/steps/{seq}/restore` | **`require_active_member`** | builder-snapshots: 실행 취소 / 다시 실행 / 이 단계로 — the working copy becomes that step (free, no version) |
 | `GET /api/builder/projects/{id}/versions/{n}/files` | `get_current_user` | 이 버전 보기 — reading an old version (free, read-only) |
-| `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 되돌리기 — changing your work (free) |
+| `POST /api/builder/projects/{id}/versions/{n}/restore` | **`require_active_member`** | 불러오기 (was 되돌리기) — the working copy becomes version n; **no version is made**, the state left becomes a 작업 step (free) |
 | `POST /api/builder/projects/{id}/runtime` | **`require_active_member`** | 미리보기 갱신 — writes the files to `apps.ctrlai.my` |
 | `POST /api/builder/projects/{id}/pin`, `POST /api/video/projects/{id}/pin` | `get_current_user` | 맨 위에 고정 / 고정 해제 (`{on}`): how the owner reads their own list, like ★ — works while not taking part, never moves `updated_at` |
 | `POST /api/builder/projects/{id}/thumbnail?space=draft\|published` | **`require_active_member`** | A picture of the working copy or the published version, taken in the maker's browser (bytes as the body, `application/octet-stream`, ≤ 4 MB): kind and size checked from the bytes, re-encoded to 640×400 WebP, stored; 409 for `published` while nothing is published |
 | `GET /api/builder/projects/{id}/thumbnail?space=…` | `get_current_user` | The member's own project's picture (Builder cards) — works while inactive |
-| `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |
-| `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 |
+| `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | Name or pin a saved version |
+| `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 — builder-snapshots: saves the working copy as the next version first when it differs from the version it stands on, so the published version is always a numbered row (never pruned) |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
 | `POST /api/builder/projects/{id}/ai-access` | `get_current_user` | app-ai-access — the owner's 데모만 / 전체 기능 switch; closing must work while inactive, and opening spends nothing of the owner's |
 | `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
@@ -445,7 +448,15 @@ Alembic has migrated (`backend/app/models/`).
   listing filters on it); since ui-improvements **pinned_at** (맨 위에
   고정) and **draft_thumbnail_at** (the working copy's picture exists in
   storage), and each **BuilderProjectVersion** a **thumbnail_at** (the
-  published picture, kept per version).
+  published picture, kept per version). Since builder-snapshots a
+  **BuilderProjectVersion** is a *saved snapshot* (made by 버전 저장, by
+  게시 and when a project starts; numbers only grow; the newest 30 are
+  kept, pinned and published ones excepted) and **BuilderProjectStep**
+  rows are the short rolling 작업-step history between snapshots (20 undo
+  steps, no number, outside the 30; `BuilderProject.step_seq` is where the
+  working copy stands, `base_version_number` the snapshot the member
+  loaded — "unsaved" means the files differ from it, else from the newest
+  version). `BuilderGeneration.step_id` links a Claude run to its step.
 - **App** (Phase 5) — the published, community-facing object: project_id,
   owner, slug, thumbnail, launch_url, published_at. A project is the
   private working object; an app is the published listing. Listings must

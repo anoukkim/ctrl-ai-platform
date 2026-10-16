@@ -594,6 +594,18 @@ New UI requests go here until they are folded into a UI batch.
   code check (review) and tests, then merge + deploy under the same rules
   as the other pre-approved items (review clean + tests pass; backup →
   update.sh → verify → roll back + STOP on failure).
+  **Built on `feat-builder-snapshots` (2026-10-17), waiting for the owner's
+  "승인":** `builder_project_steps` + migration `c5a8e1f3b7d9` (existing
+  versions untouched), 20 undo steps outside the 30 versions, routes
+  `POST …/versions` (버전 저장), `GET …/steps`, `POST …/steps/{seq}/restore`;
+  불러오기 makes no version; 게시 saves the working copy first. Settled
+  while building: the 업데이트 메모's "what changed" now reads the Claude
+  runs since 게시 (not versions); the 게시 dialog's pre-filled text is kept
+  only on a saved version (unsaved work asks again each open); a
+  versionless project's "처음 상태" is now a step, not a v1. Not done
+  (later): the ZIP of unsaved work is still named after the newest version;
+  the browser's back button is not intercepted (only links and closing the
+  tab).
 - **app-fonts** — owner, 2026-10-17 (Builder: "글씨체가 안 고쳐졌어, 동글체
   사용" — the app only had system fonts; "이것저것 한글 폰트", "더 많은 한글
   폰트 올리게", "응 이거 진행"). A catalogue of 32 Korean OFL families
