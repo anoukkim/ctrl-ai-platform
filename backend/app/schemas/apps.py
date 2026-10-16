@@ -23,6 +23,9 @@ class AppListing(BaseModel):
     publish_note: str = ""
     #: https://apps.ctrlai.my/<slug>/ — None while the runtime is off.
     app_url: str | None = None
+    #: ui-improvements: the published version's `ctrlai.json` declares at
+    #: least one shared list — the detail page says so in its honest note.
+    shared_lists: bool = False
 
 
 class AppReportCreate(BaseModel):

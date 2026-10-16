@@ -13,9 +13,24 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import AccountStatus, BuilderProject, User
 from app.schemas.apps import AppListing, AppReportCreate
-from app.services import app_publish, app_runtime
+from app.services import app_manifest, app_publish, app_runtime
 
 router = APIRouter(prefix="/apps", tags=["apps"])
+
+
+def shared_lists_of(project: BuilderProject) -> bool:
+    """Whether the published version's `ctrlai.json` declares a shared list
+    (ui-improvements): the detail page's note then says other members can
+    read what is posted. A manifest that will not parse counts as none —
+    the listing must never fail over one app's file."""
+    version = project.published_version
+    if version is None:
+        return False
+    files = {str(path): str(content) for path, content in version.files}
+    try:
+        return any(entry.kind == "shared" for entry in app_manifest.parse(files))
+    except app_manifest.ManifestError:
+        return False
 
 
 def listing_of(db: Session, settings: Settings, project: BuilderProject) -> AppListing:
@@ -32,6 +47,7 @@ def listing_of(db: Session, settings: Settings, project: BuilderProject) -> AppL
         published_at=project.published_at,
         publish_note=project.publish_note,
         app_url=app_runtime.public_url(settings, project),
+        shared_lists=shared_lists_of(project),
     )
 
 

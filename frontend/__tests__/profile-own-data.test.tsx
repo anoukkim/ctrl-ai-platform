@@ -47,6 +47,7 @@ const MINE: AppListing = {
   published_at: new Date().toISOString(),
   publish_note: "",
   app_url: null,
+  shared_lists: false,
 };
 
 describe("Profile › 내가 만든 앱", () => {

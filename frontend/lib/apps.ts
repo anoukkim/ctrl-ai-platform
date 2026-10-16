@@ -23,6 +23,8 @@ export interface AppListing {
   publish_note: string;
   /** https://apps.ctrlai.my/<slug>/ — 앱 서버가 꺼져 있으면 null. */
   app_url: string | null;
+  /** 게시된 버전의 ctrlai.json이 공유 목록을 선언했는지 — 상세의 안내 한 줄이 달라져요. */
+  shared_lists: boolean;
 }
 
 export function listApps(): Promise<AppListing[]> {

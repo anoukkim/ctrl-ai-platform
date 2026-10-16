@@ -6,9 +6,10 @@
 
 import Link from "next/link";
 
-import { coverTint, type AppListing } from "@/lib/apps";
+import type { AppListing } from "@/lib/apps";
 import { relativeTime } from "@/lib/relative-time";
 
+import AppThumbnail from "./AppThumbnail";
 import styles from "./ctrlaistore.module.css";
 
 /** "v5 · 3일 전 업데이트" */
@@ -20,11 +21,7 @@ export function versionLine(app: AppListing): string {
 export default function AppCard({ app }: { app: AppListing }) {
   return (
     <Link className={styles.card} href={`/ctrlaistore/${app.slug}`}>
-      <div className={styles.artwork} style={{ background: coverTint(app.slug) }}>
-        <span className={styles.artworkText} aria-hidden="true">
-          {app.name}
-        </span>
-      </div>
+      <AppThumbnail app={app} />
       <div className={styles.body}>
         <h2 className={styles.name}>{app.name}</h2>
         <p className={styles.tagline}>{app.description}</p>

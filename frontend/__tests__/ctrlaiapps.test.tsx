@@ -25,6 +25,7 @@ const APP: AppListing = {
   published_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
   publish_note: "메모 기능을 추가했어요",
   app_url: "http://apps.test/k3m9qx7pwa/",
+  shared_lists: false,
 };
 
 const appsApi = {
@@ -136,16 +137,42 @@ describe("CtrlAIApps 목록", () => {
 });
 
 describe("앱 상세", () => {
-  test("앱 실행은 앱 주소, 미리보기는 정확한 sandbox, 솔직한 안내", async () => {
+  test("머리 줄 하나 · 새 창에서 열기 · 앱 프레임이 정확한 sandbox로 바로 아래", async () => {
     appsApi.getApp.mockResolvedValue(APP);
     const { container } = render(<AppDetail slug="k3m9qx7pwa" />);
-    const run = await screen.findByRole("link", { name: "앱 실행" });
-    expect(run.getAttribute("href")).toBe(APP.app_url);
-    expect(run.getAttribute("rel")).toContain("noopener");
+    const open = await screen.findByRole("link", { name: "새 창에서 열기" });
+    expect(open.getAttribute("href")).toBe(APP.app_url);
+    expect(open.getAttribute("rel")).toContain("noopener");
+    // 예전의 중복 "앱 실행" 단추와 큰 색 블록은 없습니다.
+    expect(screen.queryByRole("link", { name: "앱 실행" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "오늘 할 일" })).toBeTruthy();
+    expect(screen.getByText("김유리")).toBeTruthy();
+    expect(screen.getByText("v3 · 3일 전 업데이트")).toBeTruthy();
     const frame = container.querySelector("iframe")!;
     expect(frame.getAttribute("src")).toBe(APP.app_url);
     expect(frame.getAttribute("sandbox")).toBe(RUNTIME_SANDBOX);
     expect(screen.getByText(/내가 허용한 뒤에만 쓰고, AI는 내 지원금에서/)).toBeTruthy();
+    expect(screen.queryByText(/공유 글은 다른 회원도/)).toBeNull();
+  });
+
+  test("공유 목록을 쓰는 앱은 안내가 그렇게 말하고, 긴 설명은 접혔다 펼쳐진다", async () => {
+    const long = "이 앱은 ".repeat(30).trim();
+    appsApi.getApp.mockResolvedValue({ ...APP, shared_lists: true, description: long });
+    const user = userEvent.setup();
+    render(<AppDetail slug="k3m9qx7pwa" />);
+    expect(await screen.findByText(/이 앱의 공유 글은 다른 회원도 볼 수 있어요/)).toBeTruthy();
+    const toggle = screen.getByRole("button", { name: "설명 더 보기" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "설명 접기" }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("짧은 설명에는 펼치기 단추가 없고, 앱 서버가 꺼져 있으면 그렇게 말한다", async () => {
+    appsApi.getApp.mockResolvedValue({ ...APP, app_url: null });
+    render(<AppDetail slug="k3m9qx7pwa" />);
+    expect(await screen.findByText("실행 준비 중")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "설명 더 보기" })).toBeNull();
+    expect(screen.getByText(/앱 서버가 잠시 꺼져 있어요/)).toBeTruthy();
   });
 
   test("신고는 사유를 적어 보낸다", async () => {
