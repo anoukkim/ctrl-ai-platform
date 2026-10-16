@@ -103,10 +103,14 @@ export default function AppsList() {
   // 프레임에 하나씩 띄워 찍고 올립니다. 서버는 회원 코드를 실행하지 않아요.
   const [making, setMaking] = useState<{ queue: AdminAppOverview[]; done: number; failed: number } | null>(null);
 
-  const missing = (apps ?? []).filter((app) => app.published && app.app_url && !app.thumbnail_at);
+  const published = (apps ?? []).filter((app) => app.published && app.app_url);
+  const missing = published.filter((app) => !app.thumbnail_at);
+  // With none missing, the same button takes every published app again —
+  // after the first-screen change (2026-10-17) the old pictures are redone.
+  const targets = missing.length > 0 ? missing : published;
   const startMaking = () => {
-    if (missing.length === 0) return;
-    setMaking({ queue: missing, done: 0, failed: 0 });
+    if (targets.length === 0) return;
+    setMaking({ queue: targets, done: 0, failed: 0 });
   };
   const current = making?.queue[0] ?? null;
   const finishOne = (updated: AdminAppOverview | null) => {
@@ -147,14 +151,16 @@ export default function AppsList() {
       )}
       {apps !== null && (
         <div className={styles.thumbnailMaker} data-testid="thumbnail-maker">
-          <button className="btn btn-sm" type="button" onClick={startMaking} disabled={missing.length === 0 || (making !== null && !finished)}>
-            썸네일 만들기
+          <button className="btn btn-sm" type="button" onClick={startMaking} disabled={targets.length === 0 || (making !== null && !finished)}>
+            {missing.length > 0 || published.length === 0 ? "썸네일 만들기" : "썸네일 다시 만들기"}
           </button>
           <span className="small muted" aria-live="polite">
             {making === null
               ? missing.length > 0
                 ? `그림이 없는 게시 앱 ${missing.length}개 — 이 브라우저에서 하나씩 열어 찍고 저장해요.`
-                : "게시된 앱마다 그림이 있어요."
+                : published.length > 0
+                  ? `게시된 앱마다 그림이 있어요 — 다시 만들면 ${published.length}개를 첫 화면으로 새로 찍어요.`
+                  : "게시된 앱이 없어요."
               : finished
                 ? `끝 — ${making.done}개 저장${making.failed > 0 ? `, ${making.failed}개 실패 (앱을 열어 다시 찍어 주세요)` : ""}.`
                 : `찍는 중 ${making.done + making.failed + 1}/${making.done + making.failed + making.queue.length} — ${current?.name ?? ""}`}

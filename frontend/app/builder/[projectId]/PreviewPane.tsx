@@ -64,8 +64,6 @@ export interface AppRuntimeProps {
    * 화면에 보여 줍니다(자동은 조용히).
    */
   onCapture?: (image: Blob, manual: boolean) => Promise<void>;
-  /** owner-polish-3 (a2): the 게시 dialog photographs candidates from this frame. */
-  onFrameReady?: (frame: HTMLIFrameElement | null, appsOrigin: string | null) => void;
   /** motion-modern (1): while Claude writes files the aurora covers the preview. */
   working?: { chips: AuroraChip[]; costKrw: number | null } | null;
 }
@@ -218,7 +216,6 @@ export default function PreviewPane({
   toolbarStart,
   toolbarEnd,
   onCapture,
-  onFrameReady,
   working = null,
 }: PreviewRuntimeProps & AppRuntimeProps & PreviewToolbarProps) {
   const [fullscreen, setFullscreen] = useState(false);
@@ -227,9 +224,6 @@ export default function PreviewPane({
   // The frame element is state (a callback ref), so the capture callbacks
   // read no ref during render.
   const [frameEl, setFrameEl] = useState<HTMLIFrameElement | null>(null);
-  useEffect(() => {
-    onFrameReady?.(frameEl, originOf(appUrl));
-  }, [appUrl, frameEl, onFrameReady]);
   const captureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);

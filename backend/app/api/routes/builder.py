@@ -33,7 +33,6 @@ from app.models import (
     User,
 )
 from app.schemas.builder import (
-    ThumbnailChoose,
     AiAccessRequest,
     BuilderProjectCreate,
     BuilderProjectFromChat,
@@ -887,33 +886,6 @@ async def upload_thumbnail(
             await run_in_threadpool(thumbnails.save_version, db, storage, project, version, data)
         else:
             await run_in_threadpool(thumbnails.save_draft, db, storage, project, data)
-    except AttachmentRefusal as refusal:
-        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
-    db.commit()
-    db.refresh(project)
-    return project
-
-
-@router.post(
-    "/projects/{project_id}/thumbnail/choose",
-    response_model=BuilderProjectRead,
-    summary="owner-polish-3 (a2): the maker picks the published app's thumbnail",
-)
-def choose_thumbnail(
-    project_id: int,
-    payload: ThumbnailChoose,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_active_member),
-    settings: Settings = Depends(get_settings),
-) -> BuilderProject:
-    """From the 게시 dialog's candidates (첫 화면 · 스크롤 · 폰 너비 · 지금
-    화면으로) or the 게시 menu later. The picture was drawn in the maker's
-    browser; the server checks the bytes and re-encodes them like any
-    thumbnail upload. 409 without a published version."""
-    project = _owned_project(project_id, db, user)
-    try:
-        data = thumbnails.decode_data_url(payload.image)
-        thumbnails.choose(db, get_storage(settings), project, data)
     except AttachmentRefusal as refusal:
         raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
     db.commit()

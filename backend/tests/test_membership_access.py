@@ -437,7 +437,6 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
     # owner-polish-3 (a2): the maker's pick for the published thumbnail (JSON data URL).
-    ("POST", "/api/builder/projects/{project_id}/thumbnail/choose"): "require_active_member",
     # ui-improvements: a thumbnail captured in the maker's browser — storing
     # it changes your work; reading it is reading your own work.
     ("POST", "/api/builder/projects/{project_id}/thumbnail"): "require_active_member",
