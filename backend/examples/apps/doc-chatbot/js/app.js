@@ -120,6 +120,7 @@
   function reindex() {
     chunks = state.docs.flatMap(B.chunk);
     index = B.buildIndex(chunks);
+    if (typeof live !== "undefined") live.price = undefined; // 단락이 바뀌면 가격도 다시 (가장 긴 단락 기준)
   }
   reindex();
 
@@ -235,7 +236,7 @@
         <input type="file" id="file" accept=".txt,.md,.pdf,text/plain,text/markdown" multiple class="visually-hidden">
         <span class="dropIcon" aria-hidden="true">⇪</span>
         <b>파일을 끌어다 놓거나 눌러서 고르세요</b>
-        <small>.txt · .md (한 파일 200KB까지) · PDF는 AI 연결 후 지원돼요</small>
+        <small>.txt · .md (한 파일 200KB까지) · PDF는 아직 지원하지 않아요</small>
       </label>
       <details class="panel paste">
         <summary>직접 붙여 넣기</summary>
@@ -318,7 +319,7 @@
       const name = f.name.replace(/\.[^.]+$/, "");
       const ext = (f.name.match(/\.([^.]+)$/) || [, ""])[1].toLowerCase();
       if (ext === "pdf") {
-        notice(`"${f.name}" — PDF는 AI 연결 후 지원돼요. 지금은 .txt나 .md 파일을 올려 주세요.`, "warn");
+        notice(`"${f.name}" — PDF는 아직 지원하지 않아요. .txt나 .md 파일을 올려 주세요.`, "warn");
         continue;
       }
       if (!["txt", "md", "markdown"].includes(ext)) {
@@ -545,7 +546,7 @@
           <aside class="logDetail" aria-live="polite">${detail ? detailHtml(detail) : `<p class="muted">기록을 누르면 자세히 보여요.</p>`}</aside>
         </div>
       </section>
-      <p class="muted small">기록은 이 기기의 브라우저에만 있어요. AI 연결 후에는 모든 방문자의 대화가 서버에 모여요.</p>`;
+      <p class="muted small">기록은 이 기기의 브라우저에만 있어요. 다른 방문자의 대화는 모이지 않아요.</p>`;
     $$("[data-filter]").forEach((b) => b.addEventListener("click", () => ((logFilter = b.dataset.filter), adminView())));
     $$("[data-log]").forEach((b) =>
       b.addEventListener("click", () => {

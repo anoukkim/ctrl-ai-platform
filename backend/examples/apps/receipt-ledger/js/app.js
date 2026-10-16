@@ -282,15 +282,15 @@
     }
     const note = L.PATTERN_NOTES[String(offsetOf(month))];
     if (!note) {
-      return `<section class="card pattern"><h3>이번 달 소비 패턴 <span class="demo">데모 · AI 연결 전</span></h3><p class="muted">이 달의 분석은 AI 연결 후 Claude가 써 줘요.</p></section>`;
+      return `<section class="card pattern"><h3>이번 달 소비 패턴 <span class="demo">데모</span></h3><p class="muted">이 달의 예시 분석은 없어요. ${sdk ? "실제 AI를 켜면 Claude가 실제 내역으로 써 줘요." : "CTRL+AI 안에서 로그인하면 Claude가 써 줘요."}</p></section>`;
     }
     const fill = (text) => text.replace(/\{(.+?)\}/g, (_, c) => (sums[c] || 0).toLocaleString("ko-KR"));
     return `<section class="card pattern">
-      <h3>이번 달 소비 패턴 <span class="demo">데모 · AI 연결 전</span></h3>
+      <h3>이번 달 소비 패턴 <span class="demo">데모</span></h3>
       <p class="headline">${esc(note.headline)}</p>
       <ul>${note.points.map((p) => `<li>${esc(fill(p))}</li>`).join("")}</ul>
       <p class="tip">💡 ${esc(note.tip)}</p>
-      <p class="muted small">미리 써 둔 예시 분석이에요. AI 연결 후에는 Claude가 실제 내역을 보고 써 줘요.</p>
+      <p class="muted small">미리 써 둔 예시 분석이에요. ${sdk ? "실제 AI를 켜면" : "CTRL+AI 안에서 로그인하면"} Claude가 실제 내역을 보고 써 줘요.</p>
     </section>`;
   }
 
@@ -347,7 +347,7 @@
     return `<div class="scrim" data-close-detail></div><section class="card detail" role="dialog" aria-modal="true" aria-label="내역 자세히">
       <div class="detailHead"><h3>${esc(t.shop)}</h3><button type="button" class="ghost" id="close-detail">닫기</button></div>
       <div class="detailBody">${image}<div>
-        <p class="muted">${t.date}${t.source === "sample" ? ` · <span class="demo">데모 · AI 연결 전</span> 미리 만든 추출 결과` : ""}</p>
+        <p class="muted">${t.date}${t.source === "sample" ? ` · <span class="demo">데모</span> 미리 만든 추출 결과` : ""}</p>
         <table class="items"><tbody>${t.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${won(i.amount)}</td></tr>`).join("")}</tbody>
         <tfoot><tr><th>합계</th><th>${won(t.total)}</th></tr></tfoot></table>
         <label>카테고리 <select id="detail-cat">${L.CATEGORIES.map((c) => `<option ${c === t.category ? "selected" : ""}>${c}</option>`).join("")}</select></label>
@@ -451,10 +451,22 @@
       render();
     } catch (error) {
       if (draft !== started) return;
+      // 실제 AI는 그대로 둬요(로그인 취소, 지원금 부족, 너무 잦음 모두 여기로). 양식을 직접 채우게 열어요.
       toast(`AI가 읽지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
-      live.on = false; // 데모로 이어가요 — 다시 켤 수 있어요
-      modeBadge();
-      startReading(image, sampleId);
+      const result = sampleId ? L.extractionFor(sampleId) : null;
+      draft = {
+        stage: "review",
+        image,
+        fromSample: Boolean(result),
+        aiFailed: true,
+        sampleId: result ? result.sampleId : null,
+        shop: result ? result.shop : "",
+        date: result ? result.date : L.dateFor(0, new Date().getDate()),
+        items: result ? result.items.map((i) => ({ ...i })) : [{ name: "", amount: 0 }],
+        total: result ? result.total : 0,
+        category: result ? result.category : "기타",
+      };
+      render();
     }
   }
 
@@ -463,8 +475,10 @@
     const note = d.fromAi
       ? `<p class="notice"><span class="demo live">실제 AI · ${d.krw}원 · 내 동아리 지원금에서</span> Claude가 읽은 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
       : d.fromSample
-      ? `<p class="notice"><span class="demo">데모 · AI 연결 전</span> 미리 만든 추출 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
-      : `<p class="notice">AI 연결 후 자동 추출돼요. 지금은 직접 입력해 주세요.</p>`;
+      ? `<p class="notice"><span class="demo">데모</span> 미리 만든 추출 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
+      : d.aiFailed
+      ? `<p class="notice">AI가 읽지 못해 빈 양식을 열었어요. 직접 입력하거나 다시 시도해 주세요.</p>`
+      : `<p class="notice">${sdk ? "실제 AI를 켜면 사진에서 자동으로 읽어요." : "데모에서는 샘플 영수증만 읽어요."} 지금은 직접 입력해 주세요.</p>`;
     return `<section class="card review">
       <div class="reviewGrid">
         <img class="receiptImg" src="${d.image}" alt="올린 영수증">

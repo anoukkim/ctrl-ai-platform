@@ -39,12 +39,12 @@ def test_estimate_is_free_open_signed_out_and_counts_images_at_their_bound(
     assert 1 <= plain["typicalKrw"] <= plain["maxKrw"] <= app_ai.CALL_CAP_KRW
     with_photo = estimate(stranger, shop, prompt="영수증을 읽어 줘", json=SCHEMA, maxTokens=600, images=1)
     assert with_photo["maxKrw"] > plain["maxKrw"]
-    # A data URL counts the same as a count of one: the bound, not the file.
+    # Only a count: the SDK turns data URLs into one, and this free route reads no file.
     tiny = "data:image/png;base64,iVBORw0KGgo="
-    assert estimate(stranger, shop, prompt="영수증을 읽어 줘", json=SCHEMA, maxTokens=600, images=[tiny]) == with_photo
+    assert client.post("/_ctrlai/v1/ai/estimate", headers=headers(shop), json={"images": [tiny]}).status_code == 422
     smart = estimate(stranger, shop, prompt="영수증을 읽어 줘", model="smart")
     assert smart["model"] == "smart" and smart["typicalKrw"] > plain["typicalKrw"]
-    assert client.post("/_ctrlai/v1/ai/estimate", headers=headers(shop), json={"images": 5}).status_code == 400
+    assert client.post("/_ctrlai/v1/ai/estimate", headers=headers(shop), json={"images": 5}).status_code == 422
     assert db_session.query(UsageEvent).count() == 0  # nothing charged, nothing sent
 
     client.post(f"/api/admin/apps/{shop.id}/sdk", json={"enabled": False, "reason": "확인 중"})

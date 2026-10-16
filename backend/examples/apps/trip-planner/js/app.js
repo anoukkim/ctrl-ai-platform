@@ -78,10 +78,23 @@
     if (!p) return "1회 최대 200원";
     return `1회 약 ${p.typicalKrw}원 · 최대 ${p.maxKrw}원`;
   }
-  const priceKey = (prefix, options) => `${prefix}:${options.prompt.length}:${options.system.length}`;
+  // 같은 글이면 같은 열쇠 — 길이가 아니라 내용으로 (도시가 바뀌면 장소 목록도 바뀌어요).
+  function hashOf(text) {
+    let h = 0;
+    for (let i = 0; i < text.length; i += 1) h = (h * 31 + text.charCodeAt(i)) | 0;
+    return h.toString(36);
+  }
+  const priceKey = (prefix, options) => `${prefix}:${hashOf(options.system + "\n" + options.prompt)}`;
   function updatePrice(el, prefix, options) {
     if (!el) return;
     el.textContent = priceLine(priceKey(prefix, options), options, () => updatePrice($(`#${el.id}`), prefix, options));
+  }
+  function debounce(fn, ms) {
+    let timer = null;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(fn, ms);
+    };
   }
   function modeBadge() {
     const badge = $(".badge.demoAll");
@@ -119,21 +132,26 @@
     const trip = T.plan(input);
     const valid = new Set(T.CITIES[input.city].places.map((p) => p.id));
     const used = new Set();
-    let replaced = 0;
+    const replacedDays = new Set();
     const days = Array.isArray(result.json && result.json.days) ? result.json.days : [];
     for (let d = 0; d < input.days; d += 1) {
       const ids = Array.isArray(days[d]) ? days[d].filter((id) => valid.has(id) && !used.has(id)).slice(0, 6) : [];
       if (ids.length >= 2) {
         ids.forEach((id) => used.add(id));
         trip.days[d] = ids;
-        replaced += 1;
+        replacedDays.add(d);
       }
     }
-    // 데모가 채운 날에 AI가 쓴 장소가 겹치면 그 날에서 빼요.
-    trip.days = trip.days.map((ids, d) => (days[d] && replaced ? ids : ids.filter((id) => !used.has(id))));
+    // 데모가 채운 날에 AI가 쓴 장소가 겹치면 그 날에서 빼고, 비면 다시 짜요.
+    trip.days.forEach((ids, d) => {
+      if (replacedDays.has(d)) return;
+      const kept = ids.filter((id) => !used.has(id));
+      if (kept.length) trip.days[d] = kept;
+      else T.regenerateDay(trip, d);
+    });
     const notes = Array.isArray(result.json && result.json.notes) ? result.json.notes.map(String).slice(0, 3) : [];
     trip.notes = [...notes, ...trip.notes].slice(0, 5);
-    trip.ai = { krw: result.chargedKrw, days: replaced, total: input.days };
+    trip.ai = { krw: result.chargedKrw, days: replacedDays.size, total: input.days };
     return trip;
   }
   // ---------------------------------------------------------------- 저장
@@ -232,7 +250,7 @@
         <span class="price" id="plan-price" aria-live="polite"></span>
         ${state.trip ? `<button class="ghost" type="button" id="back-result">지금 일정으로 돌아가기</button>` : ""}
       </div>
-      <p class="muted small"><span class="demo">데모 플래너 · AI 연결 후 Claude가 생성</span> 지금은 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.</p>
+      <p class="muted small">${live.on && sdk ? `<span class="demo live">실제 AI</span> Claude가 아래 도시의 장소 목록에서만 골라 일정을 짜요 — 1회 비용은 버튼 옆에.` : `<span class="demo">데모 플래너${sdk ? " · 로그인하면 Claude가 생성" : ""}</span> 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.`}</p>
     </form>`;
   }
 
@@ -268,6 +286,7 @@
       const error = $("#form-error");
       if (!input.prefs.length) return (error.textContent = "취향을 하나 이상 골라 주세요.");
       if (input.budget < 50000) return (error.textContent = "총예산은 5만 원 이상으로 적어 주세요.");
+      if (live.busy) return; // 이미 짜는 중이에요
       undo = state.trip ? JSON.stringify(state.trip) : null;
       state.form = input;
       const finish = (trip, note) => {
@@ -301,7 +320,7 @@
     if (live.on && sdk) {
       const refreshPrice = () => updatePrice($("#plan-price"), "plan", planOptions(readForm()));
       refreshPrice();
-      form.addEventListener("input", refreshPrice);
+      form.addEventListener("input", debounce(refreshPrice, 400));
     }
     const back = $("#back-result");
     if (back) back.addEventListener("click", () => ((state.view = "result"), save(), render()));
@@ -577,7 +596,7 @@
     const intent = T.intent(trimmed);
     if (!intent) {
       message = {
-        text: `"${trimmed}" 같은 부탁은 AI 연결 후 가능해요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'를 알아들어요.`,
+        text: `"${trimmed}" 같은 부탁은 ${sdk ? "실제 AI를 켜면" : "데모에서는 못"} 알아들어요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'만 알아들어요.`,
         kind: "wait",
       };
       render();

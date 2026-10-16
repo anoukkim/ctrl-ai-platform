@@ -6,11 +6,12 @@ app down (audited; its reports close) or close a report and keep the app
 and they may publish again.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_admin
 from app.api.routes.apps import listing_of
@@ -67,7 +68,7 @@ def list_published(
                 **listing_of(db, settings, row).model_dump(),
                 owner_id=row.owner_user_id,
                 open_reports=counts.get(row.id, 0),
-                example=_is_example(db, row),
+                example=_is_example(db.get(User, row.owner_user_id)),
                 sdk_enabled=row.sdk_disabled_at is None,
                 sdk_disabled_reason=row.sdk_disabled_reason,
                 data_items=usage["items"],
@@ -80,41 +81,87 @@ def list_published(
 # ------------------------------------------------- P4b: Admin › Apps
 
 
-def _ai_figures(db: Session, project: BuilderProject) -> AdminAppAiRead:
-    """Calls and won through this app's 기능 상자: visitors' use today and
-    this quarter, and the maker's 미리보기 tries this quarter, apart."""
-    quarter = current_quarter(db)
-    since_quarter = datetime.combine(quarter.starts_at, datetime.min.time(), tzinfo=timezone.utc) if quarter else None
+@dataclass(frozen=True)
+class _Figures:
+    """Everything the overview needs, gathered in a handful of grouped
+    queries rather than one set per app (the list is every published or
+    used project)."""
 
-    def tally(feature: str, since: datetime | None) -> tuple[int, int]:
-        query = select(func.count(UsageEvent.id), func.coalesce(func.sum(UsageEvent.charged_krw), 0)).where(
-            UsageEvent.builder_project_id == project.id, UsageEvent.feature == feature
+    owners: dict[int, User]
+    consents: dict[int, int]
+    data: dict[int, tuple[int, int]]
+    #: (project_id, feature) → (calls, krw) this quarter; today for app_ai only.
+    quarter: dict[tuple[int, str], tuple[int, int]]
+    today: dict[int, tuple[int, int]]
+    reports: dict[int, int]
+
+
+def _tally(db: Session, *where) -> dict:
+    rows = db.execute(
+        select(
+            UsageEvent.builder_project_id,
+            UsageEvent.feature,
+            func.count(UsageEvent.id),
+            func.coalesce(func.sum(UsageEvent.charged_krw), 0),
         )
-        if since is not None:
-            query = query.where(UsageEvent.created_at >= since)
-        calls, krw = db.execute(query).one()
-        return int(calls or 0), int(krw or 0)
+        .where(UsageEvent.builder_project_id.is_not(None), *where)
+        .group_by(UsageEvent.builder_project_id, UsageEvent.feature)
+    ).all()
+    return {(pid, feature): (int(calls or 0), int(krw or 0)) for pid, feature, calls, krw in rows}
 
-    today_calls, today_krw = tally(UsageFeature.APP_AI.value, chat_limits.kst_day_start())
-    quarter_calls, quarter_krw = tally(UsageFeature.APP_AI.value, since_quarter)
-    preview_calls, preview_krw = tally(UsageFeature.APP_AI_PREVIEW.value, since_quarter)
-    return AdminAppAiRead(
-        today_calls=today_calls,
-        today_krw=today_krw,
-        quarter_calls=quarter_calls,
-        quarter_krw=quarter_krw,
-        preview_quarter_calls=preview_calls,
-        preview_quarter_krw=preview_krw,
+
+def _figures(db: Session, projects: list[BuilderProject]) -> _Figures:
+    ids = [p.id for p in projects] or [0]
+    app_features = [UsageFeature.APP_AI.value, UsageFeature.APP_AI_PREVIEW.value]
+    # The ledger is attributed per quarter (CLAUDE.md §8): filter by it,
+    # not by a date — a quarter starts at KST midnight, not UTC's.
+    quarter = current_quarter(db)
+    quarter_rows = (
+        _tally(db, UsageEvent.builder_project_id.in_(ids), UsageEvent.feature.in_(app_features), UsageEvent.quarter_id == quarter.id)
+        if quarter
+        else {}
+    )
+    today_rows = _tally(
+        db,
+        UsageEvent.builder_project_id.in_(ids),
+        UsageEvent.feature == UsageFeature.APP_AI.value,
+        UsageEvent.created_at >= chat_limits.kst_day_start(),
+    )
+    owner_ids = {p.owner_user_id for p in projects}
+    owners = {u.id: u for u in db.scalars(select(User).where(User.id.in_(owner_ids or {0})))}
+    consents = {
+        pid: int(n or 0)
+        for pid, n in db.execute(
+            select(AppConsent.project_id, func.count(AppConsent.id))
+            .where(AppConsent.project_id.in_(ids), AppConsent.revoked_at.is_(None))
+            .group_by(AppConsent.project_id)
+        ).all()
+    }
+    data = {
+        pid: (int(n or 0), int(size or 0))
+        for pid, n, size in db.execute(
+            select(AppDataItem.project_id, func.count(AppDataItem.id), func.coalesce(func.sum(AppDataItem.size_bytes), 0))
+            .where(AppDataItem.project_id.in_(ids), AppDataItem.space == app_data.space_of("app"))
+            .group_by(AppDataItem.project_id)
+        ).all()
+    }
+    return _Figures(
+        owners=owners,
+        consents=consents,
+        data=data,
+        quarter=quarter_rows,
+        today={pid: value for (pid, _feature), value in today_rows.items()},
+        reports=app_publish.open_report_counts(db),
     )
 
 
-def _overview(db: Session, settings: Settings, project: BuilderProject, open_reports: int) -> AdminAppOverview:
-    owner = db.get(User, project.owner_user_id)
-    usage = app_data.app_usage(db, project)
-    consents = db.scalar(
-        select(func.count(AppConsent.id)).where(AppConsent.project_id == project.id, AppConsent.revoked_at.is_(None))
-    )
+def _overview(settings: Settings, project: BuilderProject, figures: _Figures) -> AdminAppOverview:
+    owner = figures.owners.get(project.owner_user_id)
     published = project.published_version_id is not None
+    today_calls, today_krw = figures.today.get(project.id, (0, 0))
+    quarter_calls, quarter_krw = figures.quarter.get((project.id, UsageFeature.APP_AI.value), (0, 0))
+    preview_calls, preview_krw = figures.quarter.get((project.id, UsageFeature.APP_AI_PREVIEW.value), (0, 0))
+    items, size = figures.data.get(project.id, (0, 0))
     return AdminAppOverview(
         id=project.id,
         name=project.name,
@@ -126,14 +173,21 @@ def _overview(db: Session, settings: Settings, project: BuilderProject, open_rep
         owner_id=project.owner_user_id,
         owner_username=owner.username if owner else "",
         owner_name=owner.display_name if owner else "탈퇴 회원",
-        example=owner is not None and owner.role is UserRole.ADMIN,
+        example=_is_example(owner),
         sdk_enabled=project.sdk_disabled_at is None,
         sdk_disabled_reason=project.sdk_disabled_reason,
-        open_reports=open_reports,
-        consents=int(consents or 0),
-        data_items=usage["items"],
-        data_bytes=usage["bytes"],
-        ai=_ai_figures(db, project),
+        open_reports=figures.reports.get(project.id, 0),
+        consents=figures.consents.get(project.id, 0),
+        data_items=items,
+        data_bytes=size,
+        ai=AdminAppAiRead(
+            today_calls=today_calls,
+            today_krw=today_krw,
+            quarter_calls=quarter_calls,
+            quarter_krw=quarter_krw,
+            preview_quarter_calls=preview_calls,
+            preview_quarter_krw=preview_krw,
+        ),
         updated_at=project.updated_at,
     )
 
@@ -158,19 +212,21 @@ def list_overview(
         )
         if row is not None
     }
-    rows = db.scalars(
-        select(BuilderProject)
-        .where(BuilderProject.deleted_at.is_(None))
-        .where(or_(BuilderProject.published_version_id.is_not(None), BuilderProject.id.in_(used_ids or {0})))
-        .order_by(BuilderProject.updated_at.desc())
+    rows = list(
+        db.scalars(
+            select(BuilderProject)
+            .options(selectinload(BuilderProject.published_version))
+            .where(BuilderProject.deleted_at.is_(None))
+            .where(or_(BuilderProject.published_version_id.is_not(None), BuilderProject.id.in_(used_ids or {0})))
+            .order_by(BuilderProject.updated_at.desc())
+        )
     )
-    counts = app_publish.open_report_counts(db)
-    return [_overview(db, settings, row, counts.get(row.id, 0)) for row in rows]
+    figures = _figures(db, rows)
+    return [_overview(settings, row, figures) for row in rows]
 
 
-def _is_example(db: Session, project: BuilderProject) -> bool:
+def _is_example(owner: User | None) -> bool:
     """An example app is one an admin owns (`import_example_apps`)."""
-    owner = db.get(User, project.owner_user_id)
     return owner is not None and owner.role is UserRole.ADMIN
 
 
@@ -439,4 +495,4 @@ def read_overview(
     project = db.get(BuilderProject, project_id)
     if project is None or project.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="앱을 찾을 수 없습니다.")
-    return _overview(db, settings, project, app_publish.open_report_counts(db).get(project.id, 0))
+    return _overview(settings, project, _figures(db, [project]))

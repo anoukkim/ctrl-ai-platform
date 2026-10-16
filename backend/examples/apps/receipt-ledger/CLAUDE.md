@@ -4,7 +4,7 @@ Claude Code가 이 프로젝트에서 일을 시작할 때 읽는 안내예요.
 
 ## 이 앱은
 
-영수증 사진을 올리면 상호·날짜·품목별 금액·합계·카테고리를 읽어 가계부에 넣고, 카테고리별 예산(80% 주의 · 100% 경고), 도넛·일별 그래프, 이번 달 소비 패턴 글, 검색·필터·CSV 내보내기를 제공하는 앱이에요. 지금은 **정적 데모**라서 "AI 결과"는 모두 미리 만들어 둔 데이터예요. 원래 기획은 `SPEC.md`에 있어요.
+영수증 사진을 올리면 상호·날짜·품목별 금액·합계·카테고리를 읽어 가계부에 넣고, 카테고리별 예산(80% 주의 · 100% 경고), 도넛·일별 그래프, 이번 달 소비 패턴 글, 검색·필터·CSV 내보내기를 제공하는 앱이에요. **CTRL+AI 안에서 로그인한 회원이 실제 AI를 켜면** Claude가 사진을 읽고(`readWithAi`, `RECEIPT_SCHEMA`) 소비 패턴 글을 써요(`PATTERN_SCHEMA`) — 그 사람의 지원금에서, 버튼을 눌렀을 때만, 가격은 `ctrlai.ai.estimate`로 먼저 보여 줘요. 로그인 전이거나 CTRL+AI 밖에서는 **데모**: "AI 결과"는 미리 만들어 둔 데이터예요. 원래 기획은 `SPEC.md`에 있어요.
 
 만든 사람은 코딩을 잘 모르는 초보자예요. 설명은 쉬운 한국어로 해 주고, 파일을 바꾸기 전에 무엇을 왜 바꿀지 먼저 짧게 말해 주세요.
 
@@ -37,15 +37,17 @@ SPEC.md
 - **데모 데이터**: 모두 `js/data.js`. 예시 내역은 `seedTransactions()`가 고정 난수로 만들고, 날짜는 `dateFor()`로 **오늘 기준** 두 달 전 · 지난달 · 이번 달에 놓여요(두 달 전은 카페가 많고, 지난달은 쇼핑이 튀어요). 샘플 12장도 내역에 들어가요.
 - **그리기 방식**: `render()`가 `view`에 따라 `dashboardHtml()` · `listHtml()` · `addHtml()` · `budgetHtml()`이 만든 HTML 문자열을 `#main`의 `innerHTML`에 넣고, 이어서 `bind()`가 이벤트를 다시 붙여요. 상태를 바꾼 뒤에는 `save()` → `render()`. 사용자 글자는 꼭 `esc()`로 감싸서 넣어요. 탭 이동은 `go(next)`, 짧은 알림은 `toast(text)`.
 
-## AI 연결 자리
+## 실제 AI (CTRL+AI 기능 상자) 와 밖에서의 AI 연결 자리
+
+CTRL+AI 안에서는 `app.js` 맨 위의 `live` 상태(`#mode-toggle`, 저장 열쇠 `receipt-ledger-mode`)가 켜지면 `startReading`이 `readWithAi`로, `patternHtml`이 `#pattern-ai` 버튼으로 가요. 둘 다 `ctrlai.ai.ask`에 JSON 스키마를 주고, 결과는 아래 데모와 **같은 모양**이라 확인·저장 화면이 그대로예요. **CTRL+AI 밖에서 진짜로 연결할 때** 갈아 끼울 자리는 아래와 같아요.
 
 지금 "AI"처럼 보이는 곳은 세 군데이고, 진짜로 바꿀 때 갈아 끼울 자리는 이래요.
 
 1. **영수증 읽기** — `app.js`의 `startReading(image, sampleId)`. 0.9초 기다린 뒤 `L.extractionFor(sampleId)`(data.js)로 `SAMPLES`에서 미리 만든 결과 `{ shop, date, items, total, category, sampleId }`를 꺼내요. 샘플이 아닌 사진은 결과가 `null`이라 빈 양식이 열려요. 올린 SVG가 샘플인지는 `readFile(file)`이 그림 안의 `data-sample-id`로 알아봐요. → 진짜 버전에서는 `readFile`이 만든 이미지(data URL)를 서버로 보내고, 서버가 Claude API(이미지 입력)로 **같은 모양의 JSON**을 돌려주게 하면 돼요. 확인·수정 화면 `reviewHtml()`과 저장 코드는 그대로 쓸 수 있어요.
 2. **자동 분류** — 위 결과의 `category`(지금은 `SAMPLES`의 값). → Claude가 `CATEGORIES` 중 하나를 고르게 해요.
-3. **이번 달 소비 패턴** — `patternHtml(month, sums)`가 `L.PATTERN_NOTES[String(offsetOf(month))]`를 읽어요. 열쇠는 `"-2"` · `"-1"` · `"0"`(오늘 기준 몇 달 전)이고, 글 속 `{카페}` 같은 자리는 그 달 실제 합계로 채워요. 그 밖의 달은 "AI 연결 후" 안내만 보여요. → 서버가 그 달과 전월의 카테고리별 합계를 Claude에 보내 `{ headline, points: [...], tip }`를 받아 오면 같은 화면에 그대로 그려져요.
+3. **이번 달 소비 패턴** — `patternHtml(month, sums)`가 `L.PATTERN_NOTES[String(offsetOf(month))]`를 읽어요. 열쇠는 `"-2"` · `"-1"` · `"0"`(오늘 기준 몇 달 전)이고, 글 속 `{카페}` 같은 자리는 그 달 실제 합계로 채워요. 그 밖의 달은 안내만 보여요(실제 AI에서는 버튼으로 Claude가 써요). → 서버가 그 달과 전월의 카테고리별 합계를 Claude에 보내 `{ headline, points: [...], tip }`를 받아 오면 같은 화면에 그대로 그려져요.
 
-데모 표시는 `<span class="demo">데모 · AI 연결 전</span>`(결과마다)와 `.badge.demoAll` "데모 데이터"(메뉴 위)예요. 진짜로 연결한 부분에서만 빼 주세요. **Claude API 키는 절대 브라우저 코드에 넣지 말고 서버에만 두세요.**
+데모 표시는 `<span class="demo">데모</span>`(결과마다)와 `.badge.demoAll`(메뉴 위, 실제 AI면 "실제 AI · 내 지원금에서")예요. 진짜로 연결한 부분에서만 빼 주세요. **Claude API 키는 절대 브라우저 코드에 넣지 말고 서버에만 두세요.**
 
 ## 저장
 

@@ -28,7 +28,13 @@ async function appFrame(page: Page, slug: string): Promise<Frame> {
   return frame!;
 }
 
-type Usage = { events: { label: string; charged_krw: number }[] };
+type Usage = { events: { label: string; charged_krw: number }[]; wallet: { consumed_krw: number } | null };
+
+/** What the wallet has spent — `events` is only the recent page, so a count would stop moving. */
+async function spentKrw(request: { get: (url: string) => Promise<{ json: () => Promise<unknown> }> }): Promise<number> {
+  const usage = (await (await request.get(`${SITE}/api/usage/me`)).json()) as Usage;
+  return usage.wallet?.consumed_krw ?? 0;
+}
 
 test("영수증 가계부 LIVE: free to open and switch, priced before the button, charged only on it", async ({ page, context }) => {
   test.setTimeout(150_000);
@@ -38,8 +44,7 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   const ledger = apps.find((a) => a.name === "영수증 가계부");
   expect(ledger, "import_example_apps dev --update first").toBeTruthy();
   const slug = ledger!.slug;
-  const events = async () => ((await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage).events.length;
-  const before = await events();
+  const before = await spentKrw(context.request);
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
@@ -60,7 +65,7 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   const price = frame.locator("#drop small");
   await expect(price).toHaveText(/1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
   const shown = Number(/최대 (\d+)원/.exec((await price.textContent()) ?? "")![1]);
-  expect(await events()).toBe(before);
+  expect(await spentKrw(context.request)).toBe(before);
 
   // The button: one AI call, charged to the visitor, within the figure shown.
   await frame.locator("button.sample").first().click();
@@ -68,7 +73,7 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   const charged = Number(/실제 AI · (\d+)원/.exec((await frame.locator(".notice .demo.live").textContent()) ?? "")![1]);
   expect(charged).toBeGreaterThan(0);
   expect(charged).toBeLessThanOrEqual(shown);
-  expect(await events()).toBe(before + 1);
+  expect(await spentKrw(context.request)).toBe(before + charged);
   const usage = (await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage;
   expect(usage.events[0].label).toBe("앱 · 영수증 가계부");
   expect(usage.events[0].charged_krw).toBe(charged);
@@ -77,7 +82,7 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   await frame.getByRole("button", { name: "취소" }).click();
   await frame.getByRole("button", { name: "데모 데이터로 보기" }).click();
   await expect(frame.locator(".badge.demoAll")).toHaveText("데모 데이터");
-  expect(await events()).toBe(before + 1);
+  expect(await spentKrw(context.request)).toBe(before + charged);
 });
 
 test("문서 챗봇 LIVE: an answer with its source, no call when nothing matches", async ({ page, context }) => {
@@ -88,7 +93,6 @@ test("문서 챗봇 LIVE: an answer with its source, no call when nothing matche
   const bot = apps.find((a) => a.name === "문서 챗봇 메이커");
   expect(bot).toBeTruthy();
   const slug = bot!.slug;
-  const events = async () => ((await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage).events.length;
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
@@ -103,19 +107,20 @@ test("문서 챗봇 LIVE: an answer with its source, no call when nothing matche
   }
   await expect(frame.locator(".badge.demoAll")).toHaveText(/실제 AI/);
   await expect(frame.locator("#chat-price")).toHaveText(/질문 1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
-  const before = await events();
+  const before = await spentKrw(context.request);
 
   // A question the documents cover: Claude answers, the source is shown, one charge.
   await frame.getByLabel("질문").fill("회비는 얼마예요?");
   await frame.getByRole("button", { name: "보내기" }).click();
   await expect(frame.locator(".msg.bot").last().locator(".demo.live")).toHaveText(/실제 AI · \d+원/, { timeout: 60_000 });
-  expect(await events()).toBe(before + 1);
+  const afterAnswer = await spentKrw(context.request);
+  expect(afterAnswer).toBeGreaterThan(before);
 
   // Nothing in the documents matches: no call, no charge, the not-found text.
   await frame.getByLabel("질문").fill("zzqx");
   await frame.getByRole("button", { name: "보내기" }).click();
   await expect(frame.locator(".msg.bot").last().locator(".demo.live")).toHaveText(/0원/, { timeout: 15_000 });
-  expect(await events()).toBe(before + 1);
+  expect(await spentKrw(context.request)).toBe(afterAnswer);
 });
 
 test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, places stay in the list", async ({ page, context }) => {
@@ -126,7 +131,6 @@ test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, 
   const trip = apps.find((a) => a.name === "여행 일정 메이커");
   expect(trip).toBeTruthy();
   const slug = trip!.slug;
-  const events = async () => ((await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage).events.length;
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
@@ -139,20 +143,20 @@ test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, 
     await consent.waitForEvent("close", { timeout: 15_000 });
   }
   await expect(frame.locator(".badge.demoAll")).toHaveText(/실제 AI/);
-  const before = await events();
+  const before = await spentKrw(context.request);
 
   await frame.getByRole("button", { name: "새 일정 만들기" }).click();
   await expect(frame.locator("#plan-price")).toHaveText(/1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
   const shown = Number(/최대 (\d+)원/.exec((await frame.locator("#plan-price").textContent()) ?? "")![1]);
-  expect(await events()).toBe(before);
+  expect(await spentKrw(context.request)).toBe(before);
 
   await frame.getByRole("button", { name: "일정 만들기" }).click();
   // Mock Claude's ids are not in the list: the demo planner fills the days, still one real charge.
   await expect(frame.locator(".plannerLine")).toBeVisible({ timeout: 60_000 });
-  expect(await events()).toBe(before + 1);
   const usage = (await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage;
   expect(usage.events[0].charged_krw).toBeGreaterThan(0);
   expect(usage.events[0].charged_krw).toBeLessThanOrEqual(shown);
+  expect(await spentKrw(context.request)).toBe(before + usage.events[0].charged_krw);
   // Every stop on screen is a real place of the city (none invented by the model).
   const stops = await frame.locator(".stopCard").count();
   expect(stops).toBeGreaterThan(0);
