@@ -31,6 +31,7 @@ spent.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import logging
 import json
 from decimal import ROUND_CEILING, Decimal
@@ -44,6 +45,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_current_user, require_active_member
+from app.services.quiet import quiet_update
 from app.api.uploads import clean_upload_name, file_response, read_upload_body
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
@@ -69,6 +71,7 @@ from app.schemas.chat import (
     ConversationCreate,
     ConversationDetail,
     ConversationRead,
+    ConversationPinSet,
     ConversationUpdate,
     LongHistoryRead,
     ReplyReceipt,
@@ -372,6 +375,28 @@ def update_conversation(
         # Every current Claude model can show its thinking, so this needs
         # no per-model check; what it costs is on the toggle.
         conversation.show_thinking = payload.show_thinking
+    db.commit()
+    db.refresh(conversation)
+    return conversation
+
+
+@router.post(
+    "/conversations/{conversation_id}/pin",
+    response_model=ConversationRead,
+    summary="맨 위에 고정 / 고정 해제 (chat-pins)",
+)
+def set_pinned(
+    conversation_id: int,
+    payload: ConversationPinSet,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Conversation:
+    """The same 고정 as a Builder or Video project: a reading preference of
+    the owner, open while not participating, `updated_at` and
+    `last_message_at` untouched — a pin never moves a conversation's date.
+    The timestamp orders the 고정됨 group (newest pin first)."""
+    conversation = _owned(db, user, conversation_id)
+    quiet_update(db, conversation, pinned_at=datetime.now(timezone.utc) if payload.on else None)
     db.commit()
     db.refresh(conversation)
     return conversation

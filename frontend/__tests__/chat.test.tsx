@@ -5,7 +5,7 @@
  * 돌려주는 SSE 본문으로, 화면은 `lib/chat`을 바꿔 끼워 확인합니다.
  */
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
@@ -104,6 +104,20 @@ describe("sendMessage", () => {
     });
   });
 
+  test("splitPinned: 고정됨 first, newest pin first, the rest in the server's order (chat-pins)", async () => {
+    const { splitPinned } = await vi.importActual<typeof import("@/lib/chat")>("@/lib/chat");
+    const base = { title: "", created_at: "2026-10-01T00:00:00Z", last_message_at: "2026-10-01T00:00:00Z", chat_model_id: null };
+    const rows = [
+      { ...base, id: 1, pinned_at: null },
+      { ...base, id: 2, pinned_at: "2026-10-16T01:00:00Z" },
+      { ...base, id: 3 },
+      { ...base, id: 4, pinned_at: "2026-10-16T02:00:00Z" },
+    ];
+    const { pinned, rest } = splitPinned(rows);
+    expect(pinned.map((row) => row.id)).toEqual([4, 2]);
+    expect(rest.map((row) => row.id)).toEqual([1, 3]);
+  });
+
   test("the action link carries the idea and the suggested name", async () => {
     const { actionHref } = await vi.importActual<typeof import("@/lib/chat")>("@/lib/chat");
     expect(actionHref("builder", "가계부 앱 만들고 싶어요", "가계부")).toBe(
@@ -123,6 +137,7 @@ const chatApi = {
   setConversationModel: vi.fn(),
   renameConversation: vi.fn(),
   deleteConversation: vi.fn(),
+  setConversationPinned: vi.fn(),
   sendMessage: vi.fn(),
 };
 
@@ -137,6 +152,7 @@ vi.mock("@/lib/chat", async (importOriginal) => {
     setConversationModel: (...args: unknown[]) => chatApi.setConversationModel(...args),
     renameConversation: (...args: unknown[]) => chatApi.renameConversation(...args),
     deleteConversation: (...args: unknown[]) => chatApi.deleteConversation(...args),
+    setConversationPinned: (...args: unknown[]) => chatApi.setConversationPinned(...args),
     sendMessage: (...args: unknown[]) => chatApi.sendMessage(...args),
   };
 });
@@ -381,6 +397,7 @@ describe("ChatWorkspace", () => {
     expect(await screen.findByText("지난 질문")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "지우기" })).toBeNull();
     expect(screen.queryByRole("button", { name: "이름 바꾸기" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "더보기" })).toBeNull();
     expect(
       (screen.getByLabelText("CTRL+AI에게 보낼 메시지") as HTMLTextAreaElement).disabled,
     ).toBe(true);
@@ -453,5 +470,47 @@ describe("ChatWorkspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: "가계부 아이디어" }));
 
     expect(await screen.findByRole("button", { name: "답장 방식을 골라 주세요" })).toBeTruthy();
+  });
+
+  test("chat-pins: the ⋯ menu pins a conversation, which moves under 고정됨 with a pin", async () => {
+    const other = { ...CONVERSATION, id: 6, title: "여행 계획" };
+    chatApi.listConversations.mockResolvedValue([CONVERSATION, other]);
+    chatApi.setConversationPinned.mockResolvedValue({ ...other, pinned_at: "2026-10-17T00:00:00Z" });
+    await renderChat();
+    await screen.findByRole("button", { name: "여행 계획" });
+    expect(screen.queryByTestId("pinned-label")).toBeNull();
+
+    // The second row's ⋯ → 맨 위에 고정.
+    fireEvent.click(screen.getAllByRole("button", { name: "더보기" })[1]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "맨 위에 고정" }));
+    await waitFor(() => expect(chatApi.setConversationPinned).toHaveBeenCalledWith(6, true));
+
+    // Now 고정됨 holds it, first, with its pin; 최근 대화 keeps the other.
+    expect((await screen.findByTestId("pinned-label")).textContent).toBe("고정됨");
+    const pinnedList = screen.getByRole("list", { name: "고정된 대화" });
+    expect(within(pinnedList).getByRole("button", { name: /여행 계획/ })).toBeTruthy();
+    expect(within(pinnedList).getByRole("img", { name: "고정됨" })).toBeTruthy();
+    const recent = screen.getByRole("list", { name: "최근 대화" });
+    expect(within(recent).queryByRole("button", { name: /여행 계획/ })).toBeNull();
+    expect(within(recent).getByRole("button", { name: "가계부 아이디어" })).toBeTruthy();
+
+    // Its menu now offers 고정 해제, and the rename/delete items are still there.
+    fireEvent.click(within(pinnedList).getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("menuitem", { name: "고정 해제" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "이름 바꾸기" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "지우기" })).toBeTruthy();
+    chatApi.setConversationPinned.mockResolvedValue({ ...other, pinned_at: null });
+    fireEvent.click(screen.getByRole("menuitem", { name: "고정 해제" }));
+    await waitFor(() => expect(chatApi.setConversationPinned).toHaveBeenLastCalledWith(6, false));
+    await waitFor(() => expect(screen.queryByTestId("pinned-label")).toBeNull());
+  });
+
+  test("chat-pins: 이름 바꾸기 from the ⋯ menu still opens the rename box", async () => {
+    chatApi.listConversations.mockResolvedValue([CONVERSATION]);
+    await renderChat();
+    await screen.findByRole("button", { name: "가계부 아이디어" });
+    fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "이름 바꾸기" }));
+    expect((screen.getByLabelText("대화 이름") as HTMLInputElement).value).toBe("가계부 아이디어");
   });
 });

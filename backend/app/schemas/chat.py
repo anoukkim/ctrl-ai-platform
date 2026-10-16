@@ -65,6 +65,15 @@ class ConversationRead(BaseModel):
     show_thinking: bool = False
     #: 생각 깊이 (quality-tuning Q1). None: the member's default.
     depth: str | None = None
+    #: chat-pins: when the member pinned it; None = not pinned.
+    pinned_at: datetime | None = None
+
+
+class ConversationPinSet(BaseModel):
+    """맨 위에 고정 / 고정 해제 (chat-pins) — `POST …/pin`, like the Builder's
+    and Video's `ProjectPinSet`; `on: false` unpins."""
+
+    on: bool
 
 
 class ReplyReceipt(BaseModel):
