@@ -51,7 +51,7 @@ from app.models import (
     VideoVersion,
 )
 from app.services import app_runtime, audit
-from app.services.storage import AssetStorage
+from app.services.storage import AssetStorage, StorageKeyError
 
 #: What each kind is called in Korean, for audit summaries.
 KIND_LABEL = {"builder": "프로젝트", "video": "영상 프로젝트"}
@@ -217,8 +217,9 @@ def remove_files(settings: Settings, storage: AssetStorage, purged: list[Purged]
     """Drop the folders and stored files of purged work. Call after commit.
 
     A file that is already gone is not an error; a file that cannot be
-    removed is logged by the storage and left for the operator — the
-    database is the source of truth, and the row is already gone.
+    removed, or whose stored key no longer passes the storage's key
+    check, is left for the operator — the database is the source of
+    truth, and the row is already gone.
     """
     for facts in purged:
         if facts.slugs:
@@ -226,5 +227,5 @@ def remove_files(settings: Settings, storage: AssetStorage, purged: list[Purged]
         for key in facts.storage_keys:
             try:
                 storage.delete(key)
-            except OSError:
+            except (OSError, StorageKeyError):
                 continue

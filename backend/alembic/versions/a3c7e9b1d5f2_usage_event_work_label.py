@@ -8,7 +8,7 @@ so the name is copied here just before the row is removed. Null on every
 row whose project still exists (the live name is read instead).
 
 Revision ID: a3c7e9b1d5f2
-Revises: d7e1f3a9b5c2
+Revises: a3f7c1d9e2b4
 Create Date: 2026-10-16
 
 """
