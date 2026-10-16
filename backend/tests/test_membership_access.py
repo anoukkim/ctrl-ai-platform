@@ -431,6 +431,18 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/apps/mine"): "get_current_user",
     ("GET", "/api/apps/{slug}"): "get_current_user",
     ("POST", "/api/apps/{slug}/report"): "get_current_user",
+    # promo-videos: CtrlAITube — reads for any account, writes for participants, 신고 any account.
+    ("GET", "/api/tube/videos"): "get_current_user",
+    ("GET", "/api/tube/videos/{slug}"): "get_current_user",
+    ("POST", "/api/tube/videos/{slug}/reactions"): "require_active_member",
+    ("POST", "/api/tube/videos/{slug}/comments"): "require_active_member",
+    ("PATCH", "/api/tube/comments/{comment_id}"): "require_active_member",
+    ("DELETE", "/api/tube/comments/{comment_id}"): "require_active_member",
+    ("POST", "/api/tube/comments/{comment_id}/report"): "get_current_user",
+    ("GET", "/api/admin/tube/reports"): "require_admin",
+    ("POST", "/api/admin/tube/comments/{comment_id}/hide"): "require_admin",
+    ("POST", "/api/admin/tube/comments/{comment_id}/delete"): "require_admin",
+    ("POST", "/api/admin/tube/reports/{report_id}/resolve"): "require_admin",
     ("GET", "/api/admin/apps"): "require_admin",
     ("GET", "/api/admin/apps/reports"): "require_admin",
     # app-platform P4b: Admin › Apps.
@@ -659,6 +671,8 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         # not creating anything.
         ("POST", "/api/builder/projects/{project_id}/unpublish"),
         ("POST", "/api/apps/{slug}/report"),
+        # promo-videos: 신고 of a CtrlAITube comment, likewise.
+        ("POST", "/api/tube/comments/{comment_id}/report"),
         # Feedback. Spends nothing; a member who cannot create is exactly
         # who should be able to say so.
         ("POST", "/api/feedback"),

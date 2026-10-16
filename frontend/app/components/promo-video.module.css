@@ -1,0 +1,55 @@
+/* CTRL+AI 소개 영상 (promo-videos). */
+
+.figure {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  min-width: 0;
+}
+
+/* 영상은 어두운 틀 안에 비율대로. 세로 영상은 높이를 묶어 화면 절반을
+   넘지 않게 — 안내 창 안에서 9:16이 끝까지 늘어나면 단추가 밀려납니다. */
+.video {
+  display: block;
+  width: 100%;
+  max-height: 60dvh;
+  border-radius: var(--radius);
+  background: var(--video-letterbox);
+  object-fit: contain;
+}
+
+.wide .video {
+  aspect-ratio: 16 / 9;
+}
+
+.tall .video {
+  aspect-ratio: 9 / 16;
+  max-height: 55dvh;
+  justify-self: center;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
+.captionText {
+  color: var(--text-muted);
+  font-size: var(--fs-count);
+}
+
+.buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.buttons .btn,
+.buttons > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}

@@ -17,6 +17,7 @@ from app.api.routes import (
     admin_invites,
     admin_overview,
     admin_quarters,
+    admin_tube,
     admin_withdrawals,
     admin_work,
     app_connect,
@@ -30,6 +31,7 @@ from app.api.routes import (
     quarters,
     sign_in_methods,
     site,
+    tube,
     usage,
     users,
     video,
@@ -45,6 +47,8 @@ api_router.include_router(sign_in_methods.router)
 api_router.include_router(users.router)
 api_router.include_router(builder.router)
 api_router.include_router(apps.router)
+api_router.include_router(tube.router)
+api_router.include_router(admin_tube.router)
 api_router.include_router(chat.router)
 api_router.include_router(video.router)
 api_router.include_router(quarters.router)

@@ -24,6 +24,12 @@ vi.mock("@/lib/apps", async (importOriginal) => {
   };
 });
 
+// promo-videos: Content also lists CtrlAITube comment reports — none here.
+vi.mock("@/lib/tube", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tube")>();
+  return { ...actual, listTubeReports: () => Promise.resolve([]) };
+});
+
 vi.mock("@/app/components/ToastProvider", () => ({
   useToast: () => ({ show: vi.fn() }),
 }));
@@ -108,7 +114,8 @@ describe("Admin › Apps", () => {
 
   test("Content에는 신고 표만 남고 앱 표는 없다", async () => {
     render(<AdminContentPage />);
-    expect(await screen.findByText("열린 신고가 없습니다.")).toBeTruthy();
+    // Two queues now (apps, and CtrlAITube comments since promo-videos), both empty.
+    expect(await screen.findAllByText("열린 신고가 없습니다.")).toHaveLength(2);
     expect(screen.queryByTestId("published-apps")).toBeNull();
     expect(screen.getByRole("link", { name: "Apps" }).getAttribute("href")).toBe("/admin/apps");
   });

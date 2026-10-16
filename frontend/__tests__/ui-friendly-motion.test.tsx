@@ -136,7 +136,7 @@ describe("첫 안내", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  test("다시 열 수 있고, 네 장을 넘겨 끝낼 수 있다", async () => {
+  test("다시 열 수 있고, 다섯 장을 넘겨 끝낼 수 있다", async () => {
     window.localStorage.setItem(GUIDE_STORAGE_KEY, "1");
     const user = userEvent.setup();
     render(
@@ -147,11 +147,17 @@ describe("첫 안내", () => {
     await user.click(screen.getByRole("button", { name: "안내 다시 보기" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
 
-    expect(GUIDE_STEPS).toHaveLength(4);
+    expect(GUIDE_STEPS).toHaveLength(5);
     for (let i = 1; i < GUIDE_STEPS.length; i++) {
       await user.click(screen.getByRole("button", { name: "다음" }));
       expect(await screen.findByText(GUIDE_STEPS[i].title)).toBeTruthy();
     }
+    // The last step holds the promo video: no autoplay, muted until asked.
+    const video = document.querySelector("video") as HTMLVideoElement;
+    expect(video).not.toBeNull();
+    expect(video.hasAttribute("autoplay")).toBe(false);
+    expect(video.getAttribute("src")).toMatch(/\/promo\/ctrlai-intro-(desktop|mobile)-v1\.mp4$/);
+    expect(screen.getByRole("button", { name: "소리 켜기" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "시작하기" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });

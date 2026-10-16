@@ -14,6 +14,10 @@
  * 영상에 대한 사실 중 자주 보지 않는 것(YouTube 영상 ID, 회원 상태 설명)은
  * "자세히" 안으로 넣었습니다. 예전의 큰 표는 여섯 줄 모두 같은 무게로
  * 보여서, 정작 먼저 읽어야 할 제목과 만든 사람이 묻혔습니다.
+ *
+ * promo-videos: 예시 영상의 id가 아니면 **실제 영상**(백엔드의
+ * `tube_videos`, 지금은 CTRL+AI 소개 영상 `ctrlai-intro`)으로 보고
+ * `TubeVideoView`가 그립니다 — 같은 배치에 진짜 영상과 저장되는 댓글.
  */
 
 import type { Metadata } from "next";
@@ -30,6 +34,7 @@ import {
 } from "@/lib/mock-data";
 import { MEMBERSHIP_BADGE } from "@/lib/quarters";
 
+import TubeVideoView from "./TubeVideoView";
 import WatchPanel from "./WatchPanel";
 import { softTint } from "@/app/ctrlaistore/softTint";
 
@@ -52,7 +57,7 @@ export async function generateMetadata({ params }: VideoDetailProps): Promise<Me
   const video = findVideo(id);
 
   return {
-    title: video ? `${video.title} — CtrlAITube` : "영상을 찾을 수 없습니다 — CTRL+AI",
+    title: video ? `${video.title} — CtrlAITube` : "CtrlAITube — CTRL+AI",
   };
 }
 
@@ -60,7 +65,11 @@ export default async function VideoDetailPage({ params }: VideoDetailProps) {
   const { id } = await params;
   const video = findVideo(id);
 
-  if (!video) notFound();
+  // 예시가 아니면 실제 영상입니다. 없는 주소는 그 화면이 "찾을 수 없어요"로 답합니다.
+  if (!video) {
+    if (!/^[a-z0-9-]{1,40}$/.test(id)) notFound();
+    return <TubeVideoView slug={id} />;
+  }
 
   return (
     <div className={styles.frame}>

@@ -46,7 +46,7 @@ principles.
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet. **Locked for members by default** (owner-polish 6, 2026-10-16): the 관리자 opens it in Admin › System › 기능 열기 the quarter video starts; until then the menu item carries a lock and the whole screen is one centred lock with "다음 단계에서 열려요 — 지금은 준비 중이에요" (owner's shape, 2026-10-16); the 관리자 sees the same screen plus "Admin › System에서 열 수 있어요", and the API never locks the 관리자 out |
 | CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
-| CtrlAITube            | Mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
+| CtrlAITube            | The club's intro video first (공식 — a hosted file, played in the page, real reactions and comments since `promo-videos`); the rest a mock feed; watch page is two columns — player sized by ratio, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/빌더/영상/기타 breakdown, 대화별 / 날짜별 totals split into 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구, this quarter's 캐시로 아낀 금액, and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
 | Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
 | Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
@@ -831,6 +831,25 @@ Phase 8 does not depend on Phase 7. CTRL+AI reactions and comments live
 in CTRL+AI PostgreSQL, deliberately separate from YouTube comments (an
 optionally shown, clearly labelled YouTube-comments section is fine —
 never mixed). The same `deleted_at` listing rule as CtrlAIApps.
+
+**First real rows — `promo-videos` (2026-10-16).** One video row has a
+*kind*: **hosted** (a file CTRL+AI serves itself) or **youtube**. The only
+hosted video is the club's own 1-minute intro, **"CTRL+AI 한눈에 보기"**:
+first in the grid with a **공식** badge, two files (a 16:9 one at desktop
+widths, a 9:16 one at phone widths — the 60rem sidebar breakpoint
+decides), played in the page with the browser's controls, never
+autoplaying, muted until the member presses **소리 켜기**, with **크게
+보기** for fullscreen. Its reactions (좋아요 · 유용해요 · 흥미로워요, a
+toggle per member) and comments (one level of replies) are stored:
+reading needs a signed-in account, reacting and commenting a member taking
+part this quarter; a comment is its author's to edit or delete (anyone
+else's is a 404); a member may 신고 a comment; Admin › Content lists those
+reports and the admin hides (for everyone, with a reason) or deletes
+(replies included) the comment — both audited — or closes the report and
+keeps it. Per-comment 공감 is not stored yet, so the official video shows
+no 공감 button and no 인기순. The same video is the last step of the
+first-visit guide. The other cards remain sample data until the YouTube
+feed lands.
 
 ### Admin, eventually
 

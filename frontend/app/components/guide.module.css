@@ -33,6 +33,15 @@
   min-width: 0;
 }
 
+/* 영상이 든 장은 넓게 — 가로 영상이 26rem 안에서는 우표만 합니다. */
+.dialogWide {
+  max-width: 44rem;
+}
+
+.video {
+  margin-top: 0.4rem;
+}
+
 @media (max-width: 26rem) {
   .dialog {
     padding: 18px 16px;

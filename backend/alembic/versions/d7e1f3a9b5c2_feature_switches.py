@@ -6,7 +6,7 @@ chat_limits: a new row per change, newest wins, no row = the default in
 services/feature_switches.py (video locked), so nothing is seeded.
 
 Revision ID: d7e1f3a9b5c2
-Revises: c2d9e4f7a1b6
+Revises: e5f8b2c3d7a1
 Create Date: 2026-10-16
 
 """
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "d7e1f3a9b5c2"
-down_revision: str | None = "c2d9e4f7a1b6"
+down_revision: str | None = "e5f8b2c3d7a1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -169,47 +169,49 @@ are pre-approved to merge and deploy one at a time (see **Now**).
 
 ---
 
-7. **promo-videos** · M1 · branch `feat-promo-videos`
-    *Not pre-approved — branch, test, report, WAIT. Order: after
-    publish-summary (merged 2026-10-16).* Owner, 2026-10-16 (relayed from another session,
-    their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
-    — 2번(데스크탑), 3번(모바일 영상) — 이거를 각각 가이드 마지막(화면
-    임베디드, 크게 보기 가능) 그리고 ctrl tube에 그냥 기본적으로 나오는
-    영상 하나(리액션 댓글 가능하게. 나머지 영상들은 유튜브일텐데 얘는 그냥
-    기본으로) 나오게 해줘" — this is owner-polish 7. Sources on
-    `origin/chore-promo-videos`: `promo-videos/02-swiss-garage.mp4`
-    (1920×1080, 13.8 MB, desktop) and `03-y2k-jersey.mp4` (1080×1920,
-    23.9 MB, mobile); original music per its README. Do not commit the
-    originals: re-encode with ffmpeg for the web (H.264 + AAC, +faststart,
-    about 1280×720 and 720×1280, roughly 5–8 MB each, check the quality)
-    plus a JPG poster, commit only those; decide and report where they are
-    served from (e.g. `frontend/public`) and the cache headers;
-    `preload="metadata"`, never autoplay (data, sound). (1) FirstVisitGuide
-    (four steps today) gets a last step "CTRL+AI 한눈에 보기": the video in
-    the page with controls, 크게 보기 / fullscreen; 02 on desktop, 03 at
-    phone widths; sound only when the viewer turns it on; reduced motion,
-    keyboard and screen readers considered. Also *propose* in the report
-    (owner decides) replacing step 3 "Video Generator — 영상 만들기", which
-    contradicts owner-polish 6 (video locked this quarter), with a
-    CtrlAIApps introduction. (2) CtrlAITube: a default video first in the
-    grid marked "공식", played in the page from our file (02/03 by width),
-    with real reactions and comments on its detail screen. CtrlAITube is
-    all `MOCK_VIDEOS` today, so this needs the backend: design the video
-    rows with a source kind (hosted / youtube) with Phase 8 in view,
-    reaction and comment tables + an Alembic migration + routes (reads
-    `get_current_user`, writes `require_active_member`, another member's
-    comment 404/403), admin hide/delete (reason, audited) and 신고 through
-    the existing report queue, the CLAUDE.md §10 `deleted_at` rule, the
-    guard map. The other sample cards stay marked as test data. Tests: the
-    guide's last step (desktop/mobile choice, 크게 보기), the Tube default
-    video element, reaction/comment CRUD and permissions (non-participating
-    members read only; another member's comment), admin hide, 신고.
-    Screenshots 1440 · 390, light and dark.
+7. **ui-improvements** · M1 · branch `feat-ui-improvements`
+    *Not pre-approved — promo-videos merged 2026-10-16; once it is deployed, show
+    the plan first and WAIT.* Owner, 2026-10-16 (relayed from another
+    session): fold **owner-polish 15** (app detail screen) and **owner-polish
+    4·5** (thumbnails) together with the UI points below into one bundle.
+    The thumbnail method is decided in the plan from 2–3 compared options
+    (never running member code on the server, CLAUDE.md §8·§10). Do **not**
+    touch owner-polish 6 (video lock) — another session has it. Owner's
+    words, verbatim: "그거랑 같이 지금 검색도 이상함 뭔가 선도 끝에랑
+    안맞고 (video에는 보면 사용자별 드랍다운이 있는데 여기엔 없어서 그런지
+    뭔지 모르겠음) 모든 build, store, 빌드 영상 둘다 나중에 pin이랑 정렬
+    (마지막 수정일 이름) 으로 할 수 있게 / 분기 신청기한도 늘릴 수 있게 /
+    ai model budget 여기 화면 너무 복잡해 너무 줄줄이 길어 뭔가 차라리
+    하나씩 토글해서 볼 수 있으면 나을 듯 / deleted items는 관리자가
+    완전히 삭제할 수 있음. 그리고 분기 끝나면 관리자 안 삭제한거
+    전체적으로 자동 삭제 (이건 확정) / system도 뭔가 너무 많음;; 걍
+    연결상태를 전체적으로 health를 보고 싶은데 아래에 뭐가 저리 많음 /
+    그거까지 해서 ui개선". The relaying session's reading of the
+    screenshots, to confirm in the plan: (1) the search bar's right edge on
+    CtrlAIApps does not line up with the card row (Video has the
+    전체/작성 중/게시됨 filter beside it) — align the list screens' header
+    rows (Builder, CtrlAIApps, Video, CtrlAITube) on one grid; (2) pin +
+    sort (last modified / name, remembered) on the Builder, CtrlAIApps and
+    Video lists — pins per member (CtrlAIApps: a member's own favourites),
+    one migration if storage is needed; (3) Admin › Quarters: extend an
+    application deadline later (within the quarter; audited; whether a
+    closed quarter can reopen is proposed in the plan); (4) Admin › AI
+    Models and Budget: sections collapsed to a summary, opened one at a
+    time, state remembered; (5) Deleted Items: an admin's 완전히 삭제
+    (confirm, reason, audit) **and**, at 분기 마감, everything not restored
+    is purged automatically (owner's decision) — money rows (`UsageEvent`,
+    wallets, audit) are never deleted, so the design must survive the
+    project's removal (FKs, name snapshots), app folders and stored files
+    go too, and the decision is recorded in CLAUDE.md §2/§4; (6) Admin ›
+    System: an at-a-glance health row (server · DB · each provider,
+    green/red) on top, the rest (exchange rate, chat limits, depth table,
+    `.env` list, builder check) in collapsed sections; (7) owner-polish 15
+    and 4·5 as written.
 
 8. **app-libraries** · M3 · branch `feat-app-libraries`
     *Direction, not pre-approved — review after app-platform P4; order to
-    be set by the owner.* (Numbered 8 until publish-summary and promo-videos joined on
-    2026-10-16; publish-summary merged the same day.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    be set by the owner.* (Renumbered as items joined and merged on
+    2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
     높인다."** Member apps have no network (CSP `connect-src 'none'`, no
     CDN), so a game or a chart today means hand-written code. Review a
     bundle of **approved libraries that CTRL+AI hosts itself** on the apps
@@ -225,6 +227,49 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     sizes and a load-time check belong to the review. **Example apps the
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
+
+9. **dino-avatars** · M3 · branch `feat-dino-avatars`
+    *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
+    (decided in another session after four mock-ups; relayed): **"CTRL+AI
+    공룡" profile avatars** replace the letter avatar. **No uploaded
+    profile photos** — this instead. Decided:
+    1. **Egg → dinosaur.** Sign-up gives an egg; the first activity (first
+       chat or first project) hatches it into the member's dinosaur.
+    2. **Choosing, in this order:** ① species, five — 아기 티라노,
+       트리케라톱스, 브라키오, 스테고, 프테라 (the five on the owner's
+       reference sheet); ② colour with a picker (saturation square + hue
+       bar + hex + eyedropper via Chrome's `EyeDropper` + recent and
+       suggested colours); the background colour has the same picker. No
+       AI — recoloured in the browser: each drawing has three slots
+       (light, dark, black outline); the chosen colour is the light slot
+       and the dark slot is derived (HLS lightness ×0.72, saturation
+       ×0.85, so deep pinks and reds do not turn harsh). If body and
+       background are too close: "바탕과 비슷해서 작게 보면 잘 안 보여요 —
+       그래도 할까요?".
+    3. **The egg:** the owner's white egg (black outline, cross-shaped
+       speckles + shadow, grey shading below); the speckles take the
+       chosen body colour.
+    4. **Art:** 브라키오 is the owner's own 24×24 pixel drawing (2×2 eyes +
+       sparkle + blush read as cute). The other four species must be drawn
+       new at 24×24 with the same three-slot colour rule — the reference
+       sheet is stock art and is **not** to be used (owner/club members
+       draw, or a licensed set). Each species also gets a small face-only
+       drawing (about 12×12) for 20–32 px spots — a long-necked dinosaur
+       cropped from the full drawing was too small.
+    5. **Quarter titles**, decided at 분기 마감 and worn all next quarter,
+       with a "지난 칭호" collection on Profile: **천사** (spent ≥ 80 % of
+       the wallet **and** published ≥ 1 app or video — spending alone
+       would reward waste), **왕** (the 2 members with the most published
+       apps, counting only apps actually used, e.g. ≥ 10 visits),
+       **팡파레** (the 2 with the most reactions — once app reactions
+       exist), **쉬는 중** (not taking part this quarter; a sleeping
+       dinosaur, Zzz), **화석** (탈퇴 회원; their apps stay under the fossil
+       name). A title is a prop layered over the drawing (halo, crown,
+       party hat + confetti, …).
+    6. **Still the owner's call:** how often the colour may change — once
+       at sign-up (a gift) / any time / once per quarter or title.
+    The mock-ups live in the owner's desktop session; the owner shows them
+    when the item starts.
 
 ## app-platform — full spec
 

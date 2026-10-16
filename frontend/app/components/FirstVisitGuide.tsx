@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * 처음 온 회원을 위한 짧은 안내 — 네 장(ui-friendly-motion).
+ * 처음 온 회원을 위한 짧은 안내 — 다섯 장(ui-friendly-motion, promo-videos).
  *
- * Chat, Project Builder, Video Generator, 그리고 지원금. 처음 로그인했을 때
+ * Chat, Project Builder, Video Generator, 지원금, 그리고 마지막에 1분짜리
+ * 소개 영상(`PromoVideo` — 데스크탑은 가로, 휴대폰은 세로 파일; 저절로
+ * 재생하지 않고 소리는 켜야 들립니다). 처음 로그인했을 때
  * 한 번 뜨고, 닫거나 끝까지 보면 이 브라우저에 기억해 다시 뜨지 않습니다
  * (`ctrlai.guide-done`). 사이드바 아래의 물음표 단추로 언제든 다시 엽니다.
  *
@@ -11,10 +13,23 @@
  */
 
 import { AnimatePresence, motion } from "motion/react";
-import { Clapperboard, Code2, MessageSquare, Wallet, X, type LucideIcon } from "lucide-react";
+import { Clapperboard, Code2, MessageSquare, PlayCircle, Wallet, X, type LucideIcon } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
+import { getTubeVideo } from "@/lib/tube";
+
+import PromoVideo, { type PromoSources } from "./PromoVideo";
 import styles from "./guide.module.css";
+
+/** 소개 영상의 파일 — 서버(`GET /api/tube/videos/ctrlai-intro`)가 정답이고,
+ *  이 값은 그 응답이 오기 전이나 실패했을 때의 대비입니다. 새 인코딩은
+ *  백엔드 `services/tube.py`의 OFFICIAL에 올리고 여기도 맞춥니다. */
+export const PROMO_SOURCES: PromoSources = {
+  desktop: "/promo/ctrlai-intro-desktop-v1.mp4",
+  mobile: "/promo/ctrlai-intro-mobile-v1.mp4",
+  posterDesktop: "/promo/ctrlai-intro-desktop-v1.jpg",
+  posterMobile: "/promo/ctrlai-intro-mobile-v1.jpg",
+};
 
 export const GUIDE_STORAGE_KEY = "ctrlai.guide-done";
 
@@ -22,6 +37,8 @@ interface Step {
   Icon: LucideIcon;
   title: string;
   text: string;
+  /** 이 장에는 소개 영상이 들어갑니다. */
+  video?: boolean;
 }
 
 export const GUIDE_STEPS: Step[] = [
@@ -44,6 +61,12 @@ export const GUIDE_STEPS: Step[] = [
     Icon: Wallet,
     title: "동아리 지원금",
     text: "메뉴 아래쪽 카드가 이번 분기 지원금이에요(휴대폰에서는 위의 '메뉴'를 눌러 보세요). 채팅도 영상도 여기서 쓰고, 버튼 옆에 예상 비용이 먼저 보여요.",
+  },
+  {
+    Icon: PlayCircle,
+    title: "CTRL+AI 한눈에 보기",
+    text: "1분짜리 소개 영상이에요. 재생을 누르면 시작하고, 소리는 '소리 켜기'로 켜요. CtrlAITube에서 언제든 다시 볼 수 있어요.",
+    video: true,
   },
 ];
 
@@ -106,6 +129,31 @@ export default function GuideProvider({
   );
 }
 
+/** 마지막 장의 영상. 파일 주소는 CtrlAITube와 같은 곳(서버)에서 읽습니다. */
+function GuideVideo() {
+  const [sources, setSources] = useState<PromoSources>(PROMO_SOURCES);
+  useEffect(() => {
+    let alive = true;
+    getTubeVideo("ctrlai-intro")
+      .then((row) => {
+        if (!alive || !row.hosted_desktop_src) return;
+        setSources({
+          desktop: row.hosted_desktop_src,
+          mobile: row.hosted_mobile_src,
+          posterDesktop: row.poster_desktop_src,
+          posterMobile: row.poster_mobile_src,
+        });
+      })
+      .catch(() => {
+        /* 서버가 답하지 않으면 위의 값으로 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return <PromoVideo sources={sources} title="CTRL+AI 소개 영상" className={styles.video} />;
+}
+
 function GuideDialog({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const primary = useRef<HTMLButtonElement>(null);
@@ -125,7 +173,7 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
     };
   }, []);
   const last = step === GUIDE_STEPS.length - 1;
-  const { Icon, title, text } = GUIDE_STEPS[step];
+  const { Icon, title, text, video } = GUIDE_STEPS[step];
 
   useEffect(() => {
     primary.current?.focus();
@@ -173,7 +221,7 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
     >
       <motion.div
         ref={box}
-        className={styles.dialog}
+        className={`${styles.dialog} ${video ? styles.dialogWide : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="guide-title"
@@ -204,6 +252,7 @@ function GuideDialog({ onClose }: { onClose: () => void }) {
               {title}
             </h2>
             <p className={styles.text}>{text}</p>
+            {video && <GuideVideo />}
           </motion.div>
         </AnimatePresence>
 
