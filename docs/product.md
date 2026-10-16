@@ -754,7 +754,15 @@ description, author, "v5 · 3일 전 업데이트", optional 업데이트 메모
 `apps.ctrlai.my/<app-slug>/` serves exactly that version. The member keeps
 editing the working copy — previewed from its own unlisted folder — and
 nothing public changes until **업데이트 게시** (the dialog shows v3 → v5).
-**게시 취소** takes it down and keeps every version. The detail page has
+**게시 취소** takes it down and keeps every version. **Since
+publish-summary (2026-10-16)** the dialog's 설명 — and for 업데이트 게시
+the 메모 — are pre-filled by Claude's fast model from the project's name
+and files (and the versions since the published one): written once per
+working version, kept on the version, free to the member (the club's cost
+is an absorbed 0원 row, feature `publish_summary`), never blocking 게시
+(a failure leaves the field empty, "직접 적어 주세요"). Only empty fields
+are filled; a field the member typed in is never overwritten, and an
+existing description gets a "Claude 요약으로 바꾸기" button. The detail page has
 **앱 실행** (new tab), the same app live in a sandboxed frame, an honest
 note on what an app can do, and **신고**. Admin › Content lists open
 reports (the apps themselves are under Admin › Apps since app-platform
