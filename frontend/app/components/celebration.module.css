@@ -1,0 +1,74 @@
+/* 게시 완료의 순간 (motion-modern (5)). 화면 전체를 덮지만 아무것도 막지 않습니다. */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 118;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.line {
+  position: absolute;
+  width: 2px;
+  height: 120px;
+  border-radius: 2px;
+  background: linear-gradient(to top, transparent, #fff8e1 60%, #fff);
+  box-shadow: 0 0 10px 2px rgba(255, 236, 170, 0.6);
+  transform-origin: bottom center;
+}
+
+.flash {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 180px;
+  height: 180px;
+  margin: -90px 0 0 -90px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #fff, rgba(255, 255, 255, 0.4) 50%, transparent 72%);
+}
+
+.ray {
+  position: absolute;
+  left: calc(50% - 1.5px);
+  top: 46%;
+  width: 3px;
+  height: 110px;
+  border-radius: 3px;
+  background: linear-gradient(to top, #ffd98a, rgba(201, 182, 255, 0.9) 70%, transparent);
+  transform-origin: center bottom;
+  translate: 0 -100%;
+}
+
+.confetti {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.confettiTall {
+  width: 5px;
+  height: 13px;
+}
+
+.text {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-shadow:
+    0 0 18px rgba(255, 236, 170, 0.8),
+    0 2px 10px var(--scrim, rgba(0, 0, 0, 0.3));
+}
+
+.letter {
+  display: inline-block;
+}

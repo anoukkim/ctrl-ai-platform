@@ -61,8 +61,24 @@ import {
 import { useCurrentUser } from "./CurrentUserProvider";
 import styles from "./spend-feedback.module.css";
 
-/** "-N원"이 알림에서 잔액까지 날아가는 시간. */
-const FLY_MS = 700;
+/** 별가루가 알림에서 잔액까지 흐르는 시간 (motion-modern (4)). */
+const FLY_MS = 900;
+/** 별 몇 개가 흐르고, 닿은 자리에서 몇 개가 반짝이는지. */
+export const STAR_COUNT = 9;
+export const TWINKLE_COUNT = 4;
+
+/** 별마다 조금씩 다른 길과 크기 — 한 줄로 날지 않도록. 결정적(순서로만). */
+function starSpread(index: number) {
+  const angle = (index * 137.5 * Math.PI) / 180; // golden angle: evenly scattered
+  const radius = 10 + (index % 3) * 9;
+  return {
+    dx: Math.cos(angle) * radius,
+    dy: Math.sin(angle) * radius,
+    size: 5 + (index % 3) * 2,
+    delay: index * 0.045,
+    gold: index % 3 !== 1,
+  };
+}
 
 interface Flight {
   id: number;
@@ -353,18 +369,44 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
       </div>
       <AnimatePresence>
         {fly !== null && (
-          <motion.span
-            key={`f-${fly.id}`}
-            className={styles.fly}
-            data-testid="spend-fly"
-            aria-hidden="true"
-            initial={{ left: fly.from.x, top: fly.from.y, opacity: 1, scale: 1 }}
-            animate={{ left: fly.to.x, top: fly.to.y, opacity: [1, 1, 0.2], scale: [1, 1.1, 0.7] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: FLY_MS / 1000, ease: [0.3, 0.7, 0.3, 1] }}
-          >
-            -{formatKrw(fly.amountKrw)}
-          </motion.span>
+          // 별가루 (motion-modern (4)): 작은 별들이 금액에서 잔액으로 흘러가고,
+          // 닿은 자리에서 몇 개가 반짝인 뒤 숫자가 내려갑니다. 글자는 없습니다 —
+          // 금액은 알림이 들고 있어요.
+          <span key={`f-${fly.id}`} className={styles.stardust} data-testid="spend-fly" data-stars={STAR_COUNT} aria-hidden="true">
+            {Array.from({ length: STAR_COUNT }, (_, index) => {
+              const spread = starSpread(index);
+              return (
+                <motion.span
+                  key={index}
+                  className={`${styles.star} ${spread.gold ? styles.starGold : ""}`}
+                  style={{ width: spread.size, height: spread.size }}
+                  initial={{ left: fly.from.x + spread.dx, top: fly.from.y + spread.dy, opacity: 0, scale: 0.4, rotate: 0 }}
+                  animate={{
+                    left: [fly.from.x + spread.dx, fly.from.x + spread.dx * 2.2, fly.to.x + spread.dx * 0.4],
+                    top: [fly.from.y + spread.dy, fly.from.y - 28 + spread.dy, fly.to.y + spread.dy * 0.4],
+                    opacity: [0, 1, 0.9, 0],
+                    scale: [0.4, 1.3, 1, 0.5],
+                    rotate: 180,
+                  }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: FLY_MS / 1000, delay: spread.delay, ease: [0.25, 0.6, 0.3, 1] }}
+                />
+              );
+            })}
+            {Array.from({ length: TWINKLE_COUNT }, (_, index) => {
+              const spread = starSpread(index + 5);
+              return (
+                <motion.span
+                  key={`t-${index}`}
+                  className={`${styles.star} ${styles.twinkle}`}
+                  style={{ width: 4 + (index % 2) * 2, height: 4 + (index % 2) * 2, left: fly.to.x + spread.dx * 1.6, top: fly.to.y + spread.dy * 1.2 }}
+                  initial={{ opacity: 0, scale: 0.3 }}
+                  animate={{ opacity: [0, 1, 0, 1, 0], scale: [0.3, 1.4, 0.6, 1.2, 0.2] }}
+                  transition={{ duration: 0.8, delay: FLY_MS / 1000 - 0.2 + index * 0.08, ease: "easeInOut" }}
+                />
+              );
+            })}
+          </span>
         )}
       </AnimatePresence>
     </SpendContext.Provider>

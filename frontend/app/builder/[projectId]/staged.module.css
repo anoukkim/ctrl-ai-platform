@@ -208,6 +208,51 @@
   color: var(--text-dim);
 }
 
+/* motion-modern (3): while running, the current step is the big one. */
+.stepsRunning .stepNow .stepBody {
+  font-size: calc(var(--fs-count) * 1.12);
+}
+
+.stepsRunning .stepNow .path {
+  color: var(--accent);
+}
+
+.doneFold .foldButton {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-count);
+  cursor: pointer;
+}
+
+.doneFold .foldButton:hover .status {
+  text-decoration: underline;
+}
+
+.dotsRow .dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 2px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  opacity: 0.55;
+}
+
+.dotsRow .status {
+  margin-left: 0.25rem;
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }

@@ -266,7 +266,11 @@ describe("설정", () => {
     expect(screen.getByTestId("spend-amount").textContent).toBe("-12원");
     expect(toast.querySelector("svg.lucide-coins")).toBeTruthy();
     expect(toast.textContent).toContain("12원을 사용했어요!");
-    expect(screen.getByTestId("spend-fly").textContent).toBe("-12원");
+    // motion-modern (4): 별가루 — the flight is stars, not text; the toast carries the amount.
+    const fly = screen.getByTestId("spend-fly");
+    expect(fly.textContent).toBe("");
+    expect(fly.getAttribute("data-stars")).toBe("9");
+    expect(fly.querySelectorAll("span").length).toBeGreaterThanOrEqual(9);
     // Sound is off by default — nothing plays.
     expect(chime.playChime).not.toHaveBeenCalled();
     balance.remove();

@@ -201,6 +201,11 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
   }, [stepKey]);
   const total = generation.plan.length;
   const done = generation.plan.filter((step) => stepState(generation, progress, step.path) === "done").length;
+  // motion-modern (3): while it runs, only the current step is big; finished
+  // ones fold into "✓ N개 완료" (open on request), the rest are dots.
+  const [doneOpen, setDoneOpen] = useState(false);
+  const folded = running && done > 0;
+  const waiting = generation.plan.filter((step) => stepState(generation, progress, step.path) === "waiting");
   const estimate =
     generation.estimated_krw !== null
       ? ` · 약 ${formatKrw(generation.estimated_krw)}${
@@ -221,11 +226,35 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
           </span>
         </div>
       )}
-      <ol className={styles.steps}>
+      <ol className={`${styles.steps} ${running ? styles.stepsRunning : ""}`}>
+        {folded && (
+          <li className={`${styles.step} ${styles.doneFold}`} data-state="done" data-testid="done-fold">
+            <span className={styles.stepIcon} aria-hidden="true">
+              <Check size={14} className="success-pop" key={done} />
+            </span>
+            <button
+              type="button"
+              className={styles.foldButton}
+              aria-expanded={doneOpen}
+              onClick={() => setDoneOpen((open) => !open)}
+            >
+              <span className={styles.path} key={`n-${done}`}>
+                {done}개 완료
+              </span>
+              <span className={styles.status}> {doneOpen ? "접기" : "펼치기"}</span>
+            </button>
+          </li>
+        )}
         {generation.plan.map((step) => {
           const state = stepState(generation, progress, step.path);
+          if (running && state === "waiting") return null;
           return (
-            <li key={step.path} className={styles.step} data-state={state}>
+            <li
+              key={step.path}
+              className={`${styles.step} ${running && state === "writing" ? styles.stepNow : ""}`}
+              data-state={state}
+              hidden={folded && state === "done" && !doneOpen}
+            >
               <span className={styles.stepIcon} aria-hidden="true">
                 {state === "done" ? (
                   <Check size={14} className="success-pop" />
@@ -251,8 +280,22 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
             </li>
           );
         })}
+        {running && waiting.length > 0 && (
+          // The files still to come — one dot each, named for a screen reader and on hover.
+          <li className={`${styles.step} ${styles.dotsRow}`} data-state="waiting" data-testid="waiting-dots">
+            <span className={styles.stepIcon} aria-hidden="true">
+              <Circle size={10} />
+            </span>
+            <span className={styles.dots} aria-label={`남은 파일 ${waiting.length}개: ${waiting.map((s) => s.path).join(", ")}`}>
+              {waiting.map((step) => (
+                <span key={step.path} className={styles.dot} title={step.path} />
+              ))}
+              <span className={styles.status}>남은 파일 {waiting.length}개</span>
+            </span>
+          </li>
+        )}
         {(running || progress.check !== "idle") && (
-          <li className={styles.step} data-state={progress.check === "done" ? "done" : progress.check === "running" ? "writing" : "waiting"}>
+          <li className={`${styles.step} ${running && progress.check === "running" ? styles.stepNow : ""}`} data-state={progress.check === "done" ? "done" : progress.check === "running" ? "writing" : "waiting"}>
             <span className={styles.stepIcon} aria-hidden="true">
               {progress.check === "done" ? (
                 <Check size={14} className="success-pop" />

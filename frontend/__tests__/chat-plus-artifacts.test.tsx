@@ -110,9 +110,16 @@ describe("미리보기를 만들지 않는 경우", () => {
     expect(screen.queryByTestId("artifact-open")).toBeNull();
   });
 
-  test("답장이 오는 중이면 코드만", () => {
-    renderReply("```html\n" + PAGE + "\n```", { streaming: true });
+  test("답장이 오는 중이면 코드 대신 오로라 카드 — 초, 비용, 단계 칩 (motion-modern)", () => {
+    renderReply("```html\n" + PAGE + "\n```", { streaming: true, startedAt: Date.now() - 3000, runningKrw: 42 });
     expect(screen.queryByTestId("artifact")).toBeNull();
+    const aurora = screen.getByTestId("aurora-card");
+    expect(aurora.textContent).toContain("미리보기 만드는 중…");
+    expect(screen.getByTestId("working-since").textContent).toMatch(/^[23]초$/);
+    expect(screen.getByTestId("aurora-cost").textContent).toContain("42원");
+    expect(aurora.querySelectorAll("li").length).toBe(3);
+    // The code is not on screen while it streams.
+    expect(screen.queryByText(/<!doctype html>/i)).toBeNull();
   });
 
   test("잘린 답장의 마지막 블록은 '계속' 안내", () => {

@@ -169,20 +169,28 @@
 }
 
 /* 알림에서 잔액까지 날아가는 "-N원". motion이 left/top을 움직입니다. */
-.fly {
+/* 별가루 (motion-modern (4)): 작은 별들이 금액에서 잔액으로. 연한 금빛과 흰빛. */
+.stardust {
   position: fixed;
+  inset: 0;
   z-index: 116;
-  transform: translate(-50%, -50%);
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 0.8rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 6px 18px var(--scrim);
   pointer-events: none;
-  white-space: nowrap;
+}
+
+.star {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 3px rgba(255, 244, 200, 0.9));
+}
+
+.starGold {
+  background: #ffe6a3;
+}
+
+.twinkle {
+  background: #fff6d6;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -192,7 +200,7 @@
     animation: none;
   }
 
-  .fly {
+  .stardust {
     display: none;
   }
 }
