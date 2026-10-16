@@ -488,6 +488,12 @@ class PreparedTurn:
     tool_extra_krw: int = 0
 
 
+#: The most calls one reply may be written in (feat-auto-continue) — a
+#: belt besides the won ceiling: a model that keeps stopping at
+#: `max_tokens` with little text would otherwise be called until the
+#: ceiling, hundreds of cheap calls. The first call counts.
+AUTO_CONTINUE_MAX_CALLS = 8
+
 #: How the server asks Claude to go on after a cut (feat-auto-continue).
 #: The system prompt's rule names this prefix; the mock answers it with
 #: the rest of the reply it cut.
@@ -727,6 +733,7 @@ def plan_continuation(
     charged_so_far_krw: int,
     *,
     measured_input_tokens: int = 0,
+    calls_so_far: int = 1,
 ) -> Continuation | ContinuationStop:
     """Plan the next call after a cut — or say why there is none.
 
@@ -739,6 +746,12 @@ def plan_continuation(
     """
     if turn.total_cap_krw <= 0:
         return ContinuationStop("total_cap", "")
+    if calls_so_far >= AUTO_CONTINUE_MAX_CALLS:
+        return ContinuationStop(
+            "calls",
+            f"{AUTO_CONTINUE_MAX_CALLS}번에 나눠 썼는데도 끝나지 않아 여기서 멈췄어요. "
+            "'이어서 쓰기'로 이어 받을 수 있어요.",
+        )
     if not raw_so_far.strip():
         # Nothing to continue from (the budget went to thinking): the API
         # refuses an empty assistant turn, and "go on" would make no sense.
@@ -883,7 +896,7 @@ def _status_for(state: TurnState) -> ChatMessageStatus:
         return ChatMessageStatus.STOPPED
     if state.stop_reason == "refusal":
         return ChatMessageStatus.REFUSED
-    if state.stop_reason == "max_tokens":
+    if state.stop_reason in ("max_tokens", "pause_turn"):
         return ChatMessageStatus.TRUNCATED
     return ChatMessageStatus.COMPLETE
 

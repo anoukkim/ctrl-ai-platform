@@ -199,7 +199,8 @@ class ToolSources:
 
 @dataclass(frozen=True)
 class StreamEnd:
-    #: "end_turn", "max_tokens", "refusal", …
+    #: "end_turn", "max_tokens", "refusal", "pause_turn" (a tool loop that
+    #: did not end within its continuations — cut, but not by length), …
     stop_reason: str
 
 
@@ -2289,9 +2290,11 @@ class AnthropicClaudeProvider:
                 params = {**params, "messages": messages, "max_tokens": remaining}
             else:
                 # Still paused after every continuation allowed: what was
-                # said so far is the reply, marked like a cut-off one.
-                if stop_reason == "pause_turn":
-                    stop_reason = "max_tokens"
+                # said so far is the reply, saved as a cut-off one — under
+                # its own stop reason, so feat-auto-continue (which goes on
+                # only after a real length cut, "max_tokens") does not keep
+                # calling a turn that will not end.
+                pass
             if sources:
                 yield ToolSources(sources.ordered())
         except anthropic.APIError as error:

@@ -308,3 +308,21 @@ def test_nothing_to_continue_from_and_the_call_cap_stop_with_their_own_figures(
     result = chat_service.save_reply(db_session, settings, turn, [segment], stop=plan)
     assert result.message.status is ChatMessageStatus.TRUNCATED
     assert result.message.capped_krw == 200 and result.message.stop_note == plan.note
+
+
+def test_a_reply_that_never_ends_stops_after_the_call_limit(
+    client: TestClient, db_session: Session, budgeted, monkeypatch, config
+) -> None:
+    """A model that keeps stopping at max_tokens with a little text each
+    time would be called until the won ceiling — hundreds of cheap calls.
+    The call limit stops it first (found by the pause_turn test)."""
+    scripted(monkeypatch, config, [("조금 ", "max_tokens")])  # the script repeats its last step forever
+    conversation = new_conversation(client)
+    events = events_of(send(client, conversation, "길게 설명해 줘").text)
+
+    done = done_of(events)
+    assert done["segments"] == chat_service.AUTO_CONTINUE_MAX_CALLS
+    assert db_session.query(UsageEvent).count() == chat_service.AUTO_CONTINUE_MAX_CALLS
+    assert done["message"]["status"] == "truncated"
+    assert "번에 나눠 썼는데도" in done["stop_note"]
+    assert reply_text(events) == "조금 " * chat_service.AUTO_CONTINUE_MAX_CALLS

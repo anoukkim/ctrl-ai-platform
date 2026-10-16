@@ -801,7 +801,8 @@ def send_message(
                     _in_session,
                     session_factory,
                     lambda db: chat_service.plan_continuation(
-                        db, settings, turn, raw_so_far, charged_so_far, measured_input_tokens=measured
+                        db, settings, turn, raw_so_far, charged_so_far,
+                        measured_input_tokens=measured, calls_so_far=len(segments),
                     ),
                 )
                 if isinstance(plan, chat_service.ContinuationStop):
