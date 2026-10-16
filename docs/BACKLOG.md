@@ -94,7 +94,7 @@ are pre-approved to merge and deploy one at a time (see **Now**).
    again, RUN-2026-10-16). **P4 is built in two halves** (owner,
    2026-10-16): **P4a** = the owner-declared lists (`ctrlai.json`), the
    Builder prompts knowing the SDK, the four templates, the 미리보기's own
-   label — **merged 2026-10-16** (`d39d251`, branch `feat-app-platform-p4`); **P4b** — built 2026-10-16 on `feat-app-platform-p4b`, **awaiting approval** (RUN-2026-10-16) — = the three showcase apps in LIVE mode (an in-app
+   label — **merged 2026-10-16** (`d39d251`, branch `feat-app-platform-p4`); **P4b** — **merged 2026-10-16** (`77f816e`, branch `feat-app-platform-p4b`; RUN-2026-10-16) — = the three showcase apps in LIVE mode (an in-app
    toggle, the demo logic kept; an expensive call shows its maximum
    beside the button first and has a per-call cap), Admin › Apps as a new
    section (Content keeps 신고 and 게시 내리기), `/help/apps`. Each merged
