@@ -1,9 +1,12 @@
 """CtrlAITube (promo-videos, the first real rows of Phase 8).
 
 * `TubeVideo` — one video in the feed. `kind` says where it plays from:
-  **hosted** (a file CTRL+AI serves itself — the club's promo video, one
-  file for desktop and one for phones) or **youtube** (a member's video on
-  their own channel, Phase 8). `official` marks the club's own video, shown
+  **hosted** (a file CTRL+AI serves itself — the club's promo video, a
+  16:9 cut and a 9:16 cut) or **youtube** (a member's video on their own
+  channel, Phase 8). The two hosted columns are named for their shape,
+  not for a device: the 16:9 cut (`hosted_desktop_src`) plays in the
+  first-visit guide and the 9:16 cut (`hosted_mobile_src`) on CtrlAITube,
+  whatever the member's screen (owner, 2026-10-16). `official` marks the club's own video, shown
   first with a 공식 badge. Soft-deleted rows never appear (CLAUDE.md §10).
 * `TubeReaction` — one member's reaction of one kind on one video
   (toggle: a row exists or not).
@@ -38,7 +41,9 @@ class TubeVideo(TimestampMixin, Base):
     official: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
     #: None for the club's own video.
     creator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    #: hosted: paths under the site (frontend/public), one per orientation.
+    #: hosted: paths under the site (frontend/public). "desktop" = the 16:9
+    #: cut (first-visit guide), "mobile" = the 9:16 cut (CtrlAITube) — by
+    #: shape, not by the viewer's device.
     hosted_desktop_src: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     hosted_mobile_src: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     poster_desktop_src: Mapped[str] = mapped_column(String(300), default="", nullable=False)

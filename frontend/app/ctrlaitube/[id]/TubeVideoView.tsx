@@ -9,15 +9,17 @@
  * 댓글은 쓰고 고치고 지우고 신고합니다. 처리 뒤에는 서버에서 다시 읽어
  * 화면이 서버와 어긋나지 않게 합니다.
  *
- * 영상은 데스크탑에서 가로 파일, 휴대폰 너비에서 세로 파일을 틉니다
- * (`PromoVideo`). 재생 틀의 비율도 그에 맞춰 바뀝니다.
+ * CtrlAITube의 영상은 **어느 기기에서나 9:16 세로 편**입니다(오너,
+ * 2026-10-16; 가로 편은 안내 창의 것). 넓은 화면에서는 세로 플레이어를
+ * 왼쪽에 적당한 높이로 세우고 제목·설명을 그 옆에, 반응·댓글은 오른쪽
+ * 칸에 둡니다. 좁은 화면에서는 위에서 아래로 쌓입니다.
  */
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { CommentSection, ReactionChips, type CommentThread } from "@/app/components/CommentSection";
-import PromoVideo, { useDesktopWidth } from "@/app/components/PromoVideo";
+import PromoVideo from "@/app/components/PromoVideo";
 import { useToast } from "@/app/components/ToastProvider";
 import { describeError } from "@/lib/http";
 import { MEMBERSHIP_LABEL, type Comment, type ReactionType } from "@/lib/mock-data";
@@ -54,7 +56,6 @@ function toComment(row: TubeComment): Comment {
 
 export default function TubeVideoView({ slug }: { slug: string }) {
   const toast = useToast();
-  const desktop = useDesktopWidth();
   const [video, setVideo] = useState<TubeVideoDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,27 +152,23 @@ export default function TubeVideoView({ slug }: { slug: string }) {
   return (
     <div className={styles.frame}>
       <div className={styles.layout}>
-        <div className={styles.stage}>
+        <div className={`${styles.stage} ${styles.stageTall}`}>
           <Link className={styles.back} href="/ctrlaitube">
             ← CtrlAITube
           </Link>
 
           <div
-            className={styles.playerFrame}
-            style={{ "--player-ar": desktop ? "16 / 9" : "9 / 16" } as React.CSSProperties}
+            className={`${styles.playerFrame} ${styles.playerFrameTall}`}
+            style={{ "--player-ar": "9 / 16" } as React.CSSProperties}
           >
             <PromoVideo
               className={styles.playerVideo}
               title={video.title}
-              sources={{
-                desktop: video.hosted_desktop_src,
-                mobile: video.hosted_mobile_src,
-                posterDesktop: video.poster_desktop_src,
-                posterMobile: video.poster_mobile_src,
-              }}
+              clip={{ src: video.hosted_mobile_src, poster: video.poster_mobile_src, orientation: "tall" }}
             />
           </div>
 
+          <div className={styles.about}>
           <h1 className={styles.title}>
             {video.title} {video.official && <span className="badge badge-accent">공식</span>}
           </h1>
@@ -196,10 +193,11 @@ export default function TubeVideoView({ slug }: { slug: string }) {
             <span className={styles.metaDot} aria-hidden="true">
               ·
             </span>
-            <span>{desktop ? "16:9 가로" : "9:16 세로"}</span>
+            <span>9:16 세로</span>
           </p>
 
           <p className={styles.description}>{video.description}</p>
+          </div>
         </div>
 
         <aside className={styles.panel} aria-label="반응과 댓글">

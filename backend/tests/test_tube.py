@@ -61,6 +61,15 @@ def test_the_official_video_leads_the_feed_and_needs_an_account(client: TestClie
     client.get("/api/tube/videos")
     assert db_session.query(TubeVideo).count() == 1
 
+    # Kept in step with the code: a new wording or encode needs no data migration.
+    row = db_session.query(TubeVideo).one()
+    row.description = "옛 설명"
+    row.hosted_mobile_src = "/promo/old.mp4"
+    db_session.commit()
+    fresh = client.get(f"/api/tube/videos/{SLUG}").json()
+    assert fresh["description"] == tube.OFFICIAL["description"]
+    assert fresh["hosted_mobile_src"] == tube.OFFICIAL["hosted_mobile_src"]
+
 
 def test_a_deleted_video_never_resurfaces(client: TestClient, db_session: Session):
     client.get("/api/tube/videos")
