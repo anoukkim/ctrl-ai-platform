@@ -37,7 +37,7 @@ and tell window 0c the deploy is done (it may then push).
   (d) rewrite CtrlAIApps header "저장한 내용은 그 사람 기기에만 남아요".
 - When 0c reports clean reviews + green tests: give it the merge slot, wait for `images`
   green, deploy as above, check.
-- Then **motion-modern** (BACKLOG spec 8b), same rules, one window at a time.
+- Then **motion-modern** (BACKLOG spec 8b), then **chat-pins** (BACKLOG › UI requests, pre-approved), same rules, one window at a time.
 - Serious money/security findings stop and wait for the owner.
 
 ## Rules

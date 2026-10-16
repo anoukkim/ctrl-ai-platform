@@ -115,6 +115,16 @@ The owner's words, verbatim:
   cover (app name + colour) instead of `</>` until one exists;
   **CtrlAIApps cards show the thumbnail too** (the published version's).
   A visitor's browser never uploads a thumbnail.
+  **(a2) owner, same evening, verbatim:** "빌더일 때는 게시 전이니까
+  미리보기가 없을 수도 잇잖아.. 그래서 빌더에서는 일단 게시 전까진 그냥
+  화면 알맞게 크롭해서 보여주고 / 게시할때는 사용자가 고르고, 게시하면
+  빌더 안에서도 게시랑 같은 썸네일" → before 게시 the Builder card shows
+  the automatic, well-fitted capture; the **게시 dialog lets the creator
+  choose**: 2–3 automatic candidates (첫 화면, scrolled, phone width) plus
+  **「지금 화면으로」** (captures the 미리보기 as it is now); no choice →
+  the first screen; no AI involved. Once published, **the chosen image is
+  the thumbnail everywhere** (CtrlAIApps and the Builder card), and can be
+  changed later from the app's settings.
 - "환율은 그냥 자동 반영하면 안됨? 왜 굳이 여기다" → **(b) automatic
   exchange rate**: USD→KRW fetched once a day from a **free, keyless**
   public source (e.g. Frankfurter/ECB), behind a provider interface with
@@ -552,6 +562,16 @@ New UI requests go here until they are folded into a UI batch.
   feedback-screenshots). When it comes: the same upload path as the
   feedback screenshots (bytes checked, re-encoded, EXIF gone), one image
   per member, shown wherever the letter is today.
+- **chat-pins** — owner, 2026-10-16 evening: "채팅에 핀 기능
+  추가해야하는데". The same 고정 that Project Builder and Video Generator
+  got in ui-improvements-a (`pinned_at` on the row, a 고정 / 고정 해제
+  item in the conversation's ⋯ menu, pinned conversations first in the
+  Chat sidebar list under a small 고정됨 heading, newest pin first). Owner
+  only (a member pins their own chats), a JSON-body route, a migration.
+  Small. **Scheduled and pre-approved** (owner, 2026-10-16 evening,
+  verbatim: "chat-pins도 motion-modern 다음에 같은 규칙으로 (리뷰 깨끗 +
+  테스트 통과하면 merge + 배포) 해줘") — ⑥ after ⑤ motion-modern, branch
+  `feat-chat-pins`, same rules as ④–⑤.
 
 *(The two UI requests since UI batch 1, **admin-restructure** and
 **ui-naming**, were each large enough to get their own item and branch in
