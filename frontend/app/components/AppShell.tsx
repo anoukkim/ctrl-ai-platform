@@ -47,6 +47,7 @@ import { useTheme } from "@/lib/theme";
 import AnimatedNumber from "./AnimatedNumber";
 import BrandMark from "./BrandMark";
 import FeedbackButton from "./FeedbackButton";
+import NotificationBell from "./NotificationBell";
 import GuideProvider, { useGuide } from "./FirstVisitGuide";
 import Skeleton from "./Skeleton";
 
@@ -335,6 +336,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               </span>
             )}
+            {/* 알림 종 (feat-notifications) — 안 읽은 수를 달고, 최근 알림이 작은 창으로. */}
+            <NotificationBell className={styles.footerButton} onNavigate={() => setMenuOpen(false)} />
             <button
               className={styles.footerButton}
               type="button"
