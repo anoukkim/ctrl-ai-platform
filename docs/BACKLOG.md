@@ -554,7 +554,10 @@ New UI requests go here until they are folded into a UI batch.
   item in the conversation's ⋯ menu, pinned conversations first in the
   Chat sidebar list under a small 고정됨 heading, newest pin first). Owner
   only (a member pins their own chats), a JSON-body route, a migration.
-  Small; not yet scheduled or pre-approved.
+  Small. **Scheduled and pre-approved** (owner, 2026-10-16 evening,
+  verbatim: "chat-pins도 motion-modern 다음에 같은 규칙으로 (리뷰 깨끗 +
+  테스트 통과하면 merge + 배포) 해줘") — ⑥ after ⑤ motion-modern, branch
+  `feat-chat-pins`, same rules as ④–⑤.
 
 *(The two UI requests since UI batch 1, **admin-restructure** and
 **ui-naming**, were each large enough to get their own item and branch in
