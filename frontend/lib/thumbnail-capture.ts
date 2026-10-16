@@ -105,13 +105,3 @@ export function originOf(url: string | null | undefined): string | null {
     return null;
   }
 }
-
-/** Blob → "data:image/png;base64,…" — the 게시 dialog's pick travels as JSON (owner-polish-3 (a2)). */
-export function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("그림을 읽지 못했어요."));
-    reader.readAsDataURL(blob);
-  });
-}

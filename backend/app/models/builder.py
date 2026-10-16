@@ -111,10 +111,9 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     #: was last captured in the maker's browser; the bytes live in storage
     #: under `thumbnails.draft_key()`. NULL = none yet.
     draft_thumbnail_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    #: owner-polish-3 (a2): the maker chose the published thumbnail (in the
-    #: 게시 dialog or later from the 게시 menu). While set, the Builder card
-    #: shows the published picture too — automatic draft captures no longer
-    #: replace what the maker picked.
+    #: owner-polish-3 (a2): set when the maker picked the published
+    #: thumbnail. Unused since the picker was removed (owner, 2026-10-17 —
+    #: every thumbnail is the first screen); the column stays, never squashed.
     thumbnail_chosen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     published_version: Mapped["BuilderProjectVersion | None"] = relationship(

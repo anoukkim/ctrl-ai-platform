@@ -53,8 +53,6 @@ const NAV_NAMES = [
   "Video Generator",
   "CtrlAIApps",
   "CtrlAITube",
-  "Usage",
-  "Profile",
 ];
 
 const ADMIN = { ...who.user };
@@ -62,7 +60,7 @@ const MEMBER = { id: 2, username: "pw_member", display_name: "회원", is_admin:
 
 /** The group headings in the order they appear. */
 function groupHeadings(): string[] {
-  return ["Create", "Explore", "Manage", "Account"].filter((name) => screen.queryByText(name));
+  return ["Create", "Explore", "Manage", "Account"].filter((name) => screen.queryByText(name, { selector: "p" }));
 }
 
 describe("sidebar groups (owner decision 2026-10-14)", () => {
@@ -70,11 +68,12 @@ describe("sidebar groups (owner decision 2026-10-14)", () => {
     window.localStorage.clear();
   });
 
-  test("an admin sees Create, Explore, Manage, Account in that order, Admin under Manage", async () => {
+  test("an admin sees Create, Explore, Manage in that order, Admin under Manage (no Account group since 2026-10-17)", async () => {
     who.user = ADMIN;
     const { container } = await renderShell();
 
-    const order = ["Create", "Explore", "Manage", "Account"].map((name) =>
+    expect(groupHeadings()).toEqual(["Create", "Explore", "Manage"]);
+    const order = ["Create", "Explore", "Manage"].map((name) =>
       container.innerHTML.indexOf(`>${name}<`),
     );
     expect(order.every((index) => index >= 0)).toBe(true);
@@ -89,24 +88,18 @@ describe("sidebar groups (owner decision 2026-10-14)", () => {
     who.user = MEMBER;
     await renderShell();
 
-    expect(groupHeadings()).toEqual(["Create", "Explore", "Account"]);
+    expect(groupHeadings()).toEqual(["Create", "Explore"]);
     expect(screen.queryByText("Admin")).toBeNull();
     expect(screen.queryByText("관리자")).toBeNull();
     who.user = ADMIN;
   });
 
-  test("Usage and Profile are ordinary items with an icon and a label, like Chat", async () => {
+  test("Usage and Profile live only in the account menu, not as sidebar items (owner, 2026-10-17)", async () => {
     who.user = ADMIN;
     await renderShell();
 
-    // The same base item class as Chat — not a separate compact style.
-    const base = (name: string) => screen.getByRole("link", { name }).className.split(" ")[0];
-    for (const name of ["Chat", "Usage", "Profile"]) {
-      const link = screen.getByRole("link", { name });
-      expect(link.querySelector("svg")).toBeTruthy();
-      expect(link.textContent).toBe(name);
-      expect(base(name)).toBe(base("CtrlAITube"));
-    }
+    expect(screen.queryByRole("link", { name: "Usage" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Profile" })).toBeNull();
   });
 });
 
@@ -220,6 +213,9 @@ describe("collapsible sidebar", () => {
     expect(labels.some((text) => text.startsWith("처음 안내"))).toBe(true);
     expect(labels.some((text) => text.startsWith("의견 보내기"))).toBe(true);
     expect(labels[labels.length - 1].startsWith("로그아웃")).toBe(true);
+    // One line each — an icon and the name, no grey second line (owner, 2026-10-17).
+    expect(labels).toEqual(["Profile", "Usage", expect.stringMatching(/화면으로$/), "처음 안내 다시 보기", "의견 보내기", "로그아웃"]);
+    for (const item of within(menu).getAllByRole("menuitem")) expect(item.querySelector("svg")).toBeTruthy();
 
     // Collapsed: the avatar still opens the menu; the legal links hide.
     fireEvent.keyDown(document, { key: "Escape" });

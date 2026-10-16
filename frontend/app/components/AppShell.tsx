@@ -20,14 +20,19 @@
 import {
   Clapperboard,
   Code2,
+  Compass,
   Gauge,
   LayoutGrid,
   Lock,
+  LogOut,
   MessageSquare,
+  MessageSquarePlus,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   PlayCircle,
   Shield,
+  Sun,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -105,15 +110,6 @@ const TOP_GROUPS: NavGroup[] = [
     ],
   },
 ];
-
-/** 사이드바 아래쪽: 분기 카드와 계정 영역 바로 위에 붙습니다. */
-const PERSONAL_GROUP: NavGroup = {
-  label: "Account",
-  items: [
-    { href: "/usage", label: "Usage", Icon: Gauge },
-    { href: "/profile", label: "Profile", Icon: User },
-  ],
-};
 
 /**
  * 관리자에게만 보입니다. 회원 자격과 크레딧이 분기 단위로 관리되므로
@@ -316,12 +312,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className={styles.navSpacer} aria-hidden="true" />
 
           <div className={styles.navBottom}>
-            <NavGroupBlock
-              group={PERSONAL_GROUP}
-              pathname={pathname}
-              onNavigate={() => setMenuOpen(false)}
-              collapsed={collapsed}
-            />
+            {/* Usage와 Profile은 계정 메뉴에만 있어요 — 같은 것이 두 번 보이지
+                않게 (owner, 2026-10-17). */}
             <MemberStatus onNavigate={() => setMenuOpen(false)} />
           </div>
         </div>
@@ -339,15 +331,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             align="start"
             placement="up"
             items={[
-              { label: "Profile", hint: `@${user.username}`, onSelect: () => go("/profile") },
-              { label: "Usage", hint: "이번 분기 지원금과 사용 내역", onSelect: () => go("/usage") },
+              { label: "Profile", icon: <User size={15} />, onSelect: () => go("/profile") },
+              { label: "Usage", icon: <Gauge size={15} />, onSelect: () => go("/usage") },
               {
                 label: theme === "dark" ? "밝은 화면으로" : "어두운 화면으로",
+                icon: theme === "dark" ? <Sun size={15} /> : <Moon size={15} />,
                 onSelect: toggleTheme,
               },
-              { label: "처음 안내 다시 보기", onSelect: () => { setMenuOpen(false); openGuide(); } },
-              { label: "의견 보내기", hint: "관리자에게 한 줄 남겨요 (스크린샷도 함께)", onSelect: () => setFeedbackOpen(true) },
-              { label: "로그아웃", danger: true, onSelect: () => void signOut() },
+              { label: "처음 안내 다시 보기", icon: <Compass size={15} />, onSelect: () => { setMenuOpen(false); openGuide(); } },
+              { label: "의견 보내기", icon: <MessageSquarePlus size={15} />, onSelect: () => setFeedbackOpen(true) },
+              { label: "로그아웃", icon: <LogOut size={15} />, danger: true, onSelect: () => void signOut() },
             ]}
           >
             <span className={styles.navAvatar} aria-hidden="true">

@@ -17,6 +17,8 @@ export interface MenuItem {
   onSelect: () => void;
   /** 마우스를 올리면 보이는 한 줄 설명. */
   hint?: string;
+  /** 이름 앞의 작은 아이콘 — 있으면 한 줄(아이콘 + 이름)로만 그리고, 설명은 마우스를 올릴 때만. */
+  icon?: React.ReactNode;
   danger?: boolean;
   disabled?: boolean;
 }
@@ -152,7 +154,7 @@ export default function MenuButton({
                 ref={(node) => {
                   itemRefs.current[index] = node;
                 }}
-                className={`${styles.item} ${item.danger ? styles.danger : ""}`}
+                className={`${styles.item} ${item.icon ? styles.withIcon : ""} ${item.danger ? styles.danger : ""}`}
                 type="button"
                 role="menuitem"
                 tabIndex={-1}
@@ -163,8 +165,13 @@ export default function MenuButton({
                   item.onSelect();
                 }}
               >
+                {item.icon && (
+                  <span className={styles.icon} aria-hidden="true">
+                    {item.icon}
+                  </span>
+                )}
                 <span>{item.label}</span>
-                {item.hint && <span className={styles.hint}>{item.hint}</span>}
+                {item.hint && !item.icon && <span className={styles.hint}>{item.hint}</span>}
               </button>
             </li>
           ))}

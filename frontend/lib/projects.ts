@@ -61,7 +61,6 @@ export interface BuilderProject {
   draft_thumbnail_at?: string | null;
   published_thumbnail_at?: string | null;
   /** owner-polish-3 (a2): 만든 사람이 게시 썸네일을 골랐으면 그때 — 카드도 그 그림을 씁니다. */
-  thumbnail_chosen_at?: string | null;
   /** app-ai-access: 다른 회원에게 AI를 어떻게 열었는지, 게시된 버전이 AI를 쓰는지. */
   ai_access?: AiAccess;
   published_uses_ai?: boolean;
@@ -735,23 +734,20 @@ export function setVideoPinned(id: number | string, on: boolean): Promise<VideoP
 export type ThumbnailSpace = "draft" | "published";
 
 /**
- * 프로젝트 썸네일 주소 (ui-improvements): 작업 중 것이 있으면 그것, 없으면
- * 게시된 버전 것, 둘 다 없으면 null(카드는 표지를 그립니다). 찍은 때를
+ * 프로젝트 썸네일 주소 (ui-improvements): 게시된 버전 것이 있으면 그것, 없으면
+ * 작업 중 것, 둘 다 없으면 null(카드는 표지를 그립니다). 찍은 때를
  * 뒤에 붙여 새 그림이 바로 보이게 합니다.
  */
 export function builderThumbnailUrl(
-  project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at" | "thumbnail_chosen_at">,
+  project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at">,
 ): string | null {
-  // owner-polish-3 (a2): once the maker chose the published picture, the
-  // Builder card shows it too — the automatic draft capture no longer wins.
-  const chosen = Boolean(project.thumbnail_chosen_at) && Boolean(project.published_thumbnail_at);
-  const space: ThumbnailSpace | null = chosen
+  // owner-polish-3 (a2), kept when the picker went (2026-10-17): once an app
+  // is published, the Builder card shows the same picture as CtrlAIApps.
+  const space: ThumbnailSpace | null = project.published_thumbnail_at
     ? "published"
     : project.draft_thumbnail_at
       ? "draft"
-      : project.published_thumbnail_at
-        ? "published"
-        : null;
+      : null;
   if (!space) return null;
   const at = space === "draft" ? project.draft_thumbnail_at : project.published_thumbnail_at;
   return `${API_BASE_URL}/api/builder/projects/${project.id}/thumbnail?space=${space}&v=${encodeURIComponent(at ?? "")}`;
@@ -764,14 +760,6 @@ export function builderThumbnailUrl(
  */
 export function uploadThumbnail(id: number | string, space: ThumbnailSpace, image: Blob): Promise<BuilderProject> {
   return uploadBytes<BuilderProject>(`/builder/projects/${id}/thumbnail`, image, { space }, "썸네일을 저장하지 못했어요");
-}
-
-/** owner-polish-3 (a2): 만든 사람이 고른 게시 썸네일 — data URL을 JSON으로. 게시 전이면 409. */
-export function chooseThumbnail(id: number | string, imageDataUrl: string): Promise<BuilderProject> {
-  return request<BuilderProject>(`/builder/projects/${id}/thumbnail/choose`, {
-    method: "POST",
-    body: JSON.stringify({ image: imageDataUrl }),
-  });
 }
 
 export function videoVersionDownloadUrl(

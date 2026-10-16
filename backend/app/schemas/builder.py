@@ -90,9 +90,6 @@ class BuilderProjectRead(BuilderProjectBase):
     #: else the second, else the generated cover.
     draft_thumbnail_at: datetime | None = None
     published_thumbnail_at: datetime | None = None
-    #: owner-polish-3 (a2): the maker chose the published picture; the
-    #: Builder card shows it instead of the draft capture while set.
-    thumbnail_chosen_at: datetime | None = None
     #: app-ai-access: how the app's AI is opened to other members ("demo" |
     #: "full"), and whether the published version's files call `ctrlai.ai`
     #: at all — the Builder's 게시 menu shows the switch only then.
@@ -255,15 +252,6 @@ class PublishRequest(BaseModel):
     ai_access: Literal["demo", "full"] | None = None
 
 
-class ThumbnailChoose(BaseModel):
-    """owner-polish-3 (a2): the picture the maker picked for the published
-    app — a PNG/JPEG/WebP data URL from the maker's own browser (a JSON
-    body, like every state-changing route; the bytes are checked and
-    re-encoded like an upload)."""
-
-    image: str = Field(min_length=20, max_length=6_000_000)
-
-
 class AiAccessRequest(BaseModel):
     """The Builder's 게시 menu: change how the app's AI is opened, any time."""
 
@@ -362,4 +350,3 @@ class GenerationRead(BaseModel):
 
 class GenerationRun(BaseModel):
     """시작 / 이어서 만들기 — no fields; a JSON body like every write."""
-

@@ -1008,9 +1008,10 @@ publishing. Admin can choose what simplified units members see; the club
 buys credit per provider, so Budget stays the purchase evidence.
 
 **owner-polish-3 (2026-10-16, the owner's evening walk through production).**
-(a) **Thumbnails**: the stored picture is the **whole app screen scaled
-into 640×400** — a capture of another shape is letterboxed on the page's
-own background, never cropped to its top-left corner; the Builder's
+(a) **Thumbnails**: the stored picture is **the app's first screen, like a
+screenshot** — filled into 640×400 and cut from the top, never letterboxed
+(owner, 2026-10-17, replacing the first version's whole-page fit), taken
+in a 1024×640 frame so text stays readable on the card; the Builder's
 미리보기 photographs the app after every load of the frame (so after
 every new version) and once more a few seconds later when the first try
 failed; 게시 photographs the published app; Admin › Apps has a one-time

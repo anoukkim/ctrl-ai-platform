@@ -81,22 +81,25 @@ def test_encode_makes_a_640x400_webp_without_metadata_from_any_allowed_picture()
             assert stored.format == "WEBP"
             assert stored.size == (640, 400)
             assert not stored.getexif()
-    # owner-polish-3 (a): the whole picture is kept — a tall capture is
-    # letterboxed on the page's own background, never cropped; a tiny one
-    # is scaled up.
+    # 2026-10-17: the first screen, like a screenshot — a tall capture
+    # fills the card and is cut from the top (no bands); a tiny one is
+    # scaled up.
     tall = Image.new("RGB", (400, 1000), (30, 120, 200))
-    tall.paste((255, 255, 255), (100, 400, 300, 600))  # a white box in the middle of the page
+    tall.paste((255, 0, 0), (0, 0, 400, 50))  # a red header at the very top
+    tall.paste((255, 255, 255), (0, 600, 400, 1000))  # the bottom of the page
     buffer = io.BytesIO()
     tall.save(buffer, format="PNG")
     with Image.open(io.BytesIO(thumbnails.encode(buffer.getvalue()))) as stored:
         assert stored.size == (640, 400)
         rgb = stored.convert("RGB")
-        # The page is 160 px wide after scaling and sits in the middle; the
-        # box is still there (nothing cropped), and the sides are the page's background.
-        white = rgb.getpixel((320, 200))
-        assert all(channel > 240 for channel in white)
-        for side in ((20, 200), (620, 200)):  # WebP is lossy: within a few steps of the background
+        # Scaled to 640 wide (×1.6): the header fills the top edge to edge,
+        # the page's colour reaches both sides (no bands), the bottom is cut.
+        for top in ((5, 10), (320, 10), (635, 10)):
+            red = rgb.getpixel(top)
+            assert red[0] > 230 and red[1] < 30, red
+        for side in ((5, 300), (635, 300)):  # WebP is lossy: within a few steps
             assert all(abs(a - b) <= 3 for a, b in zip(rgb.getpixel(side), (30, 120, 200))), rgb.getpixel(side)
+        assert all(abs(a - b) <= 3 for a, b in zip(rgb.getpixel((320, 395)), (30, 120, 200)))
     with Image.open(io.BytesIO(thumbnails.encode(picture(64, 40)))) as stored:
         assert stored.size == (640, 400)
 
@@ -260,36 +263,9 @@ def test_the_admin_takes_a_missing_thumbnail_for_a_published_app(
     assert anon_client.post(f"/api/admin/apps/{project.id}/thumbnail", content=picture(), headers=OCTET).status_code == 403
 
 
-def test_the_maker_chooses_the_published_thumbnail_and_the_card_keeps_it(
-    client: TestClient, anon_client: TestClient, db_session: Session, project: BuilderProject, other_user, budgeted, config
-) -> None:
-    """owner-polish-3 (a2): a data URL from the 게시 dialog's candidates (or the
-    게시 menu later) becomes the published picture; the project remembers the
-    choice so the automatic draft captures stop replacing what the card shows."""
-    import base64
-
-    data_url = "data:image/png;base64," + base64.b64encode(picture(1280, 800)).decode()
-    # Before 게시 there is nothing to choose for.
-    assert client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": data_url}).status_code == 409
+def test_there_is_no_thumbnail_picker_any_more(client: TestClient, project: BuilderProject, budgeted, config) -> None:
+    """Owner, 2026-10-17: every thumbnail is the app's first screen — the
+    게시 dialog's picker and its route are gone."""
     publish(client, project)
-    db_session.refresh(project)
-
-    chosen = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": data_url})
-    assert chosen.status_code == 200, chosen.text
-    body = chosen.json()
-    assert body["thumbnail_chosen_at"] is not None and body["published_thumbnail_at"] is not None
-    assert client.get(f"/api/apps/{project.app_slug}/thumbnail").status_code == 200
-    assert client.get(f"/api/builder/projects/{project.id}/thumbnail?space=published").status_code == 200
-
-    # A later automatic draft capture is stored but the choice stands.
-    assert client.post(f"/api/builder/projects/{project.id}/thumbnail?space=draft", content=picture(), headers=OCTET).status_code == 200
-    db_session.refresh(project)
-    assert project.thumbnail_chosen_at is not None and project.draft_thumbnail_at is not None
-
-    # Refusals: not an image data URL, not the owner.
-    bad = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": "data:text/plain;base64,aGVsbG8gd29ybGQgaGVsbG8="})
-    assert bad.status_code == 400 and "형식" in bad.json()["detail"]
-    tiny = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": "data:image/png;base64,aGVsbG8gd29ybGQgaGVsbG8="})
-    assert tiny.status_code == 400
-    anon_client.post("/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD})
-    assert anon_client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": data_url}).status_code in (403, 404)
+    gone = client.post(f"/api/builder/projects/{project.id}/thumbnail/choose", json={"image": "data:image/png;base64,AAAA"})
+    assert gone.status_code in (404, 405)

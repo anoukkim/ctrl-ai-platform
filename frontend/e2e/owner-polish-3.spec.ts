@@ -1,10 +1,9 @@
 /**
  * owner-polish-3 — in a real browser.
  *
- * (a2) The 게시 dialog photographs candidates from the 미리보기 (첫 화면 ·
- * 조금 내려간 화면 · 폰 너비), 「지금 화면으로」 adds one, and the pick is the
- * published thumbnail — served to CtrlAIApps and used by the Builder card
- * (`thumbnail_chosen_at`). (c2) The bell sits in the sidebar header, opening
+ * (a) 게시 photographs the published app's first screen by itself — no
+ * picker since 2026-10-17 (owner) — served to CtrlAIApps and used by the
+ * Builder card too. (c2) The bell sits in the sidebar header, opening
  * it clears the badge, 지우기 empties it; the account row opens a menu.
  * (d) The CtrlAIApps header says what apps can do now.
  */
@@ -36,7 +35,7 @@ async function signIn(page: Page) {
   });
 }
 
-test("(a2) the 게시 dialog offers candidates from the preview and the pick becomes the thumbnail everywhere", async ({
+test("(a) 게시 takes the first screen by itself (no picker) and the Builder card shows the same picture", async ({
   page,
 }) => {
   test.setTimeout(150_000);
@@ -55,21 +54,8 @@ test("(a2) the 게시 dialog offers candidates from the preview and the pick bec
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${SITE}/builder/${project.id}`);
     await page.getByRole("button", { name: "CtrlAIApps에 게시" }).click();
-    const picker = page.getByTestId("thumbnail-picker");
-    await expect(picker).toBeVisible();
-    // Three automatic candidates arrive from the sandboxed app, one after another.
-    await expect(picker.locator("img")).toHaveCount(3, { timeout: 60_000 });
-    await expect(picker.getByRole("radio", { name: /첫 화면/ })).toBeChecked();
-    // 「지금 화면으로」 adds a fourth and selects it.
-    await picker.getByRole("button", { name: "지금 화면으로" }).click();
-    await expect(picker.locator("img")).toHaveCount(4, { timeout: 30_000 });
-    await expect(
-      picker.getByRole("radio", { name: /지금 화면/ }),
-    ).toBeChecked();
-    // Pick the phone-width one on purpose and publish.
-    // The radio itself is visually hidden under the picture: press its label.
-    await picker.getByText("폰 너비", { exact: true }).click();
-    await expect(picker.getByRole("radio", { name: /폰 너비/ })).toBeChecked();
+    await expect(page.getByText(/게시하면 앱의 첫 화면을 사진으로 찍어/)).toBeVisible();
+    await expect(page.getByTestId("thumbnail-picker")).toHaveCount(0);
     await page.getByLabel(/CtrlAIApps에 보일 설명/).fill("색 카드예요.");
     await page.getByRole("button", { name: "게시하기" }).click();
 
@@ -79,15 +65,14 @@ test("(a2) the 게시 dialog offers candidates from the preview and the pick bec
           (
             (await (
               await request.get(`${SITE}/api/builder/projects/${project.id}`)
-            ).json()) as { thumbnail_chosen_at: string | null }
-          ).thumbnail_chosen_at,
+            ).json()) as { published_thumbnail_at: string | null }
+          ).published_thumbnail_at,
         { timeout: 40_000 },
       )
       .not.toBeNull();
     const detail = (await (
       await request.get(`${SITE}/api/builder/projects/${project.id}`)
-    ).json()) as { app_slug: string; published_thumbnail_at: string | null };
-    expect(detail.published_thumbnail_at).not.toBeNull();
+    ).json()) as { app_slug: string };
     const served = await request.get(
       `${SITE}/api/apps/${detail.app_slug}/thumbnail`,
     );
@@ -97,29 +82,17 @@ test("(a2) the 게시 dialog offers candidates from the preview and the pick bec
     expect(bytes.subarray(0, 4).toString()).toBe("RIFF");
     expect(bytes.subarray(8, 12).toString()).toBe("WEBP");
 
-    // The Builder card uses the chosen (published) picture, not a draft capture.
+    // The Builder card uses the published picture, like CtrlAIApps.
     await page.goto(`${SITE}/builder`);
     await expect(
       page.locator(
         `img[src*="/api/builder/projects/${project.id}/thumbnail?space=published"]`,
       ),
     ).toBeVisible();
-    await expect(
-      page.locator(
-        `img[src*="/api/builder/projects/${project.id}/thumbnail?space=draft"]`,
-      ),
-    ).toHaveCount(0);
-
-    // 썸네일 바꾸기 from the 게시 menu opens the same picker.
+    // The 게시 menu has no 썸네일 바꾸기 any more.
     await page.goto(`${SITE}/builder/${project.id}`);
     await page.getByRole("button", { name: "게시 메뉴 더 보기" }).click();
-    await page.getByRole("menuitem", { name: /썸네일 바꾸기/ }).click();
-    await expect(
-      page.getByRole("dialog", { name: "썸네일 바꾸기" }),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("thumbnail-picker").locator("img"),
-    ).toHaveCount(3, { timeout: 60_000 });
+    await expect(page.getByRole("menuitem", { name: /썸네일 바꾸기/ })).toHaveCount(0);
   } finally {
     // Whatever happened, the app leaves CtrlAIApps: the other specs pick the first published app.
     await request

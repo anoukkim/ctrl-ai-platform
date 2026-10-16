@@ -47,22 +47,13 @@ const PROJECT: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thu
 };
 
 describe("썸네일 주소", () => {
-  test("Builder: 작업 중 것이 먼저, 없으면 게시본, 둘 다 없으면 없음", () => {
+  test("Builder: 게시본이 있으면 그것(CtrlAIApps와 같은 그림), 없으면 작업 중 것, 둘 다 없으면 없음", () => {
     expect(builderThumbnailUrl(PROJECT)).toBeNull();
-    expect(builderThumbnailUrl({ ...PROJECT, published_thumbnail_at: "2026-10-16T01:00:00Z" })).toBe(
-      "/api/builder/projects/12/thumbnail?space=published&v=2026-10-16T01%3A00%3A00Z",
+    expect(builderThumbnailUrl({ ...PROJECT, draft_thumbnail_at: "2026-10-16T02:00:00Z" })).toBe(
+      "/api/builder/projects/12/thumbnail?space=draft&v=2026-10-16T02%3A00%3A00Z",
     );
     expect(
       builderThumbnailUrl({ ...PROJECT, draft_thumbnail_at: "2026-10-16T02:00:00Z", published_thumbnail_at: "2026-10-16T01:00:00Z" }),
-    ).toBe("/api/builder/projects/12/thumbnail?space=draft&v=2026-10-16T02%3A00%3A00Z");
-    // owner-polish-3 (a2): a picture the maker chose wins over the automatic draft capture.
-    expect(
-      builderThumbnailUrl({
-        ...PROJECT,
-        draft_thumbnail_at: "2026-10-16T02:00:00Z",
-        published_thumbnail_at: "2026-10-16T01:00:00Z",
-        thumbnail_chosen_at: "2026-10-16T01:00:00Z",
-      }),
     ).toBe("/api/builder/projects/12/thumbnail?space=published&v=2026-10-16T01%3A00%3A00Z");
   });
 });
