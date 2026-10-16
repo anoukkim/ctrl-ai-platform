@@ -236,6 +236,12 @@ class Settings(BaseSettings):
     # every turn while in the history). Older messages with files drop out
     # of the context first; one message's files must fit on their own.
     chat_attachment_context_tokens: int = 150_000
+
+    # Screenshots on 의견 보내기 (feedback-screenshots): PNG/JPEG/WebP
+    # only, this many per note, each at most this big before re-encoding.
+    # Over a limit is refused in Korean; nothing is stored.
+    feedback_images_per_note: int = 3
+    feedback_image_max_mb: int = 5
     # The mock provider's pause between streamed chunks, so the typing
     # effect is visible locally. Tests set it to 0.
     chat_mock_delay_ms: int = 25

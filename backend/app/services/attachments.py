@@ -140,6 +140,18 @@ def decode_text(data: bytes) -> str | None:
 
 
 def _image(data: bytes, settings: Settings) -> Checked:
+    """A Chat image: re-encoded to Chat's long edge (`IMAGE_LONG_EDGE`)."""
+    return reencode_image(data)
+
+
+def reencode_image(data: bytes, long_edge: int = IMAGE_LONG_EDGE) -> Checked:
+    """Decode, drop the metadata, scale to `long_edge` and encode again.
+
+    Shared by Chat (chat-plus-files), app AI (app-platform) and the
+    screenshots on 의견 보내기 (feedback-screenshots): the same decoder
+    under the same pixel guard, and never a byte of EXIF kept — phone
+    photos carry GPS.
+    """
     from PIL import Image, ImageOps
 
     Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
@@ -151,7 +163,7 @@ def _image(data: bytes, settings: Settings) -> Checked:
             image.load()
             if image.mode not in ("RGB", "RGBA", "L", "LA"):
                 image = image.convert("RGBA" if "transparency" in image.info or image.mode == "P" else "RGB")
-            image.thumbnail((IMAGE_LONG_EDGE, IMAGE_LONG_EDGE))
+            image.thumbnail((long_edge, long_edge))
             out = io.BytesIO()
             if fmt == "JPEG":
                 if image.mode not in ("RGB", "L"):

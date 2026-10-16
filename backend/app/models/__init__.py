@@ -25,7 +25,12 @@ from app.models.chat import (
     ChatRole,
     Conversation,
 )
-from app.models.feedback import FEEDBACK_MAX_LENGTH, FEEDBACK_PER_HOUR, Feedback
+from app.models.feedback import (
+    FEEDBACK_MAX_LENGTH,
+    FEEDBACK_PER_HOUR,
+    Feedback,
+    FeedbackImage,
+)
 from app.models.builder import (
     AppReport,
     BuilderEvalReport,
@@ -111,6 +116,7 @@ __all__ = [
     "FEEDBACK_MAX_LENGTH",
     "FEEDBACK_PER_HOUR",
     "Feedback",
+    "FeedbackImage",
     "FundingSource",
     "MembershipStatus",
     "PersonalBalance",

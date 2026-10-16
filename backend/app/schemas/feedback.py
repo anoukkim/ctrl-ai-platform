@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FeedbackCreate(BaseModel):
@@ -11,6 +11,17 @@ class FeedbackCreate(BaseModel):
     # the frontend cannot show.
     body: str
     page: str = ""
+    #: Screenshots uploaded first (`POST /feedback/images`), by id.
+    image_ids: list[int] = Field(default_factory=list)
+
+
+class FeedbackImageRead(BaseModel):
+    id: int
+    name: str
+    size: int
+    width: int
+    height: int
+    media_type: str
 
 
 class FeedbackRead(BaseModel):
@@ -18,6 +29,7 @@ class FeedbackRead(BaseModel):
     body: str
     page: str
     created_at: datetime
+    images: list[FeedbackImageRead] = Field(default_factory=list)
 
 
 class FeedbackAdminRead(FeedbackRead):

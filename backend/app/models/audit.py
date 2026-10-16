@@ -76,6 +76,9 @@ class AuditAction:
     # admin reaching into someone else's library is.
     WORK_DELETED = "work.deleted"
     WORK_RESTORED = "work.restored"
+    # An admin removing a member's note from Admin › Feedback — with its
+    # screenshots (feedback-screenshots). The one way a note disappears.
+    FEEDBACK_DELETED = "feedback.deleted"
     # Leaving CTRL+AI. Logged even when the member does it themselves:
     # it releases club money and may leave a refund owed, both of which an
     # admin has to be able to trace.
@@ -145,6 +148,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.USAGE_SIMULATED: "사용량 시뮬레이션",
     AuditAction.WORK_DELETED: "작업물 삭제",
     AuditAction.WORK_RESTORED: "작업물 복구",
+    AuditAction.FEEDBACK_DELETED: "의견 삭제",
     AuditAction.ACCOUNT_WITHDRAWN: "회원 탈퇴",
     AuditAction.ACCOUNT_RESTORED: "탈퇴 복구",
     AuditAction.ACCOUNT_ANONYMISED: "개인정보 삭제",
