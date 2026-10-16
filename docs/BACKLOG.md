@@ -845,6 +845,22 @@ above.)
     charged through `usage.charge()` (feature `image`), images stored like
     chat attachments, a price shown before each image, and the chat
     routing "그려 줘" to it instead of SVG.
+14. **"만드는중인데..? 이러면 🚫 커서에 이렇게만 뜸. 뭔가 생각을 하고
+    있다는 UI를 만들었음 좋겠어. 채팅도 그럼.. 뭔가 도로록..."**
+    (2026-10-16, screenshot of /builder/12 during 고치기) — a "working"
+    UI with motion. Today: the disabled 고치기 button shows the browser's
+    🚫 not-allowed cursor; the plan card's step circles stay empty until a
+    whole file is done (20–60 s of nothing moving); Chat shows only "•••".
+    Wanted: Builder — the button becomes "만드는 중…" with a spinner and
+    `cursor: progress` (never 🚫), the current step's circle spins and the
+    row says "index.html 작성 중…" with an elapsed timer, finished steps
+    tick ✓ with a small pop, a thin progress bar (n / m 파일), and if
+    feasible the file text streaming in a small "도로록" typing view
+    (needs the run stream to send text deltas, not only file_start/done).
+    Chat — "생각하는 중…" with a shimmer and elapsed seconds until the
+    first words, then text that flows in smoothly with a caret at the end.
+    Reduced motion: no animation, the text and timer stay. Pairs with
+    point 10 (the 띠링 spend moment).
 
 ---
 
