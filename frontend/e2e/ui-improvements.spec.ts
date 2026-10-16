@@ -77,6 +77,8 @@ test("a preview is photographed for the Builder card; publishing photographs the
   const card = page.locator("article", { hasText: name }).first();
   await expect(card).toBeVisible();
   await expect(card.locator(`img[src*="/api/builder/projects/${made.id}/thumbnail?space=draft"]`)).toBeVisible();
+  await theme(page, "light");
+  await page.screenshot({ path: `${SHOTS}/1440-light-builder-thumbnail.png` });
 
   // Publish from the workspace: the hidden frame photographs the public app.
   await page.goto(`${SITE}/builder/${made.id}`);
