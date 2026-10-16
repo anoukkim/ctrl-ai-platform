@@ -236,9 +236,8 @@ def create_starter(
     db.add_all(rows)
     db.flush()
     # builder-static-runtime: the starter is the project's first version.
-    builder_versions.snapshot(db, project, "예시 앱", dict(files))
-    if not project.description.strip():
-        project.description = idea[:2000]
+    builder_versions.snapshot(db, project, "예시 앱", dict(files), settings)
+    # The idea stays what it is — a request, not the description (ui-improvements).
     providers.record_success(db, "claude", "예시 앱" + (" (mock)" if is_mock else ""))
     db.commit()
     for row in rows:

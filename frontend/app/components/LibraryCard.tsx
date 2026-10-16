@@ -13,6 +13,7 @@
  * 위로 올립니다.
  */
 
+import { Pin } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -52,6 +53,10 @@ export interface LibraryCardProps {
    */
   thumbnail?: ReactNode;
   thumbnailPlacement?: "top" | "side";
+  /** 고정 (ui-improvements): 배지 옆의 핀, ⋯ 메뉴의 고정 / 고정 해제. */
+  pinned?: boolean;
+  /** 거절되면 throw. 주어지지 않으면 메뉴에 고정이 없습니다. */
+  onPin?: (next: boolean) => Promise<void>;
 }
 
 const NOTE_MS = 2400;
@@ -68,6 +73,8 @@ export default function LibraryCard({
   extraActions = [],
   thumbnail,
   thumbnailPlacement = "top",
+  pinned = false,
+  onPin,
 }: LibraryCardProps) {
   const [open, setOpen] = useState(false);
   const toast = useToast();
@@ -148,6 +155,18 @@ export default function LibraryCard({
     onDelete();
   }, [onDelete]);
 
+  const togglePin = useCallback(async () => {
+    setOpen(false);
+    setError(null);
+    if (!onPin) return;
+    try {
+      await onPin(!pinned);
+      setNote(pinned ? "고정을 풀었습니다" : "맨 위에 고정했습니다");
+    } catch (caught) {
+      setError(describeError(caught));
+    }
+  }, [onPin, pinned]);
+
   return (
     <article
       className={`${styles.card} ${open ? styles.cardOpen : ""} ${
@@ -203,6 +222,11 @@ export default function LibraryCard({
           )}
 
           <span className={styles.cardBadge}>{badge}</span>
+          {pinned && (
+            <span className={styles.cardPin} role="img" aria-label="고정됨" title="맨 위에 고정됨">
+              <Pin size={13} aria-hidden="true" />
+            </span>
+          )}
           </div>
 
           <div className={styles.cardMenu} ref={menuRef}>
@@ -232,6 +256,21 @@ export default function LibraryCard({
                     이름 바꾸기
                   </button>
                 </li>
+
+                {onPin && (
+                  <li role="none">
+                    {/* 고정은 내 목록을 보는 방식이라 참여하지 않는 분기에도 됩니다 (★처럼). */}
+                    <button
+                      className={styles.cardMenuItem}
+                      onClick={() => void togglePin()}
+                      role="menuitem"
+                      title="고정한 것은 목록 맨 위에 있어요"
+                      type="button"
+                    >
+                      {pinned ? "고정 해제" : "맨 위에 고정"}
+                    </button>
+                  </li>
+                )}
 
                 {extraActions.map((action) => (
                   <li key={action.label} role="none">

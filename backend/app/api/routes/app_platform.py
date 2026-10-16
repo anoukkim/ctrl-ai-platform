@@ -88,7 +88,7 @@ def shell_page(
     }
     if target is None:
         return Response(content=NOT_FOUND, status_code=404, media_type="text/plain; charset=utf-8", headers=headers)
-    return Response(content=app_shell.render(target), media_type="text/html; charset=utf-8", headers=headers)
+    return Response(content=app_shell.render(target, app_shell.site_origins(settings)), media_type="text/html; charset=utf-8", headers=headers)
 
 
 def app_request(

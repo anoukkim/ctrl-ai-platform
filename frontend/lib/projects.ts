@@ -10,7 +10,7 @@
 
 import type { DepthLevel, PickerModel } from "./depth";
 import { API_BASE_URL } from "./api";
-import { describeError, request } from "./http";
+import { describeError, request, uploadBytes } from "./http";
 
 export { describeError };
 
@@ -55,6 +55,11 @@ export interface BuilderProject {
   published_at?: string | null;
   /** 업데이트 메모. */
   publish_note?: string;
+  /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
+  pinned_at?: string | null;
+  /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5), 게시된 버전의 썸네일을 찍은 때 (4). */
+  draft_thumbnail_at?: string | null;
+  published_thumbnail_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -419,6 +424,15 @@ export function updateBuilderProject(
 }
 
 /**
+ * 맨 위에 고정 / 고정 해제 (ui-improvements). 작업을 고치는 것이 아니라 내
+ * 목록을 보는 방식이라, CtrlAIApps의 ★처럼 이번 분기에 참여하지 않아도 되고
+ * 마지막 수정 시각도 움직이지 않습니다.
+ */
+export function setBuilderPinned(id: number | string, on: boolean): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/pin`, { method: "POST", body: JSON.stringify({ on }) });
+}
+
+/**
  * 프로젝트를 지웁니다.
  *
  * 백엔드에서는 행이 사라지지 않고 `deleted_at`만 찍힙니다. 회원 쪽에서는
@@ -627,6 +641,8 @@ export interface VideoProject {
   thumbnail_aspect_ratio?: string | null;
   /** "image"(mock의 GIF)면 <img>, "video"(실제 MP4)면 <video>로 보여 줍니다. */
   thumbnail_kind?: "image" | "video" | null;
+  /** 고정한 때 (ui-improvements). null이면 고정하지 않음. */
+  pinned_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -678,6 +694,11 @@ export function updateVideoProject(
   });
 }
 
+/** 맨 위에 고정 / 고정 해제 — Builder의 `setBuilderPinned`와 같습니다. */
+export function setVideoPinned(id: number | string, on: boolean): Promise<VideoProjectDetail> {
+  return request<VideoProjectDetail>(`/video/projects/${id}/pin`, { method: "POST", body: JSON.stringify({ on }) });
+}
+
 /**
  * 만들어진 영상 한 편을 받는 주소.
  *
@@ -688,6 +709,33 @@ export function updateVideoProject(
  * 제공자 링크는 만료되거나 그쪽 자격 증명을 요구할 수 있고, 내가 만든
  * 것을 받는 일이 거기에 매여서는 안 됩니다.
  */
+export type ThumbnailSpace = "draft" | "published";
+
+/**
+ * 프로젝트 썸네일 주소 (ui-improvements): 작업 중 것이 있으면 그것, 없으면
+ * 게시된 버전 것, 둘 다 없으면 null(카드는 표지를 그립니다). 찍은 때를
+ * 뒤에 붙여 새 그림이 바로 보이게 합니다.
+ */
+export function builderThumbnailUrl(project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at">): string | null {
+  const space: ThumbnailSpace | null = project.draft_thumbnail_at
+    ? "draft"
+    : project.published_thumbnail_at
+      ? "published"
+      : null;
+  if (!space) return null;
+  const at = space === "draft" ? project.draft_thumbnail_at : project.published_thumbnail_at;
+  return `${API_BASE_URL}/api/builder/projects/${project.id}/thumbnail?space=${space}&v=${encodeURIComponent(at ?? "")}`;
+}
+
+/**
+ * 만든 사람의 브라우저에서 찍은 썸네일을 올립니다 — 바이트 그대로
+ * (application/octet-stream; 의견 스크린샷과 같은 길). 서버가 종류와 크기를
+ * 확인하고 다시 인코딩합니다.
+ */
+export function uploadThumbnail(id: number | string, space: ThumbnailSpace, image: Blob): Promise<BuilderProject> {
+  return uploadBytes<BuilderProject>(`/builder/projects/${id}/thumbnail`, image, { space }, "썸네일을 저장하지 못했어요");
+}
+
 export function videoVersionDownloadUrl(
   projectId: number | string,
   versionId: number,

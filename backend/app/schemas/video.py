@@ -298,6 +298,8 @@ class VideoProjectRead(VideoProjectBase):
     thumbnail_aspect_ratio: str | None = None
     #: "image" or "video" — which element can show the file.
     thumbnail_kind: str | None = None
+    #: ui-improvements: when the owner pinned it; None = not pinned.
+    pinned_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,8 +1,9 @@
 """Video Generator: the model catalog, projects, and generated versions."""
 
 import enum
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -131,6 +132,8 @@ class VideoProject(SoftDeleteMixin, TimestampMixin, Base):
     # makes a circular dependency that neither Alembic nor SQLite handles
     # cleanly. The application keeps it consistent.
     final_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: ui-improvements: 고정 — kept at the top of the owner's list.
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     versions: Mapped[list["VideoVersion"]] = relationship(
         back_populates="project",

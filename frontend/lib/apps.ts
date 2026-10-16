@@ -6,6 +6,7 @@
  * 바뀌지 않습니다.
  */
 
+import { API_BASE_URL } from "./api";
 import { request } from "./http";
 
 export interface AppListing {
@@ -23,6 +24,18 @@ export interface AppListing {
   publish_note: string;
   /** https://apps.ctrlai.my/<slug>/ — 앱 서버가 꺼져 있으면 null. */
   app_url: string | null;
+  /** 게시된 버전의 ctrlai.json이 공유 목록을 선언했는지 — 상세의 안내 한 줄이 달라져요. */
+  shared_lists: boolean;
+  /** 내 즐겨찾기 (ui-improvements) — 내 목록에서 먼저 보여요. */
+  favorite: boolean;
+  /** 게시된 버전의 썸네일을 찍은 때. 없으면 표지를 그려요. */
+  thumbnail_at?: string | null;
+}
+
+/** 게시된 앱의 썸네일 주소 — 찍은 때를 뒤에 붙여 새 그림이 바로 보이게. 없으면 null. */
+export function appThumbnailUrl(app: Pick<AppListing, "slug" | "thumbnail_at">): string | null {
+  if (!app.thumbnail_at) return null;
+  return `${API_BASE_URL}/api/apps/${encodeURIComponent(app.slug)}/thumbnail?v=${encodeURIComponent(app.thumbnail_at)}`;
 }
 
 export function listApps(): Promise<AppListing[]> {
@@ -36,6 +49,14 @@ export function listMyApps(): Promise<AppListing[]> {
 
 export function getApp(slug: string): Promise<AppListing> {
   return request<AppListing>(`/apps/${encodeURIComponent(slug)}`);
+}
+
+/** 즐겨찾기 켜기/끄기 — 내 목록에서만 보이는 내 표시입니다. */
+export function setAppFavorite(slug: string, on: boolean): Promise<AppListing> {
+  return request<AppListing>(`/apps/${encodeURIComponent(slug)}/favorite`, {
+    method: "POST",
+    body: JSON.stringify({ on }),
+  });
 }
 
 export function reportApp(slug: string, reason: string): Promise<{ detail: string }> {

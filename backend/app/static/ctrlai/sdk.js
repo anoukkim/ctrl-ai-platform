@@ -171,6 +171,20 @@
       if (window.console) console.warn("[CTRL+AI] 이 앱의 저장 공간(약 1MB)이 가득 찼어요.");
       return;
     }
+    if (data.event === "capture") {
+      // ui-improvements thumbnails: the shell (for the club's site, the
+      // maker's own Builder page) asks for a picture of this page. Drawn
+      // here, in the app's own frame; nothing leaves but the PNG.
+      capture(data.width, data.height).then(
+        function (dataUrl) {
+          post({ type: "capture.result", capture: String(data.id), dataUrl: dataUrl });
+        },
+        function (error) {
+          post({ type: "capture.failed", capture: String(data.id), error: String((error && error.message) || error) });
+        }
+      );
+      return;
+    }
     if (data.event === "ai-chunk") {
       var streaming = waiting[data.id];
       if (streaming && streaming.onChunk && typeof data.text === "string") {
@@ -193,6 +207,159 @@
       pending.reject(error);
     }
   });
+
+  // ------------------------------------------------- a picture of this page
+  var CAPTURE_MAX_NODES = 5000;
+  var CAPTURE_MAX_EDGE = 1600;
+  // The serialized page at most — a cap on what the SVG image has to parse,
+  // whatever the node count (a long list app has many small nodes).
+  var CAPTURE_MAX_CHARS = 4000000;
+  var TOO_BIG = "페이지가 너무 커서 썸네일을 만들지 못했어요.";
+
+  // Only what differs from the browser's own default for that tag is
+  // inlined: ~350 computed properties per node would make a few thousand
+  // nodes tens of megabytes. The defaults come from a bare element of the
+  // same tag in an off-screen probe, read once per tag per capture.
+  var probe = null;
+  var defaults = {};
+
+  function defaultStyle(tag) {
+    if (defaults[tag]) return defaults[tag];
+    if (!probe) {
+      probe = document.createElement("div");
+      probe.setAttribute("style", "position:absolute;left:-100000px;top:0;width:0;height:0;overflow:hidden;pointer-events:none");
+      (document.body || document.documentElement).appendChild(probe);
+    }
+    var bare = document.createElement(tag);
+    probe.appendChild(bare);
+    var computed = window.getComputedStyle(bare);
+    var map = {};
+    for (var index = 0; index < computed.length; index += 1) {
+      var name = computed[index];
+      map[name] = computed.getPropertyValue(name);
+    }
+    defaults[tag] = map;
+    return map;
+  }
+
+  function dropProbe() {
+    if (probe && probe.parentNode) probe.parentNode.removeChild(probe);
+    probe = null;
+    defaults = {};
+  }
+
+  function copyStyle(source, target) {
+    var computed = window.getComputedStyle(source);
+    var base = defaultStyle(source.tagName.toLowerCase());
+    var text = "";
+    for (var index = 0; index < computed.length; index += 1) {
+      var name = computed[index];
+      var value = computed.getPropertyValue(name);
+      if (base[name] !== value) text += name + ":" + value + ";";
+    }
+    if (text) target.setAttribute("style", text);
+    else target.removeAttribute("style");
+  }
+
+  /** The page as an SVG data URL: the DOM cloned with its computed styles. */
+  function snapshot(width, height) {
+    try {
+      return snapshotInner(width, height);
+    } finally {
+      dropProbe();
+    }
+  }
+
+  function snapshotInner(width, height) {
+    var root = document.documentElement;
+    var sources = root.querySelectorAll("*");
+    if (sources.length > CAPTURE_MAX_NODES) throw new Error(TOO_BIG);
+    var clone = root.cloneNode(true);
+    var targets = clone.querySelectorAll("*");
+    copyStyle(root, clone);
+    var drop = [];
+    for (var index = 0; index < sources.length; index += 1) {
+      var source = sources[index];
+      var target = targets[index];
+      var tag = source.tagName;
+      if (tag === "SCRIPT" || tag === "NOSCRIPT" || tag === "IFRAME" || tag === "LINK") {
+        drop.push(target);
+        continue;
+      }
+      copyStyle(source, target);
+      if (tag === "CANVAS") {
+        var picture = document.createElement("img");
+        try {
+          picture.setAttribute("src", source.toDataURL("image/png"));
+          picture.setAttribute("style", target.getAttribute("style") || "");
+          target.parentNode.replaceChild(picture, target);
+        } catch (error) {
+          /* a tainted or WebGL canvas: left as it is (blank) */
+        }
+      } else if (tag === "INPUT") {
+        target.setAttribute("value", source.value);
+        if (source.checked) target.setAttribute("checked", "checked");
+        else target.removeAttribute("checked");
+      } else if (tag === "TEXTAREA") {
+        target.textContent = source.value;
+      } else if (tag === "SELECT") {
+        var options = target.querySelectorAll("option");
+        for (var option = 0; option < options.length; option += 1) {
+          if (option === source.selectedIndex) options[option].setAttribute("selected", "selected");
+          else options[option].removeAttribute("selected");
+        }
+      }
+    }
+    for (var dead = 0; dead < drop.length; dead += 1) {
+      if (drop[dead].parentNode) drop[dead].parentNode.removeChild(drop[dead]);
+    }
+    clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+    clone.style.width = width + "px";
+    clone.style.height = height + "px";
+    clone.style.overflow = "hidden";
+    var html = new XMLSerializer().serializeToString(clone);
+    if (html.length > CAPTURE_MAX_CHARS) throw new Error(TOO_BIG);
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '">' +
+      '<foreignObject width="100%" height="100%">' + html + "</foreignObject></svg>";
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  /** A PNG data URL of this page at the frame's size (scaled under CAPTURE_MAX_EDGE). */
+  function capture(width, height) {
+    return new Promise(function (resolve, reject) {
+      var w = Math.max(1, Math.floor(Number(width) || document.documentElement.clientWidth || 1280));
+      var h = Math.max(1, Math.floor(Number(height) || document.documentElement.clientHeight || 800));
+      var url;
+      try {
+        url = snapshot(w, h);
+      } catch (error) {
+        reject(error);
+        return;
+      }
+      var scale = Math.min(1, CAPTURE_MAX_EDGE / Math.max(w, h));
+      var image = new Image();
+      image.onload = function () {
+        try {
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.round(w * scale);
+          canvas.height = Math.round(h * scale);
+          var context = canvas.getContext("2d");
+          var background = window.getComputedStyle(document.body).backgroundColor;
+          context.fillStyle = background && background !== "rgba(0, 0, 0, 0)" ? background : "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/png"));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = function () {
+        reject(new Error("페이지를 그림으로 만들지 못했어요."));
+      };
+      image.src = url;
+    });
+  }
 
   // Outside the shell (the page opened on its own) nothing answers: keep
   // the values in this page, so the app still runs.
@@ -384,7 +551,7 @@
   });
 
   var api = Object.freeze({
-    version: "4",
+    version: "5",
     /** True inside CTRL+AI (the shell around the app answers). */
     connected: !!parentWindow,
     storage: storage,

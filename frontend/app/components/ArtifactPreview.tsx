@@ -150,7 +150,9 @@ export default function ArtifactPreview({
     try {
       const project = await createProjectFromChat({
         name: context!.conversationTitle.slice(0, 40) || "채팅에서 만든 페이지",
-        description: context!.memberMessage.slice(0, 2000),
+        // The member's chat sentence is a request, not the project's
+        // description (owner, 2026-10-16): 게시 writes the real one.
+        description: "",
         html: code,
       });
       router.push(`/builder/${project.id}`);

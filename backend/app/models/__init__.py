@@ -32,6 +32,7 @@ from app.models.feedback import (
     FeedbackImage,
 )
 from app.models.builder import (
+    AppFavorite,
     AppReport,
     BuilderEvalReport,
     BuilderGeneration,

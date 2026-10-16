@@ -1,23 +1,26 @@
 "use client";
 
 /**
- * Profile › 내가 만든 앱 — 내가 CtrlAIApps에 게시한 앱 (owner-polish 3).
+ * Profile › 내가 만든 앱 — 내가 CtrlAIApps에 게시한 앱 (owner-polish 3 →
+ * ui-improvements).
  *
- * 2026-10-16까지는 "준비 중 · 아직 게시한 앱이 없어요"가 모두에게
- * 고정으로 보였습니다 — 게시가 생긴 뒤에도 그대로여서, 게시한 앱이 있는
- * 회원에게 거짓말이 됐습니다. 이제 `GET /api/apps/mine`을 읽어 CtrlAIApps와
- * 같은 카드로 보여 줍니다. 다른 사람의 앱은 절대 섞이지 않습니다.
+ * "내 프로젝트"처럼 **간단한 목록**입니다: 이름 · 게시 버전 · 업데이트 시각 ·
+ * 열기. 큰 이미지 카드는 두지 않습니다 — "그냥 목록으로만, 이미지 넣으면
+ * 너무 많아짐" (owner, 2026-10-16). `GET /api/apps/mine`을 읽으므로 다른
+ * 사람의 앱은 절대 섞이지 않습니다.
  */
 
-import { LayoutGrid } from "lucide-react";
+import { ExternalLink, LayoutGrid } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import EmptyState from "@/app/components/EmptyState";
 import Skeleton from "@/app/components/Skeleton";
-import AppCard from "@/app/ctrlaistore/AppCard";
-import gridStyles from "@/app/ctrlaistore/ctrlaistore.module.css";
 import { listMyApps, type AppListing } from "@/lib/apps";
 import { describeError } from "@/lib/http";
+import { relativeTime } from "@/lib/relative-time";
+
+import styles from "./profile.module.css";
 
 type State =
   | { phase: "loading" }
@@ -67,11 +70,34 @@ export default function MyAppsSection() {
       )}
 
       {state.phase === "ready" && state.apps.length > 0 && (
-        <div className={gridStyles.grid} data-testid="my-apps-grid">
+        <ul className={styles.list} data-testid="my-apps-list">
           {state.apps.map((app) => (
-            <AppCard app={app} key={app.id} />
+            <li className={styles.listItem} key={app.id}>
+              <Link className={styles.listLink} href={`/ctrlaistore/${app.slug}`}>
+                {app.name}
+              </Link>
+              <span className={styles.listMeta}>
+                <span className="badge badge-muted">v{app.version_number}</span>
+                {app.published_at && (
+                  <span className="small dim">{relativeTime(app.published_at)} 업데이트</span>
+                )}
+                {app.app_url && (
+                  <a
+                    className={styles.listOpen}
+                    href={app.app_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${app.name} 열기`}
+                    title="새 창에서 열기"
+                  >
+                    <ExternalLink size={13} aria-hidden="true" />
+                    열기
+                  </a>
+                )}
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </section>
   );

@@ -275,7 +275,6 @@
   --lib-search-max: 380px;
   --lib-side-thumb-width: 72px;
   --lib-side-thumb-height: 128px;
-  --lib-stripe: 10px;
   --lib-menu-button: 32px;
   --lib-menu-min: 160px;
   --lib-new-card-min: 144px;
@@ -283,6 +282,13 @@
 
   /* 커뮤니티 카드(CtrlAIApps·CtrlAITube) — 시안처럼 1120px에 네 장. */
   --card-min-community: 15.5rem;
+  /* CtrlAIApps 상세: 머리 줄의 작은 썸네일 너비, 그리고 앱 프레임이 화면
+     높이에서 빼는 만큼(사이트 머리말 · ← 링크 · 머리 줄 · 설명 · 여백). */
+  --apps-head-thumb: 64px;
+  --apps-detail-chrome: 15.5rem;
+  /* 좁은 화면: 머리 줄이 두 줄(글 · 단추)이라 그만큼 더 뺍니다 — 390px에서도
+     프레임의 아래가 첫 화면 안에 들어오도록. */
+  --apps-detail-chrome-narrow: 20rem;
 
   /* 화면별 큰 글자 */
   --page-amount: 32px; /* Usage 남은 금액 */
@@ -577,27 +583,8 @@ code {
   cursor: not-allowed;
 }
 
-/* ---------- 목록 화면의 도구 줄 ---------- */
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem 0.75rem;
-  margin-bottom: 14px;
-}
-
-.toolbar-count {
-  margin-right: auto;
-  color: var(--text-muted);
-  font-size: var(--fs-count);
-  font-weight: var(--fw-strong);
-}
-
-.toolbar-count span {
-  color: var(--text-dim);
-  font-weight: 500;
-}
+/* 목록 화면의 머리 줄은 components/list-toolbar.module.css (ListToolbar)가
+   그립니다 — 네 목록이 같은 격자를 씁니다. */
 
 /* ---------- 카드 ---------- */
 

@@ -106,7 +106,7 @@ def test_the_sdk_and_shell_carry_estimate() -> None:
     from app.services import app_shell
 
     sdk = app_shell.static_file("sdk.js")
-    assert "estimate: function" in sdk and 'version: "4"' in sdk
+    assert "estimate: function" in sdk and 'version: "5"' in sdk
     assert 'case "ai.estimate"' in app_shell.static_file("shell.js")
 
 
