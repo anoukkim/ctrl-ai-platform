@@ -40,6 +40,8 @@ async function theme(page: Page, name: "light" | "dark") {
     window.localStorage.setItem("ctrlai-theme", t);
     document.documentElement.dataset.theme = t;
   }, name);
+  // The cards' colours transition; a screenshot in the middle shows dark cards with dark text.
+  await page.waitForTimeout(600);
 }
 
 async function project(request: APIRequestContext, id: number): Promise<Project> {
