@@ -125,3 +125,31 @@ describe("게시 창의 Claude 요약", () => {
     expect(onConfirm).toHaveBeenCalledWith({ name: "메모장", description: "내 설명", note: "" });
   });
 });
+
+describe("app-ai-access — 다른 회원에게 AI 기능을 열까요?", () => {
+  test("AI를 쓰는 앱에서만 묻고, 기본은 데모만이며, 고른 답이 게시와 함께 간다", async () => {
+    getPublishSummary.mockResolvedValue({ description: "물어보면 답해요.", note: "", cached: false, model: "fast", uses_ai: true, ai_access: "demo" });
+    const onConfirm = open({ name: "챗봇", description: "", note: "" });
+    const question = await screen.findByTestId("ai-access");
+    expect(question.textContent).toContain("이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?");
+    const demo = screen.getByRole("radio", { name: /데모만/ }) as HTMLInputElement;
+    const full = screen.getByRole("radio", { name: /전체 기능/ }) as HTMLInputElement;
+    expect(demo.checked).toBe(true);
+    expect(full.checked).toBe(false);
+    expect(question.textContent).toContain("나중에 게시 메뉴에서 바꿀 수 있어요");
+
+    const user = userEvent.setup();
+    await user.click(full);
+    await user.click(screen.getByRole("button", { name: "게시하기" }));
+    expect(onConfirm).toHaveBeenCalledWith({ name: "챗봇", description: "물어보면 답해요.", note: "", ai_access: "full" });
+  });
+
+  test("AI를 안 쓰는 앱에는 묻지 않고, 답도 보내지 않는다", async () => {
+    getPublishSummary.mockResolvedValue({ description: "메모예요.", note: "", cached: false, model: "fast", uses_ai: false, ai_access: "demo" });
+    const onConfirm = open({ name: "메모장", description: "", note: "" });
+    await screen.findByText("Claude가 쓴 설명이에요 — 마음에 안 들면 고치세요.");
+    expect(screen.queryByTestId("ai-access")).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "게시하기" }));
+    expect(onConfirm).toHaveBeenCalledWith({ name: "메모장", description: "메모예요.", note: "" });
+  });
+});

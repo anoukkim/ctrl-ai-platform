@@ -60,8 +60,24 @@ export interface BuilderProject {
   /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5), 게시된 버전의 썸네일을 찍은 때 (4). */
   draft_thumbnail_at?: string | null;
   published_thumbnail_at?: string | null;
+  /** app-ai-access: 다른 회원에게 AI를 어떻게 열었는지, 게시된 버전이 AI를 쓰는지. */
+  ai_access?: AiAccess;
+  published_uses_ai?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** app-ai-access — 데모만(방문자의 AI 호출을 서버가 거부, 0원) / 전체 기능(로그인한 방문자가 자기 지원금으로). */
+export type AiAccess = "demo" | "full";
+
+export const AI_ACCESS_LABEL: Record<AiAccess, string> = { demo: "데모만", full: "전체 기능" };
+
+/** 만든 사람의 스위치 — 게시 뒤 언제든 바꿀 수 있어요. */
+export function setAiAccess(id: number | string, aiAccess: AiAccess): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/ai-access`, {
+    method: "POST",
+    body: JSON.stringify({ ai_access: aiAccess }),
+  });
 }
 
 /* ---------- 상태: 회원에게는 둘뿐입니다 ----------
@@ -368,6 +384,8 @@ export interface PublishInput {
   name?: string;
   description: string;
   note?: string;
+  /** AI를 쓰는 앱의 답 — "다른 회원에게 AI 기능을 열까요?" 안 보내면 지금 설정 그대로(처음은 데모만). */
+  ai_access?: AiAccess;
 }
 
 /** 게시 / 업데이트 게시: 지금 버전이 CtrlAIApps에 올라갑니다. 무료입니다. */
@@ -402,6 +420,9 @@ export interface PublishSummary {
   /** 같은 버전에 대해 전에 받은 것을 돌려줬는지. */
   cached: boolean;
   model: string;
+  /** app-ai-access: 작업 중 파일이 ctrlai.ai를 부르는지 — 그럴 때만 게시 창이 공개 범위를 물어요. */
+  uses_ai: boolean;
+  ai_access: AiAccess;
 }
 
 /** 무료(동아리 부담) — 회원 지갑에서 나가지 않고, 실패하면 빈 글이 와요. POST: 서버가 결과를 버전에 남겨요. */

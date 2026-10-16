@@ -1,0 +1,106 @@
+/**
+ * app-ai-access — in a real browser: the maker's 데모만 / 전체 기능 and the
+ * visitor's switch in the shell.
+ *
+ * The dev user owns the showcases (import_example_apps) and is also the
+ * visitor here. The app's setting is flipped through the owner's route and
+ * put back to 전체 기능 at the end, whatever happens — the other specs rely
+ * on the showcases being live.
+ */
+import { expect, test, type Frame, type Page } from "@playwright/test";
+
+const APPS = process.env.APPS_ORIGIN ?? "http://localhost:8300";
+const SITE = process.env.SITE_ORIGIN ?? "http://localhost:3000";
+const USER = process.env.E2E_USER ?? "dev";
+const PASSWORD = process.env.E2E_PASSWORD ?? "devpassword";
+
+declare global {
+  interface Window {
+    ctrlai: {
+      version: string;
+      ai: {
+        ask(options: { prompt: string }): Promise<{ text: string; chargedKrw: number }>;
+        mode(): Promise<"live" | "demo">;
+      };
+      user(): Promise<{ displayName: string; appUserId: string } | null>;
+    };
+    __modes: string[];
+  }
+}
+
+async function appFrame(page: Page, slug: string): Promise<Frame> {
+  let frame: Frame | undefined;
+  await expect
+    .poll(() => (frame = page.frames().find((f) => f.url().includes(`/${slug}/_app/`))) !== undefined, { timeout: 30_000 })
+    .toBe(true);
+  await frame!.waitForFunction(() => typeof window.ctrlai === "object");
+  return frame!;
+}
+
+function askOutcome(frame: Frame) {
+  return frame.evaluate(() =>
+    window.ctrlai.ai.ask({ prompt: "안녕? 한 줄로." }).then(
+      (answer) => ({ ok: true as const, charged: answer.chargedKrw }),
+      (error: Error & { code?: string }) => ({ ok: false as const, code: error.code, message: error.message }),
+    ),
+  );
+}
+
+test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor's switch, which also costs nothing", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const login = await context.request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
+  expect(login.ok()).toBeTruthy();
+  const apps = (await (await context.request.get(`${SITE}/api/apps`)).json()) as { id: number; slug: string; uses_ai: boolean; ai_access: string }[];
+  const app = apps.find((a) => a.uses_ai);
+  expect(app, "a published app that uses AI (a showcase)").toBeTruthy();
+  const { id, slug } = app!;
+  const before = (await (await context.request.get(`${SITE}/api/usage/me`)).json()).events.length as number;
+
+  const setAccess = async (value: "demo" | "full") => {
+    const r = await context.request.post(`${SITE}/api/builder/projects/${id}/ai-access`, { data: { ai_access: value } });
+    expect(r.ok(), await r.text()).toBeTruthy();
+  };
+
+  try {
+    // 1. 데모만: the pill says so, there is no button, and a call fails with code "demo" — no sign-in window.
+    await setAccess("demo");
+    expect((await (await context.request.get(`${SITE}/api/apps/${slug}`)).json()).ai_access).toBe("demo");
+    await page.goto(`${APPS}/${slug}/`);
+    let frame = await appFrame(page, slug);
+    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · AI 호출 없음");
+    await expect(page.locator("#ctrlai-ai button")).toHaveCount(0);
+    expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("demo");
+    let outcome = await askOutcome(frame);
+    expect(outcome).toMatchObject({ ok: false, code: "demo" });
+    expect(context.pages().length).toBe(1);
+
+    // 2. 전체 기능: the pill offers 데모로 보기; the visitor's choice is kept across a reload.
+    await setAccess("full");
+    await page.reload();
+    frame = await appFrame(page, slug);
+    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI · 내 지원금에서");
+    expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("live");
+    await frame.evaluate(() => {
+      window.__modes = [];
+      window.addEventListener("ctrlai:ai-mode", (event) => window.__modes.push((event as CustomEvent).detail.mode));
+    });
+    await page.getByRole("button", { name: "데모로 보기" }).click();
+    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
+    expect(await frame.evaluate(() => window.__modes)).toEqual(["demo"]);
+    expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("demo");
+    outcome = await askOutcome(frame);
+    expect(outcome).toMatchObject({ ok: false, code: "demo" });
+
+    await page.reload();
+    frame = await appFrame(page, slug);
+    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
+    await page.getByRole("button", { name: "실제 AI 켜기" }).click();
+    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI · 내 지원금에서");
+
+    // Nothing was charged by any of this: the ledger did not grow.
+    const after = (await (await context.request.get(`${SITE}/api/usage/me`)).json()).events.length as number;
+    expect(after).toBe(before);
+  } finally {
+    await setAccess("full");
+  }
+});

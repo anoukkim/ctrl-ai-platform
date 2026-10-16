@@ -12,19 +12,32 @@
  * 타이핑을 시작한 칸은 늦게 온 요약이 덮지 않습니다. 설명이 이미 있으면
  * "Claude 요약으로 바꾸기"로 바꿀 수 있어요. 못 받으면 빈 칸 그대로 —
  * 게시는 막히지 않습니다. 회원 지갑에서는 나가지 않아요.
+ *
+ * app-ai-access: 같은 응답이 "이 앱이 AI를 쓰는지"도 알려 줍니다. 쓰면
+ * "다른 회원에게 AI 기능을 열까요?"를 묻고 — 데모만(기본) / 전체 기능 —
+ * 답을 게시와 함께 보냅니다. 게시 뒤에도 게시 메뉴에서 바꿀 수 있어요.
  */
 
 import { useEffect, useId, useRef, useState } from "react";
 
 import DialogShell from "@/app/components/DialogShell";
 import styles from "@/app/components/confirm-dialog.module.css";
-import { APP_LIMITS_NOTE, getPublishSummary, type PublishSummary } from "@/lib/projects";
+import { AI_ACCESS_LABEL, APP_LIMITS_NOTE, getPublishSummary, type AiAccess, type PublishSummary } from "@/lib/projects";
 
 export interface PublishValues {
   name: string;
   description: string;
   note: string;
+  /** AI를 쓰는 앱에서만 — 다른 회원에게 AI 기능을 어떻게 열지. */
+  ai_access?: AiAccess;
 }
+
+export const AI_ACCESS_QUESTION = "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?";
+
+export const AI_ACCESS_HINT: Record<AiAccess, string> = {
+  demo: "방문자에게는 데모 답변만 보여요. AI를 부르지 않고, 누구의 지원금도 나가지 않아요.",
+  full: "로그인한 회원이 버튼을 누르면 자기 동아리 지원금에서 나가요. 방문자는 언제든 데모로 바꿀 수 있어요.",
+};
 
 interface Props {
   /** 요약을 받아 올 프로젝트. */
@@ -34,6 +47,8 @@ interface Props {
   /** 게시될 버전(작업 중 최신). */
   nextVersion: number | null;
   initial: PublishValues;
+  /** 지금 설정 (처음 게시면 데모만). */
+  initialAiAccess?: AiAccess;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -50,12 +65,14 @@ export default function PublishDialog({
   publishedVersion,
   nextVersion,
   initial,
+  initialAiAccess = "demo",
   busy,
   error,
   onClose,
   onConfirm,
 }: Props) {
   const [values, setValues] = useState<PublishValues>(initial);
+  const [aiAccess, setAiAccess] = useState<AiAccess>(initialAiAccess);
   // 회원이 손댄 칸은 요약이 덮지 않습니다 — 효과의 닫힘이 아니라 ref로 읽어, 늦게 온 요약도 지켜요.
   const touched = useRef({ description: false, note: false });
   const [summary, setSummary] = useState<SummaryState>({ phase: "loading" });
@@ -87,6 +104,8 @@ export default function PublishDialog({
 
   const suggested = summary.phase === "ready" ? summary.summary.description : "";
   const canReplace = Boolean(suggested) && values.description.trim() !== "" && values.description !== suggested;
+  // AI를 쓰는 앱에서만 묻습니다 — 안 쓰는 앱에 "AI를 열까요?"는 뜬금없어요.
+  const usesAi = summary.phase === "ready" && summary.summary.uses_ai;
 
   return (
     <DialogShell onClose={onClose} labelledBy={`${id}-title`} describedBy={`${id}-effect`}>
@@ -176,6 +195,28 @@ export default function PublishDialog({
         />
       </div>
 
+      {usesAi && (
+        <fieldset className={styles.dialogField} data-testid="ai-access">
+          <legend className={styles.fieldLabel}>{AI_ACCESS_QUESTION}</legend>
+          {(["demo", "full"] as const).map((choice) => (
+            <label key={choice} className={styles.choice}>
+              <input
+                type="radio"
+                name={`${id}-ai-access`}
+                value={choice}
+                checked={aiAccess === choice}
+                onChange={() => setAiAccess(choice)}
+              />
+              <span>
+                <strong>{AI_ACCESS_LABEL[choice]}</strong>
+                <span className={styles.choiceHint}>{AI_ACCESS_HINT[choice]}</span>
+              </span>
+            </label>
+          ))}
+          <p className={styles.fieldHint}>나중에 게시 메뉴에서 바꿀 수 있어요. 관리자는 앱의 기능 상자를 멈출 수 있어요.</p>
+        </fieldset>
+      )}
+
       {error && (
         <p className={styles.dialogError} role="alert">
           {error}
@@ -189,7 +230,7 @@ export default function PublishDialog({
         <button
           className="btn btn-primary"
           type="button"
-          onClick={() => onConfirm(values)}
+          onClick={() => onConfirm(usesAi ? { ...values, ai_access: aiAccess } : values)}
           disabled={busy || !values.description.trim()}
         >
           {busy ? "게시하는 중…" : update ? "업데이트 게시" : "게시하기"}

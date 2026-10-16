@@ -65,7 +65,7 @@ the same commit that adds it.
 | `GET /_ctrlai/sdk.js`, `GET /_ctrlai/shell.js` | none | The app platform's two scripts (apps origin only, outside `/api`) |
 | `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
 | `GET /_ctrlai/v1/app`, `POST /_ctrlai/v1/login/start`, `POST /_ctrlai/v1/logout` | `app_call` | `app_request` (`X-CtrlAI-App` naming a live app, same-origin) + who is signed in to this app — only its own `ctrlai_app_<slug>` cookie, never the site's session |
-| `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) |
+| `GET /_ctrlai/v1/user`, `POST /_ctrlai/v1/ai/ask`, `POST /_ctrlai/v1/ai/stream` | `signed_in_visitor` | Signed in to this app, its 기능 상자 running; the AI routes also need the "ai" consent, participation this quarter and the visitor's own wallet (`app_ai`) — and, in mode "app", the maker's **전체 기능** setting (`app-ai-access`; 데모만 → 403 with code `demo`, nothing charged) |
 | `POST /_ctrlai/v1/data/{list,count,get,save,update,remove,report}` | `running_app` | `ctrlai.db` (P3): `app_call` + the 기능 상자 running. Reads work signed out on shared collections; a write needs the app's own cookie and the "data" consent (checked inside, so the SDK can ask the visitor to sign in and try again) |
 | `GET /{slug}/_ctrlai/callback`, `GET /_ctrlai/callback.js` | none | The end of signing in: a one-time code (60 s) that only the browser holding the matching state cookie can spend |
 | `GET`/`POST /api/app-connect/{slug}` | `get_current_user` | The consent screen and 허용 — spends nothing |
@@ -125,6 +125,7 @@ the same commit that adds it.
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | 버전 저장 — name or pin a version |
 | `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
+| `POST /api/builder/projects/{id}/ai-access` | `get_current_user` | app-ai-access — the owner's 데모만 / 전체 기능 switch; closing must work while inactive, and opening spends nothing of the owner's |
 | `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
 | `GET /api/apps/{slug}/thumbnail` | `get_current_user` | The published version's picture (CtrlAIApps cards and the detail head); 404 while there is none |
@@ -612,7 +613,7 @@ ctrlai.my (Builder / CtrlAIApps)
   미리보기); Admin › Content keeps the 신고 queue. **/help/apps** is the
   members' guide. A 고치기 request never becomes a project's description
   (only a 만들기 does); a template project starts with none.
-* **ui-improvements — thumbnails, SDK version "5".** A picture of an app
+* **ui-improvements — thumbnails, SDK version "5"** (now "6", app-ai-access). A picture of an app
   is taken **in the maker's browser**, never on the server (CLAUDE.md
   §8·§10). The shell page carries `data-sites` (the site origins allowed
   to ask); the site posts `{ctrlai: "capture", id, width, height}` to the
@@ -634,6 +635,37 @@ ctrlai.my (Builder / CtrlAIApps)
   WebGL is skipped, Safari's `foreignObject` support is weak — the card
   then keeps its coloured cover; a server-side renderer in an isolated
   container is the later item `thumbnail-render-worker`.
+* **app-ai-access — 데모만 / 전체 기능, SDK version "6"** (owner,
+  2026-10-16; CLAUDE.md §2 › Member app platform (5)).
+  `builder_projects.ai_access` ("demo" | "full", migration `b2d4f6a8c0e1`;
+  apps published before it were set to "full" so nothing changed at
+  deploy; a new app starts as "demo") and
+  `builder_project_versions.uses_ai` — found when a version is written
+  (`app_ai_access.uses_ai`: any page or script calling `.ai.ask(` /
+  `.ai.stream(` / `.ai.estimate(`), filled in by the migration for old
+  versions, so the dialog, the listing and the shell read a flag. The
+  게시 dialog asks "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?"
+  only when `publish-summary` says `uses_ai` (default 데모만); `publish`
+  takes `ai_access`, and `POST /api/builder/projects/{id}/ai-access` is
+  the owner's switch from the Builder's 게시 menu. **Enforcement is the
+  server's alone**: `_ai_allowed` on `/v1/ai/ask` and `/v1/ai/stream`
+  refuses a visitor's call in mode "app" with 403 `{code: "demo"}` before
+  `prepare()` — no provider call, no ledger row; `estimate` stays free and
+  open; the maker's 미리보기 (mode "preview") is never limited. The shell
+  (`shell.js`) adds a second, per-visitor switch — a pill at the bottom
+  left ("실제 AI · 내 지원금에서" / "데모 · 0원" + 실제 AI 켜기 / 데모로 보기,
+  the showcases' look), remembered in the shell origin's `localStorage`
+  per app, shown only for a published app that uses AI — and in 데모
+  rejects `ai.ask` / `ai.stream` locally with code "demo" (no sign-in
+  window, no request). `/v1/app` carries `ai: {usesAi, access}`; the SDK
+  gains `ctrlai.ai.mode()` → "live" | "demo" and fires the window event
+  `ctrlai:ai-mode` when the pill is flipped; outside CTRL+AI the mode is
+  "demo". The Builder prompt (`_SDK_RULES`) tells Claude to treat code
+  "demo" like signed-out (the demo answer, marked "데모"); the three
+  showcases and the AI 챗봇 template do the same and import as 전체 기능
+  (`import_example_apps`). CtrlAIApps' detail says which it is; Admin ›
+  Apps shows "AI 전체 기능 / 데모만" beside each app; the kill switch is
+  unchanged.
 * **publish-summary** (`services/publish_summary.py`, `POST
   /api/builder/projects/{id}/publish-summary` with a JSON body — it
   writes and spends, CLAUDE.md §2 — `require_active_member`, owner only): the 게시 dialog's 설명 and 메모 written by the "fast"
