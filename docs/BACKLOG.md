@@ -267,6 +267,49 @@ are pre-approved to merge and deploy one at a time (see **Now**).
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
 
+11. **dino-avatars** · M3 · branch `feat-dino-avatars`
+    *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
+    (decided in another session after four mock-ups; relayed): **"CTRL+AI
+    공룡" profile avatars** replace the letter avatar. **No uploaded
+    profile photos** — this instead. Decided:
+    1. **Egg → dinosaur.** Sign-up gives an egg; the first activity (first
+       chat or first project) hatches it into the member's dinosaur.
+    2. **Choosing, in this order:** ① species, five — 아기 티라노,
+       트리케라톱스, 브라키오, 스테고, 프테라 (the five on the owner's
+       reference sheet); ② colour with a picker (saturation square + hue
+       bar + hex + eyedropper via Chrome's `EyeDropper` + recent and
+       suggested colours); the background colour has the same picker. No
+       AI — recoloured in the browser: each drawing has three slots
+       (light, dark, black outline); the chosen colour is the light slot
+       and the dark slot is derived (HLS lightness ×0.72, saturation
+       ×0.85, so deep pinks and reds do not turn harsh). If body and
+       background are too close: "바탕과 비슷해서 작게 보면 잘 안 보여요 —
+       그래도 할까요?".
+    3. **The egg:** the owner's white egg (black outline, cross-shaped
+       speckles + shadow, grey shading below); the speckles take the
+       chosen body colour.
+    4. **Art:** 브라키오 is the owner's own 24×24 pixel drawing (2×2 eyes +
+       sparkle + blush read as cute). The other four species must be drawn
+       new at 24×24 with the same three-slot colour rule — the reference
+       sheet is stock art and is **not** to be used (owner/club members
+       draw, or a licensed set). Each species also gets a small face-only
+       drawing (about 12×12) for 20–32 px spots — a long-necked dinosaur
+       cropped from the full drawing was too small.
+    5. **Quarter titles**, decided at 분기 마감 and worn all next quarter,
+       with a "지난 칭호" collection on Profile: **천사** (spent ≥ 80 % of
+       the wallet **and** published ≥ 1 app or video — spending alone
+       would reward waste), **왕** (the 2 members with the most published
+       apps, counting only apps actually used, e.g. ≥ 10 visits),
+       **팡파레** (the 2 with the most reactions — once app reactions
+       exist), **쉬는 중** (not taking part this quarter; a sleeping
+       dinosaur, Zzz), **화석** (탈퇴 회원; their apps stay under the fossil
+       name). A title is a prop layered over the drawing (halo, crown,
+       party hat + confetti, …).
+    6. **Still the owner's call:** how often the colour may change — once
+       at sign-up (a gift) / any time / once per quarter or title.
+    The mock-ups live in the owner's desktop session; the owner shows them
+    when the item starts.
+
 ## app-platform — full spec
 
 Added by the owner on 2026-10-15. Saved verbatim:
