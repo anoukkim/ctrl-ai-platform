@@ -135,6 +135,20 @@ The owner's words, verbatim:
   (a reaction or comment on your app or video, grouped per item per day)
   and 신고 처리; **opening the list clears the number badge** (marks
   everything shown as seen).
+- Added the same evening, verbatim: "오른쪽 알림 필요 없음 / 왼쪽 아래 알림
+  있는 건 좋은데 그러니까 저게 저기에 다 안들어가잖아, 로그아웃을 옮기던지
+  알림을 옮기던지 뭔가 구상을 해서 다른 웹사이트들 잘 분배해봐 / 그리고
+  알림은 그닥 중요한게 아니라서 켜서 들어가서 볼 수는 있어도 굳이 기록을
+  남겨둘 필요가 없어서 그럼. 걍 벨 누르면 숫자는 사라지고 clear 누르면
+  알림 없애기" → **(c2)**: remove the 알림 card from Profile (and the
+  "Profile에서 전체 보기" link) — the bell popover is the only place;
+  bell opens → badge gone; a **지우기** button deletes the shown
+  notifications (no history kept); **redesign the sidebar footer** the way
+  common sites split it (e.g. the bell up beside the CTRL+AI header or in
+  the account row, the account row opening a small menu with Profile,
+  Usage, theme and 로그아웃, the footer left with 개인정보 · 약관) so the
+  popover fits and nothing overlaps, at desktop and phone widths and in
+  the collapsed rail. The 사용 알림 표시 / 띠링 settings stay on Profile.
 - **(d)** the CtrlAIApps header still says "저장한 내용은 그 사람 기기에만
   남아요" — outdated since `ctrlai.db`; rewrite it to match what apps can
   do now.
