@@ -70,9 +70,8 @@
   flex-direction: column;
 }
 
-.newChatRail {
-  width: 40px;
-  padding: 0.5rem 0;
+.listBody {
+  display: contents;
 }
 
 .collapseList {
@@ -116,6 +115,13 @@
   transition:
     border-color 0.12s ease,
     color 0.12s ease;
+}
+
+/* The rail's icon-only 새 대화 — after .newChat, so its width and padding win. */
+.newChatRail {
+  flex: none;
+  width: 40px;
+  padding: 0.5rem 0;
 }
 
 .newChat:hover:not(:disabled) {

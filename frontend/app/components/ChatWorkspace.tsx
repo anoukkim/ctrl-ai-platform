@@ -424,6 +424,16 @@ function readListCollapsed(): boolean {
   }
 }
 
+/** The container query's threshold (ChatWorkspace.module.css): the list is a drawer at or below it. */
+const DRAWER_MAX_WIDTH = 856;
+/** The sidebar's width, for the first guess before the layout is measured. */
+const SIDEBAR_WIDTH = 244;
+
+function readNarrow(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth - SIDEBAR_WIDTH <= DRAWER_MAX_WIDTH;
+}
+
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
   // 답장이 끝나면 사이드바의 지갑이 그 자리에서 줄어듭니다 — done
@@ -488,8 +498,27 @@ export default function ChatWorkspace() {
       return next;
     });
   }, []);
+  // Whether this area is narrow enough for the drawer (the CSS container
+  // query's 856px on .layout) — measured, so a drawer left open on a narrow
+  // screen never leaks into the rail when the area widens.
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(readNarrow);
+  useEffect(() => {
+    const node = layoutRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      const isNarrow = width <= DRAWER_MAX_WIDTH;
+      setNarrow(isNarrow);
+      if (!isNarrow) setListOpen(false);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const drawerOpen = narrow && listOpen;
   // The rows are drawn when the list is open as a panel or as a drawer.
-  const listShown = !listCollapsed || listOpen;
+  const listShown = !listCollapsed || drawerOpen;
+  const listId = useId();
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -1161,9 +1190,13 @@ export default function ChatWorkspace() {
       : "Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 답장마다 동아리 지원에서 쓴 만큼 차감됩니다.";
 
   return (
-    <div className={`${styles.layout} ${listCollapsed ? styles.layoutCollapsed : ""}`} data-list-collapsed={listCollapsed || undefined}>
+    <div
+      className={`${styles.layout} ${listCollapsed ? styles.layoutCollapsed : ""}`}
+      data-list-collapsed={listCollapsed || undefined}
+      ref={layoutRef}
+    >
       <aside
-        className={`${styles.list} ${listOpen ? styles.listOpen : ""} ${listCollapsed ? styles.listCollapsed : ""}`}
+        className={`${styles.list} ${drawerOpen ? styles.listOpen : ""} ${listCollapsed ? styles.listCollapsed : ""}`}
         aria-label="대화 목록"
       >
         <div className={styles.listHead}>
@@ -1188,6 +1221,7 @@ export default function ChatWorkspace() {
             type="button"
             onClick={toggleListCollapsed}
             aria-expanded={!listCollapsed}
+            aria-controls={listId}
             aria-label={listCollapsed ? "목록 펼치기" : "목록 접기"}
             title={listCollapsed ? "목록 펼치기" : "목록 접기"}
           >
@@ -1195,6 +1229,8 @@ export default function ChatWorkspace() {
           </button>
         </div>
 
+        {/* What the fold button controls; `display: contents`, so the aside's column is unchanged. */}
+        <div id={listId} className={styles.listBody}>
         {listShown && listError !== null && <p className={styles.listNote}>{listError}</p>}
         {listShown && listError === null && conversations.length === 0 && (
           <EmptyState
@@ -1310,6 +1346,7 @@ export default function ChatWorkspace() {
             </>
           );
         })()}
+        </div>
       </aside>
 
       <div className={styles.chat}>
@@ -1318,7 +1355,7 @@ export default function ChatWorkspace() {
             type="button"
             className={styles.listToggle}
             onClick={() => setListOpen((open) => !open)}
-            aria-expanded={listOpen}
+            aria-expanded={drawerOpen}
           >
             <ListIcon size={15} aria-hidden="true" /> 대화 목록
           </button>

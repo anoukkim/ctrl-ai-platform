@@ -209,6 +209,7 @@ describe("ChatWorkspace", () => {
   beforeEach(() => {
     mayCreate = true;
     window.localStorage.removeItem("ctrlai.chat-list-collapsed");
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     for (const fn of Object.values(chatApi)) fn.mockReset();
     chatApi.getChatInfo.mockResolvedValue({
       is_mock: true,
@@ -533,8 +534,9 @@ describe("ChatWorkspace", () => {
     expect(window.localStorage.getItem("ctrlai.chat-list-collapsed")).toBe("0");
   });
 
-  test("chat-list-collapse: a remembered fold starts folded, and the drawer still opens the list", async () => {
+  test("chat-list-collapse: a remembered fold starts folded, and on a narrow screen the drawer still opens the list", async () => {
     window.localStorage.setItem("ctrlai.chat-list-collapsed", "1");
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 700 });
     chatApi.listConversations.mockResolvedValue([CONVERSATION]);
     await renderChat();
     await screen.findByRole("button", { name: "목록 펼치기" });
@@ -542,6 +544,23 @@ describe("ChatWorkspace", () => {
     // Narrow screens: the 대화 목록 drawer shows the rows even while folded.
     fireEvent.click(screen.getByRole("button", { name: "대화 목록" }));
     expect(screen.getByRole("button", { name: "가계부 아이디어" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "대화 목록" }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("chat-list-collapse: on a wide screen the drawer flag cannot leak rows into the rail", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1600 });
+    chatApi.listConversations.mockResolvedValue([CONVERSATION]);
+    await renderChat();
+    await screen.findByRole("button", { name: "가계부 아이디어" });
+    fireEvent.click(screen.getByRole("button", { name: "목록 접기" }));
+    // The narrow-only 대화 목록 button exists in the DOM (CSS hides it): pressing
+    // it must not fill the 52px rail with rows.
+    fireEvent.click(screen.getByRole("button", { name: "대화 목록" }));
+    expect(screen.queryByRole("button", { name: "가계부 아이디어" })).toBeNull();
+    expect(screen.getByRole("button", { name: "대화 목록" }).getAttribute("aria-expanded")).toBe("false");
+    // The fold button names what it controls.
+    const fold = screen.getByRole("button", { name: "목록 펼치기" });
+    expect(document.getElementById(fold.getAttribute("aria-controls")!)).toBeTruthy();
   });
 
   test("chat-pins: 이름 바꾸기 from the ⋯ menu still opens the rename box", async () => {
