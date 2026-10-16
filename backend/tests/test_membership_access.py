@@ -397,6 +397,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/generate-estimate"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/generate"): "require_active_member",
     ("GET", "/api/builder/projects/{project_id}/versions"): "get_current_user",
+    ("GET", "/api/builder/projects/{project_id}/versions/{number}/files"): "get_current_user",
     ("POST", "/api/builder/projects/{project_id}/versions/{number}/restore"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/runtime"): "require_active_member",
     # ctrlaiapps-publish
