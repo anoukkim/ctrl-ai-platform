@@ -657,6 +657,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const publishedUrl = publicUrl(project, appsBase);
   const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
   const latestVersion = versions.length > 0 ? versions[0].number : null;
+  /** owner-polish 13: at least one version Claude made (has a request). */
+  const hasClaudeHistory = versions.some((version) => Boolean(version.request));
   const published = project.published_version_number ?? null;
   // 작업 중인 버전이 이미 게시된 버전이면 업데이트 게시는 할 일이 없습니다.
   const sameAsPublished = published !== null && latestVersion !== null && latestVersion === published;
@@ -1102,7 +1104,12 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className={ws.paneBody}>
               <div className={ws.chatThread}>
-                {versions.length > 0 && (
+                {/* owner-polish 13: the conversation needs a Claude-made version
+                    to be a conversation. A project whose versions all came from
+                    예시 앱 / 가져오기 / 되돌리기 would show the same rows here and
+                    in 모든 버전 — so until the first 만들기/고치기 only the list
+                    below shows, opened. */}
+                {hasClaudeHistory && (
                   <ClaudeHistory
                     versions={versions}
                     viewing={viewing?.number ?? null}
@@ -1148,7 +1155,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               </div>
 
               {versions.length > 0 && (
-                <details className={styles.versions}>
+                <details className={styles.versions} open={!hasClaudeHistory || undefined} data-testid="all-versions">
                   <summary>모든 버전 ({versions.length})</summary>
                   <ul className={styles.versionList}>
                     {versions.map((version, index) => (
@@ -1217,15 +1224,29 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                         {index === 0 ? (
                           <span className="badge badge-muted">지금</span>
                         ) : (
-                          <button
-                            className="btn btn-sm"
-                            type="button"
-                            onClick={() => askToRestore(version)}
-                            disabled={!mayCreate || generating}
-                            title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
-                          >
-                            되돌리기
-                          </button>
+                          <>
+                            {!hasClaudeHistory && (
+                              <button
+                                className="btn btn-sm"
+                                type="button"
+                                aria-pressed={viewing?.number === version.number}
+                                aria-label={`v${version.number} 이 버전 보기`}
+                                onClick={() => void viewVersion(version)}
+                              >
+                                이 버전 보기
+                              </button>
+                            )}
+                            <button
+                              className="btn btn-sm"
+                              type="button"
+                              aria-label={`v${version.number}${particleRo(version.number)} 되돌리기`}
+                              onClick={() => askToRestore(version)}
+                              disabled={!mayCreate || generating}
+                              title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
+                            >
+                              되돌리기
+                            </button>
+                          </>
                         )}
                       </li>
                     ))}
