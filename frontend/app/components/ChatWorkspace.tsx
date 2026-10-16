@@ -1182,14 +1182,16 @@ export default function ChatWorkspace() {
                     disabled={streaming && conversation.id !== activeId}
                     title={conversation.title || "새 대화"}
                   >
-                    {conversation.pinned_at && <Pin size={11} className={styles.pinMark} role="img" aria-label="고정됨" />}
+                    {conversation.pinned_at && <Pin size={11} className={styles.pinMark} aria-hidden="true" data-testid="pin-mark" />}
                     {conversation.title || "새 대화"}
                   </button>
                 )}
-                {mayCreate && renamingId !== conversation.id && (
+                {renamingId !== conversation.id && (
                   <span className={styles.listTools}>
                     {/* chat-pins: the row's ⋯ menu — 이름 바꾸기 · 맨 위에 고정 /
-                        고정 해제 · 지우기, like a Builder or Video card's. */}
+                        고정 해제 · 지우기, like a Builder or Video card's. A member
+                        not participating may still pin (a reading preference);
+                        the two changes are disabled with the usual hint. */}
                     <MenuButton
                       label="더보기"
                       title="더보기"
@@ -1199,6 +1201,8 @@ export default function ChatWorkspace() {
                         {
                           label: "이름 바꾸기",
                           icon: <Pencil size={14} />,
+                          disabled: !mayCreate,
+                          hint: mayCreate ? undefined : NOT_PARTICIPATING_HINT,
                           onSelect: () => {
                             setRenameDraft(conversation.title);
                             setRenamingId(conversation.id);
@@ -1209,7 +1213,14 @@ export default function ChatWorkspace() {
                           icon: conversation.pinned_at ? <PinOff size={14} /> : <Pin size={14} />,
                           onSelect: () => void pin(conversation.id, !conversation.pinned_at),
                         },
-                        { label: "지우기", icon: <Trash2 size={14} />, danger: true, onSelect: () => askDelete(conversation) },
+                        {
+                          label: "지우기",
+                          icon: <Trash2 size={14} />,
+                          danger: true,
+                          disabled: !mayCreate,
+                          hint: mayCreate ? undefined : NOT_PARTICIPATING_HINT,
+                          onSelect: () => askDelete(conversation),
+                        },
                       ]}
                     >
                       <span aria-hidden="true">⋯</span>
@@ -1231,9 +1242,11 @@ export default function ChatWorkspace() {
                 </ul>
               )}
               {rest.length > 0 && <p className={`section-label ${styles.listLabel}`}>최근 대화</p>}
-              <ul className={styles.listItems} aria-label="최근 대화">
-                {rest.map(row)}
-              </ul>
+              {rest.length > 0 && (
+                <ul className={styles.listItems} aria-label="최근 대화">
+                  {rest.map(row)}
+                </ul>
+              )}
             </>
           );
         })()}

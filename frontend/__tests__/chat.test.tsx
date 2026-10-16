@@ -397,7 +397,13 @@ describe("ChatWorkspace", () => {
     expect(await screen.findByText("지난 질문")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "지우기" })).toBeNull();
     expect(screen.queryByRole("button", { name: "이름 바꾸기" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "더보기" })).toBeNull();
+    // chat-pins: the ⋯ menu stays — pinning is a reading preference; the
+    // two changes are disabled with the hint.
+    fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect((screen.getByRole("menuitem", { name: /이름 바꾸기/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("menuitem", { name: /지우기/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("menuitem", { name: "맨 위에 고정" }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(
       (screen.getByLabelText("CTRL+AI에게 보낼 메시지") as HTMLTextAreaElement).disabled,
     ).toBe(true);
@@ -488,8 +494,8 @@ describe("ChatWorkspace", () => {
     // Now 고정됨 holds it, first, with its pin; 최근 대화 keeps the other.
     expect((await screen.findByTestId("pinned-label")).textContent).toBe("고정됨");
     const pinnedList = screen.getByRole("list", { name: "고정된 대화" });
-    expect(within(pinnedList).getByRole("button", { name: /여행 계획/ })).toBeTruthy();
-    expect(within(pinnedList).getByRole("img", { name: "고정됨" })).toBeTruthy();
+    expect(within(pinnedList).getByRole("button", { name: "여행 계획" })).toBeTruthy();
+    expect(within(pinnedList).getByTestId("pin-mark")).toBeTruthy();
     const recent = screen.getByRole("list", { name: "최근 대화" });
     expect(within(recent).queryByRole("button", { name: /여행 계획/ })).toBeNull();
     expect(within(recent).getByRole("button", { name: "가계부 아이디어" })).toBeTruthy();

@@ -34,8 +34,13 @@ def test_a_conversation_is_pinned_with_a_timestamp_and_unpinned_again(
     renamed = client.patch(f"/api/chat/conversations/{conversation_id}", json={"title": "가계부"}).json()
     assert renamed["pinned_at"] == pinned.json()["pinned_at"]
     assert client.get(f"/api/chat/conversations/{conversation_id}").json()["pinned_at"] == pinned.json()["pinned_at"]
-    # `pinned_at` is not a PATCH field.
-    assert client.patch(f"/api/chat/conversations/{conversation_id}", json={"pinned_at": None}).status_code == 400
+    # `pinned_at` is not a PATCH field: a real value is not applied (the
+    # payload has nothing the route knows → 400) and the pin is unchanged.
+    assert (
+        client.patch(f"/api/chat/conversations/{conversation_id}", json={"pinned_at": "2030-01-01T00:00:00Z"}).status_code
+        == 400
+    )
+    assert client.get(f"/api/chat/conversations/{conversation_id}").json()["pinned_at"] == pinned.json()["pinned_at"]
 
     unpinned = client.post(f"/api/chat/conversations/{conversation_id}/pin", json={"on": False})
     assert unpinned.status_code == 200, unpinned.text
