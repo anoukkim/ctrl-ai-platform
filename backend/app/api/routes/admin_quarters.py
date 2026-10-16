@@ -441,11 +441,16 @@ def list_quarter_members(
     enrol them.
     """
     rows = db.execute(
-        select(User, QuarterMembership)
+        select(User, QuarterMembership, QuarterApplication.status)
         .outerjoin(
             QuarterMembership,
             (QuarterMembership.user_id == User.id)
             & (QuarterMembership.quarter_id == quarter_id),
+        )
+        .outerjoin(
+            QuarterApplication,
+            (QuarterApplication.user_id == User.id)
+            & (QuarterApplication.quarter_id == quarter_id),
         )
         .order_by(User.id)
     ).all()
@@ -458,8 +463,9 @@ def list_quarter_members(
             role=member.role,
             account_status=member.account_status,
             membership_status=membership.status if membership else None,
+            application_status=application_status,
         )
-        for member, membership in rows
+        for member, membership, application_status in rows
     ]
 
 

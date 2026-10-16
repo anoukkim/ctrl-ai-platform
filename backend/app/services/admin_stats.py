@@ -68,7 +68,10 @@ class MemberStats:
     total: int = 0
     active: int = 0
     inactive: int = 0
-    #: Accounts with no application for this quarter at all. Former
+    #: Accounts with nothing for this quarter — no application **and** no
+    #: participation row. Someone the admin enrolled directly has not
+    #: applied, but is not "yet to apply" either (owner-polish 8: the card
+    #: said 미신청 1명 while the list's 미참여 filter showed nobody). Former
     #: members are left out: they are not "yet to apply".
     not_applied: int = 0
     former: int = 0
@@ -191,7 +194,9 @@ def member_stats(db: Session, quarter_id: int | None) -> MemberStats:
 
     # Counted with NOT EXISTS rather than by subtracting: an account can
     # have a membership row without an application (an admin enrolled
-    # them), so "applied" and "participating" are different sets.
+    # them), so "applied" and "participating" are different sets — and
+    # 미신청 is the people in neither. The list's 미신청 filter applies the
+    # same two conditions row by row, so card and list agree.
     applied = (
         select(QuarterApplication.id)
         .where(
@@ -200,10 +205,18 @@ def member_stats(db: Session, quarter_id: int | None) -> MemberStats:
         )
         .exists()
     )
+    enrolled = (
+        select(QuarterMembership.id)
+        .where(
+            QuarterMembership.user_id == User.id,
+            QuarterMembership.quarter_id == quarter_id,
+        )
+        .exists()
+    )
     stats.not_applied = _scalar(
         db,
         select(func.count(User.id)).where(
-            User.account_status != AccountStatus.FORMER, ~applied
+            User.account_status != AccountStatus.FORMER, ~applied, ~enrolled
         ),
     )
     return stats

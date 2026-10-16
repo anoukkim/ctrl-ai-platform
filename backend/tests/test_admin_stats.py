@@ -195,9 +195,11 @@ def test_member_stats_match_the_database(
     make_member(db_session, "charlie")  # no membership, no application
     make_member(db_session, "delta", status=AccountStatus.FORMER)
     make_member(db_session, "echo", role=UserRole.ADMIN)
+    enrolled = make_member(db_session, "foxtrot")  # enrolled by the admin, never applied
 
     set_membership(db_session, active.id, quarter.id, MembershipStatus.ACTIVE)
     set_membership(db_session, inactive.id, quarter.id, MembershipStatus.INACTIVE)
+    set_membership(db_session, enrolled.id, quarter.id, MembershipStatus.ACTIVE)
     db_session.commit()
 
     # alpha and bravo applied; charlie, echo and dev did not.
@@ -206,13 +208,32 @@ def test_member_stats_match_the_database(
 
     body = client.get(f"/api/admin/stats/members?quarter_id={quarter.id}").json()
 
-    # dev + alpha + bravo + charlie + echo; delta is former and excluded.
-    assert body["total"] == 5
+    # dev + alpha + bravo + charlie + echo + foxtrot; delta is former and excluded.
+    assert body["total"] == 6
     assert body["former"] == 1
-    assert body["active"] == 1
+    assert body["active"] == 2
     assert body["inactive"] == 1
-    # dev, charlie and echo have no application for this quarter.
+    # dev, charlie and echo have neither an application nor a participation
+    # row for this quarter. foxtrot never applied but is participating, so
+    # is not "yet to apply" (owner-polish 8).
     assert body["not_applied"] == 3
+
+    # The list carries the same two facts per row, so its 미신청 filter
+    # matches the card: exactly dev, charlie and echo.
+    rows = client.get(f"/api/admin/quarters/{quarter.id}/members").json()
+    by_name = {row["username"]: row for row in rows}
+    assert by_name["alpha"]["application_status"] == "approved"
+    assert by_name["bravo"]["application_status"] == "rejected"
+    assert (by_name["foxtrot"]["membership_status"], by_name["foxtrot"]["application_status"]) == ("active", None)
+    not_applied = sorted(
+        row["username"]
+        for row in rows
+        if row["membership_status"] is None
+        and row["application_status"] is None
+        and row["account_status"] != "former"
+    )
+    assert len(not_applied) == body["not_applied"] == 3
+    assert "foxtrot" not in not_applied and "charlie" in not_applied
     # dev is an admin too.
     assert body["admins"] == 2
 
