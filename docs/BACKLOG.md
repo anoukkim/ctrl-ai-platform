@@ -159,13 +159,10 @@ ui-improvements B, auto-continue / polish 11), then **① motion-modern,
     deploy runs migration `d7e1f3a9b5c2`). **Points 4·5 (thumbnails)
     and 15 (app detail) merged with ui-improvements-a (2026-10-16),
     together with the first half of 2 — Profile's 알림 as two switch rows
-    and 내가 만든 앱 as a plain list.** **2's notification list: built on
-    `feat-notifications` (2026-10-16, the owner's written pre-approval of
-    ③ owner-polish 2 above) — a server-stored list from real events (게시
-    완료 / 업데이트 게시, 참여 신청 승인·거절, the spend milestones, one
-    spend summary per KST day from the ledger, an app taken down or a
-    report kept), a bell with the unread count in the sidebar, Profile ›
-    알림 as list + settings; migration `c4e8a2d6f0b3`.** Left in this item:
+    and 내가 만든 앱 as a plain list.** **2's notification list: merged 2026-10-16 as `fa16d52`
+    (`feat-notifications`, the owner's written pre-approval of ③
+    owner-polish 2 above; Done row and delivery notes in the archive;
+    migration `c4e8a2d6f0b3`).** Left in this item:
     7 (promo video → now `promo-videos`), 11 (continue past the cap —
     `feat-auto-continue`, built, waiting on the owner), 12 (image provider
     research). Small note (app-ai-access, 2026-10-16, not fixed yet):
@@ -885,8 +882,8 @@ Dashboard / Members / System, Profile): "이것도 일단 백로그에만 추가
    member-facing notification list (게시 완료, 지원금 차감, 신청 승인, …).
    Today only the passing spend toast exists (feat-spend-feedback).
    *(First half — Profile's 알림 switch rows and the plain 내가 만든 앱
-   list — merged with ui-improvements-a; the list itself built as
-   `feat-notifications`, 2026-10-16: see the Next entry.)*
+   list — merged with ui-improvements-a; the list itself merged as
+   `feat-notifications` `fa16d52`, 2026-10-16.)*
 3. **"내가 만든 앱은 프로필에 안 뜸"** — bug: Profile › 내가 만든 앱 says
    "준비 중 · 아직 게시한 앱이 없어요" while the admin's 여행 일정 메이커 and
    the showcases are published. Read the member's published apps there.

@@ -3158,3 +3158,45 @@ on the coordinating session's "시작해". What was built:
   exemption open to anyone with the link (low, security → owner only),
   the doc chatbot stuck in demo, bare 403 assertions. No money or
   security high.
+
+## feat-notifications — delivery notes (merged 2026-10-16)
+
+Branch `feat-notifications`, merged `fa16d52` under the owner's written
+pre-approval of 2026-10-16 (BACKLOG › Next head: "③ owner-polish 2 … Yes,
+merge + deploy … Build directly"); the coordinating session confirmed the
+turn and the go before the merge. The owner's words (owner-polish 2):
+"프로필 정리 뭔가 알림 같은 것도 추가하면 좋겠어. 게시가 완료됐습니다 !
+사용이 차감됐습니다 etc". The build log with the safest defaults chosen is
+in `progress/RUN-2026-10-16.md` › NT. What was built:
+
+- **Rows** (`notifications`, migration `c4e8a2d6f0b3`; `services/
+  notifications.py`): kind, title, body, link (literal site paths plus
+  ids or server slugs), `dedupe_key` unique per member, `read_at`.
+  Written in the transaction of the event by `app_publish.publish`
+  (`notify=False` for the example-app importer), the admin's review in
+  `admin_quarters` (approval after the carry-over, with
+  `allocation.budget_krw`), `milestones.claim` (flushed first so the
+  two-tabs race keeps its graceful path), `app_publish.admin_unpublish`
+  and `resolve_report`. `ensure_spend_summaries` reads `usage_events`
+  for the last 7 KST days, skips days already summarised, writes one
+  "spend" row per day (never today, never 0원), only while
+  `spend_notifications` is on; `prune` deletes rows older than 90 days.
+  `refresh()` (prune + summaries + commit) runs on both reads.
+- **Routes** (`get_current_user`, spends nothing): `GET /api/
+  notifications` (newest first, 50, with the unread count), `GET …/
+  unread`, `POST …/{id}/read`, `POST …/read-all` (JSON `{}`); another
+  member's row → 404. Guard-map rows and the write-exception list in
+  `test_membership_access.py`.
+- **Screens**: `NotificationBell` (badge, a portal panel: latest 8, 모두
+  읽음, "Profile에서 전체 보기"; Esc / outside click; focus to the heading
+  on open; a visually hidden "안 읽음" and the whole row's text as its
+  name; count refreshed on mount, `visibilitychange`, every 60 s and on
+  `ctrlai:notifications-changed` from elsewhere — events carry a
+  `source`, sequence guards drop stale responses); `NotificationFeed` on
+  Profile above the switches (now under 알림 설정), `#notifications`.
+- **Tests**: backend `test_notifications.py` (12) + guard rows; frontend
+  `notifications.test.tsx` (5); Playwright `notifications.spec.ts` (1),
+  screenshots `progress/screens/notifications/`. Final after merging
+  main: backend 1118, frontend 575, tsc/lint/build, Playwright 1/1.
+- **Not built, on purpose**: no row for an admin's reply to 의견 (no
+  reply feature exists; noted in product.md).
