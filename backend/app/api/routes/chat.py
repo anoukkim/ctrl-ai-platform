@@ -722,6 +722,14 @@ def send_message(
     concurrency_limit = chat_limits.current(db).provider_concurrency
 
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
+    # One database step of this reply at a time — the reply's task and its
+    # flusher both write; never two of them on one session at once.
+    db_turns = asyncio.Lock()
+
+    async def in_db(work):
+        async with db_turns:
+            return await run_in_threadpool(_in_session, session_factory, work)
+
     stop = asyncio.Event()
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
     # background-runs: what the reply shows so far, for the run row (other
@@ -745,8 +753,7 @@ def send_message(
                 pass
             text, thinking = shown["text"], shown["thinking"]
             try:
-                asked = await run_in_threadpool(
-                    _in_session, session_factory, lambda db: chat_runs.flush(db, run_id, text, thinking)
+                asked = await in_db(lambda db: chat_runs.flush(db, run_id, text, thinking)
                 )
             except Exception:  # noqa: BLE001 — a missed beat is retried in half a second
                 logger.exception("flushing chat run %s failed", run_id)
@@ -765,10 +772,7 @@ def send_message(
         else:
             state = "done"
         try:
-            await run_in_threadpool(
-                _in_session,
-                session_factory,
-                lambda db: chat_runs.finish(
+            await in_db(lambda db: chat_runs.finish(
                     db,
                     run_id,
                     state,
@@ -802,7 +806,7 @@ def send_message(
         # background-runs: the run's liveness lock, held on a connection of
         # its own until the run row says how it ended — the sweep never ends
         # a reply whose process is alive, however late its heartbeat.
-        bind = await run_in_threadpool(_in_session, session_factory, lambda db: db.get_bind())
+        bind = await in_db(lambda db: db.get_bind())
         liveness = await run_in_threadpool(chat_runs.hold, bind, chat_runs.CHAT_LOCK, run_id)
         try:
             await produce_turn(marker)
@@ -816,8 +820,7 @@ def send_message(
         if not await run_in_threadpool(provider_limiter.acquire, concurrency_limit):
             state = chat_service.TurnState()
             state.error = ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
-            result = await run_in_threadpool(
-                _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, state)
+            result = await in_db(lambda db: chat_service.finish_turn(db, settings, turn, state)
             )
             await end_run(result)
             queue.put_nowait(("end", result))
@@ -895,10 +898,7 @@ def send_message(
                     error = state.error
                     break
                 # This call's charge — one `usage.charge()` per call, as always.
-                segment = await run_in_threadpool(
-                    _in_session,
-                    session_factory,
-                    lambda db, st=state, est=estimated_input: chat_service.settle_segment(
+                segment = await in_db(lambda db, st=state, est=estimated_input: chat_service.settle_segment(
                         db, settings, turn, st, estimated_input_tokens=est
                     ),
                 )
@@ -924,10 +924,7 @@ def send_message(
                 measured = (
                     segment.input_tokens + segment.cache_write_tokens + segment.cache_read_tokens
                 ) if (segment.input_tokens or segment.cache_write_tokens or segment.cache_read_tokens) else 0
-                plan = await run_in_threadpool(
-                    _in_session,
-                    session_factory,
-                    lambda db: chat_service.plan_continuation(
+                plan = await in_db(lambda db: chat_service.plan_continuation(
                         db, settings, turn, raw_so_far, cost_so_far,
                         measured_input_tokens=measured, calls_so_far=len(segments),
                         raw_last_call=segment.state.raw_text,
@@ -961,8 +958,7 @@ def send_message(
             if error is not None and not segments:
                 failed = chat_service.TurnState()
                 failed.error = error
-                result = await run_in_threadpool(
-                    _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, failed)
+                result = await in_db(lambda db: chat_service.finish_turn(db, settings, turn, failed)
                 )
                 await end_run(result)
                 queue.put_nowait(("end", result))
@@ -977,10 +973,7 @@ def send_message(
                     "error",
                     f"답장을 이어 쓰다 오류가 났어요: {error} 여기까지 저장했고, 오류가 난 부분은 청구되지 않았어요.",
                 )
-            result = await run_in_threadpool(
-                _in_session,
-                session_factory,
-                lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason, error=error),
+            result = await in_db(lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason, error=error),
             )
         except Exception:  # noqa: BLE001 — a bug here must not leave the member's stream hanging
             logger.exception("finishing a chat turn failed")

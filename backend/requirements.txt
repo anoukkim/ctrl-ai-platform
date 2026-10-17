@@ -2,6 +2,9 @@
 # Install with:  pip install -r requirements.txt -r requirements-dev.txt
 
 fastapi>=0.115,<1.0
+# Already installed with Starlette; pinned because background-runs starts
+# a reply's task on the event loop from the sync route (anyio.from_thread).
+anyio>=4.4,<5.0
 uvicorn[standard]>=0.32,<1.0
 # `[email]` pulls in email-validator, used by the EmailStr schema type.
 pydantic[email]>=2.9,<3.0
