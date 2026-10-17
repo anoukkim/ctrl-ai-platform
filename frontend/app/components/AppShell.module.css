@@ -811,3 +811,16 @@
     animation: none;
   }
 }
+
+/* running-state-calm: the dot beside Chat / Project Builder while running.
+   In the folded rail it sits on the icon's corner. */
+.navRunDot {
+  margin-left: auto;
+}
+
+.shellCollapsed .navRunDot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  margin: 0;
+}

@@ -986,38 +986,16 @@
     0 0 0 3px var(--accent-soft);
 }
 
-/* motion-modern (2): 답장이 오는 동안 입력창 둘레를 느리게 도는 색 고리 —
-   테두리 뒤에서 conic 그라데이션이 돕니다. 움직임 줄이기면 멈춘 테두리. */
-.composerBusy {
+/* running-state-calm: the composer keeps its surface while busy (the
+   motion-modern ring is gone); a .run-sweep sits on its bottom edge. */
+.composer[data-busy] {
   position: relative;
-  /* Its own stacking context, so the z-index: -1 ring sits behind this
-     box's background and not behind the whole composer area's. */
-  isolation: isolate;
-  border-color: transparent;
-  background-clip: padding-box;
+  overflow: hidden;
 }
 
-.composerBusy::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  z-index: -1;
-  border-radius: calc(var(--radius) + 6px);
-  background: conic-gradient(from var(--ring-angle, 0deg), var(--accent), #c9b6ff, #8ef0d4, var(--accent));
-  animation: ring-turn 6s linear infinite;
-  opacity: 0.9;
-}
-
-@property --ring-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes ring-turn {
-  to {
-    --ring-angle: 360deg;
-  }
+.rowDot {
+  margin-right: 6px;
+  vertical-align: 1px;
 }
 
 .input {
@@ -1067,10 +1045,12 @@
   background: var(--accent-strong-edge);
 }
 
+/* running-state-calm: a small outlined square, not a filled button. */
 .stop,
 .stop:hover:not(:disabled) {
-  background: var(--panel-2);
-  border-color: var(--border-strong);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
   color: var(--text);
 }
 

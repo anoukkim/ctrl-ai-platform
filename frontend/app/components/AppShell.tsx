@@ -45,6 +45,7 @@ import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
 import { useMediaQuery } from "@/lib/layout-prefs";
 import { useTheme } from "@/lib/theme";
+import { isRunning, useRuns } from "@/lib/running";
 
 import AnimatedNumber from "./AnimatedNumber";
 import BrandMark from "./BrandMark";
@@ -412,6 +413,13 @@ function NavGroupBlock({
   /** 주소별 잠김 안내 (owner-polish 6). 없으면 잠기지 않은 항목입니다. */
   lockedHints?: Record<string, string>;
 }) {
+  // running-state-calm: a pulsing dot on Chat / Project Builder while a reply
+  // or a build runs — it stays while the member looks at other screens.
+  const runs = useRuns();
+  const runningAt: Record<string, boolean> = {
+    "/": isRunning(runs, "chat"),
+    "/builder": isRunning(runs, "builder"),
+  };
   return (
     <div className={styles.navGroup}>
       <p className={styles.navGroupLabel}>{group.label}</p>
@@ -441,6 +449,9 @@ function NavGroupBlock({
               >
                 <item.Icon className={styles.navIcon} aria-hidden="true" />
                 <span className={styles.navLabel}>{item.label}</span>
+                {runningAt[item.href] && (
+                  <span className={`run-dot ${styles.navRunDot}`} role="img" aria-label="작업 중" data-testid="nav-running" />
+                )}
                 {lockedHint && (
                   <>
                     <Lock className={styles.navLockIcon} aria-hidden="true" />

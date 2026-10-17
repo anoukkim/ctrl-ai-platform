@@ -567,6 +567,57 @@ Three things to carry into **budget-by-provider**:
 
 New UI requests go here until they are folded into a UI batch.
 
+- **builder-first-build-running** — owner, 2026-10-17, looking at a first
+  build on production ("처음 build할때도 ui 적용이 되니" — then "아직
+  배포전인데 저것도 적용이 될까 해서 채팅 창만 한 것 같아", "둘다 목업
+  만들어"). Follow-up to `running-state-calm`: the new running look
+  (`BuilderRunPanel`) is drawn inside `PreviewPane`, which exists only
+  once a project has files (`!empty`); a **first build** has none, so the
+  centre shows the older `PlanCard` (만들 계획, `0 / 5 파일` bar, step
+  list, `남은 파일 N개`) and the right Claude panel stays empty — no
+  stage list, big timer, top sweep, file chips or narrated log.
+  **Direction:** keep the 만들 계획 (the member approved it; it is also
+  the honest progress per file) and, while it runs, put the same stage
+  list (계획 확인 → 파일 쓰기 → 점검), large elapsed timer, header sweep and
+  faint aurora above it; fold the `0 / 5` bar into that header; the left
+  file list fills in as files finish (today "아직 파일이 없어요" until the
+  end); the Claude panel narrates the same events as for later builds;
+  the live code tail is optional here (the plan already lists purposes).
+  Same stages, same wording and same reduced-motion rules as the other
+  builds — one component, two hosts. Open point: the stage events already
+  exist for plan/file/check (`Progress`, `generation.files_done`), so
+  frontend only unless the first-build run lacks the per-file events.
+  Mock-up:
+  [`ui-requests/builder-first-build-running.html`](ui-requests/builder-first-build-running.html).
+  Not scheduled.
+  **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
+  "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
+  묶음으로, 같은 규칙으로 해줘") — one batch with thumbnail-choice, after
+  fix-draft-thumbs.
+- **publish-done-popup** — owner, 2026-10-17: "게시완료 하면 그냥 원래
+  사이트 배경에 흰글씨랑 컨페티 되거든 뭔가 복잡하단 말이지 차라리 그
+  toasting 처럼 팝업되는 그런걸 하는게 어떨까". Today
+  (`PublishCelebration.tsx`, `motion-modern` (5)) 게시 완료 covers the
+  whole screen for 1.9 s with light beams, a flash, confetti and white
+  "게시 완료!" letters. **Proposal (two shapes were mocked; A chosen):** (A) a **popup card** in the toast style, bottom right
+  (top on phones): a check that pops with a few confetti pieces bursting
+  *around the check only*, "게시했어요", the app name · CtrlAIApps, and two
+  buttons — 열어 보기 (the app's address) and 링크 복사 — kept ~6 s because
+  it has buttons, closable, never covering the composer or taking focus;
+  (B) a one-line pill like the spend pill, ~3.5 s, tapping it opens
+  CtrlAIApps. Either way: no full-screen layer, no beams or flash; the
+  persistent notification row (`NotificationBell`) stays; reduced motion
+  keeps the card/pill without the confetti; the live-region line says
+  "게시했어요" once. Touches `PublishCelebration.tsx`,
+  `celebration.module.css`, the `celebrating` state in
+  `BuilderWorkspace.tsx`, its test. Frontend only. Small. Mock-up:
+  [`ui-requests/publish-done-popup.html`](ui-requests/publish-done-popup.html)
+  (현재 · A · B side by side). **Owner picked A (2026-10-17: "게시 완료
+  팝업을 A로")** — B is dropped. Not scheduled.
+  **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
+  "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
+  묶음으로, 같은 규칙으로 해줘") — one batch with thumbnail-choice, after
+  fix-draft-thumbs.
 - **spend-toast-compact** — owner, 2026-10-17 (desktop session, with a
   screenshot of the 썼어요 toast: "알림이 조금 너무 큰 것 같아 … 줄이던가
   하는 거 있어?"), then picked **"A가 좋은데"** and **"지갑 쪽에서만
@@ -823,6 +874,34 @@ New UI requests go here until they are folded into a UI batch.
   fallback: paste or upload a screenshot (Safari, or capture refused);
   「자동으로 되돌리기」. A chosen picture is not replaced by automatic renders
   until reset. After fix-draft-thumbs, same rules.
+- **background-runs** — owner, 2026-10-17 ("채팅하다 중간에 나가면 계속
+  돌아가?" → after hearing it stops today: "만약 나갔다면 채팅에 오로라로 점?
+  돌아가고 있다는거 보이게"). A Chat reply (and a Builder run) keeps going on
+  the server when the member leaves the page or closes the tab; only 「중지」
+  stops it. The finished reply is saved and charged as today (the ledger is
+  already server-side). While it runs, the conversation's row in the Chat
+  list, the sidebar's Chat item and the Builder card show a small glowing
+  aurora dot (running-state-calm's running signal, which must then come from
+  the server, not the page); coming back mid-run re-attaches to the live
+  stream. Open points: one running reply per member at a time (or per
+  conversation); a server restart mid-run ends it as 중지 with what was
+  written; reduced-motion shows a static dot. **Scheduled and pre-approved**
+  (owner, 2026-10-17, verbatim: "background-runs도 썸네일 지정 다음에 같은
+  규칙으로 해줘") — after thumbnail-choice; one running reply per member.
+- **chat-to-builder-carry** — owner, 2026-10-17: "이거를 바탕으로 빌드하기
+  하면 내가 채팅에서 작업했던 작업물을 그대로 들고 와서 하면 좋겠는데 처음부터
+  디자인을 다시 짜야되더라고 프롬프트도 그렇고 (프롬프트만 들어가니까) 이거를
+  바탕으로 빌드하면 만든 미리보기를 들고오게". Today Chat's action button
+  ("Project Builder에서 시작", `useChatIdea`) opens `/builder?idea=…&name=…` —
+  only the words travel, so the Builder designs from scratch. Only the
+  미리보기 card's 「Builder로 보내기」 carries the HTML (`from-chat`). Change:
+  when the conversation has a 미리보기 (an HTML artifact), the action creates
+  the project **from that page** (the newest one; a picker if there are
+  several) via the same `from-chat` path, with the idea as its first request
+  context, so the Builder continues from the design the member already
+  liked; without a 미리보기 it stays as today. Small. **Scheduled and
+  pre-approved** (owner, 2026-10-17, verbatim: "chat-to-builder-carry는
+  background-runs 다음에 같은 규칙으로 해줘").
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the

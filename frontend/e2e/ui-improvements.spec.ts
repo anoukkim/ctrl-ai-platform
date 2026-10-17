@@ -216,9 +216,11 @@ test("Profile: two aligned notification switches and a plain list of my apps", a
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${SITE}/profile`);
   const switches = page.getByRole("switch");
-  await expect(switches).toHaveCount(2);
-  const [x1, x2] = await Promise.all([switches.nth(0).boundingBox(), switches.nth(1).boundingBox()]);
+  // The two notification switches and 오로라 배경 (running-state-calm), one column.
+  await expect(switches).toHaveCount(3);
+  const [x1, x2, x3] = await Promise.all([0, 1, 2].map((i) => switches.nth(i).boundingBox()));
   expect(Math.abs(x1!.x - x2!.x)).toBeLessThan(2);
+  expect(Math.abs(x1!.x - x3!.x)).toBeLessThan(2);
   const list = page.getByTestId("my-apps-list");
   await expect(list).toBeVisible();
   expect(await list.locator("img").count()).toBe(0);

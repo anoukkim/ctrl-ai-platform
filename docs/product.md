@@ -385,7 +385,12 @@ Chat is the opening screen and a real conversation with Claude, behind
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
 - **Previews** (chat-plus-artifacts): a finished reply's fenced `html` or
-  `svg` block becomes a **미리보기** card — 코드 보기, 다운로드
+  `svg` block becomes a **미리보기** card — 코드 보기, 다운로드, **전체 화면**
+  (chat-preview-fullscreen, 2026-10-17: an in-page window over everything —
+  dark backdrop, 닫기 / Esc / a click outside, 새로고침, 데스크톱 / 폰
+  (390 px) width, a full-screen sheet on a phone; its own frame from the
+  same srcdoc with the same `allow-scripts`-only sandbox and CSP, started
+  only by the press and removed on close; no Fullscreen API),
   (`ctrlai-<conversation>-<reply>.html|svg`, built by the page, not the
   frame) and, for HTML, **Builder로 보내기** (a new project whose
   `index.html` is the block; free; participating members only). The
@@ -628,7 +633,38 @@ component hard-codes one, which is what makes the second theme a token
 swap rather than a redesign. Type is self-hosted Pretendard Variable.
 Under `prefers-reduced-motion` nothing moves (ui-friendly-motion).
 
-**Motion (motion-modern, 2026-10-16).** The owner asked for "더 현대적인
+**Running state (running-state-calm, 2026-10-17, as the approved
+mock-ups).** One calm "running" look for Chat and the Builder: the Chat
+composer keeps its own dark surface (the motion-modern ring is gone) with
+a 2px bar sweeping along its bottom, the stop button is a small outlined
+square and the line under it says "중지하면 지금까지 쓴 만큼만 차감돼요";
+the Builder's 만드는 중… is an outlined violet button with a spinner. The
+same signal shows in four places: a sweeping bar on the card or header, a
+pulsing dot on Chat / Project Builder in the sidebar and on the
+conversation row, a **작업 중** chip in the Chat top bar, the Builder header
+(with the elapsed time) and the project's card in the Builder list. A
+Builder run keeps its dot while the member looks at other screens; a Chat
+reply stops when the member leaves Chat (as before), so its signal lives
+on the Chat screen. Nothing is kept across a reload — the page that was
+watching is gone, and an unknown state is never shown as running.
+Progress is shown, not implied, and only from real events: the Chat card
+names 뼈대 → 스타일 → 동작 by what has arrived, with "12초 · 지금까지 약
+56원" and a flowchart skeleton that draws itself in; the Builder's preview
+pane shows the stage in large words and the elapsed time larger
+(요구사항 읽기 → 파일 쓰기 → 미리보기 조립 — the plan call, each file's
+start and finish, the check), file chips 쓰는 중 → 완료 and the real end of
+the last file written; where there is no event, only the sweep and the
+time — never a percentage. The Claude panel mirrors it: the current
+action with a three-dot pulse and the last four events, and the input
+says "작업이 끝나면 이어서 말해요". The aurora is now a very faint glow
+inside the 그림 card and the 미리보기 pane only, with a Profile switch
+**오로라 배경** (per device, on by default). Under 움직임 줄이기 the sweeps
+stand still, the dots stop, the skeleton is drawn, the glow is off.
+
+**Motion (motion-modern, 2026-10-16)** — points (1)'s loud aurora, (2)'s
+composer ring and (4)'s flight from the toast were replaced on
+2026-10-17 by running-state-calm (above) and spend-toast-compact (Money ›
+the spend moment); the rest stands. The owner asked for "더 현대적인
 느낌" and for the middle of a generation to be skipped: (1) while a Chat
 reply writes a preview's code, or the Builder writes files, the member
 sees an **aurora card** — "미리보기 만드는 중…" (그림 만드는 중… for an
@@ -755,7 +791,15 @@ Still only on a real `charged_krw`; reduced motion keeps a plain toast,
 no pop, no flight, no sound. **v3 (motion-modern, 2026-10-16):** the
 flight is 별가루 — nine small stars instead of the "-12원" text, four
 more twinkling at the balance — everything else about the moment is
-unchanged.
+unchanged. **v4 — compact (spend-toast-compact, 2026-10-17, the owner's
+option A):** the card is now one quiet pill, `−156원 · 68,336원 남음`
+(`−36원 (3번) · …` when charges merged within 3 s), in the same place, for
+2 s instead of 3; what it was for is in its tooltip and the screen-reader
+line (unchanged sentence). No coin, no flight: four stars twinkle on the
+sidebar wallet only, beside its count-down, `-N원` rise and glow; when
+the wallet is not on screen the pill alone says it. Under 10원 there is
+no pill — only the wallet (charges that merge past 10원 show). The
+milestone cards, the sound switch and the backend are unchanged.
 
 Estimated costs next to paid buttons (Chat's "답장 1회 약 N원", video's
 예상 비용) are compared with the one balance, and say so when it is short.

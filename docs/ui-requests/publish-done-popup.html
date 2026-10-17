@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>publish-done-popup — Builder (mock-up)</title>
+<!--
+  Mock-up for the BACKLOG item `publish-done-popup` (owner idea 2026-10-17).
+  Static, self-contained, no network, nothing here is served to a member.
+  Today 게시 완료 covers the whole screen with white letters and confetti
+  (PublishCelebration.tsx). The proposal is a toast-style popup like the
+  spend pill: a card with a check, the app name and two actions (A, kept
+  longer because it has buttons) or a one-line pill (B). Click a card to replay.
+-->
+<style>
+:root{--text-secondary:#8b91a3}
+html,body{margin:0;background:#0a0b0f;color:#e6e8ee;font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+h1{font-size:16px;font-weight:500;margin:0 0 4px}
+.sub{font-size:13px;color:var(--text-secondary);margin:0 0 12px}
+button.all{border:1px solid #2c3140;border-radius:999px;background:transparent;color:#aab0c2;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:10px}
+.cd{background:#12141a;border-radius:12px;font-size:12px;height:290px;position:relative;overflow:hidden;cursor:pointer}
+.h{position:absolute;left:12px;top:10px;right:12px;display:flex;justify-content:space-between;z-index:3}
+.h b{font-weight:500;font-size:13px}.h span{color:#8b91a3;font-size:11px}
+.bar{position:absolute;left:0;right:0;top:38px;height:28px;border-bottom:1px solid #232733;display:flex;gap:6px;align-items:center;padding:0 12px;color:#6e7488;font-size:11px}
+.pub{margin-left:auto;background:#2f6bff;color:#fff;border-radius:6px;padding:2px 8px}
+.pop{position:absolute;right:12px;bottom:14px;width:250px;background:#171a23;border:1px solid #2a2f40;border-radius:12px;padding:12px;opacity:0;z-index:2}
+.ck{width:30px;height:30px;border-radius:50%;background:#1d3a2d;color:#7fd6a8;display:grid;place-items:center;position:relative;flex:none;font-size:15px}
+.row{display:flex;gap:10px;align-items:center}
+.t{font-size:14px;font-weight:500}.s{color:#8b91a3;font-size:11px;margin-top:1px}
+.acts{display:flex;gap:6px;margin-top:10px}
+.bt{border:1px solid #2c3140;border-radius:8px;padding:3px 10px;color:#cfd3e0;font-size:11px}
+.bt.p{border-color:#3a3566;background:#1b1f2c;color:#cfc9ff}
+.pl{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:#171a23;border:1px solid #2a2f40;border-radius:999px;padding:5px 14px;white-space:nowrap;opacity:0;z-index:2;color:#cfd3e0}
+.cf{position:absolute;width:4px;height:7px;border-radius:1px;opacity:0;left:50%;top:50%}
+.big{position:absolute;inset:0;display:grid;place-items:center;opacity:0;font-size:26px;font-weight:500;color:#fff;z-index:1}
+.go .pop{animation:in 6s ease-out}
+.go .pl{animation:inc 3.5s ease-out}
+.go .ck{animation:ckp .5s cubic-bezier(.2,1.6,.4,1)}
+.go .cf{animation:burst .9s ease-out forwards}
+.go .big{animation:bigf 2s ease-out}
+@keyframes in{0%{opacity:0;transform:translateY(14px) scale(.94)}6%{opacity:1;transform:none}90%{opacity:1}100%{opacity:0}}
+@keyframes inc{0%{opacity:0;transform:translate(-50%,10px)}8%{opacity:1;transform:translate(-50%,0)}88%{opacity:1}100%{opacity:0}}
+@keyframes ckp{0%{transform:scale(.3)}100%{transform:scale(1)}}
+@keyframes burst{0%{opacity:0;transform:translate(0,0) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(var(--r))}}
+@keyframes bigf{0%{opacity:0;transform:scale(.8)}20%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+.note{margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.7}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.go .pop,.go .pl{opacity:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>publish-done-popup · 게시 완료</h1>
+<p class="sub">지금은 화면 전체에 흰 글씨와 색종이가 덮여요. 사용 알림처럼 작은 팝업으로 바꾸는 두 가지 안이에요.</p>
+<button class="all" id="all">모두 다시 보기</button>
+<div class="g">
+  <div class="cd" data-k="cur">
+    <div class="h"><b>현재</b><span>화면 전체, 1.9초</span></div>
+    <div class="bar">← 영화 연결 지도 <span class="pub">게시</span></div>
+    <div class="big">게시 완료!</div>
+    <i class="cf" style="background:#fff;--x:-110px;--y:-70px;--r:200deg"></i><i class="cf" style="background:#ffd98a;--x:120px;--y:-60px;--r:-160deg"></i><i class="cf" style="background:#c9b6ff;--x:-90px;--y:60px;--r:120deg"></i><i class="cf" style="background:#fff1c2;--x:100px;--y:70px;--r:-220deg"></i><i class="cf" style="background:#ffd98a;--x:0;--y:-100px;--r:90deg"></i><i class="cf" style="background:#fff;--x:-140px;--y:0;--r:180deg"></i><i class="cf" style="background:#c9b6ff;--x:140px;--y:10px;--r:-90deg"></i>
+  </div>
+  <div class="cd" data-k="a">
+    <div class="h"><b>A. 팝업 카드 (추천)</b><span>오른쪽 아래, 6초</span></div>
+    <div class="bar">← 영화 연결 지도 <span class="pub">게시</span></div>
+    <div class="pop">
+      <div class="row"><span class="ck">✓<i class="cf" style="background:#ffd98a;--x:-26px;--y:-24px;--r:160deg;left:15px;top:15px"></i><i class="cf" style="background:#c9b6ff;--x:28px;--y:-20px;--r:-140deg;left:15px;top:15px"></i><i class="cf" style="background:#fff;--x:-20px;--y:22px;--r:120deg;left:15px;top:15px"></i><i class="cf" style="background:#ffd98a;--x:26px;--y:24px;--r:-200deg;left:15px;top:15px"></i><i class="cf" style="background:#fff1c2;--x:0;--y:-32px;--r:90deg;left:15px;top:15px"></i></span>
+        <div><div class="t">게시했어요</div><div class="s">영화 연결 지도 · CtrlAIApps</div></div></div>
+      <div class="acts"><span class="bt p">열어 보기</span><span class="bt">링크 복사</span></div>
+    </div>
+  </div>
+  <div class="cd" data-k="b">
+    <div class="h"><b>B. 한 줄 알약</b><span>입력 위 가운데, 3.5초</span></div>
+    <div class="bar">← 영화 연결 지도 <span class="pub">게시</span></div>
+    <div class="pl">✓ 게시했어요 · CtrlAIApps에서 보기</div>
+  </div>
+</div>
+<p class="note"><b style="font-weight:500">A</b>: 단추가 있어서 6초 동안 남아요. 체크 표시 주위로만 작은 색종이가 팡 터지고 화면은 가리지 않아요. 주소가 바로 필요한 순간(링크 복사)을 같이 해결해요.<br>
+<b style="font-weight:500">B</b>: 가장 조용해요. 대신 단추가 없어서 누르면 CtrlAIApps로 가는 것뿐이에요.</p>
+</div>
+<script>
+var cs=document.querySelectorAll('.cd');
+function play(c){c.classList.remove('go');void c.offsetWidth;c.classList.add('go')}
+cs.forEach(function(c){c.onclick=function(){play(c)}});
+document.getElementById('all').onclick=function(){cs.forEach(play)};
+cs.forEach(play);
+</script>
+</body>
+</html>
