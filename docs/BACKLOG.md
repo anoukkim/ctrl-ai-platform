@@ -834,7 +834,9 @@ New UI requests go here until they are folded into a UI batch.
   the server, not the page); coming back mid-run re-attaches to the live
   stream. Open points: one running reply per member at a time (or per
   conversation); a server restart mid-run ends it as 중지 with what was
-  written; reduced-motion shows a static dot. Not scheduled.
+  written; reduced-motion shows a static dot. **Scheduled and pre-approved**
+  (owner, 2026-10-17, verbatim: "background-runs도 썸네일 지정 다음에 같은
+  규칙으로 해줘") — after thumbnail-choice; one running reply per member.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
