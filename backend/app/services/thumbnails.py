@@ -109,12 +109,25 @@ BROWSER = "browser"
 
 
 def save_draft(
-    db: Session, storage: AssetStorage, project: BuilderProject, data: bytes, source: str = BROWSER
+    db: Session,
+    storage: AssetStorage,
+    project: BuilderProject,
+    data: bytes,
+    source: str = BROWSER,
+    taken_of: datetime | None = None,
 ) -> None:
-    """Store the working copy's picture and stamp the project."""
+    """Store the working copy's picture and stamp the project. The server
+    passes `taken_of`, the `app_runtime_at` it photographed, as the stamp:
+    a render that finishes after the next edit must not look as new as
+    that edit (`browser_may_replace_draft`)."""
     storage.save(draft_key(project), encode(data))
     # A picture is not an edit: `updated_at` (마지막 수정순) stays.
-    quiet_update(db, project, draft_thumbnail_at=datetime.now(timezone.utc), draft_thumbnail_source=source)
+    quiet_update(
+        db,
+        project,
+        draft_thumbnail_at=taken_of or datetime.now(timezone.utc),
+        draft_thumbnail_source=source,
+    )
 
 
 def save_version(
@@ -134,14 +147,15 @@ def browser_may_replace_draft(project: BuilderProject, server_on: bool) -> bool:
     """fix-draft-thumbs. The in-browser capture draws the app without its
     web fonts, so while the server renders (`server_on`) it is only the
     fallback: it may store the working copy's picture when there is none,
-    when the stored one is the browser's, or when the server's is older
-    than the working copy (its render failed or is still queued — the
+    when the stored one is the browser's, when no files are written
+    (`app_runtime_at` NULL), or when the server's is older than the
+    working copy (its render failed or is still queued — the
     server's next picture replaces it again)."""
     if not server_on or project.draft_thumbnail_at is None:
         return True
-    if project.draft_thumbnail_source != SERVER:
+    if project.draft_thumbnail_source != SERVER or project.app_runtime_at is None:
         return True
-    return project.app_runtime_at is not None and project.draft_thumbnail_at < project.app_runtime_at
+    return project.draft_thumbnail_at < project.app_runtime_at
 
 
 def browser_may_replace_version(version: BuilderProjectVersion, server_on: bool) -> bool:

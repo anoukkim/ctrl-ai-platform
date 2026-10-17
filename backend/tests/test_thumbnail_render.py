@@ -673,3 +673,51 @@ def test_while_the_server_renders_a_browser_upload_keeps_the_servers_published_p
     assert uploaded.status_code == 200, uploaded.text
     assert uploaded.json()["published_thumbnail_at"] == stamp
     assert thumbnails.load_published(get_storage(settings), project) == before
+
+
+def test_a_server_picture_of_older_files_does_not_block_the_browser(
+    db_session: Session, dev_user, settings_for
+) -> None:
+    """The render finished after the next edit: it is stamped with the files
+    it photographed, so the browser's capture of the new files is stored."""
+    from datetime import datetime, timedelta, timezone
+
+    settings = settings_for(thumbnail_renderer="server", thumbnail_worker_url=WORKER, thumbnail_worker_secret=SECRET)
+    first = datetime.now(timezone.utc)
+    row = BuilderProject(
+        owner_user_id=dev_user.id, name="x", description="", draft_slug="abcdefgh23", app_runtime_at=first
+    )
+    db_session.add(row)
+    db_session.commit()
+
+    class EditsMidRender(thumbnail_render.FakeRenderer):
+        def render(self, url: str) -> bytes:
+            data = super().render(url)
+            row.app_runtime_at = first + timedelta(seconds=3)  # the member's next edit
+            db_session.flush()
+            return data
+
+    thumbnail_render.use_renderer(EditsMidRender())
+    try:
+        thumbnail_render.render_draft_now(db_session, settings, row)
+        db_session.commit()
+    finally:
+        thumbnail_render.use_renderer(None)
+    db_session.refresh(row)
+    assert row.draft_thumbnail_source == thumbnails.SERVER
+    assert row.draft_thumbnail_at.replace(tzinfo=None) == first.replace(tzinfo=None)
+    assert thumbnails.browser_may_replace_draft(row, server_on=True) is True
+
+
+def test_the_browser_rule_without_a_picture_or_without_written_files(db_session: Session, dev_user) -> None:
+    from datetime import datetime, timezone
+
+    row = BuilderProject(owner_user_id=dev_user.id, name="x", description="")
+    assert thumbnails.browser_may_replace_draft(row, server_on=True) is True  # no picture yet
+    row.draft_thumbnail_at = datetime.now(timezone.utc)
+    row.draft_thumbnail_source = thumbnails.SERVER
+    row.app_runtime_at = None  # files removed (deleted, then restored)
+    assert thumbnails.browser_may_replace_draft(row, server_on=True) is True
+    row.app_runtime_at = row.draft_thumbnail_at
+    assert thumbnails.browser_may_replace_draft(row, server_on=True) is False
+    assert thumbnails.browser_may_replace_draft(row, server_on=False) is True

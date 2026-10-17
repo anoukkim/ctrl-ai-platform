@@ -279,9 +279,10 @@ def render_draft_now(db: Session, settings: Settings, project: BuilderProject) -
     renderer = get_renderer(settings)
     if renderer is None:
         raise RenderError(OFF, 503)
+    stamp = project.app_runtime_at
     data = renderer.render(draft_url(settings, project))
     try:
-        thumbnails.save_draft(db, get_storage(settings), project, data, source=thumbnails.SERVER)
+        thumbnails.save_draft(db, get_storage(settings), project, data, source=thumbnails.SERVER, taken_of=stamp)
     except AttachmentRefusal as refusal:
         logger.warning("thumbnail worker returned a bad image: %s", refusal)
         raise RenderError(FAILED) from refusal

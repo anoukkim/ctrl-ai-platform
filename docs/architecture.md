@@ -348,7 +348,12 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
    upload is answered 200 but not stored when a server picture exists
    and — for the working copy — is at least as new as `app_runtime_at`.
    With the server off, or its picture missing or older than the files,
-   the browser's picture is stored as before.
+   the browser's picture is stored as before. A server draft is stamped
+   with the `app_runtime_at` it photographed (not the time it finished),
+   so a render that ends after the next edit never looks current; no
+   written files (`app_runtime_at` NULL) also lets the browser store.
+   Admin › Apps' in-browser 썸네일 만들기 is an explicit admin action and
+   still stores (labelled `browser`).
 1. **The api asks for one address only** (`services/thumbnail_render`):
    `APPS_BASE_URL` + the project's own ten-letter slug +
    `/_app/index.html` — never a URL from a request body. 게시 queues the
