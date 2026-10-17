@@ -637,6 +637,12 @@ New UI requests go here until they are folded into a UI batch.
   comments and reactions on a published app's CtrlAIApps page, the same
   shape as CtrlAITube's (reactions, threaded comments, 신고, admin
   hide/delete, 반응을 얻었어요 notifications). Phase 5's remaining slice.
+  **Layout (owner, 2026-10-17):** "아래 미리보기에서 한 8:2? 7:3? 으로 분리해서
+  영상처럼 댓글 윈도우 만드는게 좋을듯" — on a wide screen the app preview
+  takes ~70% and a right-hand panel ~30% holds the reactions (좋아요 · 유용해요 ·
+  흥미로워요) and the comments, like the CtrlAITube watch page; the panel can be
+  folded to give the app the full width (remembered per browser); on a phone
+  the panel goes under the app.
 - **ai-switch-wording** — owner, 2026-10-17: "실제 AI켜기 가 아니라 로그인해서
   사용하기 (토큰 소모 있을 수도 있음) 뭔가 이런식으로 쓰면 좋을 듯". The shell
   bar's 「실제 AI 켜기」 becomes 「로그인해서 사용하기」 with a short note that
@@ -645,6 +651,10 @@ New UI requests go here until they are folded into a UI batch.
 - **Order (owner, 2026-10-17: "이거 끝나면 진행")** — after the server
   thumbnails are switched on and builder-snapshots is deployed: builder-images
   (reference, then assets), ctrlaiapps-reactions, ai-switch-wording.
+  **Pre-approved** (owner, 2026-10-17, answering whether to ask each time:
+  "큰 건은아니어서 매번 묻지 않아도 되면 \"같은 규칙으로\"") — the same rules:
+  merge + deploy once reviews are clean and all tests pass, one at a time;
+  serious money/security findings stop and wait.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
