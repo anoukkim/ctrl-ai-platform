@@ -42,7 +42,7 @@ from app.schemas.accounting import (
     ReconcileRead,
 )
 from app.services import money_flow as money_flow_service
-from app.services import accounting, audit, cost_report, purge
+from app.services import accounting, audit, cost_report, purge, usage_analysis
 from app.services.storage import get_storage
 from app.services.quarters import current_quarter
 
@@ -564,4 +564,51 @@ def confirm_apps_archived(
     )
     db.commit()
     return CloseStepsRead(apps_archived_at=_apps_archived_at(db, quarter_id))
+
+
+# ----------------------------------------------------------- 사용 분석 (v3 batch 3)
+
+
+@router.get(
+    "/quarters/{quarter_id}/usage-analysis",
+    response_model=usage_analysis.QuarterAnalysis,
+    summary="사용 분석: 원가 and 청구 per provider, by feature, by model, top apps and members, the trend",
+)
+def read_usage_analysis(
+    quarter_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> usage_analysis.QuarterAnalysis:
+    return usage_analysis.quarter_analysis(db, _quarter(db, quarter_id))
+
+
+@router.get("/quarters/{quarter_id}/export/concur.csv", summary="The quarter's credit purchases as expense lines (CSV)")
+def export_concur(
+    quarter_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> Response:
+    quarter = _quarter(db, quarter_id)
+    return Response(
+        content=usage_analysis.concur_csv(db, quarter),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="ctrlai-{quarter.code}-concur.csv"'},
+    )
+
+
+@router.get(
+    "/members/{user_id}/usage",
+    response_model=usage_analysis.MemberUsage,
+    summary="The member panel's 사용 내역 for one quarter",
+)
+def read_member_usage(
+    user_id: int,
+    quarter_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> usage_analysis.MemberUsage:
+    member = db.get(User, user_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
+    return usage_analysis.member_usage(db, member, _quarter(db, quarter_id))
 

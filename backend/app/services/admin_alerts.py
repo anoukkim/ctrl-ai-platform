@@ -88,7 +88,7 @@ def wallet_alerts(db: Session, quarter: Quarter | None) -> list[WalletAlert]:
             user_id=user.id,
             username=user.username,
             display_name=user.display_name,
-            used_pct=min(100, round(wallet.consumed_krw * 100 / wallet.budget_krw)),
+            used_pct=min(100, int(wallet.consumed_krw * 100 / wallet.budget_krw + 0.5)),
             remaining_krw=wallet.remaining_krw,
         )
         for wallet, user in rows

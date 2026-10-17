@@ -77,7 +77,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     description: "분기와 예산 — 산 돈이 어디로 나뉘었나. 분기는 위쪽에서 바꿔요.",
     Icon: CalendarRange,
     // 분기 · 예산 = "산 돈이 어디로 나뉘었나" (돈의 흐름, 분기 마감), 사용 분석 =
-    // "어디에 썼나" (v3). Until batch (3) builds it, 사용 분석 is the Budget screen.
+    // "어디에 썼나" (v3, batch 3 — the former Budget screen's place).
     tabs: [
       { key: "quarters", label: "분기 · 예산" },
       { key: "budget", label: "사용 분석" },

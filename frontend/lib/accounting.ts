@@ -186,6 +186,67 @@ export function confirmAppsArchived(quarterId: number): Promise<{ apps_archived_
   });
 }
 
+/** admin-consolidation v3 (3): 사용 분석 and the member's 사용 내역. */
+export interface Share {
+  label: string;
+  krw: number;
+  pct: number;
+}
+
+export interface ModelLine {
+  model_id: string;
+  label: string;
+  krw: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface QuarterAnalysis {
+  cost_usd: number;
+  cost_krw: number;
+  charged_krw: number;
+  cache_saved_krw: number;
+  providers: {
+    provider: string;
+    label: string;
+    cost_usd: number;
+    charged_krw: number;
+    remaining_usd: number | null;
+    runs_out_on: string | null;
+  }[];
+  by_feature: Share[];
+  by_model: ModelLine[];
+  top_apps: { id: number; name: string; krw: number }[];
+  top_members: { id: number; name: string; krw: number }[];
+  daily: { day: string; krw: number }[];
+  forecast_krw: number | null;
+  runs_out_on: string | null;
+}
+
+export interface MemberUsage {
+  budget_krw: number;
+  used_krw: number;
+  remaining_krw: number;
+  used_pct: number | null;
+  calls: number;
+  runs_out_on: string | null;
+  by_feature: Share[];
+  by_model: ModelLine[];
+  recent: { when: string; place: string; model: string; krw: number }[];
+}
+
+export function getUsageAnalysis(quarterId: number): Promise<QuarterAnalysis> {
+  return request<QuarterAnalysis>(`/admin/quarters/${quarterId}/usage-analysis`);
+}
+
+export function getMemberUsage(userId: number, quarterId: number): Promise<MemberUsage> {
+  return request<MemberUsage>(`/admin/members/${userId}/usage?quarter_id=${quarterId}`);
+}
+
+export function concurCsvUrl(quarterId: number): string {
+  return `${API_BASE_URL}/api/admin/quarters/${quarterId}/export/concur.csv`;
+}
+
 export function getCachePanel(days: number): Promise<CacheRow[]> {
   return request<CacheRow[]>(`/admin/cache-panel?days=${days}`);
 }

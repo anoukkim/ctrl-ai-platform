@@ -74,6 +74,11 @@ the same commit that adds it.
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
 | `POST /api/admin/apps/{project_id}/thumbnail` | `require_admin` | owner-polish-3 (a): 썸네일 만들기 — raw image bytes taken in the admin's own browser from the published app, re-encoded like the maker's (409 without a published version) |
 | `GET /api/admin/search?q=` | `require_admin` | admin-consolidation v3: the header's 찾기 — members by username or display name, projects (not deleted) by name, six each; LIKE wildcards escaped |
+| `GET /api/admin/quarters/{id}/money-flow` | `require_admin` | admin-consolidation v3 (2): 돈의 흐름 — this quarter's credit purchases, wallets used / unused, reserve, club-absorbed cost, forecast. Read only |
+| `GET /api/admin/quarters/{id}/close-steps`, `POST …/apps-archived` | `require_admin` | 분기 마감 4단계 (앱 보관): the confirmation is an audit row (`quarter.apps_archived`), JSON body |
+| `GET /api/admin/quarters/{id}/usage-analysis` | `require_admin` | admin-consolidation v3 (3): 사용 분석 — 원가 and 청구 per provider (credit left, runs-out date), cache savings, by feature, by model, top 5 apps (not deleted) and members, 30-day trend, forecast |
+| `GET /api/admin/quarters/{id}/export/concur.csv` | `require_admin` | The quarter's credit purchases as expense lines (Concur-style CSV, UTF-8 with BOM) |
+| `GET /api/admin/members/{id}/usage?quarter_id=` | `require_admin` | The member panel's 사용 내역: wallet figures, calls, runs-out date, by feature, by model (tokens), last 10 calls; club-absorbed rows excluded |
 | `GET /api/admin/apps/thumbnail-renderer` | `require_admin` | thumbnail-render-worker: `{renderer: browser\|server}` — whether 썸네일 다시 만들기 opens each app in the admin's browser or asks the server |
 | `POST /api/admin/apps/{project_id}/thumbnail/render` | `require_admin` | thumbnail-render-worker: the server's own browser photographs the published files (`{}`); one app per call; 503 with the reason while the renderer is `browser` or the worker fails (the old picture stays), 409 without a published version |
 | `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |

@@ -50,6 +50,7 @@ import {
 import styles from "../../admin.module.css";
 import Fact from "./Fact";
 import MemberDeletedWork from "./MemberDeletedWork";
+import MemberUsagePanel from "./MemberUsagePanel";
 import WithdrawalPanel from "./WithdrawalPanel";
 import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
@@ -503,6 +504,9 @@ export default function MemberDetailView({
         run={run}
         onError={(text) => setResult({ kind: "error", text })}
       />
+
+      {/* ---------- 사용 내역 (admin-consolidation v3, batch 3) ---------- */}
+      <MemberUsagePanel userId={member.user_id} />
 
       {/* ---------- 지운 작업 (admin-consolidation v3: Deleted Items moved here) ---------- */}
       <MemberDeletedWork userId={member.user_id} onChanged={onChanged} />

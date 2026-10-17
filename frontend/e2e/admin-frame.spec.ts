@@ -97,6 +97,7 @@ test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four t
   const panel = page.getByTestId("member-panel");
   await expect(panel).toBeVisible();
   await expect(panel.getByTestId("member-deleted-work")).toBeVisible();
+  await expect(panel.getByTestId("member-usage")).toContainText("사용률");
   await theme(page, "dark");
   await page.screenshot({ path: `${SHOTS}/1440-dark-member-panel.png` });
   await page.keyboard.press("Escape");
@@ -108,6 +109,12 @@ test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four t
   await page.waitForTimeout(600);
   await page.getByTestId("money-flow").scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/1440-dark-quarters.png` });
+
+  // Batch 3: 사용 분석.
+  await page.goto(`${SITE}/admin/quarters?tab=budget`);
+  await expect(page.getByTestId("usage-analysis")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Concur/ })).toHaveCount(0); // inside the closed 내보내기 fold
+  await page.screenshot({ path: `${SHOTS}/1440-dark-usage-analysis.png` });
 
   await page.goto(`${SITE}/admin/models`);
   const tabs = page.getByRole("list", { name: /안의 탭/ }).getByRole("link");
