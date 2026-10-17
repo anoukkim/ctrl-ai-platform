@@ -621,6 +621,14 @@ New UI requests go here until they are folded into a UI batch.
   into one finished request shown for review before 고치기; a request that
   is already clear skips the questions. Two Haiku calls (~몇 원–10원).
   "아니 지금하라는게 아니라" — later, not now.
+- **builder-images** — owner, 2026-10-17: "빌더 에는 사진 추가 못하나..? 이런
+  디자인 참고 등으로". Two uses: (1) **reference** — attach up to ~3 images to
+  a 만들기 / 고치기 request (📎 or paste); Claude sees them (vision input),
+  the images are not put into the app; ~5–10원 more per image, included in
+  the estimate; the upload path of chat-plus-files (bytes checked,
+  re-encoded, metadata gone). (2) **assets** — an image saved as an app file
+  (e.g. `logo.png`) the app shows; storage only, app size limits, export
+  ZIP and thumbnails follow. (1) first. Not scheduled.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
