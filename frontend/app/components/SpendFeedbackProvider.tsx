@@ -327,6 +327,7 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
               type="button"
               tabIndex={-1}
               className={styles.pill}
+              ref={placePill}
               data-testid="spend-toast"
               data-count={toast.count}
               initial={reduced ? false : { opacity: 0, y: 8 }}
@@ -382,6 +383,28 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
       </AnimatePresence>
     </SpendContext.Provider>
   );
+}
+
+/**
+ * Where the pill appears (owner, 2026-10-17: "차감된거 지원금 위에 떠야하는거
+ * 아님?"): just above the screen's 「남은 지원금」 line (`data-spend-anchor`,
+ * WalletCheck), left-aligned with it — never over the reply's buttons. No
+ * visible anchor (or a phone): the CSS default place. A callback ref sets the
+ * position directly, so nothing re-renders.
+ */
+export function placePill(el: HTMLElement | null): void {
+  if (!el || typeof window === "undefined" || window.innerWidth <= 720) return;
+  const anchors = Array.from(document.querySelectorAll<HTMLElement>("[data-spend-anchor]"));
+  const anchor = anchors.find((node) => {
+    const rect = node.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.top > 0 && rect.bottom <= window.innerHeight;
+  });
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  el.style.left = `${Math.max(8, Math.round(rect.left))}px`;
+  el.style.right = "auto";
+  el.style.margin = "0";
+  el.style.bottom = `${Math.round(window.innerHeight - rect.top + 6)}px`;
 }
 
 /** The pill's amount: `−156원`, or `−36원 (3번)` when charges merged. */
