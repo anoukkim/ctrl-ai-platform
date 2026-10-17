@@ -27,10 +27,12 @@ hold API keys — and records usage per member and quarter.
   thumbnail-font fix, the font catalogue, the app tab icon and the Chat
   list collapse (each with a pre-deploy backup). Providers are still on
   mock except as the owner switches them on.
-- **Waiting:** `thumbnail-render-worker` (server-side thumbnails) is built,
-  reviewed and merged on this Mac's `main`, but GitHub refused the push
-  until the local GitHub login has the `workflow` scope
-  (`gh auth refresh -h github.com -s workflow`). `builder-snapshots`
+- **In flight (2026-10-17 morning):** `thumbnail-render-worker`
+  (server-side thumbnails) was pushed to `main` (`96bdbe1`) once the
+  GitHub login got the `workflow` scope; the `images` build is running,
+  and the coordinating session then deploys it, adds the three `.env`
+  lines on the server, checks the isolation and regenerates thumbnails.
+  Do not push to `main` while that build runs. `builder-snapshots`
   (versions as saved snapshots, 작업-step undo/redo) is built on its own
   branch and waits for review, tests and deploy.
 - **Before members are invited:** privacy-and-terms (the owner reviews
