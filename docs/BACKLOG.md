@@ -667,6 +667,17 @@ New UI requests go here until they are folded into a UI batch.
   "큰 건은아니어서 매번 묻지 않아도 되면 \"같은 규칙으로\"") — the same rules:
   merge + deploy once reviews are clean and all tests pass, one at a time;
   serious money/security findings stop and wait.
+- **draft-server-thumbnails** — owner, 2026-10-17, after the server
+  thumbnails went live ("글씨체나 그 테트리스 같은 애들은 좀 깨긴 해"), choosing
+  "1. 작업 중 프로젝트도 서버가 찍기" and "글꼴과 그림이 다 그려질 때까지
+  기다렸다가 찍기", "지금 뭐 돌아가고 있으니까 그거 끝나고". (1) The Builder's
+  draft (working copy) thumbnail is also taken by the thumbs worker after
+  each new version, through the same queue and isolation (the draft's
+  preview address added to what the api may ask for and the worker accepts);
+  the in-browser capture stays the fallback. (2) The worker waits for
+  `document.fonts.ready` and ~1–2 s more before the screenshot (both for
+  published and draft renders). Scheduled right after builder-images, under
+  the same rules as the queue.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
