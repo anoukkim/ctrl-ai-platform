@@ -1,143 +1,166 @@
-# CTRL+AI
+<p align="center">
+  <img src="docs/readme/logo.svg" alt="CTRL+AI" width="320">
+</p>
 
-A beginner-friendly AI creation community. Members describe what they want
-in Korean, and CTRL+AI helps them build an app or make a short video, then
-share it with the community. CTRL+AI owns provider access — members never
-hold API keys — and records usage per member and quarter.
+<p align="center">
+  <b>코딩 없이, 말로 앱과 영상을 만들고 나누는 AI 창작 동아리</b><br>
+  A Korean-first AI creation community — describe it, CTRL+AI builds it, share it.
+</p>
+
+<p align="center">
+  <img alt="status: beta" src="https://img.shields.io/badge/status-beta-a63cf6?style=flat-square">
+  <img alt="site" src="https://img.shields.io/badge/site-ctrlai.my-3a6df0?style=flat-square">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-React%20·%20TypeScript-1b2a7a?style=flat-square&logo=nextdotjs">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-Python%20·%20PostgreSQL-1b2a7a?style=flat-square&logo=fastapi">
+  <img alt="Claude" src="https://img.shields.io/badge/AI-Claude-a63cf6?style=flat-square&logo=anthropic">
+  <img alt="license" src="https://img.shields.io/badge/license-Apache%202.0-5fe3f7?style=flat-square">
+</p>
+
+<p align="center">
+  <img src="docs/readme/builder.png" alt="Project Builder — Claude writes the app, the preview runs it" width="900">
+</p>
 
 `내가 원하는 것을 말한다 → CTRL+AI가 만들어 준다 → 공유한다`
 
-## Where we are
+CTRL+AI is the club's own platform. Members — most of them new to code —
+describe an app or a short video in Korean; Claude builds it in the
+**Project Builder**, it runs safely on `apps.ctrlai.my`, and the club sees it
+in **CtrlAIApps** and **CtrlAITube**. The club owns provider access: members
+never hold API keys, and every won spent comes out of one 동아리 지원 wallet
+per member per quarter, recorded per member, quarter and provider.
 
-**M1 — beta launch, in progress.** The goal is an invite-only beta on
-`ctrlai.my` with real Claude chat and everything else labelled test mode.
+> **Beta, invite-only.** The site runs at [ctrlai.my](https://ctrlai.my) for
+> invited members. Every external provider also has a **mock**, so the whole
+> platform runs locally with no API keys.
 
-- **Done:** everything in
-  [`docs/archive/done.md`](docs/archive/done.md) — most recently (as of
-  2026-10-17) the Builder's static runtime and the CtrlAIApps 게시 flow
-  (app-ai-access: the maker picks 데모만 or 전체 기능), the member apps
-  platform ("기능 상자"), notifications, chat-pins, motion-modern,
-  owner-polish-3 (automatic USD→KRW rate, thumbnails), the app tab icon,
-  the Korean font catalogue and the collapsible Chat list, on top of the
-  beta stack (Chat with real budget rules, one 동아리 지원 wallet per
-  quarter, invite-only sign-up, Google and password sign-in, Admin
-  sections, backups and monitoring).
-- **Deployed (as of 2026-10-17):** `ctrlai-server` runs the stack on
-  `ctrlai.my` / `apps.ctrlai.my`, last updated overnight with the
-  thumbnail-font fix, the font catalogue, the app tab icon and the Chat
-  list collapse (each with a pre-deploy backup). Providers are still on
-  mock except as the owner switches them on.
-- **In flight (2026-10-17 morning):** `thumbnail-render-worker`
-  (server-side thumbnails) was pushed to `main` (`96bdbe1`) once the
-  GitHub login got the `workflow` scope; the `images` build is running,
-  and the coordinating session then deploys it, adds the three `.env`
-  lines on the server, checks the isolation and regenerates thumbnails.
-  Do not push to `main` while that build runs. `builder-snapshots`
-  (versions as saved snapshots, 작업-step undo/redo) is built on its own
-  branch and waits for review, tests and deploy.
-- **Before members are invited:** privacy-and-terms (the owner reviews
-  the text), the one real Claude message with the owner's key, and invite
-  codes created on the server — until then **do not share the address**.
-- **Next:** the top of **Next** in [`docs/BACKLOG.md`](docs/BACKLOG.md),
-  which is the only place the order is written. Milestones are in
-  [`docs/ROADMAP.md`](docs/ROADMAP.md). The latest hand-over notes are
-  [`docs/progress/MORNING-2026-10-17.md`](docs/progress/MORNING-2026-10-17.md).
-
-Every external provider runs as a **mock by default**, so the whole
-platform runs locally with no API keys.
-
-## Production (beta)
+## Screens
 
 | | |
-| - | - |
-| Site | `https://ctrlai.my` (www redirects to it); member apps on `https://apps.ctrlai.my/<slug>/` |
-| Server | Google Cloud Compute Engine `ctrlai-server` — e2-medium (2 vCPU, 4 GB), Seoul `asia-northeast3-c`, Debian 13, 30 GB disk, static IP `34.47.78.228` |
-| Stack | `docker-compose.prod.yml`: `caddy` (80/443, automatic HTTPS), `web` (Next.js), `api` (FastAPI), `db` (PostgreSQL 16, no published port) |
-| Images | Built and pushed to ghcr.io by GitHub Actions on every push to `main`; the server only pulls |
-| Secrets | `.env` on the server only, `chmod 600`, never committed (beta-only exception, `CLAUDE.md` section 8) |
-| DNS | Gabia: `@` A `34.47.78.228`, `www` CNAME `ctrlai.my.` |
-| Billing | Google Cloud free trial (₩407,626) — **upgrade the billing account by 2027-01-04**, or the server stops when the trial ends |
+| :-: | :-: |
+| <img src="docs/readme/chat-welcome.png" alt="Chat" width="440"><br>**Chat** — Claude chat and the way into every feature | <img src="docs/readme/builder-library.png" alt="Project Builder library" width="440"><br>**Project Builder** — your projects, with real screenshots |
+| <img src="docs/readme/ctrlaiapps.png" alt="CtrlAIApps" width="440"><br>**CtrlAIApps** — the club's published apps | <img src="docs/readme/ctrlaiapps-detail.png" alt="An app on CtrlAIApps" width="440"><br>**An app** — runs in a sandbox, with reactions and comments |
+| <img src="docs/readme/ctrlaitube.png" alt="CtrlAITube" width="440"><br>**CtrlAITube** — the club's videos | <img src="docs/readme/admin-quarters.png" alt="Admin › Quarters" width="440"><br>**Admin** — quarters, wallets, the money flow, usage |
 
-Setting up, updating, backing up and restoring the server are step by step,
-in Korean, in [`docs/deployment.md`](docs/deployment.md). From a Windows PC,
-use `gcloud.cmd` rather than `gcloud` (the same execution-policy reason as
-`npm.cmd`):
+## What it does
 
-```powershell
-gcloud.cmd compute ssh ctrlai-server --zone=asia-northeast3-c
-# then, on the server:
-sudo -iu ctrlai_platform
+- **Chat** — Claude (Sonnet / Haiku) with files, charts, tables and live
+  HTML previews; a reply keeps going if you leave the page; pin and fold
+  conversations; a preview can start a Builder project with its design and
+  requirements.
+- **Project Builder** — say what you want; Claude plans, writes the files and
+  checks them while you watch; saved versions with undo/redo; reference
+  pictures; 32 Korean fonts; one click to publish.
+- **Member apps (기능 상자)** — published apps run on `apps.ctrlai.my` in a
+  trusted shell around a sandboxed frame, with an SDK for storage, sign-in,
+  a per-app database and AI that the visitor pays for from their own
+  wallet (데모 or 전체 기능, the maker's choice).
+- **CtrlAIApps & CtrlAITube** — the club's gallery: real thumbnails taken by a
+  headless browser in an isolated container, reactions, comments, 신고.
+- **Money** — one wallet per member per quarter, in won; every charge is one
+  locked transaction with its usage event; estimates before every paid
+  action; the spend shown as it happens.
+- **Admin** — six sections (Dashboard · Members · Quarters · Models ·
+  Community · System): 처리할 일 and alerts, a member panel with every action,
+  the quarter's money flow and close-out steps, usage analysis with a Concur
+  CSV, the site banner, audit log.
+
+## How it fits together
+
+```text
+browser ──► ctrlai.my (Caddy, HTTPS)
+              ├─ web   Next.js — every screen, proxies /api/*
+              └─ api   FastAPI — auth, wallets & usage ledger, Claude, Builder
+                         └─ db  PostgreSQL 16 (Alembic owns the schema)
+browser ──► apps.ctrlai.my — the trusted shell + sandboxed member app (no cookies of the site)
+api ──unix socket──► thumbs — headless Chromium on an internal network (thumbnails only)
 ```
 
-**Never paste or screenshot the server's `.env`.** If a secret is shown
-anywhere, treat it as compromised and rotate it.
+Providers sit behind interfaces with a mock chosen by an environment
+variable (`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `GITHUB_PROVIDER`,
+`YOUTUBE_PROVIDER`, `GOOGLE_LOGIN_PROVIDER`, `FX_PROVIDER`,
+`THUMBNAIL_RENDERER`); the mock is the default. Details:
+[`docs/architecture.md`](docs/architecture.md).
 
-## Quick start
+## Run it locally
 
-Windows PowerShell. Details, and what to do when something goes wrong, are
-in [`docs/development.md`](docs/development.md).
+**Prerequisites:** Python 3.11+, Node.js 20+, PostgreSQL 16 (Docker Desktop's
+`docker compose up -d`, or Homebrew on a Mac). No API keys needed.
 
-**Prerequisites:** Python 3.11+, Node.js 20+, Docker Desktop (running).
+<details open>
+<summary><b>macOS / Linux</b></summary>
 
-**First-time setup**, from the repository root:
+```bash
+cp .env.example .env
+docker compose up -d                      # or a local PostgreSQL 16
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/alembic upgrade head
+.venv/bin/python -m app.db.init_db        # development seed
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+cd frontend
+npm install
+npm run dev                               # http://localhost:3000
+```
+</details>
+
+<details>
+<summary><b>Windows (PowerShell)</b></summary>
 
 ```powershell
 Copy-Item .env.example .env
-
+docker compose up -d
 cd backend
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
-cd ..\frontend
-npm.cmd install
-cd ..
-
-docker compose up -d
-cd backend
 .\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe -m app.db.init_db
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+# in another terminal
+cd frontend; npm.cmd install; npm.cmd run dev
 ```
-
-**Every day — three processes**, each in its own terminal:
-
-| # | Directory   | Command                                                                | URL                   |
-| - | ----------- | ---------------------------------------------------------------------- | --------------------- |
-| 1 | root        | `docker compose up -d`                                                 | localhost:5432        |
-| 2 | `backend\`  | `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000` | http://localhost:8000 |
-| 3 | `frontend\` | `npm.cmd run dev`                                                      | http://localhost:3000 |
 
 `npm.cmd` rather than `npm`: PowerShell's default execution policy blocks
-the `npm.ps1` script, and `npm.cmd` is the same command without it.
+`npm.ps1`.
+</details>
 
-Open **http://localhost:3000**. The login screen has **Google로 계속하기**
-— locally a mock Google page where you type any email (development only) —
-and, below it, username and password. The seeded development account signs
-in there — 아이디 `dev`, 비밀번호 `devpassword` (development only; the seed
-refuses to run anywhere else). `docs/development.md` lists the other seeded
-members.
+Open **http://localhost:3000** and sign in as `dev` / `devpassword`
+(development only — the seed refuses to run anywhere else), or with the
+mock Google page. Member apps locally: `python -m app.dev_apps_server` on
+`:8300` with `APPS_BASE_URL=http://localhost:8300`. Reset the local data
+with `python -m app.db.reset_dev`. Everything else — environment files,
+sign-in, troubleshooting — is in [`docs/development.md`](docs/development.md).
 
-**Reset the local test data** — wipes the local database and seeds it
-again (development and a localhost database only; it refuses otherwise):
+**Tests** — none of them call a paid API:
 
-```powershell
-# in backend\
-.\.venv\Scripts\python.exe -m app.db.reset_dev
+```bash
+cd backend && .venv/bin/pytest
+cd frontend && npm test && npx tsc --noEmit && npm run lint && npm run build
+cd frontend && npm run e2e        # Playwright against a running stack (see playwright.config.ts)
 ```
 
-**Tests:**
+A few backend tests need real PostgreSQL; they use their own database
+(`TEST_DATABASE_URL`, default `ctrlai_test`) and skip when none is running.
+See [`docs/development.md` › Verifying the project](docs/development.md#verifying-the-project).
 
-```powershell
-# in backend\
-.\.venv\Scripts\python.exe -m pytest
+## Deployment
 
-# in frontend\
-npm.cmd test; npx tsc --noEmit; npm.cmd run lint; npm.cmd run build
-```
+The beta runs on one Google Cloud VM (Seoul) with `docker-compose.prod.yml`:
+Caddy, web, api, PostgreSQL and the `thumbs` worker. GitHub Actions builds
+the images on every push to `main`; the server only pulls them, and
+`deploy/update.sh` backs up, migrates and restarts. Step by step, in Korean:
+[`docs/deployment.md`](docs/deployment.md). Secrets live only in the
+server's `.env` (`chmod 600`, never committed).
 
-A few backend tests need real PostgreSQL. They use their **own** database,
-`TEST_DATABASE_URL` (default `ctrlai_test` on the Docker Compose server,
-created on first use), never your development database, and skip when no
-PostgreSQL is running. See
-[`docs/development.md` › Verifying the project](docs/development.md#verifying-the-project).
+## Contributing
+
+Work follows [`CLAUDE.md`](CLAUDE.md) (decisions, standing rules, git
+workflow) and [`docs/BACKLOG.md`](docs/BACKLOG.md) (the only place the order
+of work is written; milestones in [`docs/ROADMAP.md`](docs/ROADMAP.md)).
+One branch per item, small commits, all tests and the build before a merge.
 
 ## Where to find things
 
@@ -158,5 +181,9 @@ PostgreSQL is running. See
 | [`docs/archive/done.md`](docs/archive/done.md) | Every merged item, newest first |
 | [`docs/archive/done-specs.md`](docs/archive/done-specs.md) | Full specs of merged items |
 | [`docs/archive/phase-table.md`](docs/archive/phase-table.md) | The old phase table, superseded by the roadmap |
-| [`docs/ui-requests/`](docs/ui-requests/) | Screenshots referenced by UI requests |
+| [`docs/ui-requests/`](docs/ui-requests/) | Mock-ups and screenshots behind UI requests |
 | [`frontend/README.md`](frontend/README.md) | Frontend-only commands |
+
+## License
+
+[Apache License 2.0](LICENSE).
