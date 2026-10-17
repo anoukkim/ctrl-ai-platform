@@ -85,6 +85,14 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
         nullable=True,
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: builder-snapshots: the 작업 step the working copy is at (see
+    #: `BuilderProjectStep`) — moves back with 실행 취소, forward with 다시
+    #: 실행. NULL = no step recorded yet.
+    step_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: builder-snapshots: the saved version the member loaded (불러오기);
+    #: "unsaved work" is the working copy differing from it. NULL = the
+    #: newest version.
+    base_version_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     #: app-platform P2: an admin stopped this app's 기능 상자 (sign-in, AI,
     #: data). The app still opens; every `/_ctrlai/v1` call is refused.
     sdk_disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -192,11 +200,13 @@ class BuilderProjectVersion(TimestampMixin, Base):
     """Every file of a project as it was after one change
     (builder-static-runtime).
 
-    Written after each generation (예시 앱, 만들기 / 고치기), after a
-    되돌리기 and when a project arrives from Chat; the member can go back
-    to any of the last `KEEP` versions. Going back is itself a new version,
-    so nothing is ever lost by restoring. `files` is a list of
-    `[path, content]` pairs — the project is small text (≤ 2 MB).
+    Since builder-snapshots a version is a **saved snapshot**: written by
+    the member's 버전 저장, by 게시, and when a project starts (예시 앱, a
+    template, a project from Chat) — not by each change. Loading one
+    (불러오기) changes the working copy only. The member can keep the last
+    `KEEP` versions (pinned and the published one excepted). `files` is a
+    list of `[path, content]` pairs — the project is small text (≤ 2 MB).
+    The steps between snapshots are `BuilderProjectStep`.
     """
 
     __tablename__ = "builder_project_versions"
@@ -237,6 +247,36 @@ class BuilderProjectVersion(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<BuilderProjectVersion v{self.number} project={self.project_id}>"
+
+
+class BuilderProjectStep(TimestampMixin, Base):
+    """One 작업 step (builder-snapshots): the working copy after a Claude
+    edit or a load, kept only for 실행 취소 / 다시 실행.
+
+    Steps are a short rolling history — the newest `KEEP` besides the one
+    the project stands on — not versions: they carry no number, are not
+    counted in the 30 saved versions and are never exported. `seq` only
+    grows within a project; `BuilderProject.step_seq` points at the current
+    one, so everything above it is the redo stack.
+    """
+
+    __tablename__ = "builder_project_steps"
+    __table_args__ = (UniqueConstraint("project_id", "seq", name="uq_builder_project_steps_seq"),)
+
+    #: Undo steps kept per project.
+    KEEP = 20
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: What made it, in Korean: "고치기: 버튼 색을…", "v2 불러오기", "처음 상태".
+    note: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    files: Mapped[list] = mapped_column(JSON, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<BuilderProjectStep #{self.seq} project={self.project_id}>"
 
 
 class AppFavorite(TimestampMixin, Base):
@@ -333,6 +373,11 @@ class BuilderGeneration(TimestampMixin, Base):
     error: Mapped[str] = mapped_column(Text, default="", nullable=False)
     version_id: Mapped[int | None] = mapped_column(
         ForeignKey("builder_project_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    #: builder-snapshots: the 작업 step this run made (NULL once the step
+    #: rolled out of the history; `version_id` is kept for older runs).
+    step_id: Mapped[int | None] = mapped_column(
+        ForeignKey("builder_project_steps.id", ondelete="SET NULL"), nullable=True
     )
 
     def __repr__(self) -> str:

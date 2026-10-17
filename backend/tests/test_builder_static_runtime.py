@@ -60,6 +60,10 @@ def generate(client: TestClient, project: BuilderProject, request: str):
     return client.post(f"/api/builder/projects/{project.id}/generate", json={"request": request})
 
 
+def save(client: TestClient, project: BuilderProject, label: str = ""):
+    return client.post(f"/api/builder/projects/{project.id}/versions", json={"label": label})
+
+
 def files_of(db_session: Session, project: BuilderProject) -> dict[str, str]:
     db_session.expire_all()
     return builder_versions.current_files(db_session, project)
@@ -75,13 +79,14 @@ def test_making_then_changing_an_app_charges_each_time_and_saves_versions(
     assert made.status_code == 200, made.text
     body = made.json()
     assert {f["path"] for f in body["files"]} == {"index.html", "style.css", "app.js"}
-    assert body["version"]["number"] == 1 and body["version"]["note"].startswith("만들기:")
+    # builder-snapshots: a run is a 작업 step, not a numbered version.
+    assert body["step"]["note"].startswith("만들기:") and body["step"]["current"] is True
     assert body["charged_krw"] > 0
 
     changed = generate(client, project, "버튼 색을 바꿔 줘")
     assert changed.status_code == 200, changed.text
     assert changed.json()["changed"] == ["style.css"]
-    assert changed.json()["version"]["note"].startswith("고치기:")
+    assert changed.json()["step"]["note"].startswith("고치기:")
     css = files_of(db_session, project)["style.css"]
     assert MOCK_ACCENT_NEW in css and MOCK_ACCENT not in css
 
@@ -90,9 +95,10 @@ def test_making_then_changing_an_app_charges_each_time_and_saves_versions(
     db_session.refresh(budgeted)
     assert budgeted.consumed_krw == sum(e.charged_krw for e in events)
 
-    versions = client.get(f"/api/builder/projects/{project.id}/versions").json()
-    assert [v["number"] for v in versions] == [2, 1]
-    assert versions[0]["file_count"] == 3 and versions[0]["total_bytes"] > 0
+    assert client.get(f"/api/builder/projects/{project.id}/versions").json() == []
+    saved = save(client, project, "첫 버전").json()
+    assert saved["created"] is True and saved["version"]["number"] == 1 and saved["version"]["label"] == "첫 버전"
+    assert saved["version"]["file_count"] == 3 and saved["version"]["total_bytes"] > 0
 
 
 def test_the_estimate_reserves_the_whole_output_budget(
@@ -104,15 +110,19 @@ def test_the_estimate_reserves_the_whole_output_budget(
     assert db_session.query(UsageEvent).count() == 0
 
 
-def test_a_project_made_before_versions_gets_its_old_state_kept_first(
+def test_a_project_made_before_steps_gets_its_old_state_as_the_first_step(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
     db_session.add(BuilderProjectFile(project_id=project.id, path="index.html", content="<p>옛날</p>"))
     db_session.commit()
 
     assert generate(client, project, "제목을 바꿔 줘").status_code == 200
-    versions = client.get(f"/api/builder/projects/{project.id}/versions").json()
-    assert [(v["number"], v["note"]) for v in versions][1] == (1, "처음 상태")
+    history = client.get(f"/api/builder/projects/{project.id}/steps").json()
+    assert [step["note"] for step in history["steps"]][0] == "처음 상태" and history["can_undo"] is True
+    assert client.get(f"/api/builder/projects/{project.id}/versions").json() == []
+    undone = client.post(f"/api/builder/projects/{project.id}/steps/{history['steps'][0]['seq']}/restore", json={})
+    assert undone.status_code == 200, undone.text
+    assert files_of(db_session, project) == {"index.html": "<p>옛날</p>"}
 
 
 def test_server_code_is_refused_and_not_charged_but_the_club_cost_is_recorded(
@@ -127,7 +137,7 @@ def test_server_code_is_refused_and_not_charged_but_the_club_cost_is_recorded(
     assert files_of(db_session, project) == before
     absorbed = db_session.query(UsageEvent).order_by(UsageEvent.id.desc()).first()
     assert absorbed.charged_krw == 0 and absorbed.club_absorbed is True
-    assert db_session.query(BuilderProjectVersion).count() == 1
+    assert db_session.query(BuilderProjectVersion).count() == 0
 
 
 def test_a_provider_failure_changes_nothing(
@@ -181,20 +191,25 @@ def test_the_size_and_count_limits() -> None:
 # ------------------------------------------------------------ versions
 
 
-def test_restoring_a_version_is_free_and_is_itself_a_version(
+def test_loading_a_version_is_free_and_makes_no_version(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
     generate(client, project, "앱을 만들어 줘")
     first = files_of(db_session, project)
+    assert save(client, project).json()["version"]["number"] == 1
     generate(client, project, "버튼 색을 바꿔 줘")
     charged = db_session.query(UsageEvent).count()
+    assert client.get(f"/api/builder/projects/{project.id}/steps").json()["unsaved"] is True
 
-    restored = client.post(f"/api/builder/projects/{project.id}/versions/1/restore", json={})
-    assert restored.status_code == 200, restored.text
-    assert restored.json()["version"]["number"] == 3
-    assert restored.json()["version"]["note"] == "v1로 되돌리기"
+    loaded = client.post(f"/api/builder/projects/{project.id}/versions/1/restore", json={})
+    assert loaded.status_code == 200, loaded.text
+    assert loaded.json()["version"]["number"] == 1
     assert files_of(db_session, project) == first
     assert db_session.query(UsageEvent).count() == charged
+    assert [v["number"] for v in client.get(f"/api/builder/projects/{project.id}/versions").json()] == [1]
+    history = client.get(f"/api/builder/projects/{project.id}/steps").json()
+    assert history["unsaved"] is False and history["reference_version_number"] == 1
+    assert history["steps"][-1]["note"] == "v1 불러오기"
 
     assert client.post(f"/api/builder/projects/{project.id}/versions/99/restore", json={}).status_code == 404
 
@@ -205,6 +220,7 @@ def test_a_versions_files_can_be_read_without_changing_anything(
     """이 버전 보기 (quality-tuning Q3): free, read-only, owner only."""
     generate(client, project, "앱을 만들어 줘")
     first = files_of(db_session, project)
+    save(client, project)
     generate(client, project, "버튼 색을 바꿔 줘")
     charged = db_session.query(UsageEvent).count()
 

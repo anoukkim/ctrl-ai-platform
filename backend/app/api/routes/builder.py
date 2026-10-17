@@ -29,6 +29,7 @@ from app.models import (
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectStatus,
+    BuilderProjectStep,
     BuilderProjectVersion,
     User,
 )
@@ -56,10 +57,15 @@ from app.schemas.builder import (
     GenerateRequest,
     HandoffFile,
     HandoffRead,
+    HistoryRead,
     PublishRequest,
     PublishSummaryRead,
     RestoreRead,
+    SaveRead,
+    StepGoRead,
+    StepRead,
     VersionLabel,
+    VersionSave,
     StarterEstimateRead,
     StarterRead,
     StarterRequest,
@@ -633,6 +639,51 @@ def _version_read(
     )
 
 
+def _step_read(
+    step: BuilderProjectStep,
+    project: BuilderProject,
+    generation: BuilderGeneration | None = None,
+) -> StepRead:
+    made = generation is not None
+    return StepRead(
+        seq=step.seq,
+        note=step.note,
+        created_at=step.created_at,
+        current=project.step_seq == step.seq,
+        request=generation.request if made else "",
+        summary=generation.summary if made else "",
+        changed_count=len(set(generation.files_done) | set(generation.check_fixed)) if made else None,
+        charged_krw=generation.charged_krw if made else None,
+    )
+
+
+def _history_read(db: Session, project: BuilderProject) -> HistoryRead:
+    """The undo history, the generations that made its steps, and whether
+    the working copy has unsaved work."""
+    steps = builder_versions.list_steps(db, project)
+    made_by = {
+        generation.step_id: generation
+        for generation in db.scalars(
+            select(BuilderGeneration).where(
+                BuilderGeneration.step_id.in_([step.id for step in steps] or [0]),
+                BuilderGeneration.status == "done",
+            )
+        )
+    }
+    seqs = [step.seq for step in steps]
+    at = project.step_seq
+    reference = builder_versions.reference_version(db, project)
+    newest = builder_versions.latest(db, project)
+    return HistoryRead(
+        steps=[_step_read(step, project, made_by.get(step.id)) for step in steps],
+        can_undo=at is not None and any(seq < at for seq in seqs),
+        can_redo=at is not None and any(seq > at for seq in seqs),
+        unsaved=builder_versions.has_unsaved(db, project),
+        reference_version_number=reference.number if reference is not None else None,
+        latest_version_number=newest.number if newest is not None else None,
+    )
+
+
 def _file_rows(db: Session, project: BuilderProject) -> list[BuilderFileRead]:
     return [
         BuilderFileRead.model_validate(row)
@@ -712,13 +763,13 @@ def generate(
     _refresh_runtime(db, config, project)
     db.commit()
     db.refresh(project)
-    db.refresh(result.version)
+    db.refresh(result.step)
     return GenerateRead(
         files=_file_rows(db, project),
         changed=result.changed,
         summary=result.summary,
         charged_krw=result.charged_krw,
-        version=_version_read(result.version, project),
+        step=_step_read(result.step, project),
         project=BuilderProjectRead.model_validate(project),
     )
 
@@ -776,7 +827,7 @@ def version_files(
 @router.post(
     "/projects/{project_id}/versions/{number}/restore",
     response_model=RestoreRead,
-    summary="되돌리기: the project's files as they were in one version",
+    summary="불러오기: make the working copy the files of one saved version",
 )
 def restore_version(
     project_id: int,
@@ -785,8 +836,10 @@ def restore_version(
     user: User = Depends(require_active_member),
     config: Settings = Depends(get_settings),
 ) -> RestoreRead:
-    """Free — nothing is generated. Saved as a new version, so the state
-    being left can be restored in turn."""
+    """Free — nothing is generated. Changes the working copy only
+    (builder-snapshots): no version is made, and the state being left is a
+    작업 step, so 실행 취소 brings it back. The Builder asks about unsaved
+    work first; the server does not refuse."""
     project = _owned_project(project_id, db, user)
     try:
         version = builder_versions.restore(db, project, number)
@@ -801,6 +854,72 @@ def restore_version(
         version=_version_read(version, project),
         project=BuilderProjectRead.model_validate(project),
     )
+
+
+@router.post(
+    "/projects/{project_id}/versions",
+    response_model=SaveRead,
+    summary="버전 저장: the working copy as the next saved version",
+)
+def save_version(
+    project_id: int,
+    payload: VersionSave,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> SaveRead:
+    """Free. A version is only ever made here, by 게시, or when a project
+    starts. Files equal to the version they stand on make nothing
+    (`created: false`, the Builder says "이미 같아요")."""
+    project = _owned_project(project_id, db, user)
+    try:
+        version, created = builder_versions.save(db, project, name=payload.label, settings=config)
+    except builder_versions.VersionError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    db.refresh(project)
+    db.refresh(version)
+    return SaveRead(created=created, version=_version_read(version, project), project=BuilderProjectRead.model_validate(project))
+
+
+@router.get(
+    "/projects/{project_id}/steps",
+    response_model=HistoryRead,
+    summary="The 작업 steps (실행 취소 / 다시 실행) and whether there is unsaved work",
+)
+def list_steps(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> HistoryRead:
+    """Readable while not participating, like the files themselves."""
+    return _history_read(db, _owned_project(project_id, db, user))
+
+
+@router.post(
+    "/projects/{project_id}/steps/{seq}/restore",
+    response_model=StepGoRead,
+    summary="실행 취소 / 다시 실행 / 이 단계로: the working copy as it was at one step",
+)
+def restore_step(
+    project_id: int,
+    seq: int,
+    payload: EmptyBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    config: Settings = Depends(get_settings),
+) -> StepGoRead:
+    """Free; changes the working copy only. The Builder sends the
+    neighbouring step for 실행 취소 / 다시 실행."""
+    project = _owned_project(project_id, db, user)
+    try:
+        builder_versions.go_to_step(db, project, seq)
+    except builder_versions.VersionError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    _refresh_runtime(db, config, project)
+    db.commit()
+    db.refresh(project)
+    return StepGoRead(files=_file_rows(db, project), project=BuilderProjectRead.model_validate(project))
 
 
 @router.post(
@@ -1035,6 +1154,10 @@ def _generation_read(
     generation: BuilderGeneration,
 ) -> GenerationRead:
     version_number = None
+    step_seq = None
+    if generation.step_id is not None:
+        step = db.get(BuilderProjectStep, generation.step_id)
+        step_seq = step.seq if step else None
     if generation.version_id is not None:
         version = db.get(BuilderProjectVersion, generation.version_id)
         version_number = version.number if version else None
@@ -1058,6 +1181,7 @@ def _generation_read(
         charged_krw=generation.charged_krw,
         error=generation.error,
         version_number=version_number,
+        step_seq=step_seq,
         created_at=generation.created_at,
         estimated_krw=estimated,
         max_call_krw=max_call,

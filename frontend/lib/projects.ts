@@ -273,7 +273,7 @@ export function getGenerateEstimate(id: number | string): Promise<GenerateEstima
 
 export interface BuilderVersion {
   number: number;
-  /** 무엇이 만든 버전인지: "예시 앱", "고치기: …", "v3으로 되돌리기". */
+  /** 무엇이 만든 버전인지: "예시 앱", "버전 저장", "게시". */
   note: string;
   created_at: string;
   file_count: number;
@@ -313,20 +313,49 @@ export function isGuideDoc(path: string): boolean {
   return (GUIDE_DOCS as readonly string[]).includes(path);
 }
 
+/**
+ * 작업 단계(builder-snapshots) — 저장한 버전 사이의 짧은 실행 취소 기록.
+ * 번호가 없고 30개 한도에도 들지 않아요. Claude가 만든 단계에는
+ * 부탁·요약·비용이 붙어요.
+ */
+export interface BuilderStep {
+  seq: number;
+  note: string;
+  created_at: string;
+  /** 지금 작업 중인 파일이 서 있는 단계. */
+  current: boolean;
+  request?: string;
+  summary?: string;
+  changed_count?: number | null;
+  charged_krw?: number | null;
+}
+
+export interface BuilderHistory {
+  /** 오래된 것부터. */
+  steps: BuilderStep[];
+  can_undo: boolean;
+  can_redo: boolean;
+  /** 저장 안 한 작업이 있어요 — 서 있는 버전과 파일이 달라요. */
+  unsaved: boolean;
+  /** 서 있는 버전: 불러온 것, 아니면 가장 새 버전. */
+  reference_version_number: number | null;
+  latest_version_number: number | null;
+}
+
 export interface GenerateResult {
   files: BuilderFile[];
   /** Claude가 새로 만들거나 바꾼 파일. */
   changed: string[];
   summary: string;
   charged_krw: number;
-  version: BuilderVersion;
+  step: BuilderStep;
   project: BuilderProject;
 }
 
 /** 만들기 화면의 스타일 고르기 (ctrlaiapps-publish F2). 빈 값 = 아이디어에 맞게. */
 export const STYLE_CHOICES = ["깔끔한", "귀여운", "레트로", "다크", "신문", "게임"] as const;
 
-/** 말로 만들기 / 고치기. 지원금에서 차감되고, 새 버전으로 저장됩니다. */
+/** 말로 만들기 / 고치기. 지원금에서 차감되고, 작업 단계로 남습니다(실행 취소 가능). */
 export function generateProject(
   id: number | string,
   requestText: string,
@@ -357,11 +386,43 @@ export interface RestoreResult {
   project: BuilderProject;
 }
 
-/** 그 버전으로 되돌립니다. 무료이고, 되돌린 것도 새 버전이 됩니다. */
+/** 그 버전을 불러옵니다(작업 중인 파일만 바뀌고 새 버전은 안 생겨요). 무료. */
 export function restoreVersion(id: number | string, number: number): Promise<RestoreResult> {
   return request<RestoreResult>(`/builder/projects/${id}/versions/${number}/restore`, {
     method: "POST",
+    body: JSON.stringify({}),
   });
+}
+
+export interface SaveVersionResult {
+  /** false = 파일이 서 있는 버전과 같아서 아무것도 만들지 않았어요("이미 같아요"). */
+  created: boolean;
+  version: BuilderVersion;
+  project: BuilderProject;
+}
+
+/** 버전 저장: 지금 파일을 다음 번호의 버전으로. 이름은 선택. 무료. */
+export function saveVersion(id: number | string, label = ""): Promise<SaveVersionResult> {
+  return request<SaveVersionResult>(`/builder/projects/${id}/versions`, {
+    method: "POST",
+    body: JSON.stringify({ label }),
+  });
+}
+
+/** 작업 단계와 저장 안 한 작업 여부. */
+export function getHistory(id: number | string): Promise<BuilderHistory> {
+  return request<BuilderHistory>(`/builder/projects/${id}/steps`);
+}
+
+/** 실행 취소 / 다시 실행 / 이 단계로: 작업 파일을 그 단계 때로. 무료. */
+export function restoreStep(
+  id: number | string,
+  seq: number,
+): Promise<{ files: BuilderFile[]; project: BuilderProject }> {
+  return request<{ files: BuilderFile[]; project: BuilderProject }>(
+    `/builder/projects/${id}/steps/${seq}/restore`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
 }
 
 /** 미리보기 갱신: 지금 파일을 앱 주소에 올립니다. */

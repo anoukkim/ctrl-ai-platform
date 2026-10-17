@@ -45,8 +45,10 @@ interface Props {
   projectId: number;
   /** 지금 게시된 버전. 처음 게시면 null. */
   publishedVersion: number | null;
-  /** 게시될 버전(작업 중 최신). */
+  /** 게시될 버전: 작업 파일이 서 있는 버전, 저장 안 한 작업이 있으면 곧 만들어질 다음 번호. */
   nextVersion: number | null;
+  /** 저장 안 한 작업이 있어 게시하면서 nextVersion으로 저장된다 (builder-snapshots). */
+  savesNew?: boolean;
   initial: PublishValues;
   /** 지금 설정 (처음 게시면 데모만). */
   initialAiAccess?: AiAccess;
@@ -65,6 +67,7 @@ export default function PublishDialog({
   projectId,
   publishedVersion,
   nextVersion,
+  savesNew = false,
   initial,
   initialAiAccess = "demo",
   busy,
@@ -119,11 +122,11 @@ export default function PublishDialog({
           <li data-testid="publish-change">
             {same
               ? `지금 게시된 것이 최신(v${publishedVersion})이에요. 설명과 메모만 바뀝니다.`
-              : `게시된 버전: v${publishedVersion} → v${nextVersion}. 누르기 전까지 방문한 사람은 v${publishedVersion} 그대로 봐요.`}
+              : `게시된 버전: v${publishedVersion} → v${nextVersion}. 누르기 전까지 방문한 사람은 v${publishedVersion} 그대로 봐요.${savesNew ? ` 저장 안 한 작업은 v${nextVersion}으로 저장돼요.` : ""}`}
           </li>
         ) : (
           <li>
-            작업 중인 버전 v{nextVersion} — CtrlAIApps에 올라가요. 게시한 뒤에 고쳐도
+            작업 중인 버전 v{nextVersion}{savesNew ? "(저장 안 한 작업을 이 버전으로 저장해요)" : ""} — CtrlAIApps에 올라가요. 게시한 뒤에 고쳐도
             &lsquo;업데이트 게시&rsquo;를 누르기 전까지 공개된 앱은 바뀌지 않아요.
           </li>
         )}

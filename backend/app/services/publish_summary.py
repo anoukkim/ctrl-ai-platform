@@ -4,16 +4,17 @@ When the dialog opens, Claude's cheapest model ("fast" — Haiku, from the
 members' catalogue) reads the project's name and files and writes the
 CtrlAIApps 설명 in one or two Korean sentences; for 업데이트 게시 it also
 writes one line on what changed since the published version, from the
-versions' requests and summaries. Both are defaults the member may edit.
+requests and summaries of the runs since. Both are defaults the member may edit.
 
 Rules the owner set:
 
 * **Free to the member.** The dialog promises "비용은 들지 않고": nothing
   leaves the wallet. The club's cost is recorded as an absorbed row
   (`usage.record_absorbed`, feature `publish_summary`, `charged_krw=0`).
-* **Once per version.** The result is kept on the version row
+* **Once per version.** The result is kept on the newest version row
   (`summary_description`, `summary_note`, `summary_base_version`); opening
-  the dialog again for the same working version sends nothing. The note
+  the dialog again for the same working version sends nothing. Unsaved
+  work (builder-snapshots) keeps nothing, so each open asks again. The note
   is recomputed when the published version it was written against has
   changed.
 * **Never blocks 게시.** No catalogue model, a provider error, a reply
@@ -121,31 +122,30 @@ def _digest(name: str, files: dict[str, str]) -> str:
 
 
 def _changes(db: Session, project: BuilderProject, since_number: int | None) -> list[str]:
-    """What each version since the published one asked for, oldest first."""
-    if since_number is None:
+    """What each 만들기 / 고치기 since the published version asked for,
+    oldest first (builder-snapshots: versions are saved snapshots now, so
+    the runs themselves are the record of what changed)."""
+    published_at = project.published_at
+    if since_number is None or published_at is None:
         return []
-    versions = [v for v in builder_versions.list_versions(db, project) if v.number > since_number]
-    versions.sort(key=lambda v: v.number)
-    made = {
-        generation.version_id: generation
-        for generation in db.scalars(
-            select(BuilderGeneration).where(
-                BuilderGeneration.version_id.in_([v.id for v in versions] or [0]),
+    runs = list(
+        db.scalars(
+            select(BuilderGeneration)
+            .where(
+                BuilderGeneration.project_id == project.id,
                 BuilderGeneration.status == "done",
+                BuilderGeneration.created_at > published_at,
             )
+            .order_by(BuilderGeneration.id)
         )
-    }
+    )
     lines: list[str] = []
-    for version in versions[-MAX_CHANGES:]:
-        generation = made.get(version.id)
-        if generation is not None:
-            text = generation.request.strip().splitlines()[0] if generation.request.strip() else ""
-            if generation.summary.strip():
-                text = f"{text} → {generation.summary.strip()}" if text else generation.summary.strip()
-        else:
-            text = version.note
+    for generation in runs[-MAX_CHANGES:]:
+        text = generation.request.strip().splitlines()[0] if generation.request.strip() else ""
+        if generation.summary.strip():
+            text = f"{text} → {generation.summary.strip()}" if text else generation.summary.strip()
         if text:
-            lines.append(f"v{version.number}: {text[:160]}")
+            lines.append(text[:160])
     return lines
 
 
@@ -157,12 +157,22 @@ def _base(project: BuilderProject) -> int | None:
 def cached(db: Session, project: BuilderProject) -> Summary | None:
     """What the version row already holds, or None when a call is needed.
     Checked by the route before it takes a provider slot."""
-    version = builder_versions.latest(db, project)
-    if version is None or version.summary_description is None:
+    version = builder_versions.reference_version(db, project)
+    # Unsaved work is not a saved version: nothing stored for it.
+    if version is None or version.summary_description is None or builder_versions.has_unsaved(db, project):
         return None
     if version.summary_base_version != _base(project):
         return None
     return Summary(version.summary_description, version.summary_note or "", cached=True, model=version.summary_model or "")
+
+
+class _Unsaved:
+    """Stands in for a version row while the working copy is unsaved."""
+
+    summary_description: str | None = None
+    summary_note: str | None = None
+    summary_base_version: int | None = None
+    summary_model: str | None = None
 
 
 @dataclass(frozen=True)
@@ -221,10 +231,14 @@ async def summarize(db: Session, settings: Settings, provider: Any, *, user: Use
     hit = cached(db, project)
     if hit is not None:
         return hit
-    version = builder_versions.latest(db, project)
+    version = builder_versions.reference_version(db, project)
     files = builder_versions.current_files(db, project)
     if version is None or "index.html" not in files:
         return EMPTY
+    if builder_versions.has_unsaved(db, project):
+        # Work not yet saved as a version: answer it, keep nothing (the
+        # summary belongs to a saved version). 게시 saves it first.
+        version = _Unsaved()
     try:
         model, _label = app_ai.choose_model(db, settings, "fast")
         price = pricing.price_for(db, model)

@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models import BuilderProject, BuilderProjectVersion, ProviderErrorKind, UsageFeature, User
+from app.models import BuilderProject, BuilderProjectStep, ProviderErrorKind, UsageFeature, User
 from app.services import builder_choice, builder_files, builder_versions, chat_limits, chat_models, pricing
 from app.services import provider_limiter, providers
 from app.services import usage as usage_service
@@ -97,7 +97,7 @@ class EditResult:
     changed: list[str]
     summary: str
     charged_krw: int
-    version: BuilderProjectVersion
+    step: BuilderProjectStep
 
 
 def generate(
@@ -206,7 +206,7 @@ def generate(
     builder_versions.ensure_baseline(db, project)
     builder_versions.replace_files(db, project, updated)
     note = ("만들기: " if not files else "고치기: ") + request
-    version = builder_versions.snapshot(db, project, note[:200], updated, settings)
+    step = builder_versions.record_step(db, project, note[:200], updated)
     # A request — 만들기 or 고치기 — is never the description (owner,
     # 2026-10-16, ui-improvements); 게시 writes the real one.
     providers.record_success(db, "claude", "빌더" + (" (mock)" if is_mock else ""))
@@ -216,5 +216,5 @@ def generate(
         changed=changed,
         summary=edit.summary or "요청한 대로 바꿨어요.",
         charged_krw=result.event.charged_krw,
-        version=version,
+        step=step,
     )

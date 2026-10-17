@@ -74,8 +74,8 @@ def test_publish_v1_edit_to_v3_public_stays_v1_until_update(
 ) -> None:
     """The owner's F1 case: publish, keep editing — the public URL serves
     the published version until 업데이트 게시."""
-    generate(client, project, "할 일 앱을 만들어 줘")  # v1
-    first = publish(client, project, note="첫 버전")
+    generate(client, project, "할 일 앱을 만들어 줘")
+    first = publish(client, project, note="첫 버전")  # 게시 saves the working copy as v1
     assert first.status_code == 200, first.text
     body = first.json()
     assert body["status"] == "published" and body["published_version_number"] == 1
@@ -83,9 +83,9 @@ def test_publish_v1_edit_to_v3_public_stays_v1_until_update(
     assert project.app_slug and project.app_slug != project.draft_slug
     assert MOCK_ACCENT in public_css(apps_dir, project)
 
-    generate(client, project, "버튼 색을 바꿔 줘")  # v2
-    generate(client, project, "제목 밑에 설명을 넣어 줘")  # v3
-    # Working copy changed; the public folder did not.
+    generate(client, project, "버튼 색을 바꿔 줘")
+    generate(client, project, "제목 밑에 설명을 넣어 줘")
+    # Working copy changed (two 작업 steps, no new version); the public folder did not.
     draft_css = (apps_dir / project.draft_slug / "style.css").read_text(encoding="utf-8")
     assert MOCK_ACCENT_NEW in draft_css
     assert MOCK_ACCENT in public_css(apps_dir, project)
@@ -93,34 +93,39 @@ def test_publish_v1_edit_to_v3_public_stays_v1_until_update(
     assert (listing["version_number"], listing["publish_note"]) == (1, "첫 버전")
     assert listing["app_url"] == f"{APPS_BASE}/{project.app_slug}/"
 
-    update = publish(client, project, note="버튼 색을 바꿨어요")
-    assert update.json()["published_version_number"] == 3
+    assert [v["number"] for v in client.get(f"/api/builder/projects/{project.id}/versions").json()] == [1]
+    update = publish(client, project, note="버튼 색을 바꿨어요")  # saved as v2 first
+    assert update.json()["published_version_number"] == 2
     assert MOCK_ACCENT_NEW in public_css(apps_dir, project)
     assert client.get(f"/api/apps/{project.app_slug}").json()["publish_note"] == "버튼 색을 바꿨어요"
 
     versions = client.get(f"/api/builder/projects/{project.id}/versions").json()
-    assert [(v["number"], v["published"]) for v in versions] == [(3, True), (2, False), (1, False)]
+    assert [(v["number"], v["published"]) for v in versions] == [(2, True), (1, False)]
 
 
 def test_rolling_back_and_updating_serves_the_old_version_again(
     client: TestClient, db_session: Session, project, budgeted, config, apps_dir
 ) -> None:
-    generate(client, project, "할 일 앱을 만들어 줘")  # v1
-    generate(client, project, "버튼 색을 바꿔 줘")  # v2
-    publish(client, project)
+    generate(client, project, "할 일 앱을 만들어 줘")
+    client.post(f"/api/builder/projects/{project.id}/versions", json={"label": ""})  # v1
+    generate(client, project, "버튼 색을 바꿔 줘")
+    publish(client, project)  # saved as v2
     db_session.refresh(project)
     assert MOCK_ACCENT_NEW in public_css(apps_dir, project)
 
-    client.post(f"/api/builder/projects/{project.id}/versions/1/restore", json={})  # v3 = v1
+    client.post(f"/api/builder/projects/{project.id}/versions/1/restore", json={})  # load v1
     assert MOCK_ACCENT_NEW in public_css(apps_dir, project)  # not yet
-    assert publish(client, project).json()["published_version_number"] == 3
+    # The working copy is v1 as it stands: published as v1, no version v3 is made.
+    assert publish(client, project).json()["published_version_number"] == 1
     assert MOCK_ACCENT in public_css(apps_dir, project)
+    assert len(client.get(f"/api/builder/projects/{project.id}/versions").json()) == 2
 
 
 def test_unpublish_keeps_every_version_and_takes_the_address_down(
     client: TestClient, db_session: Session, project, budgeted, config, apps_dir
 ) -> None:
     generate(client, project, "할 일 앱을 만들어 줘")
+    client.post(f"/api/builder/projects/{project.id}/versions", json={"label": ""})
     generate(client, project, "버튼 색을 바꿔 줘")
     publish(client, project)
     db_session.refresh(project)
@@ -260,6 +265,7 @@ def test_a_version_can_be_named_and_pinned_and_pinned_ones_are_kept(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
     generate(client, project, "할 일 앱을 만들어 줘")
+    assert client.post(f"/api/builder/projects/{project.id}/versions", json={"label": ""}).status_code == 200
     named = client.patch(
         f"/api/builder/projects/{project.id}/versions/1", json={"label": "메모 기능 추가", "pinned": True}
     )

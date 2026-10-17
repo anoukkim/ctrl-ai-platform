@@ -36,6 +36,8 @@ export interface Generation {
   /** 마지막 실패의 한국어 설명. 없으면 빈 문자열. */
   error: string;
   version_number: number | null;
+  /** builder-snapshots: 이 실행이 만든 작업 단계(버전이 아니에요). */
+  step_seq?: number | null;
   created_at: string;
   /** 시작 / 이어서 만들기 옆의 "약 N원"과 호출마다 "최대 M원". */
   estimated_krw: number | null;
@@ -82,7 +84,7 @@ export interface RunHandlers {
 }
 
 export type RunOutcome =
-  | { kind: "done"; versionNumber: number; chargedKrw: number; filesDone: string[]; checkFixed: string[] }
+  | { kind: "done"; chargedKrw: number; filesDone: string[]; checkFixed: string[] }
   | { kind: "error"; detail: string; partial: boolean; filesDone: string[] }
   /** 연결이 끊겼습니다 — 서버는 계속 만들 수 있으니 작업을 다시 읽어 봅니다. */
   | { kind: "disconnected"; detail: string };
@@ -147,7 +149,6 @@ export async function runGeneration(
     else if (name === "done")
       outcome = {
         kind: "done",
-        versionNumber: payload.version_number,
         chargedKrw: payload.charged_krw ?? 0,
         filesDone: payload.files_done ?? [],
         checkFixed: payload.check_fixed ?? [],

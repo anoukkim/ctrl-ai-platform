@@ -594,6 +594,18 @@ New UI requests go here until they are folded into a UI batch.
   code check (review) and tests, then merge + deploy under the same rules
   as the other pre-approved items (review clean + tests pass; backup →
   update.sh → verify → roll back + STOP on failure).
+  **Built on `feat-builder-snapshots` (2026-10-17); merged 2026-10-17 under
+  the scheduled pre-approval above (coordinator: full suites green on main):** `builder_project_steps` + migration `c5a8e1f3b7d9` (existing
+  versions untouched), 20 undo steps outside the 30 versions, routes
+  `POST …/versions` (버전 저장), `GET …/steps`, `POST …/steps/{seq}/restore`;
+  불러오기 makes no version; 게시 saves the working copy first. Settled
+  while building: the 업데이트 메모's "what changed" now reads the Claude
+  runs since 게시 (not versions); the 게시 dialog's pre-filled text is kept
+  only on a saved version (unsaved work asks again each open); a
+  versionless project's "처음 상태" is now a step, not a v1. Not done
+  (later): the ZIP of unsaved work is still named after the newest version;
+  the browser's back button is not intercepted (only links and closing the
+  tab).
 - **app-tab-icon** — owner, 2026-10-17: "게시된 앱 열면 탭 썸넬 뭔가 같은건데
   앱? 으로 바꾸기". A published app opened on `apps.ctrlai.my/<slug>/` shows
   the browser's blank globe in its tab; give the shell page a favicon — the

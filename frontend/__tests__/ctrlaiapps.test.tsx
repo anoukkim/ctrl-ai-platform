@@ -84,6 +84,14 @@ vi.mock("@/lib/projects", async (importOriginal) => {
     listBuilderProjects: vi.fn().mockResolvedValue([]),
     listBuilderFiles: vi.fn().mockResolvedValue(FILES),
     listVersions: vi.fn().mockResolvedValue(versions(3)),
+    getHistory: vi.fn().mockResolvedValue({
+      steps: [],
+      can_undo: false,
+      can_redo: false,
+      unsaved: false,
+      reference_version_number: 3,
+      latest_version_number: 3,
+    }),
     getGenerateEstimate: vi.fn().mockResolvedValue({
       estimated_krw: 70,
       worst_case_krw: 240,
@@ -289,7 +297,7 @@ describe("Builder의 게시", () => {
     projectsApi.labelVersion.mockResolvedValue({ ...versions(3)[1], pinned: true });
     const user = userEvent.setup();
     render(<BuilderWorkspace projectId="7" />);
-    await user.click(await screen.findByText("모든 버전 (3)"));
+    await user.click(await screen.findByText("저장한 버전 (3)"));
     await user.click(screen.getByRole("button", { name: "v2 고정하기" }));
     expect(projectsApi.labelVersion).toHaveBeenCalledWith("7", 2, { pinned: true });
 

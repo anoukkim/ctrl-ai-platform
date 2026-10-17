@@ -39,6 +39,7 @@ from app.models.builder import (
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectStatus,
+    BuilderProjectStep,
     BuilderProjectVersion,
 )
 from app.models.tube import TubeComment, TubeReaction, TubeReport, TubeVideo
@@ -121,6 +122,7 @@ __all__ = [
     "BuilderProject",
     "BuilderProjectFile",
     "BuilderProjectStatus",
+    "BuilderProjectStep",
     "BuilderProjectVersion",
     "BuilderGeneration",
     "BuilderEvalReport",

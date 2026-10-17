@@ -167,8 +167,19 @@ through one `write_file` tool; the backend checks every write — static
 text only (HTML/CSS/JS/JSON/SVG/MD/TXT), ≤ 200 KB a file, ≤ 30 files,
 ≤ 2 MB a project, clean paths at most three deep — and **refuses server or
 build code** (`.py`, `.php`, `.sh`, `.ts` …): the member is not charged,
-the club's cost is recorded. Every change is a **version** (버전 기록, the
-last 30); **되돌리기** to any of them is free and is itself a new version.
+the club's cost is recorded. **Versions are saved snapshots**
+(builder-snapshots, 2026-10-17): v1, v2, … are made when the member presses
+**버전 저장** (optional name), by **게시** (the working copy is saved first
+when it changed) and when a project starts — not by each change; the newest
+30 are kept (pinned and the published one excepted) and numbers only grow.
+Between snapshots each 만들기 / 고치기 is a **작업 단계**: the last 20 give
+**실행 취소 / 다시 실행** (free; Claude's edit itself is charged as always)
+and are not numbered versions. **불러오기** of an old version changes the
+working copy only (no new version; saving afterwards is simply the next
+number); with unsaved work Builder first asks "저장 안 한 작업이 있어요.
+저장할까요?" (저장 / 저장 안 함 / 취소), and leaving the Builder asks "이 버전을
+저장할까요?". Saving files identical to the version they stand on says
+"이미 같아요".
 
 **The apps origin** (builder-static-runtime; since app-platform P1 the
 "CTRL+AI 기능 상자"). After each change the backend writes the project's
