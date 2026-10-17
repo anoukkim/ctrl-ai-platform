@@ -54,7 +54,7 @@ vi.mock("@/lib/chime", async (importOriginal) => {
 });
 
 const { TOAST_MS } = await import("@/lib/spend");
-const { default: SpendFeedbackProvider, useSpendFeedback, toastMainText, pillText } = await import(
+const { default: SpendFeedbackProvider, useSpendFeedback, toastMainText, pillText, placePill } = await import(
   "@/app/components/SpendFeedbackProvider"
 );
 
@@ -335,5 +335,23 @@ describe("설정", () => {
     act(() => report({ chargedKrw: 12 }));
     expect(document.activeElement).toBe(before);
     expect(screen.getByTestId("spend-toast").getAttribute("tabindex")).toBe("-1");
+  });
+});
+
+describe("where the pill appears (owner, 2026-10-17)", () => {
+  test("just above the 「남은 지원금」 line when one is in view, else the CSS default", () => {
+    const pill = document.createElement("button");
+    placePill(pill);
+    expect(pill.style.bottom).toBe("");
+
+    const anchor = document.createElement("span");
+    anchor.setAttribute("data-spend-anchor", "");
+    anchor.getBoundingClientRect = () =>
+      ({ left: 420, top: 700, right: 560, bottom: 718, width: 140, height: 18, x: 420, y: 700, toJSON: () => ({}) }) as DOMRect;
+    document.body.appendChild(anchor);
+    placePill(pill);
+    expect(pill.style.left).toBe("420px");
+    expect(pill.style.bottom).toBe(`${window.innerHeight - 700 + 6}px`);
+    anchor.remove();
   });
 });
