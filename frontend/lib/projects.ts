@@ -19,9 +19,13 @@ export { describeError };
  * 가진 새 프로젝트. Claude를 부르지 않으니 무료입니다.
  */
 export function createProjectFromChat(input: {
-  name: string;
-  description: string;
+  /** 비워 두면 페이지의 제목이 이름이 돼요(chat-to-builder-carry). */
+  name?: string;
+  description?: string;
   html: string;
+  /** 요구사항(SPEC.md)을 가져올 대화와, 페이지가 나온 답장. */
+  conversation_id?: number | null;
+  reply_id?: number | null;
 }): Promise<BuilderProject> {
   return request<BuilderProject>("/builder/projects/from-chat", {
     method: "POST",

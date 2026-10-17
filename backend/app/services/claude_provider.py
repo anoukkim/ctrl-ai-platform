@@ -875,6 +875,11 @@ ctrlai.json too (its purpose: the app's lists).
 possible.
 - "summary" is one or two short Korean sentences: what will be built or \
 changed.
+- When the files include SPEC.md, it holds what the member asked for and \
+decided in Chat (features, data, look): keep to it, and continue from the \
+existing index.html's look rather than starting over. SPEC.md, README.md, \
+CLAUDE.md, HANDOFF_PROMPT.md and HISTORY.md are guides, never part of the \
+app: do not list them.
 
 The app must follow these rules:
 """
@@ -1602,6 +1607,11 @@ class MockClaudeProvider:
             always_bad = any(MOCK_ALWAYS_BAD_JSON in _text_of(m["content"]) for m in request.messages)
             if always_bad or MOCK_BAD_JSON in last:
                 reply = "이건 JSON이 아니에요."
+            elif "PROJECT_NAME" in request.system:
+                # chat-to-builder-carry: a name from the first request.
+                found = re.search(r"첫 요청: (.+)", whole)
+                asked = (found.group(1).strip() if found else "") or "채팅에서 만든 앱"
+                reply = json.dumps({"name": asked[:16]}, ensure_ascii=False)
             elif "PUBLISH_SUMMARY" in request.system:
                 # publish-summary: a deterministic blurb from the project's name,
                 # and a note only when changes were listed.

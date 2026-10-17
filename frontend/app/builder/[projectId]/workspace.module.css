@@ -905,3 +905,20 @@ aside.sheet {
     opacity: 0.35;
   }
 }
+
+/* chat-to-builder-carry: the requirements that came from Chat. */
+.carriedList {
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+}
+
+.carriedList summary {
+  cursor: pointer;
+}
+
+.carriedList ol {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+

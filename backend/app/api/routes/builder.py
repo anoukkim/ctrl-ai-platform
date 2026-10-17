@@ -8,6 +8,10 @@ than only the ones that remembered to check.
 """
 
 import asyncio
+
+import anyio
+import anyio.from_thread
+import functools
 import json
 import logging
 from datetime import datetime, timezone
@@ -93,7 +97,7 @@ from app.services import (
     project_zip,
 )
 from app.services import attachments as attachments_service
-from app.services import builder_assets, builder_references, chat_runs, thumbnail_render, thumbnails
+from app.services import builder_assets, builder_references, chat_carry, chat_runs, thumbnail_render, thumbnails
 from app.services import usage as usage_service
 from app.services.attachments import AttachmentRefusal
 from app.services.quiet import quiet_update
@@ -216,17 +220,41 @@ def create_project_from_chat(
     settings: Settings = Depends(get_settings),
 ) -> BuilderProject:
     """The one Builder route that writes a file from the browser
-    (chat-plus-artifacts). Free — nothing is generated; the member's own
-    reply is copied. `require_active_member` like creating a project."""
+    (chat-plus-artifacts). Free to the member — the member's own reply is
+    copied. `require_active_member` like creating a project.
+
+    chat-to-builder-carry: the name is the page's own (`<title>` / first
+    heading), else one tiny club-absorbed Claude call, else the name sent;
+    the member's requests in that conversation become SPEC.md."""
     if len(payload.html.encode("utf-8")) > FROM_CHAT_MAX_BYTES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="페이지가 너무 커서(200KB 초과) Builder로 보낼 수 없습니다.",
         )
-    try:
-        name = clean_name(payload.name)
-    except InvalidNameError:
-        name = "채팅에서 만든 페이지"
+    asked = chat_carry.requirements(db, user, payload.conversation_id, payload.reply_id)
+    candidate = chat_carry.page_name(payload.html)
+    owned = payload.conversation_id is not None and chat_carry.owns(db, user, payload.conversation_id)
+    if candidate is None and owned:
+        # The one call this route may make, on the event loop (this route
+        # runs in a worker thread); nothing else here waits on it.
+        candidate = anyio.from_thread.run(
+            functools.partial(
+                chat_carry.claude_name, db, settings, get_claude_provider(settings), user=user, page=payload.html, asked=asked
+            )
+        )
+    name = "채팅에서 만든 페이지"
+    # From a conversation, the name sent (its cut title) is never used —
+    # the page's own, Claude's, or the default (owner, 2026-10-17).
+    # Without one (an API caller naming its project), the name sent comes first.
+    options = (candidate,) if payload.conversation_id is not None else (payload.name, candidate)
+    for option in options:
+        if not option:
+            continue
+        try:
+            name = clean_name(option)
+            break
+        except InvalidNameError:
+            continue
     project = BuilderProject(
         owner_user_id=user.id,
         name=name,
@@ -234,9 +262,14 @@ def create_project_from_chat(
     )
     db.add(project)
     db.flush()
-    db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
+    files = {"index.html": payload.html}
+    if asked:
+        files[chat_carry.SPEC_PATH] = chat_carry.spec_md(name, asked)
+    for path, content in files.items():
+        db.add(BuilderProjectFile(project_id=project.id, path=path, content=content))
     db.flush()
-    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html}, settings)
+    note = f"채팅에서 가져왔어요 · 요구사항 {len(asked)}개" if asked else "채팅에서 가져옴"
+    builder_versions.snapshot(db, project, note, files, settings)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)

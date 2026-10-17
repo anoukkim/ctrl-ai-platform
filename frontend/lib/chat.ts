@@ -646,7 +646,81 @@ export function actionHref(action: ChatAction, idea: string, title: string): str
   return `${base}?${params.toString()}`;
 }
 
+/** chat-to-builder-carry: the builder action when the conversation has a 미리보기. */
+export const CARRY_LABEL = "이 미리보기로 Builder 시작";
+
 export const ACTION_LABEL: Record<ChatAction, string> = {
   builder: "Project Builder에서 예시 앱 만들기",
   video: "Video Generator 열기",
 };
+
+/** chat-to-builder-carry: one 미리보기 (a whole ```html block) in a reply. */
+export interface ChatPreview {
+  html: string;
+  /** The saved reply's id (null for a reply not saved yet). */
+  replyId: number | null;
+  /** The page's own name, for the picker. */
+  title: string;
+}
+
+// A whole ```html block, the language exactly "html" (any case, as the
+// reply view reads it), fences at line starts; empty blocks match empty.
+const HTML_BLOCK = /^```html[ \t]*\r?\n([\s\S]*?)^```[ \t]*\r?$/gim;
+
+/** Only the page's head is searched for its name (it may be 200 KB). */
+const TITLE_SCAN_CHARS = 20_000;
+
+function between(head: string, opener: string, closer: string): string | null {
+  const lower = head.toLowerCase();
+  let start = lower.indexOf(opener);
+  while (start !== -1) {
+    const next = lower.charAt(start + opener.length);
+    if (next === ">" || next === " " || next === "/" || next === "\t" || next === "\n" || next === "\r") {
+      const open = lower.indexOf(">", start);
+      const end = open === -1 ? -1 : lower.indexOf(closer, open);
+      return open === -1 || end === -1 ? null : head.slice(open + 1, end).slice(0, 1000);
+    }
+    start = lower.indexOf(opener, start + 1);
+  }
+  return null;
+}
+
+function plainText(fragment: string): string {
+  let text = fragment.replace(/<[^<>]{0,500}>/g, " ");
+  if (typeof DOMParser !== "undefined") {
+    text = new DOMParser().parseFromString(`<!doctype html><body>${text}`, "text/html").body.textContent ?? text;
+  }
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** The page's `<title>`, else its first heading — as the server names it (30 characters). */
+export function pageTitle(page: string): string | null {
+  const head = page.slice(0, TITLE_SCAN_CHARS);
+  for (const [opener, closer] of [
+    ["<title", "</title"],
+    ["<h1", "</h1"],
+    ["<h2", "</h2"],
+  ] as const) {
+    const inside = between(head, opener, closer);
+    const text = inside === null ? "" : plainText(inside);
+    if (text) return text.length > 30 ? `${text.slice(0, 30)}…` : text;
+  }
+  return null;
+}
+
+/** Every whole HTML 미리보기 in the conversation's finished replies, newest first. */
+export function previewsIn(
+  messages: { role: string; content: string; key: string; streaming?: boolean }[],
+): ChatPreview[] {
+  const found: ChatPreview[] = [];
+  for (const message of messages) {
+    if (message.role !== "assistant" || message.streaming) continue;
+    const id = /^m(\d+)$/.exec(message.key);
+    for (const match of message.content.matchAll(HTML_BLOCK)) {
+      const html = match[1].replace(/\r$/gm, "");
+      if (!html.trim()) continue;
+      found.push({ html, replyId: id ? Number(id[1]) : null, title: pageTitle(html) ?? "제목 없는 미리보기" });
+    }
+  }
+  return found.reverse();
+}

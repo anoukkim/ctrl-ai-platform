@@ -62,6 +62,9 @@ class UsageFeature(str, enum.Enum):
     #: publish-summary: the 게시 dialog's pre-filled text — always a
     #: club-absorbed row (0원 to the member).
     PUBLISH_SUMMARY = "publish_summary"
+    #: chat-to-builder-carry: naming a 미리보기 that has no title — a
+    #: club-absorbed row (0원 to the member).
+    PROJECT_NAME = "project_name"
 
 
 #: How a member's spending is broken down on their wallet card: 채팅 /
@@ -74,6 +77,7 @@ SPENDING_GROUP: dict[str, str] = {
     # breakdown is 채팅 / 빌더 / 영상 / 기타.
     UsageFeature.BUILD.value: "build",
     UsageFeature.PUBLISH_SUMMARY.value: "build",
+    UsageFeature.PROJECT_NAME.value: "build",
     UsageFeature.VIDEO_PROMPT.value: "video",
     UsageFeature.VIDEO_GENERATE.value: "video",
     UsageFeature.VIDEO_EDIT.value: "video",

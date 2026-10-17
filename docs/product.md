@@ -424,6 +424,17 @@ Chat is the opening screen and a real conversation with Claude, behind
   over 200 KB show code only; a block cut off by the reply's length says
   "계속"이라고 보내 주세요. Claude is told to write one self-contained
   block (inline CSS/JS, inline SVG charts, no external files).
+  **chat-to-builder-carry (2026-10-17):** in a conversation with a
+  미리보기, the reply's 「Project Builder에서 예시 앱 만들기」 becomes
+  **「이 미리보기로 Builder 시작」** — the same path as the card's 「Builder로
+  보내기」; several 미리보기 open a picker with the newest chosen. The page
+  becomes `index.html`; the project is named by the page (`<title>`, else
+  its first heading, shortened — only a page with neither is named by one
+  tiny Claude call the club absorbs, 0원); and what the member asked in
+  that conversation up to that reply becomes **SPEC.md** (their own words,
+  free) — a guide document, never served, which every Builder call reads,
+  so 고치기 continue the design instead of starting over. The Builder's
+  first Claude bubble says "채팅에서 가져왔어요 · 요구사항 N개".
   `CHAT_MAX_OUTPUT_TOKENS` stays 4,096 — raising it to 8,192 for longer
   pages is the owner's decision (it roughly doubles the worst-case
   pre-check).

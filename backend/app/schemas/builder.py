@@ -29,9 +29,16 @@ class BuilderProjectCreate(BuilderProjectBase):
 
 class BuilderProjectFromChat(BuilderProjectBase):
     """Builder로 보내기 (chat-plus-artifacts): a chat reply's HTML block
-    becomes a new project's `index.html`. No Claude call, no charge."""
+    becomes a new project's `index.html`. No charge to the member.
 
+    chat-to-builder-carry: `name` may be left empty — the page's own title
+    names it; `conversation_id` (+ `reply_id`, the reply the page came
+    from) carries the member's requests into the project's SPEC.md."""
+
+    name: str = ""
     html: str = Field(min_length=1)
+    conversation_id: int | None = None
+    reply_id: int | None = None
 
 
 class BuilderProjectFromTemplate(BaseModel):
