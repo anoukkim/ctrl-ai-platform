@@ -2298,3 +2298,14 @@ a.alertItem:hover {
   }
 }
 
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-chip);
+  cursor: pointer;
+  text-decoration: underline;
+}
+

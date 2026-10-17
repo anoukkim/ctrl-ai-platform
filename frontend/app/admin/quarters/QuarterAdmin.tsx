@@ -371,8 +371,8 @@ function PageHeader() {
       title={sectionLabel("quarters")}
       subtitle={
         <>
-          분기를 만들고 신청을 열고 닫습니다. 올라온 신청을 심사하는 일은 Applications 화면에서
-          합니다.
+          분기를 만들고 신청을 열고 닫아요. 아래는 산 돈이 어디로 나뉘었는지(돈의 흐름)와 분기 마감
+          다섯 단계예요. 올라온 신청은 Members의 승인 대기에서 심사해요.
         </>
       }
     />

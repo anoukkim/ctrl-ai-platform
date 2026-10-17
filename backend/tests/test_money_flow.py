@@ -50,7 +50,44 @@ def test_the_forecast_stretches_spending_to_the_quarter_end(db_session: Session,
     flow = money_flow.money_flow(db_session, quarter, today=halfway)
     assert flow.forecast_used_krw == round(10_000 * total / (total // 2))
     assert money_flow.money_flow(db_session, quarter, today=quarter.starts_at - timedelta(days=3)).forecast_used_krw is None
+    # Too early to stretch one day of spending.
+    assert money_flow.money_flow(db_session, quarter, today=quarter.starts_at).forecast_used_krw is None
+    # Never past the wallets.
+    wallet = db_session.query(QuarterAllocation).one()
+    wallet.consumed_krw = 70_000
+    db_session.commit()
+    assert money_flow.money_flow(db_session, quarter, today=halfway).forecast_used_krw == 80_000
 
 
 def test_the_money_flow_is_for_admins(other_client: TestClient, participating) -> None:
     assert other_client.get(f"/api/admin/quarters/{participating.id}/money-flow").status_code == 403
+
+
+def test_the_apps_step_is_recorded_in_the_audit_log(client: TestClient, db_session: Session, participating) -> None:
+    from app.models import AuditLog
+
+    url = f"/api/admin/quarters/{participating.id}"
+    assert client.get(f"{url}/close-steps").json() == {"apps_archived_at": None}
+    done = client.post(f"{url}/apps-archived", json={})
+    assert done.status_code == 200 and done.json()["apps_archived_at"] is not None
+    assert client.get(f"{url}/close-steps").json()["apps_archived_at"] is not None
+    row = db_session.query(AuditLog).filter(AuditLog.action == "quarter.apps_archived").one()
+    assert row.target_id == participating.id
+
+
+def test_the_member_list_carries_the_wallet_and_the_waiting_application(
+    client: TestClient, db_session: Session, dev_user, other_user, participating
+) -> None:
+    from app.models import ApplicationStatus, MembershipStatus, QuarterApplication, QuarterMembership
+
+    db_session.add(QuarterAllocation(user_id=dev_user.id, quarter_id=participating.id, budget_krw=80_000, consumed_krw=1_000))
+    # Marked 비활동 first, then applied: still waiting for review.
+    db_session.add(QuarterMembership(user_id=other_user.id, quarter_id=participating.id, status=MembershipStatus.INACTIVE))
+    application = QuarterApplication(user_id=other_user.id, quarter_id=participating.id, requested_budget_krw=80_000, status=ApplicationStatus.SUBMITTED)
+    db_session.add(application)
+    db_session.commit()
+    rows = {row["username"]: row for row in client.get(f"/api/admin/quarters/{participating.id}/members").json()}
+    assert (rows[dev_user.username]["budget_krw"], rows[dev_user.username]["consumed_krw"]) == (80_000, 1_000)
+    other = rows[other_user.username]
+    assert other["application_id"] == application.id and other["application_status"] == "submitted"
+    assert other["membership_status"] == "inactive"

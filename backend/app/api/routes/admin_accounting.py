@@ -13,7 +13,7 @@ an adjustment.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -42,7 +42,7 @@ from app.schemas.accounting import (
     ReconcileRead,
 )
 from app.services import money_flow as money_flow_service
-from app.services import accounting, cost_report, purge
+from app.services import accounting, audit, cost_report, purge
 from app.services.storage import get_storage
 from app.services.quarters import current_quarter
 
@@ -508,4 +508,60 @@ def read_money_flow(
     _: User = Depends(require_admin),
 ) -> MoneyFlowRead:
     return MoneyFlowRead(**vars(money_flow_service.money_flow(db, _quarter(db, quarter_id))))
+
+
+class CloseStepsRead(BaseModel):
+    """What the 분기 마감 steps need beyond the quarter itself (v3)."""
+
+    apps_archived_at: datetime | None = None
+
+
+def _apps_archived_at(db: Session, quarter_id: int) -> datetime | None:
+    return db.scalar(
+        select(AuditLog.created_at)
+        .where(
+            AuditLog.action == AuditAction.QUARTER_APPS_ARCHIVED,
+            AuditLog.target_type == "quarter",
+            AuditLog.target_id == quarter_id,
+        )
+        .order_by(AuditLog.id.desc())
+        .limit(1)
+    )
+
+
+@router.get("/quarters/{quarter_id}/close-steps", response_model=CloseStepsRead, summary="분기 마감 steps' own state")
+def read_close_steps(quarter_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)) -> CloseStepsRead:
+    _quarter(db, quarter_id)
+    return CloseStepsRead(apps_archived_at=_apps_archived_at(db, quarter_id))
+
+
+class EmptyRequest(BaseModel):
+    """A write with nothing to say still sends a JSON body (CLAUDE.md §2)."""
+
+
+@router.post(
+    "/quarters/{quarter_id}/apps-archived",
+    response_model=CloseStepsRead,
+    summary="분기 마감 4단계: the admin confirms the apps are put away (audited)",
+)
+def confirm_apps_archived(
+    quarter_id: int,
+    payload: EmptyRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> CloseStepsRead:
+    """The step's own record is its audit row — the log is append-only and
+    every admin sees the step as done."""
+    quarter = _quarter(db, quarter_id)
+    audit.record(
+        db,
+        actor=admin,
+        action=AuditAction.QUARTER_APPS_ARCHIVED,
+        target_type="quarter",
+        target_id=quarter.id,
+        target_label=quarter.code,
+        summary=f"{quarter.display_name} 분기 마감 — 앱 보관을 확인했습니다.",
+    )
+    db.commit()
+    return CloseStepsRead(apps_archived_at=_apps_archived_at(db, quarter_id))
 

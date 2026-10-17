@@ -441,7 +441,7 @@ export default function ModelCatalog() {
             );
           })}
 
-{/* 비용 보정 moved to Models › 보정 (admin-consolidation v3). */}
+          {/* 비용 보정 moved to Models › 보정 (admin-consolidation v3). */}
           </FoldGroup>
 
           <p className="small dim" id={`${id}-default-rule`} style={{ marginTop: "0.6rem" }}>

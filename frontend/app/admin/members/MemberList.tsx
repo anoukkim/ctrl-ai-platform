@@ -54,9 +54,10 @@ type SortKey = "name" | "usage" | "membership";
 /** The list's chips (v3): one at a time. */
 type Chip = "all" | "pending" | "active" | "none" | "invites";
 
-/** 승인 대기: an application waits and no participation yet. */
+/** 승인 대기: an application waits for review — even from a member who
+ *  already has a participation row (made 비활동 first, then applied). */
 function isPending(member: MemberWithMembership): boolean {
-  return Boolean(member.application_id) && member.membership_status === null;
+  return Boolean(member.application_id);
 }
 
 /** 미참여: not taking part this quarter (no row, or not active), not former. */
@@ -265,6 +266,8 @@ export default function MemberList() {
     );
   }
 
+  // A closed quarter's wallets are frozen and what was left reclaimed.
+  const frozen = selected.status === "closed";
   const columns: Column<MemberWithMembership>[] = [
     {
       key: "member",
@@ -273,7 +276,7 @@ export default function MemberList() {
         <span className={styles.memberName}>
           {member.display_name}
           <span className={styles.memberHandle}>@{member.username}</span>
-          {member.role === "admin" && <span className="badge badge-accent" style={{ marginLeft: "0.4rem" }}>관리자</span>}
+          {member.role === "admin" && <span className="badge badge-accent" style={{ alignSelf: "flex-start" }}>관리자</span>}
         </span>
       ),
     },
@@ -289,7 +292,7 @@ export default function MemberList() {
       numeric: true,
       render: (member) => {
         const pct = usedPct(member);
-        if (pct === null) return <span className="small dim">—</span>;
+        if (pct === null || frozen) return <span className="small dim">—</span>;
         return (
           <span className={styles.usageCell} data-warn={pct >= USAGE_WARN_PCT ? "true" : undefined}>
             <span className={styles.usageBar} aria-hidden="true">
@@ -305,7 +308,13 @@ export default function MemberList() {
       header: "남음",
       numeric: true,
       render: (member) =>
-        member.budget_krw ? formatKrw(Math.max(0, member.budget_krw - (member.consumed_krw ?? 0))) : <span className="small dim">—</span>,
+        frozen && member.budget_krw ? (
+          <span className="small dim">동결 · 회수됨</span>
+        ) : member.budget_krw ? (
+          formatKrw(Math.max(0, member.budget_krw - (member.consumed_krw ?? 0)))
+        ) : (
+          <span className="small dim">—</span>
+        ),
     },
   ];
 
@@ -497,7 +506,7 @@ export default function MemberList() {
       {openMember && (
         <MemberPanel
           userId={Number(openMember)}
-          onClose={() => router.push(memberHref(null))}
+          onClose={() => router.replace(memberHref(null), { scroll: false })}
           fullHref={withQuarter(`/admin/members/${openMember}`, selected.id)}
           onChanged={() => void reload()}
         />

@@ -52,7 +52,7 @@ export default function MoneyFlowCard({ quarter }: { quarter: Quarter }) {
         <>
           <div className={styles.flowHead}>
             <span>
-              <strong>산 크레딧 전체</strong> <span className="small dim">제공자에서 이 분기에 구매</span>
+              <strong>이 분기에 산 크레딧</strong> <span className="small dim">제공자에서 구매 · 크레딧은 분기를 넘어 남아요</span>
             </span>
             <strong className="numeric">{formatKrw(flow.purchased_krw)}</strong>
           </div>
@@ -80,19 +80,27 @@ export default function MoneyFlowCard({ quarter }: { quarter: Quarter }) {
                 <span className={styles.flowSwatch} data-part="reserve" aria-hidden="true" /> 여유분 · 나눠 주지 않은 돈
               </dt>
               <dd className="numeric">
-                {flow.reserve_krw >= 0 ? formatKrw(flow.reserve_krw) : `부족 ${formatKrw(-flow.reserve_krw)}`}
-                <span className="small dim"> · 유지보수 · 테스트 · 추가 지급</span>
+                {flow.reserve_krw >= 0 ? (
+                  <>
+                    {formatKrw(flow.reserve_krw)}
+                    <span className="small dim"> · 유지보수 · 테스트 · 추가 지급</span>
+                  </>
+                ) : (
+                  <span className="small dim">
+                    이 분기 구매보다 {formatKrw(-flow.reserve_krw)} 더 나눠 줬어요 — 이전에 산 크레딧으로 충당
+                  </span>
+                )}
               </dd>
             </div>
           </dl>
           <p className="small muted" style={{ margin: 0 }}>
-            회원에게 준 몫 {formatKrw(flow.granted_krw)} · 여유분에서 쓴 돈(관리자 테스트, 게시 요약 등){" "}
-            {formatKrw(flow.reserve_spent_krw)}
-            {flow.forecast_used_krw !== null && (
+            회원에게 준 몫 {formatKrw(flow.granted_krw)}(이월 · 조정 포함) · 동아리가 부담한 호출(게시 요약, 이름 짓기, 빌더
+            점검 등) {formatKrw(flow.reserve_spent_krw)}
+            {flow.forecast_used_krw !== null && flow.granted_krw > 0 && (
               <>
                 {" "}
-                · 분기 말 예상: 회원 사용 {formatKrw(flow.forecast_used_krw)} →{" "}
-                {flow.forecast_used_krw <= flow.purchased_krw ? "여유 충분" : "크레딧이 모자랄 수 있어요"}
+                · 분기 말 예상 회원 사용 {formatKrw(flow.forecast_used_krw)} (지급의{" "}
+                {Math.round((flow.forecast_used_krw * 100) / flow.granted_krw)}%)
               </>
             )}
           </p>

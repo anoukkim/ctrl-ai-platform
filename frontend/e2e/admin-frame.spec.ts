@@ -111,11 +111,11 @@ test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four t
 
   await page.goto(`${SITE}/admin/models`);
   const tabs = page.getByRole("list", { name: /안의 탭/ }).getByRole("link");
-  expect(await tabs.allInnerTexts()).toEqual(["Chat", "Video", "한도", "보정"]);
+  await expect(tabs).toHaveText(["Chat", "Video", "한도", "보정"]);
   await page.goto(`${SITE}/admin/models?tab=limits`);
   await expect(page.getByRole("heading", { name: "채팅 한도" })).toBeVisible();
   await page.goto(`${SITE}/admin/community`);
-  expect(await page.getByRole("list", { name: /안의 탭/ }).getByRole("link").allInnerTexts()).toEqual(["신고", "의견", "앱"]);
+  await expect(page.getByRole("list", { name: /안의 탭/ }).getByRole("link")).toHaveText([/^신고/, "의견", "앱"]);
   await page.goto(`${SITE}/admin/system`);
   await expect(page.getByTestId("health-strip")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/1440-dark-system.png` });

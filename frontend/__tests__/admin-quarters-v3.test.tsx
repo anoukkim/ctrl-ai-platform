@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from "vitest";
 
-import { stepsDone } from "@/app/admin/quarters/CloseStepper";
+import { daysLeft, stepsDone } from "@/app/admin/quarters/CloseStepper";
 import { flowShares } from "@/app/admin/quarters/MoneyFlowCard";
 import type { Quarter } from "@/lib/quarters";
 
@@ -27,13 +27,22 @@ describe("분기 마감 단계", () => {
     expect(stepsDone({ ...Q4, status: "closed" }, [Q4], false)).toEqual([true, true, true, false, false]);
   });
 
-  test("앱 보관은 확인으로, 다음 분기는 그 뒤에 신청을 연 분기가 있을 때", () => {
+  test("단계는 차례로만: 앱 보관은 마감 뒤의 확인(감사 기록), 다음 분기는 그 뒤에", () => {
     const closed = { ...Q4, status: "closed" as const };
-    expect(stepsDone(closed, [closed], true)).toEqual([true, true, true, true, false]);
     const next: Quarter = { ...Q4, id: 5, starts_at: "2027-01-01", ends_at: "2027-03-31", status: "application_open" };
-    expect(stepsDone(closed, [closed, next], false)).toEqual([true, true, true, true, true]);
-    // A draft of the next quarter is not "opened" yet.
-    expect(stepsDone(closed, [closed, { ...next, status: "draft" }], false)[4]).toBe(false);
+    // Next quarter's applications open in December: steps 4–5 still wait for the close.
+    expect(stepsDone({ ...Q4, status: "active" }, [Q4, next], true)).toEqual([true, false, false, false, false]);
+    expect(stepsDone(closed, [closed, next], false)).toEqual([true, true, true, false, false]);
+    expect(stepsDone(closed, [closed], true)).toEqual([true, true, true, true, false]);
+    expect(stepsDone(closed, [closed, next], true)).toEqual([true, true, true, true, true]);
+    expect(stepsDone(closed, [closed, { ...next, status: "draft" }], true)[4]).toBe(false);
+  });
+
+  test("D-day는 KST 날짜로 — 마지막 날은 D-0", () => {
+    const lastDayNoonKst = Date.parse("2026-12-31T03:00:00Z");
+    expect(daysLeft(Q4, lastDayNoonKst)).toBe(0);
+    expect(daysLeft(Q4, Date.parse("2026-12-30T16:00:00Z"))).toBe(0); // 01:00 KST on the 31st
+    expect(daysLeft(Q4, Date.parse("2026-10-17T03:00:00Z"))).toBe(75);
   });
 });
 

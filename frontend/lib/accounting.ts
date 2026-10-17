@@ -174,6 +174,18 @@ export function getMoneyFlow(quarterId: number): Promise<MoneyFlow> {
   return request<MoneyFlow>(`/admin/quarters/${quarterId}/money-flow`);
 }
 
+/** 분기 마감 4단계(앱 보관)의 기록 — 감사 기록에서 (v3). */
+export function getCloseSteps(quarterId: number): Promise<{ apps_archived_at: string | null }> {
+  return request<{ apps_archived_at: string | null }>(`/admin/quarters/${quarterId}/close-steps`);
+}
+
+export function confirmAppsArchived(quarterId: number): Promise<{ apps_archived_at: string | null }> {
+  return request<{ apps_archived_at: string | null }>(`/admin/quarters/${quarterId}/apps-archived`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export function getCachePanel(days: number): Promise<CacheRow[]> {
   return request<CacheRow[]>(`/admin/cache-panel?days=${days}`);
 }

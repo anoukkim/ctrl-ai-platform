@@ -9,15 +9,18 @@
  * 예전 「분기 마감」 확인창을 열고, 그 마감이 지갑 동결 · 회수 · 이월과
  * 휴지통 비우기(3단계)를 한 트랜잭션으로 해요 — 여기서 새로 계산하지 않아요.
  * 되돌릴 수 없는 단계는 확인창이 한 번 더 묻고, 모두 감사 기록에 남아요.
- * 4단계(앱 보관)는 Community › 앱에서 하고 "확인했어요"로 넘어가요.
+ * 4단계(앱 보관)는 Community › 앱에서 하고 "확인했어요"로 넘어가요 — 그
+ * 확인도 감사 기록에 남고, 다른 관리자에게도 끝난 단계로 보여요. 단계는
+ * 차례로만 끝나요(앞 단계가 끝나야 뒤 단계가 끝난 것으로 보여요).
  */
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
-import { getClosePreview, type ClosePreview } from "@/lib/accounting";
+import { confirmAppsArchived, getClosePreview, getCloseSteps, type ClosePreview } from "@/lib/accounting";
 import { describeError } from "@/lib/http";
+import { WORK_KIND_LABEL, listDeletedItems, type DeletedItem } from "@/lib/projects";
 import { formatDate, formatKrw, updateQuarter, type Quarter } from "@/lib/quarters";
 
 import { tabHref } from "../sections";
@@ -26,33 +29,21 @@ import CloseQuarterDialog from "./CloseQuarterDialog";
 import styles from "../admin.module.css";
 
 export const STEPS = ["신청 마감", "정산 확인", "휴지통 비우기", "앱 보관", "다음 분기 열기"] as const;
-const ARCHIVE_KEY = (id: number) => `ctrlai.admin.archived.${id}`;
-
-function readArchived(id: number): boolean {
-  try {
-    return window.localStorage.getItem(ARCHIVE_KEY(id)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** Which steps are done (0–4), from the quarters themselves. */
+/** Which steps are done (0–4), from the quarters and the audit log — in order. */
 export function stepsDone(quarter: Quarter, quarters: Quarter[], archived: boolean): boolean[] {
   const closed = quarter.status === "closed";
   const next = quarters.some(
     (other) => other.id !== quarter.id && other.starts_at > quarter.ends_at && other.status !== "draft",
   );
-  return [
-    quarter.status === "active" || closed,
-    closed,
-    closed,
-    archived || next,
-    next,
-  ];
+  const applicationsClosed = quarter.status === "active" || closed;
+  const appsPutAway = closed && archived;
+  return [applicationsClosed, closed, closed, appsPutAway, appsPutAway && next];
 }
 
+/** Days until the quarter's last day, by KST calendar dates (0 on the day). */
 export function daysLeft(quarter: Quarter, now = Date.now()): number {
-  return Math.ceil((Date.parse(`${quarter.ends_at}T23:59:59+09:00`) - now) / 86_400_000);
+  const today = new Date(now + 9 * 3_600_000).toISOString().slice(0, 10);
+  return Math.round((Date.parse(quarter.ends_at) - Date.parse(today)) / 86_400_000);
 }
 
 export default function CloseStepper({
@@ -64,7 +55,9 @@ export default function CloseStepper({
   quarters: Quarter[];
   onChanged: (message: string) => void;
 }) {
-  const [archived, setArchived] = useState(() => readArchived(quarter.id));
+  const [archived, setArchived] = useState(false);
+  const [deletedOpen, setDeletedOpen] = useState(false);
+  const [deleted, setDeleted] = useState<DeletedItem[] | null>(null);
   const [preview, setPreview] = useState<{ id: number; value: ClosePreview } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [closing, setClosing] = useState(false);
@@ -74,6 +67,18 @@ export default function CloseStepper({
   const done = stepsDone(quarter, quarters, archived);
   const current = done.findIndex((value) => !value);
   const closed = quarter.status === "closed";
+
+  useEffect(() => {
+    let cancelled = false;
+    getCloseSteps(quarter.id)
+      .then((steps) => {
+        if (!cancelled) setArchived(Boolean(steps.apps_archived_at));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [quarter.id]);
 
   useEffect(() => {
     if (closed || quarter.status === "draft") return;
@@ -102,6 +107,7 @@ export default function CloseStepper({
           setConfirm(null);
           onChanged(`${quarter.display_name}의 신청을 마감했습니다.`);
         } catch (caught) {
+          // Shown in the dialog, which stays open.
           setError(describeError(caught));
         } finally {
           setBusy(false);
@@ -109,13 +115,43 @@ export default function CloseStepper({
       },
     });
 
+  const confirmArchived = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const steps = await confirmAppsArchived(quarter.id);
+      setArchived(Boolean(steps.apps_archived_at));
+    } catch (caught) {
+      setError(describeError(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleDeleted = async () => {
+    const opening = !deletedOpen;
+    setDeletedOpen(opening);
+    if (opening && deleted === null) {
+      try {
+        setDeleted(await listDeletedItems());
+      } catch (caught) {
+        setError(describeError(caught));
+      }
+    }
+  };
+
   const explain: Record<number, { text: string; action: React.ReactNode }> = {
     0: {
-      text: "회원이 더 이상 신청하지 못하게 해요. 이미 올라온 신청은 Members에서 계속 심사할 수 있어요.",
+      text:
+        quarter.status === "draft"
+          ? "이 분기는 아직 준비 중이에요. 위 분기 목록의 관리 메뉴에서 신청을 먼저 열어요."
+          : "회원이 더 이상 신청하지 못하게 해요. 이미 올라온 신청은 Members의 승인 대기에서 계속 심사할 수 있어요.",
       action: (
-        <button className="btn btn-sm btn-primary" type="button" disabled={busy || quarter.status === "draft"} onClick={closeApplications}>
-          신청 마감…
-        </button>
+        quarter.status === "draft" ? null : (
+          <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={closeApplications}>
+            신청 마감…
+          </button>
+        )
       ),
     },
     1: {
@@ -133,18 +169,7 @@ export default function CloseStepper({
           <Link className="btn btn-sm" href={tabHref("community", "apps")}>
             Community › 앱
           </Link>
-          <button
-            className="btn btn-sm"
-            type="button"
-            onClick={() => {
-              try {
-                window.localStorage.setItem(ARCHIVE_KEY(quarter.id), "1");
-              } catch {
-                /* 기억하지 못해도 이번에는 넘어가요 */
-              }
-              setArchived(true);
-            }}
-          >
+          <button className="btn btn-sm" type="button" disabled={busy} onClick={() => void confirmArchived()}>
             확인했어요
           </button>
         </span>
@@ -210,19 +235,42 @@ export default function CloseStepper({
           </div>
           <div>
             <dt>휴지통</dt>
-            <dd className="numeric">{facts.purge_count}개</dd>
+            <dd className="numeric">
+              {facts.purge_count}개{" "}
+              {facts.purge_count > 0 && (
+                <button className={styles.linkButton} type="button" aria-expanded={deletedOpen} onClick={() => void toggleDeleted()}>
+                  {deletedOpen ? "접기" : "무엇이 사라지나"}
+                </button>
+              )}
+            </dd>
           </div>
         </dl>
+      )}
+      {deletedOpen && deleted && (
+        // Every member's deleted work the close will remove — 복구 is in each
+        // member's panel (Members), before the close.
+        <ul className={styles.deletedList} data-testid="close-deleted">
+          {deleted.map((item) => (
+            <li key={`${item.kind}-${item.id}`} className={styles.deletedRow}>
+              <span>
+                <strong>{item.name}</strong> <span className="small dim">@{item.owner_username} · {WORK_KIND_LABEL[item.kind]}</span>
+              </span>
+              <Link className="btn btn-sm" href={`/admin/members?member=${item.owner_user_id}`}>
+                회원 열기
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
       <p className="small dim" style={{ margin: 0 }}>
         되돌릴 수 없는 단계(2·3)는 누를 때 한 번 더 물어요. 단계마다 감사 기록이 남아요.
       </p>
-      {error && (
+      {error && !confirm && (
         <p className="small" role="alert" style={{ color: "var(--error-text)" }}>
           {error}
         </p>
       )}
-      <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
+      <ConfirmDialog busy={busy} request={confirm} error={confirm ? error : null} onClose={() => setConfirm(null)} />
       {closing && (
         <CloseQuarterDialog
           quarterId={quarter.id}

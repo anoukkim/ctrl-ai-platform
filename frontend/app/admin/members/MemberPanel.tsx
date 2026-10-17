@@ -55,7 +55,7 @@ export default function MemberPanel({
         ref={panelRef}
         className={styles.memberPanel}
         role="dialog"
-        aria-modal="false"
+        aria-modal="true"
         aria-label="회원 상세"
         data-member-panel=""
         tabIndex={-1}
@@ -69,7 +69,7 @@ export default function MemberPanel({
             <X size={16} aria-hidden="true" />
           </button>
         </div>
-        <MemberDetailView userId={userId} embedded onChanged={onChanged} />
+        <MemberDetailView key={userId} userId={userId} embedded onChanged={onChanged} />
       </div>
     </>
   );

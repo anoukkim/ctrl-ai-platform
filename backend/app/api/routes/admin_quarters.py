@@ -524,13 +524,8 @@ def list_quarter_members(
             )
         )
     }
-    seen: set[int] = set()
     result: list[MemberWithMembership] = []
     for member, membership, application_status in rows:
-        # An older cancelled application must not list a member twice.
-        if member.id in seen:
-            continue
-        seen.add(member.id)
         wallet = wallets.get(member.id)
         application = waiting.get(member.id)
         result.append(

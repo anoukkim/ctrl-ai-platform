@@ -152,13 +152,6 @@ vi.mock("@/app/admin/admin.module.css", () => ({ default: { usageCell: "usageCel
 
 const { default: MemberList } = await import("@/app/admin/members/MemberList");
 
-/** 카드는 숫자와 이름이 한 단추 안에 들어 있습니다. */
-function card(label: string) {
-  return screen
-    .getAllByRole("button")
-    .find((button) => button.textContent?.includes(label))!;
-}
-
 function rows() {
   return screen.getAllByRole("row").slice(1); // 머리글 줄 제외
 }
@@ -211,5 +204,23 @@ describe("회원 목록의 칩과 사용률 (admin-consolidation v3)", () => {
     expect(admin.textContent).toContain("14%");
     expect(admin.querySelector("[data-warn='true']")).toBeNull();
     expect(rows().find((row) => row.textContent?.includes("이소라"))!.textContent).toContain("—");
+  });
+
+  test("비활동으로 둔 뒤 신청한 회원도 승인 대기 — 줄에서 사유와 함께 거절", async () => {
+    listQuarterMembers.mockResolvedValue([
+      ...MEMBERS.filter((member) => member.user_id !== 2),
+      { ...MEMBERS[1], application_status: "submitted", application_id: 12, requested_budget_krw: 80_000 },
+    ]);
+    search = new URLSearchParams("filter=pending");
+    const user = userEvent.setup();
+    render(<MemberList />);
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    const minho = rows().find((row) => row.textContent?.includes("박민호"))!;
+    expect(minho.textContent).toContain("승인 대기");
+    await user.click(within(minho).getByRole("button", { name: "거절" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox"), "예산이 모두 배정됨");
+    await user.click(within(dialog).getByRole("button", { name: "거절" }));
+    await waitFor(() => expect(reviewApplication).toHaveBeenCalledWith(12, false, "예산이 모두 배정됨"));
   });
 });
