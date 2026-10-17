@@ -81,6 +81,9 @@ import {
   type ReplySource,
   type ToolKind,
   type StreamEstimate,
+  followReply,
+  stopReply,
+  type LiveRun,
 } from "@/lib/chat";
 import { type DepthLevel, type PickerModel, levelFor, receiptHead } from "@/lib/depth";
 import { describeError } from "@/lib/http";
@@ -113,7 +116,7 @@ import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
-import { finishRun, isRunning, startRun, useRuns } from "@/lib/running";
+import { finishRun, handOverRun, isRunning, refreshServerRuns, startRun, useRuns } from "@/lib/running";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
@@ -531,6 +534,27 @@ export default function ChatWorkspace() {
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // background-runs: leaving a conversation while its reply streams only
+  // stops *watching* it — the reply goes on on the server. These say that
+  // the reader was let go on purpose, so its ending changes nothing here.
+  const detachedRef = useRef<AbortController | null>(null);
+  const [stopping, setStopping] = useState(false);
+  // The re-attach (`follow`, below) for openConversation, which is defined first.
+  const followRef = useRef<(id: number, live: LiveRun) => void>(() => undefined);
+  // The latest conversation asked for — an older answer arriving late is dropped.
+  const openSeq = useRef(0);
+  /** Stop watching the reply on screen (it goes on on the server). */
+  const detach = useCallback(() => {
+    const controller = abortRef.current;
+    if (!controller) return;
+    detachedRef.current = controller;
+    abortRef.current = null;
+    controller.abort();
+    setStreaming(false);
+    setStopping(false);
+    setToolStatus(null);
+    void refreshServerRuns();
+  }, []);
   // 중지된 답장의 영수증을 뒤늦게 채울 때, 그 사이에 다른 대화로
   // 옮겨 갔으면 덮어쓰지 않도록 지금 열려 있는 대화를 기억합니다.
   const activeIdRef = useRef<number | null>(null);
@@ -572,8 +596,15 @@ export default function ChatWorkspace() {
     };
   }, []);
 
-  // 화면을 떠나면 오고 있던 답장도 멈춥니다.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // 화면을 떠나면 보던 것만 멈춰요 — 답장은 서버에서 계속 쓰고, 다시 오면
+  // 이어서 보여요(background-runs).
+  useEffect(
+    () => () => {
+      detachedRef.current = abortRef.current;
+      abortRef.current?.abort();
+    },
+    [],
+  );
 
   // 새 메시지나 조각이 오면 맨 아래로 내립니다. 아직 대화가 없으면
   // 내리지 않습니다 — 좁은 화면에서는 환영 안내가 길어, 내리면 제목이
@@ -615,7 +646,10 @@ export default function ChatWorkspace() {
   }, []);
 
   const openConversation = useCallback(async (id: number) => {
-    if (abortRef.current) return; // 답장이 오는 중에는 옮기지 않습니다
+    if (abortRef.current && activeIdRef.current === id) return; // 이미 보고 있어요
+    const opening = ++openSeq.current;
+    // background-runs: 다른 대화로 옮겨도 쓰던 답장은 서버에서 계속돼요.
+    detach();
     setListOpen(false);
     setSendError(null);
     setActiveId(id);
@@ -634,6 +668,8 @@ export default function ChatWorkspace() {
       .catch(() => setPendingFiles([]));
     try {
       const detail = await getConversation(id);
+      // Another conversation was opened meanwhile: this answer is stale.
+      if (opening !== openSeq.current) return;
       setMessages(detail.messages.map(toView));
       setChosenModelId(detail.chat_model_id);
       setChosenDepth(detail.depth ?? null);
@@ -644,16 +680,18 @@ export default function ChatWorkspace() {
         code_execution: detail.use_code_execution ?? false,
       });
       setShowThinking(detail.show_thinking ?? false);
+      // background-runs: a reply still being written — show it and follow it.
+      if (detail.running) followRef.current(id, detail.running);
     } catch (error) {
       setMessages([]);
       setSendError(describeError(error));
     } finally {
       setLoadingConversation(false);
     }
-  }, []);
+  }, [detach]);
 
   const startNew = useCallback(() => {
-    if (abortRef.current) return;
+    detach();
     setListOpen(false);
     setActiveId(null);
     setMessages([]);
@@ -667,7 +705,7 @@ export default function ChatWorkspace() {
     setFileEstimate(null);
     setFileError(null);
     textareaRef.current?.focus();
-  }, []);
+  }, [detach]);
 
   /**
    * 모델 바꾸기. 이미 있는 대화면 바로 저장하고, 새 대화면 첫 메시지 때
@@ -999,7 +1037,10 @@ export default function ChatWorkspace() {
         files.map((file) => file.id),
       );
 
-      if (outcome.kind === "done") {
+      if (detachedRef.current === controller) {
+        // Let go on purpose (another conversation, or the screen left): the
+        // reply goes on on the server; this page shows it when it comes back.
+      } else if (outcome.kind === "done") {
         const saved = outcome.message;
         // 영수증은 장부의 숫자(done 이벤트)로 그 자리에서 채웁니다.
         const receipt: ReplyReceipt | null =
@@ -1028,16 +1069,39 @@ export default function ChatWorkspace() {
           remainingKrw: outcome.walletRemainingKrw,
           label: `채팅 · ${modelShortName(saved?.model_id)}`,
         });
-      } else if (outcome.kind === "stopped" || outcome.kind === "disconnected") {
+      } else if (outcome.kind === "disconnected") {
+        // background-runs: the connection dropped (wifi, a phone in the
+        // background) — the server goes on and will charge for the whole
+        // reply. Read the conversation again and follow the reply if it is
+        // still being written; never say it stopped.
+        patchReply(() => null);
+        try {
+          const detail = await getConversation(conversationId);
+          if (activeIdRef.current === conversationId) {
+            setMessages(detail.messages.map(toView));
+            setLongHistory(detail.long_history ?? null);
+            if (detail.running) {
+              followRef.current(conversationId, detail.running);
+            } else {
+              // Already saved: its receipt is the ledger's word.
+              const settled =
+                savedUserId === null
+                  ? undefined
+                  : detail.messages.find((message) => message.role === "assistant" && message.id > savedUserId!);
+              if (settled) {
+                reportCharge({ chargedKrw: settled.receipt?.charged_krw, label: `채팅 · ${modelShortName(settled.model_id)}` });
+              }
+              void refreshQuarter();
+            }
+          }
+        } catch {
+          setSendError("답장을 받는 중에 연결이 끊어졌어요. 서버에서는 답장을 계속 써요 — 대화를 다시 열면 이어서 보여요.");
+        }
+      } else if (outcome.kind === "stopped") {
         // 중지했거나 연결이 끊겼습니다 — 어느 쪽이든 백엔드는 그때까지
         // 만든 답장을 저장하고 쓴 만큼 차감하므로, 차감이 없었다고
         // 말하면 안 됩니다. 저장본과 영수증은 정산이 끝난 뒤 가져옵니다.
         patchReply((row) => (row.content ? { ...row, streaming: false, status: "stopped" } : null));
-        if (outcome.kind === "disconnected") {
-          setSendError(
-            `${outcome.detail} 여기까지 온 답장은 저장되고, 쓴 만큼만 차감됩니다.`,
-          );
-        }
         settleStopped(conversationId, replyKey, savedUserId, 0);
       } else {
         // 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이
@@ -1048,17 +1112,24 @@ export default function ChatWorkspace() {
         );
       }
     } catch (error) {
+      if (detachedRef.current === controller) return;
       // Claude를 부르기 전에 거절됐습니다. 메시지는 저장되지 않았으므로
       // 화면에서도 거두고, 쓴 글은 입력창에 돌려줍니다.
       setMessages((rows) => rows.filter((row) => row.key !== userKey && row.key !== replyKey));
       setDraft(text);
       setSendError(describeError(error));
     } finally {
-      abortRef.current = null;
-      setStreaming(false);
-      setToolStatus(null);
-      finishRun("chat", conversationId);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setStreaming(false);
+        setStopping(false);
+        setToolStatus(null);
+      }
+      // Let go on purpose: the reply still runs; the server's dot stays.
+      if (detachedRef.current !== controller) finishRun("chat", conversationId);
+      else handOverRun("chat", conversationId);
       void refreshList();
+      void refreshServerRuns();
     }
   }, [
     applyWalletRemaining,
@@ -1074,9 +1145,107 @@ export default function ChatWorkspace() {
     streaming,
   ]);
 
-  const stop = useCallback(() => {
-    abortRef.current?.abort();
+  /**
+   * 중지 (background-runs): the server stops the reply — from this tab or
+   * any other — and this page keeps reading until it says 중지됨, with what
+   * was saved and charged. Only if the server cannot be asked does the page
+   * close the connection instead (the old way, which the server no longer
+   * treats as 중지 — the reply would go on).
+   */
+  const stop = useCallback(async () => {
+    const id = activeIdRef.current;
+    if (id === null) return;
+    setStopping(true);
+    try {
+      // Nothing running yet (the request has not reached the server) or any
+      // more: the button stays usable.
+      if (!(await stopReply(id))) setStopping(false);
+    } catch (error) {
+      setStopping(false);
+      setSendError(describeError(error));
+    }
   }, []);
+
+  // background-runs: follow a reply that is still being written (the page
+  // came back, or another tab started it). Read only — nothing is charged.
+  const follow = useCallback(
+    (id: number, live: LiveRun) => {
+      // Never two readers: let go of whatever this page was reading.
+      if (abortRef.current) {
+        detachedRef.current = abortRef.current;
+        abortRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortRef.current = controller;
+      detachedRef.current = null;
+      setStreaming(true);
+      startRun("chat", id);
+      const key = `live${live.run_id}`;
+      const startedAt = Date.parse(live.started_at) || Date.now();
+      setMessages((rows) => [
+        ...rows.filter((row) => row.key !== key),
+        {
+          key,
+          role: "assistant",
+          content: live.text,
+          thinking: live.thinking || null,
+          status: "complete",
+          action: null,
+          actionTitle: "",
+          modelId: null,
+          streaming: true,
+          startedAt,
+        },
+      ]);
+      const patch = (change: (row: ViewMessage) => ViewMessage) =>
+        setMessages((rows) => rows.map((row) => (row.key === key ? change(row) : row)));
+      void followReply(
+        id,
+        {
+          onSnapshot: (text, thinking) => patch((row) => ({ ...row, content: text, thinking: thinking || row.thinking })),
+          onDelta: (piece) => patch((row) => ({ ...row, content: row.content + piece })),
+          onThinking: (piece) => patch((row) => ({ ...row, thinking: (row.thinking ?? "") + piece })),
+        },
+        controller.signal,
+      )
+        .then(async (outcome) => {
+          if (detachedRef.current === controller || abortRef.current !== controller) return;
+          if (outcome.kind === "done" || outcome.kind === "idle") {
+            const fresh = await getConversation(id);
+            if (activeIdRef.current !== id) return;
+            setMessages(fresh.messages.map(toView));
+            setLongHistory(fresh.long_history ?? null);
+            const saved = outcome.kind === "done" ? fresh.messages.find((m) => m.id === outcome.messageId) : undefined;
+            if (saved) {
+              reportCharge({ chargedKrw: saved.receipt?.charged_krw, label: `채팅 · ${modelShortName(saved.model_id)}` });
+            }
+            void refreshQuarter();
+          } else if (outcome.kind === "error") {
+            patch((row) => ({ ...row, streaming: false }));
+            setSendError(outcome.detail);
+          } else if (outcome.kind === "disconnected") {
+            patch((row) => ({ ...row, streaming: false }));
+            setSendError("답장을 다시 받는 중에 연결이 끊어졌어요. 서버에서는 계속 쓰고 있어요 — 대화를 다시 열면 이어서 보여요.");
+          }
+        })
+        .catch((error: unknown) => setSendError(describeError(error)))
+        .finally(() => {
+          if (abortRef.current === controller) {
+            abortRef.current = null;
+            setStreaming(false);
+            setStopping(false);
+          }
+          if (detachedRef.current === controller) handOverRun("chat", id);
+          else finishRun("chat", id);
+          void refreshList();
+          void refreshServerRuns();
+        });
+    },
+    [refreshList, refreshQuarter, reportCharge],
+  );
+  useEffect(() => {
+    followRef.current = follow;
+  }, [follow]);
 
   const saveRename = useCallback(
     async (id: number) => {
@@ -1206,7 +1375,7 @@ export default function ChatWorkspace() {
       >
         <div className={styles.listHead}>
           {listShown ? (
-            <button className={styles.newChat} type="button" onClick={startNew} disabled={streaming}>
+            <button className={styles.newChat} type="button" onClick={startNew}>
               <Plus size={15} aria-hidden="true" /> 새 대화
             </button>
           ) : (
@@ -1214,7 +1383,6 @@ export default function ChatWorkspace() {
               className={`${styles.newChat} ${styles.newChatRail}`}
               type="button"
               onClick={startNew}
-              disabled={streaming}
               aria-label="새 대화"
               title="새 대화"
             >
@@ -1243,7 +1411,7 @@ export default function ChatWorkspace() {
             icon={MessageSquare}
             title="아직 대화가 없어요"
             text="입력창에 궁금한 것을 적으면 첫 대화가 여기에 생겨요."
-            action={{ label: "새 대화 시작", onClick: startNew, disabled: streaming }}
+            action={{ label: "새 대화 시작", onClick: startNew }}
           />
         )}
 
@@ -1280,7 +1448,6 @@ export default function ChatWorkspace() {
                     className={styles.listOpenButton}
                     type="button"
                     onClick={() => void openConversation(conversation.id)}
-                    disabled={streaming && conversation.id !== activeId}
                     title={conversation.title || "새 대화"}
                   >
                     {conversation.pinned_at && <Pin size={11} className={styles.pinMark} aria-hidden="true" data-testid="pin-mark" />}
@@ -1749,9 +1916,10 @@ export default function ChatWorkspace() {
                 <button
                   className={`${styles.send} ${styles.stop}`}
                   type="button"
-                  onClick={stop}
-                  aria-label="중지"
-                  title="중지"
+                  onClick={() => void stop()}
+                  disabled={stopping}
+                  aria-label={stopping ? "중지하는 중" : "중지"}
+                  title={stopping ? "중지하는 중… 여기까지 저장하고 있어요" : "중지"}
                 >
                   <Square size={9} fill="currentColor" aria-hidden="true" />
                 </button>
@@ -1776,7 +1944,7 @@ export default function ChatWorkspace() {
                 </button>
               )}
             </div>
-            <p className={styles.hint}>{streaming ? `중지하면 지금까지 쓴 만큼만 차감돼요. ${hint}` : hint}</p>
+            <p className={styles.hint}>{streaming ? `중지하면 지금까지 쓴 만큼만 차감돼요. 다른 화면으로 가도 답장은 계속 써요. ${hint}` : hint}</p>
           </div>
         </div>
       </div>

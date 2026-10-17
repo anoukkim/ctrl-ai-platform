@@ -31,6 +31,9 @@ spent.
 from __future__ import annotations
 
 import asyncio
+
+import anyio
+import anyio.from_thread
 from datetime import datetime, timezone
 import logging
 import json
@@ -50,6 +53,7 @@ from app.api.uploads import clean_upload_name, file_response, read_upload_body
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
+    ChatRun,
     AttachmentKind,
     ChatAttachment,
     ChatModel,
@@ -73,10 +77,14 @@ from app.schemas.chat import (
     ConversationRead,
     ConversationPinSet,
     ConversationUpdate,
+    LiveRunRead,
     LongHistoryRead,
     ReplyReceipt,
+    RunningRead,
+    StopRead,
 )
-from app.services import depth as depth_service
+from app.schemas.builder import EmptyBody
+from app.services import chat_runs, depth as depth_service
 from app.services import attachments as attachments_service
 from app.services import chat as chat_service
 from app.services import chat_limits, chat_tools, provider_limiter
@@ -278,6 +286,8 @@ def read_conversation(
     settings: Settings = Depends(get_settings),
 ) -> ConversationDetail:
     conversation = _owned(db, user, conversation_id)
+    # background-runs: first, so a reply a restart cut is saved and listed.
+    live = chat_runs.current(db, user, conversation.id)
     messages = chat_service.messages_of(db, conversation)
     # The composer's long-history warning (token-guard). A model or price
     # problem never breaks reading a conversation — the warning just stays
@@ -303,6 +313,11 @@ def read_conversation(
                 extra_krw=long_history.extra_krw,
             )
             if long_history
+            else None
+        ),
+        running=(
+            LiveRunRead(run_id=live.id, text=live.text, thinking=live.thinking, started_at=live.started_at)
+            if live is not None
             else None
         ),
     )
@@ -619,6 +634,11 @@ KEEPALIVE_SECONDS = 10.0
 #: Reply tasks still running. See `send_message`.
 _RUNNING: set[asyncio.Task] = set()
 
+#: background-runs: this process's running replies, so 중지 that reaches
+#: the same process stops at once (another process sees the row's flag
+#: within `chat_runs.FLUSH_SECONDS`).
+_STOPS: dict[int, tuple[asyncio.AbstractEventLoop, asyncio.Event]] = {}
+
 
 def _in_session(session_factory, work):
     """Run `work(db)` in a session of its own.
@@ -653,6 +673,13 @@ def send_message(
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     conversation = _owned(db, user, conversation_id)
+    # background-runs: one running reply per member — the row other pages
+    # and processes see (the text so far, 중지, the running dot).
+    try:
+        run = chat_runs.begin(db, user, conversation)
+    except chat_runs.RunRefused as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    run_id = run.id
 
     try:
         # Checked before anything else: a model this member may not use is
@@ -672,20 +699,22 @@ def send_message(
             attachment_ids=payload.attachment_ids,
             load=lambda row: storage.load(row.storage_key),
         )
-    except chat_models.ModelChoiceError as error:
-        raise _model_error(error) from error
-    except chat_service.ChatRefusal as error:
-        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
-    except usage_service.InsufficientBudgetError as error:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(error)
-        ) from error
-    except usage_service.NoQuarterError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    except pricing.PricingError as error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
-        ) from error
+    except Exception as error:
+        # Refused before Claude was called: there is no run.
+        db.rollback()
+        chat_runs.abandon(db, run_id)
+        if isinstance(error, chat_models.ModelChoiceError):
+            raise _model_error(error) from error
+        if isinstance(error, chat_service.ChatRefusal):
+            raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+        if isinstance(error, usage_service.InsufficientBudgetError):
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(error)) from error
+        if isinstance(error, usage_service.NoQuarterError):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+        if isinstance(error, pricing.PricingError):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+        raise
+    chat_runs.attach_user_message(db, run_id, turn.user_message.id)
 
     # PART F: the club has one key; one process keeps at most this many
     # provider calls in flight. Read here, while the request's session is
@@ -693,8 +722,68 @@ def send_message(
     concurrency_limit = chat_limits.current(db).provider_concurrency
 
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
+    # One database step of this reply at a time — the reply's task and its
+    # flusher both write; never two of them on one session at once.
+    db_turns = asyncio.Lock()
+
+    async def in_db(work):
+        async with db_turns:
+            return await run_in_threadpool(_in_session, session_factory, work)
+
     stop = asyncio.Event()
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
+    # background-runs: what the reply shows so far, for the run row (other
+    # pages re-attach to it), and the end of the task for the flusher.
+    shown = {"text": "", "thinking": ""}
+    finished = asyncio.Event()
+
+    def show(kind: str, piece: str) -> None:
+        shown["text" if kind == "delta" else "thinking"] += piece
+        queue.put_nowait((kind, piece))
+
+    async def flusher() -> None:
+        """Every half second: the text so far and a heartbeat into the run
+        row, and 중지 out of it — pressed on this page or any other, in
+        this process or the other one."""
+        while not finished.is_set():
+            try:
+                await asyncio.wait_for(finished.wait(), chat_runs.FLUSH_SECONDS)
+                return
+            except asyncio.TimeoutError:
+                pass
+            text, thinking = shown["text"], shown["thinking"]
+            try:
+                asked = await in_db(lambda db: chat_runs.flush(db, run_id, text, thinking)
+                )
+            except Exception:  # noqa: BLE001 — a missed beat is retried in half a second
+                logger.exception("flushing chat run %s failed", run_id)
+                continue
+            if asked:
+                stop.set()
+
+    async def end_run(result: chat_service.TurnResult) -> None:
+        """The row says how the reply ended — after it was saved and charged."""
+        finished.set()
+        message = result.message
+        if message is None:
+            state = "failed"
+        elif getattr(message.status, "value", message.status) == "stopped":
+            state = "stopped"
+        else:
+            state = "done"
+        try:
+            await in_db(lambda db: chat_runs.finish(
+                    db,
+                    run_id,
+                    state,
+                    message_id=message.id if message is not None else None,
+                    text=message.content if message is not None else shown["text"],
+                    thinking=shown["thinking"],
+                    error=str(result.error) if result.error is not None else "",
+                ),
+            )
+        except Exception:  # noqa: BLE001 — the sweep ends it later
+            logger.exception("ending chat run %s failed", run_id)
 
     async def produce() -> None:
         """Talk to Claude and finish the turn — always, however it ends.
@@ -714,18 +803,32 @@ def send_message(
         pieces are saved and shown as one reply.
         """
         marker = chat_service.MarkerFilter()
+        # background-runs: the run's liveness lock, held on a connection of
+        # its own until the run row says how it ended — the sweep never ends
+        # a reply whose process is alive, however late its heartbeat.
+        bind = await in_db(lambda db: db.get_bind())
+        liveness = await run_in_threadpool(chat_runs.hold, bind, chat_runs.CHAT_LOCK, run_id)
+        try:
+            await produce_turn(marker)
+        finally:
+            await run_in_threadpool(chat_runs.release, liveness, chat_runs.CHAT_LOCK, run_id)
+
+    async def produce_turn(marker) -> None:
         # A slot under the process-wide provider limit, waited for off the
         # event loop. Refused: a BUSY error — the provider was never
         # called, nothing is charged, and the status board is not marked.
         if not await run_in_threadpool(provider_limiter.acquire, concurrency_limit):
             state = chat_service.TurnState()
             state.error = ClaudeError(ProviderErrorKind.BUSY, "provider concurrency limit")
-            result = await run_in_threadpool(
-                _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, state)
+            result = await in_db(lambda db: chat_service.finish_turn(db, settings, turn, state)
             )
+            await end_run(result)
             queue.put_nowait(("end", result))
             return
 
+        beat = asyncio.create_task(flusher())
+        _RUNNING.add(beat)
+        beat.add_done_callback(_RUNNING.discard)
         segments: list[chat_service.SegmentCharge] = []
         request = turn.request
         estimated_input = turn.estimated_input_tokens
@@ -740,12 +843,12 @@ def send_message(
                             state.raw_text += event.text
                             visible = marker.feed(event.text)
                             if visible:
-                                queue.put_nowait(("delta", visible))
+                                show("delta", visible)
                         elif isinstance(event, ThinkingDelta):
                             # 생각 과정 보기 (chat-thinking-view): shown as it comes,
                             # saved with the reply, never sent back to Claude.
                             state.thinking += event.text
-                            queue.put_nowait(("thinking", event.text))
+                            show("thinking", event.text)
                         elif isinstance(event, UsageUpdate):
                             state.input_tokens = event.input_tokens
                             state.output_tokens = event.output_tokens
@@ -795,10 +898,7 @@ def send_message(
                     error = state.error
                     break
                 # This call's charge — one `usage.charge()` per call, as always.
-                segment = await run_in_threadpool(
-                    _in_session,
-                    session_factory,
-                    lambda db, st=state, est=estimated_input: chat_service.settle_segment(
+                segment = await in_db(lambda db, st=state, est=estimated_input: chat_service.settle_segment(
                         db, settings, turn, st, estimated_input_tokens=est
                     ),
                 )
@@ -824,10 +924,7 @@ def send_message(
                 measured = (
                     segment.input_tokens + segment.cache_write_tokens + segment.cache_read_tokens
                 ) if (segment.input_tokens or segment.cache_write_tokens or segment.cache_read_tokens) else 0
-                plan = await run_in_threadpool(
-                    _in_session,
-                    session_factory,
-                    lambda db: chat_service.plan_continuation(
+                plan = await in_db(lambda db: chat_service.plan_continuation(
                         db, settings, turn, raw_so_far, cost_so_far,
                         measured_input_tokens=measured, calls_so_far=len(segments),
                         raw_last_call=segment.state.raw_text,
@@ -861,9 +958,9 @@ def send_message(
             if error is not None and not segments:
                 failed = chat_service.TurnState()
                 failed.error = error
-                result = await run_in_threadpool(
-                    _in_session, session_factory, lambda db: chat_service.finish_turn(db, settings, turn, failed)
+                result = await in_db(lambda db: chat_service.finish_turn(db, settings, turn, failed)
                 )
+                await end_run(result)
                 queue.put_nowait(("end", result))
                 return
             if error is not None:
@@ -876,10 +973,7 @@ def send_message(
                     "error",
                     f"답장을 이어 쓰다 오류가 났어요: {error} 여기까지 저장했고, 오류가 난 부분은 청구되지 않았어요.",
                 )
-            result = await run_in_threadpool(
-                _in_session,
-                session_factory,
-                lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason, error=error),
+            result = await in_db(lambda db: chat_service.save_reply(db, settings, turn, segments, stop=stop_reason, error=error),
             )
         except Exception:  # noqa: BLE001 — a bug here must not leave the member's stream hanging
             logger.exception("finishing a chat turn failed")
@@ -889,17 +983,28 @@ def send_message(
         if result.error is None:
             rest = marker.finish()
             if rest.strip():
-                queue.put_nowait(("delta", rest))
+                show("delta", rest)
+        await end_run(result)
         queue.put_nowait(("end", result))
 
-    async def relay() -> AsyncIterator[str]:
-        # Started here, not in the route body: the route runs in a worker
-        # thread, and a task needs the event loop.
+    def start() -> None:
+        """Runs on the event loop (the route itself runs in a worker
+        thread). Started here, before the response — a page that goes away
+        before the first byte must not leave a run that nothing produces."""
+        _STOPS[run_id] = (asyncio.get_running_loop(), stop)
         task = asyncio.create_task(produce())
+        task.add_done_callback(lambda _task: _STOPS.pop(run_id, None))
+        # However the task ends, the flusher stops beating (a run whose task
+        # died without saying so is ended by the sweep).
+        task.add_done_callback(lambda _task: finished.set())
         # The loop keeps only a weak reference to a task; this one must
         # outlive the response it was started for.
         _RUNNING.add(task)
         task.add_done_callback(_RUNNING.discard)
+
+    anyio.from_thread.run_sync(start)
+
+    async def relay() -> AsyncIterator[str]:
         try:
             yield _sse(
                 "start",
@@ -988,9 +1093,10 @@ def send_message(
                     )
                 return
         finally:
-            # Reached on a normal end, on cancellation, and on close.
-            # Synchronous on purpose: nothing here may wait.
-            stop.set()
+            # background-runs: leaving the page (a closed connection) no
+            # longer stops the reply — only 중지 does (`stop_reply`). The
+            # task finishes, saves and charges as it would have.
+            pass
 
     return StreamingResponse(
         relay(),
@@ -1007,3 +1113,125 @@ def send_message(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ------------------------------------------------------------- background-runs
+
+
+@router.get("/running", response_model=RunningRead, summary="What is running now: the live reply and builds")
+def running(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> RunningRead:
+    """background-runs: the running dots on the Chat list, the sidebar and
+    the Builder cards come from here, not from the page — a reply or a
+    build keeps going after the member leaves."""
+    found = chat_runs.running_for(db, user)
+    return RunningRead(conversations=found.conversations, projects=found.projects)
+
+
+@router.post(
+    "/conversations/{conversation_id}/stop",
+    response_model=StopRead,
+    summary="중지: stop the reply being written (from this page or any other)",
+)
+def stop_reply(
+    conversation_id: int,
+    payload: EmptyBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StopRead:
+    """Leaving the page no longer stops a reply; this does. The reply is
+    saved with what was written and charged for what was produced, as 중지
+    always was. Any member may stop their own reply, taking part or not —
+    stopping only ever saves money."""
+    conversation = _owned(db, user, conversation_id)
+    run = chat_runs.request_stop(db, user, conversation.id)
+    if run is None:
+        return StopRead(stopping=False)
+    local = _STOPS.get(run.id)
+    if local is not None:
+        loop, event = local
+        loop.call_soon_threadsafe(event.set)
+    return StopRead(stopping=True)
+
+
+#: How often a re-attached page reads the run row.
+LIVE_POLL_SECONDS = 0.4
+
+
+@router.get(
+    "/conversations/{conversation_id}/live",
+    summary="Re-attach to a reply still being written (Server-Sent Events)",
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+def follow_reply(
+    conversation_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Response:
+    """background-runs: a page that comes back mid-reply reads the run row —
+    `snapshot` (the text so far), then `delta` / `thinking` as it grows,
+    then `done` (the saved message's id; the page reloads the conversation
+    for the receipt) or `error`. Read only: nothing here charges, so
+    watching a reply from two tabs never charges it twice. 204 when
+    nothing is running."""
+    conversation = _owned(db, user, conversation_id)
+    run = chat_runs.current(db, user, conversation.id)
+    if run is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    run_id = run.id
+    user_id = user.id
+    session_factory = request.app.dependency_overrides.get(get_db, get_db)
+
+    def read(db: Session):
+        db.expire_all()
+        row = db.get(ChatRun, run_id)
+        if row is not None and row.status == "running" and not chat_runs.is_fresh(row):
+            member = db.get(User, user_id)
+            if member is not None:
+                chat_runs.sweep(db, user_id=member.id)
+            row = db.get(ChatRun, run_id)
+        if row is None:
+            return None
+        return (row.status, row.text, row.thinking, row.message_id, row.error)
+
+    async def watch() -> AsyncIterator[str]:
+        sent_text = 0
+        sent_thinking = 0
+        quiet = 0.0
+        first = True
+        while True:
+            seen = await run_in_threadpool(_in_session, session_factory, read)
+            if seen is None:
+                yield _sse("error", {"detail": "답장을 찾을 수 없어요."})
+                return
+            state, text, thinking, message_id, error = seen
+            if first:
+                yield _sse("snapshot", {"text": text, "thinking": thinking})
+                sent_text, sent_thinking, first = len(text), len(thinking), False
+            else:
+                if len(thinking) > sent_thinking:
+                    yield _sse("thinking", {"text": thinking[sent_thinking:]})
+                    sent_thinking = len(thinking)
+                    quiet = 0.0
+                if len(text) > sent_text:
+                    yield _sse("delta", {"text": text[sent_text:]})
+                    sent_text = len(text)
+                    quiet = 0.0
+            if state != "running":
+                if message_id is not None:
+                    yield _sse("done", {"message_id": message_id, "status": state})
+                else:
+                    yield _sse("error", {"detail": error or "답장을 저장하지 못했어요."})
+                return
+            await asyncio.sleep(LIVE_POLL_SECONDS)
+            quiet += LIVE_POLL_SECONDS
+            if quiet >= KEEPALIVE_SECONDS:
+                yield ": keepalive\n\n"
+                quiet = 0.0
+
+    return StreamingResponse(
+        watch(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+    )
+

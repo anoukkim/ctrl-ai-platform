@@ -21,7 +21,7 @@ Two decisions worth knowing:
 import enum
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, false, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, false, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, status_enum
@@ -244,3 +244,58 @@ class ChatAttachment(Base):
 
     def __repr__(self) -> str:
         return f"<ChatAttachment {self.id} {self.kind.value}>"
+
+
+class ChatRun(Base):
+    """background-runs (owner, 2026-10-17): a Chat reply being written.
+
+    A reply keeps going on the server when the member leaves the page;
+    only 중지 stops it. This row is what every other page and process
+    sees of it: the text so far (rewritten every half second by the task
+    that talks to Claude), a heartbeat, and the member's 중지 request —
+    the api runs several worker processes, so 중지 from another tab, a
+    second window re-attaching to the live reply, and the running dot on
+    the Chat list all read and write the row, never the task's memory.
+
+    One running reply per member (`uq_chat_runs_running_user`). A run
+    whose heartbeat stopped (the server restarted) is ended as 중지 with
+    what was written (`services.chat_runs.sweep`).
+    """
+
+    __tablename__ = "chat_runs"
+    __table_args__ = (
+        Index(
+            "uq_chat_runs_running_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+            sqlite_where=text("status = 'running'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    #: The member's message this run answers.
+    user_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=True
+    )
+    #: The saved reply, once there is one.
+    message_id: Mapped[int | None] = mapped_column(ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True)
+    #: running · done · stopped · failed
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="running")
+    #: What the member would see so far (markers filtered) and the thinking summary.
+    text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    thinking: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    #: 중지 pressed — from this page or any other.
+    stop_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    #: The failure's sentence, when it failed.
+    error: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<ChatRun {self.id} {self.status} conversation={self.conversation_id}>"

@@ -45,7 +45,7 @@ import { activeSection, visibleSections } from "@/app/admin/sections";
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
 import { useMediaQuery } from "@/lib/layout-prefs";
 import { useTheme } from "@/lib/theme";
-import { isRunning, useRuns } from "@/lib/running";
+import { isRunning, useRuns, useServerRunsSync } from "@/lib/running";
 
 import AnimatedNumber from "./AnimatedNumber";
 import BrandMark from "./BrandMark";
@@ -178,6 +178,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // owner-polish 6: Video Generator가 회원에게 잠겨 있으면 메뉴가 그렇게 말합니다.
   const site = useSite();
   const siteLoaded = useSiteLoaded();
+  // background-runs: the running dots come from the server — a reply or a
+  // build goes on after its page is closed.
+  useServerRunsSync(state.phase === "authenticated" && !isPublicPath(pathname));
 
   // 로그인/회원가입 화면에는 사이드바를 두지 않습니다.
   if (isPublicPath(pathname)) {

@@ -24,6 +24,7 @@ from app.models.chat import (
     ChatMessage,
     ChatMessageStatus,
     ChatRole,
+    ChatRun,
     Conversation,
 )
 from app.models.feedback import (
@@ -86,6 +87,7 @@ from app.models.withdrawal import (
 )
 
 __all__ = [
+    "ChatRun",
     "AppComment",
     "AppCommentReport",
     "AppReaction",

@@ -384,6 +384,10 @@ class BuilderGeneration(TimestampMixin, Base):
     charged_krw: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     #: The last failure, in Korean, for the member.
     error: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    #: background-runs: touched every few seconds while a run is going, so
+    #: the Builder card's running dot comes from the server and a run left
+    #: "running" by a restart is found and ended.
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     version_id: Mapped[int | None] = mapped_column(
         ForeignKey("builder_project_versions.id", ondelete="SET NULL"), nullable=True
     )

@@ -93,7 +93,7 @@ from app.services import (
     project_zip,
 )
 from app.services import attachments as attachments_service
-from app.services import builder_assets, builder_references, thumbnail_render, thumbnails
+from app.services import builder_assets, builder_references, chat_runs, thumbnail_render, thumbnails
 from app.services import usage as usage_service
 from app.services.attachments import AttachmentRefusal
 from app.services.quiet import quiet_update
@@ -1323,6 +1323,8 @@ def read_open_generation(
     config: Settings = Depends(get_settings),
 ) -> GenerationRead | None:
     project = _owned_project(project_id, db, user)
+    # background-runs: a build a restart left "running" becomes 이어서 만들기.
+    chat_runs.sweep(db, user_id=user.id)
     generation = builder_stages.open_generation(db, project)
     return _generation_read(db, config, user, project, generation) if generation else None
 
@@ -1353,6 +1355,9 @@ def cancel_generation(
 #: Seconds without a step before the stream sends a keepalive — every hop
 #: (Caddy, the Next.js proxy) stays open while one file is being written.
 GENERATION_KEEPALIVE_SECONDS = 10.0
+
+#: background-runs: how often a running build touches its heartbeat.
+GENERATION_BEAT_SECONDS = 5.0
 
 #: Runs still going after their response ended (the member closed the tab):
 #: they finish, so every file that was paid for is saved.
@@ -1400,15 +1405,18 @@ def run_generation(
         try:
             member = worker_db.get(User, user_id)
             try:
-                builder_stages.run(
-                    worker_db,
-                    config,
-                    provider,
-                    user=member,
-                    generation_id=generation_id,
-                    emit=emit,
-                    is_mock=is_mock,
-                )
+                # background-runs: held while it works — a restart's dead run
+                # is told from a slow one by this lock, not by the clock.
+                with chat_runs.alive(worker_db.get_bind(), chat_runs.BUILD_LOCK, generation_id):
+                    builder_stages.run(
+                        worker_db,
+                        config,
+                        provider,
+                        user=member,
+                        generation_id=generation_id,
+                        emit=emit,
+                        is_mock=is_mock,
+                    )
             except builder_starter.StarterError as error:
                 emit("error", {"detail": str(error), "partial": False, "files_done": []})
             except Exception:  # noqa: BLE001 — the member gets a Korean sentence either way
@@ -1435,11 +1443,43 @@ def run_generation(
             sessions.close()
             loop.call_soon_threadsafe(queue.put_nowait, ("end", {}))
 
+    def beat_once() -> None:
+        sessions = session_factory()
+        beat_db = next(sessions)
+        try:
+            chat_runs.beat_generation(beat_db, generation_id)
+        finally:
+            sessions.close()
+
+    async def beat(task: asyncio.Task) -> None:
+        """background-runs: the run's heartbeat while it works — the Builder
+        card's running dot comes from it, and a run a restart left
+        "running" is found by its silence (`chat_runs.sweep`)."""
+        while not task.done():
+            try:
+                await run_in_threadpool(beat_once)
+            except Exception:  # noqa: BLE001 — the next beat tries again
+                logger.exception("builder generation %s heartbeat failed", generation_id)
+            try:
+                await asyncio.wait_for(asyncio.shield(task), GENERATION_BEAT_SECONDS)
+            except asyncio.TimeoutError:
+                continue
+            except Exception:  # noqa: BLE001 — the run's own failure is handled in work()
+                return
+
     async def relay():
         loop = asyncio.get_running_loop()
         task = asyncio.create_task(run_in_threadpool(work, loop))
         _RUNNING.add(task)
         task.add_done_callback(_RUNNING.discard)
+        # Only with the app's own sessions: the tests hand every caller one
+        # shared session, which a second thread must not use while the run's
+        # thread does (the run stamps its heartbeat when it starts, which is
+        # what the tests read).
+        if get_db not in request.app.dependency_overrides:
+            beating = asyncio.create_task(beat(task))
+            _RUNNING.add(beating)
+            beating.add_done_callback(_RUNNING.discard)
         while True:
             try:
                 kind, data = await asyncio.wait_for(queue.get(), GENERATION_KEEPALIVE_SECONDS)

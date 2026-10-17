@@ -344,16 +344,13 @@ describe("중지·끊김 뒤의 정산", () => {
     typeAndSend("질문");
     await flush();
 
-    // 끊긴 답장: 남은 글은 중지된 것으로 보이고, 청구 없음 문구는 없다.
-    expect(screen.getByText("부분 답장")).toBeTruthy();
-    expect(screen.queryByTestId("not-charged")).toBeNull();
-    expect(screen.getByText(/연결이 끊어졌습니다/)).toBeTruthy();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(950);
-    });
-
+    // background-runs: a dropped connection is not 중지 — the server goes on
+    // and charges the whole reply. The page reads the conversation again at
+    // once: here it is saved, so the saved reply and its receipt show (were
+    // it still being written, the page would follow it).
     expect(chatApi.getConversation).toHaveBeenCalledWith(CONVERSATION.id);
+    expect(screen.queryByTestId("not-charged")).toBeNull();
+    expect(screen.queryByText(/연결이 끊어졌습니다/)).toBeNull();
     expect(screen.getByTestId("receipt").textContent).toContain("합계 2원");
     expect(quarter.refresh).toHaveBeenCalled();
   });

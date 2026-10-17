@@ -185,10 +185,35 @@ class LongHistoryRead(BaseModel):
     extra_krw: int
 
 
+class LiveRunRead(BaseModel):
+    """background-runs: a reply still being written on the server — the
+    text so far, so a page that comes back can show it and re-attach."""
+
+    run_id: int
+    text: str = ""
+    thinking: str = ""
+    started_at: datetime
+
+
+class RunningRead(BaseModel):
+    """background-runs: what the running dots show — the member's live
+    reply's conversation and the projects being built."""
+
+    conversations: list[int]
+    projects: list[int]
+
+
+class StopRead(BaseModel):
+    #: False when nothing was running (it had already ended).
+    stopping: bool
+
+
 class ConversationDetail(ConversationRead):
     messages: list[ChatMessageRead]
     #: Present while the history is long enough to warrant the warning.
     long_history: LongHistoryRead | None = None
+    #: background-runs: present while a reply is still being written.
+    running: LiveRunRead | None = None
 
 
 class SourceRead(BaseModel):

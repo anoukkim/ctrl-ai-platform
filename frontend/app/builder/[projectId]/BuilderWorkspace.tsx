@@ -141,6 +141,8 @@ export const ASK_EXAMPLES = [
   "글씨를 조금 더 크게 해 줘",
 ];
 const EXAMPLE_MS = 4000;
+/** background-runs: how often a followed build is read again. */
+const FOLLOW_MS = 1500;
 
 /** 파일 목록을 왼쪽 나무로: 맨 위 파일, 그다음 폴더별 파일. */
 function fileTree(files: BuilderFile[]): { name: string; path: string; depth: number; folder: boolean }[] {
@@ -219,6 +221,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
   const [captureUrl, setCaptureUrl] = useState<string | null>(null);
   // motion-modern (5): the 게시 완료 moment, once per publish.
+  // background-runs: following a build this page did not start (below).
+  const followGenRef = useRef<(open: Generation) => void>(() => undefined);
   // thumbnail-choice: the 16:10 frame over the 미리보기 is open.
   const [framing, setFraming] = useState(false);
   const [celebrating, setCelebrating] = useState<{ key: number; name: string; url: string | null } | null>(null);
@@ -363,9 +367,13 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     getGenerateEstimate(projectId)
       .then(setGenerateEstimate)
       .catch(() => setGenerateEstimate(null));
-    // 중간에 멈춘 만들기가 있으면 이어서 만들기를 보여 줍니다.
+    // 중간에 멈춘 만들기가 있으면 이어서 만들기를 보여 줍니다. 아직 서버에서
+    // 만들고 있으면(다른 탭, 또는 새로 고침 전에 시작) 그 진행을 따라가요.
     getOpenGeneration(projectId)
-      .then(setGeneration)
+      .then((open) => {
+        setGeneration(open);
+        if (open?.status === "running") followGenRef.current(open);
+      })
       .catch(() => setGeneration(null));
   }, [projectId, loadVersions]);
 
@@ -413,6 +421,62 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     void refreshWallet();
     getGenerateEstimate(projectId).then(setGenerateEstimate).catch(() => undefined);
   }, [projectId, loadVersions, reloadProject, refreshWallet]);
+
+  /**
+   * background-runs: a build that runs on the server without this page
+   * watching its stream — started in another tab, or before a reload. The
+   * page reads the generation every `FOLLOW_MS` and shows the same running
+   * screen; when it is no longer running, the files and versions are read
+   * again, as after a run of its own. Read only.
+   */
+  const followTimer = useRef<number | null>(null);
+  // One chain at a time; a newer chain (or leaving the page) ends the older.
+  const followChain = useRef(0);
+  useEffect(
+    () => () => {
+      followChain.current += 1;
+      if (followTimer.current !== null) window.clearTimeout(followTimer.current);
+    },
+    [],
+  );
+  const followGeneration = useCallback(
+    (open: Generation) => {
+      const chain = ++followChain.current;
+      if (followTimer.current !== null) window.clearTimeout(followTimer.current);
+      setGenRunning(true);
+      setRunStartedAt((started) => started ?? Date.now());
+      startRun("builder", Number(projectId));
+      const tick = () => {
+        followTimer.current = window.setTimeout(() => {
+          getOpenGeneration(projectId)
+            .then((fresh) => {
+              if (chain !== followChain.current) return;
+              if (fresh?.status === "running") {
+                setGeneration(fresh);
+                tick();
+                return;
+              }
+              followTimer.current = null;
+              setGenRunning(false);
+              setRunStartedAt(null);
+              finishRun("builder", Number(projectId));
+              setGeneration(fresh);
+              if (!fresh) chooseMode("preview");
+              reloadAfterRun();
+            })
+            .catch(() => {
+              if (chain === followChain.current) tick();
+            });
+        }, FOLLOW_MS);
+      };
+      setGeneration(open);
+      tick();
+    },
+    [projectId, chooseMode, reloadAfterRun],
+  );
+  useEffect(() => {
+    followGenRef.current = followGeneration;
+  }, [followGeneration]);
 
   /**
    * 시작 / 이어서 만들기 (quality-tuning Q2). 파일을 하나씩 쓰고, 다 쓴

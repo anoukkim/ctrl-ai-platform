@@ -181,6 +181,16 @@ export interface LongHistory {
 export interface ConversationDetail extends Conversation {
   messages: ChatMessage[];
   long_history?: LongHistory | null;
+  /** background-runs: 서버에서 아직 쓰고 있는 답장 — 지금까지의 글과 함께. */
+  running?: LiveRun | null;
+}
+
+/** background-runs: 서버에서 쓰고 있는 답장 하나. */
+export interface LiveRun {
+  run_id: number;
+  text: string;
+  thinking: string;
+  started_at: string;
 }
 
 /** 입력창 옆 모델 고르기의 한 줄. 회원이 고를 수 있는 것만 옵니다. */
@@ -539,6 +549,93 @@ export async function sendMessage(
   if (buffer.trim()) handle(buffer);
   if (signal.aborted) return { kind: "stopped" };
   return outcome ?? { kind: "disconnected", detail: "답장이 끝까지 오지 않았습니다." };
+}
+
+/**
+ * 중지 (background-runs) — 이 탭이든 다른 탭이든, 쓰고 있는 답장을 멈춥니다.
+ * 화면을 떠나는 것으로는 멈추지 않아요. 답장은 거기까지 저장되고 쓴 만큼만
+ * 차감돼요. 이미 끝났으면 `false`.
+ */
+export async function stopReply(conversationId: number): Promise<boolean> {
+  const answer = await request<{ stopping: boolean }>(`/chat/conversations/${conversationId}/stop`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return answer.stopping;
+}
+
+export type FollowOutcome =
+  /** 답장이 저장됐어요 — 영수증은 대화를 다시 읽어 가져옵니다. */
+  | { kind: "done"; messageId: number }
+  | { kind: "error"; detail: string }
+  /** 이미 끝나 있었어요(따라갈 답장이 없음). */
+  | { kind: "idle" }
+  | { kind: "stopped" }
+  | { kind: "disconnected" };
+
+/**
+ * 돌아왔을 때 (background-runs): 서버에서 쓰고 있는 답장을 다시 따라갑니다.
+ * 처음에 지금까지의 글(`onSnapshot`), 그다음 늘어나는 조각. 읽기만 하므로
+ * 두 탭에서 보아도 차감은 한 번이에요.
+ */
+export async function followReply(
+  conversationId: number,
+  handlers: {
+    onSnapshot?: (text: string, thinking: string) => void;
+    onDelta?: (text: string) => void;
+    onThinking?: (text: string) => void;
+  },
+  signal: AbortSignal,
+): Promise<FollowOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/chat/conversations/${conversationId}/live`, {
+      signal,
+      cache: "no-store",
+      headers: { Accept: "text/event-stream" },
+    });
+  } catch {
+    return signal.aborted ? { kind: "stopped" } : { kind: "disconnected" };
+  }
+  if (response.status === 204) return { kind: "idle" };
+  if (!response.ok || !response.body) return { kind: "error", detail: `답장을 다시 불러오지 못했어요 (HTTP ${response.status})` };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let outcome: FollowOutcome | null = null;
+  const handle = (block: string) => {
+    let name = "";
+    let data = "";
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event: ")) name = line.slice(7);
+      else if (line.startsWith("data: ")) data += line.slice(6);
+    }
+    if (!name || !data) return;
+    const payload = JSON.parse(data);
+    if (name === "snapshot") handlers.onSnapshot?.(payload.text ?? "", payload.thinking ?? "");
+    else if (name === "delta") handlers.onDelta?.(payload.text);
+    else if (name === "thinking") handlers.onThinking?.(payload.text);
+    else if (name === "done") outcome = { kind: "done", messageId: payload.message_id };
+    else if (name === "error") outcome = { kind: "error", detail: payload.detail };
+  };
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary !== -1) {
+        handle(buffer.slice(0, boundary));
+        buffer = buffer.slice(boundary + 2);
+        boundary = buffer.indexOf("\n\n");
+      }
+    }
+  } catch {
+    return signal.aborted ? { kind: "stopped" } : { kind: "disconnected" };
+  }
+  if (buffer.trim()) handle(buffer);
+  if (signal.aborted) return { kind: "stopped" };
+  return outcome ?? { kind: "disconnected" };
 }
 
 /** 액션 단추가 여는 주소. 회원이 한 말을 아이디어로 그대로 들고 갑니다. */
