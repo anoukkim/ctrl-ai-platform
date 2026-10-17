@@ -30,7 +30,6 @@
  * 스위치로, 기본은 꺼짐(이 기기에만). 움직임 줄이기면 전부 빼고 알림만.
  */
 
-import { Coins } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -61,37 +60,30 @@ import {
 import { useCurrentUser } from "./CurrentUserProvider";
 import styles from "./spend-feedback.module.css";
 
-/** 별가루가 알림에서 잔액까지 흐르는 시간 (motion-modern (4)). */
-const FLY_MS = 900;
-/** 별 몇 개가 흐르고, 닿은 자리에서 몇 개가 반짝이는지. */
-export const STAR_COUNT = 9;
+/** spend-toast-compact: how many stars twinkle at the wallet, and for how long. */
 export const TWINKLE_COUNT = 4;
+const TWINKLE_MS = 900;
+/** Under this a charge is quiet: no pill, only the wallet (owner, A). */
+export const QUIET_UNDER_KRW = 10;
 
-/** 별마다 조금씩 다른 길과 크기 — 한 줄로 날지 않도록. 결정적(순서로만). */
+/** 별마다 조금씩 다른 자리 — 결정적(순서로만). */
 function starSpread(index: number) {
   const angle = (index * 137.5 * Math.PI) / 180; // golden angle: evenly scattered
   const radius = 10 + (index % 3) * 9;
-  return {
-    dx: Math.cos(angle) * radius,
-    dy: Math.sin(angle) * radius,
-    size: 5 + (index % 3) * 2,
-    delay: index * 0.045,
-    gold: index % 3 !== 1,
-  };
+  return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
 }
 
-interface Flight {
+interface Twinkle {
   id: number;
-  amountKrw: number;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
+  at: { x: number; y: number };
 }
 
 /**
- * 잔액 숫자(`data-wallet-balance`)가 화면 안에 보이면 거기까지의 비행을
- * 계획합니다. 보이지 않으면 null — 알림이 금액을 들고 있습니다.
+ * The sidebar balance (`data-wallet-balance`) when it is on screen: the
+ * stars twinkle there (spend-toast-compact: "지갑 쪽에서만 반짝이게"). Not on
+ * screen (folded sidebar, phone) → null: the pill alone says it.
  */
-function planFlight(amountKrw: number, id: number): Flight | null {
+function walletPoint(id: number): Twinkle | null {
   if (typeof document === "undefined") return null;
   const target = document.querySelector<HTMLElement>("[data-wallet-balance]");
   if (target === null) return null;
@@ -104,12 +96,7 @@ function planFlight(amountKrw: number, id: number): Flight | null {
     rect.top < window.innerHeight &&
     rect.left < window.innerWidth;
   if (!visible) return null;
-  // 알림 자리(오른쪽 아래; 좁은 화면에서는 위)에서 출발합니다.
-  const narrow = window.innerWidth <= 720;
-  const from = narrow
-    ? { x: window.innerWidth / 2, y: 4.25 * 16 + 20 }
-    : { x: window.innerWidth - 1.25 * 16 - 120, y: window.innerHeight - 9.5 * 16 };
-  return { id, amountKrw, from, to: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } };
+  return { id, at: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } };
 }
 
 export interface ChargeReport {
@@ -175,7 +162,7 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
   const [lastSpend, setLastSpend] = useState<{ id: number; amountKrw: number } | null>(null);
   // v2: 띠링 소리(이 기기의 설정), 잔액으로 날아가는 "-N원".
   const sound = useSoundPref();
-  const [fly, setFly] = useState<Flight | null>(null);
+  const [twinkle, setTwinkle] = useState<Twinkle | null>(null);
   const flyTimer = useRef<number | null>(null);
 
   const nextId = useRef(1);
@@ -209,15 +196,12 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
 
       if (!reduced) {
         setLastSpend({ id: nextId.current++, amountKrw: amount });
-        // "-N원"이 잔액으로 날아갑니다 — 잔액이 화면에 보일 때만. 안 보이면
-        // 알림이 금액을 들고 있으니 그걸로 충분합니다.
-        const flight = planFlight(amount, nextId.current++);
-        if (flight !== null) {
-          setFly(flight);
+        // A few stars twinkle on the wallet — only when it is on screen.
+        const point = walletPoint(nextId.current++);
+        if (point !== null) {
+          setTwinkle(point);
           if (flyTimer.current !== null) window.clearTimeout(flyTimer.current);
-          // The twinkles at the wallet start near the end of the flight and
-          // run 0.8 s; the flight is kept until they are done.
-          flyTimer.current = window.setTimeout(() => setFly(null), FLY_MS + 900);
+          flyTimer.current = window.setTimeout(() => setTwinkle(null), TWINKLE_MS + 300);
         }
         if (sound) playChime();
       }
@@ -244,7 +228,9 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
             remainingKrw: report.remainingKrw ?? null,
           };
       toastRef.current = next;
-      setToast(next);
+      // Small charges stay quiet: no pill under 10원 (merged ones count
+      // together) — the wallet's count-down and twinkle say it.
+      setToast(next.totalKrw >= QUIET_UNDER_KRW ? next : null);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
       toastTimer.current = window.setTimeout(() => {
         toastRef.current = null;
@@ -261,7 +247,7 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
             if (toastRef.current !== null) {
               const fixed = { ...toastRef.current, remainingKrw: claim.remaining_krw };
               toastRef.current = fixed;
-              setToast(fixed);
+              setToast((shown) => (shown === null ? null : fixed));
             }
             showMilestone(claim);
           })
@@ -339,79 +325,54 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
               key={`t-${toast.id}`}
               type="button"
               tabIndex={-1}
-              className={styles.toast}
+              className={styles.pill}
               data-testid="spend-toast"
               data-count={toast.count}
-              initial={reduced ? false : { opacity: 0, y: 16, scale: 0.72 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 6, scale: 0.96 }}
-              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 480, damping: 22, mass: 0.7 }}
+              initial={reduced ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: reduced ? 0 : 0.18, ease: "easeOut" }}
               onClick={() => router.push("/usage")}
-              title="Usage에서 자세히 보기"
+              // What it was for lives in the tooltip and the screen-reader line.
+              title={`${toast.labels.length > 0 ? `${toast.labels.join(" · ")} — ` : ""}Usage에서 자세히 보기`}
             >
-              {/* 동전 하나가 톡 튀며 반짝이고, 금액이 크게 — 띠링의 눈 쪽. */}
-              <span className={`${styles.coin} ${reduced ? "" : styles.coinPop}`} aria-hidden="true" key={`c-${toast.id}-${toast.count}`}>
-                <Coins size={18} />
-                <span className={styles.spark} />
-                <span className={`${styles.spark} ${styles.spark2}`} />
-                <span className={`${styles.spark} ${styles.spark3}`} />
+              <span className={styles.pillAmount} data-testid="spend-amount">
+                {pillAmount(toast)}
               </span>
-              <span className={styles.toastBody}>
-                <span className={styles.amount} key={`a-${toast.id}-${toast.count}`} data-testid="spend-amount">
-                  -{formatKrw(toast.totalKrw)}
-                </span>
-                <span className={styles.toastMain}>{toastMainText(toast)}</span>
-                {toast.labels.length > 0 && (
-                  <span className={styles.toastLabel}>{toast.labels.join(" · ")}</span>
-                )}
-              </span>
+              {toast.remainingKrw !== null && (
+                <span className={styles.pillRest}> · {formatKrw(toast.remainingKrw)} 남음</span>
+              )}
             </motion.button>
           )}
         </AnimatePresence>
       </div>
       <AnimatePresence>
-        {fly !== null && (
-          // 별가루 (motion-modern (4)): 작은 별들이 금액에서 잔액으로 흘러가고,
-          // 닿은 자리에서 몇 개가 반짝인 뒤 숫자가 내려갑니다. 글자는 없습니다 —
-          // 금액은 알림이 들고 있어요.
-          <span key={`f-${fly.id}`} className={styles.stardust} data-testid="spend-fly" data-stars={STAR_COUNT} aria-hidden="true">
-            {Array.from({ length: STAR_COUNT }, (_, index) => {
-              const spread = starSpread(index);
-              return (
-                <motion.span
-                  key={index}
-                  className={`${styles.star} ${spread.gold ? styles.starGold : ""}`}
-                  // Placed once at the toast (centred by the negative margins
-                  // in CSS) and moved by transform only — no layout per frame.
-                  style={{ width: spread.size, height: spread.size, margin: -spread.size / 2, left: fly.from.x, top: fly.from.y }}
-                  initial={{ x: spread.dx, y: spread.dy, opacity: 0, scale: 0.4, rotate: 0 }}
-                  animate={{
-                    x: [spread.dx, spread.dx * 2.2, fly.to.x - fly.from.x + spread.dx * 0.4],
-                    y: [spread.dy, spread.dy - 28, fly.to.y - fly.from.y + spread.dy * 0.4],
-                    opacity: [0, 1, 0.9, 0],
-                    scale: [0.4, 1.3, 1, 0.5],
-                    rotate: 180,
-                  }}
-                  transition={{ duration: FLY_MS / 1000, delay: spread.delay, ease: [0.25, 0.6, 0.3, 1] }}
-                />
-              );
-            })}
+        {twinkle !== null && (
+          // spend-toast-compact: the stars twinkle on the wallet only — no
+          // flight from the toast. Under 움직임 줄이기 nothing is drawn here.
+          <span
+            key={`f-${twinkle.id}`}
+            className={styles.stardust}
+            data-testid="spend-twinkle"
+            data-stars={TWINKLE_COUNT}
+            aria-hidden="true"
+          >
             {Array.from({ length: TWINKLE_COUNT }, (_, index) => {
               const spread = starSpread(index + 5);
               return (
                 <motion.span
                   key={`t-${index}`}
-                  className={`${styles.star} ${styles.twinkle}`}
+                  className={`${styles.star} ${index % 2 ? styles.twinkle : styles.starGold}`}
                   style={{
                     width: 4 + (index % 2) * 2,
                     height: 4 + (index % 2) * 2,
-                    margin: -(2 + index % 2),
-                    left: fly.to.x + spread.dx * 1.6,
-                    top: fly.to.y + spread.dy * 1.2,
+                    margin: -(2 + (index % 2)),
+                    left: twinkle.at.x + spread.dx * 1.6,
+                    top: twinkle.at.y + spread.dy * 1.2,
                   }}
                   initial={{ opacity: 0, scale: 0.3 }}
                   animate={{ opacity: [0, 1, 0, 1, 0], scale: [0.3, 1.4, 0.6, 1.2, 0.2] }}
-                  transition={{ duration: 0.8, delay: FLY_MS / 1000 - 0.2 + index * 0.08, ease: "easeInOut" }}
+                  transition={{ duration: TWINKLE_MS / 1000, delay: index * 0.08, ease: "easeInOut" }}
                 />
               );
             })}
@@ -422,7 +383,17 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
   );
 }
 
-/** 알림 첫 줄. */
+/** The pill's amount: `−156원`, or `−36원 (3번)` when charges merged. */
+export function pillAmount(toast: Pick<ToastState, "count" | "totalKrw">): string {
+  return `−${formatKrw(toast.totalKrw)}${toast.count > 1 ? ` (${toast.count}번)` : ""}`;
+}
+
+/** The whole pill as one line (tests, and anyone reading it aloud). */
+export function pillText(toast: Pick<ToastState, "count" | "totalKrw" | "remainingKrw">): string {
+  return `${pillAmount(toast)}${toast.remainingKrw === null ? "" : ` · ${formatKrw(toast.remainingKrw)} 남음`}`;
+}
+
+/** The screen-reader sentence — unchanged by the pill. */
 export function toastMainText(toast: Pick<ToastState, "count" | "totalKrw" | "remainingKrw">): string {
   const spent =
     toast.count > 1

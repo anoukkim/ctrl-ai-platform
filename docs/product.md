@@ -785,7 +785,15 @@ Still only on a real `charged_krw`; reduced motion keeps a plain toast,
 no pop, no flight, no sound. **v3 (motion-modern, 2026-10-16):** the
 flight is 별가루 — nine small stars instead of the "-12원" text, four
 more twinkling at the balance — everything else about the moment is
-unchanged.
+unchanged. **v4 — compact (spend-toast-compact, 2026-10-17, the owner's
+option A):** the card is now one quiet pill, `−156원 · 68,336원 남음`
+(`−36원 (3번) · …` when charges merged within 3 s), in the same place, for
+2 s instead of 3; what it was for is in its tooltip and the screen-reader
+line (unchanged sentence). No coin, no flight: four stars twinkle on the
+sidebar wallet only, beside its count-down, `-N원` rise and glow; when
+the wallet is not on screen the pill alone says it. Under 10원 there is
+no pill — only the wallet (charges that merge past 10원 show). The
+milestone cards, the sound switch and the backend are unchanged.
 
 Estimated costs next to paid buttons (Chat's "답장 1회 약 N원", video's
 예상 비용) are compared with the one balance, and say so when it is short.
