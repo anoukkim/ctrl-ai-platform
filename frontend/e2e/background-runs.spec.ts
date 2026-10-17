@@ -38,7 +38,8 @@ test("leaving Chat mid-reply: it goes on, the dot stays (from the server), comin
   await expect(page.getByRole("button", { name: "중지", exact: true })).toBeVisible();
   // Wait for some of the reply, then leave.
   await page.waitForTimeout(1500);
-  const conversation = ((await (await page.context().request.get(`${SITE}/api/chat/conversations`)).json()) as { id: number; title: string }[]).find((row) => row.title.includes(tag))!;
+  const conversation = ((await (await page.context().request.get(`${SITE}/api/chat/conversations`)).json()) as { id: number; title: string }[]).sort((a, b) => b.id - a.id)[0]; // the newest: the title is cut short
+  void tag;
 
   await page.getByRole("link", { name: "Project Builder" }).first().click();
   await expect(page).toHaveURL(/\/builder/);
@@ -78,12 +79,13 @@ test("중지 from another tab stops the reply; the first tab shows it 중지됨"
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${SITE}/`);
   const box = page.getByLabel("CTRL+AI에게 보낼 메시지");
-  const tag = `다른 탭 중지 e2e ${Date.now() % 100000}`;
+  const tag = `다른 탭 멈춤 e2e ${Date.now() % 100000}`;
   await box.fill(`[mock-long:3000] ${tag}`);
   await box.press("Enter");
   await expect(page.getByRole("button", { name: "중지", exact: true })).toBeVisible();
   await page.waitForTimeout(1500);
-  const conversation = ((await (await context.request.get(`${SITE}/api/chat/conversations`)).json()) as { id: number; title: string }[]).find((row) => row.title.includes(tag))!;
+  const conversation = ((await (await context.request.get(`${SITE}/api/chat/conversations`)).json()) as { id: number; title: string }[]).sort((a, b) => b.id - a.id)[0]; // the newest: the title is cut short
+  void tag;
 
   const other = await context.newPage();
   await other.goto(`${SITE}/`);
