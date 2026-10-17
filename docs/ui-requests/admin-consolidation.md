@@ -79,3 +79,42 @@ Order: 1 first (the frame + redirects), 2–4 independent of each other, 5–6 a
 - 공지 보내기 now or later?
 - Keep the old `/admin/*` addresses as redirects? (Recommended: yes.)
 - Merge `usage-analytics` into item 6, or keep both specs? (Recommended: merge.)
+
+## Revision v3 (owner + coordinator, 2026-10-17)
+
+Mock-up: [`admin-consolidation-v3.html`](admin-consolidation-v3.html) — the real page
+frame (beta strip, sidebar, tabs, design tokens), clickable. The owner approved it
+("오키 좋은 듯"). It changes the plan above as follows:
+
+- **Header:** a search box (회원·앱 이름, ⌘K) and the one quarter switcher.
+- **Dashboard:** 처리할 일 (zeros hidden) + **automatic alerts** — a member over
+  80% of their wallet, the Anthropic monthly budget, backup / thumbnail-server
+  status — + "이번 주 가장 많이 쓴 곳".
+- **Members:** 사용률 column (amber ≥ 80%), chips 전체 · 승인 대기 · 활동 · 미참여,
+  inline 승인/거절, invite codes behind a chip. **Member detail is a right-hand panel
+  holding every action:** 지원금 ± 조정 (reason), 비밀번호 재설정, 비활성화, usage
+  (사용 · 사용률 · 남음 · 소진 예상, by feature, by model), connected apps, and
+  **deleted work with 복구** (Deleted Items moves here, not to Community).
+- **Quarters › 분기 · 예산 = "산 돈이 어디로 나뉘었나"** (owner: "전체 산 토큰 /
+  회원들에게 부여된 토큰 (사용/미사용) / 남은 토큰 (유지보수 등 사용)"): one card
+  「돈의 흐름」 — 산 크레딧 전체 (from `CreditPurchase`) as one bar split into
+  **회원이 쓴 돈 · 회원에게 줬지만 안 쓴 돈 · 여유분 (나눠 주지 않은 돈)**, with
+  members × wallet, what the reserve itself paid for (admin tests, thumbnails …) and
+  the end-of-quarter forecast. In won (the ledger's unit).
+- **분기 마감** as a 5-step stepper (신청 마감 → 정산 확인 → 휴지통 비우기 → 앱 보관
+  → 다음 분기 열기) with D-day, the current step's explanation and button, three
+  facts (wallets to freeze, amount to reclaim, apps to archive); irreversible steps
+  ask again; each step audited; vertical on a phone.
+- **Quarters › 사용 분석 = "어디에 썼나"** — the provider table (원가 USD, 청구 원,
+  남은 크레딧, 소진 예상) moves here from 분기 · 예산 (it overlapped), with cache
+  savings, by feature, by model, top 5 apps / members, a daily trend with the
+  forecast, and **CSV export (Concur)**.
+- **Community:** chips 신고 · 의견 · 앱 — no 「전체」 (owner).
+- **System:** status (each provider once), **공지 띠** — the top strip's text, a
+  **「띠 보이기」 on/off switch** (owner: "배너 없앨 수도 있는 옵션") and a switch for
+  its 의견 보내기 link — instead of a notification broadcast (later), 유지보수
+  (썸네일 다시 만들기, 환율 새로 고침), 감사 기록.
+- **Branches:** four batches instead of eight — (1) frame + dashboard + docs,
+  (2) merges (Members/Quarters/Models/Community/System), (3) the two new APIs
+  (member usage, usage analysis), (4) small adds (password reset, banner switch,
+  backup status, alerts, CSV).
