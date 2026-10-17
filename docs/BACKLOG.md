@@ -594,17 +594,6 @@ New UI requests go here until they are folded into a UI batch.
   code check (review) and tests, then merge + deploy under the same rules
   as the other pre-approved items (review clean + tests pass; backup →
   update.sh → verify → roll back + STOP on failure).
-- **app-fonts** — owner, 2026-10-17 (Builder: "글씨체가 안 고쳐졌어, 동글체
-  사용" — the app only had system fonts; "이것저것 한글 폰트", "더 많은 한글
-  폰트 올리게", "응 이거 진행"). A catalogue of 32 Korean OFL families
-  (41 files, 11 MB) served by CTRL+AI under `/_ctrlai/fonts*`, loaded
-  automatically when an app names one, listed by mood in the Builder
-  prompts. CSP unchanged. Spec: architecture.md › Member app platform ›
-  Fonts. Branch `feat-app-fonts`: tests pass, checked in real Chrome in a
-  sandboxed frame; **waiting for the owner's approval to merge**. After
-  deploy: run `rewrite_app_runtime` so older apps get the link. Not
-  included (later): members uploading their own font files; fonts in the
-  `srcdoc` preview and in exported ZIPs.
 - **app-tab-icon** — owner, 2026-10-17: "게시된 앱 열면 탭 썸넬 뭔가 같은건데
   앱? 으로 바꾸기". A published app opened on `apps.ctrlai.my/<slug>/` shows
   the browser's blank globe in its tab; give the shell page a favicon — the

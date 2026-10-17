@@ -3200,3 +3200,18 @@ in `progress/RUN-2026-10-16.md` › NT. What was built:
   main: backend 1118, frontend 575, tsc/lint/build, Playwright 1/1.
 - **Not built, on purpose**: no row for an admin's reply to 의견 (no
   reply feature exists; noted in product.md).
+
+## app-fonts (2026-10-17)
+
+- **app-fonts** — owner, 2026-10-17 (Builder: "글씨체가 안 고쳐졌어, 동글체
+  사용" — the app only had system fonts; "이것저것 한글 폰트", "더 많은 한글
+  폰트 올리게", "응 이거 진행"). A catalogue of 32 Korean OFL families
+  (41 files, 11 MB) served by CTRL+AI under `/_ctrlai/fonts*`, loaded
+  automatically when an app names one, listed by mood in the Builder
+  prompts. CSP unchanged. Spec: architecture.md › Member app platform ›
+  Fonts. Branch `feat-app-fonts`: tests pass, checked in real Chrome in a
+  sandboxed frame; merged `a992e2b`, deployed 2026-10-17. After
+  deploy: run `rewrite_app_runtime` so older apps get the link. Not
+  included (later): members uploading their own font files; fonts in the
+  `srcdoc` preview and in exported ZIPs.
+
