@@ -608,6 +608,9 @@ New UI requests go here until they are folded into a UI batch.
   [`ui-requests/spend-toast-compact.html`](ui-requests/spend-toast-compact.html)
   (현재 vs 제안 switch). Not scheduled; best built with `running-state-calm`
   since both retune the shared motion.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+  "spend-toast-compact(시안 A 그대로)도 running-state-calm이랑 같이, 같은 규칙으로
+  해줘") — on the same branch as running-state-calm and chat-preview-fullscreen.
 - **running-state-calm** — owner, 2026-10-17 (desktop session, after
   mock-ups the owner approved: "오 좋음 빌더도 만들어줘" → "응 좋다, 그거까지
   백로그로 보내"). Follow-up to `motion-modern` (8b, merged): while Chat
