@@ -13,13 +13,14 @@
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { useAdminNav } from "@/app/components/AdminNavProvider";
 
 import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
-import { activeSection, visibleSections } from "./sections";
+import AdminSearch from "./AdminSearch";
+import { activeSection, activeTab, tabHref, visibleSections } from "./sections";
 
 import styles from "./admin.module.css";
 
@@ -61,11 +62,17 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
   const isDevelopment = dashboard?.is_development ?? nav.isDevelopment;
   const sections = useMemo(() => visibleSections(isDevelopment), [isDevelopment]);
 
-  // 손이 필요한 구역에 개수를 띄웁니다.
+  // 손이 필요한 구역에 개수를 띄웁니다 — 승인 대기는 Members, 열린 신고는
+  // Community (admin-consolidation v3), 그 안의 탭에도.
   const pending: Record<string, number> = {
+    members: dashboard?.pending_applications ?? nav.pendingApplications,
     applications: dashboard?.pending_applications ?? nav.pendingApplications,
+    community: dashboard?.open_reports ?? nav.openReports,
+    content: dashboard?.open_reports ?? nav.openReports,
     topups: dashboard?.pending_top_ups ?? nav.pendingTopUps,
   };
+  const params = useSearchParams();
+  const tab = current ? activeTab(current, params.get("tab")) : null;
 
   return (
     <BreadcrumbTailContext.Provider value={setTailStable}>
@@ -82,6 +89,7 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
               {tail === null ? (
                 <span aria-current="page" className={styles.crumbCurrent}>
                   {current.label}
+                  {tab && current.tabs.length > 1 && tab.key !== current.tabs[0].key ? ` › ${tab.label}` : ""}
                 </span>
               ) : (
                 <Link className={styles.crumb} href={withQuarter(current.href, selected?.id)}>
@@ -90,6 +98,7 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
               )}
             </>
           )}
+          <AdminSearch />
           {tail !== null && (
             <>
               <span aria-hidden="true" className={styles.crumbSeparator}>
@@ -144,6 +153,27 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
             </div>
           )}
         </div>
+
+        {current && current.tabs.length > 1 && tab && (
+          // admin-consolidation v3: the section's own tabs (the old sections).
+          <ul className={styles.subTabs} aria-label={`${current.label} 안의 탭`}>
+            {current.tabs.map((item) => {
+              const isActive = item.key === tab.key && pathname === current.href;
+              return (
+                <li key={item.key}>
+                  <Link
+                    className={`${styles.subTab} ${isActive ? styles.subTabActive : ""}`}
+                    href={withQuarter(tabHref(current.key, item.key), selected?.id)}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    {item.label}
+                    {pending[item.key] > 0 && <span className={styles.tabCount}>{pending[item.key]}</span>}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         <div className={styles.frameBody}>{children}</div>
       </div>

@@ -15,6 +15,7 @@ by hiding a card in the frontend.
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,7 @@ from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
+    BuilderProject,
     AUDIT_ACTION_LABEL,
     AccountStatus,
     ApplicationStatus,
@@ -37,6 +39,10 @@ from app.models import (
 )
 from app.schemas.withdrawal import WithdrawalRead
 from app.schemas.quarter import (
+    MonthBudgetRead,
+    PlaceRead,
+    WalletAlertRead,
+    WeekTopRead,
     AdminDashboard,
     AllocationRead,
     ApplicationRead,
@@ -54,7 +60,7 @@ from app.schemas.quarter import (
     StatusCounts,
     TopUpRead,
 )
-from app.services import admin_stats, audit, providers
+from app.services import admin_alerts, admin_stats, audit, providers
 from app.services import attachments as attachments_service
 from app.services import feedback_images as feedback_images_service
 from app.services.withdrawal import latest_withdrawal
@@ -200,6 +206,7 @@ def read_dashboard(
     # The same functions the section screens call, so the dashboard and
     # 회원 / 신청 승인 / 분기 설정 cannot show different numbers.
     figures = admin_stats.dashboard_counts(db, quarter)
+    top = admin_alerts.week_top(db)
 
     return AdminDashboard(
         quarter=QuarterRead.model_validate(quarter) if quarter is not None else None,
@@ -221,6 +228,13 @@ def read_dashboard(
         # Chat attachments and feedback screenshots share the disk and the limit.
         attachment_bytes=attachments_service.total_bytes(db) + feedback_images_service.total_bytes(db),
         attachment_limit_bytes=settings.chat_attachment_total_limit_gb * 1024 * attachments_service.MB,
+        open_reports=admin_alerts.open_reports(db),
+        wallet_alerts=[WalletAlertRead(**vars(alert)) for alert in admin_alerts.wallet_alerts(db, quarter)],
+        anthropic_month=MonthBudgetRead(**vars(admin_alerts.anthropic_month(db, settings))),
+        thumbnail_server=admin_alerts.thumbnail_server(settings),
+        week_top=WeekTopRead(
+            places=[PlaceRead(**vars(place)) for place in top.places], app_name=top.app_name, app_krw=top.app_krw
+        ),
     )
 
 
@@ -481,3 +495,59 @@ def check_provider(
         message=result.message,
         checked_at=datetime.now(timezone.utc),
     )
+
+
+# ------------------------------------------------------------ the header's search
+
+
+class AdminSearchMember(BaseModel):
+    id: int
+    username: str
+    display_name: str
+
+
+class AdminSearchApp(BaseModel):
+    id: int
+    name: str
+    owner_username: str
+
+
+class AdminSearch(BaseModel):
+    members: list[AdminSearchMember]
+    apps: list[AdminSearchApp]
+
+
+SEARCH_LIMIT = 6
+
+
+@router.get("/search", response_model=AdminSearch, summary="The Admin header's search: members and apps by name")
+def admin_search(
+    q: str = "",
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> AdminSearch:
+    """admin-consolidation v3: 회원·앱 이름으로 찾기 (⌘K). A member by
+    username or display name; a project (not deleted) by its name."""
+    text = q.strip()[:60]
+    if not text:
+        return AdminSearch(members=[], apps=[])
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    like = f"%{escaped}%"
+    members = db.scalars(
+        select(User)
+        .where(User.username.ilike(like, escape="\\") | User.display_name.ilike(like, escape="\\"))
+        .order_by(User.username)
+        .limit(SEARCH_LIMIT)
+    ).all()
+    apps = db.execute(
+        select(BuilderProject.id, BuilderProject.name, User.username)
+        .join(User, User.id == BuilderProject.owner_user_id)
+        .where(BuilderProject.deleted_at.is_(None), BuilderProject.name.ilike(like, escape="\\"))
+        .order_by(BuilderProject.updated_at.desc())
+        .limit(SEARCH_LIMIT)
+    ).all()
+    return AdminSearch(
+        members=[AdminSearchMember(id=m.id, username=m.username, display_name=m.display_name) for m in members],
+        apps=[AdminSearchApp(id=row[0], name=row[1], owner_username=row[2]) for row in apps],
+    )
+

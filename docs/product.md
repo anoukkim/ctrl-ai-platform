@@ -81,24 +81,28 @@ disabled, so the shell is never mistaken for working functionality.
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
 | `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
-| `/admin`              | Admin           | Section hub: work waiting, quarter figures, cards |
-| `/admin/members`      | Members         | Search, filter, sort; row opens the member   |
+| `/admin`              | Dashboard       | 처리할 일 (only what has a count: 참여 신청 승인 대기, 열린 신고), **알림** (automatic: a member past 80% of their wallet, the Anthropic month budget, the thumbnail server, a failing provider, the attachment disk) and **이번 주 가장 많이 쓴 곳** (admin-consolidation v3) |
+| `/admin/members`      | Members         | Tabs 회원 · 참여 신청 (`?tab=applications`) |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
-| `/admin/applications` | Applications    | Approve or reject, with stat cards and tabs  |
-| `/admin/quarters`     | Quarters        | Quarter list with figures; create a quarter  |
+| `/admin/quarters`     | Quarters        | Tabs 분기 · 예산 (`?tab=budget`) |
+| `/admin/models`       | Models          | Tabs Chat · Video (`?tab=video-models`) — the former AI Models and Video Models |
+| `/admin/community`    | Community       | Tabs 신고 · 의견 · 앱 · 지운 작업 — the former Content, Feedback, Apps (`/admin/apps/[id]` stays the app's detail) and Deleted Items |
+| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — the health strip and its sections, and the Audit Log |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
-| `/admin/budget`       | Budget          | Stat cards on top; the rest (month bar, 지급 vs 사용, 크레딧, 제공자별, 모델×깊이, 회원별, 캐시, 대조) as sections opened one at a time, each row summarising its figures (`ui-improvements` B) |
-| `/admin/video-models` | Video Models    | Which models members may pick                |
-| `/admin/ai-models`    | AI Models       | A summary strip, then one section per provider opened one at a time (all open while searching) and 비용 보정 last; prices, who may pick them, the default (`/admin/claude-models` redirects) |
-| `/admin/deleted`      | Deleted Items   | Restore a project or video a member deleted, or remove it for good (reason, audited); whatever is still here at 분기 마감 and was deleted by that quarter's last day is purged |
-| `/admin/audit`        | Audit Log       | Every admin change, read-only                |
-| `/admin/system`       | System          | A health strip on top (서버 · DB · each provider, green/red/grey), then collapsed sections: 서버 상세, 기능 열기, 외부 서비스, 환율, 채팅 한도 (with the depth table), read-only 서버 설정 (.env), 빌더 점검 — the default model lives in AI Models |
 
-`/admin/content` exists in the code but is hidden from the navigation until
-Phases 5/8 fill it — a menu item that always leads to an empty screen is in
-the way. Turning it on is deleting its `hidden: true` in
-`frontend/app/admin/sections.ts`. (`/admin/budget` was turned on by
-`single-wallet`.)
+**admin-consolidation v3 (owner, 2026-10-17), batch (1):** Admin has six
+sections — Dashboard · Members · Quarters · Models · Community · System —
+shown once in the sidebar and once as the top tabs; the former sections are
+tabs inside them (a second row of chips), defined once in
+`frontend/app/admin/sections.ts`. Every former address redirects to its new
+place, keeping `?quarter=` and filters: `/admin/applications` →
+Members › 참여 신청, `/admin/budget` → Quarters › 예산, `/admin/ai-models`
+(and `/claude-models`) and `/admin/video-models` → Models, `/admin/content`,
+`/feedback`, `/apps`, `/deleted` → Community, `/admin/audit` → System ›
+감사 기록. Badges: 승인 대기 on Members, 열린 신고 on Community. The header
+has a search (회원·앱 이름, ⌘K) beside the one quarter switcher. The
+merges inside the sections (the member panel, the money-flow card, the
+quarter-close stepper, 사용 분석, 공지 띠) follow in batches (2)–(4).
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAIApps**; the path was kept so existing links do not break.

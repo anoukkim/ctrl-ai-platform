@@ -21,6 +21,8 @@ import { useCurrentUser } from "./CurrentUserProvider";
 
 interface AdminNavValue {
   pendingApplications: number;
+  /** admin-consolidation v3: 열린 신고 — Community's badge. */
+  openReports: number;
   pendingTopUps: number;
   isDevelopment: boolean;
   refresh: () => Promise<void>;
@@ -28,6 +30,7 @@ interface AdminNavValue {
 
 const AdminNavContext = createContext<AdminNavValue>({
   pendingApplications: 0,
+  openReports: 0,
   pendingTopUps: 0,
   isDevelopment: false,
   refresh: async () => {},
@@ -43,6 +46,7 @@ export default function AdminNavProvider({ children }: { children: React.ReactNo
 
   const [value, setValue] = useState({
     pendingApplications: 0,
+    openReports: 0,
     pendingTopUps: 0,
     isDevelopment: false,
   });
@@ -53,6 +57,7 @@ export default function AdminNavProvider({ children }: { children: React.ReactNo
       const dashboard = await getAdminDashboard();
       setValue({
         pendingApplications: dashboard.pending_applications,
+        openReports: dashboard.open_reports ?? 0,
         pendingTopUps: dashboard.pending_top_ups,
         isDevelopment: dashboard.is_development,
       });
@@ -71,6 +76,7 @@ export default function AdminNavProvider({ children }: { children: React.ReactNo
         if (cancelled) return;
         setValue({
           pendingApplications: dashboard.pending_applications,
+        openReports: dashboard.open_reports ?? 0,
           pendingTopUps: dashboard.pending_top_ups,
           isDevelopment: dashboard.is_development,
         });

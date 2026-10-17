@@ -310,7 +310,7 @@ export default function ClaudePricingPanel() {
           <div className={`card ${styles.pricingCard}`}>
             <p className={styles.pricingNote}>
               기본 모델과 모델별 요금, 회원이 고를 수 있는 모델은{" "}
-              <Link href="/admin/ai-models">{sectionLabel("ai-models")}</Link>에서 정합니다.
+              <Link href="/admin/models">{sectionLabel("ai-models")}</Link>에서 정합니다.
             </p>
 
             {/* owner-polish-3 (b): 자동 반영의 상태와 스위치 — 환율 칸 위에. */}

@@ -9,7 +9,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import AdminContentPage from "@/app/admin/content/page";
+import AdminContentPage from "@/app/admin/content/ContentAdmin";
 import AppsList from "@/app/admin/apps/AppsList";
 
 const listAdminAppOverview = vi.fn();
@@ -155,6 +155,6 @@ describe("Admin › Apps", () => {
     // Two queues now (apps, and CtrlAITube comments since promo-videos), both empty.
     expect(await screen.findAllByText("열린 신고가 없습니다.")).toHaveLength(2);
     expect(screen.queryByTestId("published-apps")).toBeNull();
-    expect(screen.getByRole("link", { name: "Apps" }).getAttribute("href")).toBe("/admin/apps");
+    expect(screen.getByRole("link", { name: "Community › 앱" }).getAttribute("href")).toBe("/admin/community?tab=apps");
   });
 });

@@ -10,7 +10,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import AdminContentPage from "@/app/admin/content/page";
+import AdminContentPage from "@/app/admin/content/ContentAdmin";
 import AppDetailView from "@/app/admin/apps/[id]/AppDetailView";
 import { formatBytes } from "@/lib/apps";
 

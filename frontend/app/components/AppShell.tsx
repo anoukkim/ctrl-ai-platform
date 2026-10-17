@@ -40,7 +40,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { ADMIN_SECTIONS, visibleSections } from "@/app/admin/sections";
+import { activeSection, visibleSections } from "@/app/admin/sections";
 
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
 import { useMediaQuery } from "@/lib/layout-prefs";
@@ -492,7 +492,7 @@ function AdminNavBlock({
   onNavigate: () => void;
   collapsed?: boolean;
 }) {
-  const { pendingApplications, pendingTopUps, isDevelopment } = useAdminNav();
+  const { pendingApplications, openReports, pendingTopUps, isDevelopment } = useAdminNav();
 
   /**
    * 처음 펼쳐져 있는지: Admin 안에 있으면 펼치고, 아니면 지난번에 둔
@@ -527,8 +527,10 @@ function AdminNavBlock({
   }
 
   const sections = visibleSections(isDevelopment);
+  // admin-consolidation v3: 승인 대기 lives in Members, 열린 신고 in Community.
   const pending: Record<string, number> = {
-    applications: pendingApplications,
+    members: pendingApplications,
+    community: openReports,
     topups: pendingTopUps,
   };
   // 보이는 구역의 수만 더합니다 — 숨긴 구역(Top-ups, personal-topup-off)의
@@ -609,13 +611,7 @@ function AdminNavBlock({
         >
           {sections.map((section) => {
             // 가장 긴 경로가 이깁니다 — /admin 이 모든 구역을 먹지 않도록.
-            const isActive =
-              [...ADMIN_SECTIONS]
-                .sort((a, b) => b.href.length - a.href.length)
-                .find(
-                  (candidate) =>
-                    pathname === candidate.href || pathname.startsWith(`${candidate.href}/`),
-                )?.key === section.key;
+            const isActive = activeSection(pathname)?.key === section.key;
 
             return (
               <li key={section.key}>

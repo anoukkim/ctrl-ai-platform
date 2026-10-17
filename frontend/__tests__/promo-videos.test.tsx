@@ -68,7 +68,7 @@ vi.mock("@/lib/apps", async (importOriginal) => {
 const { default: PromoVideo } = await import("@/app/components/PromoVideo");
 const { default: VideoGrid } = await import("@/app/ctrlaitube/VideoGrid");
 const { default: TubeVideoView } = await import("@/app/ctrlaitube/[id]/TubeVideoView");
-const { default: AdminContentPage } = await import("@/app/admin/content/page");
+const { default: AdminContentPage } = await import("@/app/admin/content/ContentAdmin");
 
 const SOURCES = {
   desktop: "/promo/ctrlai-intro-desktop-v1.mp4",

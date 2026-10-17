@@ -1,6 +1,6 @@
-import ModelCatalog from "./ModelCatalog";
+/** admin-consolidation v3: this address moved — see `LEGACY_ROUTES`. */
+import { legacyRedirect } from "../legacy";
 
-export default function AdminAiModelsPage() {
-  // 비용 보정은 카탈로그 안의 접는 섹션입니다 (ui-improvements B).
-  return <ModelCatalog />;
+export default async function Moved({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return legacyRedirect("/admin/ai-models", searchParams);
 }

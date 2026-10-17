@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+/** admin-consolidation v3: this address moved — see `LEGACY_ROUTES`. */
+import { legacyRedirect } from "../legacy";
 
-/** 예전 주소. Claude Models는 AI Models가 되었습니다(admin-and-nav-cleanup). */
-export default function ClaudeModelsRedirect() {
-  redirect("/admin/ai-models");
+export default async function Moved({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return legacyRedirect("/admin/claude-models", searchParams);
 }

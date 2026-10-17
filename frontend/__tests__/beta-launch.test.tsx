@@ -241,8 +241,8 @@ describe("Usage", () => {
 });
 
 describe("Admin 메뉴", () => {
-  test("Feedback이 있고, Dev Tools는 없다", () => {
-    expect(visibleSections(false).map((s) => s.key)).toContain("feedback");
+  test("Feedback이 있고(Community 안의 탭), Dev Tools는 없다", () => {
+    expect(visibleSections(false).flatMap((s) => s.tabs.map((t) => t.key))).toContain("feedback");
     expect(visibleSections(true).map((s) => s.key)).not.toContain("dev");
   });
 });
