@@ -75,15 +75,15 @@ test("게시 writes a notification: the bell counts it, opening clears the count
   const listed = (await (await context.request.get(`${SITE}/api/notifications`)).json()) as { items: { title: string; read_at: string | null }[] };
   expect(listed.items.find((n) => n.title.includes(name))?.read_at).not.toBeNull();
 
-  // Profile: only the two switches — the list lives in the bell (owner-polish-3 (c2)).
+  // Profile: only the switches (two notification switches + 오로라 배경, running-state-calm) — the list lives in the bell (owner-polish-3 (c2)).
   await page.goto(`${SITE}/profile`);
   await expect(page.getByTestId("notification-feed")).toHaveCount(0);
-  await expect(page.getByRole("switch")).toHaveCount(2);
+  await expect(page.getByRole("switch")).toHaveCount(3);
   await theme(page, "light");
   await page.screenshot({ path: `${SHOTS}/1440-light-profile-notifications.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByRole("switch")).toHaveCount(2);
+  await expect(page.getByRole("switch")).toHaveCount(3);
   await page.screenshot({ path: `${SHOTS}/390-light-profile-notifications.png` });
 
   // The phone's top bar holds the bell — no need to open 메뉴.

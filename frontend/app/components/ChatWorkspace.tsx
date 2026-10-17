@@ -113,6 +113,7 @@ import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
+import { finishRun, isRunning, startRun, useRuns } from "@/lib/running";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
@@ -458,6 +459,7 @@ export default function ChatWorkspace() {
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const runs = useRuns();
   /** 대화가 길어졌을 때 입력창 위에 보이는 안내(token-guard). */
   const [longHistory, setLongHistory] = useState<LongHistory | null>(null);
   /** 이 대화의 도구 토글(chat-plus-tools). 새 대화에는 아직 없습니다. */
@@ -888,6 +890,8 @@ export default function ChatWorkspace() {
       setStreaming(false);
       return;
     }
+    // running-state-calm: the dot on this conversation's row and on Chat.
+    startRun("chat", conversationId);
 
     const stamp = Date.now();
     const userKey = `u${stamp}`;
@@ -1053,6 +1057,7 @@ export default function ChatWorkspace() {
       abortRef.current = null;
       setStreaming(false);
       setToolStatus(null);
+      finishRun("chat", conversationId);
       void refreshList();
     }
   }, [
@@ -1279,6 +1284,9 @@ export default function ChatWorkspace() {
                     title={conversation.title || "새 대화"}
                   >
                     {conversation.pinned_at && <Pin size={11} className={styles.pinMark} aria-hidden="true" data-testid="pin-mark" />}
+                    {isRunning(runs, "chat", conversation.id) && (
+                      <span className={`run-dot ${styles.rowDot}`} role="img" aria-label="작업 중" data-testid="row-running" />
+                    )}
                     {conversation.title || "새 대화"}
                   </button>
                 )}
@@ -1359,6 +1367,11 @@ export default function ChatWorkspace() {
           >
             <ListIcon size={15} aria-hidden="true" /> 대화 목록
           </button>
+          {streaming && (
+            <span className="run-chip" data-testid="chat-running">
+              <span className="run-dot" aria-hidden="true" /> 작업 중
+            </span>
+          )}
           {info?.is_mock && <span className="badge badge-mock">{TEST_MODE_LABEL}</span>}
         </div>
 
@@ -1691,8 +1704,10 @@ export default function ChatWorkspace() {
                 void addFiles(picked);
               }}
             />
-            {/* motion-modern (2): 답장이 오는 동안 입력창 둘레를 느리게 도는 빛. */}
-            <div className={`${styles.composer} ${streaming ? styles.composerBusy : ""}`} data-busy={streaming ? "true" : undefined}>
+            {/* running-state-calm: the composer keeps its own surface while a reply
+                comes; only a thin bar sweeps along its bottom edge. */}
+            <div className={styles.composer} data-busy={streaming ? "true" : undefined}>
+              {streaming && <span className="run-sweep run-sweep--bottom" aria-hidden="true" />}
               <button
                 type="button"
                 className={styles.attach}
@@ -1721,7 +1736,11 @@ export default function ChatWorkspace() {
                   }
                 }}
                 placeholder={
-                  mayCreate ? "만들고 싶은 것을 이야기해 보세요" : "이번 분기에는 보낼 수 없습니다"
+                  !mayCreate
+                    ? "이번 분기에는 보낼 수 없습니다"
+                    : streaming
+                      ? "답변이 끝나면 이어서 말해요"
+                      : "만들고 싶은 것을 이야기해 보세요"
                 }
                 disabled={!mayCreate}
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
@@ -1734,7 +1753,7 @@ export default function ChatWorkspace() {
                   aria-label="중지"
                   title="중지"
                 >
-                  <Square size={11} fill="currentColor" aria-hidden="true" />
+                  <Square size={9} fill="currentColor" aria-hidden="true" />
                 </button>
               ) : (
                 <button
@@ -1757,7 +1776,7 @@ export default function ChatWorkspace() {
                 </button>
               )}
             </div>
-            <p className={styles.hint}>{hint}</p>
+            <p className={styles.hint}>{streaming ? `중지하면 지금까지 쓴 만큼만 차감돼요. ${hint}` : hint}</p>
           </div>
         </div>
       </div>

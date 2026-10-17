@@ -27,7 +27,7 @@
  * 엽니다 — Claude를 부르지 않으니 무료입니다.
  */
 
-import { Code2, Download, ExternalLink, Play, RotateCcw, X } from "lucide-react";
+import { Code2, Download, ExternalLink, Maximize2, Play, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useState } from "react";
 
@@ -35,6 +35,7 @@ import { createProjectFromChat } from "@/lib/projects";
 import { describeError } from "@/lib/http";
 
 import AuroraCard, { AuroraReveal, chipsFromCode } from "./AuroraCard";
+import PreviewFullscreen from "./PreviewFullscreen";
 import styles from "./ArtifactPreview.module.css";
 
 /** 액자 안 문서의 맨 앞에 붙는 CSP — 네트워크 없음, 인라인만. */
@@ -109,6 +110,8 @@ export default function ArtifactPreview({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  // chat-preview-fullscreen: the big window, with its own frame.
+  const [full, setFull] = useState(false);
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,6 +216,10 @@ export default function ArtifactPreview({
               Builder로 보내기
             </button>
           )}
+          <button type="button" className={styles.button} onClick={() => setFull(true)} data-testid="artifact-fullscreen">
+            <Maximize2 size={13} aria-hidden="true" />
+            전체 화면
+          </button>
         </span>
       </div>
 
@@ -257,6 +264,15 @@ export default function ArtifactPreview({
         <p className={styles.error} role="alert">
           {error}
         </p>
+      )}
+      {full && (
+        <PreviewFullscreen
+          title={`미리보기 · ${language.toUpperCase()}`}
+          srcDoc={buildSrcdoc(code, language)}
+          sandbox={PREVIEW_SANDBOX}
+          label={PREVIEW_LABEL}
+          onClose={() => setFull(false)}
+        />
       )}
     </div>
     </AuroraReveal>

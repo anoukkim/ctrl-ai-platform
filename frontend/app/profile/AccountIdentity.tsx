@@ -10,6 +10,7 @@
  * 씁니다. 분기 참여에 따른 규칙은 Phase 1b에서 붙습니다.
  */
 
+import { setAurora, useAurora } from "@/lib/aurora";
 import { useState } from "react";
 
 import { useCurrentUser } from "@/app/components/CurrentUserProvider";
@@ -74,6 +75,7 @@ export function Identity() {
  */
 export function NotificationSettings() {
   const { enabled, setEnabled, sound, setSound } = useSpendFeedback();
+  const aurora = useAurora();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,6 +139,25 @@ export function NotificationSettings() {
             disabled={!enabled}
             onChange={() => setSound(!sound)}
             data-testid="spend-sound-toggle"
+          />
+        </div>
+        <div className={styles.switchRow}>
+          <label className={styles.switchText} htmlFor="aurora-toggle">
+            <strong>오로라 배경</strong>
+            <span className="small dim">
+              만드는 중일 때 그림 카드와 미리보기 칸 안에 아주 은은한 빛을 띄워요. 이 기기에만 적용되고, 기본은 켜져
+              있어요. 움직임 줄이기를 켠 기기에서는 늘 꺼져요.
+            </span>
+          </label>
+          <input
+            className={styles.switch}
+            id="aurora-toggle"
+            type="checkbox"
+            role="switch"
+            aria-checked={aurora}
+            checked={aurora}
+            onChange={() => setAurora(!aurora)}
+            data-testid="aurora-toggle"
           />
         </div>
       </div>

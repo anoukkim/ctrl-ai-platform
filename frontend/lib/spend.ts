@@ -67,6 +67,7 @@ export function isWarning(kind: MilestoneKind): boolean {
 /** 몇 번의 차감을 합칠지 — 이 시간 안에 온 차감은 알림 하나로. */
 export const MERGE_WINDOW_MS = 3000;
 /** 알림이 떠 있는 시간(마지막 차감부터). */
-export const TOAST_MS = 3000;
+// spend-toast-compact (owner, 2026-10-17): a one-line pill, 2 s.
+export const TOAST_MS = 2000;
 /** 이정표 카드가 떠 있는 시간. */
 export const MILESTONE_MS = 6000;

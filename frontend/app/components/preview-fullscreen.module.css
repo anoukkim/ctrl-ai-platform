@@ -1,0 +1,114 @@
+/* chat-preview-fullscreen — the in-page window over everything. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 2.5vh 2.5vw;
+  background: var(--scrim);
+}
+
+.window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+  font-weight: var(--fw-strong);
+}
+
+.tools,
+.widths {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 30px;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-chip);
+  cursor: pointer;
+}
+
+.button:hover,
+.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.label {
+  margin: 0;
+  padding: 0.3rem 0.75rem;
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
+.stage {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--preview-canvas);
+}
+
+.framePhone {
+  width: 390px;
+  max-width: 100%;
+  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+/* A phone: the whole screen, a sheet. */
+@media (max-width: 40rem) {
+  .backdrop {
+    padding: 0;
+  }
+
+  .window {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .widths {
+    display: none;
+  }
+}

@@ -53,7 +53,8 @@ vi.mock("@/lib/chime", async (importOriginal) => {
   return { ...actual, playChime: () => chime.playChime() };
 });
 
-const { default: SpendFeedbackProvider, useSpendFeedback, toastMainText } = await import(
+const { TOAST_MS } = await import("@/lib/spend");
+const { default: SpendFeedbackProvider, useSpendFeedback, toastMainText, pillText } = await import(
   "@/app/components/SpendFeedbackProvider"
 );
 
@@ -112,11 +113,14 @@ describe("차감이 있을 때만", () => {
     expect(spendApi.claimMilestone).not.toHaveBeenCalled();
   });
 
-  test("진짜 차감이면 알림, -N원, 장부의 남은 지원금", async () => {
+  test("진짜 차감이면 한 줄 알약, -N원, 장부의 남은 지원금 (spend-toast-compact)", async () => {
     setup();
     act(() => report({ chargedKrw: 12, label: "채팅 · Sonnet" }));
-    expect(screen.getByTestId("spend-toast").textContent).toContain("12원을 사용했어요!");
-    expect(screen.getByTestId("spend-toast").textContent).toContain("채팅 · Sonnet");
+    // One line: the amount, then (once known) what is left. What it was for
+    // is in the tooltip and the screen-reader line, not on the pill.
+    expect(screen.getByTestId("spend-toast").textContent).toBe("−12원");
+    expect(screen.getByTestId("spend-toast").getAttribute("title")).toContain("채팅 · Sonnet");
+    expect(screen.getByTestId("spend-live").textContent).toContain("채팅 · Sonnet");
     expect(screen.getByTestId("chip").textContent).toBe("-12");
 
     await act(async () => {
@@ -124,19 +128,23 @@ describe("차감이 있을 때만", () => {
     });
     await flush();
     expect(spendApi.claimMilestone).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("spend-toast").textContent).toContain("남은 지원금 79,988원");
+    expect(screen.getByTestId("spend-toast").textContent).toBe("−12원 · 79,988원 남음");
     expect(screen.getByTestId("spend-live").textContent).toContain("12원을 사용했어요!");
 
-    // 3초 뒤 사라집니다.
+    // 2초 뒤 사라집니다 (was 3): still there at 1.9 s, gone by 2.1 s.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3_100);
+      await vi.advanceTimersByTimeAsync(1_450);
+    });
+    expect(screen.getByTestId("spend-toast")).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
     });
     expect(screen.queryByTestId("spend-toast")).toBeNull();
   });
 
   test("누르면 Usage로 간다", async () => {
     setup();
-    act(() => report({ chargedKrw: 5 }));
+    act(() => report({ chargedKrw: 15 }));
     act(() => screen.getByTestId("spend-toast").click());
     expect(push).toHaveBeenCalledWith("/usage");
   });
@@ -151,8 +159,8 @@ describe("3초 안의 차감은 하나로", () => {
     });
     act(() => report({ chargedKrw: 24, label: "영상 생성" }));
     const text = screen.getByTestId("spend-toast").textContent ?? "";
-    expect(text).toContain("2번 · 합계 36원을 사용했어요!");
-    expect(text).toContain("채팅 · Sonnet · 영상 생성");
+    expect(text).toBe("−36원 (2번) · 79,988원 남음");
+    expect(screen.getByTestId("spend-toast").getAttribute("title")).toContain("채팅 · Sonnet · 영상 생성");
     expect(screen.getAllByTestId("spend-toast")).toHaveLength(1);
   });
 
@@ -162,9 +170,35 @@ describe("3초 안의 차감은 하나로", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_200);
     });
+    act(() => report({ chargedKrw: 17 }));
+    expect(screen.getByTestId("spend-amount").textContent).toBe("−17원");
+    expect(screen.getByTestId("spend-toast").textContent).not.toContain("번");
+  });
+
+  test("10원 아래는 소리도 없다 (띠링을 켜 두었어도)", () => {
+    window.localStorage.setItem("ctrlai.spend-sound", "1");
+    setup();
+    act(() => report({ chargedKrw: 4 }));
+    expect(chime.playChime).not.toHaveBeenCalled();
+    // …and the same setting does chime once the charge is heard (the test is not vacuous).
+    act(() => report({ chargedKrw: 12 }));
+    expect(chime.playChime).toHaveBeenCalledTimes(1);
+  });
+
+  test("10원 아래는 조용히: 알약 없이 잔액만 (합쳐서 10원이 넘으면 그때 보여요)", async () => {
+    setup();
+    act(() => report({ chargedKrw: 4 }));
+    expect(screen.queryByTestId("spend-toast")).toBeNull();
+    expect(screen.getByTestId("chip").textContent).toBe("-4");
     act(() => report({ chargedKrw: 7 }));
-    expect(screen.getByTestId("spend-toast").textContent).toContain("7원을 사용했어요!");
-    expect(screen.getByTestId("spend-toast").textContent).not.toContain("2번");
+    expect(screen.getByTestId("spend-toast").textContent).toContain("−11원 (2번)");
+  });
+
+  test("알약 문구", () => {
+    expect(pillText({ count: 1, totalKrw: 156, remainingKrw: 68_336 })).toBe("−156원 · 68,336원 남음");
+    expect(pillText({ count: 3, totalKrw: 36, remainingKrw: 68_336 })).toBe("−36원 (3번) · 68,336원 남음");
+    expect(pillText({ count: 1, totalKrw: 12, remainingKrw: null })).toBe("−12원");
+    expect(TOAST_MS).toBe(2000);
   });
 
   test("문구", () => {
@@ -252,9 +286,8 @@ describe("설정", () => {
     expect(screen.getByTestId("chip").textContent).toBe("");
   });
 
-  test("v2: 금액이 크게, 동전이 튀고, 잔액이 보이면 -N원이 그쪽으로 날아간다 (owner-polish 10)", () => {
+  test("별은 잔액에서만 반짝인다 — 알림에서 날아가는 것은 없다 (spend-toast-compact)", () => {
     setup();
-    // The sidebar balance, on screen: the chip has somewhere to fly to.
     const balance = document.createElement("span");
     balance.dataset.walletBalance = "true";
     balance.getBoundingClientRect = () =>
@@ -262,28 +295,27 @@ describe("설정", () => {
     document.body.appendChild(balance);
 
     act(() => report({ chargedKrw: 12, label: "채팅 · Sonnet" }));
-    const toast = screen.getByTestId("spend-toast");
-    expect(screen.getByTestId("spend-amount").textContent).toBe("-12원");
-    expect(toast.querySelector("svg.lucide-coins")).toBeTruthy();
-    expect(toast.textContent).toContain("12원을 사용했어요!");
-    // motion-modern (4): 별가루 — the flight is stars, not text; the toast carries the amount.
-    const fly = screen.getByTestId("spend-fly");
-    expect(fly.textContent).toBe("");
-    expect(fly.getAttribute("data-stars")).toBe("9");
-    expect(fly.querySelectorAll("span").length).toBeGreaterThanOrEqual(9);
-    // Sound is off by default — nothing plays.
+    expect(screen.queryByTestId("spend-fly")).toBeNull();
+    const twinkle = screen.getByTestId("spend-twinkle");
+    expect(twinkle.getAttribute("data-stars")).toBe("4");
+    // Every star sits around the wallet's centre (60, 510), none at the toast.
+    for (const star of twinkle.querySelectorAll<HTMLElement>("span")) {
+      expect(Math.abs(parseFloat(star.style.left) - 60)).toBeLessThan(60);
+      expect(Math.abs(parseFloat(star.style.top) - 510)).toBeLessThan(60);
+    }
+    expect(screen.getByTestId("spend-toast").querySelector("svg")).toBeNull(); // no coin
     expect(chime.playChime).not.toHaveBeenCalled();
     balance.remove();
   });
 
-  test("v2: 잔액이 안 보이면 날아가는 것은 없고 알림이 금액을 든다", () => {
+  test("잔액이 안 보이면 반짝임도 없고 알약만", () => {
     setup();
-    act(() => report({ chargedKrw: 7 }));
-    expect(screen.queryByTestId("spend-fly")).toBeNull();
-    expect(screen.getByTestId("spend-amount").textContent).toBe("-7원");
+    act(() => report({ chargedKrw: 17 }));
+    expect(screen.queryByTestId("spend-twinkle")).toBeNull();
+    expect(screen.getByTestId("spend-amount").textContent).toBe("−17원");
   });
 
-  test("v2: 움직임 줄이기면 날아가는 금액도 동전 튀기도 없다", () => {
+  test("움직임 줄이기면 반짝임 없이 알약만", () => {
     motion.reduced = true;
     setup();
     const balance = document.createElement("span");
@@ -292,8 +324,8 @@ describe("설정", () => {
       ({ left: 20, top: 500, width: 80, height: 20, right: 100, bottom: 520 }) as DOMRect;
     document.body.appendChild(balance);
     act(() => report({ chargedKrw: 12 }));
-    expect(screen.queryByTestId("spend-fly")).toBeNull();
-    expect(screen.getByTestId("spend-toast").querySelector("[class*='coinPop']")).toBeNull();
+    expect(screen.queryByTestId("spend-twinkle")).toBeNull();
+    expect(screen.getByTestId("spend-toast")).toBeTruthy();
     balance.remove();
   });
 
