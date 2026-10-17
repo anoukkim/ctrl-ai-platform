@@ -628,7 +628,9 @@ New UI requests go here until they are folded into a UI batch.
   the estimate; the upload path of chat-plus-files (bytes checked,
   re-encoded, metadata gone). (2) **assets** — an image saved as an app file
   (e.g. `logo.png`) the app shows; storage only, app size limits, export
-  ZIP and thumbnails follow. (1) first. Not scheduled.
+  ZIP and thumbnails follow. (1) first. **Scheduled** (owner, 2026-10-17:
+  "지금 작업 이후에") — (1) after builder-snapshots; branch, tests, review,
+  then the owner's go before merge (no pre-approval given for this one).
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
