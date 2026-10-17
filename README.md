@@ -14,20 +14,32 @@ hold API keys — and records usage per member and quarter.
 
 - **Done:** everything in
   [`docs/archive/done.md`](docs/archive/done.md) — most recently (as of
-  2026-10-14) member-password-login, chat-plus-rendering,
-  admin-and-nav-cleanup (AI Models by provider), fix-beta-blockers and
-  personal-topup-off, on top of the beta stack (Chat with real budget
-  rules, invite-only sign-up, Google login behind a mock,
-  prep-beta-launch).
-- **Deployed (2026-10-13):** `ctrlai-server` runs `db`, `api` and `web`
-  with every provider on mock. `caddy` (HTTPS) starts once the `ctrlai.my`
-  A record is live at Gabia.
+  2026-10-17) the Builder's static runtime and the CtrlAIApps 게시 flow
+  (app-ai-access: the maker picks 데모만 or 전체 기능), the member apps
+  platform ("기능 상자"), notifications, chat-pins, motion-modern,
+  owner-polish-3 (automatic USD→KRW rate, thumbnails), the app tab icon,
+  the Korean font catalogue and the collapsible Chat list, on top of the
+  beta stack (Chat with real budget rules, one 동아리 지원 wallet per
+  quarter, invite-only sign-up, Google and password sign-in, Admin
+  sections, backups and monitoring).
+- **Deployed (as of 2026-10-17):** `ctrlai-server` runs the stack on
+  `ctrlai.my` / `apps.ctrlai.my`, last updated overnight with the
+  thumbnail-font fix, the font catalogue, the app tab icon and the Chat
+  list collapse (each with a pre-deploy backup). Providers are still on
+  mock except as the owner switches them on.
+- **Waiting:** `thumbnail-render-worker` (server-side thumbnails) is built,
+  reviewed and merged on this Mac's `main`, but GitHub refused the push
+  until the local GitHub login has the `workflow` scope
+  (`gh auth refresh -h github.com -s workflow`). `builder-snapshots`
+  (versions as saved snapshots, 작업-step undo/redo) is built on its own
+  branch and waits for review, tests and deploy.
 - **Before members are invited:** privacy-and-terms (the owner reviews
   the text), the one real Claude message with the owner's key, and invite
   codes created on the server — until then **do not share the address**.
 - **Next:** the top of **Next** in [`docs/BACKLOG.md`](docs/BACKLOG.md),
   which is the only place the order is written. Milestones are in
-  [`docs/ROADMAP.md`](docs/ROADMAP.md).
+  [`docs/ROADMAP.md`](docs/ROADMAP.md). The latest hand-over notes are
+  [`docs/progress/MORNING-2026-10-17.md`](docs/progress/MORNING-2026-10-17.md).
 
 Every external provider runs as a **mock by default**, so the whole
 platform runs locally with no API keys.
@@ -36,7 +48,7 @@ platform runs locally with no API keys.
 
 | | |
 | - | - |
-| Site | `https://ctrlai.my` (www redirects to it) — live once the A record resolves and `caddy` is started |
+| Site | `https://ctrlai.my` (www redirects to it); member apps on `https://apps.ctrlai.my/<slug>/` |
 | Server | Google Cloud Compute Engine `ctrlai-server` — e2-medium (2 vCPU, 4 GB), Seoul `asia-northeast3-c`, Debian 13, 30 GB disk, static IP `34.47.78.228` |
 | Stack | `docker-compose.prod.yml`: `caddy` (80/443, automatic HTTPS), `web` (Next.js), `api` (FastAPI), `db` (PostgreSQL 16, no published port) |
 | Images | Built and pushed to ghcr.io by GitHub Actions on every push to `main`; the server only pulls |
