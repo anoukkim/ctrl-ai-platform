@@ -509,18 +509,41 @@ def list_quarter_members(
         .order_by(User.id)
     ).all()
 
-    return [
-        MemberWithMembership(
-            user_id=member.id,
-            username=member.username,
-            display_name=member.display_name,
-            role=member.role,
-            account_status=member.account_status,
-            membership_status=membership.status if membership else None,
-            application_status=application_status,
+    # admin-consolidation v3 (2): the wallet for 사용률 and the application
+    # waiting for 승인/거절, one query each.
+    wallets = {
+        row.user_id: row
+        for row in db.scalars(select(QuarterAllocation).where(QuarterAllocation.quarter_id == quarter_id))
+    }
+    waiting = {
+        row.user_id: row
+        for row in db.scalars(
+            select(QuarterApplication).where(
+                QuarterApplication.quarter_id == quarter_id,
+                QuarterApplication.status == ApplicationStatus.SUBMITTED,
+            )
         )
-        for member, membership, application_status in rows
-    ]
+    }
+    result: list[MemberWithMembership] = []
+    for member, membership, application_status in rows:
+        wallet = wallets.get(member.id)
+        application = waiting.get(member.id)
+        result.append(
+            MemberWithMembership(
+                user_id=member.id,
+                username=member.username,
+                display_name=member.display_name,
+                role=member.role,
+                account_status=member.account_status,
+                membership_status=membership.status if membership else None,
+                application_status=ApplicationStatus.SUBMITTED if application else application_status,
+                application_id=application.id if application else None,
+                requested_budget_krw=application.requested_budget_krw if application else None,
+                budget_krw=wallet.budget_krw if wallet else None,
+                consumed_krw=wallet.consumed_krw if wallet else None,
+            )
+        )
+    return result
 
 
 @router.put(

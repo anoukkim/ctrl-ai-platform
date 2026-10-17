@@ -51,7 +51,7 @@ export function todosOf(dashboard: AdminDashboard): Todo[] {
     {
       key: "applications",
       // 거르기까지 걸어 보냅니다 — 누른 이유가 "대기 중인 것"이니까요.
-      href: `${tabHref("members", "applications")}&status=submitted`,
+      href: "/admin/members?filter=pending",
       count: dashboard.pending_applications,
       label: "참여 신청 승인 대기",
       where: "Members",

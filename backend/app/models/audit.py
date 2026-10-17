@@ -140,6 +140,8 @@ class AuditAction:
     # quarter, and last quarter's unspent wallet carried into the next.
     CREDIT_PURCHASE_RECORDED = "credit.purchase_recorded"
     QUARTER_CLOSED = "quarter.closed"
+    #: admin-consolidation v3: 분기 마감's 4단계 (앱 보관) confirmed.
+    QUARTER_APPS_ARCHIVED = "quarter.apps_archived"
     ALLOCATION_CARRIED_OVER = "allocation.carried_over"
 
 
@@ -204,6 +206,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.PASSWORD_SET_CLI: "서버에서 비밀번호 재설정",
     AuditAction.CREDIT_PURCHASE_RECORDED: "크레딧 구매 기록",
     AuditAction.QUARTER_CLOSED: "분기 마감",
+    AuditAction.QUARTER_APPS_ARCHIVED: "앱 보관 확인",
     AuditAction.ALLOCATION_CARRIED_OVER: "지원금 이월",
 }
 

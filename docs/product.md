@@ -82,12 +82,12 @@ disabled, so the shell is never mistaken for working functionality.
 | `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
 | `/admin`              | Dashboard       | 처리할 일 (only what has a count: 참여 신청 승인 대기, 열린 신고), **알림** (automatic: a member past 80% of their wallet, the Anthropic month budget, the thumbnail server, a failing provider, the attachment disk) and **이번 주 가장 많이 쓴 곳** (admin-consolidation v3) |
-| `/admin/members`      | Members         | Tabs 회원 · 참여 신청 (`?tab=applications`) |
+| `/admin/members`      | Members         | One list: chips 전체 · 승인 대기 · 활동 · 미참여 · 초대 코드, a 사용률 column (amber at ≥ 80%), 승인/거절 in the row; a row opens the **member panel** on the right (`?member=`) with every action — 지원금 ± 조정, 참여 상태, 역할, 탈퇴 — and **지운 작업** (복구 / 완전히 삭제) |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
-| `/admin/quarters`     | Quarters        | Tabs 분기 · 예산 (`?tab=budget`) |
-| `/admin/models`       | Models          | Tabs Chat · Video (`?tab=video-models`) — the former AI Models and Video Models |
-| `/admin/community`    | Community       | Tabs 신고 · 의견 · 앱 · 지운 작업 — the former Content, Feedback, Apps (`/admin/apps/[id]` stays the app's detail) and Deleted Items |
-| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — the health strip and its sections, and the Audit Log |
+| `/admin/quarters`     | Quarters        | Tabs **분기 · 예산** — the quarter list, **돈의 흐름** (credit bought → 회원이 쓴 돈 · 줬지만 안 쓴 돈 · 여유분, what the reserve paid for, the end-of-quarter forecast; `GET /api/admin/quarters/{id}/money-flow`) and **분기 마감** in five steps (신청 마감 → 정산 확인 → 휴지통 비우기 → 앱 보관 → 다음 분기 열기, driving the existing 분기 마감) — and **사용 분석** (`?tab=budget`, the Budget screen until batch 3) |
+| `/admin/models`       | Models          | Tabs Chat (with 이번 분기 사용 per model) · Video · 한도 (채팅 한도, from System) · 보정 (비용 보정) |
+| `/admin/community`    | Community       | Tabs 신고 · 의견 · 앱 — the former Content, Feedback and Apps (`/admin/apps/[id]` stays the app's detail); Deleted Items moved to the member panel |
+| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — one health strip (서버 · DB · 썸네일 서버 · each provider once, 모두 확인), 기능 열기, 환율, 유지보수 (썸네일 다시 만들기, 환율 새로 고침), 서버 설정, 빌더 점검; and the Audit Log |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
 
 **admin-consolidation v3 (owner, 2026-10-17), batch (1):** Admin has six

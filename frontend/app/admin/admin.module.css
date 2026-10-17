@@ -2013,3 +2013,299 @@ a.alertItem:hover {
 .search ~ .quarterSwitch {
   margin-left: 0;
 }
+
+/* admin-consolidation v3 (2): the member list's chips, 사용률, the panel. */
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chipRow button.subTab {
+  font: inherit;
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.chipCount {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.usageCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.usageBar {
+  position: relative;
+  display: inline-block;
+  width: 3.5rem;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.usageBar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.usageCell[data-warn="true"] {
+  color: var(--warn-text);
+  font-weight: 650;
+}
+
+.usageCell[data-warn="true"] .usageBar span {
+  background: var(--warn-text);
+}
+
+.panelScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(0 0 0 / 0.28);
+}
+
+.memberPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  width: min(40rem, 100vw);
+  overflow-y: auto;
+  padding: 0 1.2rem 2rem;
+  border-left: 1px solid var(--border-strong);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  outline: none;
+}
+
+.memberPanelBar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: 0 -1.2rem 0.6rem;
+  padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.memberPanelClose {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.memberPanelClose:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.deletedList {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deletedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.maintenance {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.maintenanceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* admin-consolidation v3 (2): 돈의 흐름 and the 분기 마감 stepper. */
+.flowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.flowBar {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.flowBar span[data-part="used"],
+.flowSwatch[data-part="used"] {
+  background: var(--accent);
+}
+
+.flowBar span[data-part="unused"],
+.flowSwatch[data-part="unused"] {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.flowBar span[data-part="reserve"],
+.flowSwatch[data-part="reserve"] {
+  background: var(--border-strong);
+}
+
+.flowLegend {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0;
+}
+
+.flowLegend div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.flowLegend dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.flowLegend dd {
+  margin: 0;
+}
+
+.flowSwatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0 0 0.8rem;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
+.step[data-state="now"] {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.step[data-state="done"] {
+  color: var(--text-muted);
+}
+
+.stepMark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 0.72rem;
+}
+
+.step[data-state="now"] .stepMark {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.step[data-state="done"] .stepMark {
+  border-color: var(--ok);
+  color: var(--ok-text);
+}
+
+.stepNow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+
+.stepFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.6rem;
+  margin: 0.8rem 0;
+}
+
+.stepFacts dt {
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
+.stepFacts dd {
+  margin: 0;
+  font-weight: 650;
+}
+
+@media (max-width: 640px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-chip);
+  cursor: pointer;
+  text-decoration: underline;
+}
+

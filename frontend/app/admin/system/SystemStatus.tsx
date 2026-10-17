@@ -22,7 +22,7 @@ import BuilderEvalPanel from "./BuilderEvalPanel";
 import ClaudePricingPanel from "./ClaudePricingPanel";
 import FeaturePanel from "./FeaturePanel";
 import HealthStrip from "./HealthStrip";
-import ProviderPanel from "./ProviderPanel";
+import MaintenancePanel from "./MaintenancePanel";
 
 import styles from "../admin.module.css";
 
@@ -34,7 +34,8 @@ export default function AdminSystemPage() {
         title={sectionLabel("system")}
         subtitle={
           <>
-            CTRL+AI의 서버와 데이터베이스, 그리고 연결된 외부 서비스의 상태입니다.
+            상태(서버 · 데이터베이스 · 썸네일 서버 · 외부 서비스를 한 번씩), 기능 열기, 유지보수.
+            감사 기록은 옆 탭에 있어요.
           </>
         }
       />
@@ -50,13 +51,13 @@ export default function AdminSystemPage() {
           <FeaturePanel />
         </Fold>
 
-        <Fold id="providers" title="외부 서비스" note="API 키는 백엔드에만 있습니다 — 이 화면에 나오지 않습니다">
-          <ProviderPanel />
+        {/* 외부 서비스는 위의 연결 상태 한 줄에 한 번만 (admin-consolidation v3). */}
+        <Fold id="maintenance" title="유지보수" note="썸네일 다시 만들기, 환율 새로 고침">
+          <MaintenancePanel />
         </Fold>
 
-        {/* 환율 · 채팅 한도(깊이 표 포함) · 서버 설정(.env) — 한 상태를 나눠 쓰므로
-            판 하나가 접는 섹션 셋을 그립니다. */}
-        <ClaudePricingPanel />
+        {/* 환율 · 서버 설정(.env). 채팅 한도는 Models › 한도로 (admin-consolidation v3). */}
+        <ClaudePricingPanel part="system" />
 
         <Fold
           id="builder-eval"

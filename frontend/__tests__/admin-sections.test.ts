@@ -34,7 +34,9 @@ describe("Admin 구역 목록", () => {
 
   test("예전 구역은 모두 어딘가의 탭이다", () => {
     const tabs = visibleSections(false).flatMap((section) => section.tabs.map((tab) => tab.key));
-    for (const old of ["members", "applications", "quarters", "budget", "ai-models", "video-models", "content", "feedback", "apps", "deleted", "system", "audit"]) {
+    // admin-consolidation v3 (2): 참여 신청 and 지운 작업 live inside Members
+    // (the 승인 대기 chip, the member panel); 한도 and 보정 are Models tabs.
+    for (const old of ["members", "quarters", "budget", "ai-models", "video-models", "limits", "calibration", "content", "feedback", "apps", "system", "audit"]) {
       expect(tabs, old).toContain(old);
     }
   });
@@ -100,8 +102,9 @@ describe("지금 보고 있는 구역과 탭", () => {
 describe("예전 주소", () => {
   test("모두 새 자리로 넘어가고, 다른 값(분기, 거르기)은 그대로 간다", () => {
     expect(legacyTarget("/admin/applications", { status: "submitted", quarter: "3" })).toBe(
-      "/admin/members?tab=applications&status=submitted&quarter=3",
+      "/admin/members?filter=pending&status=submitted&quarter=3",
     );
+    expect(legacyTarget("/admin/deleted", {})).toBe("/admin/members");
     expect(legacyTarget("/admin/budget", {})).toBe("/admin/quarters?tab=budget");
     expect(legacyTarget("/admin/content", {})).toBe("/admin/community");
     expect(legacyTarget("/admin/audit", { quarter: "2" })).toBe("/admin/system?tab=audit&quarter=2");

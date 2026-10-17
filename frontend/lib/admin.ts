@@ -321,6 +321,8 @@ export interface AdminChatModel {
   estimated_reply_krw: number | null;
   estimate_basis?: "recent" | "formula";
   estimate_samples?: number;
+  /** 이번 분기에 이 모델로 회원에게 청구된 금액(원) — admin-consolidation v3. */
+  quarter_krw?: number;
   /** "Anthropic (Claude)". */
   provider_label?: string;
   /** false: 연결 준비 중 — 공개도 기본도 될 수 없습니다(백엔드가 막습니다). */

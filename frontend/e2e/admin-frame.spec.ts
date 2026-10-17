@@ -48,19 +48,24 @@ test("six sections, tabs inside, old addresses land in the new place, search fin
   await page.screenshot({ path: `${SHOTS}/1440-dark-dashboard.png` });
 
   for (const [old, landed, tab] of [
-    ["/admin/applications?status=submitted", "/admin/members?tab=applications&status=submitted", "참여 신청"],
-    ["/admin/budget", "/admin/quarters?tab=budget", "예산"],
+    ["/admin/budget", "/admin/quarters?tab=budget", "사용 분석"],
     ["/admin/ai-models", "/admin/models", "Chat"],
     ["/admin/video-models", "/admin/models?tab=video-models", "Video"],
     ["/admin/content", "/admin/community", "신고"],
     ["/admin/feedback", "/admin/community?tab=feedback", "의견"],
-    ["/admin/deleted", "/admin/community?tab=deleted", "지운 작업"],
     ["/admin/audit", "/admin/system?tab=audit", "감사 기록"],
   ] as const) {
     await page.goto(`${SITE}${old}`);
     await expect(page).toHaveURL(`${SITE}${landed}`);
     await expect(page.getByRole("list", { name: /안의 탭/ }).getByRole("link", { name: new RegExp(`^${tab}`) })).toHaveAttribute("aria-current", "page");
   }
+  // 참여 신청 and 지운 작업 moved into Members (batch 2).
+  await page.goto(`${SITE}/admin/applications?status=submitted`);
+  await expect(page).toHaveURL(`${SITE}/admin/members?filter=pending&status=submitted`);
+  await expect(page.getByRole("button", { name: /^승인 대기/ })).toHaveAttribute("aria-pressed", "true");
+  await page.goto(`${SITE}/admin/deleted`);
+  await expect(page).toHaveURL(`${SITE}/admin/members`);
+
   await page.goto(`${SITE}/admin/community?tab=feedback`);
   await expect(page.getByRole("list", { name: /안의 탭/ })).toBeVisible();
   await page.waitForTimeout(800);
@@ -81,3 +86,38 @@ test("six sections, tabs inside, old addresses land in the new place, search fin
   await expect(page.getByRole("heading", { name: "처리할 일" })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/390-light-dashboard.png`, fullPage: true });
 });
+
+test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four tabs", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${SITE}/admin/members`);
+  await expect(page.getByRole("button", { name: /^전체/ })).toBeVisible();
+  await page.getByRole("row", { name: new RegExp(`@${USER}`) }).first().click();
+  const panel = page.getByTestId("member-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByTestId("member-deleted-work")).toBeVisible();
+  await theme(page, "dark");
+  await page.screenshot({ path: `${SHOTS}/1440-dark-member-panel.png` });
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+
+  await page.goto(`${SITE}/admin/quarters`);
+  await expect(page.getByTestId("money-flow")).toBeVisible();
+  await expect(page.getByTestId("close-stepper")).toBeVisible();
+  await page.waitForTimeout(600);
+  await page.getByTestId("money-flow").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/1440-dark-quarters.png` });
+
+  await page.goto(`${SITE}/admin/models`);
+  const tabs = page.getByRole("list", { name: /안의 탭/ }).getByRole("link");
+  await expect(tabs).toHaveText(["Chat", "Video", "한도", "보정"]);
+  await page.goto(`${SITE}/admin/models?tab=limits`);
+  await expect(page.getByRole("heading", { name: "채팅 한도" })).toBeVisible();
+  await page.goto(`${SITE}/admin/community`);
+  await expect(page.getByRole("list", { name: /안의 탭/ }).getByRole("link")).toHaveText([/^신고/, "의견", "앱"]);
+  await page.goto(`${SITE}/admin/system`);
+  await expect(page.getByTestId("health-strip")).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/1440-dark-system.png` });
+});
+

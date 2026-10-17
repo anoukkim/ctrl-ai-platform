@@ -162,6 +162,17 @@ export interface MemberWithMembership {
   /** 이번 분기 신청 상태. null이면 신청한 적이 없음 — 참여 기록도 없으면
    *  미신청 (owner-polish 8). */
   application_status: ApplicationStatus | null;
+  /** admin-consolidation v3 (2): 심사를 기다리는 신청(줄에서 승인/거절)과 지갑(사용률). */
+  application_id?: number | null;
+  requested_budget_krw?: number | null;
+  budget_krw?: number | null;
+  consumed_krw?: number | null;
+}
+
+/** 지갑을 쓴 비율(0–100), 지갑이 없으면 null. */
+export function usedPct(member: MemberWithMembership): number | null {
+  if (!member.budget_krw) return null;
+  return Math.min(100, Math.round(((member.consumed_krw ?? 0) * 100) / member.budget_krw));
 }
 
 /** 미신청: 이번 분기에 신청도, 참여 기록도 없는 사람 — 카드와 거르기가 같은 뜻.

@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminQuarterOptional } from "../AdminQuarterProvider";
+
 /**
  * Admin › System — 연결 상태 한 줄 (ui-improvements B).
  *
@@ -58,6 +60,7 @@ function providerDetail(provider: ProviderStatus): string {
 }
 
 export default function HealthStrip() {
+  const thumbs = useAdminQuarterOptional()?.dashboard?.thumbnail_server;
   const [health, setHealth] = useState<HealthResponse | null | "down">(null);
   const [providers, setProviders] = useState<ProviderStatus[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +127,17 @@ export default function HealthStrip() {
               ? "연결됨"
               : `연결할 수 없음 (${health.database.detail ?? "원인 미상"})`,
     },
+    // admin-consolidation v3: the thumbnail server, when it is on.
+    ...(thumbs && thumbs !== "off"
+      ? [
+          {
+            key: "thumbs",
+            name: "썸네일 서버",
+            tone: (thumbs === "ok" ? "ok" : "error") as Tone,
+            detail: thumbs === "ok" ? "정상" : "응답 없음 · 그동안 브라우저가 찍어요",
+          },
+        ]
+      : []),
     ...(providers ?? []).map((provider) => ({
       key: provider.key,
       name: provider.name,
