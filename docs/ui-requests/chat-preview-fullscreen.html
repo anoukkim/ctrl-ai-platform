@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chat-preview-fullscreen — Chat (mock-up)</title>
+<!--
+  Mock-up for the BACKLOG item `chat-preview-fullscreen` (owner request 2026-10-17).
+  Static, self-contained, no network, nothing here is served to a member.
+  The 미리보기 card gets a 전체 화면 button; it opens an in-page overlay (not the
+  browser Fullscreen API — the real frame stays sandbox="allow-scripts" only)
+  with 새로고침, a 폰/데스크톱 switch and 닫기 (Esc also closes).
+  The "page" inside is a stand-in 5x5 heatmap drawn with plain divs.
+-->
+<style>
+:root{--text-secondary:#8b91a3}
+html,body{margin:0;background:#0a0b0f;color:#e6e8ee;font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+h1{font-size:16px;font-weight:500;margin:0 0 4px}
+.sub{font-size:13px;color:var(--text-secondary);margin:0 0 14px}
+.stage{position:relative;background:#0f1116;border:1px solid #1f2330;border-radius:12px;padding:20px;min-height:520px;overflow:hidden;font-size:13px}
+.me{margin-left:auto;width:max-content;background:#171a23;border:1px solid #2a2f40;border-radius:14px;padding:9px 13px;margin-bottom:14px}
+.who{font-size:11px;color:#8b91a3;margin-bottom:4px}
+.bub{background:#14171f;border:1px solid #232733;border-radius:12px;padding:12px 14px;line-height:1.6;max-width:640px}
+.pc{border:1px solid #232733;border-radius:10px;background:#0d0f14;margin:10px 0;overflow:hidden}
+.ph{display:flex;align-items:center;gap:6px;padding:7px 10px;font-size:11px;color:#8b91a3;border-bottom:1px solid #1c202b}
+.ph .sp{flex:1}
+.b{border:1px solid #2c3140;border-radius:999px;padding:3px 10px;color:#aab0c2;font-size:11px;background:transparent;font-family:inherit;cursor:pointer}
+.b:hover{border-color:#4a4f66;color:#e6e8ee}
+.b.hl{border-color:#3a3566;color:#cfc9ff;background:#1b1f2c}
+.open{display:block;width:100%;border:none;background:#10131b;color:#9fb4ff;padding:22px;font-size:12px;cursor:pointer;font-family:inherit}
+.frame{height:220px;background:#fff;display:grid;place-items:center}
+.hm{display:grid;grid-template-columns:repeat(5,34px);gap:4px}
+.hm i{width:34px;height:34px;border-radius:5px;display:block}
+.ov{position:absolute;inset:0;background:rgba(5,6,9,.82);display:none;padding:18px;box-sizing:border-box;z-index:5}
+.ov.on{display:flex}
+.pn{flex:1;display:flex;flex-direction:column;background:#0f1116;border:1px solid #2a2f40;border-radius:12px;overflow:hidden;min-width:0}
+.oh{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #1f2330;font-size:12px}
+.oh .t{flex:1;color:#cfd3e0}
+.seg{display:flex;border:1px solid #2c3140;border-radius:999px;overflow:hidden}
+.seg button{border:none;background:transparent;color:#8b91a3;padding:3px 11px;font-size:11px;cursor:pointer;font-family:inherit}
+.seg button.on{background:#1b1f2c;color:#cfc9ff}
+.ob{flex:1;background:#06070a;display:grid;place-items:center;min-height:0;padding:12px}
+.ofr{background:#fff;height:100%;width:100%;max-width:100%;display:grid;place-items:center;border-radius:6px;transition:width .2s;overflow:hidden}
+.ofr.ph2{width:300px}
+.ofr .hm{grid-template-columns:repeat(5,62px);gap:6px}
+.ofr .hm i{width:62px;height:62px;border-radius:8px}
+.ofr.ph2 .hm{grid-template-columns:repeat(5,48px)}.ofr.ph2 .hm i{width:48px;height:48px}
+.hint{color:#6e7488;font-size:11px;padding:8px 12px;border-top:1px solid #1f2330}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>chat-preview-fullscreen · Chat</h1>
+<p class="sub">미리보기 카드에 <b style="font-weight:500">전체 화면</b> 버튼이 생겨요. 눌러 보세요. 열면 창 안에 크게 뜨고, 새로고침 · 폰/데스크톱 전환 · 닫기(Esc)가 있어요.</p>
+
+<div class="stage" id="stage">
+  <div class="me">heatmap 생성해줘</div>
+  <div class="who">CTRL+AI</div>
+  <div class="bub">요일·시간대별 활동량을 보여주는 히트맵을 만들어 봤어요. 칸에 마우스를 올리면 정확한 값이 보이고, "새 데이터" 버튼을 누르면 값이 새로 만들어져요.
+    <div class="pc">
+      <div class="ph"><span>미리보기 · HTML</span><span class="sp"></span>
+        <button class="b">코드 보기</button><button class="b">다운로드</button><button class="b">Builder로 보내기</button><button class="b hl" id="fs">전체 화면</button></div>
+      <button class="open" id="openp">▷ 미리보기 열기</button>
+      <div class="frame" id="frame" style="display:none"><div class="hm" id="hm1"></div></div>
+    </div>
+  </div>
+
+  <div class="ov" id="ov" role="dialog" aria-label="전체 화면 미리보기">
+    <div class="pn">
+      <div class="oh"><span class="t">미리보기 · HTML — heatmap 생성해줘</span>
+        <div class="seg"><button class="on" id="dk">데스크톱</button><button id="ph">폰</button></div>
+        <button class="b" id="rf">새로고침</button><button class="b" id="cl">닫기 ✕</button></div>
+      <div class="ob"><div class="ofr" id="ofr"><div class="hm" id="hm2"></div></div></div>
+      <div class="hint">Esc로 닫아요. 닫으면 이 미리보기는 멈추고, 카드로 돌아가요.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+function fill(id){var h=document.getElementById(id);h.innerHTML='';for(var i=0;i<25;i++){var e=document.createElement('i');var v=Math.random();e.style.background='rgb('+Math.round(150-90*v)+','+Math.round(120-60*v)+','+Math.round(240-50*v)+')';h.appendChild(e)}}
+fill('hm1');fill('hm2');
+var ov=document.getElementById('ov'),fr=document.getElementById('ofr');
+function show(){ov.classList.add('on');fill('hm2')}
+function hide(){ov.classList.remove('on')}
+document.getElementById('openp').onclick=function(){this.style.display='none';document.getElementById('frame').style.display='grid'};
+document.getElementById('fs').onclick=show;
+document.getElementById('cl').onclick=hide;
+document.getElementById('rf').onclick=function(){fill('hm2')};
+document.getElementById('dk').onclick=function(){fr.classList.remove('ph2');this.classList.add('on');document.getElementById('ph').classList.remove('on')};
+document.getElementById('ph').onclick=function(){fr.classList.add('ph2');this.classList.add('on');document.getElementById('dk').classList.remove('on')};
+document.addEventListener('keydown',function(e){if(e.key==='Escape')hide()});
+</script>
+</body>
+</html>

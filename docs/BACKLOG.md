@@ -613,10 +613,10 @@ New UI requests go here until they are folded into a UI batch.
   indeterminate bar plus elapsed time, never a fake percentage; (b) the
   sidebar dot needs the "running" state to survive navigation (it is
   client-only now); (c) honour `prefers-reduced-motion` (sweeps and
-  typing stop, dots stay static). Mock-ups were rendered inline in the
-  desktop session (not saved as files); three-way concept sketch, the
-  combined Builder, the Chat before/after, and both full-page versions
-  with the aurora switch. Not scheduled.
+  typing stop, dots stay static). Mock-ups (open in a browser):
+  [`ui-requests/running-state-calm-chat.html`](ui-requests/running-state-calm-chat.html)
+  and [`running-state-calm-builder.html`](ui-requests/running-state-calm-builder.html),
+  both with the aurora switch. Not scheduled.
 
 - **chat-preview-fullscreen** — owner, 2026-10-17 (desktop session, with a
   screenshot of a Chat 미리보기 card): "지금 미리보기로 뭘 생성하면,
@@ -636,7 +636,8 @@ New UI requests go here until they are folded into a UI batch.
   열기 or 전체 화면, and closing it removes the frame; (3) a 새로고침 button
   and a phone / desktop width switch in the overlay header, like the
   Builder's 미리보기, which already has an expand icon to match; (4) works
-  on touch (full-screen sheet at phone width). No money, no backend. Small.
+  on touch (full-screen sheet at phone width). No money, no backend. Small. Mock-up:
+  [`ui-requests/chat-preview-fullscreen.html`](ui-requests/chat-preview-fullscreen.html).
   Not scheduled.
 - **builder-snapshots** — owner, 2026-10-17: "하나 누를때마다 버전 올라가서
   좀 부담스러움", then "이것저것 하고 이걸 버전으로 저장 하고 스냅샷

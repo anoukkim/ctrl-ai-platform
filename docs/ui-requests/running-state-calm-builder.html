@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>running-state-calm — Builder (mock-up)</title>
+<!--
+  Mock-up for the BACKLOG item `running-state-calm` (owner-approved 2026-10-17).
+  Static, self-contained, no network, nothing here is served to a member.
+  Shows Project Builder while a version is being built: preview pane and chat
+  panel show the same stage and time. Stages, log lines, timer and cost are fake;
+  real ones need per-file progress events from the backend (open point (a)).
+-->
+<style>
+:root{--font-mono:ui-monospace,Menlo,Consolas,monospace;--border-strong:#3a4054;--text-secondary:#8b91a3}
+html,body{margin:0;background:#0a0b0f;color:#e6e8ee;font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px}
+h1{font-size:16px;font-weight:500;margin:0 0 4px}
+.sub{font-size:13px;color:var(--text-secondary);margin:0 0 14px}
+.ctl{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:13px;color:var(--text-secondary)}
+.sw{width:34px;height:20px;border-radius:10px;background:var(--border-strong);position:relative;cursor:pointer;border:none;padding:0}
+.sw:after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.sw.on{background:#7c6cf0}.sw.on:after{left:16px}
+.pg{display:flex;height:700px;background:#0f1116;border-radius:12px;overflow:hidden;font-size:13px;border:1px solid #1f2330}
+.sb{width:160px;border-right:1px solid #1f2330;padding:14px 10px;display:flex;flex-direction:column;flex:none}
+.sb .lg{font-size:15px;margin-bottom:10px}
+.gh{font-size:11px;color:#6e7488;margin:14px 0 4px}
+.it{padding:7px 9px;border-radius:8px;color:#aab0c2;display:flex;align-items:center;gap:6px}
+.it.on{background:#1b1f2c;color:#cfc9ff}
+.quota{margin-top:auto;border:1px solid #1f2330;border-radius:10px;padding:9px;font-size:11px;color:#8b91a3;line-height:1.5}
+.dot{width:6px;height:6px;border-radius:50%;background:#7c6cf0;flex:none;animation:pl 1.1s infinite}
+@keyframes pl{50%{opacity:.35}}
+@keyframes sw{0%{left:-25%}100%{left:100%}}
+@keyframes spn{to{transform:rotate(360deg)}}
+@keyframes bl{50%{opacity:0}}
+@keyframes fin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.mn{flex:1;min-width:0;display:flex;flex-direction:column}
+.hd{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #1f2330;position:relative}
+.hd .r{margin-left:auto;display:flex;gap:6px}
+.bt{border:1px solid #2c3140;border-radius:8px;padding:4px 10px;color:#aab0c2;font-size:12px}
+.bt.p{background:#2f6bff;border-color:#2f6bff;color:#fff}
+.tag{padding:2px 9px;border-radius:999px;background:#26213f;color:#cfc9ff;font-size:11px;display:inline-flex;align-items:center;gap:6px}
+.top{position:absolute;left:0;top:0;height:2px;width:100%;background:#1c202b;overflow:hidden}
+.top i,.sweep i{position:absolute;top:0;height:2px;width:25%;background:#7c6cf0;animation:sw 1.6s ease-in-out infinite}
+.body{flex:1;display:flex;min-height:0}
+.pv{flex:1.5;min-width:0;border-right:1px solid #1f2330;position:relative;overflow:hidden}
+.tabs{display:flex;gap:4px;padding:10px 14px;position:relative}
+.tab{padding:3px 11px;border-radius:999px;color:#8b91a3;font-size:12px}
+.tab.on{background:#1b1f2c;color:#cfc9ff;border:1px solid #3a3566}
+.aur{position:absolute;inset:0;opacity:0;transition:opacity .4s;pointer-events:none}
+.aur.on{opacity:1}
+.aur i{position:absolute;width:300px;height:300px;border-radius:50%;filter:blur(60px);opacity:.13}
+.aur i:nth-child(1){background:#7c6cf0;left:-40px;top:20px;animation:dr1 10s ease-in-out infinite alternate}
+.aur i:nth-child(2){background:#1d9e75;right:-40px;bottom:-20px;animation:dr2 12s ease-in-out infinite alternate}
+@keyframes dr1{to{transform:translate(220px,200px)}}
+@keyframes dr2{to{transform:translate(-200px,-200px)}}
+.pv>*:not(.aur){position:relative}
+.st{display:flex;align-items:center;gap:8px;padding:3px 0;color:#6e7488}
+.st .d{width:15px;height:15px;border-radius:50%;border:1.5px solid #3a4054;display:flex;align-items:center;justify-content:center;font-size:10px;flex:none}
+.st.act{color:#e6e8ee}.st.act .d{border-color:#7c6cf0 #7c6cf0 #7c6cf0 transparent;animation:spn .9s linear infinite}
+.st.ok{color:#7fd6a8}.st.ok .d{border-color:#2f5b47;background:#1d3a2d}
+.chip{display:inline-block;padding:2px 9px;border:1px solid #2c3140;border-radius:999px;font-size:11px;color:#8b91a3;margin:0 5px 4px 0}
+.chip.on{color:#cfc9ff;border-color:#7c6cf0;animation:pl 1.2s infinite}
+.chip.done{color:#7fd6a8;border-color:#2f5b47}
+.code{margin:0 14px;background:#0b0d12;border:1px solid #1f2330;border-radius:8px;padding:12px;height:200px;overflow:hidden;font-family:var(--font-mono);font-size:12px;line-height:20px;color:#8b91a3}
+.k{color:#c3a6ff}.s{color:#7fd6a8}.f{color:#5fb3ff}
+.cur{display:inline-block;width:6px;height:12px;background:#7c6cf0;vertical-align:-2px;animation:bl .8s steps(1) infinite}
+.ch{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.msg{padding:9px 11px;border-radius:10px;margin:0 12px 9px;line-height:1.5}
+.me{background:#1b1f2a;margin-left:34px}
+.ai{background:#14171f;border:1px solid #232733}
+.log{margin-top:6px;border-top:1px solid #232733;padding-top:6px;font-size:12px;color:#8b91a3}
+.log div{animation:fin .35s ease-out;padding:1px 0;display:flex;gap:6px}
+.td{display:inline-flex;gap:3px;margin-left:4px}
+.td i{width:4px;height:4px;border-radius:50%;background:#8b91a3;animation:pl 1s infinite}
+.td i:nth-child(2){animation-delay:.2s}.td i:nth-child(3){animation-delay:.4s}
+.inp{border:1px solid #2c3140;border-radius:10px;background:#0d0f14;padding:10px 12px;color:#6e7488;height:48px;position:relative;overflow:hidden;box-sizing:border-box}
+.sweep{position:absolute;left:0;bottom:0;height:2px;width:100%;background:#1c202b;overflow:hidden}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #3a3566;background:#1b1f2c;color:#cfc9ff;border-radius:8px;padding:5px 11px;font-size:12px}
+.sp{width:10px;height:10px;border:2px solid #7c6cf0;border-right-color:transparent;border-radius:50%;animation:spn .8s linear infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>running-state-calm · Project Builder</h1>
+<p class="sub">미리보기를 만드는 중일 때의 빌더 화면. 미리보기와 오른쪽 채팅이 같은 단계·시간을 보여줘요. 단계·로그·시간은 가짜 값이에요.</p>
+
+<div class="ctl"><span>오로라 배경</span><button class="sw on" id="sw" aria-label="오로라 켜기 끄기"></button><span id="swl">켜짐 · 미리보기 영역에서만 은은하게</span></div>
+
+<div class="pg">
+  <div class="sb">
+    <div class="lg">+ CTRL+AI</div>
+    <div class="gh">Create</div>
+    <div class="it">Chat</div><div class="it on"><span class="dot"></span>Project Builder</div><div class="it">Video Generator</div>
+    <div class="gh">Explore</div>
+    <div class="it">CtrlAIApps</div><div class="it">CtrlAITube</div>
+    <div class="gh">Manage</div><div class="it">Admin</div>
+    <div class="quota"><span style="color:#e6e8ee">2026 Q4</span><br>동아리 지원<br>71,387원 남음</div>
+  </div>
+  <div class="mn">
+    <div class="hd">
+      <div class="top"><i></i></div>
+      <span style="color:#8b91a3">←</span><span style="font-size:14px">10초 계란 요리 게임</span>
+      <span class="tag"><span class="dot"></span>작업 중</span>
+      <div class="r"><span class="bt">버전 저장</span><span class="bt">내보내기</span><span class="bt p">게시</span></div>
+    </div>
+    <div class="body">
+      <div class="pv">
+        <div class="aur on" id="aur"><i></i><i></i></div>
+        <div class="tabs"><span class="tab">파일</span><span class="tab">코드</span><span class="tab on">미리보기</span></div>
+        <div style="padding:10px 14px 6px;display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:14px">미리보기 만드는 중…</span>
+          <span style="font-size:26px;font-variant-numeric:tabular-nums" id="t">1:01</span>
+        </div>
+        <div style="padding:0 14px 6px" id="steps"></div>
+        <div style="padding:4px 14px 8px" id="chips"></div>
+        <div class="code" id="code"></div>
+        <div style="padding:10px 14px;color:#6e7488;font-size:12px">만드는 동안 다른 화면으로 가도 계속돼요. 끝나면 알려드려요.</div>
+      </div>
+      <div class="ch">
+        <div style="padding:12px 14px;border-bottom:1px solid #1f2330;display:flex;justify-content:space-between"><span>Claude</span><span class="tag"><span class="dot"></span><span id="ct">1:01</span></span></div>
+        <div style="flex:1;overflow:hidden;padding-top:12px">
+          <div class="msg me">단계에 따라서 탄 계란, 날계란 등등으로 해주고 불 애니메이션 추가해줘</div>
+          <div class="msg ai">
+            <div style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span id="now">요구사항을 읽고 있어요</span><span class="td"><i></i><i></i><i></i></span></div>
+            <div class="log" id="log"></div>
+          </div>
+        </div>
+        <div style="padding:10px 12px;border-top:1px solid #1f2330">
+          <div class="inp">작업이 끝나면 이어서 말해요<div class="sweep"><i></i></div></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap"><span class="btn"><span class="sp"></span>만드는 중…</span><span style="color:#8b91a3;font-size:12px">약 167원 · 최대 326원</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+var names=['요구사항 읽기','파일 쓰기','미리보기 조립'],st=0,sec=61,fi=0,ei=0,si=0,lines=[];
+var files=['index.html','style.css','app.js'];
+var stepsEl=document.getElementById('steps'),chipsEl=document.getElementById('chips'),logEl=document.getElementById('log'),nowEl=document.getElementById('now'),codeEl=document.getElementById('code');
+var nowText=['요구사항을 읽고 있어요','파일을 쓰고 있어요','미리보기를 조립하고 있어요'];
+var events=[[0,0,'요청 이해 완료'],[1,0,'index.html 쓰는 중'],[1,1,'index.html 완료'],[1,1,'style.css 쓰는 중'],[1,2,'style.css 완료'],[1,2,'app.js 쓰는 중'],[2,3,'미리보기 조립 시작']];
+var snips=['<span class="k">const</span> stages = [<span class="s">"날계란"</span>, <span class="s">"반숙"</span>, <span class="s">"탄 계란"</span>];','<span class="k">function</span> <span class="f">setFire</span>(level) {','  fire.style.height = level * <span class="s">"12px"</span>;','  <span class="k">if</span> (level &gt; <span class="s">3</span>) egg.classList.add(<span class="s">"burnt"</span>);','}','.fire { position: absolute; bottom: <span class="s">0</span>; }','@keyframes flicker { 50% { transform: scaleY(<span class="s">1.2</span>); } }'];
+function drawSteps(){stepsEl.innerHTML='';names.forEach(function(n,i){var d=document.createElement('div');d.className='st '+(i<st?'ok':i==st?'act':'');d.innerHTML='<span class="d">'+(i<st?'✓':'')+'</span>'+n+(i==st?' <span style="color:#8b91a3;font-size:11px">· 진행 중</span>':'');stepsEl.appendChild(d)});
+ chipsEl.innerHTML='';files.forEach(function(f,i){var s=document.createElement('span');var done=i<fi,on=st==1&&i==fi;s.className='chip '+(done?'done':on?'on':'');s.textContent=f+(on?' 쓰는 중':'');chipsEl.appendChild(s)});nowEl.textContent=nowText[st]}
+function addLog(t){var d=document.createElement('div');var ok=/완료/.test(t);d.innerHTML='<span style="color:'+(ok?'#7fd6a8':'#cfc9ff')+'">'+(ok?'✓':'›')+'</span>'+t;logEl.appendChild(d);while(logEl.children.length>4)logEl.removeChild(logEl.firstChild)}
+function typeLine(){lines.push(snips[si++%snips.length]);if(lines.length>8)lines.shift();codeEl.innerHTML=lines.join('<br>')+'<br><span class="cur"></span>'}
+drawSteps();typeLine();addLog(events[0][2]);
+setInterval(typeLine,1100);
+setInterval(function(){sec++;var s=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');document.getElementById('t').textContent=s;document.getElementById('ct').textContent=s},1000);
+setInterval(function(){ei=(ei+1)%events.length;if(ei==0)ei=1;var e=events[ei];st=e[0];fi=e[1];addLog(e[2]);drawSteps()},2600);
+var sw=document.getElementById('sw'),aur=document.getElementById('aur'),l=document.getElementById('swl'),on=true;
+sw.onclick=function(){on=!on;sw.classList.toggle('on',on);aur.classList.toggle('on',on);l.textContent=on?'켜짐 · 미리보기 영역에서만 은은하게':'꺼짐 · 선과 점만 움직여요'};
+</script>
+</body>
+</html>
