@@ -920,6 +920,11 @@ dc exec api python -m app.db.rewrite_app_runtime
    찍은 그림으로 바뀝니다(그 전에 회원 브라우저가 찍은 그림이 먼저 저장되니,
    서버가 실패해도 그림은 남습니다).
 
+(compose 파일은 `THUMBNAIL_WORKER_SECRET`을 켜지 않은 서버에서도 읽습니다 —
+그래서 비어 있어도 되게 적혀 있고, 비밀 값 없이 thumbs를 켜면 thumbs 쪽이
+"THUMBS_SECRET and THUMBS_ALLOWED_HOST must be set"으로 바로 멈춥니다.
+2026-10-17 첫 배포 때 필수로 적혀 있어 `update.sh`가 멈췄던 것을 고쳤습니다.)
+
 끄려면 `.env`에서 `THUMBNAIL_RENDERER=browser`로 돌리고(또는 줄을 지우고)
 `COMPOSE_PROFILES=` 비운 뒤 `dc up -d --remove-orphans api` — thumbs가
 내려가고 예전 방식으로 돌아갑니다. 메모리: thumbs는 768 MB까지만 씁니다

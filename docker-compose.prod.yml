@@ -170,7 +170,11 @@ services:
     profiles: ["thumbs"]
     restart: unless-stopped
     environment:
-      THUMBS_SECRET: ${THUMBNAIL_WORKER_SECRET:?Set THUMBNAIL_WORKER_SECRET in .env (openssl rand -hex 32)}
+      # `:-` not `:?`: compose interpolates this even while the profile is
+      # off, and a required variable would break every deploy on a server
+      # that never switched the worker on (seen 2026-10-17). The worker
+      # itself refuses to start without a secret (thumbs/worker.py).
+      THUMBS_SECRET: ${THUMBNAIL_WORKER_SECRET:-}
       THUMBS_ALLOWED_HOST: apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
       # caddy's fixed address on thumbs_net: apps.<domain> resolves to it
       # inside Chromium (TLS still checks the name against caddy's real
