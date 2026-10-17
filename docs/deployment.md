@@ -595,43 +595,36 @@ cd ~/ctrl-ai-platform
 
 - 작업: **객체 삭제(Delete object)**, 조건: **기간(Age) 30일** → 만들기.
 
-**3. 백업만 하는 서비스 계정** (IAM 및 관리자 › 서비스 계정 › 만들기)
+**3. 서버 자신의 계정에 이 버킷만 허락** (2026-10-17에 이렇게 켰습니다)
 
-1. 이름 `ctrlai-backup`. 프로젝트 전체 역할은 **주지 않습니다**(그냥 완료).
-2. 버킷으로 돌아가 › 권한(Permissions) › 액세스 권한 부여: 주 구성원에
-   `ctrlai-backup@<프로젝트ID>.iam.gserviceaccount.com`, 역할
-   **Storage 객체 생성자(Storage Object Creator)** 와 **Storage 객체
-   뷰어(Storage Object Viewer)** 두 개 → 저장. (만들기와 읽기만 됩니다 — 이
-   키로는 백업을 지우거나 덮어쓸 수 없습니다.)
-3. 서비스 계정 › `ctrlai-backup` › 키 › 키 추가 › 새 키 › **JSON** → 내 PC에
-   파일이 받아집니다. **이 파일은 비밀번호와 같습니다** — 저장소에 넣지 말고,
-   서버에 올린 뒤 내 PC의 사본은 지웁니다.
+이 프로젝트는 Google의 기본 보안 정책으로 **서비스 계정 키를 만들 수 없습니다**
+(`iam.disableServiceAccountKeyCreation`). 그래서 키 파일 없이 **VM 자신의 계정**
+(`…-compute@developer.gserviceaccount.com`)이 올립니다.
 
-> VM 자신의 계정은 쓰지 않습니다: 지금 VM의 Cloud Storage 권한 범위가
-> **읽기 전용**이라 쓰려면 VM을 멈추고 범위를 바꿔야 합니다. 키 하나가
-> 더 간단하고, 그 키는 이 버킷 하나에만 쓸 수 있습니다.
+1. 버킷 › 권한 › 액세스 권한 부여: 그 계정에 **Storage 객체 생성자**와
+   **Storage 객체 뷰어** 두 역할 — 이 버킷에만. (프로젝트 전체 역할은 로그
+   쓰기뿐이라, 이 계정이 쓸 수 있는 버킷은 이것 하나입니다.)
+2. VM의 Cloud Storage 범위를 **읽기 전용 → 읽기·쓰기**로: VM을 **멈춘 뒤**
+   (사이트가 1~2분 멈춥니다) 콘솔 › VM › 수정 › 액세스 범위에서 저장소를
+   "읽기 쓰기"로, 또는
+   `gcloud compute instances set-service-account ctrlai-server --zone=asia-northeast3-c --service-account=<그 계정> --scopes=storage-rw,logging-write,monitoring-write,service-management,service-control,trace`
+   → 다시 시작. 고정 IP와 디스크는 그대로이고, 컨테이너는 저절로 다시 뜹니다.
 
-**4. 서버에 놓기** (브라우저 SSH 창 › 파일 업로드로 키를 올린 뒤)
+**4. 서버에 설정 한 줄**
 
 ```bash
-sudo mkdir -p /home/ctrlai_platform/.config
-sudo mv ~/<받은키>.json /home/ctrlai_platform/.config/ctrlai-backup-key.json
-sudo chown -R ctrlai_platform: /home/ctrlai_platform/.config
-sudo chmod 600 /home/ctrlai_platform/.config/ctrlai-backup-key.json
 sudo -iu ctrlai_platform
 cat > ~/.ctrlai-offsite <<'EOF'
-BACKUP_BUCKET=ctrlai-backups-7381
-BACKUP_KEY_FILE=/home/ctrlai_platform/.config/ctrlai-backup-key.json
+BACKUP_BUCKET=ctrlai-backups-1228
 EOF
 chmod 600 ~/.ctrlai-offsite
 ~/ctrl-ai-platform/deploy/offsite-backup.sh
-# 서버 밖 백업 완료: gs://ctrlai-backups-7381/db/ctrlai-....sql.gz (... bytes)
+# 서버 밖 백업 완료: gs://ctrlai-backups-1228/db/ctrlai-....sql.gz (... bytes)
 ```
 
-(`BACKUP_BUCKET`에는 1단계에서 지은 이름을 `gs://` 없이 적습니다.) 그다음부터는
-매일 밤 작업이 알아서 올립니다. `tail ~/ctrlai-jobs.log`에 `서버 밖 백업
-완료`가 보이면 됩니다. 키를 바꾸거나 없앨 때는 서비스 계정에서 키를 삭제하고
-위 4단계를 다시 합니다(베타가 끝나 Secret Manager로 옮길 때도 교체).
+그다음부터는 매일 밤 작업이 알아서 올립니다. `tail ~/ctrlai-jobs.log`에 `서버 밖
+백업 완료`가 보이면 됩니다. (키를 쓰고 싶다면 `BACKUP_KEY_FILE=<키 경로>`를
+더하면 그 키로 올립니다 — 정책이 허락할 때만.)
 
 ### 복원 시험 — 한 달에 한 번
 

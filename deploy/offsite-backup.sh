@@ -4,16 +4,17 @@
 #
 #   ./deploy/offsite-backup.sh
 #
-# Settings live in ~/.ctrlai-offsite (chmod 600), written once by the owner
+# Settings live in ~/.ctrlai-offsite (chmod 600), written once
 # (docs/deployment.md, "백업을 서버 밖으로"):
 #
 #   BACKUP_BUCKET=ctrlai-backups-xxxx          # the bucket's name, no gs://
-#   BACKUP_KEY_FILE=/home/ctrlai_platform/.config/ctrlai-backup-key.json
+#   BACKUP_KEY_FILE=...                        # optional, see below
 #
-# The key belongs to a service account that may only create and read
-# objects in that one bucket. The VM's own account cannot write to
-# Cloud Storage (its access scope is read-only), which is why a key is
-# used instead of the VM's identity. The bucket's lifecycle rule deletes
+# By default the upload runs as the VM's own service account (no key file):
+# the VM has the read-write Cloud Storage scope, and that account holds only
+# Storage Object Creator + Viewer on this one bucket (2026-10-17 — the
+# project's policy forbids service-account keys). BACKUP_KEY_FILE, if set,
+# makes gcloud use that key instead. The bucket's lifecycle rule deletes
 # copies after 30 days.
 #
 # Without ~/.ctrlai-offsite this says so and exits 0, so the daily jobs
@@ -28,8 +29,7 @@ fi
 # shellcheck disable=SC1090
 . "$config"
 : "${BACKUP_BUCKET:?BACKUP_BUCKET이 $config 에 없습니다}"
-: "${BACKUP_KEY_FILE:?BACKUP_KEY_FILE이 $config 에 없습니다}"
-if [ ! -r "$BACKUP_KEY_FILE" ]; then
+if [ -n "${BACKUP_KEY_FILE:-}" ] && [ ! -r "$BACKUP_KEY_FILE" ]; then
   echo "서비스 계정 키를 읽을 수 없습니다: $BACKUP_KEY_FILE" >&2
   exit 1
 fi
@@ -43,9 +43,11 @@ fi
 name=$(basename "$latest")
 target="gs://${BACKUP_BUCKET}/db/${name}"
 
-# The key is used for these two commands only; the VM's own gcloud login
-# is left as it is.
-export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="$BACKUP_KEY_FILE"
+# A key, if configured, is used for these commands only; otherwise the
+# VM's own account (its metadata credentials) does the upload.
+if [ -n "${BACKUP_KEY_FILE:-}" ]; then
+  export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="$BACKUP_KEY_FILE"
+fi
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 
 if gcloud storage ls "$target" >/dev/null 2>&1; then

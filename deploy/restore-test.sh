@@ -23,7 +23,9 @@ trap cleanup EXIT
 if [ "${1:-}" = "bucket" ]; then
   # shellcheck disable=SC1090
   . "$HOME/.ctrlai-offsite"
-  export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="$BACKUP_KEY_FILE"
+  if [ -n "${BACKUP_KEY_FILE:-}" ]; then
+    export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="$BACKUP_KEY_FILE"
+  fi
   export CLOUDSDK_CORE_DISABLE_PROMPTS=1
   newest=$(gcloud storage ls "gs://${BACKUP_BUCKET}/db/" | sort | tail -n 1)
   [ -n "$newest" ] || { echo "버킷에 백업이 없습니다." >&2; exit 1; }
