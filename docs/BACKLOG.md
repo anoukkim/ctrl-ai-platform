@@ -881,6 +881,18 @@ New UI requests go here until they are folded into a UI batch.
   written; reduced-motion shows a static dot. **Scheduled and pre-approved**
   (owner, 2026-10-17, verbatim: "background-runs도 썸네일 지정 다음에 같은
   규칙으로 해줘") — after thumbnail-choice; one running reply per member.
+- **chat-to-builder-carry** — owner, 2026-10-17: "이거를 바탕으로 빌드하기
+  하면 내가 채팅에서 작업했던 작업물을 그대로 들고 와서 하면 좋겠는데 처음부터
+  디자인을 다시 짜야되더라고 프롬프트도 그렇고 (프롬프트만 들어가니까) 이거를
+  바탕으로 빌드하면 만든 미리보기를 들고오게". Today Chat's action button
+  ("Project Builder에서 시작", `useChatIdea`) opens `/builder?idea=…&name=…` —
+  only the words travel, so the Builder designs from scratch. Only the
+  미리보기 card's 「Builder로 보내기」 carries the HTML (`from-chat`). Change:
+  when the conversation has a 미리보기 (an HTML artifact), the action creates
+  the project **from that page** (the newest one; a picker if there are
+  several) via the same `from-chat` path, with the idea as its first request
+  context, so the Builder continues from the design the member already
+  liked; without a 미리보기 it stays as today. Small. Not scheduled.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
