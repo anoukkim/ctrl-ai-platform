@@ -810,6 +810,19 @@ New UI requests go here until they are folded into a UI batch.
   upload one; back to 자동 any time. The chosen picture is used on the
   Builder card and CtrlAIApps until changed; re-encoded like every upload.
   Optional, small. Not scheduled.
+  **Revised and scheduled (owner, 2026-10-17, verbatim):** "앱에 넣을 사진 빼고
+  썸네일 지정 (원래는 기본으로 렌더링 된 값을 넣고) 지정을 하면 옆에서 오른쪽에서
+  비율 고정된걸로 캡쳐해서 넣을 수 있게 하면 안됨?" → (1) remove the 「앱에 넣은
+  사진」 panel (builder-images (2), app assets) from the Builder; 참고 사진 stays.
+  (2) In its place a **썸네일** panel: the current picture, 자동 (the server's
+  first screen, default), **지정하기** → a 16:10 frame over the 미리보기 that the
+  member moves/resizes (the app stays usable, e.g. a game mid-play) →
+  「이 화면으로」 takes the real pixels with the browser's screen capture
+  (getDisplayMedia, preferCurrentTab; one capture, the share stopped at
+  once, nothing sent anywhere but the thumbnail upload), cropped to the frame;
+  fallback: paste or upload a screenshot (Safari, or capture refused);
+  「자동으로 되돌리기」. A chosen picture is not replaced by automatic renders
+  until reset. After fix-draft-thumbs, same rules.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
