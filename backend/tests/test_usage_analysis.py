@@ -52,13 +52,60 @@ def test_the_quarter_analysis(client: TestClient, db_session: Session, dev_user,
     # The deleted app is not listed, though its charge counts in the totals.
     assert [a["name"] for a in body["top_apps"]] == ["동아리 게시판"]
     assert body["top_members"][0]["id"] == other_user.id
-    assert sum(day["krw"] for day in body["daily"]) == 10_900 or body["daily"] == []
+    assert sum(day["krw"] for day in body["daily"]) == 10_900
 
     csv = client.get(f"/api/admin/quarters/{quarter.id}/export/concur.csv")
     assert csv.status_code == 200 and "attachment" in csv.headers["content-disposition"]
     text = csv.content.decode("utf-8-sig")
     assert text.splitlines()[0].startswith("Transaction Date,Vendor,Amount,Currency")
     assert ",140000,KRW," in text and "10월" in text
+
+
+def test_a_past_quarter_keeps_its_trend(db_session: Session, dev_user, participating) -> None:
+    """Opened weeks after it ended, a quarter still shows its own last 30
+    days — the window ends at the quarter's end, not today."""
+    quarter = participating
+    last = datetime.combine(quarter.ends_at, datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=3)
+    charge(db_session, dev_user, quarter, "chat", 1_200, "0.5", "claude-sonnet-5-5", created_at=last)
+    db_session.commit()
+    analysis = usage_analysis.quarter_analysis(db_session, quarter, today=quarter.ends_at + timedelta(days=45))
+    assert len(analysis.daily) == 30 and analysis.daily[-1].day == quarter.ends_at
+    assert sum(day.krw for day in analysis.daily) == 1_200
+
+
+def test_unpriced_calls_and_spent_credit_are_named(db_session: Session, dev_user, participating) -> None:
+    quarter = participating
+    db_session.add(CreditPurchase(provider="claude", purchased_on=quarter.starts_at, amount_usd=Decimal("1"), paid_krw=1_400))
+    charge(db_session, dev_user, quarter, "chat", 3_000, "2.0", "claude-sonnet-5-5")
+    db_session.add(
+        UsageEvent(
+            user_id=dev_user.id, quarter_id=quarter.id, funding_source=FundingSource.COMMUNITY, provider="higgsfield",
+            feature="video", charged_krw=5_000, provider_cost=None,
+        )
+    )
+    db_session.commit()
+    analysis = usage_analysis.quarter_analysis(db_session, quarter)
+    lines = {line.provider: line for line in analysis.providers}
+    assert lines["claude"].spent and lines["claude"].runs_out_on is None
+    assert lines["higgsfield"].unpriced_events == 1
+
+
+def test_csv_cells_never_run_as_formulas() -> None:
+    from app.services.accounting import csv_bytes
+
+    text = csv_bytes(["a", "b", "c"], [["=HYPERLINK(\"x\")", "-1000", "@SUM(A1)"]]).decode("utf-8-sig")
+    assert text.splitlines()[1] == "\"'=HYPERLINK(\"\"x\"\")\",-1000,'@SUM(A1)"
+
+
+def test_concur_lists_only_the_quarters_purchases(client: TestClient, db_session: Session, participating) -> None:
+    quarter = participating
+    db_session.add(CreditPurchase(provider="claude", purchased_on=quarter.starts_at, amount_usd=Decimal("10"), paid_krw=14_000, memo="안"))
+    db_session.add(
+        CreditPurchase(provider="claude", purchased_on=quarter.starts_at - timedelta(days=1), amount_usd=Decimal("10"), paid_krw=15_000, memo="밖")
+    )
+    db_session.commit()
+    text = client.get(f"/api/admin/quarters/{quarter.id}/export/concur.csv").content.decode("utf-8-sig")
+    assert ",14000,KRW," in text and ",15000," not in text
 
 
 def test_the_member_usage(client: TestClient, db_session: Session, dev_user, participating) -> None:

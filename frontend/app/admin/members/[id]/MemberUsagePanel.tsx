@@ -26,9 +26,10 @@ const TOKENS = new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFrac
 export default function MemberUsagePanel({ userId }: { userId: number }) {
   const { selected } = useAdminQuarter();
   const [loaded, setLoaded] = useState<{ key: string; usage: MemberUsage } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState<{ key: string; message: string } | null>(null);
   const key = `${userId}:${selected?.id}`;
   const usage = loaded?.key === key ? loaded.usage : null;
+  const error = failed?.key === key ? failed.message : null;
 
   useEffect(() => {
     if (!selected) return;
@@ -38,7 +39,7 @@ export default function MemberUsagePanel({ userId }: { userId: number }) {
         if (!cancelled) setLoaded({ key: `${userId}:${selected.id}`, usage: value });
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(describeError(caught));
+        if (!cancelled) setFailed({ key: `${userId}:${selected.id}`, message: describeError(caught) });
       });
     return () => {
       cancelled = true;

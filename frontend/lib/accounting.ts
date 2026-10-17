@@ -213,6 +213,10 @@ export interface QuarterAnalysis {
     charged_krw: number;
     remaining_usd: number | null;
     runs_out_on: string | null;
+    /** 산 크레딧을 이미 다 썼어요. */
+    spent: boolean;
+    /** 달러 원가가 기록되지 않은 호출 수(지금은 영상). */
+    unpriced_events: number;
   }[];
   by_feature: Share[];
   by_model: ModelLine[];

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -65,6 +65,10 @@ class ProviderLine:
     charged_krw: int
     remaining_usd: float | None
     runs_out_on: date | None
+    #: The credit is already used up (remaining at or below zero).
+    spent: bool = False
+    #: Calls with no dollar cost recorded (video today): 원가 leaves them out.
+    unpriced_events: int = 0
 
 
 @dataclass
@@ -142,7 +146,7 @@ def quarter_analysis(db: Session, quarter: Quarter, today: date | None = None) -
 
     # Per provider: the quarter's 원가 and 청구, the credit left (credit is not
     # per quarter) and, at the last two weeks' pace, when it runs out.
-    since = datetime.now(timezone.utc) - timedelta(days=BURN_DAYS)
+    since = datetime.combine(today - timedelta(days=BURN_DAYS - 1), time.min, tzinfo=KST)
     recent = {
         accounting.provider_key(provider): Decimal(str(usd))
         for provider, usd in db.execute(
@@ -162,6 +166,8 @@ def quarter_analysis(db: Session, quarter: Quarter, today: date | None = None) -
                 charged_krw=line.used_krw_quarter,
                 remaining_usd=float(line.remaining_usd) if bought else None,
                 runs_out_on=_burn_date(line.remaining_usd, recent.get(line.provider, Decimal(0)), today) if bought else None,
+                spent=bought and line.remaining_usd <= 0,
+                unpriced_events=line.unpriced_events,
             )
         )
 
@@ -213,7 +219,10 @@ def quarter_analysis(db: Session, quarter: Quarter, today: date | None = None) -
     ]
 
     # The last 30 KST days, and the pace stretched to the quarter's end.
-    start = max(quarter.starts_at, today - timedelta(days=TREND_DAYS - 1))
+    # Anchored on the quarter's last day seen, so a past quarter shows its
+    # own last 30 days rather than an empty range.
+    end = min(today, quarter.ends_at)
+    start = max(quarter.starts_at, end - timedelta(days=TREND_DAYS - 1))
     per_day: dict[date, int] = defaultdict(int)
     saved = Decimal(0)
     prices = accounting.catalogue_prices(db)
@@ -223,8 +232,8 @@ def quarter_analysis(db: Session, quarter: Quarter, today: date | None = None) -
             per_day[day] += event.charged_krw or 0
         if event.cache_read_tokens:
             saved += accounting.split_of(event, prices).cache_saved
-    daily = [DayLine(day=start + timedelta(days=n), krw=per_day.get(start + timedelta(days=n), 0)) for n in range((min(today, quarter.ends_at) - start).days + 1)]
-    elapsed = (min(today, quarter.ends_at) - quarter.starts_at).days + 1
+    daily = [DayLine(day=start + timedelta(days=n), krw=per_day.get(start + timedelta(days=n), 0)) for n in range((end - start).days + 1)]
+    elapsed = (end - quarter.starts_at).days + 1
     total_days = (quarter.ends_at - quarter.starts_at).days + 1
     charged_i = int(charged or 0)
     forecast = round(charged_i * total_days / elapsed) if elapsed >= 7 and charged_i > 0 else None

@@ -15,7 +15,9 @@ const QUARTER: Quarter = {
 
 const ANALYSIS: QuarterAnalysis = {
   cost_usd: 61.2, cost_krw: 89_100, charged_krw: 96_410, cache_saved_krw: 6_200,
-  providers: [{ provider: "claude", label: "Claude (Anthropic)", cost_usd: 61.2, charged_krw: 89_100, remaining_usd: 188.8, runs_out_on: "2026-12-09" }],
+  providers: [{ provider: "claude", label: "Claude (Anthropic)", cost_usd: 61.2, charged_krw: 89_100, remaining_usd: 188.8, runs_out_on: "2026-12-09", spent: false, unpriced_events: 0 },
+    { provider: "higgsfield", label: "Higgsfield", cost_usd: 0, charged_krw: 20_000, remaining_usd: 0, runs_out_on: null, spent: true, unpriced_events: 4 },
+  ],
   by_feature: [{ label: "Project Builder", krw: 55_900, pct: 58 }, { label: "Chat", krw: 32_800, pct: 34 }],
   by_model: [{ model_id: "claude-sonnet-5-5", label: "Sonnet 5.5", krw: 71_300, input_tokens: 1, output_tokens: 1 }],
   top_apps: [{ id: 7, name: "동아리 게시판", krw: 1_240 }],
@@ -63,7 +65,9 @@ describe("사용 분석", () => {
     expect(screen.getByRole("link", { name: "동아리 게시판" }).getAttribute("href")).toBe("/admin/apps/7");
     expect(screen.getByRole("link", { name: "민지" }).getAttribute("href")).toBe("/admin/members?member=3");
     expect(screen.getByRole("img", { name: /지난 2일 청구 400원/ })).toBeTruthy();
-    expect(page.textContent).toContain("분기 말 예상 412,000원");
+    expect(page.textContent).toContain("이 속도면 분기 말 청구 412,000원");
+    expect(providers[2].textContent).toContain("원가 기록 없음 4건");
+    expect(providers[2].textContent).toContain("이미 소진");
   });
 });
 

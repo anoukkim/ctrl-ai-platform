@@ -39,12 +39,20 @@ export default function UsageAnalysis() {
   const { selected } = useAdminQuarter();
   const [loaded, setLoaded] = useState<{ id: number; analysis: QuarterAnalysis } | null>(null);
   const [credit, setCredit] = useState<CreditOverview | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // The error belongs to the quarter it came from, so a later quarter that
+  // loads fine is not hidden behind it.
+  const [failed, setFailed] = useState<{ id: number; message: string } | null>(null);
   const analysis = selected && loaded?.id === selected.id ? loaded.analysis : null;
+  const error = selected && failed?.id === selected.id ? failed.message : null;
 
+  // A purchase recorded in the fold moves the provider table and the
+  // 소진 예상 card too, so both are fetched again.
   const reloadCredit = useCallback(async () => {
-    setCredit(await getCredit(selected?.id ?? null));
-  }, [selected?.id]);
+    if (!selected) return;
+    const [value, overview] = await Promise.all([getUsageAnalysis(selected.id), getCredit(selected.id)]);
+    setLoaded({ id: selected.id, analysis: value });
+    setCredit(overview);
+  }, [selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -56,7 +64,7 @@ export default function UsageAnalysis() {
         setCredit(overview);
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(describeError(caught));
+        if (!cancelled) setFailed({ id: selected.id, message: describeError(caught) });
       });
     return () => {
       cancelled = true;
@@ -101,7 +109,11 @@ export default function UsageAnalysis() {
           {
             key: "runs-out",
             label: "크레딧 소진 예상",
-            value: analysis.runs_out_on ? formatDate(analysis.runs_out_on) : "—",
+            value: analysis.providers.some((line) => line.spent)
+              ? "이미 소진"
+              : analysis.runs_out_on
+                ? formatDate(analysis.runs_out_on)
+                : "—",
           },
         ]}
       />
@@ -125,10 +137,15 @@ export default function UsageAnalysis() {
               {analysis.providers.map((line) => (
                 <tr key={line.provider}>
                   <td>{line.label}</td>
-                  <td className="numeric">{formatUsd(line.cost_usd)}</td>
+                  <td className="numeric">
+                    {formatUsd(line.cost_usd)}
+                    {line.unpriced_events > 0 && (
+                      <span className="small muted"> · 원가 기록 없음 {line.unpriced_events.toLocaleString("ko-KR")}건</span>
+                    )}
+                  </td>
                   <td className="numeric">{formatKrw(line.charged_krw)}</td>
                   <td className="numeric">{line.remaining_usd === null ? "구매 기록 없음" : formatUsd(line.remaining_usd)}</td>
-                  <td className="numeric">{line.runs_out_on ? formatDate(line.runs_out_on) : "—"}</td>
+                  <td className="numeric">{line.spent ? "이미 소진" : line.runs_out_on ? formatDate(line.runs_out_on) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -164,7 +181,7 @@ export default function UsageAnalysis() {
           일별 추이
           <span className={styles.sectionNote}>
             지난 30일 · 청구 원
-            {analysis.forecast_krw !== null && ` · 분기 말 예상 ${formatKrw(analysis.forecast_krw)}`}
+            {analysis.forecast_krw !== null && ` · 이 속도면 분기 말 청구 ${formatKrw(analysis.forecast_krw)}`}
           </span>
         </h2>
         <TrendChart days={analysis.daily} />

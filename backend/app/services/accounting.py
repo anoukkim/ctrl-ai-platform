@@ -602,12 +602,29 @@ def provider_usd_by_utc_day(db: Session, start: date, end: date) -> dict[date, D
 # ------------------------------------------------------------ CSV exports
 
 
+#: A text cell starting with one of these is read as a formula by Excel.
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def safe_cell(value):
+    """A text cell that Excel would run as a formula (a member's display
+    name "=HYPERLINK(…)") gets a leading apostrophe; numbers, also written
+    as text ("-1000", "-0.42"), are untouched."""
+    if not isinstance(value, str) or not value.startswith(FORMULA_START):
+        return value
+    try:
+        float(value)
+    except ValueError:
+        return "'" + value
+    return value
+
+
 def csv_bytes(header: list[str], rows: list[list]) -> bytes:
     """UTF-8 with a BOM, so Excel in Korea opens the Korean columns right."""
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\r\n")
     writer.writerow(header)
-    writer.writerows(rows)
+    writer.writerows([safe_cell(cell) for cell in row] for row in rows)
     return ("﻿" + buffer.getvalue()).encode("utf-8")
 
 
