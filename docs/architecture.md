@@ -651,14 +651,13 @@ ctrlai.my (Builder / CtrlAIApps)
   `app/api/routes/app_platform.py`, mounted **outside `/api`** — the site
   forwards only `/api/*`, so none of it is reachable from `ctrlai.my`;
   `/<slug>` and `/<slug>/<file>` (old addresses) → 301 to the new ones.
-* **The tab icon** (app-tab-icon, 2026-10-17): the shell page carries a
-  `<link rel="icon">` whose href is an SVG data URL drawn by
-  `app_shell.favicon` — the app's cover (hue from the slug by the same
-  arithmetic as the frontend's `coverHue`, pinned by a test on each side;
-  the first letter of the name, XML-escaped, the whole document
-  percent-encoded). `shell_csp` already allows `img-src data:`, so the
-  policy is unchanged. A preview shell uses the working copy's slug, as
-  the Builder card does.
+* **The tab icon** (app-tab-icon, 2026-10-17; revised the same day by the
+  owner, option 1): the shell page carries a `<link rel="icon">` whose href
+  is the constant `app_shell.APP_FAVICON` — one shared 「앱」 icon (four
+  tiles, the last faded) on the Primary gradient (sky → blue), the same for
+  every app and preview, so app tabs are told apart from CTRL+AI's own
+  (the brand-gradient +). Nothing of the member's goes in. `shell_csp`
+  already allows `img-src data:`.
 * **The shell** (`app/static/ctrlai/shell.js`) learns its slug from its
   own address, refuses to run without its own origin (a copy opened from
   an app inherits the sandbox), and accepts a message only when

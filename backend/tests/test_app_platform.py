@@ -72,38 +72,22 @@ def test_the_shell_of_a_published_app(anon_client: TestClient, published: Builde
     assert "set-cookie" not in response.headers
 
 
-def test_the_shell_has_the_apps_cover_as_its_tab_icon(anon_client: TestClient, published: BuilderProject) -> None:
-    """app-tab-icon: the browser tab shows the app's cover — its colour
-    from the slug (the same hue as the CtrlAIApps card) and its first
-    letter — as an SVG data URL the shell draws; CSP allows `data:` images
-    already, so nothing else changes."""
+def test_every_app_shell_has_the_same_app_icon_in_its_tab(anon_client: TestClient, published: BuilderProject) -> None:
+    """app-tab-icon (owner, 2026-10-17, option 1): every member app's tab
+    shows one shared 「앱」 icon on the Primary gradient — not a per-app
+    letter — and nothing of the member's goes into it."""
     from urllib.parse import unquote
 
-    page = anon_client.get(f"/_ctrlai/shell/{published.app_slug}").text
-    start = page.index('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,')
-    href = page[start:].split('href="', 1)[1].split('"', 1)[0]
-    svg = unquote(href.removeprefix("data:image/svg+xml,"))
-    assert svg.startswith("<svg") and svg.endswith("</svg>")
-    assert f"oklch(0.42 0.09 {app_shell.cover_hue(published.app_slug)})" in svg
-    assert f">{published.name[0]}</text>" in svg
-    # The working copy's shell uses the draft's seed, like the Builder card.
-    preview = anon_client.get(f"/_ctrlai/shell/{published.draft_slug}").text
-    assert f"oklch(0.42 0.09 {app_shell.cover_hue(published.draft_slug)})" in unquote(preview)
-    # The same arithmetic as lib/apps.ts `coverHue` (values computed there).
-    assert [app_shell.cover_hue(s) for s in ("abcdefgh23", "hjy5qfvr6t", "zzzzzzzzzz", "3")] == [117, 341, 0, 51]
-    # Beyond the slug alphabet too: `charCodeAt(0)` of each code point.
-    assert [app_shell.cover_hue(s) for s in ("a\U0001F600b", "가계부")] == [22, 92]
-    # A hostile name cannot break out of the SVG text or the attribute.
-    icon = app_shell.favicon('<b onload="x">', "abcdefgh23")
-    assert '"' not in icon and "<" not in icon and ">" not in icon
-    # Only a letter or digit is drawn, so the markup never reaches the SVG.
-    assert ">b</text>" in unquote(icon) and "<b" not in unquote(icon) and "onload" not in unquote(icon)
-    assert ">?</text>" in unquote(app_shell.favicon("   ", "abcdefgh23"))
-    assert ">가</text>" in unquote(app_shell.favicon("가계부", "abcdefgh23"))
-    # The first letter or digit — not a control, a zero-width space or a mark.
-    assert ">가</text>" in unquote(app_shell.favicon("\x01\u200b 가계부", "abcdefgh23"))
-    assert ">3</text>" in unquote(app_shell.favicon("(3) 할 일", "abcdefgh23"))
-    assert ">?</text>" in unquote(app_shell.favicon("!!!", "abcdefgh23"))
+    for slug in (published.app_slug, published.draft_slug):
+        page = anon_client.get(f"/_ctrlai/shell/{slug}").text
+        start = page.index('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,')
+        href = page[start:].split('href="', 1)[1].split('"', 1)[0]
+        assert href == app_shell.APP_FAVICON
+        svg = unquote(href.removeprefix("data:image/svg+xml,"))
+        assert svg.startswith("<svg") and svg.endswith("</svg>")
+        assert "#5fe3f7" in svg and "#3a6df0" in svg and "<text" not in svg
+        assert published.name not in svg
+    assert '"' not in app_shell.APP_FAVICON and "<" not in app_shell.APP_FAVICON
 
 
 def test_the_working_copy_has_a_preview_shell(anon_client: TestClient, published: BuilderProject) -> None:

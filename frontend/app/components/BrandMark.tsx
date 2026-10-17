@@ -1,8 +1,8 @@
 /**
  * CTRL+AI 로고 표식.
  *
- * 이름 가운데의 `+`를 그대로 네모 안에 넣은 모양입니다. 글자 "AI"를 쓰던
- * 자리를 대신합니다.
+ * 이름 가운데의 `+`를 그대로 네모 안에 넣은 모양입니다. 색은 세 기본색의
+ * 브랜드 그라데이션(남색 → 보라 → 하늘, owner 2026-10-17 시안 A).
  *
  * 그라데이션은 이 표식에서만 씁니다. 다른 화면 요소에는 쓰지 않습니다.
  * 회사 로고와는 무관한 자체 표식입니다.
@@ -46,7 +46,7 @@ export default function BrandMark({
             y2="32"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stopColor="var(--logo-from)" />
+            <stop stopColor="var(--logo-mid)" />
             <stop offset="1" stopColor="var(--logo-to)" />
           </linearGradient>
         </defs>
@@ -85,19 +85,15 @@ export default function BrandMark({
       focusable="false"
     >
       <defs>
-        <linearGradient id="ctrlai-mark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+        <linearGradient id="ctrlai-mark" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse">
           <stop stopColor="var(--logo-from)" />
+          <stop offset="0.55" stopColor="var(--logo-mid)" />
           <stop offset="1" stopColor="var(--logo-to)" />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="8" fill="url(#ctrlai-mark)" />
       {/* 가운데 + 기호. 획 끝을 둥글게 해 네모의 둥근 모서리와 맞춥니다. */}
-      <path
-        d="M16 9.5V22.5M9.5 16H22.5"
-        stroke="var(--on-accent)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
+      <path d="M16 9.5V22.5M9.5 16H22.5" stroke="var(--on-accent)" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }

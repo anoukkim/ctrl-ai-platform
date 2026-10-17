@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- CTRL+AI 표식. app/components/BrandMark.tsx(tile)와 같은 모양으로,
-       정적 자산이 필요할 때(공유 이미지, 외부 문서) 씁니다. 파비콘은
-       app/icon.svg와 app/favicon.ico입니다. 색은 토큰 값 그대로
-       (--logo-from #3485fe, --logo-to #bb33ff). -->
+  <!-- CTRL+AI 표식 (공유 이미지, README). app/components/BrandMark.tsx(tile)와 같은 모양 — 그라데이션 네모 안의 흰 +
+       (owner 2026-10-17, 시안 A). CSS 변수를 읽을 수 없어 토큰 값을 그대로 적습니다
+       (--logo-from #1b2a7a, --logo-mid #a63cf6, --logo-to #5fe3f7). 색을 바꾸면
+       globals.css, app/icon.svg, public/ctrlai-mark.svg를 함께 고칩니다. -->
   <defs>
-    <linearGradient id="m" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3485fe"/>
-      <stop offset="1" stop-color="#bb33ff"/>
+    <linearGradient id="m" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1b2a7a"/>
+      <stop offset="0.55" stop-color="#a63cf6"/>
+      <stop offset="1" stop-color="#5fe3f7"/>
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#m)"/>
