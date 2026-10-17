@@ -1766,7 +1766,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 </details>
               )}
             </div>
-            <div className={ws.chatComposer}>
+            {/* data-popup-avoid: the 게시했어요 card stays above this box. */}
+            <div className={ws.chatComposer} data-popup-avoid="">
               <label className="sr-only" htmlFor="builder-ask">
                 Claude에게 만들거나 고쳐 달라고 하기
               </label>

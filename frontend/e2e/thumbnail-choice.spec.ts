@@ -57,7 +57,8 @@ test("지정하기: the frame leaves the app usable; the chosen picture shows on
   const frame = page.getByTestId("thumbnail-frame");
   await expect(frame).toBeVisible();
   // The app under the frame still takes clicks.
-  const app = page.frameLocator("iframe[title='앱 미리보기']");
+  // The preview is the app shell; the member's files run in its own frame.
+  const app = page.frameLocator("iframe[title='앱 미리보기']").frameLocator("iframe").first();
   await app.locator("#b").click();
   await expect(app.locator("#t")).toHaveText("눌렀어요");
   // The frame moves by its bar (and stays 16:10).
@@ -77,12 +78,13 @@ test("지정하기: the frame leaves the app usable; the chosen picture shows on
     await shoot.click();
     // Either the capture worked (the frame closes) or the fallback is offered.
     await expect
-      .poll(async () => ((await frame.count()) === 0 ? "closed" : (await page.getByRole("alert").count()) > 0 ? "alert" : "waiting"), { timeout: 20_000 })
+      .poll(async () => ((await frame.count()) === 0 ? "closed" : (await frame.getByRole("alert").count()) > 0 ? "alert" : "waiting"), { timeout: 20_000 })
       .not.toBe("waiting");
   }
   if (await frame.count()) {
     chosenBy = "upload";
-    await expect(page.getByRole("alert")).toContainText("스크린샷을 올리거나");
+    await expect(frame.getByRole("alert")).toContainText("스크린샷을 올리거나");
+    test.info().annotations.push({ type: "capture-refused", description: (await frame.getByRole("alert").textContent()) ?? "" });
     const picture = await page.screenshot({ clip: { x: 300, y: 200, width: 640, height: 400 } });
     await frame.locator("input[type=file]").setInputFiles({ name: "shot.png", mimeType: "image/png", buffer: picture });
     await expect(frame).toHaveCount(0);
@@ -120,9 +122,12 @@ test("지정하기: the frame leaves the app usable; the chosen picture shows on
   const composer = page.getByRole("textbox").last();
   const composerBox = await composer.boundingBox();
   if (composerBox) expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(composerBox.y + 1);
+  await page.waitForTimeout(700); // the card's spring in
   await page.screenshot({ path: `${SHOTS}/1440-publish-done.png` });
   await done.getByRole("button", { name: "닫기" }).click();
   await expect(done).toHaveCount(0);
 
-  await context.request.delete(`${SITE}/api/builder/projects/${made.id}`);
+  // Tidy, so the listing's first app is not this 데모만 one for the next spec.
+  const gone = await context.request.delete(`${SITE}/api/builder/projects/${made.id}`, { data: {} });
+  expect(gone.ok()).toBeTruthy();
 });

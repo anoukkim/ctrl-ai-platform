@@ -16,11 +16,29 @@
 
 import { Check, Copy, ExternalLink, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import styles from "./celebration.module.css";
 
 export const CELEBRATION_MS = 6000;
+/** Space kept between the card and a box it must not cover. */
+const GAP_PX = 12;
+
+/**
+ * How far from the bottom the card sits so it never covers a box marked
+ * `data-popup-avoid` (the Builder's request box) on its side of the screen;
+ * null keeps the stylesheet's place (and on a phone, where it is at the top).
+ */
+export function bottomClear(cardWidth: number): number | null {
+  if (typeof window === "undefined" || window.innerWidth <= 720) return null;
+  let top = Infinity;
+  document.querySelectorAll("[data-popup-avoid]").forEach((node) => {
+    const rect = node.getBoundingClientRect();
+    if (rect.height > 0 && rect.right > window.innerWidth - cardWidth - 40) top = Math.min(top, rect.top);
+  });
+  if (!Number.isFinite(top)) return null;
+  return Math.max(0, window.innerHeight - top + GAP_PX);
+}
 const CONFETTI = 6;
 const COLOURS = ["#ffd98a", "#c9b6ff", "#ffffff", "#fff1c2", "#7fd6a8"];
 
@@ -49,6 +67,17 @@ export default function PublishCelebration({ name, url, onDone }: Props) {
   const [shown, setShown] = useState(true);
   const [copied, setCopied] = useState(false);
   const [announce, setAnnounce] = useState(false);
+  const [bottom, setBottom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const clear = bottomClear(272);
+      // Only ever higher than the stylesheet's 9.5rem, never lower.
+      setBottom(clear !== null && clear > 152 ? clear : null);
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, []);
   useEffect(() => {
     const frame = window.setTimeout(() => setAnnounce(true), 50);
     return () => window.clearTimeout(frame);
@@ -102,6 +131,7 @@ export default function PublishCelebration({ name, url, onDone }: Props) {
             data-testid="publish-celebration"
             role="group"
             aria-label="게시 완료"
+            style={bottom !== null ? { bottom } : undefined}
             initial={reduced ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
