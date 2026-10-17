@@ -48,6 +48,11 @@ export default function PublishCelebration({ name, url, onDone }: Props) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [announce, setAnnounce] = useState(false);
+  useEffect(() => {
+    const frame = window.setTimeout(() => setAnnounce(true), 50);
+    return () => window.clearTimeout(frame);
+  }, []);
   const held = useRef(false);
   const timer = useRef<number | null>(null);
 
@@ -86,9 +91,9 @@ export default function PublishCelebration({ name, url, onDone }: Props) {
 
   return (
     <>
-      {/* 한 번만, 조용히. */}
+      {/* 한 번만, 조용히 — 빈 칸이 먼저 있고 글이 나중에 들어와야 읽혀요. */}
       <p className="sr-only" role="status">
-        게시했어요
+        {announce ? "게시했어요" : ""}
       </p>
       <AnimatePresence onExitComplete={onDone}>
         {shown && (

@@ -45,6 +45,12 @@ export function initialBox(area: { width: number; height: number }): FrameBox {
   return clampBox({ x: (area.width - width) / 2, y: (area.height - width / RATIO) / 2, width }, area);
 }
 
+/** A text field, a text area or anything editable takes its own paste. */
+function editable(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
 interface Props {
   onShot: (image: Blob) => Promise<void>;
   onFile: (image: Blob) => Promise<void>;
@@ -95,9 +101,14 @@ export default function ThumbnailFrame({ onShot, onFile, onCancel }: Props) {
   );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancel();
+      // Esc meant for a dialog (or a field that handled it) is not ours.
+      if (event.key !== "Escape" || busy || event.defaultPrevented) return;
+      if (document.querySelector("[role='dialog'], dialog[open]")) return;
+      onCancel();
     };
     const onPaste = (event: ClipboardEvent) => {
+      // A picture pasted into the request box is a 참고 사진, not the thumbnail.
+      if (event.defaultPrevented || editable(event.target)) return;
       const file = Array.from(event.clipboardData?.files ?? []).find((item) => item.type.startsWith("image/"));
       if (!file) return;
       event.preventDefault();
@@ -183,7 +194,8 @@ export default function ThumbnailFrame({ onShot, onFile, onCancel }: Props) {
       setHidden(false);
       if (caught instanceof RegionCaptureError) {
         setError(`${caught.message} 스크린샷을 올리거나 ⌘V로 붙여 넣어도 돼요.`);
-        setFallback(true);
+        // A cancelled picker may be tried again; a browser that cannot is not offered it again.
+        if (caught.reason === "unsupported") setFallback(true);
       } else {
         setError(describeError(caught));
       }

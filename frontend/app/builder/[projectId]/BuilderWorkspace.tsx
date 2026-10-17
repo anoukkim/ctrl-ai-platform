@@ -219,6 +219,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
   const [captureUrl, setCaptureUrl] = useState<string | null>(null);
   // motion-modern (5): the 게시 완료 moment, once per publish.
+  // thumbnail-choice: the 16:10 frame over the 미리보기 is open.
+  const [framing, setFraming] = useState(false);
   const [celebrating, setCelebrating] = useState<{ key: number; name: string; url: string | null } | null>(null);
   const [labelling, setLabelling] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
@@ -243,7 +245,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const mode: Mode = savedTab === "code" ? "code" : "preview";
 
   const chooseMode = useCallback(
-    (next: Mode) => writePref(`tab.${projectId}`, next),
+    (next: Mode) => {
+      // thumbnail-choice: leaving the 미리보기 closes the frame for good.
+      if (next !== "preview") setFraming(false);
+      writePref(`tab.${projectId}`, next);
+    },
     [projectId],
   );
 
@@ -414,6 +420,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
    */
   const runPlan = useCallback(
     async (plan: Generation) => {
+      setFraming(false);
       setGenRunning(true);
       setGenerateError(null);
       setProgress(NO_PROGRESS);
@@ -495,6 +502,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   /** 계획 세우기. 고치기는 계획이 나오면 바로 시작합니다. */
   const makePlan = useCallback(
     async (input: PlanInput) => {
+      setFraming(false);
       setPlanning(true);
       setGenerateError(null);
       setLastInput(input);
@@ -599,7 +607,6 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
 
   // thumbnail-choice: 지정하기 → the frame over the 미리보기; a picture
   // (framed, uploaded or pasted) → the chosen thumbnail; 자동으로 되돌리기.
-  const [framing, setFraming] = useState(false);
   const takeProject = useCallback((updated: BuilderProject) => {
     setState((current) =>
       current.phase === "ready"
@@ -1505,7 +1512,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   toolbarEnd={claudeOpener}
                   onCapture={mayCreate ? storeThumbnail : undefined}
                   framing={
-                    framing && mayCreate
+                    framing && mayCreate && !generating
                       ? { onShot: storeChosenThumbnail, onFile: storeChosenThumbnail, onCancel: () => setFraming(false) }
                       : null
                   }

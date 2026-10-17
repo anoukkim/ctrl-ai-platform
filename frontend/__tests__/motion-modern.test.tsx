@@ -78,13 +78,18 @@ describe("게시 완료 — 팝업 카드 (publish-done-popup A, replacing (5))"
     expect(open.getAttribute("rel")).toContain("noopener");
     // Never takes focus; announced once.
     expect(document.activeElement).toBe(document.body);
+    // The live region is there empty first, then says it — read once.
+    expect(screen.getAllByRole("status").map((node) => node.textContent)).toEqual([""]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
     expect(screen.getAllByRole("status").map((node) => node.textContent)).toEqual(["게시했어요"]);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(CELEBRATION_MS - 100);
+      await vi.advanceTimersByTimeAsync(CELEBRATION_MS - 300);
     });
     expect(screen.queryByTestId("publish-celebration")).not.toBeNull();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(200);
+      await vi.advanceTimersByTimeAsync(400);
     });
     expect(screen.queryByTestId("publish-celebration")).toBeNull();
     expect(onDone).toHaveBeenCalled();

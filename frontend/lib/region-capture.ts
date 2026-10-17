@@ -28,37 +28,62 @@ export interface Box {
 }
 
 /**
- * 화면 좌표(CSS 픽셀)의 상자 → 받은 영상 프레임 안의 상자. 탭 전체가
- * 영상이므로 가로·세로를 각각 영상 크기 ÷ 창 크기로 늘립니다(화면 배율과
- * 공유 안내 줄이 바꾼 높이를 함께 담아요). 영상 밖으로는 나가지 않아요.
+ * 화면 좌표(CSS 픽셀)의 상자 → 받은 영상 프레임 안의 상자. 탭 전체가 영상에
+ * **한 배율**로 들어가고(화면 배율 포함), 공유 안내 줄 때문에 창 비율이
+ * 영상과 달라지면 남는 자리는 검은 띠로 가운데 정렬돼요 — 그 띠만큼 옮겨서
+ * 잘라요. 영상 밖으로는 나가지 않아요.
  */
 export function cropBox(
   rect: Box,
   viewport: { width: number; height: number },
   video: { width: number; height: number },
 ): Box {
-  const sx = video.width / viewport.width;
-  const sy = video.height / viewport.height;
-  const left = Math.max(0, Math.round(rect.left * sx));
-  const top = Math.max(0, Math.round(rect.top * sy));
-  const width = Math.max(1, Math.min(video.width - left, Math.round(rect.width * sx)));
-  const height = Math.max(1, Math.min(video.height - top, Math.round(rect.height * sy)));
+  const scale = Math.min(video.width / viewport.width, video.height / viewport.height);
+  const offsetX = (video.width - viewport.width * scale) / 2;
+  const offsetY = (video.height - viewport.height * scale) / 2;
+  const left = Math.max(0, Math.round(offsetX + rect.left * scale));
+  const top = Math.max(0, Math.round(offsetY + rect.top * scale));
+  const width = Math.max(1, Math.min(video.width - left, Math.round(rect.width * scale)));
+  const height = Math.max(1, Math.min(video.height - top, Math.round(rect.height * scale)));
   return { left, top, width, height };
+}
+
+/**
+ * 이 탭의 표식 — 공유된 탭이 정말 이 탭인지 확인해요(다른 탭의 화면이
+ * 썸네일로 올라가면 안 돼요). Chrome의 Capture Handle; 없는 브라우저는
+ * 확인할 수 없으니 찍지 않고 사진 올리기를 권해요.
+ */
+let ownHandle: string | null = null;
+function markThisTab(): string | null {
+  const devices = navigator.mediaDevices as MediaDevices & {
+    setCaptureHandleConfig?: (config: { handle: string; exposeOrigin?: boolean; permittedOrigins: string[] }) => void;
+  };
+  if (typeof devices.setCaptureHandleConfig !== "function") return null;
+  ownHandle ??= `ctrlai-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+  try {
+    devices.setCaptureHandleConfig({ handle: ownHandle, exposeOrigin: false, permittedOrigins: [window.location.origin] });
+  } catch {
+    return null;
+  }
+  return ownHandle;
 }
 
 export function regionCaptureSupported(): boolean {
   return typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getDisplayMedia === "function";
 }
 
+/** The next video frame — or, for a still page that sends none, 300 ms. */
 function nextFrame(video: HTMLVideoElement): Promise<void> {
   return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 300);
     const withCallback = video as HTMLVideoElement & {
       requestVideoFrameCallback?: (callback: () => void) => number;
     };
     if (typeof withCallback.requestVideoFrameCallback === "function") {
-      withCallback.requestVideoFrameCallback(() => resolve());
-    } else {
-      setTimeout(resolve, 120);
+      withCallback.requestVideoFrameCallback(() => {
+        clearTimeout(timer);
+        resolve();
+      });
     }
   });
 }
@@ -75,6 +100,10 @@ export async function captureRegion(
   if (!regionCaptureSupported()) {
     throw new RegionCaptureError("이 브라우저에서는 화면을 찍을 수 없어요.", "unsupported");
   }
+  const handle = markThisTab();
+  if (handle === null) {
+    throw new RegionCaptureError("이 브라우저에서는 이 탭만 골라 찍을 수 없어요.", "unsupported");
+  }
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
@@ -90,9 +119,10 @@ export async function captureRegion(
   const video = document.createElement("video");
   try {
     const [track] = stream.getVideoTracks();
-    const surface = track?.getSettings?.().displaySurface;
-    if (surface && surface !== "browser") {
-      throw new RegionCaptureError("이 탭을 골라 주세요 — 다른 창이나 화면은 찍을 수 없어요.", "wrong-surface");
+    const shared = (track as MediaStreamTrack & { getCaptureHandle?: () => { handle?: string } | null })
+      ?.getCaptureHandle?.();
+    if (!shared || shared.handle !== handle) {
+      throw new RegionCaptureError("이 탭을 골라 주세요 — 다른 탭이나 창, 화면은 찍지 않아요.", "wrong-surface");
     }
     video.muted = true;
     video.playsInline = true;
