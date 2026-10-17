@@ -19,6 +19,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /srv/thumbs
 COPY worker.py ./
 
+# The socket directory, shared with the api through the `thumbs_sock`
+# volume. A new named volume takes this directory's mode from whichever
+# image mounts it first, so the api image makes the same one: 1777 (like
+# /tmp) lets the worker create its socket whichever user it runs as, and
+# the sticky bit keeps anyone else from removing it. Without this the
+# volume came up root-owned and the worker could not bind (2026-10-17).
+RUN mkdir -p /run/thumbs && chmod 1777 /run/thumbs
+
 # `pwuser` exists in the base image (uid 1000); the browsers are readable
 # by everyone there.
 USER pwuser
