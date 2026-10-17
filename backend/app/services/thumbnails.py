@@ -103,19 +103,51 @@ def _first_screen(image):
     return ImageOps.fit(image, (WIDTH, HEIGHT), method=Image.Resampling.LANCZOS, centering=(0.5, 0.0))
 
 
-def save_draft(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:
+#: Who made a stored picture (fix-draft-thumbs).
+SERVER = "server"
+BROWSER = "browser"
+
+
+def save_draft(
+    db: Session, storage: AssetStorage, project: BuilderProject, data: bytes, source: str = BROWSER
+) -> None:
     """Store the working copy's picture and stamp the project."""
     storage.save(draft_key(project), encode(data))
     # A picture is not an edit: `updated_at` (마지막 수정순) stays.
-    quiet_update(db, project, draft_thumbnail_at=datetime.now(timezone.utc))
+    quiet_update(db, project, draft_thumbnail_at=datetime.now(timezone.utc), draft_thumbnail_source=source)
 
 
 def save_version(
-    db: Session, storage: AssetStorage, project: BuilderProject, version: BuilderProjectVersion, data: bytes
+    db: Session,
+    storage: AssetStorage,
+    project: BuilderProject,
+    version: BuilderProjectVersion,
+    data: bytes,
+    source: str = BROWSER,
 ) -> None:
     """Store a version's picture (the published one, taken after 게시)."""
     storage.save(version_key(project, version), encode(data))
-    quiet_update(db, version, thumbnail_at=datetime.now(timezone.utc))
+    quiet_update(db, version, thumbnail_at=datetime.now(timezone.utc), thumbnail_source=source)
+
+
+def browser_may_replace_draft(project: BuilderProject, server_on: bool) -> bool:
+    """fix-draft-thumbs. The in-browser capture draws the app without its
+    web fonts, so while the server renders (`server_on`) it is only the
+    fallback: it may store the working copy's picture when there is none,
+    when the stored one is the browser's, or when the server's is older
+    than the working copy (its render failed or is still queued — the
+    server's next picture replaces it again)."""
+    if not server_on or project.draft_thumbnail_at is None:
+        return True
+    if project.draft_thumbnail_source != SERVER:
+        return True
+    return project.app_runtime_at is not None and project.draft_thumbnail_at < project.app_runtime_at
+
+
+def browser_may_replace_version(version: BuilderProjectVersion, server_on: bool) -> bool:
+    """The same rule for a published version's picture; a version's files
+    never change, so a server picture of it is always current."""
+    return not server_on or version.thumbnail_at is None or version.thumbnail_source != SERVER
 
 
 def load_draft(storage: AssetStorage, project: BuilderProject) -> bytes | None:

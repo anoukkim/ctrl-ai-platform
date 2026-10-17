@@ -558,3 +558,118 @@ def test_a_draft_job_is_queued_only_after_the_commit_and_finds_a_first_draft(
     finally:
         thumbnail_render.use_renderer(None)
         thumbnail_render.use_queue(None)
+
+
+# ------------------------------------------------------------ fix-draft-thumbs
+
+
+def test_the_font_wait_is_a_function_so_the_files_csp_does_not_refuse_it(worker) -> None:
+    """Playwright polls an *expression* with eval(); the app files' CSP has
+    no 'unsafe-eval', so every app whose fonts were still loading at `load`
+    failed with 502. A function is sent over the protocol instead."""
+    import inspect
+    import re
+
+    source = inspect.getsource(worker.render)
+    calls = re.findall(r"wait_for_function\(\s*\"([^\"]*)\"", source)
+    assert calls and all(call.lstrip().startswith("() =>") for call in calls), calls
+
+
+def test_the_api_logs_the_workers_reason_for_a_failed_page(caplog) -> None:
+    body = b'{"detail": "page failed: Error: Page.goto: net::ERR_ABORTED"}'
+    answer = FakeResponse(502, body, {"content-type": "application/json", "content-length": str(len(body))})
+    renderer = thumbnail_render.WorkerRenderer(WORKER, SECRET, client_factory=lambda: FakeClient(answer, []))
+    with caplog.at_level("WARNING"), pytest.raises(thumbnail_render.RenderError):
+        renderer.render("http://apps.test/abcdefgh23/_app/index.html")
+    assert "502: page failed: Error: Page.goto: net::ERR_ABORTED" in caplog.text
+
+
+def red_picture() -> bytes:
+    """Unlike `picture()` (and the fake worker's PNG), so a replaced file shows."""
+    out = io.BytesIO()
+    Image.new("RGB", (1280, 800), (220, 40, 40)).save(out, format="PNG")
+    return out.getvalue()
+
+
+def _draft_bytes(settings: Settings, project_id: int, db_session: Session) -> tuple[bytes | None, str | None]:
+    db_session.expire_all()
+    row = db_session.get(BuilderProject, project_id)
+    return thumbnails.load_draft(get_storage(settings), row), row.draft_thumbnail_source
+
+
+def test_while_the_server_renders_a_browser_draft_upload_keeps_a_current_server_picture(
+    client: TestClient, db_session: Session, budgeted, project, server_config
+) -> None:
+    settings, _renderer = server_config
+    queue = make_queue(db_session, settings)
+    generated = client.post(
+        f"/api/builder/projects/{project.id}/generate", json={"request": "할 일 앱을 만들어 줘", "style": ""}
+    )
+    assert generated.status_code == 200, generated.text
+    assert queue.run_one(block=False) is True
+    server_bytes, source = _draft_bytes(settings, project.id, db_session)
+    assert server_bytes is not None and source == thumbnails.SERVER
+
+    # The preview loads and the in-browser capture uploads: accepted, ignored.
+    uploaded = client.post(
+        f"/api/builder/projects/{project.id}/thumbnail?space=draft", content=red_picture(), headers=OCTET
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    assert _draft_bytes(settings, project.id, db_session) == (server_bytes, thumbnails.SERVER)
+
+    # The working copy changes and the server's picture is not ready (or its
+    # render failed): the browser's picture is the fallback until it is.
+    from datetime import datetime, timedelta, timezone
+
+    from app.services.quiet import quiet_update
+
+    row = db_session.get(BuilderProject, project.id)
+    quiet_update(db_session, row, app_runtime_at=datetime.now(timezone.utc) + timedelta(seconds=5))
+    db_session.commit()
+    uploaded = client.post(
+        f"/api/builder/projects/{project.id}/thumbnail?space=draft", content=red_picture(), headers=OCTET
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    browser_bytes, source = _draft_bytes(settings, project.id, db_session)
+    assert source == thumbnails.BROWSER and browser_bytes != server_bytes
+
+
+def test_in_browser_mode_the_browser_draft_upload_replaces_any_picture(
+    client: TestClient, db_session: Session, budgeted, project, browser_config
+) -> None:
+    from datetime import datetime, timezone
+
+    from app.services.quiet import quiet_update
+
+    storage = get_storage(browser_config)
+    thumbnails.save_draft(db_session, storage, project, picture(), source=thumbnails.SERVER)
+    quiet_update(db_session, project, app_runtime_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    db_session.commit()
+    before, _ = _draft_bytes(browser_config, project.id, db_session)
+    uploaded = client.post(
+        f"/api/builder/projects/{project.id}/thumbnail?space=draft", content=red_picture(), headers=OCTET
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    after, source = _draft_bytes(browser_config, project.id, db_session)
+    assert source == thumbnails.BROWSER and after != before
+
+
+def test_while_the_server_renders_a_browser_upload_keeps_the_servers_published_picture(
+    client: TestClient, db_session: Session, budgeted, project, server_config
+) -> None:
+    settings, _renderer = server_config
+    queue = make_queue(db_session, settings)
+    publish(client, project)
+    assert queue.run_one(block=False) is True
+    assert queue.run_one(block=False) is True
+    db_session.expire_all()
+    stamp = client.get(f"/api/builder/projects/{project.id}").json()["published_thumbnail_at"]
+    before = thumbnails.load_published(get_storage(settings), project)
+    assert before is not None and project.published_version.thumbnail_source == thumbnails.SERVER
+
+    uploaded = client.post(
+        f"/api/builder/projects/{project.id}/thumbnail?space=published", content=red_picture(), headers=OCTET
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    assert uploaded.json()["published_thumbnail_at"] == stamp
+    assert thumbnails.load_published(get_storage(settings), project) == before

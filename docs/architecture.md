@@ -334,7 +334,21 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
    It is the folder the Builder preview already loads by its unguessable
    slug, so nothing becomes readable that was not; the worker's checks are
    unchanged. The worker waits for `document.fonts` (≤ 4 s) and 1.5 s
-   more before the screenshot, inside the same deadline.
+   more before the screenshot, inside the same deadline. That wait is a
+   *function* (`() => document.fonts.status === 'loaded'`), never an
+   expression: Playwright polls an expression with `eval()`, which the
+   files' CSP (no `'unsafe-eval'`) refuses — fix-draft-thumbs found every
+   app whose fonts were still loading at `load` failing with 502. The
+   worker's 502 now carries the first line of Playwright's message, and
+   the api logs it.
+   **Who made a picture** (fix-draft-thumbs): `draft_thumbnail_source` on
+   the project and `thumbnail_source` on a version say `server` or
+   `browser`. While `THUMBNAIL_RENDERER=server`, the in-browser capture
+   (which draws without the app's web fonts) is the fallback only: its
+   upload is answered 200 but not stored when a server picture exists
+   and — for the working copy — is at least as new as `app_runtime_at`.
+   With the server off, or its picture missing or older than the files,
+   the browser's picture is stored as before.
 1. **The api asks for one address only** (`services/thumbnail_render`):
    `APPS_BASE_URL` + the project's own ten-letter slug +
    `/_app/index.html` — never a URL from a request body. 게시 queues the
