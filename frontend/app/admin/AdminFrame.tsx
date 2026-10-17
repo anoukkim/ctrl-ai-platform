@@ -13,13 +13,16 @@
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { useAdminNav } from "@/app/components/AdminNavProvider";
 
 import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
-import { activeSection, visibleSections } from "./sections";
+import AdminSearch from "./AdminSearch";
+import { QUARTER_STATUS_LABEL, type Quarter } from "@/lib/quarters";
+
+import { activeSection, activeTab, tabHref, visibleSections, type AdminSection } from "./sections";
 
 import styles from "./admin.module.css";
 
@@ -39,6 +42,25 @@ export function useBreadcrumbTail(label: string | null): void {
     setTail(label);
     return () => setTail(null);
   }, [label, setTail]);
+}
+
+/** The parent a detail screen's breadcrumb leads back to. */
+function detailParent(section: AdminSection, pathname: string): string {
+  if (section.key === "community" && pathname.startsWith("/admin/apps/")) return tabHref("community", "apps");
+  return section.href;
+}
+
+/** "2026 Q4 · 신청 접수 중 · D-75" — the quarter, its state, the days left. */
+export function quarterLine(quarter: Quarter): string {
+  const parts = [quarter.display_name];
+  const state = QUARTER_STATUS_LABEL[quarter.status as keyof typeof QUARTER_STATUS_LABEL];
+  if (state) parts.push(state);
+  const ends = Date.parse(quarter.ends_at);
+  if (!Number.isNaN(ends)) {
+    const days = Math.ceil((ends - Date.now()) / 86_400_000);
+    if (days >= 0) parts.push(`D-${days}`);
+  }
+  return parts.join(" · ");
 }
 
 export default function AdminFrame({ children }: { children: React.ReactNode }) {
@@ -61,11 +83,17 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
   const isDevelopment = dashboard?.is_development ?? nav.isDevelopment;
   const sections = useMemo(() => visibleSections(isDevelopment), [isDevelopment]);
 
-  // 손이 필요한 구역에 개수를 띄웁니다.
+  // 손이 필요한 구역에 개수를 띄웁니다 — 승인 대기는 Members, 열린 신고는
+  // Community (admin-consolidation v3), 그 안의 탭에도.
   const pending: Record<string, number> = {
+    members: dashboard?.pending_applications ?? nav.pendingApplications,
     applications: dashboard?.pending_applications ?? nav.pendingApplications,
+    community: dashboard?.open_reports ?? nav.openReports,
+    content: dashboard?.open_reports ?? nav.openReports,
     topups: dashboard?.pending_top_ups ?? nav.pendingTopUps,
   };
+  const params = useSearchParams();
+  const tab = current ? activeTab(current, params.get("tab")) : null;
 
   return (
     <BreadcrumbTailContext.Provider value={setTailStable}>
@@ -82,9 +110,14 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
               {tail === null ? (
                 <span aria-current="page" className={styles.crumbCurrent}>
                   {current.label}
+                  {tab && current.tabs.length > 1 && tab.key !== current.tabs[0].key ? ` › ${tab.label}` : ""}
                 </span>
               ) : (
-                <Link className={styles.crumb} href={withQuarter(current.href, selected?.id)}>
+                // A detail screen: back to the tab it belongs to (an app → Community › 앱).
+                <Link
+                  className={styles.crumb}
+                  href={withQuarter(detailParent(current, pathname), selected?.id)}
+                >
                   {current.label}
                 </Link>
               )}
@@ -124,6 +157,13 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
             })}
           </ul>
 
+          <AdminSearch quarterId={selected?.id ?? null} />
+          {selected && (quarters === null || quarters.length <= 1) && (
+            // One quarter: no switcher, but its state still shows (v3 mock).
+            <span className={styles.quarterSwitchLabel} data-testid="quarter-now">
+              {quarterLine(selected)}
+            </span>
+          )}
           {quarters !== null && quarters.length > 1 && (
             <div className={styles.quarterSwitch}>
               <label className={styles.quarterSwitchLabel} htmlFor="admin-quarter">
@@ -137,13 +177,34 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
               >
                 {quarters.map((quarter) => (
                   <option key={quarter.id} value={quarter.id}>
-                    {quarter.display_name}
+                    {quarter.id === selected?.id ? quarterLine(quarter) : quarter.display_name}
                   </option>
                 ))}
               </select>
             </div>
           )}
         </div>
+
+        {current && current.tabs.length > 1 && tab && (
+          // admin-consolidation v3: the section's own tabs (the old sections).
+          <ul className={styles.subTabs} aria-label={`${current.label} 안의 탭`}>
+            {current.tabs.map((item) => {
+              const isActive = item.key === tab.key && pathname === current.href;
+              return (
+                <li key={item.key}>
+                  <Link
+                    className={`${styles.subTab} ${isActive ? styles.subTabActive : ""}`}
+                    href={withQuarter(tabHref(current.key, item.key), selected?.id)}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    {item.label}
+                    {pending[item.key] > 0 && <span className={styles.tabCount}>{pending[item.key]}</span>}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         <div className={styles.frameBody}>{children}</div>
       </div>

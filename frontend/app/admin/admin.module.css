@@ -1860,3 +1860,156 @@ td.modelIdCell {
   gap: 0.6rem;
   margin: 0 0 0.8rem;
 }
+
+/* admin-consolidation v3: the section's own tabs, under the six. */
+.subTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.subTab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.subTabActive,
+.subTabActive:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The header's search (⌘K), beside the quarter switcher. */
+.search {
+  position: relative;
+  margin-left: auto;
+  padding: 4px 0;
+}
+
+.searchField {
+  width: min(16rem, 52vw);
+  padding: 5px 10px;
+  font-size: var(--fs-chip);
+}
+
+.searchKey {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  pointer-events: none;
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  width: min(20rem, 86vw);
+  max-height: 22rem;
+  margin: 0;
+  padding: 0.35rem;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+  list-style: none;
+}
+
+.searchGroup {
+  padding: 0.35rem 0.5rem 0.15rem;
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
+.searchItem {
+  display: block;
+  cursor: pointer;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: var(--fs-body);
+  text-decoration: none;
+}
+
+.searchItem:hover,
+.searchItem[data-active="true"] {
+  background: var(--accent-soft);
+}
+
+.searchMeta {
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
+/* admin-consolidation v3: the Dashboard's alerts and week line. */
+.alertList {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alertItem {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+}
+
+a.alertItem:hover {
+  border-color: var(--border-strong);
+}
+
+.alertMark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.alertMark[data-tone="warn"] {
+  background: var(--warn-text);
+}
+
+.alertMark[data-tone="ok"] {
+  background: var(--ok);
+}
+
+.weekLine {
+  margin: 0;
+  font-size: var(--fs-body);
+}
+
+
+.search ~ .quarterSwitch {
+  margin-left: 0;
+}

@@ -209,7 +209,7 @@ export default function AppDetailView({ projectId }: { projectId: number }) {
                 </button>
               )}
               {app.open_reports > 0 && (
-                <Link className="btn btn-sm" href="/admin/content">
+                <Link className="btn btn-sm" href="/admin/community">
                   신고 보기
                 </Link>
               )}

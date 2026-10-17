@@ -384,6 +384,37 @@ class StatusCounts(BaseModel):
     total: int = 0
 
 
+class WalletAlertRead(BaseModel):
+    """admin-consolidation v3: a member past 80% of their wallet."""
+
+    user_id: int
+    username: str
+    display_name: str
+    used_pct: int
+    remaining_krw: int
+
+
+class MonthBudgetRead(BaseModel):
+    month: str
+    used_usd: float
+    budget_usd: float | None = None
+    used_pct: int | None = None
+
+
+class PlaceRead(BaseModel):
+    label: str
+    krw: int
+    pct: int
+
+
+class WeekTopRead(BaseModel):
+    """이번 주 가장 많이 쓴 곳 — the menu places and the top app (charged won)."""
+
+    places: list[PlaceRead] = Field(default_factory=list)
+    app_name: str | None = None
+    app_krw: int = 0
+
+
 class AdminDashboard(BaseModel):
     """대시보드가 한 번의 호출로 읽는 것 전부.
 
@@ -420,6 +451,13 @@ class AdminDashboard(BaseModel):
     #: uploads (chat-plus-files, CHAT_ATTACHMENT_TOTAL_LIMIT_GB).
     attachment_bytes: int = 0
     attachment_limit_bytes: int = 0
+    #: admin-consolidation v3 (1): 처리할 일 and the automatic alerts.
+    open_reports: int = 0
+    wallet_alerts: list[WalletAlertRead] = Field(default_factory=list)
+    anthropic_month: MonthBudgetRead | None = None
+    #: "off" | "ok" | "down"
+    thumbnail_server: str = "off"
+    week_top: WeekTopRead = Field(default_factory=lambda: WeekTopRead())
 
 
 class MemberQuarterHistory(BaseModel):

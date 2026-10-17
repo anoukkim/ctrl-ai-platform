@@ -52,6 +52,31 @@ export interface AdminDashboard {
   /** 서버 디스크의 채팅 첨부 파일과, 올리기를 멈추는 한도(chat-plus-files). */
   attachment_bytes?: number;
   attachment_limit_bytes?: number;
+  /** admin-consolidation v3 (1): 처리할 일과 자동 알림. */
+  open_reports?: number;
+  wallet_alerts?: WalletAlert[];
+  anthropic_month?: { month: string; used_usd: number; budget_usd: number | null; used_pct: number | null } | null;
+  thumbnail_server?: "off" | "ok" | "down";
+  week_top?: { places: { label: string; krw: number; pct: number }[]; app_name: string | null; app_krw: number };
+}
+
+/** 지원금의 80% 이상을 쓴 회원 (자동 알림). */
+export interface WalletAlert {
+  user_id: number;
+  username: string;
+  display_name: string;
+  used_pct: number;
+  remaining_krw: number;
+}
+
+/** 위쪽 찾기(⌘K): 회원과 앱을 이름으로. */
+export interface AdminSearchResult {
+  members: { id: number; username: string; display_name: string }[];
+  apps: { id: number; name: string; owner_username: string }[];
+}
+
+export function searchAdmin(q: string): Promise<AdminSearchResult> {
+  return request<AdminSearchResult>(`/admin/search?q=${encodeURIComponent(q)}`);
 }
 
 export interface MemberQuarterHistory {

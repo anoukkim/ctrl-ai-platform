@@ -1,135 +1,113 @@
 /**
- * 메뉴에 무엇이 보이는지.
+ * 메뉴에 무엇이 보이는지 (admin-consolidation v3, owner 2026-10-17).
  *
- * 구역 목록은 한 파일에만 있고(`app/admin/sections.ts`), 사이드바·탭·
- * 빵가루·대시보드 카드·화면 제목이 모두 그것을 읽습니다. 그래서 "보일지
- * 말지"와 "무엇으로 불릴지"를 여기서 한 번 검사하면 다섯 곳 모두가
- * 검사됩니다.
- *
- * 세 가지를 지킵니다.
- *
- *   1. 기능이 없는 구역(`hidden`)은 **어디에도 보이지 않는다**. 이전에는
- *      "준비 중" 배지를 달아 보여 줬고, 누를 때마다 빈 화면이 나왔습니다.
- *   2. 개발 환경과 배포 환경의 메뉴가 같다. Dev Tools는 없앴습니다
- *      (admin-and-nav-cleanup, 2026-10-14).
- *   3. 구역 이름은 모두 영어다. 메뉴가 한 언어로 읽혀야 합니다.
- *
- * 경로는 남아 있어야 합니다. 숨긴 구역을 만드는 작업이 `hidden: true` 한
- * 줄만 지우면 켜지도록.
+ * 구역 목록은 한 파일에만 있고(`app/admin/sections.ts`), 사이드바·위쪽 탭·
+ * 구역 안의 탭·빵가루·화면 제목이 모두 그것을 읽습니다. 13개였던 구역은
+ * **6개** — Dashboard · Members · Quarters · Models · Community · System —
+ * 이고, 예전 구역은 그 안의 탭이 됐으며 예전 주소는 새 자리로 넘어갑니다.
  */
 
 import { describe, expect, test } from "vitest";
 
+import { legacyTarget } from "@/app/admin/legacy";
 import {
   ADMIN_SECTIONS,
+  LEGACY_ROUTES,
   activeSection,
+  activeTab,
   sectionLabel,
+  tabHref,
   visibleSections,
 } from "@/app/admin/sections";
 
 describe("Admin 구역 목록", () => {
-  test("Content와 Budget이 메뉴에 보인다", () => {
-    const visible = visibleSections(true).map((section) => section.key);
-
-    // single-wallet이 Budget을, ctrlaiapps-publish가 Content를 켰습니다.
-    expect(visible).toContain("budget");
-    expect(visible).toContain("content");
+  test("보이는 구역은 여섯 개, 이 순서", () => {
+    expect(visibleSections(false).map((section) => section.key)).toEqual([
+      "dashboard",
+      "members",
+      "quarters",
+      "models",
+      "community",
+      "system",
+    ]);
   });
 
-  test("숨긴 구역도 경로와 정의는 남아 있다", () => {
-    // personal-topup-off가 숨긴 Top-ups — 한 줄만 지우면 다시 켤 수 있도록.
-    const topups = ADMIN_SECTIONS.find((section) => section.key === "topups");
-
-    expect(topups?.href).toBe("/admin/topups");
-    expect(topups?.hidden).toBe(true);
-  });
-
-  test("Dev Tools는 없다 — 개발 환경에서도", () => {
-    expect(visibleSections(true).map((s) => s.key)).toEqual(
-      visibleSections(false).map((s) => s.key),
-    );
-    expect(ADMIN_SECTIONS.map((s) => s.key)).not.toContain("dev");
+  test("예전 구역은 모두 어딘가의 탭이다", () => {
+    const tabs = visibleSections(false).flatMap((section) => section.tabs.map((tab) => tab.key));
+    for (const old of ["members", "applications", "quarters", "budget", "ai-models", "video-models", "content", "feedback", "apps", "deleted", "system", "audit"]) {
+      expect(tabs, old).toContain(old);
+    }
   });
 
   test("Top-ups는 개인 충전을 받지 않는 동안 보이지 않지만 정의는 남아 있다", () => {
-    // personal-topup-off (2026-10-14). personal-topup-ui가 hidden 한 줄만
-    // 지우면 다시 보입니다.
     const topups = ADMIN_SECTIONS.find((section) => section.key === "topups");
-
     expect(topups?.href).toBe("/admin/topups");
     expect(topups?.hidden).toBe(true);
+    expect(visibleSections(true).map((s) => s.key)).not.toContain("topups");
   });
 
-  test("보이는 구역은 열세 개이고, Applications가 Quarters보다 앞이다", () => {
-    const visible = visibleSections(false).map((section) => section.key);
-
-    expect(visible).toEqual([
-      "dashboard",
-      "members",
-      "applications",
-      "quarters",
-      "budget",
-      "video-models",
-      "ai-models",
-      "feedback",
-      "deleted",
-      "audit",
-      "apps",
-      "content",
-      "system",
-    ]);
-    // Deleted Items는 Audit Log 바로 앞입니다 — 둘 다 지난 일을
-    // 들여다보는 구역이고, 되살리기는 감사 기록에 남습니다.
-    expect(visible.indexOf("deleted")).toBeLessThan(visible.indexOf("audit"));
-    // 심사가 관리자의 주된 일이므로 Quarters보다 먼저 옵니다.
-    expect(visible.indexOf("applications")).toBeLessThan(visible.indexOf("quarters"));
-  });
-
-  test("Applications와 Quarters는 서로 다른 경로다", () => {
-    const applications = ADMIN_SECTIONS.find((s) => s.key === "applications");
-    const quarters = ADMIN_SECTIONS.find((s) => s.key === "quarters");
-
-    expect(applications?.href).toBe("/admin/applications");
-    expect(quarters?.href).toBe("/admin/quarters");
-    expect(applications?.label).toBe("Applications");
-    expect(quarters?.label).toBe("Quarters");
+  test("Dev Tools는 없다 — 개발 환경에서도 메뉴가 같다", () => {
+    expect(visibleSections(true).map((s) => s.key)).toEqual(visibleSections(false).map((s) => s.key));
   });
 
   test("구역 이름은 모두 영어다", () => {
-    // 메뉴는 한 언어로 읽혀야 합니다. 한글이 섞여 들어오면 사이드바 한
-    // 묶음 안에서 두 가지 글자가 번갈아 나옵니다.
     for (const section of ADMIN_SECTIONS) {
       expect(section.label, section.key).toMatch(/^[A-Za-z][A-Za-z -]*$/);
     }
   });
 });
 
-describe("구역 이름 한 곳에서 꺼내 쓰기", () => {
-  test("키로 이름을 돌려준다", () => {
-    expect(sectionLabel("audit")).toBe("Audit Log");
+describe("이름 한 곳에서 꺼내 쓰기", () => {
+  test("구역 키는 그 이름, 예전 구역(탭)의 키는 자기가 들어 있는 구역의 이름", () => {
     expect(sectionLabel("members")).toBe("Members");
+    expect(sectionLabel("applications")).toBe("Members");
+    expect(sectionLabel("budget")).toBe("Quarters");
+    expect(sectionLabel("ai-models")).toBe("Models");
+    expect(sectionLabel("feedback")).toBe("Community");
+    expect(sectionLabel("audit")).toBe("System");
   });
 
   test("없는 키는 조용히 비어 있지 않고 터진다", () => {
-    // 화면 제목이 빈칸으로 나오는 것보다 즉시 실패하는 쪽이 낫습니다.
     expect(() => sectionLabel("nope")).toThrow();
   });
 });
 
-describe("지금 보고 있는 구역", () => {
-  test("가장 긴 경로가 이긴다", () => {
-    // /admin 이 모든 하위 경로를 먹으면 탭이 항상 대시보드로 보입니다.
+describe("지금 보고 있는 구역과 탭", () => {
+  test("가장 긴 경로가 이기고, 상세 화면도 자기 구역이다", () => {
     expect(activeSection("/admin")?.key).toBe("dashboard");
     expect(activeSection("/admin/members")?.key).toBe("members");
     expect(activeSection("/admin/members/11")?.key).toBe("members");
-    expect(activeSection("/admin/applications")?.key).toBe("applications");
     expect(activeSection("/admin/quarters")?.key).toBe("quarters");
-    expect(activeSection("/admin/deleted")?.key).toBe("deleted");
-    expect(activeSection("/admin/ai-models")?.key).toBe("ai-models");
+    expect(activeSection("/admin/apps/7")?.key).toBe("community");
+    expect(activeSection("/admin/system")?.key).toBe("system");
   });
 
   test("Admin 밖의 경로는 어느 구역도 아니다", () => {
     expect(activeSection("/usage")).toBeUndefined();
     expect(activeSection("/profile")).toBeUndefined();
+  });
+
+  test("탭: 주소의 ?tab=, 없거나 모르면 첫 탭; 첫 탭의 주소에는 ?tab=이 없다", () => {
+    const community = ADMIN_SECTIONS.find((s) => s.key === "community")!;
+    expect(activeTab(community, null).key).toBe("content");
+    expect(activeTab(community, "feedback").key).toBe("feedback");
+    expect(activeTab(community, "nope").key).toBe("content");
+    expect(tabHref("community", "content")).toBe("/admin/community");
+    expect(tabHref("community", "apps")).toBe("/admin/community?tab=apps");
+  });
+});
+
+describe("예전 주소", () => {
+  test("모두 새 자리로 넘어가고, 다른 값(분기, 거르기)은 그대로 간다", () => {
+    expect(legacyTarget("/admin/applications", { status: "submitted", quarter: "3" })).toBe(
+      "/admin/members?tab=applications&status=submitted&quarter=3",
+    );
+    expect(legacyTarget("/admin/budget", {})).toBe("/admin/quarters?tab=budget");
+    expect(legacyTarget("/admin/content", {})).toBe("/admin/community");
+    expect(legacyTarget("/admin/audit", { quarter: "2" })).toBe("/admin/system?tab=audit&quarter=2");
+    for (const path of Object.keys(LEGACY_ROUTES)) {
+      const target = legacyTarget(path, {});
+      expect(activeSection(target.split("?")[0])?.key, path).toBe(LEGACY_ROUTES[path].section);
+    }
   });
 });

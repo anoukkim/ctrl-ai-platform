@@ -73,6 +73,7 @@ the same commit that adds it.
 | `GET /api/me/app-consents`, `POST /api/me/app-consents/{consent_id}/revoke` | `get_current_user` | Profile › 연결된 앱 |
 | `POST /api/admin/apps/{project_id}/sdk` | `require_admin` | 기능 상자 정지/재개, audited |
 | `POST /api/admin/apps/{project_id}/thumbnail` | `require_admin` | owner-polish-3 (a): 썸네일 만들기 — raw image bytes taken in the admin's own browser from the published app, re-encoded like the maker's (409 without a published version) |
+| `GET /api/admin/search?q=` | `require_admin` | admin-consolidation v3: the header's 찾기 — members by username or display name, projects (not deleted) by name, six each; LIKE wildcards escaped |
 | `GET /api/admin/apps/thumbnail-renderer` | `require_admin` | thumbnail-render-worker: `{renderer: browser\|server}` — whether 썸네일 다시 만들기 opens each app in the admin's browser or asks the server |
 | `POST /api/admin/apps/{project_id}/thumbnail/render` | `require_admin` | thumbnail-render-worker: the server's own browser photographs the published files (`{}`); one app per call; 503 with the reason while the renderer is `browser` or the worker fails (the old picture stays), 409 without a published version |
 | `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
@@ -200,7 +201,7 @@ the same commit that adds it.
 | `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, with each note's pictures |
 | `GET /api/admin/feedback/images/{image_id}/file` | `require_admin` | A sent screenshot, inline — the only route that serves one (the uploader has none) |
 | `DELETE /api/admin/feedback/{feedback_id}` | `require_admin` | Removes a note and its pictures (rows and bytes); audited `feedback.deleted` |
-| `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows |
+| `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows; since admin-consolidation v3 also `open_reports`, `wallet_alerts` (≥ 80% used), `anthropic_month`, `thumbnail_server` (the worker's /health) and `week_top` |
 | `GET /api/admin/members/{user_id}` | `require_admin` | Read-only; one member's history, budgets and audit trail |
 | `GET /api/admin/stats/applications` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |

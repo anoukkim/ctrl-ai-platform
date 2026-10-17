@@ -214,6 +214,20 @@ def enabled(settings: Settings) -> bool:
 _override: Renderer | None = None
 
 
+def worker_healthy(settings: Settings, timeout_s: float = 2.0) -> bool:
+    """The worker's `GET /health` answers 200 (admin-consolidation's
+    Dashboard and System); False on anything else, never raises."""
+    import httpx2 as httpx
+
+    socket_path = settings.thumbnail_worker_socket.strip()
+    try:
+        transport = httpx.HTTPTransport(uds=socket_path) if socket_path else httpx.HTTPTransport()
+        with httpx.Client(transport=transport, timeout=timeout_s) as client:
+            return client.get(f"{settings.thumbnail_worker_url.rstrip('/')}/health").status_code == 200
+    except Exception:  # noqa: BLE001 — a status line, not an error
+        return False
+
+
 def use_renderer(renderer: Renderer | None) -> None:
     """Tests: the renderer every call uses, instead of the worker."""
     global _override

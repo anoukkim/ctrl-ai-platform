@@ -1,5 +1,6 @@
-import AppsList from "./AppsList";
+/** admin-consolidation v3: this address moved — see `LEGACY_ROUTES`. */
+import { legacyRedirect } from "../legacy";
 
-export default function AdminAppsPage() {
-  return <AppsList />;
+export default async function Moved({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return legacyRedirect("/admin/apps", searchParams);
 }
