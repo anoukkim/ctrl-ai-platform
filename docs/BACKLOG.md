@@ -567,6 +567,57 @@ Three things to carry into **budget-by-provider**:
 
 New UI requests go here until they are folded into a UI batch.
 
+- **running-state-calm** — owner, 2026-10-17 (desktop session, after
+  mock-ups the owner approved: "오 좋음 빌더도 만들어줘" → "응 좋다, 그거까지
+  백로그로 보내"). Follow-up to `motion-modern` (8b, merged): while Chat
+  writes a reply or the Builder builds, the motion is either too loud or too
+  quiet. Chat: "갑자기 돌리면 아래가 저렇게 되는데 너무 튄다 … 이것도
+  돌아가는게 보였으면" — the composer turns into a bright full-width pill
+  and the 그림 만드는 중 card has a loud green aurora. Builder: "build가
+  꽤나 걸리는데 … 모션이 너무 subtle" — only a `미리보기 만드는 중… 61초`
+  line and file chips, so a long build looks stuck; and "옆에 채팅에도
+  돌아가고 있다는게 잘 보였으면". Owner on the aurora: "꼭 있어야하는건
+  아닌데 … 최적의 디자인". **Direction (mock-ups seen and approved):** one
+  shared running-state look for Chat and Builder, calm by default:
+  1. **Composer keeps its normal dark surface** while busy (no bright fill,
+     no rainbow ring); only a thin 2px bar sweeps along its bottom edge. The
+     stop button becomes a small outlined square, with one line under it:
+     "중지하면 지금까지 쓴 만큼만 차감돼요". Builder's `만드는 중…` button
+     is an outlined violet button with a small spinner, not solid blue.
+  2. **Same signal in four places**: a 2px sweeping bar on the card / header
+     top, a pulsing dot (+ `작업 중` chip) on the project/conversation row in
+     the sidebar and list, the Chat/Builder header chip, and the card itself —
+     so a running job is visible from any screen.
+  3. **Progress is shown, not implied**: a stage list (Builder: 요구사항
+     읽기 → 파일 쓰기 → 미리보기 조립; Chat card: 뼈대 → 스타일 → 동작,
+     `✓` when done, the current one spinning/underlined), a large elapsed
+     timer, file chips that go `쓰는 중` → `완료`, a short live code
+     window (the last ~7 lines, caret blinking), and in Chat a flowchart
+     skeleton whose boxes appear and lines draw in; cost reads
+     `12초 · 지금까지 약 56원` and keeps counting.
+  4. **Builder chat panel mirrors the preview**: same elapsed time in its
+     header, the Claude bubble shows the current action ("파일을 쓰고
+     있어요…" + three-dot pulse) and a rolling activity log of the last four
+     events (`✓ index.html 완료`, `› style.css 쓰는 중`); the input says
+     "작업이 끝나면 이어서 말해요". Preview and chat always show the same
+     stage.
+  5. **Aurora stays, but small and optional**: removed from the composer and
+     the full card; kept only as a very faint, slow glow *inside* the
+     그림 card (Chat) and the 미리보기 pane (Builder); a Profile switch
+     "오로라 배경" turns it off (default on; reduced-motion also turns it
+     off). Everything else keeps moving without it.
+  Open points: (a) the stages must follow **real progress** — the stream
+  needs per-file / per-stage events (does the Builder run already emit
+  one per written file? Chat's 뼈대/스타일/동작 steps are guessed from the
+  streamed code today); where the backend gives none, show an honest
+  indeterminate bar plus elapsed time, never a fake percentage; (b) the
+  sidebar dot needs the "running" state to survive navigation (it is
+  client-only now); (c) honour `prefers-reduced-motion` (sweeps and
+  typing stop, dots stay static). Mock-ups were rendered inline in the
+  desktop session (not saved as files); three-way concept sketch, the
+  combined Builder, the Chat before/after, and both full-page versions
+  with the aurora switch. Not scheduled.
+
 - **builder-snapshots** — owner, 2026-10-17: "하나 누를때마다 버전 올라가서
   좀 부담스러움", then "이것저것 하고 이걸 버전으로 저장 하고 스냅샷
   만들기? 그렇게 하자 괜찮을 것 같아" and "그냥 나가기하면 … 이 버전을
