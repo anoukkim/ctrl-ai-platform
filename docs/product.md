@@ -713,7 +713,15 @@ toast pops (the sound stays the Profile switch). (5) 게시 완료 is **쭈욱
 flash, confetti falls from the centre and the letters of "게시 완료!"
 pop one by one, in white, warm gold and a touch of lavender; it leaves
 by itself after about two seconds and nothing can be clicked on it.
-No dino. Under 동작 줄이기 every one of these keeps its text and loses
+No dino. *(Replaced 2026-10-17 by publish-done-popup, option A: a small
+card like the spend notice — bottom right above the composer, under the
+header on a phone — with a check that pops and a few confetti pieces
+around the check only, "게시했어요", the app name · CtrlAIApps, and
+**열어 보기** / **링크 복사**. It stays 6 s (longer while the pointer or
+focus is on it), closes with ✕, never takes focus, and the screen reader
+hears "게시했어요" once; it replaces the old toast line. Under 동작
+줄이기 the card shows without confetti. The bell's notification row
+stays.)* Under 동작 줄이기 every one of these keeps its text and loses
 its motion (the aurora is a still card, the stars and confetti do not
 appear), and nothing ever waits on an animation. CSS, motion/react and
 the Web Animations API only.

@@ -219,7 +219,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
   const [captureUrl, setCaptureUrl] = useState<string | null>(null);
   // motion-modern (5): the 게시 완료 moment, once per publish.
-  const [celebrating, setCelebrating] = useState(0);
+  const [celebrating, setCelebrating] = useState<{ key: number; name: string; url: string | null } | null>(null);
   const [labelling, setLabelling] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
 
@@ -560,11 +560,12 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setState({ phase: "ready", project: updated });
         setPublishOpen(false);
         loadVersions();
-        toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
-        setCelebrating((n) => n + 1);
+        // publish-done-popup (A): the card says 게시했어요 with 열어 보기 /
+        // 링크 복사 — it replaces the toast line (announced once).
+        const publicAddress = publicUrl(updated, appsBase);
+        setCelebrating({ key: Date.now(), name: updated.name, url: publicAddress });
         // The first screen of the public address, taken in a hidden frame in
         // this browser (owner-polish 4; no picker since 2026-10-17).
-        const publicAddress = publicUrl(updated, appsBase);
         if (publicAddress) setCaptureUrl(`${publicAddress}?v=${encodeURIComponent(updated.published_at ?? "")}`);
       } catch (error) {
         setPublishError(describeError(error));
@@ -572,7 +573,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setPublishing(false);
       }
     },
-    [appsBase, loadVersions, projectId, toast],
+    [appsBase, loadVersions, projectId],
   );
 
   /** 썸네일 하나 저장 — 미리보기가 보여 주는 쪽(작업 중 / 게시본)에. */
@@ -1896,7 +1897,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
       )}
 
-      {celebrating > 0 && <PublishCelebration key={celebrating} onDone={() => setCelebrating(0)} />}
+      {celebrating && (
+        <PublishCelebration
+          key={celebrating.key}
+          name={celebrating.name}
+          url={celebrating.url}
+          onDone={() => setCelebrating(null)}
+        />
+      )}
 
       <UnsavedDialog
         busy={deleting}

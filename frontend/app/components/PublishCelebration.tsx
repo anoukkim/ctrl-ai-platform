@@ -1,118 +1,160 @@
 "use client";
 
 /**
- * 게시 완료의 순간 (motion-modern (5)) — "쭈욱 → 팡! + 색종이".
+ * 게시 완료 (publish-done-popup, 오너가 고른 A — 2026-10-17).
  *
- * 얇은 빛줄기 셋이 아래에서 위로 쭈욱 올라가 터지며 빛살이 퍼지고, 흰 섬광이
- * 한 번, 가운데에서 색종이가 흩날리고, "게시 완료!" 글자가 한 자씩 톡
- * 튀어 오릅니다. 차분한 색(흰빛, 따뜻한 금빛, 라벤더 한 방울). 공룡은
- * 없습니다(오너). 아무것도 기다리게 하지 않아요 — 누르는 것은 그대로
- * 지나가고(pointer-events 없음) 1.9초 뒤 사라집니다. 움직임 줄이기면
- * 글자만 잠깐 보입니다.
+ * 오너: "게시완료 하면 … 흰글씨랑 컨페티 되거든 뭔가 복잡하단 말이지 차라리 그
+ * toasting 처럼 팝업되는 그런걸". 화면 전체를 덮던 빛줄기·섬광·글자 대신,
+ * 사용 알림처럼 오른쪽 아래(휴대폰에서는 위)에 작은 카드 하나: 체크가 톡
+ * 튀어나오며 **그 둘레에만** 색종이 몇 조각, "게시했어요", 앱 이름 ·
+ * CtrlAIApps, 그리고 열어 보기 / 링크 복사. 단추가 있어서 6초 동안 남고
+ * (마우스가 올라가 있거나 단추에 포커스가 있으면 기다려요), ✕로 닫을 수
+ * 있어요. 입력칸을 가리지 않고 포커스를 가져가지도 않아요. 화면 읽기
+ * 프로그램에는 "게시했어요"를 한 번만 알려요. 움직임 줄이기면 색종이 없이
+ * 카드만.
  */
 
+import { Check, Copy, ExternalLink, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import styles from "./celebration.module.css";
 
-export const CELEBRATION_MS = 1900;
-const LINES = 3;
-const RAYS = 12;
-const CONFETTI = 26;
-const COLOURS = ["#ffffff", "#ffd98a", "#c9b6ff", "#fff1c2", "#e8dcff"];
+export const CELEBRATION_MS = 6000;
+const CONFETTI = 6;
+const COLOURS = ["#ffd98a", "#c9b6ff", "#ffffff", "#fff1c2", "#7fd6a8"];
 
-/** 한 조각의 길 — 결정적(순서로만), 가운데에서 바깥으로. */
+/** 체크 둘레로 튀는 한 조각 — 순서로만 정해요. */
 function piece(index: number) {
-  const angle = ((index * 360) / CONFETTI + (index % 2) * 11) * (Math.PI / 180);
-  const distance = 120 + (index % 5) * 38;
+  const angle = ((index * 360) / CONFETTI + 15) * (Math.PI / 180);
+  const distance = 24 + (index % 2) * 8;
   return {
     x: Math.cos(angle) * distance,
-    y: Math.sin(angle) * distance - 40,
+    y: Math.sin(angle) * distance,
     colour: COLOURS[index % COLOURS.length],
-    rotate: (index % 4) * 90 + 45,
-    delay: 0.42 + (index % 6) * 0.03,
-    tall: index % 3 === 0,
+    rotate: 120 + index * 40,
   };
 }
 
-export default function PublishCelebration({ text = "게시 완료!", onDone }: { text?: string; onDone: () => void }) {
+interface Props {
+  /** 게시한 앱의 이름. */
+  name: string;
+  /** 앱의 공개 주소 — 없으면 단추 둘이 빠져요. */
+  url: string | null;
+  onDone: () => void;
+}
+
+export default function PublishCelebration({ name, url, onDone }: Props) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const held = useRef(false);
+  const timer = useRef<number | null>(null);
 
+  const arm = useCallback(() => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      if (!held.current) setShown(false);
+    }, CELEBRATION_MS);
+  }, []);
   useEffect(() => {
-    const timer = window.setTimeout(() => setShown(false), reduced ? 1200 : CELEBRATION_MS);
-    return () => window.clearTimeout(timer);
-  }, [reduced]);
+    arm();
+    return () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    };
+  }, [arm]);
+
+  // 손이 카드 위에 있으면 기다렸다가, 떠나면 다시 6초.
+  const hold = () => {
+    held.current = true;
+    if (timer.current !== null) window.clearTimeout(timer.current);
+  };
+  const release = () => {
+    held.current = false;
+    arm();
+  };
+
+  const copy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      /* 복사를 못 해도 열어 보기는 그대로예요 */
+    }
+  };
 
   return (
-    <AnimatePresence onExitComplete={onDone}>
-      {shown && (
-        <motion.div
-          className={styles.stage}
-          data-testid="publish-celebration"
-          aria-hidden="true"
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.25 } }}
-        >
-          {!reduced && (
-            <>
-              {Array.from({ length: LINES }, (_, index) => (
+    <>
+      {/* 한 번만, 조용히. */}
+      <p className="sr-only" role="status">
+        게시했어요
+      </p>
+      <AnimatePresence onExitComplete={onDone}>
+        {shown && (
+          <motion.div
+            className={styles.card}
+            data-testid="publish-celebration"
+            role="group"
+            aria-label="게시 완료"
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            transition={reduced ? { duration: 0.15 } : { type: "spring", stiffness: 420, damping: 30 }}
+            onPointerEnter={hold}
+            onPointerLeave={release}
+            onFocus={hold}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) release();
+            }}
+          >
+            <div className={styles.row}>
+              <span className={styles.check} aria-hidden="true">
                 <motion.span
-                  key={`l-${index}`}
-                  className={styles.line}
-                  style={{ left: `calc(50% + ${(index - 1) * 26}px)` }}
-                  initial={{ bottom: "-10%", opacity: 0, scaleY: 0.4 }}
-                  animate={{ bottom: "52%", opacity: [0, 1, 1, 0], scaleY: [0.4, 1.4, 1, 0.2] }}
-                  transition={{ duration: 0.45, delay: index * 0.05, ease: [0.2, 0.9, 0.3, 1] }}
-                />
-              ))}
-              <motion.span
-                className={styles.flash}
-                initial={{ opacity: 0, scale: 0.2 }}
-                animate={{ opacity: [0, 0.85, 0], scale: [0.2, 1.6, 2.2] }}
-                transition={{ duration: 0.5, delay: 0.42, ease: "easeOut" }}
-              />
-              {Array.from({ length: RAYS }, (_, index) => (
-                <motion.span
-                  key={`r-${index}`}
-                  className={styles.ray}
-                  style={{ rotate: `${(index * 360) / RAYS}deg` }}
-                  initial={{ opacity: 0, scaleY: 0 }}
-                  animate={{ opacity: [0, 1, 0], scaleY: [0, 1, 1.3] }}
-                  transition={{ duration: 0.6, delay: 0.44 + (index % 3) * 0.03, ease: "easeOut" }}
-                />
-              ))}
-              {Array.from({ length: CONFETTI }, (_, index) => {
-                const p = piece(index);
-                return (
-                  <motion.span
-                    key={`c-${index}`}
-                    className={`${styles.confetti} ${p.tall ? styles.confettiTall : ""}`}
-                    style={{ background: p.colour }}
-                    initial={{ x: 0, y: 0, opacity: 0, rotate: 0, scale: 0.6 }}
-                    animate={{ x: p.x, y: [0, p.y, p.y + 90], opacity: [0, 1, 1, 0], rotate: p.rotate * 2, scale: [0.6, 1, 0.8] }}
-                    transition={{ duration: 1.25, delay: p.delay, ease: [0.15, 0.8, 0.4, 1] }}
-                  />
-                );
-              })}
-            </>
-          )}
-          <span className={styles.text}>
-            {Array.from(text).map((letter, index) => (
-              <motion.span
-                key={index}
-                className={styles.letter}
-                initial={reduced ? false : { opacity: 0, y: 18, scale: 0.6 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 18, delay: 0.5 + index * 0.06 }}
-              >
-                {letter === " " ? "\u00a0" : letter}
-              </motion.span>
-            ))}
-          </span>
-        </motion.div>
-      )}
-    </AnimatePresence>
+                  className={styles.checkMark}
+                  initial={reduced ? false : { scale: 0.3 }}
+                  animate={{ scale: 1 }}
+                  transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 14, delay: 0.08 }}
+                >
+                  <Check size={16} strokeWidth={3} />
+                </motion.span>
+                {!reduced &&
+                  Array.from({ length: CONFETTI }, (_, index) => {
+                    const p = piece(index);
+                    return (
+                      <motion.i
+                        key={index}
+                        className={styles.confetti}
+                        style={{ background: p.colour }}
+                        initial={{ x: 0, y: 0, opacity: 0, rotate: 0 }}
+                        animate={{ x: p.x, y: p.y, opacity: [0, 1, 0], rotate: p.rotate }}
+                        transition={{ duration: 0.9, delay: 0.12, ease: "easeOut" }}
+                      />
+                    );
+                  })}
+              </span>
+              <span className={styles.words}>
+                <span className={styles.title}>게시했어요</span>
+                <span className={styles.sub}>{name} · CtrlAIApps</span>
+              </span>
+              <button type="button" className={styles.close} aria-label="닫기" onClick={() => setShown(false)}>
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+            {url && (
+              <div className={styles.actions}>
+                <a className={`${styles.action} ${styles.primary}`} href={url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink size={13} aria-hidden="true" /> 열어 보기
+                </a>
+                <button type="button" className={styles.action} onClick={() => void copy()}>
+                  {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+                  {copied ? " 복사했어요" : " 링크 복사"}
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
