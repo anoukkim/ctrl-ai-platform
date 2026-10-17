@@ -203,7 +203,6 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
           if (flyTimer.current !== null) window.clearTimeout(flyTimer.current);
           flyTimer.current = window.setTimeout(() => setTwinkle(null), TWINKLE_MS + 300);
         }
-        if (sound) playChime();
       }
 
       const now = Date.now();
@@ -228,9 +227,11 @@ export default function SpendFeedbackProvider({ children }: { children: React.Re
             remainingKrw: report.remainingKrw ?? null,
           };
       toastRef.current = next;
-      // Small charges stay quiet: no pill under 10원 (merged ones count
-      // together) — the wallet's count-down and twinkle say it.
-      setToast(next.totalKrw >= QUIET_UNDER_KRW ? next : null);
+      // Small charges stay quiet: no pill and no chime under 10원 (merged ones
+      // count together) — the wallet's count-down and twinkle say it.
+      const heard = next.totalKrw >= QUIET_UNDER_KRW;
+      setToast(heard ? next : null);
+      if (heard && sound && !reduced) playChime();
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
       toastTimer.current = window.setTimeout(() => {
         toastRef.current = null;

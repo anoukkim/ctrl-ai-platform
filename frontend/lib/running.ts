@@ -2,10 +2,10 @@
  * 지금 돌고 있는 일 (running-state-calm) — Chat 답장과 Builder 만들기.
  *
  * 화면을 옮겨도 사이드바의 점과 목록의 "작업 중"이 남도록, 컴포넌트 밖에
- * 둡니다(모듈 하나 = 탭 하나의 상태). 새로 고침에도 남도록 sessionStorage에
- * 적되, 오래된 것(`STALE_MS`)은 버립니다 — 탭을 닫았다 열면 끝난 일이
- * 영원히 돌고 있는 것처럼 보이면 안 되니까요. 실제로 끝났는지는 각 화면이
- * 끝날 때(`finishRun`) 지웁니다.
+ * 둡니다 — 모듈 하나가 이 탭의 상태입니다(Next의 화면 이동은 페이지를 다시
+ * 불러오지 않으므로 남습니다). 새로 고침에는 남기지 않습니다: 그 일을
+ * 지켜보던 연결이 끊겨 끝났는지 알 길이 없고, 모르는 것을 "도는 중"이라고
+ * 보여 줄 수는 없으니까요. 끝나면 각 화면이 `finishRun`으로 지웁니다.
  */
 
 import { useSyncExternalStore } from "react";
@@ -19,37 +19,10 @@ export interface Run {
   startedAt: number;
 }
 
-const KEY = "ctrlai.running";
-export const STALE_MS = 30 * 60 * 1000;
-
-let runs: Run[] = load();
+let runs: Run[] = [];
 const listeners = new Set<() => void>();
 
-function load(): Run[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    const now = Date.now();
-    return parsed.filter(
-      (run): run is Run =>
-        run &&
-        (run.kind === "chat" || run.kind === "builder") &&
-        typeof run.id === "number" &&
-        typeof run.startedAt === "number" &&
-        now - run.startedAt < STALE_MS,
-    );
-  } catch {
-    return [];
-  }
-}
-
 function save() {
-  try {
-    window.sessionStorage.setItem(KEY, JSON.stringify(runs));
-  } catch {
-    /* 기억하지 못해도 이 탭에서는 보여요 */
-  }
   for (const listener of listeners) listener();
 }
 

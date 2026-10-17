@@ -193,6 +193,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [activity, setActivity] = useState<string[]>([]);
   const [liveTail, setLiveTail] = useState<{ path: string; lines: string[] } | null>(null);
   const logActivity = useCallback((line: string) => setActivity((list) => [...list, line].slice(-4)), []);
+  // Each run's code-window fetches carry its number; a late answer from an
+  // earlier run is dropped.
+  const runToken = useRef(0);
   /** 마지막으로 보낸 요청 — 실패하면 "다시 시도"가 그대로 보냅니다. */
   const [lastInput, setLastInput] = useState<PlanInput | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -414,6 +417,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       setProgress(NO_PROGRESS);
       setRunStartedAt((started) => started ?? Date.now());
       startRun("builder", Number(projectId));
+      const token = ++runToken.current;
       let spent = 0;
       try {
         const outcome = await runGeneration(projectId, plan.id, {
@@ -432,6 +436,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             // The code window shows the real end of the file just written.
             listBuilderFiles(projectId)
               .then((rows) => {
+                if (runToken.current !== token) return;
                 const row = rows.find((file) => file.path === path);
                 if (row) setLiveTail({ path, lines: tailOf(row.content) });
               })
@@ -477,6 +482,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setRunStartedAt(null);
         setActivity([]);
         setLiveTail(null);
+        runToken.current += 1;
         finishRun("builder", Number(projectId));
         reloadAfterRun();
       }
@@ -492,6 +498,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       setLastInput(input);
       setRunStartedAt(Date.now());
       setActivity(["› 요구사항을 읽는 중"]);
+      // A fresh run: nothing of the last one may show while the plan is read.
+      setProgress(NO_PROGRESS);
+      setLiveTail(null);
       startRun("builder", Number(projectId));
       let continues = false;
       if (files !== null && files.length > 0) setThread((list) => [...list, { role: "member", text: input.request }]);
@@ -1408,7 +1417,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                       ? {
                           stage: planning ? 0 : progress.check === "idle" ? 1 : 2,
                           since: runStartedAt,
-                          files: (generation?.plan ?? []).map((step) => ({
+                          files: (planning ? [] : (generation?.plan ?? [])).map((step) => ({
                             path: step.path,
                             state:
                               generation?.files_done.includes(step.path) || step.path in progress.charged

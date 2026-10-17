@@ -898,3 +898,10 @@ aside.sheet {
     animation: none;
   }
 }
+
+/* CSS Modules make animation names local: the keyframes this file uses. */
+@keyframes run-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}

@@ -175,6 +175,16 @@ describe("3초 안의 차감은 하나로", () => {
     expect(screen.getByTestId("spend-toast").textContent).not.toContain("번");
   });
 
+  test("10원 아래는 소리도 없다 (띠링을 켜 두었어도)", () => {
+    window.localStorage.setItem("ctrlai.spend-sound", "1");
+    setup();
+    act(() => report({ chargedKrw: 4 }));
+    expect(chime.playChime).not.toHaveBeenCalled();
+    // …and the same setting does chime once the charge is heard (the test is not vacuous).
+    act(() => report({ chargedKrw: 12 }));
+    expect(chime.playChime).toHaveBeenCalledTimes(1);
+  });
+
   test("10원 아래는 조용히: 알약 없이 잔액만 (합쳐서 10원이 넘으면 그때 보여요)", async () => {
     setup();
     act(() => report({ chargedKrw: 4 }));

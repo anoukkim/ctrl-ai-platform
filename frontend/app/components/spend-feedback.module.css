@@ -152,6 +152,14 @@
 /* spend-toast-compact (owner, 2026-10-17, option A): one quiet line —
    "−156원 · 68,336원 남음" — instead of the card. Same place, smaller. */
 .pill {
+  /* Centred above the composer, like the mock-up — never over it (Chat's
+     composer is centred; the Builder's sits on the right). */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 9.5rem;
+  width: max-content;
+  margin: 0 auto;
   display: inline-flex;
   align-items: baseline;
   gap: 0;
@@ -186,6 +194,9 @@
 
 @media (max-width: 720px) {
   .pill {
-    justify-self: center;
+    /* Under the header (the menu button), as the old toast was. */
+    top: 4.25rem;
+    bottom: auto;
+    max-width: calc(100vw - 2rem);
   }
 }

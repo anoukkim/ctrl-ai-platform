@@ -1097,6 +1097,7 @@ code {
   border-color: var(--run) !important;
   background: transparent !important;
   color: var(--text) !important;
+  cursor: progress;
 }
 
 @media (prefers-reduced-motion: reduce) {

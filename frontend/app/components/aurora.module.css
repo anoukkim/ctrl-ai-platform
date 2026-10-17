@@ -220,3 +220,13 @@
     animation: none;
   }
 }
+
+/* CSS Modules make animation names local: the keyframes this file uses. */
+@keyframes run-sweep {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}

@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import AuroraCard from "@/app/components/AuroraCard";
 import BuilderRunPanel, { STAGES, tailOf } from "@/app/builder/[projectId]/BuilderRunPanel";
 import { AURORA_KEY, setAurora } from "@/lib/aurora";
-import { STALE_MS, finishRun, isRunning, resetRuns, startRun, useRuns } from "@/lib/running";
+import { finishRun, isRunning, resetRuns, startRun, useRuns } from "@/lib/running";
 
 function Probe() {
   const runs = useRuns();
@@ -20,34 +20,27 @@ describe("the running store survives navigation", () => {
     window.localStorage.removeItem(AURORA_KEY);
   });
 
-  test("start and finish are seen by every subscriber and kept in sessionStorage", () => {
+  test("start and finish are seen by every subscriber (one store for the tab, kept across screens)", () => {
     render(<Probe />);
     act(() => startRun("builder", 7));
     expect(screen.getByTestId("probe").textContent).toBe("builder:7");
-    expect(JSON.parse(window.sessionStorage.getItem("ctrlai.running") ?? "[]")[0].id).toBe(7);
     act(() => startRun("chat", 3));
-    expect(isRunning(JSON.parse(window.sessionStorage.getItem("ctrlai.running")!), "chat", 3)).toBe(true);
+    expect(screen.getByTestId("probe").textContent).toBe("builder:7,chat:3");
     act(() => finishRun("builder", 7));
     expect(screen.getByTestId("probe").textContent).toBe("chat:3");
   });
 
-  test("an old entry is dropped when the store is read again (a closed tab must not spin forever)", async () => {
-    window.sessionStorage.setItem(
-      "ctrlai.running",
-      JSON.stringify([
-        { kind: "builder", id: 1, startedAt: Date.now() - STALE_MS - 1000 },
-        { kind: "builder", id: 2, startedAt: Date.now() },
-        { kind: "nonsense", id: 3, startedAt: Date.now() },
-      ]),
-    );
+  test("nothing is kept for a reload: a fresh page knows of no run (no ghost dot)", async () => {
+    act(() => startRun("builder", 9));
     vi.resetModules();
     const fresh = await import("@/lib/running");
     function FreshProbe() {
       const runs = fresh.useRuns();
-      return <span data-testid="fresh">{runs.map((run) => run.id).join(",")}</span>;
+      return <span data-testid="fresh">{runs.length}</span>;
     }
     render(<FreshProbe />);
-    expect(screen.getByTestId("fresh").textContent).toBe("2");
+    expect(screen.getByTestId("fresh").textContent).toBe("0");
+    expect(isRunning([], "builder")).toBe(false);
   });
 });
 

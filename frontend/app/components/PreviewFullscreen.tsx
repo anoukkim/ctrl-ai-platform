@@ -31,13 +31,40 @@ export default function PreviewFullscreen({ title, srcDoc, sandbox, label, onClo
   const [width, setWidth] = useState<"desktop" | "phone">("desktop");
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  // The parent may pass a new onClose on every render; the effect below
+  // runs once (focus in, Esc, scroll lock, focus back out on close).
+  const closeLatest = useRef(onClose);
+  useEffect(() => {
+    closeLatest.current = onClose;
+  }, [onClose]);
+  const windowRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        closeLatest.current();
+        return;
+      }
+      // A focus trap: Tab stays among the window's controls and its frame.
+      // (Esc pressed inside the member's page does not reach here — the
+      // frame keeps its own keys; 닫기 is one Tab away.)
+      if (event.key === "Tab" && windowRef.current) {
+        const items = [
+          ...windowRef.current.querySelectorAll<HTMLElement>("button, iframe"),
+        ].filter((item) => !item.hasAttribute("disabled"));
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
     document.addEventListener("keydown", onKey);
@@ -48,17 +75,17 @@ export default function PreviewFullscreen({ title, srcDoc, sandbox, label, onClo
       document.body.style.overflow = overflow;
       previous?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   const content = (
     <div
       className={styles.backdrop}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) closeLatest.current();
       }}
       data-testid="preview-fullscreen"
     >
-      <div className={styles.window} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className={styles.window} role="dialog" aria-modal="true" aria-labelledby={titleId} ref={windowRef}>
         <div className={styles.head}>
           <span className={styles.title} id={titleId}>
             {title}
