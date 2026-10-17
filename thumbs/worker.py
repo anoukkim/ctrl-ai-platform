@@ -10,9 +10,10 @@ with a real headless Chromium:
 
 On the server it listens on a **unix socket** in a volume shared with the
 api only (`THUMBS_SOCKET`), so the api and this container share no
-network at all — the browser has no route to api, db or web, only the
-public address of apps.<domain> like any visitor. A TCP port
-(`THUMBS_PORT`) is for development.
+network at all; the container's one network is internal (no NAT) and
+holds caddy alone, and `THUMBS_RESOLVE_TO` is caddy's fixed address there
+— the only place apps.<domain> leads. A TCP port (`THUMBS_PORT`) is for
+development.
 
 Member code runs here and nowhere else, so this process assumes it is
 hostile and fences it in three ways:
@@ -20,10 +21,11 @@ hostile and fences it in three ways:
 * **The address is checked again** — only the configured host
   (`THUMBS_ALLOWED_HOST`, e.g. apps.ctrlai.my), only https (http in
   development), only `/<ten letters and digits>/_app/index.html`.
-* **Chromium can reach only that host**: `--host-resolver-rules` makes
-  every other name fail to resolve, and a Playwright route aborts every
-  request whose host is not the allowed one (so an IP address written
-  into the page goes nowhere either). `data:` and `blob:` stay, they
+* **Chromium can reach only that host**: `--host-resolver-rules` maps the
+  allowed host to `THUMBS_RESOLVE_TO` (caddy's address on the internal
+  network) when set, and makes every other name fail to resolve; a
+  Playwright route aborts every request whose host is not the allowed one
+  (so an IP address written into the page goes nowhere either). `data:` and `blob:` stay, they
   never leave the page. Service workers are blocked, downloads refused,
   no permissions are granted.
 * **One picture at a time, bounded**: a lock serialises renders (a second
@@ -93,6 +95,7 @@ def config() -> dict[str, Any]:
         "allow_http": os.environ.get("THUMBS_ALLOW_HTTP", "") == "1",
         "port": int(os.environ.get("THUMBS_PORT", "8080")),
         "socket": os.environ.get("THUMBS_SOCKET", "").strip() or None,
+        "resolve_to": os.environ.get("THUMBS_RESOLVE_TO", "").strip() or None,
         "channel": os.environ.get("THUMBS_CHROMIUM_CHANNEL", "") or None,
         "sandbox": os.environ.get("THUMBS_NO_SANDBOX", "") != "1",
     }
@@ -119,9 +122,14 @@ def check_url(url: str, allowed_host: str, allow_http: bool = False) -> str:
     return url
 
 
-def resolver_rules(allowed_host: str) -> str:
-    """Chromium's DNS: every name is NOTFOUND except the allowed host."""
+def resolver_rules(allowed_host: str, resolve_to: str | None = None) -> str:
+    """Chromium's DNS: every name is NOTFOUND except the allowed host —
+    which, with `resolve_to`, goes to that address (caddy on the internal
+    network) and nowhere else. The first matching rule wins, so the
+    host's own rule comes first."""
     hostname = allowed_host.split(":")[0]
+    if resolve_to:
+        return f"MAP {hostname} {resolve_to}, MAP * ~NOTFOUND"
     return f"MAP * ~NOTFOUND, EXCLUDE {hostname}"
 
 
@@ -137,12 +145,12 @@ def request_allowed(request_url: str, allowed_host: str) -> bool:
     return parts.netloc.lower() == allowed_host
 
 
-def launch_args(allowed_host: str) -> list[str]:
+def launch_args(allowed_host: str, resolve_to: str | None = None) -> list[str]:
     """Chromium's command line: the resolver rules, and no side channels —
     WebRTC may not open UDP to anything (a Playwright route sees only
     HTTP(S), and CSP does not govern RTCPeerConnection)."""
     return [
-        f"--host-resolver-rules={resolver_rules(allowed_host)}",
+        f"--host-resolver-rules={resolver_rules(allowed_host, resolve_to)}",
         "--webrtc-ip-handling-policy=disable_non_proxied_udp",
         "--force-webrtc-ip-handling-policy",
         "--disable-dev-shm-usage",
@@ -154,7 +162,12 @@ def launch_args(allowed_host: str) -> list[str]:
 
 
 def render(
-    url: str, allowed_host: str, timeout_s: int, channel: str | None = None, sandbox: bool = True
+    url: str,
+    allowed_host: str,
+    timeout_s: int,
+    channel: str | None = None,
+    sandbox: bool = True,
+    resolve_to: str | None = None,
 ) -> bytes:
     """A PNG of the page's first screen. Raises `Refusal(504)` on a
     timeout and `Refusal(502)` when the page could not be loaded."""
@@ -165,7 +178,9 @@ def render(
     timeout_s = max(5, min(int(timeout_s), TIMEOUT_CAP_S))
     nav_ms = (timeout_s - 5) * 1000
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(channel=channel, chromium_sandbox=sandbox, args=launch_args(allowed_host))
+        browser = pw.chromium.launch(
+            channel=channel, chromium_sandbox=sandbox, args=launch_args(allowed_host, resolve_to)
+        )
         try:
             context = browser.new_context(
                 viewport=VIEWPORT,
@@ -266,7 +281,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(503, {"detail": "busy"})
             return
         try:
-            png = render(url, self.cfg["host"], timeout_s, self.cfg["channel"], self.cfg["sandbox"])
+            png = render(
+                url, self.cfg["host"], timeout_s, self.cfg["channel"], self.cfg["sandbox"], self.cfg["resolve_to"]
+            )
         except Refusal as refusal:
             self._json(refusal.status, {"detail": refusal.detail})
             return
@@ -309,7 +326,12 @@ def main() -> None:
     Handler.cfg = config()
     if Handler.cfg["socket"]:
         server: ThreadingHTTPServer = UnixHTTPServer(Handler.cfg["socket"], Handler)  # type: ignore[arg-type]
-        logger.info("thumbs listening on %s for %s", Handler.cfg["socket"], Handler.cfg["host"])
+        logger.info(
+            "thumbs listening on %s for %s (-> %s)",
+            Handler.cfg["socket"],
+            Handler.cfg["host"],
+            Handler.cfg["resolve_to"] or "public DNS",
+        )
     else:
         server = ThreadingHTTPServer(("0.0.0.0", Handler.cfg["port"]), Handler)
         logger.info("thumbs listening on port %s for %s", Handler.cfg["port"], Handler.cfg["host"])

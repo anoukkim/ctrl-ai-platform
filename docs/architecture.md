@@ -301,12 +301,15 @@ Member code runs in that container and nowhere else, so it is fenced in
 at three levels, each a test holds where it can:
 
 ```text
-   default network                      thumbs_sock volume        thumbs_egress (its own bridge)
+   default network                      thumbs_sock volume
 caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ──── thumbs (Chromium)
-          │      │                                                   │
-          └─ db ─┘   no network is shared with thumbs                └─▶ out through the host's NAT to
-                     (Docker drops traffic between bridges)              https://apps.<domain>/<slug>/_app/index.html
-                                                                         — the public address, as a visitor; nothing else
+  │       │      │                                                   │
+  │       └─ db ─┘   db, api, web: no network shared with thumbs     │
+  │                                                                  │
+  └──────────── thumbs_net (internal: no NAT, no gateway) ───────────┘
+      caddy at 172.30.88.2 — Chromium maps apps.<domain> to it;
+      nothing else resolves, and there is no route out at all
+      (no internet, no GCE metadata server 169.254.169.254)
 ```
 
 1. **The api asks for one address only** (`services/thumbnail_render`):
@@ -341,12 +344,17 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
    the api buffer gigabytes.
 3. **The container** (`docker-compose.prod.yml`): the pinned
    `mcr.microsoft.com/playwright/python` image plus the one script.
-   **No network with the other four**: the api reaches it through the
-   `thumbs_sock` volume, and its only network, `thumbs_egress`, is a
-   bridge of its own whose way out is the host's NAT — the browser
-   reaches `apps.<domain>` through the public address like any visitor,
-   and Docker's inter-bridge isolation leaves db, api, web and caddy
-   without a route from it. **Chromium's own sandbox stays on**: the
+   **No network with db, api or web**: the api reaches it through the
+   `thumbs_sock` volume, and its only network, `thumbs_net`, is
+   `internal` — no NAT, no default route, so nothing outside the
+   subnet is reachable from it (not the internet, not the GCE metadata
+   server at 169.254.169.254, not the host's other ports) — and holds
+   caddy alone, at the fixed address 172.30.88.2. The worker's Chromium
+   maps `apps.<domain>` to that address (`--host-resolver-rules="MAP
+   apps.<domain> 172.30.88.2, MAP * ~NOTFOUND"`; TLS still checks caddy's
+   real certificate against the name), so the published files are
+   served to it exactly as to a visitor, with no hairpin through the
+   public address. **Chromium's own sandbox stays on**: the
    container runs under `deploy/chromium-seccomp.json` (Playwright's
    published profile — Docker's default plus the namespace syscalls)
    with `cap_drop: ALL` and `no-new-privileges` still in force, so a
@@ -359,11 +367,11 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
 
 Residual, accepted for the beta: code that escapes Chromium's sandbox
 *and* the seccomp profile runs as the worker's user inside a read-only
-container with no capabilities, whose only reach is the public internet
-(through the NAT) and the socket to the api — which still demands the
-secret and a well-formed PNG. The hairpin from a container to the VM's
-own public address is the one thing that cannot be verified off the
-server; the deploy steps check it first. Secrets sit
+container with no capabilities, whose only reach is caddy's public
+vhosts on the internal network and the socket to the api — which still
+demands the secret and a well-formed PNG. The deploy steps prove the
+network claims by IP from inside the container (db, api, web, the
+metadata server and an internet address must all be unreachable). Secrets sit
 in a `chmod 600` `.env` on the VM — the beta-only exception in
 `CLAUDE.md` section 17. The full decision is in `docs/archive/done-specs.md` ›
 prep-beta-launch › **Hosting decisions — 2026-10-13**; running it is
