@@ -99,7 +99,7 @@ import {
   type Generation,
   type PlanInput,
 } from "@/lib/generation";
-import { NO_PROGRESS, PlanCard, StartForm, type Progress } from "./StagedGeneration";
+import { NO_PROGRESS, PlanCard, StartForm, stepState, type Progress } from "./StagedGeneration";
 import type { DepthLevel, PickerModel } from "@/lib/depth";
 import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
@@ -111,7 +111,7 @@ import PublishCelebration from "@/app/components/PublishCelebration";
 import HiddenCapture from "./HiddenCapture";
 import WorkingSince from "@/app/components/WorkingSince";
 import ThumbnailPanel from "./ThumbnailPanel";
-import { tailOf } from "./BuilderRunPanel";
+import { FirstBuildRun, tailOf } from "./BuilderRunPanel";
 import ReferencePicker, { imageFiles, type ReferencePickerHandle } from "./ReferencePicker";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
@@ -966,6 +966,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const appFileList = (files ?? []).filter((file) => !isGuideDoc(file.path));
   const guideFileList = (files ?? []).filter((file) => isGuideDoc(file.path));
   const empty = files !== null && files.length === 0;
+  // builder-first-build-running: while a first build runs, the files it has
+  // finished (in the plan's order) — null otherwise.
+  const firstBuildDone =
+    empty && genRunning && generation
+      ? generation.plan
+          .filter((step) => stepState(generation, progress, step.path) === "done")
+          .map((step) => step.path)
+      : null;
   const draftUrl = appUrl(project, appsBase);
   const publishedUrl = publicUrl(project, appsBase);
   const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
@@ -1293,7 +1301,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className={ws.paneBody}>
               {filesError !== null && <p className={styles.hint}>파일을 불러오지 못했습니다. {filesError}.</p>}
-              {empty && <p className={styles.hint}>아직 파일이 없어요. 가운데에서 앱을 만들 수 있어요.</p>}
+              {empty && firstBuildDone === null && (
+                <p className={styles.hint}>아직 파일이 없어요. 가운데에서 앱을 만들 수 있어요.</p>
+              )}
+              {/* builder-first-build-running: the files fill in as they finish. */}
+              {empty && firstBuildDone !== null && (
+                firstBuildDone.length === 0 ? (
+                  <p className={styles.hint}>아직 파일이 없어요. 만들어지는 대로 여기에 나타나요.</p>
+                ) : (
+                  <ul className={styles.fileList} aria-label="다 쓴 파일" data-testid="first-build-files">
+                    {firstBuildDone.map((path) => (
+                      <li key={path} className={`${styles.fileRow} success-pop`}>
+                        <span className={styles.fileGlyph} aria-hidden="true">
+                          ·
+                        </span>
+                        {path}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              )}
               <ul className={styles.fileList}>
                 {fileTree(appFileList).map((node) =>
                   node.folder ? (
@@ -1393,7 +1420,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           <div className={styles.centerBody}>
             {empty && (
               <div className={styles.starterArea}>
-                {generation ? (
+                {generation && genRunning ? (
+                  // builder-first-build-running: the approved plan stays, with
+                  // the same stages, timer and sweep as every other build.
+                  <FirstBuildRun
+                    stage={progress.check === "idle" ? 1 : 2}
+                    since={runStartedAt}
+                    files={{ done: firstBuildDone?.length ?? 0, total: generation.plan.length }}
+                    tail={liveTail}
+                  >
+                    <PlanCard
+                      generation={generation}
+                      running
+                      progress={progress}
+                      disabled={!mayCreate || generating}
+                      onStart={() => void runPlan(generation)}
+                      onCancel={() => void dropPlan()}
+                      progressInHeader
+                    />
+                  </FirstBuildRun>
+                ) : generation ? (
                   <PlanCard
                     generation={generation}
                     running={genRunning}

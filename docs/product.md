@@ -678,6 +678,15 @@ says "작업이 끝나면 이어서 말해요". The aurora is now a very faint g
 inside the 그림 card and the 미리보기 pane only, with a Profile switch
 **오로라 배경** (per device, on by default). Under 움직임 줄이기 the sweeps
 stand still, the dots stop, the skeleton is drawn, the glow is off.
+**A first build** (builder-first-build-running, 2026-10-17) looks the
+same: a project with no files has no preview pane, so the approved 만들 계획
+stays in the centre and the same header — stage in large words, the big
+timer, the three stages, the top sweep and the optional glow — sits above
+it, with the plan's `n / m 파일` bar folded into that header and the end of
+the last file written below. The file list on the left fills in as files
+finish ("아직 파일이 없어요. 만들어지는 대로 여기에 나타나요." until the
+first), and the Claude panel narrates as for every build. One header
+component (`RunHeader`), two hosts.
 
 **Motion (motion-modern, 2026-10-16)** — points (1)'s loud aurora, (2)'s
 composer ring and (4)'s flight from the toast were replaced on
