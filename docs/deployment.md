@@ -920,6 +920,12 @@ dc exec api python -m app.db.rewrite_app_runtime
    찍은 그림으로 바뀝니다(그 전에 회원 브라우저가 찍은 그림이 먼저 저장되니,
    서버가 실패해도 그림은 남습니다).
 
+(소켓 폴더: `thumbs_sock` 볼륨은 처음 붙는 이미지의 `/run/thumbs`를 본뜹니다.
+2026-10-17 처음 켰을 때 그 폴더가 root 것이라 thumbs가 소켓을 만들지 못하고
+`PermissionError`로 재시작을 반복했습니다 — 지금은 두 이미지 모두 1777로
+만들어 둡니다. 그 전에 생긴 볼륨이 남아 있으면 켜기 전에 한 번 지웁니다:
+`dc rm -sf thumbs; dc stop api; docker volume rm ctrlai_thumbs_sock; dc up -d api`.)
+
 (compose 파일은 `THUMBNAIL_WORKER_SECRET`을 켜지 않은 서버에서도 읽습니다 —
 그래서 비어 있어도 되게 적혀 있고, 비밀 값 없이 thumbs를 켜면 thumbs 쪽이
 "THUMBS_SECRET and THUMBS_ALLOWED_HOST must be set"으로 바로 멈춥니다.

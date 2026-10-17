@@ -34,7 +34,11 @@ COPY examples ./examples
 # this ownership.
 RUN useradd --system --uid 10001 --home-dir /app ctrlai \
     && mkdir -p /app/var/storage /app/var/apps \
-    && chown -R ctrlai /app/var
+    && chown -R ctrlai /app/var \
+    # thumbnail-render-worker: the socket directory shared with `thumbs`
+    # (thumbs/Dockerfile makes the same one — the first image to mount the
+    # new volume sets its mode).
+    && mkdir -p /run/thumbs && chmod 1777 /run/thumbs
 USER ctrlai
 
 # PORT: the platform's port (8000 inside the compose network).
