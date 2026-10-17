@@ -667,6 +667,10 @@ New UI requests go here until they are folded into a UI batch.
   "큰 건은아니어서 매번 묻지 않아도 되면 \"같은 규칙으로\"") — the same rules:
   merge + deploy once reviews are clean and all tests pass, one at a time;
   serious money/security findings stop and wait.
+  **One batch (owner, 2026-10-17: "한꺼번에 deploy. 크게 변경되는건 없는 것
+  같아서 체크 한번에 하고"):** builder-images, draft-server-thumbnails,
+  ctrlaiapps-reactions and ai-switch-wording are built on one integration
+  branch, reviewed and tested once together, merged and deployed once.
 - **draft-server-thumbnails** — owner, 2026-10-17, after the server
   thumbnails went live ("글씨체나 그 테트리스 같은 애들은 좀 깨긴 해"), choosing
   "1. 작업 중 프로젝트도 서버가 찍기" and "글꼴과 그림이 다 그려질 때까지
