@@ -62,6 +62,8 @@ import {
   setAiAccess,
   unpublishProject,
   uploadThumbnail,
+  chooseThumbnail,
+  resetThumbnailChoice,
   getBuilderProject,
   getGenerateEstimate,
   getVersionFiles,
@@ -108,7 +110,7 @@ import PublishCelebration from "@/app/components/PublishCelebration";
 
 import HiddenCapture from "./HiddenCapture";
 import WorkingSince from "@/app/components/WorkingSince";
-import AssetPanel from "./AssetPanel";
+import ThumbnailPanel from "./ThumbnailPanel";
 import { tailOf } from "./BuilderRunPanel";
 import ReferencePicker, { imageFiles, type ReferencePickerHandle } from "./ReferencePicker";
 import PreviewPane from "./PreviewPane";
@@ -593,6 +595,41 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     },
     [previewWhich, projectId, toast],
   );
+
+  // thumbnail-choice: 지정하기 → the frame over the 미리보기; a picture
+  // (framed, uploaded or pasted) → the chosen thumbnail; 자동으로 되돌리기.
+  const [framing, setFraming] = useState(false);
+  const takeProject = useCallback((updated: BuilderProject) => {
+    setState((current) =>
+      current.phase === "ready"
+        ? {
+            phase: "ready",
+            project: {
+              ...current.project,
+              thumbnail_chosen_at: updated.thumbnail_chosen_at ?? null,
+              draft_thumbnail_at: updated.draft_thumbnail_at,
+              published_thumbnail_at: updated.published_thumbnail_at,
+            },
+          }
+        : current,
+    );
+  }, []);
+  const storeChosenThumbnail = useCallback(
+    async (image: Blob) => {
+      takeProject(await chooseThumbnail(projectId, image));
+      setFraming(false);
+      toast.show("썸네일을 지정했어요. 목록 카드와 CtrlAIApps에 이 그림이 보여요.");
+    },
+    [projectId, takeProject, toast],
+  );
+  const startFraming = useCallback(() => {
+    chooseMode("preview");
+    setFraming(true);
+  }, [chooseMode]);
+  const resetChosenThumbnail = useCallback(async () => {
+    takeProject(await resetThumbnailChoice(projectId));
+    toast.show("썸네일을 자동(첫 화면)으로 되돌렸어요.");
+  }, [projectId, takeProject, toast]);
 
   // app-ai-access: 게시 메뉴의 스위치 — 데모만 ↔ 전체 기능, 언제든.
   const askToSwitchAiAccess = useCallback(() => {
@@ -1294,8 +1331,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   )}
                 </div>
               )}
-              {/* builder-images (2): the app's pictures, written beside its files. */}
-              <AssetPanel projectId={projectId} disabled={!mayCreate || generating} onChange={reloadProject} />
+              {/* thumbnail-choice (owner, 2026-10-17): replaced 「앱에 넣은 사진」. */}
+              <ThumbnailPanel
+                project={project}
+                disabled={!mayCreate || generating}
+                canFrame={!empty && Boolean(liveUrl) && !viewing}
+                framing={framing}
+                onFrame={startFraming}
+                onFile={storeChosenThumbnail}
+                onReset={resetChosenThumbnail}
+              />
             </div>
           </aside>
         )}
@@ -1412,6 +1457,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   toolbarStart={versionSelect}
                   toolbarEnd={claudeOpener}
                   onCapture={mayCreate ? storeThumbnail : undefined}
+                  framing={
+                    framing && mayCreate
+                      ? { onShot: storeChosenThumbnail, onFile: storeChosenThumbnail, onCancel: () => setFraming(false) }
+                      : null
+                  }
                   working={
                     generating
                       ? {

@@ -55,6 +55,11 @@ def draft_key(project: BuilderProject) -> str:
     return f"thumbnails/{project.id}/draft.webp"
 
 
+def chosen_key(project: BuilderProject) -> str:
+    """thumbnail-choice: the picture the maker chose (지정하기)."""
+    return f"thumbnails/{project.id}/chosen.webp"
+
+
 def version_key(project: BuilderProject, version: BuilderProjectVersion) -> str:
     return version_key_for(project.id, version.number)
 
@@ -164,7 +169,33 @@ def browser_may_replace_version(version: BuilderProjectVersion, server_on: bool)
     return not server_on or version.thumbnail_at is None or version.thumbnail_source != SERVER
 
 
+def save_chosen(db: Session, storage: AssetStorage, project: BuilderProject, data: bytes) -> None:
+    """thumbnail-choice: the maker's own picture — checked and re-encoded
+    like every upload — shown instead of the automatic ones until reset."""
+    storage.save(chosen_key(project), encode(data))
+    quiet_update(db, project, thumbnail_chosen_at=datetime.now(timezone.utc))
+
+
+def clear_chosen(db: Session, storage: AssetStorage, project: BuilderProject) -> None:
+    """자동으로 되돌리기: the automatic pictures show again."""
+    quiet_update(db, project, thumbnail_chosen_at=None)
+    key = chosen_key(project)
+    if storage.exists(key):
+        storage.delete(key)
+
+
+def load_chosen(storage: AssetStorage, project: BuilderProject) -> bytes | None:
+    if project.thumbnail_chosen_at is None:
+        return None
+    key = chosen_key(project)
+    return storage.load(key) if storage.exists(key) else None
+
+
 def load_draft(storage: AssetStorage, project: BuilderProject) -> bytes | None:
+    """The Builder card's picture: the chosen one, else the working copy's."""
+    chosen = load_chosen(storage, project)
+    if chosen is not None:
+        return chosen
     if project.draft_thumbnail_at is None:
         return None
     key = draft_key(project)
@@ -179,11 +210,18 @@ def load_version(storage: AssetStorage, project: BuilderProject, version: Builde
 
 
 def load_published(storage: AssetStorage, project: BuilderProject) -> bytes | None:
-    """CtrlAIApps's picture: the published version's, or None."""
+    """CtrlAIApps's picture: the chosen one once published, else the
+    published version's, or None."""
     version = project.published_version
     if version is None:
         return None
-    return load_version(storage, project, version)
+    return load_chosen(storage, project) or load_version(storage, project, version)
+
+
+def storage_keys(project_id: int, numbers: list[int]) -> list[str]:
+    """Every picture a project may have, for the purge's clean-up."""
+    keys = [f"thumbnails/{project_id}/draft.webp", f"thumbnails/{project_id}/chosen.webp"]
+    return keys + [version_key_for(project_id, number) for number in numbers]
 
 
 def forget_versions(storage: AssetStorage, project_id: int, numbers: list[int]) -> None:

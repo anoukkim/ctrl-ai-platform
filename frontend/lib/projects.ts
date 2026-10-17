@@ -60,6 +60,8 @@ export interface BuilderProject {
   /** 작업 중 썸네일을 마지막으로 찍은 때 (owner-polish 5), 게시된 버전의 썸네일을 찍은 때 (4). */
   draft_thumbnail_at?: string | null;
   published_thumbnail_at?: string | null;
+  /** thumbnail-choice: when the maker chose the thumbnail (null = 자동). */
+  thumbnail_chosen_at?: string | null;
   /** owner-polish-3 (a2): 만든 사람이 게시 썸네일을 골랐으면 그때 — 카드도 그 그림을 씁니다. */
   /** app-ai-access: 다른 회원에게 AI를 어떻게 열었는지, 게시된 버전이 AI를 쓰는지. */
   ai_access?: AiAccess;
@@ -302,39 +304,6 @@ export function deleteReference(projectId: number | string, referenceId: number)
 
 export function referenceUrl(projectId: number | string, referenceId: number): string {
   return `${API_BASE_URL}/api/builder/projects/${projectId}/references/${referenceId}/file`;
-}
-
-/** builder-images (2): 앱에 넣은 사진 하나 — `images/…`에 있고 앱이 보여 줄 수 있어요. */
-export interface BuilderAsset {
-  id: number;
-  path: string;
-  media_type: string;
-  width: number;
-  height: number;
-  stored_size: number;
-}
-
-export const MAX_ASSETS = 10;
-
-export function listAssets(projectId: number | string): Promise<BuilderAsset[]> {
-  return request<BuilderAsset[]>(`/builder/projects/${projectId}/assets`);
-}
-
-export function uploadAsset(projectId: number | string, image: Blob, name: string): Promise<BuilderAsset> {
-  return uploadBytes<BuilderAsset>(
-    `/builder/projects/${projectId}/assets`,
-    image,
-    { name: name || "image" },
-    "사진을 넣지 못했어요",
-  );
-}
-
-export function deleteAsset(projectId: number | string, assetId: number): Promise<void> {
-  return request<void>(`/builder/projects/${projectId}/assets/${assetId}`, { method: "DELETE" });
-}
-
-export function assetUrl(projectId: number | string, assetId: number): string {
-  return `${API_BASE_URL}/api/builder/projects/${projectId}/assets/${assetId}/file`;
 }
 
 export function getGenerateEstimate(id: number | string): Promise<GenerateEstimate> {
@@ -870,8 +839,13 @@ export type ThumbnailSpace = "draft" | "published";
  * 뒤에 붙여 새 그림이 바로 보이게 합니다.
  */
 export function builderThumbnailUrl(
-  project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at">,
+  project: Pick<BuilderProject, "id" | "draft_thumbnail_at" | "published_thumbnail_at" | "thumbnail_chosen_at">,
 ): string | null {
+  // thumbnail-choice: the maker's own picture wins everywhere until reset
+  // (the draft route serves it); its time makes a new choice show at once.
+  if (project.thumbnail_chosen_at) {
+    return `${API_BASE_URL}/api/builder/projects/${project.id}/thumbnail?space=draft&v=${encodeURIComponent(project.thumbnail_chosen_at)}`;
+  }
   // owner-polish-3 (a2), kept when the picker went (2026-10-17): once an app
   // is published, the Builder card shows the same picture as CtrlAIApps.
   const space: ThumbnailSpace | null = project.published_thumbnail_at
@@ -891,6 +865,22 @@ export function builderThumbnailUrl(
  */
 export function uploadThumbnail(id: number | string, space: ThumbnailSpace, image: Blob): Promise<BuilderProject> {
   return uploadBytes<BuilderProject>(`/builder/projects/${id}/thumbnail`, image, { space }, "썸네일을 저장하지 못했어요");
+}
+
+/**
+ * thumbnail-choice: 내가 고른 썸네일 — 미리보기에서 16:10 틀로 찍은 화면이나
+ * 붙여 넣은 사진. 서버가 다른 업로드처럼 확인하고 다시 인코딩합니다.
+ */
+export function chooseThumbnail(id: number | string, image: Blob): Promise<BuilderProject> {
+  return uploadBytes<BuilderProject>(`/builder/projects/${id}/thumbnail/choice`, image, {}, "썸네일을 저장하지 못했어요");
+}
+
+/** 자동으로 되돌리기 — 서버가 찍은 첫 화면이 다시 썸네일이 돼요. */
+export function resetThumbnailChoice(id: number | string): Promise<BuilderProject> {
+  return request<BuilderProject>(`/builder/projects/${id}/thumbnail/choice/reset`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export function videoVersionDownloadUrl(

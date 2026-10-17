@@ -171,7 +171,25 @@ metadata (phone photos carry GPS):
   about 1,400 tokens) is in the request's estimate and in each call's
   charge; uploading is free; a failed call charges 0 as always and the
   pictures stay waiting.
-- **앱에 넣은 사진** — up to 10 pictures (1 MB each after re-encoding at a
+- **썸네일** (thumbnail-choice, owner 2026-10-17: "앱에 넣을 사진 빼고
+  썸네일 지정 …") — the file sidebar's panel under the files, in place of
+  「앱에 넣은 사진」. It shows the card's picture and **자동** (the
+  server's first screen, the default) or **직접 지정**. **지정하기** opens
+  the 미리보기 with a 16:10 frame over it: the app stays usable (a game can
+  be mid-play); the frame moves by its 옮기기 bar and resizes by its corner
+  (arrows / Shift+arrows on the keyboard). **이 화면으로** asks the browser
+  to share *this tab* (Chrome offers it first), takes one frame, stops the
+  share at once and keeps only the pixels inside the frame — nothing goes
+  anywhere but the thumbnail upload. Where the browser cannot (Safari) or
+  the member declines, **사진 올리기** or ⌘V with a screenshot does the
+  same. The server re-encodes it like every upload. While chosen, the
+  Builder card and CtrlAIApps show it and no automatic picture — server or
+  browser — replaces it; **자동으로 되돌리기** brings the newest automatic
+  picture back. Free.
+- **앱에 넣은 사진** — *its panel was removed by thumbnail-choice
+  (2026-10-17)*; the routes, the table and Claude's note stay, so pictures
+  already in an app keep working (the folder, 게시, the ZIP). Up to 10
+  pictures (1 MB each after re-encoding at a
   1,600 px long edge, 5 MB together), added from the file sidebar's **사진
   넣기**. Each lives at `images/<name>` (a safe name; `-2` when taken),
   is written into the app's folder beside its files — the preview is

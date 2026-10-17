@@ -1036,6 +1036,55 @@ async def upload_thumbnail(
     return project
 
 
+@router.post(
+    "/projects/{project_id}/thumbnail/choice",
+    response_model=BuilderProjectRead,
+    summary="썸네일 지정: the maker's own picture (the body is the image's bytes)",
+)
+async def choose_thumbnail(
+    project_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderProject:
+    """thumbnail-choice (owner, 2026-10-17). The picture the maker framed
+    over the 미리보기 (or pasted) — checked and re-encoded like every
+    upload, then shown on the Builder card and on CtrlAIApps instead of
+    the automatic pictures until 자동으로 되돌리기. Raw bytes, like the
+    other thumbnail upload (the JSON-body rule's documented exception)."""
+    project = _owned_project(project_id, db, user)
+    data = await read_upload_body(
+        request, thumbnails.MAX_UPLOAD_BYTES, thumbnails.TOO_BIG, "썸네일은 application/octet-stream 형식으로 보내 주세요."
+    )
+    try:
+        await run_in_threadpool(thumbnails.save_chosen, db, get_storage(settings), project, data)
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post(
+    "/projects/{project_id}/thumbnail/choice/reset",
+    response_model=BuilderProjectRead,
+    summary="자동으로 되돌리기: the automatic thumbnail shows again",
+)
+def reset_thumbnail_choice(
+    project_id: int,
+    payload: EmptyBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderProject:
+    project = _owned_project(project_id, db, user)
+    thumbnails.clear_chosen(db, get_storage(settings), project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
 @router.get("/projects/{project_id}/thumbnail", summary="The project's thumbnail (WebP)")
 def read_thumbnail(
     project_id: int,

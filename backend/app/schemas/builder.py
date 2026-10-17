@@ -90,6 +90,8 @@ class BuilderProjectRead(BuilderProjectBase):
     #: else the second, else the generated cover.
     draft_thumbnail_at: datetime | None = None
     published_thumbnail_at: datetime | None = None
+    #: thumbnail-choice: when the maker chose the thumbnail (None = 자동).
+    thumbnail_chosen_at: datetime | None = None
     #: app-ai-access: how the app's AI is opened to other members ("demo" |
     #: "full"), and whether the published version's files call `ctrlai.ai`
     #: at all — the Builder's 게시 menu shows the switch only then.

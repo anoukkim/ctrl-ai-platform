@@ -124,9 +124,12 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     #: THUMBNAIL_RENDERER=server a browser picture never replaces a current
     #: server one (`thumbnails.browser_may_replace_draft`). NULL = before this.
     draft_thumbnail_source: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    #: owner-polish-3 (a2): set when the maker picked the published
-    #: thumbnail. Unused since the picker was removed (owner, 2026-10-17 —
-    #: every thumbnail is the first screen); the column stays, never squashed.
+    #: thumbnail-choice (owner, 2026-10-17): when the maker chose the
+    #: thumbnail themselves (지정하기 — a 16:10 frame over the 미리보기, or a
+    #: pasted picture); the bytes live under `thumbnails.chosen_key()`.
+    #: While set, the Builder card and CtrlAIApps show it and no automatic
+    #: picture (server or browser) replaces it; 자동으로 되돌리기 clears it.
+    #: (The column first served owner-polish-3 (a2)'s picker, removed.)
     thumbnail_chosen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     published_version: Mapped["BuilderProjectVersion | None"] = relationship(
@@ -140,8 +143,11 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
 
     @property
     def published_thumbnail_at(self) -> datetime | None:
-        """When the published version's thumbnail was captured (ui-improvements)."""
-        return self.published_version.thumbnail_at if self.published_version is not None else None
+        """When the published version's thumbnail was captured (ui-improvements)
+        — or, once published, when the maker chose one (thumbnail-choice)."""
+        if self.published_version is None:
+            return None
+        return self.thumbnail_chosen_at or self.published_version.thumbnail_at
 
     @property
     def published_uses_ai(self) -> bool:

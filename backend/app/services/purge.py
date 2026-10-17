@@ -58,7 +58,7 @@ from app.models import (
     VideoProject,
     VideoVersion,
 )
-from app.services import app_runtime, builder_assets, builder_references, audit
+from app.services import app_runtime, audit, builder_assets, builder_references, thumbnails
 from app.services.chat_limits import KST
 from app.services.storage import AssetStorage, StorageKeyError
 
@@ -172,7 +172,17 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
             files=_count(db, BuilderProjectFile, BuilderProjectFile.project_id == pid),
             slugs=[slug for slug in (item.app_slug, item.draft_slug) if slug],
             # builder-images (1): the reference pictures' files.
-            storage_keys=builder_references.storage_keys(db, pid) + builder_assets.storage_keys(db, pid),
+            storage_keys=builder_references.storage_keys(db, pid)
+            + builder_assets.storage_keys(db, pid)
+            # thumbnail-choice: the project's pictures (draft, chosen, versions).
+            + thumbnails.storage_keys(
+                pid,
+                list(
+                    db.scalars(
+                        select(BuilderProjectVersion.number).where(BuilderProjectVersion.project_id == pid)
+                    )
+                ),
+            ),
         )
         facts.usage_events = db.execute(
             update(UsageEvent)
