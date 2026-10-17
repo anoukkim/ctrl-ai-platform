@@ -25,6 +25,7 @@ vi.mock("@/lib/apps", async (importOriginal) => {
     listAppReports: () => listAppReports(),
     getThumbnailRenderer: () => getThumbnailRenderer(),
     adminRenderThumbnail: (id: number) => adminRenderThumbnail(id),
+    listAppCommentReports: () => Promise.resolve([]),
   };
 });
 

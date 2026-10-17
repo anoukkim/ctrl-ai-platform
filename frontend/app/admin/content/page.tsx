@@ -80,15 +80,15 @@ export default function AdminContentPage() {
     listAppReports()
       .then((rows) => setReports(rows))
       .catch((caught: unknown) => setError(describeError(caught)));
-    Promise.all([listTubeReports(), listAppCommentReports()])
-      .then(([videos, apps]) =>
-        setTubeReports(
-          [...videos.map((row) => ({ ...row, source: "video" as const })), ...apps.map(fromApp)].sort((a, b) =>
-            a.created_at.localeCompare(b.created_at),
-          ),
-        ),
-      )
-      .catch((caught: unknown) => setError(describeError(caught)));
+    // Each queue on its own: one that fails to load must not hide the other.
+    void Promise.allSettled([listTubeReports(), listAppCommentReports()]).then(([videos, apps]) => {
+      const rows: CommentReport[] = [];
+      if (videos.status === "fulfilled") rows.push(...videos.value.map((row) => ({ ...row, source: "video" as const })));
+      else setError(describeError(videos.reason));
+      if (apps.status === "fulfilled") rows.push(...apps.value.map(fromApp));
+      else setError(describeError(apps.reason));
+      setTubeReports(rows.sort((a, b) => a.created_at.localeCompare(b.created_at)));
+    });
   }, []);
 
   useEffect(() => {
