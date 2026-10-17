@@ -62,7 +62,7 @@ vi.mock("@/lib/tube", async (importOriginal) => {
 });
 vi.mock("@/lib/apps", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/apps")>();
-  return { ...actual, listAppReports: () => Promise.resolve([]) };
+  return { ...actual, listAppReports: () => Promise.resolve([]), listAppCommentReports: () => Promise.resolve([]) };
 });
 
 const { default: PromoVideo } = await import("@/app/components/PromoVideo");

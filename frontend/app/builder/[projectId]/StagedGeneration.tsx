@@ -19,6 +19,7 @@ import type { Generation, PlanInput } from "@/lib/generation";
 import { STYLE_CHOICES } from "@/lib/projects";
 import { formatKrw } from "@/lib/quarters";
 
+import { imageFiles } from "./ReferencePicker";
 import styles from "./staged.module.css";
 
 export interface Progress {
@@ -45,9 +46,13 @@ interface StartFormProps {
   disabled: boolean;
   error: string | null;
   onPlan: (input: PlanInput) => void;
+  /** builder-images (1): the 참고 사진 row, shown under the idea. */
+  references?: React.ReactNode;
+  /** Pictures pasted or dropped on the idea box; true when it took them. */
+  onImages?: (files: File[]) => boolean;
 }
 
-export function StartForm({ initialIdea, busy, disabled, error, onPlan }: StartFormProps) {
+export function StartForm({ initialIdea, busy, disabled, error, onPlan, references, onImages }: StartFormProps) {
   const [idea, setIdea] = useState(initialIdea);
   const [who, setWho] = useState("");
   const [features, setFeatures] = useState("");
@@ -81,9 +86,19 @@ export function StartForm({ initialIdea, busy, disabled, error, onPlan }: StartF
           value={idea}
           placeholder="예: 한 달 지출을 적고 항목별 합계를 보여 주는 가계부"
           onChange={(event) => setIdea(event.target.value)}
+          onPaste={(event) => {
+            if (onImages?.(imageFiles(event.clipboardData?.items))) event.preventDefault();
+          }}
+          onDragOver={(event) => {
+            if (onImages && event.dataTransfer?.types.includes("Files")) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            if (onImages?.(imageFiles(event.dataTransfer?.files))) event.preventDefault();
+          }}
           disabled={disabled || busy}
         />
       </label>
+      {references}
       {!skipped && (
         <>
           <label className={styles.field}>

@@ -10,13 +10,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_active_member
 from app.api.uploads import file_response
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import AccountStatus, AppFavorite, BuilderProject, User
-from app.schemas.apps import AppFavoriteSet, AppListing, AppReportCreate
-from app.services import app_manifest, app_publish, app_runtime, thumbnails
+from app.schemas.apps import AppDiscussionRead, AppFavoriteSet, AppListing, AppReportCreate
+from app.schemas.tube import TubeCommentCreate, TubeCommentEdit, TubeReactionToggle, TubeReportCreate
+from app.services import app_discussion, app_manifest, app_publish, app_runtime, thumbnails
 from app.services.storage import get_storage
 
 router = APIRouter(prefix="/apps", tags=["apps"])
@@ -183,5 +184,100 @@ def report_app(
         app_publish.report(db, user, project, payload.reason)
     except app_publish.PublishError as error:
         raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    db.commit()
+    return {"detail": "신고를 받았어요. 관리자가 확인할게요."}
+
+
+# ------------------------------------------------ ctrlaiapps-reactions
+# CtrlAITube's shape (routes/tube.py): reads need an account, writes a
+# member taking part this quarter, 신고 any signed-in member.
+
+
+def _discussion(db: Session, project: BuilderProject, user: User) -> AppDiscussionRead:
+    from app.api.routes.tube import _Authors, _comment_read
+
+    authors = _Authors(db)
+    tree = app_discussion.comment_tree(db, project)
+    authors.load([view.author for view in _walk(tree) if view.author is not None])
+    return AppDiscussionRead(
+        reactions=app_discussion.reaction_counts(db, project),
+        my_reactions=app_discussion.my_reactions(db, project, user),
+        comment_count=app_discussion.count_comments(db, project),
+        comments=[_comment_read(view, user, authors) for view in tree],
+    )
+
+
+def _walk(tree):
+    for view in tree:
+        yield view
+        yield from _walk(view.replies)
+
+
+@router.get("/{slug}/discussion", response_model=AppDiscussionRead, summary="An app's reactions and comments")
+def read_discussion(slug: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> AppDiscussionRead:
+    return _discussion(db, app_discussion.published(db, slug), user)
+
+
+@router.post(
+    "/{slug}/reactions", response_model=AppDiscussionRead, summary="Toggle one reaction (좋아요 · 유용해요 · 흥미로워요)"
+)
+def toggle_app_reaction(
+    slug: str,
+    payload: TubeReactionToggle,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> AppDiscussionRead:
+    project = app_discussion.published(db, slug)
+    app_discussion.toggle_reaction(db, project, user, payload.kind)
+    db.commit()
+    return _discussion(db, project, user)
+
+
+@router.post(
+    "/{slug}/comments", response_model=AppDiscussionRead, status_code=status.HTTP_201_CREATED, summary="Comment on an app"
+)
+def add_app_comment(
+    slug: str,
+    payload: TubeCommentCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> AppDiscussionRead:
+    project = app_discussion.published(db, slug)
+    app_discussion.add_comment(db, project, user, payload.body, payload.parent_id)
+    db.commit()
+    return _discussion(db, project, user)
+
+
+@router.patch("/comments/{comment_id}", response_model=dict, summary="Edit my comment on an app")
+def edit_app_comment(
+    comment_id: int,
+    payload: TubeCommentEdit,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+) -> dict:
+    app_discussion.edit_comment(db, user, comment_id, payload.body)
+    db.commit()
+    return {"detail": "고쳤어요."}
+
+
+@router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete my comment on an app")
+def delete_app_comment(
+    comment_id: int, db: Session = Depends(get_db), user: User = Depends(require_active_member)
+) -> Response:
+    app_discussion.delete_comment(db, user, comment_id)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/comments/{comment_id}/report", status_code=status.HTTP_201_CREATED, response_model=dict, summary="신고 an app comment"
+)
+def report_app_comment(
+    comment_id: int,
+    payload: TubeReportCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    app_discussion.report_comment(db, user, comment_id, payload.reason)
     db.commit()
     return {"detail": "신고를 받았어요. 관리자가 확인할게요."}

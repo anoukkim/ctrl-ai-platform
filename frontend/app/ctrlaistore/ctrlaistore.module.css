@@ -1046,3 +1046,110 @@
   gap: 0.5rem;
   margin-top: 0.6rem;
 }
+
+/* ---------- ctrlaiapps-reactions: the app 7 : 3 반응·댓글 ---------- */
+
+.detailSplit {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.detailSplitFolded {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.detailMain {
+  min-width: 0;
+}
+
+.discussionPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-top: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  max-height: clamp(360px, calc(100dvh - var(--apps-detail-chrome-narrow)), 1400px);
+}
+
+.detailSplitFolded .discussionPanel {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.panelBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panelBody[hidden] {
+  display: none;
+}
+
+.panelToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-end;
+  margin: 6px 6px 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-chip);
+  cursor: pointer;
+}
+
+.detailSplitFolded .panelToggle {
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+.panelToggle:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.panelToggleLabel {
+  white-space: nowrap;
+}
+
+.panelHeading {
+  margin: 0;
+  padding: 0.6rem 1rem 0;
+  color: var(--text-muted);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+/* A phone: the panel goes under the app, always open (nothing to fold). */
+@media (max-width: 52rem) {
+  .detailSplit,
+  .detailSplitFolded {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discussionPanel {
+    max-height: none;
+  }
+
+  .panelToggle {
+    display: none;
+  }
+
+  .panelBody[hidden] {
+    display: flex;
+  }
+}

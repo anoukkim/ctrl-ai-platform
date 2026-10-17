@@ -158,6 +158,29 @@ placeholders". The one-shot 예시 앱 / `generate` routes remain in the API.
 --max-krw 3000` on the server (real provider, admin wallet, never past the
 limit); the Markdown report shows in Admin › System › 빌더 점검.
 
+**Project Builder — pictures** (builder-images, 2026-10-17; owner:
+"빌더에는 사진 추가 못하나..? 이런 디자인 참고 등으로" and "앱에 넣는 사진(로고
+등)"). Two kinds, both checked from their bytes and re-encoded without
+metadata (phone photos carry GPS):
+- **참고 사진** — up to 3 pictures attached to the next 만들기 / 고치기, by
+  the **참고 사진** button under the request box, by pasting (Ctrl+V) or by
+  dropping them on it; they show as small thumbnails with ✕. The next plan
+  takes them for its run: the plan call and every file call **see** them
+  (vision input) and follow their look; the self-check does not. They are
+  never files of the app. Each picture (stored at a 1,024 px long edge,
+  about 1,400 tokens) is in the request's estimate and in each call's
+  charge; uploading is free; a failed call charges 0 as always and the
+  pictures stay waiting.
+- **앱에 넣은 사진** — up to 10 pictures (1 MB each after re-encoding at a
+  1,600 px long edge, 5 MB together), added from the file sidebar's **사진
+  넣기**. Each lives at `images/<name>` (a safe name; `-2` when taken),
+  is written into the app's folder beside its files — the preview is
+  rewritten at once, 게시 carries them, the ZIP packs them, server
+  thumbnails show them — and every staged Claude call is told their paths
+  and sizes, so "로고를 머리에 넣어 줘" works. 경로 복사 copies the path.
+  They belong to the project, not to a version (되돌리기 brings back files,
+  not pictures). Free.
+
 **Project Builder — 만들기 / 고치기** (builder-static-runtime). In the
 workspace's Claude panel the member writes what to make or change ("버튼
 색을 바꿔 줘") and presses **만들기** (empty project) or **고치기**; the
@@ -943,6 +966,26 @@ optional for using CTRL+AI.
 
 ### CtrlAIApps (route `/ctrlaistore`)
 
+**AI 스위치 문구** (ai-switch-wording, 2026-10-17; owner: "실제 AI켜기가
+아니라 로그인해서 사용하기 (토큰 소모 있을 수도 있음)"): the shell bar's
+button reads **로그인해서 사용하기** for a visitor who is not signed in and
+**AI 사용하기** for one who is (it was 실제 AI 켜기); in demo the bar says
+"AI를 쓰면 내 지원금이 조금 쓰일 수 있어요". Wording only — the same switch.
+
+**반응과 댓글** (ctrlaiapps-reactions, 2026-10-17; owner: "7:3 … 영상처럼
+댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:
+the app on the left, a **반응과 댓글** panel on the right with 좋아요 ·
+유용해요 · 흥미로워요 and the comments — CtrlAITube's shape: one level of
+replies, the author edits and deletes, 신고 goes to Admin › Content (the
+comment-report table now holds 영상 and 앱 rows), the admin hides or
+deletes with a reason (audited). The panel folds away to give the app the
+full width (remembered per browser); on a phone it sits under the app.
+Reading needs an account; reacting and commenting need a member taking
+part this quarter. The maker hears 반응을 얻었어요 (a member once a day for
+reactions, every comment); a comment's author hears of a reply. An app
+that is unpublished or deleted takes its reactions and comments with it;
+purge removes them.
+
 The community surface for published apps (Phase 5). **Built so far
 (`ctrlaiapps-publish`, 2026-10-14):** 게시 from the Builder publishes the
 project's newest *version*; CtrlAIApps lists it (name, short Korean
@@ -1050,7 +1093,9 @@ with `THUMBNAIL_RENDERER=server` (thumbnail-render-worker, 2026-10-17),
 asks the server's own headless Chromium for an exact screenshot of each
 app, one at a time ("서버의 브라우저가 … 찍어요"); 게시 then also gets the
 server's picture a few seconds after the maker's browser's, and a failed
-server render keeps whatever picture or cover the app had;
+server render keeps whatever picture or cover the app had — and since
+draft-server-thumbnails (2026-10-17) the Builder card's working-copy
+picture is the server's too, after every change (fonts loaded first);
 until a picture exists the cover is the app's name on its colour with a
 large faint initial behind it (no more `</>`), on CtrlAIApps and Builder
 cards alike. A visitor's browser never uploads a thumbnail. **(a2) The

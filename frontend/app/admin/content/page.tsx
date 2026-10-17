@@ -39,13 +39,38 @@ import {
 import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
 import { adminTubeComment, listTubeReports, resolveTubeReport, type AdminTubeReport } from "@/lib/tube";
+import {
+  adminAppComment,
+  listAppCommentReports,
+  resolveAppCommentReport,
+  type AdminAppCommentReport,
+} from "@/lib/apps";
+
+/** ctrlaiapps-reactions: 영상 댓글과 앱 댓글의 신고를 한 표에서 — 어느 쪽인지만 달라요. */
+type CommentReport = AdminTubeReport & { source: "video" | "app" };
+
+function fromApp(row: AdminAppCommentReport): CommentReport {
+  return {
+    id: row.id,
+    comment_id: row.comment_id,
+    video_slug: row.app_slug,
+    video_title: row.app_name,
+    reason: row.reason,
+    excerpt: row.excerpt,
+    reporter_username: row.reporter_username,
+    author_username: row.author_username,
+    created_at: row.created_at,
+    comment_live: row.comment_live,
+    source: "app",
+  };
+}
 
 import { sectionLabel } from "../sections";
 
 export default function AdminContentPage() {
   const toast = useToast();
   const [reports, setReports] = useState<AdminReport[] | null>(null);
-  const [tubeReports, setTubeReports] = useState<AdminTubeReport[] | null>(null);
+  const [tubeReports, setTubeReports] = useState<CommentReport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,9 +80,15 @@ export default function AdminContentPage() {
     listAppReports()
       .then((rows) => setReports(rows))
       .catch((caught: unknown) => setError(describeError(caught)));
-    listTubeReports()
-      .then((rows) => setTubeReports(rows))
-      .catch((caught: unknown) => setError(describeError(caught)));
+    // Each queue on its own: one that fails to load must not hide the other.
+    void Promise.allSettled([listTubeReports(), listAppCommentReports()]).then(([videos, apps]) => {
+      const rows: CommentReport[] = [];
+      if (videos.status === "fulfilled") rows.push(...videos.value.map((row) => ({ ...row, source: "video" as const })));
+      else setError(describeError(videos.reason));
+      if (apps.status === "fulfilled") rows.push(...apps.value.map(fromApp));
+      else setError(describeError(apps.reason));
+      setTubeReports(rows.sort((a, b) => a.created_at.localeCompare(b.created_at)));
+    });
   }, []);
 
   useEffect(() => {
@@ -122,11 +153,12 @@ export default function AdminContentPage() {
     });
   };
 
-  const askTubeComment = (report: AdminTubeReport, action: "hide" | "delete") => {
+  const askTubeComment = (report: CommentReport, action: "hide" | "delete") => {
     setConfirmError(null);
     const hide = action === "hide";
+    const what = report.source === "app" ? "앱 댓글" : "영상 댓글";
     setConfirm({
-      title: hide ? "영상 댓글 숨기기" : "영상 댓글 지우기",
+      title: hide ? `${what} 숨기기` : `${what} 지우기`,
       effect: [
         `'${report.video_title}'의 이 댓글을 ${hide ? "모든 회원에게 숨깁니다" : "답글까지 완전히 지웁니다"}: ${report.excerpt}`,
         "이 댓글의 열린 신고는 처리된 것으로 닫힙니다. 감사 기록에 남습니다.",
@@ -134,18 +166,24 @@ export default function AdminContentPage() {
       confirmLabel: hide ? "숨기기" : "지우기",
       danger: true,
       reason: { label: "사유", placeholder: "예: 욕설", required: true },
-      onConfirm: (reason) => run(() => adminTubeComment(report.comment_id as number, action, reason))(),
+      onConfirm: (reason) =>
+        run(() =>
+          report.source === "app"
+            ? adminAppComment(report.comment_id as number, action, reason)
+            : adminTubeComment(report.comment_id as number, action, reason),
+        )(),
     });
   };
 
-  const askResolveTube = (report: AdminTubeReport) => {
+  const askResolveTube = (report: CommentReport) => {
     setConfirmError(null);
     setConfirm({
       title: "신고 닫기 (댓글 유지)",
       effect: "댓글은 그대로 두고 이 신고만 닫습니다. 감사 기록에 남습니다.",
       confirmLabel: "신고 닫기",
       reason: { label: "메모 (선택)", placeholder: "예: 확인해 보니 문제 없음" },
-      onConfirm: (note) => run(() => resolveTubeReport(report.id, note))(),
+      onConfirm: (note) =>
+        run(() => (report.source === "app" ? resolveAppCommentReport(report.id, note) : resolveTubeReport(report.id, note)))(),
     });
   };
 
@@ -240,7 +278,7 @@ export default function AdminContentPage() {
 
       <section className="card" aria-labelledby="tube-reports-title">
         <h2 className="section-title" id="tube-reports-title">
-          영상 댓글 신고 {tubeReports ? `(${tubeReports.length})` : ""}
+          댓글 신고 (영상 · 앱) {tubeReports ? `(${tubeReports.length})` : ""}
         </h2>
         {tubeReports === null ? (
           <p className="small muted">불러오는 중…</p>
@@ -251,7 +289,7 @@ export default function AdminContentPage() {
             <table className="table" data-testid="tube-reports">
               <thead>
                 <tr>
-                  <th>영상 · 댓글</th>
+                  <th>영상·앱 · 댓글</th>
                   <th>사유</th>
                   <th>쓴 회원</th>
                   <th>신고한 회원</th>
@@ -261,9 +299,12 @@ export default function AdminContentPage() {
               </thead>
               <tbody>
                 {tubeReports.map((report) => (
-                  <tr key={report.id}>
+                  <tr key={`${report.source}-${report.id}`}>
                     <td>
-                      <Link href={`/ctrlaitube/${report.video_slug}`}>{report.video_title}</Link>
+                      <span className="badge badge-muted">{report.source === "app" ? "앱" : "영상"}</span>{" "}
+                      <Link href={report.source === "app" ? `/ctrlaistore/${report.video_slug}` : `/ctrlaitube/${report.video_slug}`}>
+                        {report.video_title}
+                      </Link>
                       <br />
                       <span className="small muted" data-testid="tube-report-excerpt">
                         <code>{report.excerpt}</code>

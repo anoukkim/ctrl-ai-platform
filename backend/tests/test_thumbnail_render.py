@@ -227,16 +227,18 @@ def test_publishing_queues_a_render_that_stores_the_version_picture(
     publish(client, project)
     db_session.refresh(project)
     assert project.published_thumbnail_at is None
-    assert queue.pending() == 1
+    # The new working copy (draft-server-thumbnails) and the 게시.
+    assert queue.pending() == 2
     assert renderer.urls == []
 
-    assert queue.run_one(block=False) is True
-    assert renderer.urls == [thumbnail_render.published_url(settings, project)]
+    assert queue.run_one(block=False) is True  # the draft
+    assert queue.run_one(block=False) is True  # the published version
+    assert renderer.urls[-1] == thumbnail_render.published_url(settings, project)
     db_session.expire_all()
     assert project.published_thumbnail_at is not None
     # The worker's 1024×640 PNG went through `thumbnails.encode`: 640×400.
     assert stored_size(settings, project) == (thumbnails.WIDTH, thumbnails.HEIGHT)
-    assert queue.done == 1 and queue.failed == 0
+    assert queue.done == 2 and queue.failed == 0
     assert queue.run_one(block=False) is False
     # CtrlAIApps serves it like any upload.
     served = client.get(f"/api/apps/{project.app_slug}/thumbnail")
@@ -259,7 +261,8 @@ def test_a_failed_render_keeps_the_old_picture(
 
     renderer.fail = True
     assert queue.run_one(block=False) is True
-    assert queue.failed == 1
+    assert queue.run_one(block=False) is True
+    assert queue.failed == 2
     db_session.expire_all()
     assert client.get(f"/api/builder/projects/{project.id}").json()["published_thumbnail_at"] == before
     assert thumbnails.load_published(get_storage(settings), project) == before_bytes
@@ -447,3 +450,111 @@ def test_the_browser_may_reach_the_allowed_host_and_nothing_else(worker) -> None
         for name in ("THUMBS_SECRET", "THUMBS_ALLOWED_HOST", "THUMBS_SOCKET", "THUMBS_RESOLVE_TO"):
             os.environ.pop(name, None)
     assert cfg["sandbox"] is True and cfg["socket"] == "/run/thumbs/t.sock" and cfg["resolve_to"] == "172.30.88.2"
+
+
+# ------------------------------------------------------------ draft-server-thumbnails
+
+
+def test_a_new_working_copy_is_photographed_from_its_own_draft_address(
+    client: TestClient, db_session: Session, budgeted, project, server_config
+) -> None:
+    settings, renderer = server_config
+    queue = make_queue(db_session, settings)
+    generated = client.post(
+        f"/api/builder/projects/{project.id}/generate", json={"request": "할 일 앱을 만들어 줘", "style": ""}
+    )
+    assert generated.status_code == 200, generated.text
+    assert queue.pending() == 1
+    assert queue.run_one(block=False) is True
+    db_session.expire_all()
+    fresh = db_session.get(BuilderProject, project.id)
+    url = renderer.urls[-1]
+    # Built from the project's own draft slug, the files path only.
+    assert url == thumbnail_render.draft_url(settings, fresh)
+    assert url.startswith(f"{APPS_BASE}/{fresh.draft_slug}/_app/index.html?v=")
+    assert fresh.draft_thumbnail_at is not None
+    stored = thumbnails.load_draft(get_storage(settings), fresh)
+    assert Image.open(io.BytesIO(stored)).size == (thumbnails.WIDTH, thumbnails.HEIGHT)
+
+
+def test_the_draft_address_is_refused_without_a_written_copy_or_with_a_bad_slug(
+    db_session: Session, dev_user, settings_for
+) -> None:
+    settings = settings_for()
+    row = BuilderProject(owner_user_id=dev_user.id, name="x", description="", draft_slug="abcdefgh23")
+    db_session.add(row)
+    db_session.commit()
+    with pytest.raises(thumbnail_render.RenderError):  # not written yet
+        thumbnail_render.draft_url(settings, row)
+    from datetime import datetime, timezone
+
+    row.app_runtime_at = datetime.now(timezone.utc)
+    assert thumbnail_render.draft_url(settings, row).startswith("http://apps.test/abcdefgh23/_app/index.html?v=")
+    row.draft_slug = "../x"
+    with pytest.raises(thumbnail_render.RenderError):
+        thumbnail_render.draft_url(settings, row)
+
+
+def test_in_browser_mode_a_new_working_copy_queues_nothing(
+    client: TestClient, db_session: Session, budgeted, project, browser_config
+) -> None:
+    queue = make_queue(db_session, browser_config)
+    client.post(f"/api/builder/projects/{project.id}/generate", json={"request": "할 일 앱", "style": ""})
+    assert queue.pending() == 0
+
+
+def test_draft_and_published_jobs_of_one_project_are_separate(db_session: Session, settings_for) -> None:
+    settings = settings_for(thumbnail_renderer="server", thumbnail_worker_url=WORKER, thumbnail_worker_secret=SECRET)
+    factory = sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False)
+    queue = thumbnail_render.RenderQueue(factory, lambda: settings, background=False)
+    assert queue.submit(1, "draft") is True
+    assert queue.submit(1, "published") is True
+    assert queue.submit(1, "draft") is False
+    assert queue.pending() == 2
+
+
+def test_the_worker_waits_for_fonts_and_stays_inside_the_deadline(worker) -> None:
+    assert worker.SETTLE_MS >= 1000 and worker.FONTS_MS <= 5000
+    import inspect
+
+    source = inspect.getsource(worker.render)
+    assert "document.fonts.status" in source
+    # launch + nav + fonts + settle + screenshot fit in timeout_s + 5, at the
+    # default and at the smallest timeout the worker accepts (10 s).
+    for timeout_s in (worker.DEFAULT_TIMEOUT_S, 10):
+        fixed = worker.LAUNCH_MS + worker.FONTS_MS + worker.SETTLE_MS + worker.SHOT_MS
+        nav = max(3000, (timeout_s + 5) * 1000 - fixed)
+        assert nav + fixed <= (timeout_s + 5) * 1000, timeout_s
+
+
+def test_a_draft_job_is_queued_only_after_the_commit_and_finds_a_first_draft(
+    db_session: Session, dev_user, settings_for, monkeypatch
+) -> None:
+    from datetime import datetime, timezone
+
+    settings = settings_for(thumbnail_renderer="server", thumbnail_worker_url=WORKER, thumbnail_worker_secret=SECRET)
+    renderer = thumbnail_render.FakeRenderer()
+    thumbnail_render.use_renderer(renderer)
+    try:
+        queue = make_queue(db_session, settings)
+        row = BuilderProject(owner_user_id=dev_user.id, name="새 앱", description="")
+        db_session.add(row)
+        db_session.flush()
+        row.draft_slug = "abcdefgh23"
+        row.app_runtime_at = datetime.now(timezone.utc)
+        thumbnail_render.enqueue_after_commit(db_session, settings, row.id, "draft")
+        assert queue.pending() == 0  # not before the commit
+        db_session.commit()
+        assert queue.pending() == 1
+        assert queue.run_one(block=False) is True
+        assert queue.done == 1 and renderer.urls[-1].startswith(f"{APPS_BASE}/abcdefgh23/_app/index.html")
+        # A rolled-back change queues nothing.
+        row.name = "되돌릴 이름"
+        db_session.flush()
+        thumbnail_render.enqueue_after_commit(db_session, settings, row.id, "draft")
+        db_session.rollback()
+        db_session.commit()
+        assert queue.pending() == 0
+    finally:
+        thumbnail_render.use_renderer(None)
+        thumbnail_render.use_queue(None)

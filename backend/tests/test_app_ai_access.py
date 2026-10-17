@@ -203,7 +203,10 @@ def test_the_shell_and_the_sdk_carry_the_switch(anon_client: TestClient) -> None
     assert 'error.code = "demo"' in shell and 'case "ai.mode":' in shell and 'id = "ctrlai-ai"' in shell
     assert shell.count("return demoGate().then(signedIn)") == 2
     assert shell.index("function demoGate") < shell.index("function askAI")
-    assert "실제 AI 켜기" in shell and "데모로 보기" in shell
+    # ai-switch-wording: 「로그인해서 사용하기」 (signed out) / 「AI 사용하기」, and the note.
+    assert "로그인해서 사용하기" in shell and "AI 사용하기" in shell and "데모로 보기" in shell
+    assert "실제 AI 켜기" not in shell
+    assert "내 지원금이 조금 쓰일 수 있어요" in shell
     assert "mode: function" in sdk and '"ctrlai:ai-mode"' in sdk and 'version: "6"' in sdk
     # Outside CTRL+AI everything is a demo.
     assert 'if (type === "ai.mode") return "demo";' in sdk

@@ -398,7 +398,7 @@
   function demoRefusal() {
     var error = new Error(
       aiAccess() === "full"
-        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켤 수 있어요."
+        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). AI를 쓰려면 앱 맨 위 CTRL+AI 줄의 「로그인해서 사용하기」를 눌러 주세요."
         : "이 앱의 AI는 데모로만 열려 있어요. 데모 답변을 보여 드려요."
     );
     error.code = "demo";
@@ -410,7 +410,7 @@
     else store.removeItem(AI_MODE_KEY);
     drawAiSwitch();
     send({ event: "ai-mode", mode: aiMode() });
-    toast(aiMode() === "demo" ? "데모로 봐요 — AI를 부르지 않아요 (0원)." : "실제 AI를 켰어요 — 버튼을 누를 때만 내 지원금에서 나가요.");
+    toast(aiMode() === "demo" ? "데모로 봐요 — AI를 부르지 않아요 (0원)." : "AI를 써요 — 버튼을 누를 때만 내 지원금이 조금 쓰일 수 있어요.");
   }
 
   /** A thin bar above the app: what mode it is in, and the visitor's switch.
@@ -453,14 +453,19 @@
     note.textContent = live
       ? "AI 버튼을 누를 때만 나가요."
       : aiAccess() === "full"
-        ? "데모 답변만 봐요. AI는 부르지 않아요."
+        ? // ai-switch-wording (owner, 2026-10-17): say what using it means.
+          "데모 답변만 봐요. AI를 쓰면 내 지원금이 조금 쓰일 수 있어요."
         : "만든 사람이 AI를 데모로만 열었어요.";
     note.style.cssText = "opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1";
     aiBox.appendChild(note);
     if (aiAccess() === "full") {
       var button = document.createElement("button");
       button.type = "button";
-      button.textContent = live ? "데모로 보기" : "실제 AI 켜기";
+      // ai-switch-wording (owner, 2026-10-17: "실제 AI켜기가 아니라 로그인해서
+      // 사용하기 (토큰 소모 있을 수도 있음)"): signed out, the button says
+      // what happens next; signed in there is nothing to sign into.
+      button.textContent = live ? "데모로 보기" : signed ? "AI 사용하기" : "로그인해서 사용하기";
+      button.title = live ? "" : "AI를 쓰면 내 지원금이 조금 쓰일 수 있어요 — 버튼을 누를 때만";
       button.style.cssText =
         "flex:none;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;" +
         "color:#fff;font:inherit;cursor:pointer";

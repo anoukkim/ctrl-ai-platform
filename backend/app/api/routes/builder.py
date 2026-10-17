@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
-from app.api.uploads import file_response, read_upload_body
+from app.api.uploads import clean_upload_name, file_response, read_upload_body
 from app.db.session import get_db
 from app.models import (
     BuilderGeneration,
@@ -46,7 +46,9 @@ from app.schemas.builder import (
 )
 from app.core.config import Settings, get_settings
 from app.schemas.builder import (
+    BuilderAssetRead,
     BuilderFileRead,
+    BuilderReferenceRead,
     BuilderModelOption,
     EditEstimateRead,
     GenerationRead,
@@ -90,7 +92,8 @@ from app.services import (
     publish_summary,
     project_zip,
 )
-from app.services import thumbnail_render, thumbnails
+from app.services import attachments as attachments_service
+from app.services import builder_assets, builder_references, thumbnail_render, thumbnails
 from app.services import usage as usage_service
 from app.services.attachments import AttachmentRefusal
 from app.services.quiet import quiet_update
@@ -415,6 +418,7 @@ def download_project(
     extra: str = Query("", max_length=2000),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    config_for_zip: Settings = Depends(get_settings),
 ) -> Response:
     """Pack the chosen version (작업 중 by default, or 게시된 버전) with the
     guides that let the member carry on with their own Claude
@@ -432,8 +436,13 @@ def download_project(
     """
     project = _owned_project(project_id, db, user)
     bundle = build_bundle(db, project, version, extra)
+    # builder-images (2): the app's pictures go in too (they belong to the
+    # project, whichever version is downloaded).
+    packed: dict[str, str | bytes] = dict(bundle.files)
+    for path, data in builder_assets.contents(db, get_storage(config_for_zip), project).items():
+        packed.setdefault(path, data)
     try:
-        payload = project_zip.pack(bundle.files)
+        payload = project_zip.pack(packed)
     except project_zip.ProjectTooLargeError as error:  # pragma: no cover — bundle checked it
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=str(error)
@@ -615,6 +624,13 @@ def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -
         app_runtime.write_draft(db, settings, project, files)
     except (app_runtime.AppRuntimeError, OSError) as error:
         logger.warning("app runtime write failed for project %s: %s", project.id, error)
+        return
+    # draft-server-thumbnails: with THUMBNAIL_RENDERER=server the new working
+    # copy is photographed by the worker too (the Builder card); the
+    # in-browser capture still runs. Queued only once the caller commits:
+    # the job reads the row in its own session, and a new project or a
+    # first draft (slug just made) must be there to be read.
+    thumbnail_render.enqueue_after_commit(db, settings, project.id, "draft")
 
 
 def _version_read(
@@ -1383,3 +1399,229 @@ def run_generation(
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
+
+# ------------------------------------------------ builder-images (1)
+
+
+def _reference_read(row) -> BuilderReferenceRead:
+    read = BuilderReferenceRead.model_validate(row)
+    read.tokens = builder_references.tokens([row])
+    return read
+
+
+def _owned_reference(db: Session, project: BuilderProject, reference_id: int):
+    from app.models import BuilderReference
+
+    row = db.get(BuilderReference, reference_id)
+    if row is None or row.project_id != project.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=builder_references.NOT_FOUND)
+    return row
+
+
+@router.post(
+    "/projects/{project_id}/references",
+    response_model=BuilderReferenceRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Attach a reference picture to the next 만들기 / 고치기 (the body is the image's bytes)",
+)
+async def upload_reference(
+    project_id: int,
+    request: Request,
+    name: str = Query(default="image", max_length=255),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderReferenceRead:
+    """One picture per request, its bytes as the body (`application/
+    octet-stream` — the JSON-body rule's documented exception for uploads).
+    The kind is read from the bytes; the picture is re-encoded without
+    metadata; at most three wait at a time. Free: the pictures are paid for
+    by the call that reads them, in its estimate."""
+    project = _owned_project(project_id, db, user)
+    data = await read_upload_body(
+        request,
+        settings.chat_attachment_image_max_mb * attachments_service.MB,
+        builder_references.too_big(settings.chat_attachment_image_max_mb),
+        "사진은 application/octet-stream 형식으로 보내 주세요.",
+    )
+    try:
+        row = await run_in_threadpool(
+            builder_references.add,
+            db,
+            get_storage(settings),
+            settings,
+            user=user,
+            project=project,
+            data=data,
+            name=clean_upload_name(name, "image"),
+        )
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    db.commit()
+    db.refresh(row)
+    return _reference_read(row)
+
+
+@router.get(
+    "/projects/{project_id}/references",
+    response_model=list[BuilderReferenceRead],
+    summary="Reference pictures waiting for the next 만들기 / 고치기",
+)
+def list_references(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[BuilderReferenceRead]:
+    project = _owned_project(project_id, db, user)
+    return [_reference_read(row) for row in builder_references.pending(db, project)]
+
+
+@router.get(
+    "/projects/{project_id}/references/{reference_id}/file",
+    summary="One reference picture (the owner's own, for the request box)",
+)
+def read_reference(
+    project_id: int,
+    reference_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    project = _owned_project(project_id, db, user)
+    row = _owned_reference(db, project, reference_id)
+    try:
+        data = get_storage(settings).load(row.storage_key)
+    except (OSError, ValueError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=builder_references.NOT_FOUND) from None
+    return file_response(data, row.media_type, f"reference-{row.id}", inline=True)
+
+
+@router.delete(
+    "/projects/{project_id}/references/{reference_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="✕ — take a waiting reference picture out of the request box",
+)
+def delete_reference(
+    project_id: int,
+    reference_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    project = _owned_project(project_id, db, user)
+    row = _owned_reference(db, project, reference_id)
+    try:
+        builder_references.remove(db, get_storage(settings), row)
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ------------------------------------------------ builder-images (2)
+
+
+def _owned_asset(db: Session, project: BuilderProject, asset_id: int):
+    from app.models import BuilderAsset
+
+    row = db.get(BuilderAsset, asset_id)
+    if row is None or row.project_id != project.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=builder_assets.NOT_FOUND)
+    return row
+
+
+@router.post(
+    "/projects/{project_id}/assets",
+    response_model=BuilderAssetRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a picture to the app (the body is the image's bytes)",
+)
+async def upload_asset(
+    project_id: int,
+    request: Request,
+    name: str = Query(default="image", max_length=255),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> BuilderAssetRead:
+    """The picture is checked from its bytes, re-encoded without metadata
+    and stored at `images/<name>`; the preview is written again so the app
+    can show it at once. Free — nothing is generated."""
+    project = _owned_project(project_id, db, user)
+    data = await read_upload_body(
+        request,
+        settings.chat_attachment_image_max_mb * attachments_service.MB,
+        f"사진이 너무 커요 (1장 {settings.chat_attachment_image_max_mb}MB 이하).",
+        "사진은 application/octet-stream 형식으로 보내 주세요.",
+    )
+    try:
+        row = await run_in_threadpool(
+            builder_assets.add,
+            db,
+            get_storage(settings),
+            settings,
+            user=user,
+            project=project,
+            data=data,
+            name=clean_upload_name(name, "image"),
+        )
+    except AttachmentRefusal as refusal:
+        raise HTTPException(status_code=refusal.status_code, detail=str(refusal)) from refusal
+    _refresh_runtime(db, settings, project)
+    db.commit()
+    db.refresh(row)
+    return BuilderAssetRead.model_validate(row)
+
+
+@router.get(
+    "/projects/{project_id}/assets",
+    response_model=list[BuilderAssetRead],
+    summary="The app's pictures",
+)
+def list_assets(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[BuilderAssetRead]:
+    project = _owned_project(project_id, db, user)
+    return [BuilderAssetRead.model_validate(row) for row in builder_assets.listed(db, project)]
+
+
+@router.get(
+    "/projects/{project_id}/assets/{asset_id}/file",
+    summary="One of the app's pictures (the owner's own)",
+)
+def read_asset(
+    project_id: int,
+    asset_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    project = _owned_project(project_id, db, user)
+    row = _owned_asset(db, project, asset_id)
+    try:
+        data = get_storage(settings).load(row.storage_key)
+    except (OSError, ValueError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=builder_assets.NOT_FOUND) from None
+    return file_response(data, row.media_type, row.path.rsplit("/", 1)[-1], inline=True)
+
+
+@router.delete(
+    "/projects/{project_id}/assets/{asset_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Take a picture out of the app",
+)
+def delete_asset(
+    project_id: int,
+    asset_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_active_member),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    project = _owned_project(project_id, db, user)
+    row = _owned_asset(db, project, asset_id)
+    builder_assets.remove(db, get_storage(settings), row)
+    _refresh_runtime(db, settings, project)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -33,12 +33,15 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import BuilderGeneration, BuilderProject, ProviderErrorKind, UsageFeature, User
-from app.services import builder_choice, builder_files, builder_versions, chat_limits, chat_models
+from app.services import builder_assets, builder_choice, builder_files, builder_references, builder_versions, chat_limits, chat_models
+from app.services.storage import get_storage
 from app.services.app_manifest import MANIFEST_FILE
 from app.services import pricing, provider_limiter, providers
 from app.services import usage as usage_service
 from app.services.builder_starter import StarterError, _record_absorbed
 from app.services.claude_provider import (
+    EDIT_MAX_ROUNDS,
+    REFERENCE_NOTE,
     CHECK_MAX_FIXES,
     CHECK_SYSTEM,
     FILE_SYSTEM,
@@ -66,6 +69,40 @@ TYPICAL_FILE_OUTPUT_TOKENS = 2_500
 OPEN = ("planned", "running", "partial", "failed")
 
 Emit = Callable[[str, dict], None]
+
+
+def _references_for_plan(db: Session, project: BuilderProject) -> list:
+    """The waiting pictures, then those held by an open run of this project
+    (planned / partial / failed) that a new plan will cancel — at most
+    `MAX_PER_REQUEST`."""
+    rows = builder_references.pending(db, project)
+    open_ids = list(
+        db.scalars(
+            select(BuilderGeneration.id).where(
+                BuilderGeneration.project_id == project.id,
+                BuilderGeneration.status.in_(("planned", "partial", "failed")),
+            )
+        )
+    )
+    if open_ids:
+        from app.models import BuilderReference
+
+        rows += list(
+            db.scalars(
+                select(BuilderReference)
+                .where(BuilderReference.generation_id.in_(open_ids))
+                .order_by(BuilderReference.id)
+            )
+        )
+    return rows[: builder_references.MAX_PER_REQUEST]
+
+
+def reference_tokens(references: list) -> int:
+    """What reference pictures add to one call (builder-images (1)): the
+    pictures and the note that introduces them."""
+    if not references:
+        return 0
+    return builder_references.tokens(references) + pricing.estimate_tokens(REFERENCE_NOTE)
 
 
 def brief_text(request: str, who: str = "", features: str = "", mood: str = "") -> str:
@@ -174,9 +211,17 @@ def plan(
     chat_models.require_adapter(choice.model)
     files = builder_versions.current_files(db, project)
     creating = builder_files.ENTRY_FILE not in files
+    # builder-images (1): the pictures waiting in the request box go with
+    # the plan and every file call of this run.
+    # builder-images (1): the waiting pictures — and those of an open run this
+    # plan replaces (it is cancelled below), so a re-plan keeps them.
+    references = _references_for_plan(db, project)
+    # builder-images (2): the app's pictures, told to every call.
+    notes = builder_assets.note(db, project)
+    images = builder_references.blocks(get_storage(settings), references)
     tokens_in = pricing.estimate_tokens(
-        PLAN_SYSTEM + edit_request_text(project.name, sorted(files.items()), request, style)
-    )
+        PLAN_SYSTEM + edit_request_text(project.name, sorted(files.items()), request, style, notes)
+    ) + reference_tokens(references)
     room = min(PLAN_MAX_TOKENS, choice.room(tokens_in))
     if room < 1_024:
         raise StarterError(builder_choice.room_refusal(choice), 400)
@@ -197,6 +242,8 @@ def plan(
             room,
             style,
             effort=choice.effort,
+            images=images or None,
+            notes=notes,
         )
     except Exception as error:
         if isinstance(error, ClaudeError):
@@ -237,6 +284,9 @@ def plan(
         charged_krw=charged,
     )
     db.add(generation)
+    db.flush()
+    for row in references:
+        row.generation_id = generation.id
     providers.record_success(db, "claude", "빌더 계획" + (" (mock)" if is_mock else ""))
     db.commit()
     db.refresh(generation)
@@ -259,8 +309,9 @@ def run_estimate(
             [tuple(step) for step in generation.plan],
             remaining[0][0] if remaining else "index.html",
             generation.style,
+            builder_assets.note(db, project),
         )
-    )
+    ) + reference_tokens(builder_references.of_generation(db, generation))
     per_file = choice.price.krw(tokens_in, TYPICAL_FILE_OUTPUT_TOKENS)
     per_call_max = choice.price.krw(tokens_in, max(choice.room(tokens_in), 0))
     # The files, then the self-check (about one more file's worth).
@@ -334,6 +385,13 @@ def run(
     builder_versions.ensure_baseline(db, project)
     db.commit()
     spent_before = generation.charged_krw
+    references = builder_references.of_generation(db, generation)
+    images = builder_references.blocks(get_storage(settings), references)
+    picture_tokens = reference_tokens(references)
+    notes = builder_assets.note(db, project)
+    # The real provider resends the first message (pictures included) on each
+    # write_file round: the wallet is checked against that worst case.
+    picture_reserve = picture_tokens * (EDIT_MAX_ROUNDS - 1)
 
     def over_limit(worst: int) -> bool:
         if spend_limit_krw is None:
@@ -346,18 +404,17 @@ def run(
         emit("file_start", {"path": path})
         files = builder_versions.current_files(db, project)
         text = file_request_text(
-            project.name, sorted(files.items()), generation.request, plan_steps, path, generation.style
+            project.name, sorted(files.items()), generation.request, plan_steps, path, generation.style, notes
         )
-        tokens_in = pricing.estimate_tokens(FILE_SYSTEM + text)
+        tokens_in = pricing.estimate_tokens(FILE_SYSTEM + text) + picture_tokens
         room = choice.room(tokens_in)
         if room < builder_choice.MIN_ROOM_TOKENS:
             return _stop(db, generation, builder_choice.room_refusal(choice), emit)
-        if over_limit(choice.price.krw(tokens_in, room)):
+        worst = choice.price.krw(tokens_in + picture_reserve, room)
+        if over_limit(worst):
             return _stop(db, generation, f"점검 예산({spend_limit_krw:,}원)에 닿아 멈췄어요.", emit)
         try:
-            usage_service.ensure_affordable(
-                db, user=user, amount_krw=choice.price.krw(tokens_in, room), settings=settings
-            )
+            usage_service.ensure_affordable(db, user=user, amount_krw=worst, settings=settings)
         except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
             return _stop(db, generation, str(error), emit)
         if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
@@ -373,6 +430,8 @@ def run(
                 room,
                 generation.style,
                 effort=choice.effort,
+                images=images or None,
+                notes=notes,
             )
         except ClaudeError as error:
             providers.record_failure(db, "claude", error.kind, error.detail)
@@ -411,7 +470,7 @@ def run(
     # Stage 3: the self-check. A failure leaves the files as they are.
     emit("check_start", {})
     files = builder_versions.current_files(db, project)
-    tokens_in = pricing.estimate_tokens(CHECK_SYSTEM + check_request_text(project.name, sorted(files.items())))
+    tokens_in = pricing.estimate_tokens(CHECK_SYSTEM + check_request_text(project.name, sorted(files.items()), notes))
     room = choice.room(tokens_in)
     fixed: list[str] = []
     check_charged = 0
@@ -430,7 +489,7 @@ def run(
     ):
         try:
             checked = provider.check_project(
-                project.name, sorted(files.items()), choice.model.model_id, room, effort=choice.effort
+                project.name, sorted(files.items()), choice.model.model_id, room, effort=choice.effort, notes=notes
             )
         except ClaudeError as error:
             providers.record_failure(db, "claude", error.kind, error.detail)

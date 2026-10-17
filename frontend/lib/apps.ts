@@ -8,6 +8,7 @@
 
 import { API_BASE_URL } from "./api";
 import { request, uploadBytes } from "./http";
+import type { TubeComment, TubeReaction } from "./tube";
 
 export interface AppListing {
   id: number;
@@ -239,6 +240,82 @@ export function adminUnpublish(projectId: number, reason: string): Promise<{ det
 
 export function resolveAppReport(reportId: number, note: string): Promise<{ detail: string }> {
   return request<{ detail: string }>(`/admin/apps/reports/${reportId}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
+}
+
+// ------------------------------------------------------------------ ctrlaiapps-reactions
+
+/** 앱의 반응과 댓글 — 댓글의 모양은 CtrlAITube의 것과 같아요. */
+export interface AppDiscussion {
+  reactions: Record<TubeReaction, number>;
+  my_reactions: TubeReaction[];
+  comment_count: number;
+  comments: TubeComment[];
+}
+
+export function getAppDiscussion(slug: string): Promise<AppDiscussion> {
+  return request<AppDiscussion>(`/apps/${encodeURIComponent(slug)}/discussion`);
+}
+
+export function toggleAppReaction(slug: string, kind: TubeReaction): Promise<AppDiscussion> {
+  return request<AppDiscussion>(`/apps/${encodeURIComponent(slug)}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ kind }),
+  });
+}
+
+export function addAppComment(slug: string, body: string, parentId: number | null = null): Promise<AppDiscussion> {
+  return request<AppDiscussion>(`/apps/${encodeURIComponent(slug)}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body, parent_id: parentId }),
+  });
+}
+
+export function editAppComment(commentId: number, body: string): Promise<{ detail: string }> {
+  return request<{ detail: string }>(`/apps/comments/${commentId}`, { method: "PATCH", body: JSON.stringify({ body }) });
+}
+
+export function deleteAppComment(commentId: number): Promise<void> {
+  return request<void>(`/apps/comments/${commentId}`, { method: "DELETE" });
+}
+
+export function reportAppComment(commentId: number, reason: string): Promise<{ detail: string }> {
+  return request<{ detail: string }>(`/apps/comments/${commentId}/report`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/** Admin › Content: 앱 댓글 신고. */
+export interface AdminAppCommentReport {
+  id: number;
+  comment_id: number | null;
+  app_slug: string;
+  app_name: string;
+  reason: string;
+  excerpt: string;
+  reporter_username: string;
+  author_username: string;
+  created_at: string;
+  comment_live: boolean;
+}
+
+export function listAppCommentReports(): Promise<AdminAppCommentReport[]> {
+  return request<AdminAppCommentReport[]>("/admin/tube/app-reports");
+}
+
+export function adminAppComment(
+  commentId: number,
+  action: "hide" | "delete",
+  reason: string,
+): Promise<{ detail: string; reports_closed: number }> {
+  return request(`/admin/tube/app-comments/${commentId}/${action}`, { method: "POST", body: JSON.stringify({ reason }) });
+}
+
+export function resolveAppCommentReport(reportId: number, note: string): Promise<{ detail: string }> {
+  return request<{ detail: string }>(`/admin/tube/app-reports/${reportId}/resolve`, {
     method: "POST",
     body: JSON.stringify({ note }),
   });

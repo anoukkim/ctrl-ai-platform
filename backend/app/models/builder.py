@@ -8,7 +8,7 @@ community-facing record later (Phase 5).
 import enum
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
@@ -400,3 +400,79 @@ class BuilderEvalReport(TimestampMixin, Base):
     succeeded: Mapped[int] = mapped_column(Integer, nullable=False)
     total_krw: Mapped[int] = mapped_column(Integer, nullable=False)
     markdown: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class BuilderReference(Base):
+    """A reference picture for 만들기 / 고치기 (builder-images (1)).
+
+    Uploaded from the Builder's request box (📎 or paste) before the
+    request is sent, like a Chat attachment: `generation_id` is NULL while
+    it waits, and the next plan takes every waiting picture of the project
+    (at most `builder_references.MAX_PER_REQUEST`) and keeps them for its
+    file calls. Claude **sees** the picture — design, colours, layout — and
+    it never becomes a file of the app. The bytes live in storage under
+    `storage_key` (`builder-ref/<project_id>/<id>`) as the re-encoded copy,
+    EXIF and location gone. Purged with the project; withdrawal deletes a
+    member's pictures.
+    """
+
+    __tablename__ = "builder_references"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    #: The run that used it (NULL while it waits in the request box).
+    generation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("builder_generations.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    media_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    stored_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<BuilderReference {self.id} project={self.project_id}>"
+
+
+class BuilderAsset(Base):
+    """A picture that is part of the app (builder-images (2)) — a logo, a
+    photo — at `path` under `images/`, served beside the app's files on
+    apps.<domain>, packed into the ZIP, and named to Claude so the app can
+    show it (`<img src="images/logo.png">`).
+
+    Assets belong to the project, not to a version: 되돌리기 brings back
+    files, and the pictures stay as they are. The bytes live in storage
+    under `storage_key` (`builder-asset/<project_id>/<id>`), re-encoded
+    without metadata. Purged with the project; withdrawal keeps them while
+    the project is kept (they are the work, like the files).
+    """
+
+    __tablename__ = "builder_assets"
+    __table_args__ = (UniqueConstraint("project_id", "path", name="uq_builder_assets_project_path"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("builder_projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    path: Mapped[str] = mapped_column(String(200), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    stored_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<BuilderAsset {self.path} project={self.project_id}>"

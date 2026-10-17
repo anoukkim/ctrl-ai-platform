@@ -623,6 +623,11 @@ def anonymise(db: Session, row: AccountWithdrawal, now: datetime | None = None) 
     from app.services import feedback_images as feedback_images_service
 
     feedback_images_service.delete_for_user(db, get_storage(get_settings()), member.id)
+    # Builder reference pictures (builder-images (1)) may be photos the
+    # member took; the projects stay as they are, the pictures go.
+    from app.services import builder_references
+
+    builder_references.delete_for_user(db, get_storage(get_settings()), member.id)
     row.anonymised_at = now
 
     audit.record(

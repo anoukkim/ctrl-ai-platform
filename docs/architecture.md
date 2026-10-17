@@ -132,6 +132,12 @@ the same commit that adds it.
 | `POST /api/builder/projects/{id}/pin`, `POST /api/video/projects/{id}/pin` | `get_current_user` | 맨 위에 고정 / 고정 해제 (`{on}`): how the owner reads their own list, like ★ — works while not taking part, never moves `updated_at` |
 | `POST /api/builder/projects/{id}/thumbnail?space=draft\|published` | **`require_active_member`** | A picture of the working copy or the published version, taken in the maker's browser (bytes as the body, `application/octet-stream`, ≤ 4 MB): kind and size checked from the bytes, re-encoded to 640×400 WebP, stored; 409 for `published` while nothing is published |
 | `GET /api/builder/projects/{id}/thumbnail?space=…` | `get_current_user` | The member's own project's picture (Builder cards) — works while inactive |
+| `POST /api/builder/projects/{id}/references?name=` | **`require_active_member`** | builder-images (1): a 참고 사진 for the next 만들기 / 고치기 (bytes as the body, `application/octet-stream`): kind from the bytes, re-encoded at 1,024 px without metadata, at most 3 waiting, 50 MB per member; free — the calls that read it are charged for it |
+| `GET /api/builder/projects/{id}/references`, `GET …/references/{rid}/file` | `get_current_user` | The waiting pictures (the request box's thumbnails) — owner only (404 otherwise) |
+| `DELETE /api/builder/projects/{id}/references/{rid}` | **`require_active_member`** | ✕ on a waiting picture (409 once a plan took it) |
+| `POST /api/builder/projects/{id}/assets?name=` | **`require_active_member`** | builder-images (2): a picture in the app at `images/<safe name>` (bytes as the body): re-encoded at 1,600 px without metadata, ≤ 1 MB each, 10 and 5 MB per project; the preview is rewritten; free |
+| `GET /api/builder/projects/{id}/assets`, `GET …/assets/{aid}/file` | `get_current_user` | The app's pictures (the file sidebar) — owner only |
+| `DELETE /api/builder/projects/{id}/assets/{aid}` | **`require_active_member`** | Take a picture out; the preview is rewritten |
 | `PATCH /api/builder/projects/{id}/versions/{n}` | **`require_active_member`** | Name or pin a saved version |
 | `POST /api/builder/projects/{id}/publish` | **`require_active_member`** | 게시 / 업데이트 게시 — builder-snapshots: saves the working copy as the next version first when it differs from the version it stands on, so the published version is always a numbered row (never pruned) |
 | `POST /api/builder/projects/{id}/unpublish` | `get_current_user` | 게시 취소 — taking your own app down works while inactive |
@@ -139,6 +145,11 @@ the same commit that adds it.
 | `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
 | `GET /api/apps/{slug}/thumbnail` | `get_current_user` | The published version's picture (CtrlAIApps cards and the detail head); 404 while there is none |
+| `GET /api/apps/{slug}/discussion` | `get_current_user` | ctrlaiapps-reactions: the app's reaction counts, mine, and the comment tree — through the published listing (404 once unpublished or deleted) |
+| `POST /api/apps/{slug}/reactions`, `POST /api/apps/{slug}/comments` | **`require_active_member`** | Toggle 좋아요 · 유용해요 · 흥미로워요 (`{kind}`); comment or reply (`{body, parent_id}`) — CtrlAITube's rules |
+| `PATCH`/`DELETE /api/apps/comments/{id}` | **`require_active_member`** | Edit / delete my own comment (anyone else's is a 404) |
+| `POST /api/apps/comments/{id}/report` | `get_current_user` | 신고 an app comment (one open report per member per comment) |
+| `GET /api/admin/tube/app-reports`, `POST /api/admin/tube/app-comments/{id}/hide\|delete`, `POST /api/admin/tube/app-reports/{id}/resolve` | `require_admin` | Admin › Content's comment queue for app comments (audited, closes open reports) |
 | `POST /api/apps/{slug}/favorite` | `get_current_user` | ★ 즐겨찾기 on / off — the member's own `app_favorites` row; spends nothing, so not participating may still pin |
 | `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
@@ -315,6 +326,15 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
       (no internet, no GCE metadata server 169.254.169.254)
 ```
 
+0. **Draft pictures too** (draft-server-thumbnails, 2026-10-17): every
+   new working copy (`_refresh_runtime` after a change) queues a `draft`
+   job beside 게시's `published` one (separate jobs, de-duplicated per
+   project and kind); its address is `draft_url` — the project's own
+   `draft_slug` + `/_app/index.html`, refused before the copy is written.
+   It is the folder the Builder preview already loads by its unguessable
+   slug, so nothing becomes readable that was not; the worker's checks are
+   unchanged. The worker waits for `document.fonts` (≤ 4 s) and 1.5 s
+   more before the screenshot, inside the same deadline.
 1. **The api asks for one address only** (`services/thumbnail_render`):
    `APPS_BASE_URL` + the project's own ten-letter slug +
    `/_app/index.html` — never a URL from a request body. 게시 queues the
@@ -535,7 +555,13 @@ Alembic has migrated (`backend/app/models/`).
   listing filters on it); since ui-improvements **pinned_at** (맨 위에
   고정) and **draft_thumbnail_at** (the working copy's picture exists in
   storage), and each **BuilderProjectVersion** a **thumbnail_at** (the
-  published picture, kept per version). Since builder-snapshots a
+  published picture, kept per version).
+  **BuilderReference** (builder-images (1)): a 참고 사진 waiting
+  (`generation_id` NULL) or kept by the run that used it; bytes at
+  `builder-ref/<project>/<id>`. **BuilderAsset** (2): a picture of the app at
+  a unique `path` under `images/`, bytes at `builder-asset/<project>/<id>`,
+  project-level (not versioned). Both are purged with the project; a
+  member's 참고 사진 go at withdrawal, the app's pictures stay with the work. Since builder-snapshots a
   **BuilderProjectVersion** is a *saved snapshot* (made by 버전 저장, by
   게시 and when a project starts; numbers only grow; the newest 30 are
   kept, pinned and published ones excepted) and **BuilderProjectStep**

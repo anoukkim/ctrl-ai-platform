@@ -87,7 +87,7 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
     await page.reload();
     frame = await appFrame(page, slug);
     await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
-    await page.getByRole("button", { name: "실제 AI 켜기" }).click();
+    await page.getByRole("button", { name: /로그인해서 사용하기|AI 사용하기/ }).click();
     await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI");
 
     // 3. Live again, signed out of the app: a call starts the sign-in window

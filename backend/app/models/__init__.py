@@ -5,6 +5,7 @@ Alembic's autogenerate and the test fixtures read. A model that is not
 imported here is invisible to both.
 """
 
+from app.models.app_discussion import AppComment, AppCommentReport, AppReaction
 from app.models.app_platform import (
     AppConsent,
     AppDataCollection,
@@ -36,6 +37,8 @@ from app.models.builder import (
     AppReport,
     BuilderEvalReport,
     BuilderGeneration,
+    BuilderReference,
+    BuilderAsset,
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectStatus,
@@ -83,6 +86,9 @@ from app.models.withdrawal import (
 )
 
 __all__ = [
+    "AppComment",
+    "AppCommentReport",
+    "AppReaction",
     "AppConsent",
     "AppDataCollection",
     "AppDataItem",
@@ -125,6 +131,8 @@ __all__ = [
     "BuilderProjectStep",
     "BuilderProjectVersion",
     "BuilderGeneration",
+    "BuilderReference",
+    "BuilderAsset",
     "BuilderEvalReport",
     "FEEDBACK_MAX_LENGTH",
     "FEEDBACK_PER_HOUR",

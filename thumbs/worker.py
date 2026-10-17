@@ -71,8 +71,15 @@ TIMEOUT_CAP_S = 30
 DEFAULT_TIMEOUT_S = 20
 #: How long a second caller waits for the lock before 503.
 BUSY_WAIT_S = 25
-#: A moment after `load` for fonts, images and first animations to settle.
-SETTLE_MS = 700
+#: After `load` and `document.fonts.ready` (draft-server-thumbnails: the
+#: owner asked for the fonts and ~1–2 s), a moment for images and first
+#: animations to settle.
+SETTLE_MS = 1500
+#: The most the font wait may take, whatever the page does.
+FONTS_MS = 3000
+#: Budget for starting the browser, and for the screenshot itself.
+LAUNCH_MS = 2000
+SHOT_MS = 5000
 
 PATH = re.compile(r"^/[a-z2-9]{10}/_app/index\.html$")
 
@@ -175,8 +182,10 @@ def render(
     from playwright.sync_api import TimeoutError as PlaywrightTimeout
     from playwright.sync_api import sync_playwright
 
-    timeout_s = max(5, min(int(timeout_s), TIMEOUT_CAP_S))
-    nav_ms = (timeout_s - 5) * 1000
+    timeout_s = max(10, min(int(timeout_s), TIMEOUT_CAP_S))
+    # Launch (~2 s), navigation, the font wait, the settle and the screenshot
+    # (5 s) together stay inside the caller's deadline (timeout_s + 5).
+    nav_ms = max(3000, (timeout_s + 5) * 1000 - LAUNCH_MS - FONTS_MS - SETTLE_MS - SHOT_MS)
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             channel=channel, chromium_sandbox=sandbox, args=launch_args(allowed_host, resolve_to)
@@ -213,8 +222,14 @@ def render(
             context.on("page", lambda popup: popup.close() if popup is not page else None)
             try:
                 page.goto(url, wait_until="load", timeout=nav_ms)
+                # Web fonts (Pretendard and the app fonts) before the picture;
+                # a page whose fonts never settle still gets its picture.
+                try:
+                    page.wait_for_function("document.fonts.status === 'loaded'", timeout=FONTS_MS)
+                except PlaywrightTimeout:
+                    pass
                 page.wait_for_timeout(SETTLE_MS)
-                return page.screenshot(type="png", full_page=False, timeout=5000, animations="disabled")
+                return page.screenshot(type="png", full_page=False, timeout=SHOT_MS, animations="disabled")
             except PlaywrightTimeout as error:
                 raise Refusal(504, "render timed out") from error
             except PlaywrightError as error:

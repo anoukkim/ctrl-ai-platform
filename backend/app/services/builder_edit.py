@@ -65,11 +65,21 @@ def _input_estimate(
 def estimate(
     db: Session, settings: Settings, user: User, project: BuilderProject, request: str = ""
 ) -> EditEstimate:
-    """At the project's model and depth; the worst case is exactly what the
-    pre-check in `generate` reserves."""
+    """At the project's model and depth: what 만들기 / 고치기 will cost — the
+    request, the files, the app's pictures named to Claude and the waiting
+    참고 사진 (builder-images), as the staged plan's pre-check counts them."""
     choice = builder_choice.choose(db, settings, user, project)
     files = builder_versions.current_files(db, project)
     tokens_in = _input_estimate(project, files, request or "x" * 120)
+    # builder-images (1): the pictures waiting in the request box.
+    from app.services import builder_references
+    from app.services.builder_stages import reference_tokens
+
+    from app.services import builder_assets
+    from app.services.builder_stages import _references_for_plan
+
+    tokens_in += reference_tokens(_references_for_plan(db, project))
+    tokens_in += pricing.estimate_tokens(builder_assets.note(db, project))
     room = max(choice.room(tokens_in), 0)
     default = chat_models.default_row(db)
     return EditEstimate(

@@ -13,9 +13,23 @@
  * "이 앱의 공유 글은 다른 회원도 볼 수 있어요"라고 말합니다.
  */
 
-import { ExternalLink, Flag } from "lucide-react";
+import { ExternalLink, Flag, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
+
+import AppDiscussionPanel from "./AppDiscussionPanel";
+
+/** ctrlaiapps-reactions: the 반응·댓글 panel folded away, remembered per browser. */
+export const PANEL_STORAGE_KEY = "ctrlai.app-panel-collapsed";
+
+function readPanelCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PANEL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 import Skeleton from "@/app/components/Skeleton";
 import { useToast } from "@/app/components/ToastProvider";
@@ -64,6 +78,18 @@ export default function AppDetail({ slug }: { slug: string }) {
   const [reportError, setReportError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const descriptionId = useId();
+  const panelId = useId();
+  const [panelCollapsed, setPanelCollapsed] = useState(readPanelCollapsed);
+  const togglePanel = () =>
+    setPanelCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(PANEL_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* 기억하지 못해도 접기·펴기는 됩니다 */
+      }
+      return next;
+    });
 
   useEffect(() => {
     getApp(slug)
@@ -219,24 +245,52 @@ export default function AppDetail({ slug }: { slug: string }) {
         </div>
       )}
 
-      {app.app_url ? (
-        <section className={styles.livePreview} aria-label="앱">
-          <div className={styles.livePreviewBar}>
-            여기서 바로 써 볼 수 있어요 · 비밀번호나 개인 정보는 입력하지 마세요
+      {/* ctrlaiapps-reactions (owner: "7:3 … 영상처럼 댓글 윈도우"): the app
+          takes ~70% and the 반응·댓글 panel ~30% on a wide screen; the panel
+          folds away (remembered per browser); on a phone it goes under. */}
+      <div
+        className={`${styles.detailSplit} ${panelCollapsed ? styles.detailSplitFolded : ""}`}
+        data-panel-collapsed={panelCollapsed || undefined}
+      >
+        <div className={styles.detailMain}>
+        {app.app_url ? (
+          <section className={styles.livePreview} aria-label="앱">
+            <div className={styles.livePreviewBar}>
+              여기서 바로 써 볼 수 있어요 · 비밀번호나 개인 정보는 입력하지 마세요
+            </div>
+            <iframe
+              className={styles.livePreviewFrame}
+              src={app.app_url}
+              sandbox={RUNTIME_SANDBOX}
+              title={app.name}
+              referrerPolicy="no-referrer"
+            />
+          </section>
+        ) : (
+          <section className={styles.livePreview} aria-label="앱">
+            <p className={styles.livePreviewOffline}>앱 서버가 잠시 꺼져 있어요. 잠시 뒤 다시 열어 주세요.</p>
+          </section>
+        )}
+        </div>
+        <aside className={styles.discussionPanel} aria-label="반응과 댓글">
+          <button
+            className={styles.panelToggle}
+            type="button"
+            onClick={togglePanel}
+            aria-expanded={!panelCollapsed}
+            aria-controls={panelId}
+            aria-label={panelCollapsed ? "반응·댓글 펼치기" : "반응·댓글 접기"}
+            title={panelCollapsed ? "반응·댓글 펼치기" : "반응·댓글 접기"}
+          >
+            {panelCollapsed ? <PanelRightOpen size={15} aria-hidden="true" /> : <PanelRightClose size={15} aria-hidden="true" />}
+            {panelCollapsed && <span className={styles.panelToggleLabel}>반응·댓글</span>}
+          </button>
+          <div id={panelId} className={styles.panelBody} hidden={panelCollapsed || undefined}>
+            {/* Always mounted: on a phone the panel shows under the app even when folded on a wide screen. */}
+            <AppDiscussionPanel slug={app.slug} />
           </div>
-          <iframe
-            className={styles.livePreviewFrame}
-            src={app.app_url}
-            sandbox={RUNTIME_SANDBOX}
-            title={app.name}
-            referrerPolicy="no-referrer"
-          />
-        </section>
-      ) : (
-        <section className={styles.livePreview} aria-label="앱">
-          <p className={styles.livePreviewOffline}>앱 서버가 잠시 꺼져 있어요. 잠시 뒤 다시 열어 주세요.</p>
-        </section>
-      )}
+        </aside>
+      </div>
 
       <p className={styles.honest}>{honestNote(app)}</p>
       {aiNote(app) && (
