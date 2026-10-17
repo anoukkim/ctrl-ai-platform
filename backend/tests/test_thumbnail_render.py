@@ -519,6 +519,42 @@ def test_the_worker_waits_for_fonts_and_stays_inside_the_deadline(worker) -> Non
 
     source = inspect.getsource(worker.render)
     assert "document.fonts.status" in source
-    # nav + fonts + settle + screenshot (5 s) fit in timeout_s + 5.
-    timeout_s = worker.DEFAULT_TIMEOUT_S
-    assert max(3, timeout_s - 8) + worker.FONTS_MS / 1000 + worker.SETTLE_MS / 1000 + 5 <= timeout_s + 5
+    # launch + nav + fonts + settle + screenshot fit in timeout_s + 5, at the
+    # default and at the smallest timeout the worker accepts (10 s).
+    for timeout_s in (worker.DEFAULT_TIMEOUT_S, 10):
+        fixed = worker.LAUNCH_MS + worker.FONTS_MS + worker.SETTLE_MS + worker.SHOT_MS
+        nav = max(3000, (timeout_s + 5) * 1000 - fixed)
+        assert nav + fixed <= (timeout_s + 5) * 1000, timeout_s
+
+
+def test_a_draft_job_is_queued_only_after_the_commit_and_finds_a_first_draft(
+    db_session: Session, dev_user, settings_for, monkeypatch
+) -> None:
+    from datetime import datetime, timezone
+
+    settings = settings_for(thumbnail_renderer="server", thumbnail_worker_url=WORKER, thumbnail_worker_secret=SECRET)
+    renderer = thumbnail_render.FakeRenderer()
+    thumbnail_render.use_renderer(renderer)
+    try:
+        queue = make_queue(db_session, settings)
+        row = BuilderProject(owner_user_id=dev_user.id, name="새 앱", description="")
+        db_session.add(row)
+        db_session.flush()
+        row.draft_slug = "abcdefgh23"
+        row.app_runtime_at = datetime.now(timezone.utc)
+        thumbnail_render.enqueue_after_commit(db_session, settings, row.id, "draft")
+        assert queue.pending() == 0  # not before the commit
+        db_session.commit()
+        assert queue.pending() == 1
+        assert queue.run_one(block=False) is True
+        assert queue.done == 1 and renderer.urls[-1].startswith(f"{APPS_BASE}/abcdefgh23/_app/index.html")
+        # A rolled-back change queues nothing.
+        row.name = "되돌릴 이름"
+        db_session.flush()
+        thumbnail_render.enqueue_after_commit(db_session, settings, row.id, "draft")
+        db_session.rollback()
+        db_session.commit()
+        assert queue.pending() == 0
+    finally:
+        thumbnail_render.use_renderer(None)
+        thumbnail_render.use_queue(None)

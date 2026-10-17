@@ -89,11 +89,13 @@ def of_generation(db: Session, generation: BuilderGeneration) -> list[BuilderRef
 
 
 def member_bytes(db: Session, user_id: int) -> int:
+    """A member's pictures on projects they still have — a deleted project's
+    stop counting at once (its bytes go at the purge)."""
     return int(
         db.scalar(
-            select(func.coalesce(func.sum(BuilderReference.stored_size), 0)).where(
-                BuilderReference.user_id == user_id
-            )
+            select(func.coalesce(func.sum(BuilderReference.stored_size), 0))
+            .join(BuilderProject, BuilderProject.id == BuilderReference.project_id)
+            .where(BuilderReference.user_id == user_id, BuilderProject.deleted_at.is_(None))
         )
         or 0
     )
@@ -139,14 +141,6 @@ def remove(db: Session, storage: AssetStorage, row: BuilderReference) -> None:
     db.delete(row)
     db.flush()
     delete_bytes(storage, [key])
-
-
-def take_for(db: Session, project: BuilderProject, generation: BuilderGeneration) -> list[BuilderReference]:
-    """The plan keeps the waiting pictures for its run."""
-    rows = pending(db, project)[:MAX_PER_REQUEST]
-    for row in rows:
-        row.generation_id = generation.id
-    return rows
 
 
 def tokens(rows: list[BuilderReference]) -> int:

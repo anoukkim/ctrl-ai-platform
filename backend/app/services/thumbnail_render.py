@@ -426,6 +426,38 @@ def use_queue(instance: RenderQueue | None) -> None:
         _queue = instance
 
 
+_PENDING_KEY = "thumbnail_render.pending"
+
+
+def enqueue_after_commit(db: Session, settings: Settings, project_id: int, kind: str) -> None:
+    """`enqueue` once `db` commits (never, if it rolls back) — the job's own
+    session must find what this one is about to write. The jobs wait in
+    `db.info`; one pair of listeners per session hands them over on commit
+    and drops them on rollback (listeners are never removed mid-dispatch)."""
+    if get_renderer(settings) is None:
+        return
+    from sqlalchemy import event
+
+    pending: list = db.info.setdefault(_PENDING_KEY, [])
+    if (settings, project_id, kind) not in pending:
+        pending.append((settings, project_id, kind))
+    if db.info.get(_PENDING_KEY + ".hooked"):
+        return
+    db.info[_PENDING_KEY + ".hooked"] = True
+
+    def hand_over(session) -> None:
+        jobs = list(session.info.get(_PENDING_KEY, []))
+        session.info[_PENDING_KEY] = []
+        for job_settings, job_project, job_kind in jobs:
+            enqueue(job_settings, job_project, job_kind)
+
+    def drop(session, _previous_transaction=None) -> None:
+        session.info[_PENDING_KEY] = []
+
+    event.listen(db, "after_commit", hand_over)
+    event.listen(db, "after_soft_rollback", drop)
+
+
 def enqueue(settings: Settings, project_id: int, kind: str = "published") -> bool:
     """After 게시 (`published`) or a new working copy (`draft`,
     draft-server-thumbnails): ask for the picture, in the background. A

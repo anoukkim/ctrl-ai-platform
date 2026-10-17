@@ -627,10 +627,10 @@ def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -
         return
     # draft-server-thumbnails: with THUMBNAIL_RENDERER=server the new working
     # copy is photographed by the worker too (the Builder card); the
-    # in-browser capture still runs. Queued after the caller's commit is
-    # the norm, but the job reads the row itself and the slug and folder
-    # already exist, so a job that runs first just photographs this copy.
-    thumbnail_render.enqueue(settings, project.id, "draft")
+    # in-browser capture still runs. Queued only once the caller commits:
+    # the job reads the row in its own session, and a new project or a
+    # first draft (slug just made) must be there to be read.
+    thumbnail_render.enqueue_after_commit(db, settings, project.id, "draft")
 
 
 def _version_read(

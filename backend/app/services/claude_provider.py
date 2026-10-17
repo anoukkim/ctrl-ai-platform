@@ -455,6 +455,7 @@ class ClaudeProvider(Protocol):
         style: str = "",
         effort: str | None = None,
         images: list[dict] | None = None,
+        notes: str = "",
     ) -> ProjectPlan: ...
 
     def write_project_file(
@@ -469,6 +470,7 @@ class ClaudeProvider(Protocol):
         style: str = "",
         effort: str | None = None,
         images: list[dict] | None = None,
+        notes: str = "",
     ) -> ProjectEdit: ...
 
     def check_project(
@@ -478,6 +480,7 @@ class ClaudeProvider(Protocol):
         model: str = "",
         max_tokens: int = 16000,
         effort: str | None = None,
+        notes: str = "",
     ) -> ProjectEdit: ...
 
 
@@ -805,9 +808,10 @@ def with_images(text: str, images: list[dict] | None) -> str | list[dict]:
 
 
 def edit_request_text(
-    name: str, files: list[tuple[str, str]], request: str, style: str = ""
+    name: str, files: list[tuple[str, str]], request: str, style: str = "", notes: str = ""
 ) -> str:
-    """The member's request (and chosen style), then every current file, whole."""
+    """The member's request (and chosen style), then every current file,
+    whole; `notes` (builder-images (2): the app's pictures) at the end."""
     parts = [f"프로젝트 이름: {name.strip()}", "", "요청:", request.strip(), ""]
     if style.strip():
         parts += ["원하는 스타일:", style.strip(), ""]
@@ -817,6 +821,8 @@ def edit_request_text(
             parts.append(f'<file path="{path}">\n{content}\n</file>')
     else:
         parts.append("현재 파일: 없음 (새로 만듭니다)")
+    if notes.strip():
+        parts += ["", notes.strip()]
     return "\n".join(parts)
 
 
@@ -953,6 +959,7 @@ def file_request_text(
     plan: list[tuple[str, str]],
     path: str,
     style: str = "",
+    notes: str = "",
 ) -> str:
     """The request, the plan, the files so far, and the one file to write."""
     parts = [f"프로젝트 이름: {name.strip()}", "", "요청:", request.strip(), ""]
@@ -967,14 +974,18 @@ def file_request_text(
             parts.append(f'<file path="{file_path}">\n{content}\n</file>')
     else:
         parts.append("지금까지의 파일: 없음")
+    if notes.strip():
+        parts += ["", notes.strip()]
     parts += ["", f"지금 쓸 파일: {path}"]
     return "\n".join(parts)
 
 
-def check_request_text(name: str, files: list[tuple[str, str]]) -> str:
+def check_request_text(name: str, files: list[tuple[str, str]], notes: str = "") -> str:
     parts = [f"프로젝트 이름: {name.strip()}", "", "파일:"]
     for file_path, content in files:
         parts.append(f'<file path="{file_path}">\n{content}\n</file>')
+    if notes.strip():
+        parts += ["", notes.strip()]
     return "\n".join(parts)
 
 
@@ -1742,6 +1753,7 @@ class MockClaudeProvider:
         style: str = "",
         effort: str | None = None,
         images: list[dict] | None = None,
+        notes: str = "",
     ) -> ProjectPlan:
         """The files the one-shot mock would write, each with a purpose."""
         edit = self.edit_project(name, files, request, model, 16000, style)
@@ -1755,7 +1767,7 @@ class MockClaudeProvider:
             files=planned,
             model=model or self.model_id,
             input_tokens=estimate_tokens(PLAN_SYSTEM)
-            + content_tokens(with_images(edit_request_text(name, files, request, style), images)),
+            + content_tokens(with_images(edit_request_text(name, files, request, style, notes), images)),
             output_tokens=40 + 30 * len(planned),
         )
 
@@ -1771,6 +1783,7 @@ class MockClaudeProvider:
         style: str = "",
         effort: str | None = None,
         images: list[dict] | None = None,
+        notes: str = "",
     ) -> ProjectEdit:
         """That file as the one-shot mock would write it.
 
@@ -1794,7 +1807,7 @@ class MockClaudeProvider:
         # app.js, as the SDK rules make the real model do (app-platform P4).
         if MOCK_MANIFEST in request and path == "app.js":
             writes.append(("ctrlai.json", MOCK_MANIFEST_JSON))
-        text = file_request_text(name, files, request, plan, path, style)
+        text = file_request_text(name, files, request, plan, path, style, notes)
         return ProjectEdit(
             summary=f"{path}을(를) 썼어요.",
             writes=writes,
@@ -1810,6 +1823,7 @@ class MockClaudeProvider:
         model: str = "",
         max_tokens: int = 16000,
         effort: str | None = None,
+        notes: str = "",
     ) -> ProjectEdit:
         """Nothing to fix — unless a file carries `MOCK_CHECK_FIX`, or
         `MOCK_CHECK_MANIFEST` with no ctrlai.json yet (the check adds it)."""
@@ -1827,7 +1841,7 @@ class MockClaudeProvider:
             summary=summary,
             writes=fixes,
             model=model or self.model_id,
-            input_tokens=estimate_tokens(CHECK_SYSTEM + check_request_text(name, files)),
+            input_tokens=estimate_tokens(CHECK_SYSTEM + check_request_text(name, files, notes)),
             output_tokens=40 + sum(len(content) // 3 for _, content in fixes),
         )
 
@@ -2486,6 +2500,7 @@ class AnthropicClaudeProvider:
         style: str = "",
         effort: str | None = None,
         images: list[dict] | None = None,
+        notes: str = "",
     ) -> ProjectPlan:
         """One small call, structured JSON back (`PLAN_SCHEMA`). Not cached."""
         import json
@@ -2495,7 +2510,7 @@ class AnthropicClaudeProvider:
         client = self._builder_client()
         params = self.request_params(
             PLAN_SYSTEM,
-            [{"role": "user", "content": with_images(edit_request_text(name, files, request, style), images)}],
+            [{"role": "user", "content": with_images(edit_request_text(name, files, request, style, notes), images)}],
             max_tokens,
             model,
             effort=effort,
@@ -2537,11 +2552,12 @@ class AnthropicClaudeProvider:
         style: str = "",
         effort: str | None = None,
         images: list[dict] | None = None,
+        notes: str = "",
     ) -> ProjectEdit:
         """One file through `write_file`, with the plan and the files so far."""
         return self._tool_rounds(
             FILE_SYSTEM,
-            with_images(file_request_text(name, files, request, plan, path, style), images),
+            with_images(file_request_text(name, files, request, plan, path, style, notes), images),
             model,
             max_tokens,
             effort,
@@ -2554,9 +2570,10 @@ class AnthropicClaudeProvider:
         model: str = "",
         max_tokens: int = 16000,
         effort: str | None = None,
+        notes: str = "",
     ) -> ProjectEdit:
         """The self-check: fixes come back as `write_file` calls."""
-        return self._tool_rounds(CHECK_SYSTEM, check_request_text(name, files), model, max_tokens, effort)
+        return self._tool_rounds(CHECK_SYSTEM, check_request_text(name, files, notes), model, max_tokens, effort)
 
     def _builder_client(self):
         import anthropic

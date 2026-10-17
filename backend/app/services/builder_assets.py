@@ -19,6 +19,7 @@ import re
 import unicodedata
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -86,7 +87,12 @@ def add(
     data: bytes,
     name: str,
 ) -> BuilderAsset:
-    """Check, store and record one picture. Does not commit. Raises `AttachmentRefusal`."""
+    """Check, store and record one picture. Does not commit. Raises `AttachmentRefusal`.
+
+    The project row is locked first, so two uploads at once cannot both
+    pass the limits or pick the same path (PostgreSQL; the unique
+    constraint is the last word either way)."""
+    db.execute(select(BuilderProject.id).where(BuilderProject.id == project.id).with_for_update())
     if sniff(data) not in ("jpeg", "png", "gif", "webp"):
         raise AttachmentRefusal(UNSUPPORTED)
     if len(data) > settings.chat_attachment_image_max_mb * MB:
@@ -108,8 +114,12 @@ def add(
         width=checked.width or 0,
         height=checked.height or 0,
     )
-    db.add(row)
-    db.flush()
+    try:
+        with db.begin_nested():
+            db.add(row)
+            db.flush()
+    except IntegrityError as error:
+        raise AttachmentRefusal("같은 이름의 사진을 동시에 올렸어요. 다시 한 번 올려 주세요.", status_code=409) from error
     row.storage_key = storage_key(row)
     storage.save(row.storage_key, checked.data)
     return row

@@ -200,7 +200,7 @@ def test_purge_and_withdrawal_remove_the_bytes(
 # ------------------------------------------------------------ money (the batch review's focus)
 
 
-def test_pictures_raise_the_estimate_and_the_charge_by_exactly_their_tokens(
+def test_pictures_raise_the_estimate_and_the_charge(
     client: TestClient, db_session: Session, project, budgeted, config
 ) -> None:
     before = client.get(f"/api/builder/projects/{project.id}/generate-estimate").json()
@@ -248,3 +248,59 @@ def test_a_refused_upload_or_a_failed_plan_charges_nothing(
     absorbed = db_session.query(UsageEvent).order_by(UsageEvent.id.desc()).first()
     assert absorbed.charged_krw == 0 and absorbed.provider_cost and absorbed.provider_cost > 0
     assert len(client.get(f"/api/builder/projects/{project.id}/references").json()) == 1
+
+
+def test_the_wallet_pre_check_counts_the_pictures_in_the_plan_and_every_file_call(
+    client: TestClient, db_session: Session, project, budgeted, dev_user, config, monkeypatch
+) -> None:
+    """What `ensure_affordable` is asked to reserve covers the pictures: the
+    plan at least once, each file call once per possible write_file round
+    (the real provider resends the first message on every round)."""
+    from app.services import builder_choice
+    from app.services import usage as usage_service
+    from app.services.claude_provider import EDIT_MAX_ROUNDS
+
+    asked: list[int] = []
+    real = usage_service.ensure_affordable
+
+    def record(db, *, user, amount_krw, settings):
+        asked.append(amount_krw)
+        return real(db, user=user, amount_krw=amount_krw, settings=settings)
+
+    monkeypatch.setattr(usage_service, "ensure_affordable", record)
+    upload(client, project, picture())
+    upload(client, project, picture(800, 1200, "PNG"), "b.png")
+    planned = plan(client, project, "카페 메뉴판").json()
+    db_session.expire_all()
+    rows = db_session.query(BuilderReference).filter_by(generation_id=planned["id"]).all()
+    picture_tokens = builder_stages.reference_tokens(rows)
+    price = builder_choice.choose(db_session, config, dev_user, project).price
+    assert asked[0] >= price.krw(picture_tokens, 0) > 0
+    asked.clear()
+    events = run(client, project, planned["id"])
+    assert events[-1][0] == "done"
+    file_calls = asked[: len(planned["plan"])]
+    assert len(file_calls) == len(planned["plan"])
+    assert all(amount >= price.krw(picture_tokens * EDIT_MAX_ROUNDS, 0) for amount in file_calls)
+
+
+def test_a_re_plan_keeps_the_pictures(client: TestClient, db_session: Session, project, budgeted, config) -> None:
+    upload(client, project, picture(300, 200, "PNG"))
+    first = plan(client, project, "카페 메뉴판").json()
+    second = plan(client, project, "카페 메뉴판, 더 크게").json()
+    assert second["id"] != first["id"]
+    db_session.expire_all()
+    rows = db_session.query(BuilderReference).filter_by(project_id=project.id).all()
+    assert len(rows) == 1 and rows[0].generation_id == second["id"]
+
+
+def test_the_quota_does_not_count_a_deleted_projects_pictures(
+    client: TestClient, db_session: Session, project, budgeted, dev_user, config
+) -> None:
+    from datetime import datetime, timezone
+
+    upload(client, project, picture(300, 200, "PNG"))
+    assert builder_references.member_bytes(db_session, dev_user.id) > 0
+    project.deleted_at = datetime.now(timezone.utc)
+    db_session.commit()
+    assert builder_references.member_bytes(db_session, dev_user.id) == 0
