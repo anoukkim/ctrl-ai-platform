@@ -53,6 +53,7 @@ import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
 
 import styles from "@/app/components/library.module.css";
 import { useToast } from "@/app/components/ToastProvider";
+import { isRunning, useRuns } from "@/lib/running";
 
 type State =
   | { phase: "loading" }
@@ -60,6 +61,8 @@ type State =
   | { phase: "error"; message: string };
 
 export default function BuilderLibrary() {
+  // running-state-calm: a build still running shows on its card.
+  const runs = useRuns();
   const toast = useToast();
   // 참여하지 않는 분기에는 새로 만들 수 없습니다. 실제 차단은
   // 백엔드의 require_active_member가 하고, 여기서는 이유를 설명합니다.
@@ -512,6 +515,11 @@ export default function BuilderLibrary() {
                 <p className={styles.cardDescription}>{project.description}</p>
               )}
               <p className={styles.cardMeta}>
+                {isRunning(runs, "builder", project.id) && (
+                  <span className="run-chip" data-testid="card-running">
+                    <span className="run-dot" aria-hidden="true" /> 작업 중
+                  </span>
+                )}
                 <span className={styles.metaTime}>{formatRelative(project.updated_at)}</span>
                 <span className={styles.metaDot} aria-hidden="true">
                   ·

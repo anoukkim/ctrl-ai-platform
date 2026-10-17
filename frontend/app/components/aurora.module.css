@@ -1,13 +1,15 @@
-/* 오로라 카드 (motion-modern (1)) — 느리게 흐르는 빛 위의 상태 한 줄. */
+/* motion-modern (1) → running-state-calm (2026-10-17): the "being made" card.
+   Calm: the card's own dark surface, a .run-sweep on top, the step chips,
+   a flowchart skeleton, and — only if Profile › 오로라 배경 is on — a very
+   faint slow glow inside. */
+
 .card {
   position: relative;
   overflow: hidden;
-  min-height: 7.5rem;
-  margin: 0.4rem 0;
+  margin: 0.6rem 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel);
-  color: var(--text);
   isolation: isolate;
 }
 
@@ -16,144 +18,205 @@
   inset: 0;
   z-index: 3;
   margin: 0;
-  min-height: 0;
-  border: 0;
   border-radius: 0;
 }
 
 .aurora {
   position: absolute;
-  inset: -40%;
-  z-index: 0;
-  filter: blur(42px) saturate(1.2);
-  opacity: 0.55;
+  inset: 0;
+  z-index: -1;
   pointer-events: none;
 }
 
 .blob {
   position: absolute;
-  width: 55%;
-  height: 55%;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, var(--accent), transparent 70%);
-  animation: aurora-drift 14s ease-in-out infinite alternate;
+  background: var(--run);
+  filter: blur(46px);
+  opacity: 0.14;
+  left: -30px;
+  top: -90px;
+  animation: aurora-drift-a 9s ease-in-out infinite alternate;
 }
 
 .blob2 {
-  left: 45%;
-  top: 30%;
-  background: radial-gradient(closest-side, #c9b6ff, transparent 70%);
-  animation-duration: 18s;
-  animation-delay: -6s;
+  left: auto;
+  top: auto;
+  right: -30px;
+  bottom: -100px;
+  background: #1d9e75;
+  animation-name: aurora-drift-b;
+  animation-duration: 11s;
 }
 
-.blob3 {
-  left: 20%;
-  top: 45%;
-  background: radial-gradient(closest-side, #8ef0d4, transparent 70%);
-  animation-duration: 22s;
-  animation-delay: -11s;
+@keyframes aurora-drift-a {
+  to {
+    transform: translate(260px, 40px);
+  }
 }
 
-@keyframes aurora-drift {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(22%, -12%) scale(1.15);
-  }
-  100% {
-    transform: translate(-14%, 18%) scale(0.95);
+@keyframes aurora-drift-b {
+  to {
+    transform: translate(-240px, -30px);
   }
 }
 
 .body {
   position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 0.45rem;
-  height: 100%;
-  padding: 1rem 1.1rem;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem 0.9rem;
 }
 
 .title {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
   margin: 0;
-  font-weight: 650;
 }
 
 .titleText {
-  background: linear-gradient(90deg, var(--text) 0%, var(--text) 40%, var(--accent) 50%, var(--text) 60%, var(--text) 100%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: aurora-shine 2.4s ease-in-out infinite;
+  color: var(--text);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-strong);
 }
 
-@keyframes aurora-shine {
-  from {
-    background-position: 120% 0;
-  }
-  to {
-    background-position: -120% 0;
-  }
+.meta {
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+  font-variant-numeric: tabular-nums;
 }
 
 .seconds {
-  font-family: var(--mono);
-  font-size: 0.8em;
   font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .chip {
-  padding: 0.15rem 0.6rem;
-  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  padding: 2px 10px;
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--panel) 70%, transparent);
-  font-size: 0.78rem;
   color: var(--text-dim);
-  transition: color 0.3s ease, border-color 0.3s ease;
+  font-size: var(--fs-chip);
 }
 
 .chip[data-state="done"] {
-  color: var(--text);
-  border-color: var(--accent-border);
+  border-color: color-mix(in srgb, var(--success, #3fb97a) 45%, transparent);
+  color: var(--success, #7fd6a8);
 }
 
 .chip[data-state="now"] {
-  color: var(--accent);
-  border-color: var(--accent);
+  border-color: var(--text-dim);
+  color: var(--text);
 }
 
-.cost {
-  margin: 0;
-  font-size: var(--fs-meta, 0.8rem);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
+/* The current step: a short bar sweeping under its label. */
+.chip[data-state="now"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 35%;
+  height: 2px;
+  background: var(--run);
+  animation: run-sweep 1.3s ease-in-out infinite;
 }
 
+.skeleton {
+  display: block;
+  width: min(100%, 420px);
+  height: auto;
+  margin: 0.2rem auto 0;
+}
+
+.node {
+  fill: var(--panel-2);
+  stroke: var(--border-strong);
+  opacity: 0;
+  animation: skeleton-node 6s ease-out infinite;
+}
+
+.node2 {
+  animation-delay: 0.6s;
+}
+
+.node3 {
+  animation-delay: 1.2s;
+}
+
+.line {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 1.2;
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: skeleton-line 6s ease-out infinite;
+  animation-delay: 0.3s;
+}
+
+.line2 {
+  animation-delay: 0.9s;
+}
+
+@keyframes skeleton-node {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes skeleton-line {
+  0% {
+    stroke-dashoffset: 60;
+  }
+  18%,
+  90% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 60;
+  }
+}
+
+/* 움직임 줄이기: no glow, no drawing — the skeleton just stands there. */
 @media (prefers-reduced-motion: reduce) {
-  .blob,
-  .titleText {
+  .aurora {
+    display: none;
+  }
+
+  .node {
+    opacity: 1;
     animation: none;
   }
 
-  .titleText {
-    background: none;
-    color: var(--text);
+  .line {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .chip[data-state="now"]::after {
+    width: 100%;
+    animation: none;
   }
 }

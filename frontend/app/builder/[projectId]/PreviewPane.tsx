@@ -34,8 +34,8 @@ import { describeError } from "@/lib/http";
 import { PREVIEW_SANDBOX, RUNTIME_SANDBOX, buildSrcdoc } from "@/lib/static-preview";
 import { captureFrame, originOf } from "@/lib/thumbnail-capture";
 
-import AuroraCard, { type AuroraChip } from "@/app/components/AuroraCard";
 
+import BuilderRunPanel from "./BuilderRunPanel";
 import styles from "./workspace.module.css";
 
 /** 미리보기에 넘길 프로젝트 파일. 경로 → 내용. */
@@ -64,8 +64,8 @@ export interface AppRuntimeProps {
    * 화면에 보여 줍니다(자동은 조용히).
    */
   onCapture?: (image: Blob, manual: boolean) => Promise<void>;
-  /** motion-modern (1): while Claude writes files the aurora covers the preview. */
-  working?: { chips: AuroraChip[]; costKrw: number | null } | null;
+  /** running-state-calm: while Claude builds, the run panel covers the preview. */
+  working?: React.ComponentProps<typeof BuilderRunPanel> | null;
 }
 
 /** 프레임이 뜬 뒤 이만큼 기다렸다 찍습니다 — 앱의 첫 그림이 그려질 시간. */
@@ -371,9 +371,7 @@ export default function PreviewPane({
         ) : (
           <Runtime key={run} files={files} entry={entry} />
         )}
-        {working && (
-          <AuroraCard size="fill" costKrw={working.costKrw} chips={working.chips} />
-        )}
+        {working && <BuilderRunPanel {...working} />}
       </div>
     </div>
   );

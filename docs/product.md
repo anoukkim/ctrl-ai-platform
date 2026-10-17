@@ -633,6 +633,31 @@ component hard-codes one, which is what makes the second theme a token
 swap rather than a redesign. Type is self-hosted Pretendard Variable.
 Under `prefers-reduced-motion` nothing moves (ui-friendly-motion).
 
+**Running state (running-state-calm, 2026-10-17, as the approved
+mock-ups).** One calm "running" look for Chat and the Builder: the Chat
+composer keeps its own dark surface (the motion-modern ring is gone) with
+a 2px bar sweeping along its bottom, the stop button is a small outlined
+square and the line under it says "중지하면 지금까지 쓴 만큼만 차감돼요";
+the Builder's 만드는 중… is an outlined violet button with a spinner. The
+same signal shows in four places: a sweeping bar on the card or header, a
+pulsing dot on Chat / Project Builder in the sidebar and on the
+conversation row, a **작업 중** chip in the Chat top bar, the Builder header
+(with the elapsed time) and the project's card in the Builder list — it
+survives moving between screens (and a reload, for 30 minutes at most).
+Progress is shown, not implied, and only from real events: the Chat card
+names 뼈대 → 스타일 → 동작 by what has arrived, with "12초 · 지금까지 약
+56원" and a flowchart skeleton that draws itself in; the Builder's preview
+pane shows the stage in large words and the elapsed time larger
+(요구사항 읽기 → 파일 쓰기 → 미리보기 조립 — the plan call, each file's
+start and finish, the check), file chips 쓰는 중 → 완료 and the real end of
+the last file written; where there is no event, only the sweep and the
+time — never a percentage. The Claude panel mirrors it: the current
+action with a three-dot pulse and the last four events, and the input
+says "작업이 끝나면 이어서 말해요". The aurora is now a very faint glow
+inside the 그림 card and the 미리보기 pane only, with a Profile switch
+**오로라 배경** (per device, on by default). Under 움직임 줄이기 the sweeps
+stand still, the dots stop, the skeleton is drawn, the glow is off.
+
 **Motion (motion-modern, 2026-10-16).** The owner asked for "더 현대적인
 느낌" and for the middle of a generation to be skipped: (1) while a Chat
 reply writes a preview's code, or the Builder writes files, the member

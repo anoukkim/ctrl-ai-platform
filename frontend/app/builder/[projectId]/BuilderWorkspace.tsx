@@ -38,6 +38,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { finishRun, startRun } from "@/lib/running";
+
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import MenuButton from "@/app/components/MenuButton";
 import { useMayCreate } from "@/app/components/MyQuarterProvider";
@@ -105,7 +107,9 @@ import CodeView from "./CodeView";
 import PublishCelebration from "@/app/components/PublishCelebration";
 
 import HiddenCapture from "./HiddenCapture";
+import WorkingSince from "@/app/components/WorkingSince";
 import AssetPanel from "./AssetPanel";
+import { tailOf } from "./BuilderRunPanel";
 import ReferencePicker, { imageFiles, type ReferencePickerHandle } from "./ReferencePicker";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
@@ -182,6 +186,13 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const [genRunning, setGenRunning] = useState(false);
   const [progress, setProgress] = useState<Progress>(NO_PROGRESS);
   const generating = planning || genRunning;
+  // running-state-calm: when this run started, the last few events (the
+  // Claude panel's log) and the end of the last file written (the preview's
+  // code window) — all from real events, never invented.
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
+  const [activity, setActivity] = useState<string[]>([]);
+  const [liveTail, setLiveTail] = useState<{ path: string; lines: string[] } | null>(null);
+  const logActivity = useCallback((line: string) => setActivity((list) => [...list, line].slice(-4)), []);
   /** 마지막으로 보낸 요청 — 실패하면 "다시 시도"가 그대로 보냅니다. */
   const [lastInput, setLastInput] = useState<PlanInput | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -401,10 +412,15 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       setGenRunning(true);
       setGenerateError(null);
       setProgress(NO_PROGRESS);
+      setRunStartedAt((started) => started ?? Date.now());
+      startRun("builder", Number(projectId));
       let spent = 0;
       try {
         const outcome = await runGeneration(projectId, plan.id, {
-          onFileStart: (path) => setProgress((current) => ({ ...current, current: path })),
+          onFileStart: (path) => {
+            setProgress((current) => ({ ...current, current: path }));
+            logActivity(`› ${path} 쓰는 중`);
+          },
           onFileDone: (path, krw) => {
             spent += krw;
             setProgress((current) => ({
@@ -412,11 +428,23 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               current: null,
               charged: { ...current.charged, [path]: krw },
             }));
+            logActivity(`✓ ${path} 완료`);
+            // The code window shows the real end of the file just written.
+            listBuilderFiles(projectId)
+              .then((rows) => {
+                const row = rows.find((file) => file.path === path);
+                if (row) setLiveTail({ path, lines: tailOf(row.content) });
+              })
+              .catch(() => undefined);
           },
-          onCheckStart: () => setProgress((current) => ({ ...current, check: "running" })),
+          onCheckStart: () => {
+            setProgress((current) => ({ ...current, check: "running" }));
+            logActivity("› 미리보기 조립 중");
+          },
           onCheckDone: (fixed, summary, krw) => {
             spent += krw;
             setProgress((current) => ({ ...current, check: "done", checkFixed: fixed, checkSummary: summary }));
+            logActivity("✓ 점검 완료");
           },
         });
         if (outcome.kind === "done") {
@@ -446,10 +474,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       } finally {
         setGenRunning(false);
         setProgress((current) => ({ ...current, current: null }));
+        setRunStartedAt(null);
+        setActivity([]);
+        setLiveTail(null);
+        finishRun("builder", Number(projectId));
         reloadAfterRun();
       }
     },
-    [projectId, reportCharge, reloadAfterRun, chooseMode],
+    [projectId, reportCharge, reloadAfterRun, chooseMode, logActivity],
   );
 
   /** 계획 세우기. 고치기는 계획이 나오면 바로 시작합니다. */
@@ -458,6 +490,10 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       setPlanning(true);
       setGenerateError(null);
       setLastInput(input);
+      setRunStartedAt(Date.now());
+      setActivity(["› 요구사항을 읽는 중"]);
+      startRun("builder", Number(projectId));
+      let continues = false;
       if (files !== null && files.length > 0) setThread((list) => [...list, { role: "member", text: input.request }]);
       try {
         const plan = await planGeneration(projectId, input);
@@ -466,7 +502,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         referencesRef.current?.reload();
         void refreshWallet();
         reportCharge({ chargedKrw: plan.charged_krw, label: "빌더 · 계획" });
+        logActivity("✓ 요청 이해 완료");
         if (plan.kind === "edit") {
+          continues = true;
           setPlanning(false);
           await runPlan(plan);
         }
@@ -474,9 +512,15 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setGenerateError(describeError(error));
       } finally {
         setPlanning(false);
+        if (!continues) {
+          // A new app's plan waits for 시작: nothing runs until then.
+          setRunStartedAt(null);
+          setActivity([]);
+          finishRun("builder", Number(projectId));
+        }
       }
     },
-    [projectId, refreshWallet, reportCharge, runPlan, files],
+    [projectId, refreshWallet, reportCharge, runPlan, files, logActivity],
   );
 
   const dropPlan = useCallback(async () => {
@@ -979,6 +1023,18 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         </Link>
         <span className={ws.topbarDivider} aria-hidden="true" />
 
+        {generating && (
+          <span className="run-chip" data-testid="builder-running" title="만드는 중이에요">
+            <span className="run-dot" aria-hidden="true" />
+            작업 중{runStartedAt !== null && (
+              <>
+                {" · "}
+                <WorkingSince since={runStartedAt} />
+              </>
+            )}
+          </span>
+        )}
+
         <WorkspaceTitle
           currentId={project.id}
           emptyLabel="다른 프로젝트가 없습니다"
@@ -1348,21 +1404,21 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   toolbarEnd={claudeOpener}
                   onCapture={mayCreate ? storeThumbnail : undefined}
                   working={
-                    genRunning && generation
+                    generating
                       ? {
+                          stage: planning ? 0 : progress.check === "idle" ? 1 : 2,
+                          since: runStartedAt,
+                          files: (generation?.plan ?? []).map((step) => ({
+                            path: step.path,
+                            state:
+                              generation?.files_done.includes(step.path) || step.path in progress.charged
+                                ? ("done" as const)
+                                : progress.current === step.path
+                                  ? ("writing" as const)
+                                  : ("waiting" as const),
+                          })),
+                          tail: liveTail,
                           costKrw: Object.values(progress.charged).reduce((sum, krw) => sum + krw, 0) || null,
-                          chips: [
-                            ...generation.plan.slice(0, 3).map((step) => ({
-                              label: step.path,
-                              state:
-                                generation.files_done.includes(step.path) || step.path in progress.charged
-                                  ? ("done" as const)
-                                  : progress.current === step.path
-                                    ? ("now" as const)
-                                    : ("todo" as const),
-                            })),
-                            ...(generation.plan.length > 3 ? [{ label: `+${generation.plan.length - 3}`, state: "todo" as const }] : []),
-                          ],
                         }
                       : null
                   }
@@ -1452,10 +1508,33 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     {message.text}
                   </div>
                 ))}
-                {planning && (
-                  <p className={styles.hint} role="status">
-                    Claude가 바꿀 계획을 세우는 중이에요…
-                  </p>
+                {generating && (
+                  // running-state-calm: the Claude panel mirrors the preview —
+                  // the current action with a three-dot pulse, then the last
+                  // four real events.
+                  <div className={`${ws.chatMessage} ${ws.chatAssistant} ${styles.runBubble}`} data-testid="run-bubble">
+                    <span className="run-sweep run-sweep--top" aria-hidden="true" />
+                    <p className={styles.runNow} role="status">
+                      <span className="run-dot" aria-hidden="true" />{" "}
+                      {planning
+                        ? "요구사항을 읽고 있어요"
+                        : progress.check !== "idle"
+                          ? "미리보기를 조립하고 있어요"
+                          : "파일을 쓰고 있어요"}
+                      <span className={styles.dots} aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    </p>
+                    {activity.length > 0 && (
+                      <ul className={styles.runLog} aria-label="최근 진행">
+                        {activity.map((line, index) => (
+                          <li key={`${index}-${line}`}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
                 {generation && !empty && (
                   <PlanCard
@@ -1610,7 +1689,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   mayCreate
                     ? empty
                       ? "앱을 만든 뒤에 여기서 고쳐 달라고 할 수 있어요"
-                      : `예: ${ASK_EXAMPLES[exampleIndex]}`
+                      : generating
+                        ? "작업이 끝나면 이어서 말해요"
+                        : `예: ${ASK_EXAMPLES[exampleIndex]}`
                     : "이번 분기에는 사용할 수 없습니다"
                 }
                 disabled={!mayCreate || generating || empty}
@@ -1633,7 +1714,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     disabled — disabled gives the 🚫 cursor; busy gives
                     cursor: progress and a spinner. */}
                 <button
-                  className={`btn btn-primary btn-sm ${generating ? "btn-working" : ""}`}
+                  className={`btn btn-sm ${generating ? "btn-running" : "btn-primary"}`}
                   type="button"
                   onClick={() => {
                     if (generating) return;

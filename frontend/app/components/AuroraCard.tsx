@@ -10,11 +10,18 @@
  * 비용, 단계 칩 두셋. 끝나면 오로라가 미리보기로 녹아듭니다(AuroraReveal).
  * 코드는 "코드 보기" 아래로 접힙니다. 움직임 줄이기면 오로라는 멈추고 글과
  * 초는 그대로입니다(globals.css의 전체 규칙).
+ *
+ * running-state-calm (2026-10-17): calm by default — the dark card keeps its
+ * surface, a 2px bar sweeps along the top, the title sits with "12초 · 지금까지
+ * 약 56원", the step chips say ✓ when done and underline the current one,
+ * and a flowchart skeleton draws itself in. The aurora is only a faint glow
+ * inside the card, off with Profile › 오로라 배경.
  */
 
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
+import { useAurora } from "@/lib/aurora";
 import { formatKrw } from "@/lib/quarters";
 
 import WorkingSince from "./WorkingSince";
@@ -38,39 +45,52 @@ interface Props {
 }
 
 export default function AuroraCard({ title = "미리보기 만드는 중…", since = null, costKrw = null, chips = [], size = "block" }: Props) {
-  // 시작 시각을 받지 않으면 이 카드가 나타난 순간부터 셉니다 — Builder는
-  // 파일을 쓰는 동안만 카드를 올리므로 그게 곧 시작 시각입니다.
+  // 시작 시각을 받지 않으면 이 카드가 나타난 순간부터 셉니다.
   const [mountedAt] = useState(() => Date.now());
+  // running-state-calm: the aurora is a faint, optional glow inside the card
+  // (Profile › 오로라 배경; off under 움직임 줄이기 by CSS).
+  const aurora = useAurora();
   return (
     // Not a live region: the seconds change every second and would be read
-    // out each time. The Builder's PlanCard and Chat's own status line
-    // already announce that work is going on.
+    // out each time. Chat's own status line already announces the work.
     <div className={`${styles.card} ${size === "fill" ? styles.fill : ""}`} data-testid="aurora-card">
-      <span className={styles.aurora} aria-hidden="true">
-        <span className={styles.blob} />
-        <span className={`${styles.blob} ${styles.blob2}`} />
-        <span className={`${styles.blob} ${styles.blob3}`} />
-      </span>
+      <span className="run-sweep run-sweep--top" aria-hidden="true" />
+      {aurora && (
+        <span className={styles.aurora} aria-hidden="true" data-testid="aurora-glow">
+          <span className={styles.blob} />
+          <span className={`${styles.blob} ${styles.blob2}`} />
+        </span>
+      )}
       <div className={styles.body}>
         <p className={styles.title}>
           <span className={styles.titleText}>{title}</span>
-          <WorkingSince since={since ?? mountedAt} className={styles.seconds} />
+          <span className={styles.meta}>
+            <WorkingSince since={since ?? mountedAt} className={styles.seconds} />
+            {costKrw !== null && costKrw !== undefined && (
+              <span data-testid="aurora-cost"> · 지금까지 약 {formatKrw(costKrw)}</span>
+            )}
+          </span>
         </p>
         {chips.length > 0 && (
           <ul className={styles.chips} aria-label="단계">
             {chips.map((chip) => (
               <li key={chip.label} className={styles.chip} data-state={chip.state}>
-                {chip.state === "done" ? "✓ " : chip.state === "now" ? "• " : ""}
+                {chip.state === "done" ? "✓ " : ""}
                 {chip.label}
               </li>
             ))}
           </ul>
         )}
-        {costKrw !== null && costKrw !== undefined && (
-          <p className={styles.cost} data-testid="aurora-cost">
-            지금까지 약 {formatKrw(costKrw)}
-          </p>
-        )}
+        {/* A flowchart skeleton: boxes appear, lines draw in — "something is
+            being drawn" without pretending to know what. Still under 움직임 줄이기. */}
+        <svg className={styles.skeleton} viewBox="0 0 420 70" aria-hidden="true">
+          <rect className={styles.node} x="2" y="20" width="100" height="34" rx="7" />
+          <path className={styles.line} d="M102 37 H158" />
+          <rect className={`${styles.node} ${styles.node2}`} x="158" y="20" width="100" height="34" rx="7" />
+          <path className={`${styles.line} ${styles.line2}`} d="M258 37 H314" />
+          <rect className={`${styles.node} ${styles.node3}`} x="314" y="2" width="102" height="30" rx="7" />
+          <rect className={`${styles.node} ${styles.node3}`} x="314" y="40" width="102" height="28" rx="7" />
+        </svg>
       </div>
     </div>
   );
