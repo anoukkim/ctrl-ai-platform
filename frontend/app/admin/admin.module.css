@@ -8,38 +8,6 @@
   margin-bottom: 1.1rem;
 }
 
-.stat {
-  display: grid;
-  gap: 0.1rem;
-  padding: 14px 16px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.statValue {
-  font-family: var(--mono);
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.statLabel {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.statAccent {
-  background: var(--warn-soft);
-  border-color: var(--warn-border);
-}
-
-.rowActions {
-  display: flex;
-  gap: 0.3rem;
-}
-
 .memberName {
   display: grid;
   line-height: 1.35;
@@ -61,12 +29,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.55;
-}
-
-.allocationPanel {
-  display: grid;
-  gap: 0.6rem;
-  max-width: 22rem;
 }
 
 .fieldRow {
@@ -144,50 +106,7 @@
 
 /* ---------- 분기 관리 ---------- */
 
-.quarterPick {
-  padding: 0.15rem 0.4rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.quarterPick:hover {
-  border-color: var(--border-strong);
-  background: var(--panel-2);
-}
-
-.quarterPickActive {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent);
-}
-
-.applicationCounts {
-  font-size: 0.72rem;
-  font-weight: 400;
-  color: var(--text-dim);
-}
-
 /* ---------- 감사 로그 / 시뮬레이션 (Phase 1c) ---------- */
-
-.auditWhen {
-  font-family: var(--mono);
-  font-size: 0.76rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.quarterPicker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
 
 /* ================================================================== */
 /* admin-restructure — 구역별 경로, 카드 현관, 확인창                   */
@@ -291,16 +210,6 @@
   box-shadow: inset 0 -2px 0 0 var(--accent);
 }
 
-.tabDisabled {
-  color: var(--text-dim);
-  cursor: not-allowed;
-}
-
-.tabDisabled:hover {
-  background: transparent;
-  color: var(--text-dim);
-}
-
 /* 손이 필요한 수. 배지보다 작게, 숫자만. */
 .tabCount {
   display: inline-flex;
@@ -388,28 +297,11 @@
   flex: 1;
 }
 
-.todoChevron {
-  color: var(--text-dim);
-  font-size: 1.2rem;
-}
-
 .todo:hover .todoChevron {
   color: var(--accent);
 }
 
 /* ---------- 대시보드: 분기 요약 ---------- */
-
-.quarterSummary {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.quarterFacts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
 
 .sectionNote {
   font-size: var(--fs-meta);
@@ -420,194 +312,9 @@
 
 /* ---------- 대시보드: 구역 카드 ---------- */
 
-.cardGrid {
-  display: grid;
-  gap: var(--card-gap);
-  grid-template-columns: repeat(auto-fill, minmax(var(--admin-card-min), 1fr));
-}
-
-.card {
-  position: relative;
-  display: grid;
-  gap: 0.35rem;
-  align-content: start;
-  padding: var(--card-pad-y) var(--card-pad-x);
-  min-height: 7rem;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  color: inherit;
-  text-decoration: none;
-  transition:
-    border-color 0.12s ease,
-    background-color 0.12s ease,
-    transform 0.16s ease;
-}
-
 /* 누를 수 있는 카드만 반응합니다. 마우스가 있으면 살짝 떠오릅니다(ui-friendly-motion). */
-a.card:hover {
-  border-color: var(--accent-border);
-}
-
-@media (hover: hover) {
-  a.card:hover {
-    transform: translateY(-2px);
-  }
-}
-
-a.card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.cardNeedsAction {
-  background: var(--warn-soft);
-  border-color: var(--warn-border);
-}
-
-a.cardNeedsAction:hover {
-  border-color: var(--warn);
-}
-
-.cardDisabled {
-  opacity: 0.6;
-}
-
-.cardTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.cardIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  color: var(--accent);
-}
-
-a.card:hover .cardIcon {
-  border-color: var(--accent-border);
-}
-
-.cardName {
-  font-size: var(--fs-card-name);
-  font-weight: var(--fw-card-name);
-}
-
-.cardCount {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.3rem;
-  height: 1.3rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  border: 1px solid var(--warn-border);
-  background: var(--warn-soft);
-  color: var(--warn-text);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.cardDescription {
-  color: var(--text-muted);
-  font-size: var(--fs-body);
-  line-height: 1.5;
-}
-
-.cardStatus {
-  margin-top: 0.1rem;
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: var(--fs-meta);
-  font-variant-numeric: tabular-nums;
-}
-
-.cardChevron {
-  position: absolute;
-  top: 0.8rem;
-  right: 0.85rem;
-  color: var(--text-dim);
-  font-size: 1.1rem;
-}
-
-a.card:hover .cardChevron {
-  color: var(--accent);
-}
 
 /* ---------- 대시보드: 최근 기록 ---------- */
-
-.recentList {
-  display: grid;
-  gap: 0;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.recentItem {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: var(--fs-body);
-}
-
-.recentItem:last-child {
-  border-bottom: none;
-}
-
-.recentWhen {
-  color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: var(--fs-meta);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.recentSummary {
-  color: var(--text-muted);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recentActor {
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: var(--fs-meta);
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  /* 좁은 화면에서는 한 줄에 네 칸이 들어가지 않습니다. */
-  .recentItem {
-    grid-template-columns: 1fr auto;
-  }
-
-  .recentSummary {
-    grid-column: 1 / -1;
-    white-space: normal;
-  }
-}
 
 /* ---------- 표: 머리글 고정과 누를 수 있는 줄 ---------- */
 
@@ -904,46 +611,6 @@ a.card:hover .cardChevron {
 }
 
 /* ================================================================== */
-/* 신청 승인 분리 · 통계 카드 · 외부 서비스                             */
-/* ================================================================== */
-
-/* ---------- 고른 분기 한 줄 ---------- */
-
-.quarterLine {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 12px 16px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  font-size: var(--fs-body);
-}
-
-.dday {
-  margin-left: 0.4rem;
-  padding: 0.05rem 0.35rem;
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.quarterLineLink {
-  margin-left: auto;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.quarterLineLink:hover {
-  color: var(--accent);
-}
 
 /* ---------- 작은 숫자 카드 한 줄 ---------- */
 
@@ -1040,47 +707,6 @@ button.statCardActive:hover {
 
 /* ---------- 상태 탭 (신청 승인) ---------- */
 
-.statusTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.statusTab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--fs-count);
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.statusTab:hover {
-  background: var(--panel-2);
-  color: var(--text);
-}
-
-.statusTabActive,
-.statusTabActive:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent);
-}
-
-.statusTabCount {
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
-}
-
 /* ---------- 줄 안의 버튼 (승인 / 거절) ---------- */
 
 .rowButtons {
@@ -1132,41 +758,6 @@ button.statCardActive:hover {
 
 /* ---------- 대시보드의 경고 카드 ---------- */
 
-.warning {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  padding: 14px 16px;
-  background: var(--error-soft);
-  border: 1px solid var(--error-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  color: inherit;
-  text-decoration: none;
-}
-
-.warning:hover {
-  border-color: var(--error-text);
-}
-
-.warning:focus-visible {
-  outline: 2px solid var(--error-text);
-  outline-offset: 2px;
-}
-
-.warningMark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--error-hover);
-  color: var(--error-text);
-  font-weight: 700;
-}
-
 /* ---------- 외부 서비스 ---------- */
 
 .providerGrid {
@@ -1184,19 +775,6 @@ button.statCardActive:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-}
-
-.providerFailing {
-  border-color: var(--error-border);
-  background: var(--error-soft);
-}
-
-.providerTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
 }
 
 .providerName {
@@ -1227,87 +805,11 @@ button.statCardActive:hover {
   background: var(--error);
 }
 
-.providerPurpose {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--fs-body);
-}
-
-.providerFacts {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0;
-}
-
-.providerFacts > div {
-  display: grid;
-  grid-template-columns: 6rem 1fr;
-  gap: 0.5rem;
-  align-items: baseline;
-}
-
-.providerFacts dt {
-  color: var(--text-dim);
-  font-size: var(--fs-meta);
-}
-
-.providerFacts dd {
-  margin: 0;
-  font-size: var(--fs-count);
-}
-
 /* 시각 아래의 한 줄 설명. */
-.providerSub {
-  display: block;
-  color: var(--text-dim);
-  font-family: var(--sans, inherit);
-  font-size: 0.72rem;
-  line-height: 1.4;
-}
-
-.providerActions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.1rem;
-}
 
 /* 바꿀 환경 변수의 이름. 기술적인 값이라 영문·고정폭 그대로 둡니다. */
-.providerSetting {
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: var(--fs-label);
-}
-
-.providerResult {
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-chip);
-  line-height: 1.45;
-}
-
-.providerResultOk {
-  background: var(--ok-soft);
-  color: var(--ok-text);
-}
-
-.providerResultError {
-  background: var(--error-soft);
-  color: var(--error-text);
-}
 
 /* 마감이 지난 신청 기간. D-day 자리에 들어가므로 같은 크기로 둡니다. */
-.ddayPast {
-  margin-left: 0.4rem;
-  padding: 0.05rem 0.35rem;
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
-  color: var(--text-dim);
-  font-size: 0.74rem;
-  font-weight: 600;
-}
 
 /* ---------- 회원 상세 › 회원 탈퇴 ---------- */
 
@@ -1496,21 +998,7 @@ button.statCardActive:hover {
   margin: 0;
 }
 
-
 /* ---------- AI Models: 제공자별 묶음 (admin-and-nav-cleanup) ---------- */
-
-.providerGroup {
-  margin-top: 1.25rem;
-}
-
-.providerHeading {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  font-weight: 700;
-}
 
 /* AI Models: one price per line inside the (non-wrapping) price cell. */
 .priceLine {
@@ -2008,7 +1496,6 @@ a.alertItem:hover {
   margin: 0;
   font-size: var(--fs-body);
 }
-
 
 .search ~ .quarterSwitch {
   margin-left: 0;

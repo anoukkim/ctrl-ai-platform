@@ -25,11 +25,6 @@ interface Props {
   restoreTitle?: string;
 }
 
-/** 숫자 뒤의 "로/으로": 삼으로, 이로, 칠로. */
-export function particleRo(n: number): string {
-  return [0, 3, 6].includes(n % 10) ? "으로" : "로";
-}
-
 /** "파일 2개 바뀜 · 31원" — 모르는 값은 빼고. */
 export function stepMeta(step: BuilderStep): string {
   return [

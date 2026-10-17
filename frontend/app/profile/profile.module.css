@@ -114,14 +114,6 @@
   line-height: 1.55;
 }
 
-.seasonHistory {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--border);
-}
-
 /* ---------- 알림 카드의 스위치 줄 (ui-improvements) ---------- */
 
 .switchRows {
@@ -479,37 +471,3 @@
 
 /* ---------- 알림 목록 (feat-notifications) ---------- */
 
-.feed {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.feedHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 28px;
-}
-
-.feedList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-height: 340px;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.feedList li + li {
-  border-top: 1px solid var(--border);
-}
-
-.subTitle {
-  margin: 8px 0 2px;
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--text-muted);
-}

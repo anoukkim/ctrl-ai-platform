@@ -118,14 +118,6 @@
   min-height: 0;
 }
 
-.codeSide {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-}
-
 .previewSide {
   display: flex;
   flex-direction: column;
@@ -165,15 +157,6 @@
 
 .previewBarSpacer {
   flex: 1 1 auto;
-}
-
-.previewBarTitle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--text-muted);
 }
 
 .previewBody {
@@ -317,39 +300,8 @@
   padding: 1.5rem 1.2rem;
 }
 
-.starter {
-  display: grid;
-  align-content: start;
-  gap: 0.7rem;
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-}
-
-.starterTitle {
-  font-size: var(--fs-section);
-  font-weight: var(--fw-strong);
-}
-
-.starterText {
-  color: var(--text-muted);
-  font-size: var(--fs-body);
-  line-height: 1.55;
-}
-
 /* Compound with the global `.field` so this wins whatever order the
    stylesheets load in. */
-.starterIdea:global(.field) {
-  width: 100%;
-  resize: vertical;
-}
-
-.starterActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-}
 
 .starterCost {
   font-family: var(--mono);
@@ -446,14 +398,6 @@
   line-height: 1.55;
 }
 
-.previewWhich {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
-
 .versionLabel {
   display: block;
   color: var(--accent);
@@ -484,21 +428,6 @@
   color: var(--accent);
 }
 
-.styleRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: var(--fs-chip);
-  color: var(--text-muted);
-}
-
-.styleRow :global(.field) {
-  flex: 1 1 8rem;
-  min-width: 0;
-  padding-block: 0.3rem;
-}
-
 .labelForm {
   display: flex;
   gap: 0.3rem;
@@ -511,7 +440,6 @@
   min-width: 0;
   padding-block: 0.25rem;
 }
-
 
 /* ---------- 배치 (quality-tuning Q3) ---------- */
 
@@ -767,85 +695,6 @@ aside.sheet {
 }
 
 /* owner-polish-3 (a2): 게시 창의 썸네일 고르개 — 후보 카드 셋(넷), 고른 것은 테두리. */
-.pickerFieldset {
-  border: 0;
-  padding: 0;
-  margin: 0 0 0.9rem;
-  min-width: 0;
-}
-
-.pickerLegend {
-  padding: 0;
-  margin-bottom: 0.4rem;
-  font-size: 0.86rem;
-  font-weight: 650;
-}
-
-.pickerGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-  gap: 0.6rem;
-}
-
-.pickerCard {
-  display: grid;
-  gap: 0.3rem;
-  padding: 0.3rem;
-  border: 2px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-}
-
-.pickerCard input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.pickerCardPicked {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.pickerCardFailed {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.pickerArt {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: 4px;
-  background: var(--panel-2);
-}
-
-.pickerArt img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.pickerWait {
-  font-size: 0.74rem;
-}
-
-.pickerLabel {
-  text-align: center;
-}
-
-.pickerActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
 
 /* running-state-calm: the Claude panel's live bubble while building. */
 .runBubble {

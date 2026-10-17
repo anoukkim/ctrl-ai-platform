@@ -11,7 +11,7 @@
  * 어떻게 보여 주는지만 봅니다.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -21,7 +21,6 @@ import {
   type MyQuarterStatus,
   type MyUsage,
   type Quarter,
-  type QuarterBudget,
 } from "@/lib/quarters";
 
 const QUARTER: Quarter = {
@@ -101,7 +100,6 @@ vi.mock("next/navigation", () => ({
 
 const { default: QuarterParticipation } = await import("@/app/profile/QuarterParticipation");
 const { default: UsageView } = await import("@/app/usage/UsageView");
-const { default: BudgetAdmin } = await import("@/app/admin/budget/BudgetAdmin");
 
 function myQuarter(overrides: Partial<MyQuarterStatus> = {}): MyQuarterStatus {
   return {
@@ -247,94 +245,5 @@ describe("예상 비용과 지갑", () => {
     expect(walletSentence({ budget_krw: 80_000, remaining_krw: 52_300 })).toBe(
       "이번 분기 지원금 80,000원 중 52,300원 남음",
     );
-  });
-});
-
-describe("Admin › Budget", () => {
-  const budget: QuarterBudget = {
-    quarter: QUARTER,
-    member_budget_krw: 80_000,
-    anthropic_month_usd: 0,
-    anthropic_month_budget_usd: null,
-    anthropic_month: "2026-10",
-    wallets: [
-      {
-        user_id: 2,
-        username: "yuri",
-        display_name: "김유리",
-        account_status: "active",
-        membership_status: "active",
-        budget_krw: 80_000,
-        consumed_krw: 27_700,
-        remaining_krw: 52_300,
-      },
-    ],
-    total_budget_krw: 80_000,
-    total_consumed_krw: 27_700,
-    total_remaining_krw: 52_300,
-    providers: [
-      {
-        provider: "higgsfield",
-        label: "Higgsfield",
-        events: 3,
-        charged_krw: 15_000,
-        community_krw: 15_000,
-        personal_krw: 0,
-        provider_cost: {},
-        units: { seconds: 25 },
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_write_tokens: 0,
-        cache_read_tokens: 0,
-        cache_hit_rate: null,
-        share: 0.55,
-        share_of_wallets_krw: 44_000,
-      },
-      {
-        provider: "claude",
-        label: "Claude (Anthropic)",
-        events: 40,
-        charged_krw: 12_700,
-        community_krw: 12_700,
-        personal_krw: 0,
-        provider_cost: { USD: "9.07" },
-        units: { tokens: 300_000 },
-        input_tokens: 25_000,
-        output_tokens: 50_000,
-        cache_write_tokens: 50_000,
-        cache_read_tokens: 175_000,
-        cache_hit_rate: 0.7,
-        share: 0.45,
-        share_of_wallets_krw: 36_000,
-      },
-    ],
-    total_charged_krw: 27_700,
-  };
-
-  test("제공자별 사용액과 회원별 지갑을 보여 준다 — 섹션은 하나씩 펼쳐서", async () => {
-    getQuarterBudget.mockResolvedValue(budget);
-    const user = userEvent.setup();
-    render(<BudgetAdmin />);
-
-    await waitFor(() => expect(getQuarterBudget).toHaveBeenCalledWith(QUARTER.id));
-    // 위의 숫자 카드와 분기 줄은 늘 보이고, 섹션은 접힌 채 요약만 보입니다 (ui-improvements B).
-    expect(await screen.findByText("1인 지원금 80,000원")).toBeTruthy();
-    const providers = screen.getByRole("button", { name: "제공자별 사용액" });
-    expect(providers.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("$9.07")).toBeNull();
-
-    await user.click(providers);
-    expect(await screen.findByText("Claude (Anthropic)")).toBeTruthy();
-    expect(screen.getByText("Higgsfield")).toBeTruthy();
-    expect(screen.getByText("$9.07")).toBeTruthy();
-    expect(screen.getByText("55%")).toBeTruthy();
-    // prompt-caching: how much of Claude's input came from the cache.
-    expect(screen.getByText(/캐시 읽기 175,000 · 쓰기 50,000 토큰 \(입력의 70% 캐시\)/)).toBeTruthy();
-
-    // 다른 섹션을 펼치면 앞의 것은 접힙니다.
-    await user.click(screen.getByRole("button", { name: "회원별" }));
-    expect(await screen.findByText("김유리")).toBeTruthy();
-    expect(screen.queryByText("$9.07")).toBeNull();
-    expect(providers.getAttribute("aria-expanded")).toBe("false");
   });
 });

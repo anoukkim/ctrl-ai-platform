@@ -232,13 +232,6 @@
 
 /* ---------- 최근 사용 내역 ---------- */
 
-.ledgerEmpty {
-  padding: 1.6rem 1rem;
-  text-align: center;
-  color: var(--text-dim);
-  font-size: var(--fs-body);
-}
-
 /* 표 안의 금액도 같은 글꼴과 자리 맞춤을 씁니다. */
 .amount {
   font-family: var(--mono);
