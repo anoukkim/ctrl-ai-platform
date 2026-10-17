@@ -194,6 +194,15 @@ services:
     pids_limit: 256
     cap_drop:
       - ALL
+    # Chromium's own sandbox chroots inside the user namespace it creates,
+    # and a capability missing from the container's bounding set cannot be
+    # had there either: with ALL dropped every launch crashed in the zygote
+    # (tested on the server 2026-10-17 — drop ALL fails, + SYS_CHROOT works,
+    # SETUID/SETGID alone do not). Only the bounding set changes: the worker
+    # runs as pwuser with no effective or permitted capability
+    # (CapEff 0), and no-new-privileges keeps it that way.
+    cap_add:
+      - SYS_CHROOT
     security_opt:
       - no-new-privileges:true
       - seccomp:./deploy/chromium-seccomp.json
