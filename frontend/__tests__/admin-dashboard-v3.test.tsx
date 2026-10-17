@@ -27,7 +27,7 @@ describe("처리할 일", () => {
     expect(todosOf(BASE)).toEqual([]);
     const todos = todosOf({ ...BASE, pending_applications: 2, open_reports: 1 });
     expect(todos.map((t) => [t.label, t.count, t.href])).toEqual([
-      ["참여 신청 승인 대기", 2, "/admin/members?tab=applications&status=submitted"],
+      ["참여 신청 승인 대기", 2, "/admin/members?filter=pending"],
       ["열린 신고", 1, "/admin/community"],
     ]);
   });

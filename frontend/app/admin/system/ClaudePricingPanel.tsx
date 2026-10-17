@@ -51,7 +51,11 @@ const DEPTH_SURFACES: DepthSurface[] = ["chat", "builder"];
 const DEPTH_SURFACE_LABEL: Record<DepthSurface, string> = { chat: "채팅", builder: "빌더" };
 const DEPTH_LEVELS = ["low", "medium", "high", "max"] as const;
 
-export default function ClaudePricingPanel() {
+/**
+ * admin-consolidation v3 (2): System keeps 환율 and 서버 설정 (`part="system"`);
+ * 채팅 한도 moved to Models › 한도 (`part="limits"`, shown open).
+ */
+export default function ClaudePricingPanel({ part = "system" }: { part?: "system" | "limits" }) {
   const [settings, setSettings] = useState<ClaudeSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rateDraft, setRateDraft] = useState("");
@@ -291,6 +295,7 @@ export default function ClaudePricingPanel() {
 
   return (
     <>
+      {part === "system" && (
       <Fold
         id="exchange-rate"
         title="환율"
@@ -387,9 +392,12 @@ export default function ClaudePricingPanel() {
           </div>
         )}
       </Fold>
+      )}
 
+      {part === "limits" && (
       <Fold
         id="chat-limits"
+        forceOpen
         title="채팅 한도"
         note="0은 그 한도를 끕니다 · 생각 깊이 표도 여기"
         summary={
@@ -674,8 +682,9 @@ export default function ClaudePricingPanel() {
           </div>
         )}
       </Fold>
+      )}
 
-      {settings !== null && (
+      {part === "system" && settings !== null && (
         <Fold
           id="env"
           title="서버 설정 (.env)"

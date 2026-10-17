@@ -14,9 +14,9 @@ export function legacyTarget(path: string, params: Record<string, string | strin
   const target = LEGACY_ROUTES[path];
   if (!target) throw new Error(`예전 주소가 아닙니다: ${path}`);
   const base = tabHref(target.section, target.tab);
-  const query = new URLSearchParams();
+  const query = new URLSearchParams(target.query ?? {});
   for (const [key, value] of Object.entries(params)) {
-    if (key === "tab" || value === undefined) continue;
+    if (key === "tab" || value === undefined || query.has(key)) continue;
     for (const one of Array.isArray(value) ? value : [value]) query.append(key, one);
   }
   const rest = query.toString();

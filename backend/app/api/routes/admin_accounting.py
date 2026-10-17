@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -40,6 +41,7 @@ from app.schemas.accounting import (
     ReconcileDayRead,
     ReconcileRead,
 )
+from app.services import money_flow as money_flow_service
 from app.services import accounting, cost_report, purge
 from app.services.storage import get_storage
 from app.services.quarters import current_quarter
@@ -474,3 +476,36 @@ def reconcile(
             for day in days
         ],
     )
+
+
+# ----------------------------------------------------------- 돈의 흐름 (v3)
+
+
+class MoneyFlowRead(BaseModel):
+    """admin-consolidation v3: where the bought credit went, in won."""
+
+    purchased_krw: int
+    granted_krw: int
+    members: int
+    used_krw: int
+    unused_krw: int
+    #: Bought but not handed out (negative: more handed out than bought).
+    reserve_krw: int
+    #: What the reserve itself paid for (calls the club absorbed).
+    reserve_spent_krw: int
+    forecast_used_krw: int | None = None
+    days_left: int
+
+
+@router.get(
+    "/quarters/{quarter_id}/money-flow",
+    response_model=MoneyFlowRead,
+    summary="돈의 흐름: credit bought, handed out (used / unused), the reserve",
+)
+def read_money_flow(
+    quarter_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> MoneyFlowRead:
+    return MoneyFlowRead(**vars(money_flow_service.money_flow(db, _quarter(db, quarter_id))))
+

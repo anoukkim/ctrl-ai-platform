@@ -157,6 +157,23 @@ export function getQuarterMoney(quarterId: number): Promise<QuarterMoney> {
   return request<QuarterMoney>(`/admin/quarters/${quarterId}/money`);
 }
 
+/** admin-consolidation v3: 돈의 흐름 — 산 크레딧, 회원에게 준 몫(쓴 · 안 쓴), 여유분. */
+export interface MoneyFlow {
+  purchased_krw: number;
+  granted_krw: number;
+  members: number;
+  used_krw: number;
+  unused_krw: number;
+  reserve_krw: number;
+  reserve_spent_krw: number;
+  forecast_used_krw: number | null;
+  days_left: number;
+}
+
+export function getMoneyFlow(quarterId: number): Promise<MoneyFlow> {
+  return request<MoneyFlow>(`/admin/quarters/${quarterId}/money-flow`);
+}
+
 export function getCachePanel(days: number): Promise<CacheRow[]> {
   return request<CacheRow[]>(`/admin/cache-panel?days=${days}`);
 }

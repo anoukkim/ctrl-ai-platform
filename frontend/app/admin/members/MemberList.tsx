@@ -3,6 +3,11 @@
 /**
  * Admin — 회원 목록 (/admin/members)
  *
+ * admin-consolidation v3 (2): 참여 신청이 이 목록 안으로 들어왔어요 — 칩
+ * 전체 · 승인 대기 · 활동 · 미참여, 승인 대기 줄에서 바로 승인/거절, 사용률
+ * 열(80% 이상은 주황), 초대 코드는 칩 뒤에. 줄을 누르면 오른쪽에 회원
+ * 상세가 열리고(`?member=`), 모든 일을 거기서 해요.
+ *
  * 찾는 화면입니다. 역할과 지원금처럼 그 사람을 보고 정해야 하는 일은
  * 상세 화면(`/admin/members/[id]`)에만 있습니다.
  *
@@ -16,17 +21,17 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
-import { ROLE_LABEL, getMemberStats, type MemberStats } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import {
-  APPLICATION_STATUS_LABEL,
   MEMBERSHIP_LABEL,
-  isNotApplied,
+  formatKrw,
   listQuarterMembers,
+  reviewApplication,
   setQuarterMembership,
+  usedPct,
   type MemberWithMembership,
   type MembershipStatus,
 } from "@/lib/quarters";
@@ -35,17 +40,32 @@ import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
 import AdminTable, { type Column } from "../components/AdminTable";
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import InviteCodePanel from "./InviteCodePanel";
-import StatCards from "../components/StatCards";
+import MemberPanel from "./MemberPanel";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
-import { AccountBadge, MembershipBadge } from "../components/StatusBadge";
+import { MembershipBadge } from "../components/StatusBadge";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import SharedPageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
 
-type SortKey = "name" | "role" | "account" | "membership";
+type SortKey = "name" | "usage" | "membership";
+/** The list's chips (v3): one at a time. */
+type Chip = "all" | "pending" | "active" | "none" | "invites";
+
+/** 승인 대기: an application waits and no participation yet. */
+function isPending(member: MemberWithMembership): boolean {
+  return Boolean(member.application_id) && member.membership_status === null;
+}
+
+/** 미참여: not taking part this quarter (no row, or not active), not former. */
+function isOut(member: MemberWithMembership): boolean {
+  return member.account_status !== "former" && member.membership_status !== "active" && !isPending(member);
+}
+
+/** 사용률 at which the bar turns amber (the Dashboard alert's 80%). */
+const USAGE_WARN_PCT = 80;
 
 /** 한 쪽에 보여 줄 줄 수. 넘치면 쪽을 나눕니다. */
 const PAGE_SIZE = 25;
@@ -66,9 +86,6 @@ export default function MemberList() {
     quarterId: number;
     rows: MemberWithMembership[];
   } | null>(null);
-  /** 카드의 숫자. 목록이 아니라 백엔드의 묶음 질의에서 옵니다 — 거르기를
-   *  걸어 둔 채 세면 "전체"가 아니라 "보이는 것"을 세게 됩니다. */
-  const [stats, setStats] = useState<MemberStats | null>(null);
   const members = loaded !== null && loaded.quarterId === quarterId ? loaded.rows : null;
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -76,10 +93,14 @@ export default function MemberList() {
   const [busy, setBusy] = useState(false);
 
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [membershipFilter, setMembershipFilter] = useState("all");
+  const params = useSearchParams();
+  const pathname = usePathname();
+  // A link to 승인 대기 (the Dashboard, the old /admin/applications) opens that chip.
+  const [chip, setChip] = useState<Chip>(() =>
+    params.get("filter") === "pending" || params.get("status") === "submitted" ? "pending" : "all",
+  );
   const [sort, setSort] = useState<SortKey>("name");
+  const openMember = params.get("member");
   const [page, setPage] = useState(1);
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
@@ -87,11 +108,10 @@ export default function MemberList() {
     if (quarterId === null) return;
     let cancelled = false;
 
-    Promise.all([listQuarterMembers(quarterId), getMemberStats(quarterId)])
-      .then(([rows, figures]) => {
+    listQuarterMembers(quarterId)
+      .then((rows) => {
         if (cancelled) return;
         setLoaded({ quarterId, rows });
-        setStats(figures);
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(describeError(caught));
@@ -106,36 +126,76 @@ export default function MemberList() {
     const rows = (members ?? []).filter(
       (member) =>
         matchesQuery(query, member.display_name, member.username) &&
-        (roleFilter === "all" || member.role === roleFilter) &&
-        (accountFilter === "all" || member.account_status === accountFilter) &&
-        (membershipFilter === "all" ||
-          (membershipFilter === "not_applied"
-            ? isNotApplied(member)
-            : (member.membership_status ?? "none") === membershipFilter)),
+        (chip === "all" ||
+          chip === "invites" ||
+          (chip === "pending" && isPending(member)) ||
+          (chip === "active" && member.membership_status === "active") ||
+          (chip === "none" && isOut(member))),
     );
 
     const collator = new Intl.Collator("ko");
     return [...rows].sort((a, b) => {
       switch (sort) {
-        case "role":
-          return a.role === b.role ? collator.compare(a.display_name, b.display_name) : a.role < b.role ? -1 : 1;
-        case "account":
-          return a.account_status === b.account_status
-            ? collator.compare(a.display_name, b.display_name)
-            : a.account_status < b.account_status
-              ? -1
-              : 1;
+        case "usage":
+          return (usedPct(b) ?? -1) - (usedPct(a) ?? -1) || collator.compare(a.display_name, b.display_name);
         case "membership": {
-          const rank = (status: string | null) =>
-            status === "active" ? 0 : status === "inactive" ? 1 : status === "former" ? 2 : 3;
-          const difference = rank(a.membership_status) - rank(b.membership_status);
+          const rank = (member: MemberWithMembership) =>
+            isPending(member) ? -1 : member.membership_status === "active" ? 0 : member.membership_status === "inactive" ? 1 : member.membership_status === "former" ? 2 : 3;
+          const difference = rank(a) - rank(b);
           return difference !== 0 ? difference : collator.compare(a.display_name, b.display_name);
         }
         default:
           return collator.compare(a.display_name, b.display_name);
       }
     });
-  }, [members, query, roleFilter, accountFilter, membershipFilter, sort]);
+  }, [members, query, chip, sort]);
+
+  const counts = useMemo(() => {
+    const all = members ?? [];
+    return {
+      all: all.length,
+      pending: all.filter(isPending).length,
+      active: all.filter((member) => member.membership_status === "active").length,
+      none: all.filter(isOut).length,
+    };
+  }, [members]);
+
+  /** The member panel opens by the address, so a link can open it too. */
+  const memberHref = (userId: number | null) => {
+    const next = new URLSearchParams(params.toString());
+    if (userId === null) next.delete("member");
+    else next.set("member", String(userId));
+    const query = next.toString();
+    return `${pathname}${query ? `?${query}` : ""}`;
+  };
+
+  const reload = useCallback(async () => {
+    if (quarterId === null) return;
+    setLoaded({ quarterId, rows: await listQuarterMembers(quarterId) });
+    await refreshDashboard();
+  }, [quarterId, refreshDashboard]);
+
+  /** 승인/거절 in the row (the former Applications screen's two buttons). */
+  const review = useCallback(
+    async (member: MemberWithMembership, approve: boolean, reason = "") => {
+      if (!member.application_id) return;
+      setBusy(true);
+      try {
+        await reviewApplication(member.application_id, approve, reason);
+        setResult({
+          kind: "ok",
+          text: approve ? `${member.display_name}의 신청을 승인했습니다.` : `${member.display_name}의 신청을 거절했습니다.`,
+        });
+        await reload();
+      } catch (caught) {
+        setResult({ kind: "error", text: describeError(caught) });
+      } finally {
+        setBusy(false);
+        setConfirm(null);
+      }
+    },
+    [reload],
+  );
 
   /**
    * 참여 상태를 바꾸는 흐름: 확인 → 실행 → 결과 → 다시 읽기.
@@ -154,13 +214,7 @@ export default function MemberList() {
           kind: "ok",
           text: `${member.display_name}의 참여 상태를 ${MEMBERSHIP_LABEL[status]}(으)로 바꿨습니다.`,
         });
-        const [rows, figures] = await Promise.all([
-          listQuarterMembers(quarterId),
-          getMemberStats(quarterId),
-        ]);
-        setLoaded({ quarterId, rows });
-        setStats(figures);
-        await refreshDashboard();
+        await reload();
       } catch (caught) {
         setResult({ kind: "error", text: describeError(caught) });
       } finally {
@@ -168,7 +222,7 @@ export default function MemberList() {
         setConfirm(null);
       }
     },
-    [quarterId, refreshDashboard],
+    [quarterId, reload],
   );
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
@@ -219,172 +273,149 @@ export default function MemberList() {
         <span className={styles.memberName}>
           {member.display_name}
           <span className={styles.memberHandle}>@{member.username}</span>
+          {member.role === "admin" && <span className="badge badge-accent" style={{ marginLeft: "0.4rem" }}>관리자</span>}
         </span>
       ),
-    },
-    {
-      key: "role",
-      header: "역할",
-      render: (member) => (
-        <span className={`badge ${member.role === "admin" ? "badge-accent" : "badge-muted"}`}>
-          {ROLE_LABEL[member.role]}
-        </span>
-      ),
-    },
-    {
-      key: "account",
-      header: "계정",
-      render: (member) => <AccountBadge status={member.account_status} />,
     },
     {
       key: "membership",
-      header: `참여 (${selected.display_name})`,
-      render: (member) => (
-        <>
-          <MembershipBadge status={member.membership_status} />
-          {member.membership_status === null && member.application_status !== null && (
-            <span className="small dim" style={{ marginLeft: "0.4rem" }}>
-              신청 {APPLICATION_STATUS_LABEL[member.application_status]}
+      header: "상태",
+      render: (member) =>
+        isPending(member) ? <span className="badge badge-warn">승인 대기</span> : <MembershipBadge status={member.membership_status} />,
+    },
+    {
+      key: "usage",
+      header: "사용률",
+      numeric: true,
+      render: (member) => {
+        const pct = usedPct(member);
+        if (pct === null) return <span className="small dim">—</span>;
+        return (
+          <span className={styles.usageCell} data-warn={pct >= USAGE_WARN_PCT ? "true" : undefined}>
+            <span className={styles.usageBar} aria-hidden="true">
+              <span style={{ width: `${pct}%` }} />
             </span>
-          )}
-        </>
-      ),
+            {pct}%
+          </span>
+        );
+      },
+    },
+    {
+      key: "left",
+      header: "남음",
+      numeric: true,
+      render: (member) =>
+        member.budget_krw ? formatKrw(Math.max(0, member.budget_krw - (member.consumed_krw ?? 0))) : <span className="small dim">—</span>,
     },
   ];
 
-  /**
-   * 카드를 누르면 그에 맞는 거르기가 걸립니다.
-   *
-   * 카드마다 거르는 축이 다릅니다 — 활동/비활동은 참여 상태, 탈퇴는 계정
-   * 상태, 관리자는 역할입니다. 한 번에 하나만 걸리게 하려고, 카드를 고를
-   * 때 나머지 축은 전체로 되돌립니다. 그러지 않으면 "관리자"를 누른 뒤
-   * "탈퇴"를 눌렀을 때 아무도 나오지 않고, 왜인지도 보이지 않습니다.
-   */
-  const activeCard =
-    membershipFilter === "active"
-      ? "active"
-      : membershipFilter === "inactive"
-        ? "inactive"
-        : membershipFilter === "not_applied"
-          ? "not_applied"
-          : accountFilter === "former"
-            ? "former"
-            : roleFilter === "admin"
-              ? "admins"
-              : null;
-
-  function selectCard(key: string) {
-    setRoleFilter("all");
-    setAccountFilter(key === "former" ? "former" : "all");
-    setMembershipFilter(
-      key === "active"
-        ? "active"
-        : key === "inactive"
-          ? "inactive"
-          : key === "not_applied"
-            ? "not_applied"
-            : "all",
-    );
-    if (key === "admins") setRoleFilter("admin");
-    setPage(1);
-  }
+  const chips: { key: Chip; label: string; count?: number }[] = [
+    { key: "all", label: "전체", count: counts.all },
+    { key: "pending", label: "승인 대기", count: counts.pending },
+    { key: "active", label: "활동", count: counts.active },
+    { key: "none", label: "미참여", count: counts.none },
+    { key: "invites", label: "초대 코드" },
+  ];
 
   return (
     <>
       <PageHeader note={`${selected.display_name} 기준`} />
 
-      {stats !== null && (
-        <StatCards
-          active={activeCard}
-          onSelect={selectCard}
-          cards={[
-            { key: "total", label: "전체 회원", value: stats.total, unit: "명" },
-            { key: "active", label: "활동 회원", value: stats.active, unit: "명" },
-            { key: "inactive", label: "비활동", value: stats.inactive, unit: "명" },
+      <div className={styles.chipRow} role="group" aria-label="회원 거르기">
+        {chips.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={styles.subTab + (chip === item.key ? ` ${styles.subTabActive}` : "")}
+            aria-pressed={chip === item.key}
+            onClick={() => {
+              setChip(item.key);
+              setPage(1);
+            }}
+          >
+            {item.label}
+            {item.count !== undefined && (
+              <span className={item.key === "pending" && item.count > 0 ? styles.tabCount : styles.chipCount}>{item.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {chip === "invites" ? (
+        <InviteCodePanel />
+      ) : (
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="이름이나 아이디로 검색"
+          resultCount={visible.length}
+          totalCount={members.length}
+          filters={[
             {
-              key: "not_applied",
-              label: "미신청",
-              value: stats.not_applied,
-              unit: "명",
-              accent: stats.not_applied > 0,
+              key: "sort",
+              label: "정렬",
+              value: sort,
+              onChange: (value) => setSort(value as SortKey),
+              options: [
+                { value: "name", label: "이름순" },
+                { value: "usage", label: "사용률 높은 순" },
+                { value: "membership", label: "상태순" },
+              ],
             },
-            { key: "former", label: "탈퇴", value: stats.former, unit: "명" },
-            { key: "admins", label: "관리자", value: stats.admins, unit: "명" },
           ]}
         />
       )}
 
-      <SearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="이름이나 아이디로 검색"
-        resultCount={visible.length}
-        totalCount={members.length}
-        filters={[
-          {
-            key: "role",
-            label: "역할",
-            value: roleFilter,
-            onChange: setRoleFilter,
-            options: [
-              { value: "all", label: "전체" },
-              { value: "admin", label: ROLE_LABEL.admin },
-              { value: "member", label: ROLE_LABEL.member },
-            ],
-          },
-          {
-            key: "account",
-            label: "계정",
-            value: accountFilter,
-            onChange: setAccountFilter,
-            options: [
-              { value: "all", label: "전체" },
-              { value: "active", label: "사용 가능" },
-              { value: "inactive", label: "비활동" },
-              { value: "former", label: "탈퇴 회원" },
-            ],
-          },
-          {
-            key: "membership",
-            label: "참여",
-            value: membershipFilter,
-            onChange: setMembershipFilter,
-            options: [
-              { value: "all", label: "전체" },
-              ...Object.entries(MEMBERSHIP_LABEL).map(([value, label]) => ({ value, label })),
-              { value: "none", label: "미참여" },
-              { value: "not_applied", label: "미신청" },
-            ],
-          },
-          {
-            key: "sort",
-            label: "정렬",
-            value: sort,
-            onChange: (value) => setSort(value as SortKey),
-            options: [
-              { value: "name", label: "이름순" },
-              { value: "role", label: "역할순" },
-              { value: "account", label: "계정 상태순" },
-              { value: "membership", label: "참여 상태순" },
-            ],
-          },
-        ]}
-      />
-
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
 
+      {chip !== "invites" && (
       <AdminTable
         columns={columns}
         rows={rows}
         rowKey={(member) => member.user_id}
-        rowHref={(member) => withQuarter(`/admin/members/${member.user_id}`, selected.id)}
-        rowActions={(member) => (
+        rowHref={(member) => memberHref(member.user_id)}
+        rowActions={(member) =>
+          isPending(member) ? (
+            <span className={styles.rowButtons}>
+              <button
+                className="btn btn-primary btn-sm"
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  setConfirm({
+                    title: `참여 신청 승인 — ${member.display_name}`,
+                    effect: `신청한 그대로 동아리 지원 ${formatKrw(member.requested_budget_krw ?? 0)}의 지갑이 만들어지고, ${member.display_name}이(가) ${selected.display_name}에 참여하게 됩니다.`,
+                    confirmLabel: "승인",
+                    onConfirm: () => review(member, true),
+                  })
+                }
+              >
+                승인
+              </button>
+              <button
+                className="btn btn-sm"
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  setConfirm({
+                    title: `참여 신청 거절 — ${member.display_name}`,
+                    effect: `${member.display_name}은(는) ${selected.display_name}에 참여하지 못하고 지원금도 받지 못합니다. 신청은 다시 올릴 수 있습니다.`,
+                    confirmLabel: "거절",
+                    danger: true,
+                    reason: { label: "거절 사유", placeholder: "예: 이번 분기 예산이 모두 배정되었습니다.", required: true },
+                    onConfirm: (reason) => review(member, false, reason),
+                  })
+                }
+              >
+                거절
+              </button>
+            </span>
+          ) : (
           <RowMenu
             items={[
               {
                 label: "상세 열기",
-                onSelect: () =>
-                  router.push(withQuarter(`/admin/members/${member.user_id}`, selected.id)),
+                onSelect: () => router.push(memberHref(member.user_id)),
               },
               {
                 label: "참여 등록",
@@ -431,9 +462,11 @@ export default function MemberList() {
               },
             ]}
           />
-        )}
+          )
+        }
         empty="조건에 맞는 회원이 없습니다."
       />
+      )}
 
       {pageCount > 1 && (
         <nav aria-label="쪽 이동" className={styles.pager}>
@@ -461,7 +494,14 @@ export default function MemberList() {
 
       <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
 
-      <InviteCodePanel />
+      {openMember && (
+        <MemberPanel
+          userId={Number(openMember)}
+          onClose={() => router.push(memberHref(null))}
+          fullHref={withQuarter(`/admin/members/${openMember}`, selected.id)}
+          onChanged={() => void reload()}
+        />
+      )}
     </>
   );
 }
@@ -474,8 +514,8 @@ function PageHeader({ note }: { note?: string }) {
       titleAddon={<>{note && <span className={styles.sectionNote}> {note}</span>}</>}
       subtitle={
         <>
-          카드를 눌러 걸러 보거나, 검색해서 찾습니다. 참여 상태는 줄의 관리 메뉴에서 바로
-          바꿀 수 있고, 역할과 지원금은 그 사람을 보고 정해야 하므로 상세 화면에 있습니다.
+          참여 신청, 회원, 초대 코드. 줄을 누르면 오른쪽에 회원 상세가 열려요 — 지원금 조정,
+          참여 상태, 역할, 지운 작업 복구가 모두 거기 있어요.
         </>
       }
     />

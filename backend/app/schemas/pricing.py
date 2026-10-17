@@ -35,6 +35,9 @@ class ChatModelAdminRead(BaseModel):
     estimated_reply_krw: int | None = None
     estimate_basis: str = "formula"
     estimate_samples: int = 0
+    #: admin-consolidation v3 (2): 이번 분기 사용 — what members were charged
+    #: on this model in the current quarter (won).
+    quarter_krw: int = 0
     # Server tools (chat-plus-tools): which this model may use, and the
     # $ one web search costs. Off until an admin opens one.
     tools_web_search: bool = False

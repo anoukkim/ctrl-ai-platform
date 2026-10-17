@@ -66,10 +66,9 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Members",
     description: "참여 신청, 회원, 초대 코드. 줄을 누르면 회원 상세.",
     Icon: Users,
-    tabs: [
-      { key: "members", label: "회원" },
-      { key: "applications", label: "참여 신청" },
-    ],
+    // admin-consolidation v3 (2): 참여 신청 is the list's 승인 대기 chip now,
+    // and 지운 작업 is in the member panel.
+    tabs: [{ key: "members", label: "회원" }],
   },
   {
     key: "quarters",
@@ -77,9 +76,11 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Quarters",
     description: "분기와 예산 — 산 돈이 어디로 나뉘었나. 분기는 위쪽에서 바꿔요.",
     Icon: CalendarRange,
+    // 분기 · 예산 = "산 돈이 어디로 나뉘었나" (돈의 흐름, 분기 마감), 사용 분석 =
+    // "어디에 썼나" (v3). Until batch (3) builds it, 사용 분석 is the Budget screen.
     tabs: [
-      { key: "quarters", label: "분기" },
-      { key: "budget", label: "예산" },
+      { key: "quarters", label: "분기 · 예산" },
+      { key: "budget", label: "사용 분석" },
     ],
   },
   {
@@ -98,9 +99,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Models",
     description: "Chat · Video 모델과 요금. 연결 전인 제공자도 목록에 있어요.",
     Icon: Bot,
+    // 한도 (채팅 한도, from System) and 보정 (비용 보정) sit with the models (v3).
     tabs: [
       { key: "ai-models", label: "Chat" },
       { key: "video-models", label: "Video" },
+      { key: "limits", label: "한도" },
+      { key: "calibration", label: "보정" },
     ],
   },
   {
@@ -108,13 +112,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "community",
     href: "/admin/community",
     label: "Community",
-    description: "신고 · 의견 · 앱 · 지운 작업.",
+    description: "신고 · 의견 · 앱.",
     Icon: MessagesSquare,
     tabs: [
       { key: "content", label: "신고" },
       { key: "feedback", label: "의견" },
       { key: "apps", label: "앱" },
-      { key: "deleted", label: "지운 작업" },
     ],
     also: ["/admin/apps"],
   },
@@ -135,8 +138,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
  * 예전 주소 → 새 자리 (북마크가 살아 있도록). 예전 화면 파일은 이 표를
  * 읽어 넘겨 줍니다.
  */
-export const LEGACY_ROUTES: Record<string, { section: string; tab: string }> = {
-  "/admin/applications": { section: "members", tab: "applications" },
+export const LEGACY_ROUTES: Record<string, { section: string; tab: string; query?: Record<string, string> }> = {
+  "/admin/applications": { section: "members", tab: "members", query: { filter: "pending" } },
   "/admin/budget": { section: "quarters", tab: "budget" },
   "/admin/ai-models": { section: "models", tab: "ai-models" },
   "/admin/claude-models": { section: "models", tab: "ai-models" },
@@ -144,7 +147,7 @@ export const LEGACY_ROUTES: Record<string, { section: string; tab: string }> = {
   "/admin/content": { section: "community", tab: "content" },
   "/admin/feedback": { section: "community", tab: "feedback" },
   "/admin/apps": { section: "community", tab: "apps" },
-  "/admin/deleted": { section: "community", tab: "deleted" },
+  "/admin/deleted": { section: "members", tab: "members" },
   "/admin/audit": { section: "system", tab: "audit" },
 };
 
@@ -154,8 +157,13 @@ function sectionByKey(key: string): AdminSection {
   return section;
 }
 
+/** Former sections that are no longer a tab: where their screens now live. */
+const RETIRED_TABS: Record<string, string> = { applications: "members", deleted: "members" };
+
 /** 탭(예전 구역)이 들어 있는 구역. */
 export function sectionOfTab(tabKey: string): AdminSection | undefined {
+  const retired = RETIRED_TABS[tabKey];
+  if (retired) return ADMIN_SECTIONS.find((section) => section.key === retired);
   return ADMIN_SECTIONS.find((section) => section.tabs.some((tab) => tab.key === tabKey));
 }
 

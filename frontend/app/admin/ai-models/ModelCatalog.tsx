@@ -44,7 +44,6 @@ import { formatKrw } from "@/lib/quarters";
 import Fold, { FoldGroup } from "../components/Fold";
 import StatCards from "../components/StatCards";
 import { sectionLabel } from "../sections";
-import CalibrationPanel from "./CalibrationPanel";
 
 import styles from "../admin.module.css";
 import Skeleton from "@/app/components/Skeleton";
@@ -303,6 +302,7 @@ export default function ModelCatalog() {
                           <th scope="col">기본</th>
                           <th scope="col">요금 $/100만 토큰</th>
                           <th scope="col">답장 1회 약</th>
+                          <th scope="col">이번 분기 사용</th>
                           <th scope="col">
                             <span className="sr-only">설정</span>
                           </th>
@@ -403,6 +403,9 @@ export default function ModelCatalog() {
                                   ? "—"
                                   : formatKrw(model.estimated_reply_krw)}
                               </td>
+                              <td className="numeric" data-testid="model-quarter-krw">
+                                {model.quarter_krw ? formatKrw(model.quarter_krw) : "—"}
+                              </td>
                               <td>
                                 <button
                                   className="btn btn-sm"
@@ -416,7 +419,7 @@ export default function ModelCatalog() {
                             </tr>
                             {editingId === model.id && (
                               <tr>
-                                <td colSpan={7}>
+                                <td colSpan={8}>
                                   <ModelEditor
                                     model={model}
                                     onSaved={async () => {
@@ -438,9 +441,7 @@ export default function ModelCatalog() {
             );
           })}
 
-          <Fold id="calibration" title="비용 보정" note="어림값과 실제 답장 비교 · 최근 200회까지">
-            <CalibrationPanel />
-          </Fold>
+{/* 비용 보정 moved to Models › 보정 (admin-consolidation v3). */}
           </FoldGroup>
 
           <p className="small dim" id={`${id}-default-rule`} style={{ marginTop: "0.6rem" }}>

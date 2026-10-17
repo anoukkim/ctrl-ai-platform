@@ -223,6 +223,12 @@ class MemberWithMembership(BaseModel):
     #: 이번 분기 신청의 상태. None이면 신청한 적이 없습니다 — 참여 기록도
     #: 없으면 그 사람이 미신청 카드의 한 명입니다 (owner-polish 8).
     application_status: ApplicationStatus | None = None
+    #: admin-consolidation v3 (2): the submitted application (inline 승인/거절)
+    #: and the wallet (사용률), when there are.
+    application_id: int | None = None
+    requested_budget_krw: int | None = None
+    budget_krw: int | None = None
+    consumed_krw: int | None = None
 
 
 class RoleUpdate(BaseModel):

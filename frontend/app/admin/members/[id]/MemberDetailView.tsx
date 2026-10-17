@@ -49,11 +49,22 @@ import {
 
 import styles from "../../admin.module.css";
 import Fact from "./Fact";
+import MemberDeletedWork from "./MemberDeletedWork";
 import WithdrawalPanel from "./WithdrawalPanel";
 import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
 
-export default function MemberDetailView({ userId }: { userId: number }) {
+export default function MemberDetailView({
+  userId,
+  embedded = false,
+  onChanged,
+}: {
+  userId: number;
+  /** admin-consolidation v3: shown as the Members list's right-hand panel. */
+  embedded?: boolean;
+  /** After any change (the list re-reads its row). */
+  onChanged?: () => void;
+}) {
   const site = useSite();
   const { selected, refresh: refreshDashboard } = useAdminQuarter();
 
@@ -65,7 +76,8 @@ export default function MemberDetailView({ userId }: { userId: number }) {
   // 조정 기록 표를 다시 읽게 하는 번호(cost-clarity).
   const [adjustVersion, setAdjustVersion] = useState(0);
 
-  useBreadcrumbTail(member?.display_name ?? null);
+  // In the list's panel the breadcrumb stays the list's.
+  useBreadcrumbTail(embedded ? null : (member?.display_name ?? null));
 
   const load = useCallback(async () => {
     try {
@@ -109,6 +121,7 @@ export default function MemberDetailView({ userId }: { userId: number }) {
         await load();
         // 사이드바와 탭의 숫자도 같이 바뀝니다.
         await refreshDashboard();
+        onChanged?.();
       } catch (caught) {
         setResult({ kind: "error", text: describeError(caught) });
       } finally {
@@ -116,7 +129,7 @@ export default function MemberDetailView({ userId }: { userId: number }) {
         setConfirm(null);
       }
     },
-    [load, refreshDashboard],
+    [load, refreshDashboard, onChanged],
   );
 
   if (error !== null) {
@@ -490,6 +503,9 @@ export default function MemberDetailView({ userId }: { userId: number }) {
         run={run}
         onError={(text) => setResult({ kind: "error", text })}
       />
+
+      {/* ---------- 지운 작업 (admin-consolidation v3: Deleted Items moved here) ---------- */}
+      <MemberDeletedWork userId={member.user_id} onChanged={onChanged} />
 
       {/* ---------- 이 회원의 감사 기록 ---------- */}
       <section aria-labelledby="member-audit">

@@ -26,12 +26,12 @@ participation.
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
-from app.models import AuditAction, ChatModel, ChatModelVisibility, User
+from app.models import AuditAction, ChatModel, ChatModelVisibility, UsageEvent, User
 from app.schemas.pricing import (
     ChatModelAdminRead,
     ChatModelCreate,
@@ -41,6 +41,7 @@ from app.schemas.pricing import (
     ModelCalibrationRead,
 )
 from app.services import audit, calibration, chat_models, pricing
+from app.services.quarters import current_quarter
 
 router = APIRouter(prefix="/admin/chat-models", tags=["admin"])
 
@@ -119,7 +120,20 @@ def list_chat_models(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> list[ChatModelAdminRead]:
-    return [_read(row, db) for row in chat_models.all_models(db)]
+    rows = [_read(row, db) for row in chat_models.all_models(db)]
+    # 이번 분기 사용 (admin-consolidation v3): charged won per model, this quarter.
+    quarter = current_quarter(db)
+    if quarter is not None:
+        spent = dict(
+            db.execute(
+                select(UsageEvent.model_id, func.coalesce(func.sum(UsageEvent.charged_krw), 0))
+                .where(UsageEvent.quarter_id == quarter.id, UsageEvent.model_id.is_not(None))
+                .group_by(UsageEvent.model_id)
+            ).all()
+        )
+        for row in rows:
+            row.quarter_krw = int(spent.get(row.model_id, 0) or 0)
+    return rows
 
 
 @router.get(

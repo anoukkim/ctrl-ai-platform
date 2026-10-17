@@ -1,4 +1,7 @@
 /**
+ * admin-consolidation v3 (2): 회원 목록의 칩 — 전체 · 승인 대기 · 활동 · 미참여 —
+ * 과 사용률 열, 줄에서 승인/거절. (예전 숫자 카드는 칩이 됐어요.)
+ *
  * 숫자 카드를 누르면 목록이 걸러지는지.
  *
  * 카드가 숫자만 보여 준다면 장식입니다. 누를 수 있다고 해 놓고 아무 일도
@@ -41,6 +44,8 @@ const MEMBERS: MemberWithMembership[] = [
     account_status: "active",
     membership_status: "active",
     application_status: "approved",
+    budget_krw: 80_000,
+    consumed_krw: 68_800,
   },
   {
     user_id: 2,
@@ -69,6 +74,8 @@ const MEMBERS: MemberWithMembership[] = [
     account_status: "active",
     membership_status: null,
     application_status: "submitted",
+    application_id: 9,
+    requested_budget_krw: 80_000,
   },
   {
     user_id: 4,
@@ -89,6 +96,8 @@ const MEMBERS: MemberWithMembership[] = [
     membership_status: "active",
     // 관리자가 직접 넣은 사람 — 신청 없이 활동 중. 미신청에 세지 않습니다.
     application_status: null,
+    budget_krw: 80_000,
+    consumed_krw: 11_200,
   },
 ];
 
@@ -103,6 +112,8 @@ const STATS = {
 
 const listQuarterMembers = vi.fn().mockResolvedValue(MEMBERS);
 const getMemberStats = vi.fn().mockResolvedValue(STATS);
+const reviewApplication = vi.fn().mockResolvedValue({});
+let search = new URLSearchParams();
 
 vi.mock("@/lib/admin", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/admin")>();
@@ -115,13 +126,14 @@ vi.mock("@/lib/quarters", async (importOriginal) => {
     ...actual,
     listQuarterMembers: (...args: unknown[]) => listQuarterMembers(...args),
     setQuarterMembership: vi.fn(),
+    reviewApplication: (...args: unknown[]) => reviewApplication(...args),
   };
 });
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/admin/members",
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => search,
 }));
 
 vi.mock("@/app/admin/AdminQuarterProvider", () => ({
@@ -136,7 +148,7 @@ vi.mock("@/app/admin/AdminQuarterProvider", () => ({
   withQuarter: (href: string) => href,
 }));
 
-vi.mock("@/app/admin/admin.module.css", () => ({ default: {} }));
+vi.mock("@/app/admin/admin.module.css", () => ({ default: { usageCell: "usageCell" } }));
 
 const { default: MemberList } = await import("@/app/admin/members/MemberList");
 
@@ -151,147 +163,53 @@ function rows() {
   return screen.getAllByRole("row").slice(1); // 머리글 줄 제외
 }
 
-describe("회원 숫자 카드", () => {
+describe("회원 목록의 칩과 사용률 (admin-consolidation v3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    search = new URLSearchParams();
     listQuarterMembers.mockResolvedValue(MEMBERS);
-    getMemberStats.mockResolvedValue(STATS);
+    reviewApplication.mockResolvedValue({});
   });
 
-  test("백엔드가 준 숫자를 그대로 보여 준다", async () => {
-    render(<MemberList />);
-    await screen.findByText("김유리");
+  const chip = (label: string) => screen.getByRole("button", { name: new RegExp(`^${label}`) });
 
-    // 목록을 세지 않고 받은 값을 씁니다 — 거르기를 걸어 두면 목록은
-    // "전체"가 아니기 때문입니다.
-    expect(card("전체 회원")!.textContent).toContain("4");
-    expect(card("비활동")!.textContent).toContain("1");
-    expect(card("탈퇴")!.textContent).toContain("1");
-    expect(card("관리자")!.textContent).toContain("1");
-  });
-
-  test("활동 회원 카드를 누르면 활동 회원만 남는다", async () => {
+  test("칩마다 수가 있고, 누르면 그 사람들만 남는다", async () => {
     const user = userEvent.setup();
     render(<MemberList />);
-    await screen.findByText("김유리");
-    expect(rows()).toHaveLength(6);
-
-    await user.click(card("활동 회원")!);
-
-    await waitFor(() => expect(rows()).toHaveLength(2));
-    expect(screen.getByText("김유리")).toBeTruthy();
-    expect(screen.getByText("관리담당")).toBeTruthy();
-    expect(screen.queryByText("박민호")).toBeNull();
-  });
-
-  test("비활동 카드를 누르면 비활동 회원만 남는다", async () => {
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("비활동")!);
-
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(screen.getByText("박민호")).toBeTruthy();
-  });
-
-  test("미신청 카드는 신청도 참여 기록도 없는 회원만 남긴다 (owner-polish 8)", async () => {
-    /**
-     * 2026-10-16 production: the card said 미신청 1명 and the 미참여 filter
-     * showed nobody — the card counted "no application", the filter "no
-     * participation". Both now mean "neither": the admin enrolled without
-     * an application (관리담당) and the pending applicant (대기중) are not
-     * 미신청; 이소라 is.
-     */
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("미신청")!);
-
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(screen.getByText("이소라")).toBeTruthy();
-    expect(screen.queryByText("대기중")).toBeNull();
-    expect(screen.queryByText("떠난회원")).toBeNull();
-    expect(screen.getByRole("combobox", { name: "참여" })).toHaveProperty("value", "not_applied");
-  });
-
-  test("미참여 거르기는 승인 전 신청자도 보여 주고, 그 신청 상태를 적는다", async () => {
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.selectOptions(screen.getByRole("combobox", { name: "참여" }), "none");
-
-    await waitFor(() => expect(rows()).toHaveLength(3));
-    expect(screen.getByText("이소라")).toBeTruthy();
-    expect(screen.getByText("대기중")).toBeTruthy();
-    expect(screen.getByText("떠난회원")).toBeTruthy(); // no participation row — but not 미신청
-    expect(screen.getByText("신청 승인 대기")).toBeTruthy();
-  });
-
-  test("탈퇴 카드는 탈퇴 회원만 남긴다", async () => {
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("탈퇴")!);
-
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(screen.getByText("떠난회원")).toBeTruthy();
-  });
-
-  test("관리자 카드는 관리자만 남긴다", async () => {
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("관리자")!);
-
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(screen.getByText("관리담당")).toBeTruthy();
-  });
-
-  test("카드를 바꿔 누르면 앞의 거르기가 남지 않는다", async () => {
-    /**
-     * 카드마다 거르는 축이 다릅니다 — 탈퇴는 계정 상태, 관리자는 역할.
-     * 둘이 겹쳐 걸리면 아무도 나오지 않고, 왜인지도 보이지 않습니다.
-     */
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("관리자")!);
-    await waitFor(() => expect(rows()).toHaveLength(1));
-
-    await user.click(card("탈퇴")!);
-    await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(screen.getByText("떠난회원")).toBeTruthy();
-  });
-
-  test("고른 카드는 눌린 상태로 표시되고, 풀 수 있다", async () => {
-    const user = userEvent.setup();
-    render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("비활동")!);
-    await waitFor(() => expect(card("비활동")!.getAttribute("aria-pressed")).toBe("true"));
-
-    // 걸 수 있으면 풀 수도 있어야 합니다.
-    await user.click(screen.getByRole("button", { name: /전체 보기/ }));
     await waitFor(() => expect(rows()).toHaveLength(6));
+    expect(chip("전체").textContent).toContain("6");
+    expect(chip("승인 대기").textContent).toContain("1");
+    expect(chip("활동").textContent).toContain("2");
+    expect(chip("미참여").textContent).toContain("2");
+
+    await user.click(chip("활동"));
+    expect(rows().map((row) => row.textContent)).toEqual([expect.stringContaining("관리담당"), expect.stringContaining("김유리")]);
+    expect(chip("활동").getAttribute("aria-pressed")).toBe("true");
+    await user.click(chip("미참여"));
+    // 미참여: no participation and not waiting, former members aside.
+    expect(rows().map((row) => row.textContent?.includes("박민호") || row.textContent?.includes("이소라"))).toEqual([true, true]);
   });
 
-  test("거르기를 걸어도 카드의 숫자는 전체를 가리킨다", async () => {
+  test("승인 대기 줄에서 바로 승인하고, 대시보드의 링크는 그 칩을 연다", async () => {
+    search = new URLSearchParams("filter=pending");
     const user = userEvent.setup();
     render(<MemberList />);
-    await screen.findByText("김유리");
-
-    await user.click(card("비활동")!);
     await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(rows()[0].textContent).toContain("승인 대기");
+    await user.click(within(rows()[0]).getByRole("button", { name: "승인" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "승인" }));
+    await waitFor(() => expect(reviewApplication).toHaveBeenCalledWith(9, true, ""));
+  });
 
-    // 목록은 한 줄이지만 "전체 회원"은 여전히 4입니다. 화면에서 세면
-    // 이 숫자가 1이 되고, 카드가 거짓말을 하게 됩니다.
-    expect(within(card("전체 회원")!).getByText("4")).toBeTruthy();
+  test("사용률: 막대와 %, 80% 이상은 주황; 지갑이 없으면 —", async () => {
+    render(<MemberList />);
+    await waitFor(() => expect(rows()).toHaveLength(6));
+    const yuri = rows().find((row) => row.textContent?.includes("김유리"))!;
+    expect(yuri.textContent).toContain("86%");
+    expect(yuri.querySelector("[data-warn='true']")).not.toBeNull();
+    const admin = rows().find((row) => row.textContent?.includes("관리담당"))!;
+    expect(admin.textContent).toContain("14%");
+    expect(admin.querySelector("[data-warn='true']")).toBeNull();
+    expect(rows().find((row) => row.textContent?.includes("이소라"))!.textContent).toContain("—");
   });
 });
