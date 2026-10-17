@@ -402,6 +402,12 @@ def test_the_worker_opens_only_the_published_files_on_the_allowed_host(worker) -
 def test_the_browser_may_reach_the_allowed_host_and_nothing_else(worker) -> None:
     assert worker.resolver_rules("apps.ctrlai.my") == "MAP * ~NOTFOUND, EXCLUDE apps.ctrlai.my"
     assert worker.resolver_rules("localhost:9000") == "MAP * ~NOTFOUND, EXCLUDE localhost"
+    # On the server the allowed host goes to caddy's fixed address on the
+    # internal network — first rule wins — and nothing else resolves.
+    assert worker.resolver_rules("apps.ctrlai.my", "172.30.88.2") == "MAP apps.ctrlai.my 172.30.88.2, MAP * ~NOTFOUND"
+    assert "--host-resolver-rules=MAP apps.ctrlai.my 172.30.88.2, MAP * ~NOTFOUND" in worker.launch_args(
+        "apps.ctrlai.my", "172.30.88.2"
+    )
     args = worker.launch_args("apps.ctrlai.my")
     assert "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE apps.ctrlai.my" in args
     assert "--webrtc-ip-handling-policy=disable_non_proxied_udp" in args
@@ -426,12 +432,18 @@ def test_the_browser_may_reach_the_allowed_host_and_nothing_else(worker) -> None
     # The sandbox stays on unless development says otherwise.
     import os
 
-    env = dict(os.environ, THUMBS_SECRET="x", THUMBS_ALLOWED_HOST="apps.ctrlai.my", THUMBS_SOCKET="/run/thumbs/t.sock")
+    env = dict(
+        os.environ,
+        THUMBS_SECRET="x",
+        THUMBS_ALLOWED_HOST="apps.ctrlai.my",
+        THUMBS_SOCKET="/run/thumbs/t.sock",
+        THUMBS_RESOLVE_TO="172.30.88.2",
+    )
     env.pop("THUMBS_NO_SANDBOX", None)
     os.environ.update(env)
     try:
         cfg = worker.config()
     finally:
-        for name in ("THUMBS_SECRET", "THUMBS_ALLOWED_HOST", "THUMBS_SOCKET"):
+        for name in ("THUMBS_SECRET", "THUMBS_ALLOWED_HOST", "THUMBS_SOCKET", "THUMBS_RESOLVE_TO"):
             os.environ.pop(name, None)
-    assert cfg["sandbox"] is True and cfg["socket"] == "/run/thumbs/t.sock"
+    assert cfg["sandbox"] is True and cfg["socket"] == "/run/thumbs/t.sock" and cfg["resolve_to"] == "172.30.88.2"

@@ -728,9 +728,9 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
 
 ## 11. 보안 점검표
 
-- `thumbs`를 켰다면: 위 12장 "서버 썸네일 렌더러 켜기" (b)의 IP 확인 셋이
-  모두 **실패**해야 정상입니다(브라우저 컨테이너는 db·api·web과 망을 같이
-  쓰지 않음). `dc logs thumbs`에 "Chromium sandbox OFF"가 없어야 합니다.
+- `thumbs`를 켰다면: 위 12장 "서버 썸네일 렌더러 켜기" (b)의 다섯 줄(db·api·
+  web·메타데이터 서버·인터넷)이 모두 **막힘**이어야 정상입니다(브라우저
+  컨테이너의 유일한 망은 밖으로 나가는 길이 없는 내부망, caddy만 함께). `dc logs thumbs`에 "Chromium sandbox OFF"가 없어야 합니다.
   비밀 값 `THUMBNAIL_WORKER_SECRET`은 `.env`에만 있고, 바꾸면
   `dc up -d thumbs api`.
 
@@ -878,14 +878,15 @@ dc exec api python -m app.db.rewrite_app_runtime
    printf 'THUMBNAIL_RENDERER=server\nTHUMBNAIL_WORKER_SECRET=%s\nCOMPOSE_PROFILES=thumbs\n' "$secret" >> .env
    ```
 
-   (`THUMBNAIL_WORKER_URL`과 유닉스 소켓 경로는 compose 파일이 정해 둡니다 —
-   `.env`에 적지 않습니다. api와 thumbs는 네트워크를 같이 쓰지 않고 공유
-   볼륨의 소켓으로만 이야기합니다.)
+   (`THUMBNAIL_WORKER_URL`과 유닉스 소켓 경로, thumbs가 apps 주소를 찾아갈
+   caddy의 고정 주소는 compose 파일이 정해 둡니다 — `.env`에 적지 않습니다.
+   api와 thumbs는 네트워크를 같이 쓰지 않고 공유 볼륨의 소켓으로만 이야기하고,
+   thumbs의 유일한 망은 밖으로 나가는 길이 없는 내부망에 caddy만 있습니다.)
 2. 새 서비스의 이미지를 받고 둘을 다시 켭니다:
 
    ```bash
    dc pull thumbs
-   dc up -d thumbs api
+   dc up -d caddy thumbs api      # caddy는 내부망(thumbs_net)에 붙느라 다시 만들어집니다 — 몇 초
    ```
 
 3. 확인 — 셋 다 보고 나서 켜진 것으로 칩니다:
@@ -896,26 +897,26 @@ dc exec api python -m app.db.rewrite_app_runtime
                                # "Chromium sandbox OFF"가 보이면 안 됩니다
    # (a) api가 소켓으로 닿는지
    dc exec api python -c "import socket,http.client as h; s=socket.socket(socket.AF_UNIX); s.connect('/run/thumbs/thumbs.sock'); c=h.HTTPConnection('thumbs'); c.sock=s; c.request('GET','/health'); print(c.getresponse().status)"
-   # (b) thumbs에서 db·api·web으로 가는 길이 없는지 — 이름이 아니라 IP로
-   #     (같은 망이 아니면 이름은 어차피 안 풀립니다). 셋 다 "막힘"이어야 정상.
+   # (b) thumbs에서 db·api·web, 그리고 바깥(인터넷, GCE 메타데이터 서버)으로
+   #     가는 길이 없는지 — 이름이 아니라 IP로. 다섯 줄 모두 "막힘"이어야 정상.
    ip_of() { docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$(dc ps -q "$1")" | awk '{print $1}'; }
+   probe() { dc exec thumbs python -c "import socket; socket.create_connection(('$1', $2), timeout=3)" >/dev/null 2>&1; }
    for pair in db:5432 api:8000 web:3000; do
      s=${pair%%:*}; port=${pair##*:}; ip=$(ip_of "$s")
-     if dc exec thumbs python -c "import socket; socket.create_connection(('$ip', $port), timeout=3)" 2>/dev/null; then
-       echo "!! thumbs가 $s($ip:$port)에 닿음 — 켜지 말고 알려 주세요"
-     else
-       echo "thumbs → $s($ip:$port) 막힘 (정상)"
-     fi
+     probe "$ip" "$port" && echo "!! thumbs가 $s($ip:$port)에 닿음 — 켜지 말고 알려 주세요" || echo "thumbs → $s($ip:$port) 막힘 (정상)"
    done
+   probe 169.254.169.254 80 && echo "!! thumbs가 GCE 메타데이터 서버에 닿음 — 켜지 말고 알려 주세요" || echo "thumbs → 메타데이터 서버 막힘 (정상)"
+   probe 1.1.1.1 443 && echo "!! thumbs가 인터넷에 닿음 — 켜지 말고 알려 주세요" || echo "thumbs → 인터넷 막힘 (정상)"
+   # (c) 그래도 caddy에는 닿아야 합니다 (apps 주소가 여기로 갑니다).
+   probe 172.30.88.2 443 && echo "thumbs → caddy 172.30.88.2:443 열림 (정상)" || echo "!! thumbs가 caddy에 닿지 않음 — 렌더가 실패합니다"
    ```
 
    그다음 https://ctrlai.my/admin/apps 에서 **썸네일 다시 만들기**를 누르면
    안내가 "서버의 브라우저가 … 찍어요"로 바뀌고, 앱 하나에 10초쯤 걸리며
    저장된 수가 늘어납니다. 첫 앱이 **실패**로 나오면 `dc logs thumbs`를
-   봅니다 — `page failed`/`render timed out`이면 컨테이너가 자기 서버의
-   공개 주소(apps.ctrlai.my)로 되돌아오지 못하는 것이니(GCE에서는 되는 것이
-   보통입니다) 켜지 말고 알려 주세요; 그동안 그림은 회원 브라우저가 찍은
-   것이 그대로 남습니다. 그 뒤로는 회원이 게시할 때마다 몇 초 뒤 서버가
+   봅니다 — `page failed`/`render timed out`이면 caddy로 가는 길(위 (c))이나
+   인증서 쪽 문제이니 켜지 말고 알려 주세요; 그동안 그림은 회원 브라우저가
+   찍은 것이 그대로 남습니다. 그 뒤로는 회원이 게시할 때마다 몇 초 뒤 서버가
    찍은 그림으로 바뀝니다(그 전에 회원 브라우저가 찍은 그림이 먼저 저장되니,
    서버가 실패해도 그림은 남습니다).
 

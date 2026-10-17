@@ -8,9 +8,9 @@
 #   api    FastAPI                              — reads the server's .env
 #   db     PostgreSQL 16                        — NO published port
 #   thumbs headless Chromium (thumbnail-render-worker) — only with
-#          COMPOSE_PROFILES=thumbs in .env; shares NO network with the
-#          other four (the api talks to it over a unix socket in a shared
-#          volume), see the service
+#          COMPOSE_PROFILES=thumbs in .env; the api talks to it over a
+#          unix socket in a shared volume, and its only network is an
+#          internal one (no NAT) shared with caddy alone, see the service
 #
 # The server only PULLS images; GitHub Actions builds them
 # (.github/workflows/images.yml). Step-by-step: docs/deployment.md.
@@ -52,6 +52,13 @@ services:
       - caddy_config:/config
     depends_on:
       - web
+    networks:
+      default:
+      # thumbnail-render-worker: the one address the thumbs browser may
+      # open, apps.<domain>, is served by caddy here — on an internal
+      # network with no way out, at a fixed address Chromium is pointed at.
+      thumbs_net:
+        ipv4_address: 172.30.88.2
     mem_limit: 256m
     logging: *logging
 
@@ -140,14 +147,15 @@ services:
   # thumbnail-render-worker: a real headless Chromium that photographs a
   # published app for its card (THUMBNAIL_RENDERER=server). Member code
   # runs in this container and nowhere else, so it is fenced in:
-  #   - NO network shared with api, db, web or caddy: the api asks it over
-  #     a unix socket in the `thumbs_sock` volume, and the only network it
-  #     has (`thumbs_egress`, its own bridge) leads outside — the browser
-  #     reaches apps.<domain> the way a visitor does (the public address)
-  #     and nothing else: every other host name is refused inside
-  #     Chromium, every request to another host is aborted, WebSockets
-  #     closed, WebRTC may not open UDP (thumbs/worker.py); Docker drops
-  #     traffic between bridges, so db/api/web have no route from here;
+  #   - NO network shared with api, db or web: the api asks it over a unix
+  #     socket in the `thumbs_sock` volume. Its only network, `thumbs_net`,
+  #     is `internal` (no NAT, no gateway: no internet, no GCE metadata
+  #     server) and shared with caddy alone, which serves apps.<domain>
+  #     there at a fixed address; Chromium maps apps.<domain> to that
+  #     address and refuses every other host name, aborts every request to
+  #     another host, closes WebSockets, and may not open UDP for WebRTC
+  #     (thumbs/worker.py). Nothing else is reachable at the network level
+  #     — not db, api, web, the host's other ports, or the outside;
   #   - the socket answers only with the shared secret the api presents;
   #   - Chromium's own sandbox stays ON: the seccomp profile below is
   #     Playwright's published one (Docker's default plus the namespace
@@ -164,11 +172,15 @@ services:
     environment:
       THUMBS_SECRET: ${THUMBNAIL_WORKER_SECRET:?Set THUMBNAIL_WORKER_SECRET in .env (openssl rand -hex 32)}
       THUMBS_ALLOWED_HOST: apps.${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
+      # caddy's fixed address on thumbs_net: apps.<domain> resolves to it
+      # inside Chromium (TLS still checks the name against caddy's real
+      # certificate), and no other name resolves at all.
+      THUMBS_RESOLVE_TO: 172.30.88.2
       THUMBS_SOCKET: /run/thumbs/thumbs.sock
     volumes:
       - thumbs_sock:/run/thumbs
     networks:
-      - thumbs_egress
+      - thumbs_net
     read_only: true
     tmpfs:
       - /tmp:size=256m,mode=1777
@@ -191,10 +203,15 @@ services:
 
 networks:
   default:
-  # thumbs alone. Its way out is the host's NAT — to apps.<domain> through
-  # the public address, like a visitor. Not `internal` for that reason;
-  # what the browser may reach is decided inside Chromium.
-  thumbs_egress:
+  # caddy and thumbs only, with no way out: `internal` means no NAT and no
+  # default route, so the browser container cannot reach the internet or
+  # the GCE metadata server (169.254.169.254) whatever runs in it. caddy
+  # has the fixed address the worker maps apps.<domain> to.
+  thumbs_net:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.88.0/24
 
 volumes:
   pgdata:
