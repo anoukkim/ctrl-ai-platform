@@ -1,7 +1,7 @@
 # Admin consolidation — decision log and plan (2026-10-17)
 
-Status: **proposal, nothing built.** Not yet in `docs/BACKLOG.md`.
-Mock-up: [`admin-consolidation.html`](admin-consolidation.html) — static, fake figures,
+Status: **built in 4 batches, merged 2026-10-17** (`feat-admin-frame`, `feat-admin-merges`, `feat-admin-usage`, `feat-admin-settings`; see [`../archive/done.md`](../archive/done.md)). The mock-ups are archived in [`../archive/ui-requests-2026-10/`](../archive/ui-requests-2026-10/).
+Mock-up: [`admin-consolidation.html`](../archive/ui-requests-2026-10/admin-consolidation.html) — static, fake figures,
 built from the real design tokens. Open it in a browser.
 
 ## Why
@@ -82,7 +82,7 @@ Order: 1 first (the frame + redirects), 2–4 independent of each other, 5–6 a
 
 ## Revision v3 (owner + coordinator, 2026-10-17)
 
-Mock-up: [`admin-consolidation-v3.html`](admin-consolidation-v3.html) — the real page
+Mock-up: [`admin-consolidation-v3.html`](../archive/ui-requests-2026-10/admin-consolidation-v3.html) — the real page
 frame (beta strip, sidebar, tabs, design tokens), clickable. The owner approved it
 ("오키 좋은 듯"). It changes the plan above as follows:
 

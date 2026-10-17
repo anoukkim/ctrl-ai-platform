@@ -599,7 +599,7 @@ Branch `ui-admin-restructure`, merged. Saved exactly as written by the
 developer, and kept for reference: it is the clearest statement of why
 the Admin screens are shaped the way they are.
 
-**Before:** [`docs/ui-requests/admin-before.png`](../ui-requests/admin-before.png)
+**Before:** [`docs/archive/ui-requests-2026-10/admin-before.png`](ui-requests-2026-10/admin-before.png)
 — the current single-page Admin screen this item replaces: ten sections
 stacked on one route, from 회원 관리 down to 시스템.
 
@@ -2567,7 +2567,7 @@ a tool's worst case still refuses with the Korean notice.
 PART F of the owner's 2026-10-14 addendum (merge pre-approved when clean;
 "include in the PART E deploy if it finishes before it, otherwise list it
 as 'deploy next'" — it finished after, so it deploys next). The owner's
-words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
+words are in the run log (docs/archive/progress-2026-10/RUN-2026-10-13.md › Run of
 2026-10-14) and the built details in
 [`progress-2026-10-13/audit-caching.md`](progress-2026-10-13/audit-caching.md) and
 [`progress-2026-10-13/audit-caching-and-distribution.md`](progress-2026-10-13/audit-caching-and-distribution.md);
@@ -3215,3 +3215,790 @@ in `progress/RUN-2026-10-16.md` › NT. What was built:
   included (later): members uploading their own font files; fonts in the
   `srcdoc` preview and in exported ZIPs.
 
+## Backlog "Now" and Next pre-approvals, 2026-10-14 → 2026-10-16 (moved 2026-10-17)
+
+Moved out of BACKLOG › Now and the head of BACKLOG › Next in the docs tidy-up of 2026-10-17, after the owner's queue finished (`a7190f8`). Text unchanged; every item they name has merged or is still listed in BACKLOG › Next.
+
+### RUN-2026-10-14b (BACKLOG › Now, 2026-10-14 evening)
+
+**Run of 2026-10-14 (evening) — "RUN-2026-10-14b"** — the owner's batch
+after the morning deploys, with merge **and deploy** pre-approved one item
+at a time for exactly cost-clarity, chat-plus-files, chat-plus-artifacts,
+chat-thinking-view, builder-static-runtime, ctrlaiapps-publish,
+example-apps, offsite-backups and monitoring, plus the `set_password` CLI
+and the `signup-google-first` backlog entry (CLAUDE.md §12, "written owner
+instruction"). **Add-on (owner, same evening):** fix-quarter-form-autofill
+and feat-spend-feedback, also pre-approved to merge and deploy, done right
+after cost-clarity. anonymous-feedback-board and builder-python: branch,
+test, report, WAIT. The board is
+[`progress/RUN-2026-10-14b.md`](progress-2026-10/RUN-2026-10-14b.md).
+
+Owner answers recorded with this run (2026-10-14): the Google `.env`
+change on the server was the owner's; no re-consent for existing accounts
+(the only production account is the admin); sign-up stays as deployed for
+the beta (`signup-google-first` is specced under *After the beta*);
+members who forget a password ask the operator, who runs
+`python -m app.db.set_password <아이디>` on the server
+(`docs/deployment.md` §12); GitHub Pages, DNS and the sidebar footer are
+the owner's, not this run's; **member apps are served from
+`apps.ctrlai.my`** — no separate domain (CLAUDE.md §2).
+
+**Reordered by the owner on 2026-10-14 (evening)**: money clarity first,
+then the three Chat items, then the Builder runtime and the first slice
+of CtrlAIApps with example apps, then backups and monitoring. Items 1–9
+are pre-approved to merge and deploy one at a time (see **Now**).
+
+### Pre-approvals of 2026-10-16 (BACKLOG › Next head)
+
+**Pre-approval and order (owner, 2026-10-16 ~16:20 KST, in the desktop
+session, before being away for a few hours).** The owner's words:
+"keep 9 on hold … bring motions to 1st and app ai access next … if it is
+different, add to third [Polish 2] … i am going to not have access to
+this computer for the next few hours and i want you to run current +
+1,2,3", and the owner's answers to two questions: **"Yes, merge + deploy"**
+— each item may be merged and deployed once its code review + security
+review are clean and all tests pass, one at a time, the desktop session
+deploying and checking each; serious money/security findings stop and
+wait for the owner — and **"Build directly"** — no plan step; follow the
+specs, take the safest default on open questions and list them in the
+report. **Scope, exactly:** the three running items (ui-improvements A,
+ui-improvements B, auto-continue / polish 11), then **① motion-modern,
+② app-ai-access, ③ owner-polish 2 (tidier Profile + notification list)**.
+**dino-avatars stays on hold.** Not covered: the CtrlAITube poster branch
+`fix-tube-poster` (waits for the owner), anything else in Next.
+
+**Owner, 2026-10-16 (evening, desktop session), after checking
+production.** Answers: auto-continue **"yes, ship it"** · poster
+**"Yes"** (both merged 2026-10-16, `87f157f`, `4b0bbf6`) · and for the
+batch below **"Yes, same rules"** — each item may be merged and deployed
+once its code review + security review are clean and all tests pass, one
+window at a time, the desktop session deploying and checking each;
+serious money/security findings stop and wait for the owner. **Scope,
+exactly:** ④ **owner-polish-3** (merged `03fb141`, deployed 2026-10-17 — Done row in the archive) (the four points below, one branch
+`fix-owner-polish-3`), then ⑤ **motion-modern** (spec 8b, unchanged).
+The owner's words, verbatim:
+
+- "앱 썸네일이 겁나 이상해 그리고 들어갔다 나와야지 썸네일이 생김" →
+  **(a) thumbnails**: capture the **whole app screen scaled down** into
+  the 640×400 card (not the top-left crop); capture in the Builder
+  **whenever a new version's 미리보기 has loaded** and at 게시 — not
+  only on leaving a project; a one-time **"썸네일 만들기"** button in
+  Admin › Apps that loads each app without a thumbnail in the admin's own
+  browser, one at a time, and saves it (still client-side, no server
+  renderer — that stays `thumbnail-render-worker`); a nicer coloured
+  cover (app name + colour) instead of `</>` until one exists;
+  **CtrlAIApps cards show the thumbnail too** (the published version's).
+  A visitor's browser never uploads a thumbnail.
+  **(a2) owner, same evening, verbatim:** "빌더일 때는 게시 전이니까
+  미리보기가 없을 수도 잇잖아.. 그래서 빌더에서는 일단 게시 전까진 그냥
+  화면 알맞게 크롭해서 보여주고 / 게시할때는 사용자가 고르고, 게시하면
+  빌더 안에서도 게시랑 같은 썸네일" → before 게시 the Builder card shows
+  the automatic, well-fitted capture; the **게시 dialog lets the creator
+  choose**: 2–3 automatic candidates (첫 화면, scrolled, phone width) plus
+  **「지금 화면으로」** (captures the 미리보기 as it is now); no choice →
+  the first screen; no AI involved. Once published, **the chosen image is
+  the thumbnail everywhere** (CtrlAIApps and the Builder card), and can be
+  changed later from the app's settings.
+- "환율은 그냥 자동 반영하면 안됨? 왜 굳이 여기다" → **(b) automatic
+  exchange rate**: USD→KRW fetched once a day from a **free, keyless**
+  public source (e.g. Frankfurter/ECB), behind a provider interface with
+  a mock default (`FX_PROVIDER=mock|frankfurter`, in `.env.example`);
+  a day-to-day jump over ~5% is not applied and shows a warning in
+  Admin › System; the admin may still pin a fixed rate (an override
+  switch); every change audited; only new charges use the new rate,
+  wallets never move. If no scheduler exists, refresh when the stored
+  rate is older than 24 h, never blocking or failing a charge (a failed
+  fetch keeps the last rate). **No paid service** — stop and ask if one
+  would be needed.
+- "매번 쓸 때마다 알림 오면 너무 많잖아 그냥 승인됐습니다 반응을
+  얻었습니다 그런 것만 알림" + "the notification number doesnt disappear
+  when i open and close it. only when i press 읽었음. delete number
+  bubble when opened" → **(c) notifications**: no more spending-summary
+  notifications (지원금 N원 사용; existing ones hidden from the list);
+  keep only approvals (신청 승인, 게시 완료), **반응을 얻었어요**
+  (a reaction or comment on your app or video, grouped per item per day)
+  and 신고 처리; **opening the list clears the number badge** (marks
+  everything shown as seen).
+- Added the same evening, verbatim: "오른쪽 알림 필요 없음 / 왼쪽 아래 알림
+  있는 건 좋은데 그러니까 저게 저기에 다 안들어가잖아, 로그아웃을 옮기던지
+  알림을 옮기던지 뭔가 구상을 해서 다른 웹사이트들 잘 분배해봐 / 그리고
+  알림은 그닥 중요한게 아니라서 켜서 들어가서 볼 수는 있어도 굳이 기록을
+  남겨둘 필요가 없어서 그럼. 걍 벨 누르면 숫자는 사라지고 clear 누르면
+  알림 없애기" → **(c2)**: remove the 알림 card from Profile (and the
+  "Profile에서 전체 보기" link) — the bell popover is the only place;
+  bell opens → badge gone; a **지우기** button deletes the shown
+  notifications (no history kept); **redesign the sidebar footer** the way
+  common sites split it (e.g. the bell up beside the CTRL+AI header or in
+  the account row, the account row opening a small menu with Profile,
+  Usage, theme and 로그아웃, the footer left with 개인정보 · 약관) so the
+  popover fits and nothing overlaps, at desktop and phone widths and in
+  the collapsed rail. The 사용 알림 표시 / 띠링 settings stay on Profile.
+- **(d)** the CtrlAIApps header still says "저장한 내용은 그 사람 기기에만
+  남아요" — outdated since `ctrlai.db`; rewrite it to match what apps can
+  do now. The owner, later the same evening: "별거 아니긴 한데 앱스토어에서
+  ai 기능 관련해서 간단하게 설명있으면 좋겠는데 이젠 기기에만 남는게
+  아니잖아" → two or three short lines, each true of the code (AI paid by
+  the visitor, 데모 = no call, `ctrlai.db` on CTRL+AI across devices,
+  `ctrlai.storage` on the device), with 자세히 → /help/apps.
+
+## app-platform — Next entry and full spec (P1–P4b merged 2026-10-15 → 2026-10-16)
+
+P1 `1a5059a`, P2 `1d9b997` (2026-10-15); P3 `739aacb`, P4a `d39d251`, P4b `77f816e` (2026-10-16). **P5 (`ctrlai.files`) is still open** — BACKLOG › Next. The Next entry as it stood:
+
+1. **app-platform** · M3 · branches `feat-app-platform-p1` … `p5`
+   "CTRL+AI 기능 상자" for member apps: a trusted shell around each app on
+   apps.ctrlai.my, an SDK (storage, sign-in, AI paid by the visitor, a
+   per-app database, files later). **Starts after H1, H2 and H4 of
+   RUN-2026-10-15 are deployed.** P1–P4 pre-approved to merge and deploy
+   one at a time; P5 branch + tests + WAIT. Supersedes H3 (app-ai-bridge).
+   Spec below, saved verbatim. **P1 merged 2026-10-15** (shell, SDK,
+   ctrlai.storage; RUN-2026-10-15). **P2 merged 2026-10-15** (sign-in, consent,
+   ctrlai.user, ctrlai.ai, kill switch). **When P1 lands:** update the H4 templates
+   (`services/project_handoff.py` README / CLAUDE.md, and the showcase
+   apps' hand-written guides) to mention `ctrlai.storage` / the SDK, and
+   that outside CTRL+AI those calls need replacing — done in P1.
+   **P3 merged 2026-10-16** (`739aacb`; `ctrlai.db` — collections as
+   (name, kind) pairs after the security review, migration `1cc00c092902`;
+   its first drafts were lost with the old computer and it was designed
+   again, RUN-2026-10-16). **P4 is built in two halves** (owner,
+   2026-10-16): **P4a** = the owner-declared lists (`ctrlai.json`), the
+   Builder prompts knowing the SDK, the four templates, the 미리보기's own
+   label — **merged 2026-10-16** (`d39d251`, branch `feat-app-platform-p4`); **P4b** — **merged 2026-10-16** (`77f816e`, branch `feat-app-platform-p4b`; RUN-2026-10-16) — = the three showcase apps in LIVE mode (an in-app
+   toggle, the demo logic kept; an expensive call shows its maximum
+   beside the button first and has a per-call cap), Admin › Apps as a new
+   section (Content keeps 신고 and 게시 내리기), `/help/apps`. Each merged
+   and deployed after its own report and approval. Decided with the
+   split: (a) the security review's stronger recommendation is **in**
+   (collections are the owner's to declare — `ctrlai.json`, or the
+   owner's first save; `ctrlai.json` is served with the app, it holds
+   names only); (b) `app-libraries` (item 8) is reviewed after P4, so the
+   templates use no library; (c) AI templates work as a demo when
+   `window.ctrlai` is missing or the visitor is signed out — the basis of
+   app-ai-access.
+
+Added by the owner on 2026-10-15. Saved verbatim:
+
+APP-PLATFORM — "CTRL+AI 기능 상자" for member apps (owner decisions 2026-10-15). Supersedes H3 (app-ai-bridge spec). Start after H1, H2, H4 are deployed.
+PRE-APPROVAL: merge + deploy for P1, P2, P3, P4 below, one at a time, same PART E rules (backup → update.sh → verify → roll back + STOP on failure). P5 = branch + tests + WAIT. Never call the real Claude API in tests; never touch .env, DNS, cloud resources or repo settings.
+
+OWNER DECISIONS (record in CLAUDE.md §2 "Member app platform" and docs/architecture.md):
+1. Who pays for AI inside an app: the VISITOR, from their own 동아리 지원 wallet, through usage.charge() (feature "app_ai", with app project id). Visitor must be an active member this quarter (require_active_member). Creator-pays is a later option, not now.
+2. Non-members / signed-out visitors: can open apps and read PUBLIC app data only. AI, writes, files, ctrlai.user → require sign-in; show "CTRL+AI 회원만 쓸 수 있어요" + 로그인 button.
+3. Addresses stay path-based (apps.ctrlai.my/<slug>/) for the beta. Isolation comes from a trusted shell + sandboxed iframe (below), not subdomains. Per-app subdomains = later item `app-subdomains` in BACKLOG (note: may need DNS moved to a provider Caddy can do DNS-01 with).
+
+ARCHITECTURE (P1)
+- apps.ctrlai.my/<slug>/ now serves OUR trusted shell page (from the backend/static, not member files). The shell embeds the member app in an <iframe sandbox="allow-scripts allow-forms allow-popups allow-modals?"> WITHOUT allow-same-origin (opaque origin), loading the member files from apps.ctrlai.my/<slug>/_app/… served with `Content-Security-Policy: sandbox allow-scripts allow-forms …` as well (defence in depth), CSP default-src 'self', connect-src 'none' for member files, never Set-Cookie. Decide allow-modals: keep alert/confirm blocked (consistent with Builder).
+- The member app talks only to the shell via postMessage through the SDK (/_ctrlai/sdk.js, served to the app). The shell accepts messages ONLY where event.source === its own iframe's contentWindow; it knows its slug from its own URL; it makes all API calls same-origin to apps.ctrlai.my/_ctrlai/* (Caddy → api router `app_runtime`), with an app-scoped HttpOnly cookie `ctrlai_app_<slug>` (Path=/_ctrlai/, SameSite=Strict, Secure, host-only) + a required custom header. Member code (opaque origin) can never send those cookies or reach /_ctrlai/* with credentials — add browser tests (Playwright on the built stack) proving: app A cannot call /_ctrlai with credentials; app A cannot impersonate B via postMessage to B's shell; a page opening B's shell in a popup cannot drive it.
+- The main site's rules stay: ctrlai.my session cookie host-only, no CORS on the main API, JSON bodies only. The /_ctrlai/* routes are a separate router with their own guard and never accept the main session cookie.
+- ctrlai.storage.get/set/remove: per-app, per-visitor key-value kept by the shell in the shell origin's localStorage under a slug-prefixed key (works signed-out; ≤ 1 MB per app). Migrate the existing example/showcase apps and the Builder generation guide from localStorage to ctrlai.storage. Existing published apps keep working (shim: inject a localStorage-like object into the sandbox via the SDK, best-effort, documented).
+- Builder preview uses the same shell in a "미리보기" mode.
+
+P2 — sign-in, consent, ctrlai.user, ctrlai.ai
+- Sign-in: SDK ctrlai.login() → shell opens top-level ctrlai.my/apps/connect?app=<slug> → if signed in on ctrlai.my, a consent screen: app name, owner display name, what it may do ("Claude 사용 · 1회 약 N원 (최대 200원) · 내 지원금에서 차감", "이 앱에 데이터 저장"), [허용] [거절] → one-time code (60 s, single use) → back to apps.ctrlai.my/<slug>/_ctrlai/callback → shell exchanges it for the app cookie. Consent rows (user, project, scopes, granted_at, revoked_at) + audit. Profile › "연결된 앱" lists and revokes.
+- ctrlai.user → { displayName, appUserId } (appUserId = stable per-app pseudonymous id; never email/username/balance).
+- ctrlai.ai.ask({ prompt, system?, images?, json?: schema, model?: "fast"|"smart", maxTokens? }) and ctrlai.ai.stream(...) (chunks via postMessage). Server: admin-allowed models only (map fast→Haiku, smart→Sonnet via the catalogue), wallet pre-check, the 200원 per-call cap, a per-visitor daily cap for app AI (new chat_limits setting, default 2,000원/day, audited, 0 = off), per-app rate limit, json schema validation with one automatic retry, our short safety preamble before the app's system prompt, images ≤ 5 MB. Every call = one UsageEvent (user, quarter, provider, app project id) and appears on Usage as "앱 · <앱 이름> · N원" and in the spend toast.
+- First AI use in an app shows the consent if not granted. Kill switch: Admin can disable the SDK for an app (immediate 403 with a Korean message in the app).
+
+P3 — ctrlai.db
+- Collections per app, two kinds: "private" (each signed-in visitor sees only their own items) and "shared" (everyone can read, signed-in members can write). Items JSON ≤ 4 KB, per app ≤ 5 MB / 2,000 items, per visitor ≤ 30 writes/min. Owner of an item can update/delete it; app owner can delete any shared item; admin can hide/delete. Report button helper in the SDK (ctrlai.db.report) → admin queue. Public read for signed-out visitors on shared collections only.
+- Queries: list(collection, { where: simple equality, orderBy: createdAt|field, limit ≤ 100, cursor }), get, save, update, remove, count. No raw SQL, no cross-app access, every query filters deleted projects/apps (CLAUDE.md §10 deleted_at rule).
+- Alembic migration; tests for isolation between apps and between visitors, quotas, deleted app → 404.
+
+P4 — make it usable
+- Builder's generation/editing prompt knows the SDK (short reference + examples) and uses it when an idea needs AI, shared data or "who is this"; the Builder start screen offers 4 templates: AI 챗봇, 투표·설문, 랭킹 게임, 동아리 게시판 (each small, distinct look, uses the SDK correctly).
+- Switch the 3 showcase apps (H2) to LIVE mode when the visitor is signed in (receipt image → ctrlai.ai with JSON schema; itinerary JSON with schema + retry, still restricted to the seeded places; document Q&A = in-browser BM25 → ctrlai.ai answer with sources, "문서에서 찾을 수 없어요" when unsupported), with a toggle back to 데모 데이터. Keep their honest badges ("실제 AI · 1회 약 N원" vs "데모").
+- Builder preview: SDK works for the creator as the visitor (charged to the creator, labelled "미리보기 사용 · 내 지원금").
+- Admin › Apps (unhide the Content section or add one, defined in sections.ts): per app — owner, published version, AI calls / won today and this quarter, consents, data size, reports; buttons: SDK 정지/재개, 공유 데이터 숨기기. All audited.
+- docs/product.md "앱 기능 상자" for members (Korean, plain) + a member-facing help page /help/apps with SDK examples.
+
+P5 — ctrlai.files (branch + WAIT): images/files per app on the VM disk with caps (5 MB each, 100 MB per app, 2 GB total setting), served from apps.ctrlai.my/<slug>/_files/… with nosniff and safe content types; plan for Cloud Storage later.
+
+Everything Korean for members, light/dark, 390px. Progress in docs/archive/progress-2026-10/RUN-2026-10-15.md with "now on". Final report in Korean: per phase commit + backup, what I must test (with exact steps and test sentences), known risks, and the branch you are on.
+
+## motion-modern — full spec (merged 2026-10-17)
+
+Merged `f1bdb99` (Done row in [`done.md`](done.md)). BACKLOG › Next entry 8b as it stood:
+
+8b. **motion-modern** · M1 · branch `feat-motion-modern`
+    *Not pre-approved — branch, test, report, WAIT.* Owner, 2026-10-16
+    ("motion ui를 개선할 수 있는 방법? 뭔가 더 현대적인 느낌으로…
+    미리보기 생성 같은거 할때 약간 중간부터 좀 생략해도 될 것 같아…
+    생성 중 뭔가 오로라 같은거, 답변 생성도 그럼"), after a demo page
+    the owner approved (the demo lives in the owner's desktop session;
+    refs looked at: motionsites.ai, prompt-motion.com). Final choices:
+    (1) **aurora card instead of streaming code** — while a Chat reply
+    writes a preview's code (or the Builder writes files) show
+    "미리보기 만드는 중…" over a slow aurora gradient with a timer and
+    the running cost and 2–3 step chips; when done the aurora melts into
+    the preview; the code stays under a folded "코드 보기";
+    (2) **thinking → calm stream** — "생각하는 중…" with a shimmer and
+    seconds, a slowly rotating colour ring around the composer while
+    busy, words fade/unblur in, a glowing caret;
+    (3) **Builder collapsed steps** — only the current step big
+    ("index.html 작성 중… N초"), finished steps fold into "✓ N개 완료"
+    (pop), the rest as dots, a progress bar, spinner not 🚫 (overlaps
+    polish 14 — extend it);
+    (4) **띠링 = 별가루** — small twinkling stars (pale gold/white) flow
+    from the price into the wallet, a few twinkle there, the number rolls
+    down, the toast pops (replaces the current toast motion; sound stays
+    the Profile switch);
+    (5) **게시 완료 = 쭈욱 → 팡! + 색종이** — thin glowing lines shoot up and
+    burst into rays with a white flash (calm colours: white, warm gold, a
+    touch of lavender), confetti from the centre, "게시 완료!" letters pop.
+    **No dino** in the motion (owner: "쟤만 너무 픽셀레이트 되어있어서").
+    Everything off with 동작 줄이기 (text stays); no click waits on an
+    animation; CSS + motion/react + Web Animations only, no paid service.
+
+## owner-polish-2026-10-16 — Next entry and the owner's words (all but point 12 merged 2026-10-16)
+
+Points 1, 3, 6, 8, 9, 10, 13, 14 merged as owner-polish-a (`806f563`); 4, 5, 15 and the first half of 2 with ui-improvements-a; 2's list as feat-notifications (`fa16d52`); 7 as promo-videos; 11 as auto-continue (`87f157f`). **Point 12 (image provider research) stays in BACKLOG**, with the nested-`<Link>` note. The Next entry as it stood:
+
+5. **owner-polish-2026-10-16** · M1 · one small branch per point
+    *Not pre-approved — branch, test, report, WAIT.* **Points 3, 8, 1, 9,
+    6, 13, 14, 10 merged as `806f563`** (owner-polish-a, owner approved
+    2026-10-16 — Done row and the eight points' spec in the archive; the
+    deploy runs migration `d7e1f3a9b5c2`). **Points 4·5 (thumbnails)
+    and 15 (app detail) merged with ui-improvements-a (2026-10-16),
+    together with the first half of 2 — Profile's 알림 as two switch rows
+    and 내가 만든 앱 as a plain list.** **2's notification list: merged 2026-10-16 as `fa16d52`
+    (`feat-notifications`, the owner's written pre-approval of ③
+    owner-polish 2 above; Done row and delivery notes in the archive;
+    migration `c4e8a2d6f0b3`).** Left in this item:
+    7 (promo video → now `promo-videos`), 11 (continue past the cap —
+    `feat-auto-continue`, built, waiting on the owner), 12 (image provider
+    research). Small note (app-ai-access, 2026-10-16, not fixed yet):
+    Admin › Apps draws a `<Link>` inside the row's `rowHref` link
+    (`AdminTable` + the name column), so dev mode logs one "<a> cannot
+    be a descendant of <a>" hydration warning — make the name column
+    plain text there. The owner's nine
+    points from a walk through production (2026-10-16), to start **only
+    after the work in progress is done** ("지금 하는 작업 전부 완료 후에").
+    Spec below ("owner-polish-2026-10-16"), with what the screenshots
+    showed. Two are bugs (3, 8).
+    **10 (added 2026-10-16, chat screenshot):** "모션 추가하고 싶다고 한게 …
+    뭐 쓰면 그렇게 바로 바로 알림이 안 뜨는 것 같은데..? 약간 모션그래픽
+    띠링 이런식으로 하고 싶었던거" — spend-feedback v2. Today
+    (feat-spend-feedback) the toast appears only after a reply *finishes*,
+    slides in softly (opacity + 10px), and the countdown sits in the
+    sidebar's wallet card — which the expanded Admin menu pushes out of
+    view. Wanted: a livelier "띠링" moment — a pop/bounce with a coin or
+    sparkle, the "-N원" flying to the balance, maybe a short chime (off by
+    default or a Profile switch; browsers allow sound only after a click),
+    visible wherever the wallet card is. Still only on real `charged_krw`;
+    reduced motion keeps a plain toast.
+
+### The owner's words and what production showed (points 1–11, 13–15)
+
+**Merged 2026-10-16 (owner-polish-a, `806f563`): points 1, 3, 6, 8, 9, 10,
+13, 14** — kept here because the remaining points refer to them; their
+delivery notes are in `archive/done-specs.md`.
+
+Added by the owner on 2026-10-16 with screenshots of ctrlai.my (Chat,
+Project Builder, Video Generator, CtrlAIApps, CtrlAITube, Admin ›
+Dashboard / Members / System, Profile): "이것도 일단 백로그에만 추가 —
+지금 하는 작업 전부 완료 후에." Saved as written, each with a note:
+
+1. **"초대코드 수용인원 늘릴 수 있게"** — Admin › Members › 초대 코드: an
+   existing code's 최대 가입 수 can be raised later (today it is set only
+   at creation; the one code is 소진 1/1). Audited; never below the uses
+   already made.
+2. **"프로필 정리 뭔가 알림 같은 것도 추가하면 좋겠어. 게시가
+   완료됐습니다 ! 사용이 차감됐습니다 etc"** — a tidier Profile and a
+   member-facing notification list (게시 완료, 지원금 차감, 신청 승인, …).
+   Today only the passing spend toast exists (feat-spend-feedback).
+   *(First half — Profile's 알림 switch rows and the plain 내가 만든 앱
+   list — merged with ui-improvements-a; the list itself merged as
+   `feat-notifications` `fa16d52`, 2026-10-16.)*
+3. **"내가 만든 앱은 프로필에 안 뜸"** — bug: Profile › 내가 만든 앱 says
+   "준비 중 · 아직 게시한 앱이 없어요" while the admin's 여행 일정 메이커 and
+   the showcases are published. Read the member's published apps there.
+4. **"게시할때 프로젝트 읽어서 압축해서 썸네일 만드는 기능"** *(merged
+   2026-10-16, ui-improvements-a: a capture in the maker's browser,
+   re-encoded on the server)* — a
+   thumbnail made at 게시 (render the published version, store a small
+   image) for CtrlAIApps cards and the Builder list. Rendering must not
+   run member code on the backend (CLAUDE.md §8, §10) — e.g. a headless
+   browser in an isolated container, or a capture in the creator's
+   browser at publish time.
+5. **"draft도 저렇게 뭔가 썸네일 비슷하게"** *(merged 2026-10-16,
+   ui-improvements-a)* — Builder project cards show
+   a striped "미리보기 썸네일" placeholder today; drafts get a thumbnail too
+   (same mechanism as 4, from the working copy).
+6. **"영상은 다음다음분기에 시작할거임.. 그래서 일단 전체 화면에 락
+   걸어두면 될 것 같아. 안보이게. 연결은 미리 해두러다로 이번 분기에는
+   추가 안할거임"** — Video Generator starts two quarters from now: lock
+   the whole Video area for members this quarter (hidden or a locked
+   screen, behind a switch the 관리자 controls); keep the provider wiring;
+   no new video work this quarter.
+7. **"AITube는 홍보 영상 하나 있거든 그거 추가로 해서 지금 영상은
+   준비단계이지만 홍보영상에는 댓글 달 수 있게 할 있기"** — CtrlAITube:
+   add the club's one promo video (the owner supplies the URL); the page
+   stays 준비 중, but the promo video takes real comments. The three
+   current cards are sample data.
+8. **"미신청에 유저가 왜 안뜨지"** — bug: Admin › Members shows **미신청
+   1명** on the card, but filtering 참여 = 미참여 lists nobody (0개 / 전체
+   2개) while both listed members are 활동 회원. Find which account the
+   card counts (perhaps one the list hides) and make card and filter agree.
+9. **"이름도 변경 가능하게? 아이디는 못바꾸지만 비번이랑 이름은 바꿀 수
+   있게.. 가능하면 프사도 ? 사실 크게필요없긴 해"** — Profile › 계정 설정:
+   display name editable (아이디 fixed); password change exists already
+   (로그인 방법 › 바꾸기); a profile picture optional, low priority.
+
+(Point 10, a livelier "띠링" spend notification, is in the Next entry
+above.)
+
+13. **Builder › Claude 판 — a project that has only imported versions
+    shows the same content twice** (owner, 2026-10-16): when every version
+    came from 예시 앱 / 가져오기 (no `BuilderGeneration` behind it), the
+    conversation-style history (Q3) and the compact "모든 버전 (n)" list
+    below it show the same rows. Show one or the other for such projects
+    — e.g. hide the history until the first Claude-made version, or fold
+    "모든 버전" when it would repeat the history.
+
+15. **CtrlAIApps 앱 상세 — "뭔가 너무 화면이 비효율적"** (owner,
+    2026-10-16, screenshot of '동아리 게시판' v5, relayed from another
+    session). *(Merged 2026-10-16, ui-improvements-a — built as proposed.)* What the screenshot showed: the top half of the detail screen
+    is a colour-gradient placeholder block repeating the app's name; the
+    live app frame sits below it and needs a scroll; 앱 실행 duplicates the
+    frame right under it. Proposal: a one-line head (small thumbnail or
+    icon · name · maker · vN · description folded/unfolded · 새 창에서 열기 ·
+    신고), the app frame taking most of the first screen (nearly the
+    desktop height, visible at once at 390px), long descriptions below;
+    once thumbnails exist (points 4–5) use them small in the list cards and
+    the head and drop the big placeholder block. Also make the screen's
+    honest note per app: when the app's `ctrlai.json` declares a shared
+    list, say "이 앱의 공유 글은 다른 회원도 볼 수 있어요"; otherwise the
+    plain sentence (P4b already replaced the pre-P3 wording with a general
+    one that mentions login, AI and shared lists).
+
+11. **Built 2026-10-16 as `feat-auto-continue`** (owner's later direction,
+    relayed: no question first — continue automatically to the end, 중지
+    always available, "이어서 쓰는 중… 지금까지 N원", one charge per call
+    with the wallet checked each time, one 전체 한도 per depth in Admin ›
+    System, the pieces joined so the preview opens; see
+    `progress/RUN-2026-10-16.md` › AC). Original words: **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
+    가겠냐고 물어보고 그냥 쭉 할 수 있게 (중단도 가능하니)"** (2026-10-16,
+    after a 강아지 SVG on Opus · 보통 stopped twice at the 200원 cap) —
+    when a reply stops at max_tokens or the per-reply cap, show the
+    estimated cost to finish ("끝까지 쓰면 약 N원 · 최대 M원") and one
+    question; on yes, continue **in one go** to the end with 중지 always
+    available, charging the actual usage per call (each call still behind
+    the wallet pre-check; a ceiling for the whole run that the member
+    sees). Also: (a) the system prompt must not promise to "finish in one
+    go" or restart from scratch at the cap — continue where it stopped, or
+    suggest a cheaper model / higher depth; (b) the preview joins a code
+    block split across 이어서 쓰기 replies.
+14. **"만드는중인데..? 이러면 🚫 커서에 이렇게만 뜸. 뭔가 생각을 하고
+    있다는 UI를 만들었음 좋겠어. 채팅도 그럼.. 뭔가 도로록..."**
+    (2026-10-16, screenshot of /builder/12 during 고치기) — a "working"
+    UI with motion. Today: the disabled 고치기 button shows the browser's
+    🚫 not-allowed cursor; the plan card's step circles stay empty until a
+    whole file is done (20–60 s of nothing moving); Chat shows only "•••".
+    Wanted: Builder — the button becomes "만드는 중…" with a spinner and
+    `cursor: progress` (never 🚫), the current step's circle spins and the
+    row says "index.html 작성 중…" with an elapsed timer, finished steps
+    tick ✓ with a small pop, a thin progress bar (n / m 파일), and if
+    feasible the file text streaming in a small "도로록" typing view
+    (needs the run stream to send text deltas, not only file_start/done).
+    Chat — "생각하는 중…" with a shimmer and elapsed seconds until the
+    first words, then text that flows in smoothly with a caret at the end.
+    Reduced motion: no animation, the text and timer stay. Pairs with
+    point 10 (the 띠링 spend moment).
+
+## thumbnail-render-worker — full spec (merged 2026-10-17, live 2026-10-17)
+
+Merged `7599a1f`; switched on after four fixes (`ad1c75c`, `7def1ae`, `29a42f7`, `642e73c`) — live on the fourth attempt (`progress/RUN-2026-10-16.md` › TRW-ON). Was BACKLOG › After the beta:
+
+**Scheduled and pre-approved (owner, 2026-10-17, verbatim):** "서버에서 진짜
+브라우저로 썸네일 찍는 것(thumbnail-render-worker) 만들어줘. 격리 조건 그대로,
+리뷰 깨끗하고 테스트 통과하면 merge + 배포까지 해도 돼." — branch
+`feat-thumbnail-render-worker`. The isolation conditions the owner accepted:
+a separate container (never the api/db network; the browser reaches only
+`apps.ctrlai.my`, every other host refused), 768 MB / 1 CPU caps, one job at
+a time, ≤ 20 s per picture, read-only filesystem, non-root, no new paid
+resource (fits the e2-medium: ~2.8 GB free). The in-browser capture stays
+as the fallback when the worker is off or fails.
+
+*(Original note:)* ui-improvements-a (2026-10-16) takes an app's
+thumbnail in the **maker's browser** (SDK capture → server re-encode),
+which cannot draw an app's own image files, WebGL, or much of anything in
+Safari — such cards keep their coloured cover. When that is not enough:
+a headless browser in an **isolated container** on the server (no
+network, CPU/memory/time limits, one job per published version, never
+the main backend — CLAUDE.md §8·§10) renders the published address and
+stores the same 640×400 WebP through `services/thumbnails`. Costs a
+container image and memory on the VM; decide after seeing how many
+real apps come out blank.
+
+## UI requests built 2026-10-16 → 2026-10-17 — full specs
+
+Moved out of BACKLOG › UI requests on 2026-10-17. Merges: chat-pins `d224240`; app-tab-icon `94c0110` (later replaced by the shared 「앱」 icon, `9d4e309`); chat-list-collapse `8226ab2`; builder-snapshots `0e35bef`; builder-images, draft-server-thumbnails, ctrlaiapps-reactions, ai-switch-wording as `feat-batch-1017` `bea1b6e`; running-state-calm, chat-preview-fullscreen, spend-toast-compact as `feat-batch-calm` `261cc87`; thumbnail-choice, builder-first-build-running, publish-done-popup (A) as `feat-batch-thumbs-popup` `b3f5ce1`; background-runs `33fc533`; chat-to-builder-carry `e533b1d`. Text unchanged, in the order it stood.
+
+- **builder-first-build-running** — owner, 2026-10-17, looking at a first
+  build on production ("처음 build할때도 ui 적용이 되니" — then "아직
+  배포전인데 저것도 적용이 될까 해서 채팅 창만 한 것 같아", "둘다 목업
+  만들어"). Follow-up to `running-state-calm`: the new running look
+  (`BuilderRunPanel`) is drawn inside `PreviewPane`, which exists only
+  once a project has files (`!empty`); a **first build** has none, so the
+  centre shows the older `PlanCard` (만들 계획, `0 / 5 파일` bar, step
+  list, `남은 파일 N개`) and the right Claude panel stays empty — no
+  stage list, big timer, top sweep, file chips or narrated log.
+  **Direction:** keep the 만들 계획 (the member approved it; it is also
+  the honest progress per file) and, while it runs, put the same stage
+  list (계획 확인 → 파일 쓰기 → 점검), large elapsed timer, header sweep and
+  faint aurora above it; fold the `0 / 5` bar into that header; the left
+  file list fills in as files finish (today "아직 파일이 없어요" until the
+  end); the Claude panel narrates the same events as for later builds;
+  the live code tail is optional here (the plan already lists purposes).
+  Same stages, same wording and same reduced-motion rules as the other
+  builds — one component, two hosts. Open point: the stage events already
+  exist for plan/file/check (`Progress`, `generation.files_done`), so
+  frontend only unless the first-build run lacks the per-file events.
+  Mock-up:
+  [`ui-requests/builder-first-build-running.html`](ui-requests-2026-10/builder-first-build-running.html).
+  Not scheduled.
+  **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
+  "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
+  묶음으로, 같은 규칙으로 해줘") — one batch with thumbnail-choice, after
+  fix-draft-thumbs.
+- **publish-done-popup** — owner, 2026-10-17: "게시완료 하면 그냥 원래
+  사이트 배경에 흰글씨랑 컨페티 되거든 뭔가 복잡하단 말이지 차라리 그
+  toasting 처럼 팝업되는 그런걸 하는게 어떨까". Today
+  (`PublishCelebration.tsx`, `motion-modern` (5)) 게시 완료 covers the
+  whole screen for 1.9 s with light beams, a flash, confetti and white
+  "게시 완료!" letters. **Proposal (two shapes were mocked; A chosen):** (A) a **popup card** in the toast style, bottom right
+  (top on phones): a check that pops with a few confetti pieces bursting
+  *around the check only*, "게시했어요", the app name · CtrlAIApps, and two
+  buttons — 열어 보기 (the app's address) and 링크 복사 — kept ~6 s because
+  it has buttons, closable, never covering the composer or taking focus;
+  (B) a one-line pill like the spend pill, ~3.5 s, tapping it opens
+  CtrlAIApps. Either way: no full-screen layer, no beams or flash; the
+  persistent notification row (`NotificationBell`) stays; reduced motion
+  keeps the card/pill without the confetti; the live-region line says
+  "게시했어요" once. Touches `PublishCelebration.tsx`,
+  `celebration.module.css`, the `celebrating` state in
+  `BuilderWorkspace.tsx`, its test. Frontend only. Small. Mock-up:
+  [`ui-requests/publish-done-popup.html`](ui-requests-2026-10/publish-done-popup.html)
+  (현재 · A · B side by side). **Owner picked A (2026-10-17: "게시 완료
+  팝업을 A로")** — B is dropped. Not scheduled.
+  **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
+  "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
+  묶음으로, 같은 규칙으로 해줘") — one batch with thumbnail-choice, after
+  fix-draft-thumbs.
+- **spend-toast-compact** — owner, 2026-10-17 (desktop session, with a
+  screenshot of the 썼어요 toast: "알림이 조금 너무 큰 것 같아 … 줄이던가
+  하는 거 있어?"), then picked **"A가 좋은데"** and **"지갑 쪽에서만
+  반짝이게 줄임 이거까지 해서 백로그"**. Today
+  (`SpendFeedbackProvider.tsx` + `spend-feedback.module.css`) the toast is a
+  card — a 2.1rem coin, a 1.15rem bold `-156원`, a sentence, a label line —
+  up to 22rem wide, sitting just above the composer at the bottom right,
+  for 3 s, while stars fly from it to the sidebar wallet; the same amount
+  also shows as `-156원` by the wallet and as `합계 156원` under the reply.
+  **Change (the owner's pick, A + stars only at the wallet):**
+  1. **One-line pill** instead of the card: `−156원 · 68,336원 남음`
+     (merged charges: `−36원 (3번) · 68,336원 남음`) — no coin, no label
+     line, no big amount. What it was for ("채팅 · Sonnet") moves to the
+     pill's `title` and the screen-reader line (`toastText` keeps the full
+     sentence, so assistive tech is unchanged). `toastMainText` is the one
+     place that builds the wording.
+  2. **2 s, not 3** (`TOAST_MS` 3000 → 2000); `MERGE_WINDOW_MS` stays 3000
+     so charges that arrive together still merge. Still opens Usage on
+     click; still takes no focus and never covers the composer (centred
+     just above it, or the same corner but lower — settle at build).
+  3. **Stars only at the wallet**: no more stars flying from the toast
+     (`planFlight` and `Flight.from` go away); when the sidebar balance is
+     on screen the 4 twinkles (`TWINKLE_COUNT`) play on the wallet, with the
+     existing count-down, `-N원` rise and pulse. When the wallet is not
+     visible (collapsed sidebar, phone) there is nothing to twinkle — the
+     pill alone says it.
+  4. **Small charges stay quiet**: under 10원 no pill at all — only the
+     wallet count-down, the `-N원` rise and the twinkles (Profile › 알림 ›
+     사용 알림 표시 off still hides everything but the number; reduced
+     motion still drops the twinkles and the count-down and keeps the pill).
+  5. **Unchanged**: milestone cards (첫 사용, 25 / 50 / 75 %, 잔액
+     10,000원 이하, 잔액 0) keep their size — rare and they matter; the
+     sound switch; the backend (`charged_krw` is still the only source).
+  Touches: `SpendFeedbackProvider.tsx`, `spend-feedback.module.css`,
+  `frontend/__tests__/spend-feedback.test.tsx` (the toast text, the 3 s →
+  2 s timing, the no-flight rule, the under-10원 rule), and the "spend
+  moment" paragraph in `docs/product.md`. Frontend only, no money logic, no
+  migration. Small. Mock-up:
+  [`ui-requests/spend-toast-compact.html`](ui-requests-2026-10/spend-toast-compact.html)
+  (현재 vs 제안 switch). Not scheduled; best built with `running-state-calm`
+  since both retune the shared motion.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+  "spend-toast-compact(시안 A 그대로)도 running-state-calm이랑 같이, 같은 규칙으로
+  해줘") — on the same branch as running-state-calm and chat-preview-fullscreen.
+- **running-state-calm** — owner, 2026-10-17 (desktop session, after
+  mock-ups the owner approved: "오 좋음 빌더도 만들어줘" → "응 좋다, 그거까지
+  백로그로 보내"). Follow-up to `motion-modern` (8b, merged): while Chat
+  writes a reply or the Builder builds, the motion is either too loud or too
+  quiet. Chat: "갑자기 돌리면 아래가 저렇게 되는데 너무 튄다 … 이것도
+  돌아가는게 보였으면" — the composer turns into a bright full-width pill
+  and the 그림 만드는 중 card has a loud green aurora. Builder: "build가
+  꽤나 걸리는데 … 모션이 너무 subtle" — only a `미리보기 만드는 중… 61초`
+  line and file chips, so a long build looks stuck; and "옆에 채팅에도
+  돌아가고 있다는게 잘 보였으면". Owner on the aurora: "꼭 있어야하는건
+  아닌데 … 최적의 디자인". **Direction (mock-ups seen and approved):** one
+  shared running-state look for Chat and Builder, calm by default:
+  1. **Composer keeps its normal dark surface** while busy (no bright fill,
+     no rainbow ring); only a thin 2px bar sweeps along its bottom edge. The
+     stop button becomes a small outlined square, with one line under it:
+     "중지하면 지금까지 쓴 만큼만 차감돼요". Builder's `만드는 중…` button
+     is an outlined violet button with a small spinner, not solid blue.
+  2. **Same signal in four places**: a 2px sweeping bar on the card / header
+     top, a pulsing dot (+ `작업 중` chip) on the project/conversation row in
+     the sidebar and list, the Chat/Builder header chip, and the card itself —
+     so a running job is visible from any screen.
+  3. **Progress is shown, not implied**: a stage list (Builder: 요구사항
+     읽기 → 파일 쓰기 → 미리보기 조립; Chat card: 뼈대 → 스타일 → 동작,
+     `✓` when done, the current one spinning/underlined), a large elapsed
+     timer, file chips that go `쓰는 중` → `완료`, a short live code
+     window (the last ~7 lines, caret blinking), and in Chat a flowchart
+     skeleton whose boxes appear and lines draw in; cost reads
+     `12초 · 지금까지 약 56원` and keeps counting.
+  4. **Builder chat panel mirrors the preview**: same elapsed time in its
+     header, the Claude bubble shows the current action ("파일을 쓰고
+     있어요…" + three-dot pulse) and a rolling activity log of the last four
+     events (`✓ index.html 완료`, `› style.css 쓰는 중`); the input says
+     "작업이 끝나면 이어서 말해요". Preview and chat always show the same
+     stage.
+  5. **Aurora stays, but small and optional**: removed from the composer and
+     the full card; kept only as a very faint, slow glow *inside* the
+     그림 card (Chat) and the 미리보기 pane (Builder); a Profile switch
+     "오로라 배경" turns it off (default on; reduced-motion also turns it
+     off). Everything else keeps moving without it.
+  Open points: (a) the stages must follow **real progress** — the stream
+  needs per-file / per-stage events (does the Builder run already emit
+  one per written file? Chat's 뼈대/스타일/동작 steps are guessed from the
+  streamed code today); where the backend gives none, show an honest
+  indeterminate bar plus elapsed time, never a fake percentage; (b) the
+  sidebar dot needs the "running" state to survive navigation (it is
+  client-only now); (c) honour `prefers-reduced-motion` (sweeps and
+  typing stop, dots stay static). Mock-ups (open in a browser):
+  [`ui-requests/running-state-calm-chat.html`](ui-requests-2026-10/running-state-calm-chat.html)
+  and [`running-state-calm-builder.html`](ui-requests-2026-10/running-state-calm-builder.html),
+  both with the aurora switch.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+  "running-state-calm(시안 그대로)이랑 chat-preview-fullscreen 지금 배포 끝나면
+  다음으로, 같은 규칙으로 해줘") — after the feat-batch-1017 deploy; review clean
+  + tests pass → merge + deploy.
+- **chat-preview-fullscreen** — owner, 2026-10-17 (desktop session, with a
+  screenshot of a Chat 미리보기 card): "지금 미리보기로 뭘 생성하면,
+  전체화면으로 보기? 이런게 없음 … 빌더로하기만 있고". A Chat reply's
+  미리보기 card (`ArtifactPreview.tsx`: 코드 보기 · 다운로드 · Builder로
+  보내기, then 미리보기 열기) shows the page only inside the narrow card;
+  the only way to see it bigger is to send it to the Builder, which makes a
+  project and costs a step. Add a **전체 화면** button beside 코드 보기 /
+  다운로드 that opens the same preview large. Shape to settle when built:
+  (1) an **in-page overlay** (almost full window, dark backdrop, 닫기 and
+  Esc) rather than the browser's Fullscreen API — the frame is
+  `sandbox="allow-scripts"` only and must stay so (no `allow-fullscreen`);
+  (2) the overlay should carry the frame **already running** if it can
+  (moving an iframe reloads it and restarts the page), otherwise open a
+  second frame from the same `srcdoc` and say nothing about it — the
+  runaway-loop rule stands: it starts only after the member pressed 미리보기
+  열기 or 전체 화면, and closing it removes the frame; (3) a 새로고침 button
+  and a phone / desktop width switch in the overlay header, like the
+  Builder's 미리보기, which already has an expand icon to match; (4) works
+  on touch (full-screen sheet at phone width). No money, no backend. Small. Mock-up:
+  [`ui-requests/chat-preview-fullscreen.html`](ui-requests-2026-10/chat-preview-fullscreen.html).
+  Not scheduled.
+- **builder-snapshots** — owner, 2026-10-17: "하나 누를때마다 버전 올라가서
+  좀 부담스러움", then "이것저것 하고 이걸 버전으로 저장 하고 스냅샷
+  만들기? 그렇게 하자 괜찮을 것 같아" and "그냥 나가기하면 … 이 버전을
+  저장할까요? 를 물어보는..?". Today every file change is a version
+  (`builder_versions.snapshot`), **되돌리기 included** ("v5로 되돌리기" is a
+  new version), and only the newest 30 are kept (pinned and the published
+  one excepted) — so a few 되돌리기 clicks push useful old versions out.
+  Direction: versions become **saved snapshots** the member makes (버전
+  저장, with a name), not a by-product of each edit; leaving the Builder
+  with unsaved changes asks "이 버전을 저장할까요?" (저장 / 저장 안 함 /
+  취소); 되돌리기 to a snapshot changes the working copy only and adds no
+  version. Open points to settle before building: (1) Claude's own edits
+  cost money and need an undo — keep a short automatic rolling history
+  (e.g. the last few steps, not counted in the 30) besides the named
+  snapshots; (2) 게시 must snapshot automatically (`published_version_id`
+  needs a row); (3) what happens to the existing numbered versions (keep
+  them as snapshots). **Settled by the owner (2026-10-17):** versions are
+  saved snapshots (v1 → 작업1, 작업2 → 저장 → v2); between snapshots only
+  작업-step undo/redo; loading an old snapshot (v1) changes the working copy
+  only, and if there is unsaved work first asks "저장 안 한 작업이 있어요.
+  저장할까요?"; saving after that is simply **v3** (no branch numbers).
+  **Scheduled** (owner, 2026-10-17: "지금 main run 뭐 돌리고 있어서 그거
+  끝나고 돌리고 코드체크 배포까지") — starts only after the run now in
+  progress on main has finished; then build on `feat-builder-snapshots`,
+  code check (review) and tests, then merge + deploy under the same rules
+  as the other pre-approved items (review clean + tests pass; backup →
+  update.sh → verify → roll back + STOP on failure).
+  **Built on `feat-builder-snapshots` (2026-10-17); merged 2026-10-17 under
+  the scheduled pre-approval above (coordinator: full suites green on main):** `builder_project_steps` + migration `c5a8e1f3b7d9` (existing
+  versions untouched), 20 undo steps outside the 30 versions, routes
+  `POST …/versions` (버전 저장), `GET …/steps`, `POST …/steps/{seq}/restore`;
+  불러오기 makes no version; 게시 saves the working copy first. Settled
+  while building: the 업데이트 메모's "what changed" now reads the Claude
+  runs since 게시 (not versions); the 게시 dialog's pre-filled text is kept
+  only on a saved version (unsaved work asks again each open); a
+  versionless project's "처음 상태" is now a step, not a v1. Not done
+  (later): the ZIP of unsaved work is still named after the newest version;
+  the browser's back button is not intercepted (only links and closing the
+  tab).
+- **app-tab-icon** — owner, 2026-10-17: "게시된 앱 열면 탭 썸넬 뭔가 같은건데
+  앱? 으로 바꾸기". A published app opened on `apps.ctrlai.my/<slug>/` shows
+  the browser's blank globe in its tab; give the shell page a favicon — the
+  app's own cover (its colour + first letter, the same as the CtrlAIApps
+  cover), drawn as an SVG data URL by the shell, so every app gets one
+  without the member doing anything. Small.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim: "app-tab-icon이랑 chat-list-collapse도 서버 썸네일 다음에 같은 규칙으로 (리뷰 깨끗 + 테스트 통과하면 merge + 배포) 해줘") — after thumbnail-render-worker, one at a time.
+- **chat-list-collapse** — owner, 2026-10-17: "대화목록도 숨기기 기능 아니면
+  줄이기? 모름". The Chat conversation list (새 대화 + 최근 대화) can be folded
+  away like the main sidebar (a « button, remembered per browser), giving
+  the conversation the full width; folded, a slim rail keeps 새 대화 and
+  an open-list button. Phone width already hides it. Small.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim: "app-tab-icon이랑 chat-list-collapse도 서버 썸네일 다음에 같은 규칙으로 (리뷰 깨끗 + 테스트 통과하면 merge + 배포) 해줘") — after thumbnail-render-worker, one at a time.
+- **builder-images** — owner, 2026-10-17: "빌더 에는 사진 추가 못하나..? 이런
+  디자인 참고 등으로". Two uses: (1) **reference** — attach up to ~3 images to
+  a 만들기 / 고치기 request (📎 or paste); Claude sees them (vision input),
+  the images are not put into the app; ~5–10원 more per image, included in
+  the estimate; the upload path of chat-plus-files (bytes checked,
+  re-encoded, metadata gone). (2) **assets** — an image saved as an app file
+  (e.g. `logo.png`) the app shows; storage only, app size limits, export
+  ZIP and thumbnails follow. (1) first. **Scheduled** (owner, 2026-10-17:
+  "지금 작업 이후에") — (1) after builder-snapshots; branch, tests, review,
+  then the owner's go before merge (no pre-approval given for this one).
+  Owner, later the same morning: (2) **app assets too** ("빌더 사진: 앱에 넣는
+  사진(로고 등)") — in the same queue.
+- **ctrlaiapps-reactions** — owner, 2026-10-17 ("CtrlAIApps 댓글·반응"):
+  comments and reactions on a published app's CtrlAIApps page, the same
+  shape as CtrlAITube's (reactions, threaded comments, 신고, admin
+  hide/delete, 반응을 얻었어요 notifications). Phase 5's remaining slice.
+  **Layout (owner, 2026-10-17):** "아래 미리보기에서 한 8:2? 7:3? 으로 분리해서
+  영상처럼 댓글 윈도우 만드는게 좋을듯" — on a wide screen the app preview
+  takes ~70% and a right-hand panel ~30% holds the reactions (좋아요 · 유용해요 ·
+  흥미로워요) and the comments, like the CtrlAITube watch page; the panel can be
+  folded to give the app the full width (remembered per browser); on a phone
+  the panel goes under the app.
+- **ai-switch-wording** — owner, 2026-10-17: "실제 AI켜기 가 아니라 로그인해서
+  사용하기 (토큰 소모 있을 수도 있음) 뭔가 이런식으로 쓰면 좋을 듯". The shell
+  bar's 「실제 AI 켜기」 becomes 「로그인해서 사용하기」 with a short note that
+  the member's 지원금 may be used (e.g. "AI를 쓰면 내 지원금이 조금 쓰일 수
+  있어요"); wording only, the same switch.
+- **Order (owner, 2026-10-17: "이거 끝나면 진행")** — after the server
+  thumbnails are switched on and builder-snapshots is deployed: builder-images
+  (reference, then assets), ctrlaiapps-reactions, ai-switch-wording.
+  **Pre-approved** (owner, 2026-10-17, answering whether to ask each time:
+  "큰 건은아니어서 매번 묻지 않아도 되면 \"같은 규칙으로\"") — the same rules:
+  merge + deploy once reviews are clean and all tests pass, one at a time;
+  serious money/security findings stop and wait.
+  **One batch (owner, 2026-10-17: "한꺼번에 deploy. 크게 변경되는건 없는 것
+  같아서 체크 한번에 하고"):** builder-images, draft-server-thumbnails,
+  ctrlaiapps-reactions and ai-switch-wording are built on one integration
+  branch, reviewed and tested once together, merged and deployed once.
+- **draft-server-thumbnails** — owner, 2026-10-17, after the server
+  thumbnails went live ("글씨체나 그 테트리스 같은 애들은 좀 깨긴 해"), choosing
+  "1. 작업 중 프로젝트도 서버가 찍기" and "글꼴과 그림이 다 그려질 때까지
+  기다렸다가 찍기", "지금 뭐 돌아가고 있으니까 그거 끝나고". (1) The Builder's
+  draft (working copy) thumbnail is also taken by the thumbs worker after
+  each new version, through the same queue and isolation (the draft's
+  preview address added to what the api may ask for and the worker accepts);
+  the in-browser capture stays the fallback. (2) The worker waits for
+  `document.fonts.ready` and ~1–2 s more before the screenshot (both for
+  published and draft renders). Scheduled right after builder-images, under
+  the same rules as the queue.
+- **thumbnail-choice** — owner, 2026-10-17 (seeing 미니 테트리스's empty
+  start screen; "썸네일을 지정하시오 … 네모가 나와서 옆에 개발중인 데서 고를 수
+  있게... 아님 말고", "사진을 직접 추가하는 일은 많진 않을 것 같아서"). A small
+  썸네일 square at the top of the Builder's file panel: **자동 (첫 화면)** (the
+  server's picture, default) or **내 그림** — paste a screenshot (⌘⇧4) or
+  upload one; back to 자동 any time. The chosen picture is used on the
+  Builder card and CtrlAIApps until changed; re-encoded like every upload.
+  Optional, small. Not scheduled.
+  **Revised and scheduled (owner, 2026-10-17, verbatim):** "앱에 넣을 사진 빼고
+  썸네일 지정 (원래는 기본으로 렌더링 된 값을 넣고) 지정을 하면 옆에서 오른쪽에서
+  비율 고정된걸로 캡쳐해서 넣을 수 있게 하면 안됨?" → (1) remove the 「앱에 넣은
+  사진」 panel (builder-images (2), app assets) from the Builder; 참고 사진 stays.
+  (2) In its place a **썸네일** panel: the current picture, 자동 (the server's
+  first screen, default), **지정하기** → a 16:10 frame over the 미리보기 that the
+  member moves/resizes (the app stays usable, e.g. a game mid-play) →
+  「이 화면으로」 takes the real pixels with the browser's screen capture
+  (getDisplayMedia, preferCurrentTab; one capture, the share stopped at
+  once, nothing sent anywhere but the thumbnail upload), cropped to the frame;
+  fallback: paste or upload a screenshot (Safari, or capture refused);
+  「자동으로 되돌리기」. A chosen picture is not replaced by automatic renders
+  until reset. After fix-draft-thumbs, same rules.
+- **background-runs** — owner, 2026-10-17 ("채팅하다 중간에 나가면 계속
+  돌아가?" → after hearing it stops today: "만약 나갔다면 채팅에 오로라로 점?
+  돌아가고 있다는거 보이게"). A Chat reply (and a Builder run) keeps going on
+  the server when the member leaves the page or closes the tab; only 「중지」
+  stops it. The finished reply is saved and charged as today (the ledger is
+  already server-side). While it runs, the conversation's row in the Chat
+  list, the sidebar's Chat item and the Builder card show a small glowing
+  aurora dot (running-state-calm's running signal, which must then come from
+  the server, not the page); coming back mid-run re-attaches to the live
+  stream. Open points: one running reply per member at a time (or per
+  conversation); a server restart mid-run ends it as 중지 with what was
+  written; reduced-motion shows a static dot. **Scheduled and pre-approved**
+  (owner, 2026-10-17, verbatim: "background-runs도 썸네일 지정 다음에 같은
+  규칙으로 해줘") — after thumbnail-choice; one running reply per member.
+- **chat-to-builder-carry** — owner, 2026-10-17: "이거를 바탕으로 빌드하기
+  하면 내가 채팅에서 작업했던 작업물을 그대로 들고 와서 하면 좋겠는데 처음부터
+  디자인을 다시 짜야되더라고 프롬프트도 그렇고 (프롬프트만 들어가니까) 이거를
+  바탕으로 빌드하면 만든 미리보기를 들고오게". Today Chat's action button
+  ("Project Builder에서 시작", `useChatIdea`) opens `/builder?idea=…&name=…` —
+  only the words travel, so the Builder designs from scratch. Only the
+  미리보기 card's 「Builder로 보내기」 carries the HTML (`from-chat`). Change:
+  when the conversation has a 미리보기 (an HTML artifact), the action creates
+  the project **from that page** (the newest one; a picker if there are
+  several) via the same `from-chat` path, with the idea as its first request
+  context, so the Builder continues from the design the member already
+  liked; without a 미리보기 it stays as today. Small. **Scheduled and
+  pre-approved** (owner, 2026-10-17, verbatim: "chat-to-builder-carry는
+  background-runs 다음에 같은 규칙으로 해줘").
+  **Refined (owner, 2026-10-17, with screenshots):** "빌더로 보내기 이거를 하면
+  잘 가긴 하거든? 근데 html만 띡 가고 제목도 저렇게만 되고 프로젝트 빌드하기
+  누르면 프롬프트만 가서 이상한거 만들어지고". So: (1) one action — in a
+  conversation with a 미리보기, 「Project Builder에서 예시 앱 만들기」 becomes
+  「이 미리보기로 Builder 시작」 (same as the card's 「Builder로 보내기」); (2) the
+  project name comes from the page (`<title>` / first heading, shortened), a
+  Haiku name only when the page has none — not the truncated conversation
+  title; (3) the conversation's requirements travel too: a short requirements
+  note (what was asked and decided: features, data, look) saved as the
+  project's SPEC.md (a guide doc, not served) and shown in the Builder's
+  first Claude bubble ("채팅에서 가져왔어요 · 요구사항 N개"), so later 고치기
+  build on it instead of starting over; Haiku summary charged and estimated
+  like any call (a few 원), or free when it can be taken from the messages as
+  they are; (4) several 미리보기 in the conversation → pick one (newest by
+  default).
+- **chat-pins** — owner, 2026-10-16 evening: "채팅에 핀 기능
+  추가해야하는데". The same 고정 that Project Builder and Video Generator
+  got in ui-improvements-a (`pinned_at` on the row, a 고정 / 고정 해제
+  item in the conversation's ⋯ menu, pinned conversations first in the
+  Chat sidebar list under a small 고정됨 heading, newest pin first). Owner
+  only (a member pins their own chats), a JSON-body route, a migration.
+  Small. **Scheduled and pre-approved** (owner, 2026-10-16 evening,
+  verbatim: "chat-pins도 motion-modern 다음에 같은 규칙으로 (리뷰 깨끗 +
+  테스트 통과하면 merge + 배포) 해줘") — ⑥ after ⑤ motion-modern, branch
+  `feat-chat-pins`, same rules as ④–⑤. **Merged `d224240`, deployed 2026-10-17** — Done row in the archive.
+
+## admin-consolidation — Next entry (v3, merged 2026-10-17 in four batches)
+
+Batches: (1) `feat-admin-frame` `20eee8f`, (2) `feat-admin-merges` `0e8d2b2`, (3) `feat-admin-usage` `8e45e40`, (4) `feat-admin-settings` `a7190f8`. The decisions, mock-up and branch plan stay in [`../ui-requests/admin-consolidation.md`](../ui-requests/admin-consolidation.md). The Next entry as it stood:
+
+8. **admin-consolidation** · M1 · eight small branches, one per row of the plan
+    **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+    "admin-consolidation(v3 기준, 4묶음)도 ⑤ 다음에 같은 규칙으로 해줘") — after
+    chat-to-builder-carry, built from the **v3** revision in
+    `ui-requests/admin-consolidation.md` (mock `admin-consolidation-v3.html`) in
+    **four batches**, each: review clean + tests pass → merge + deploy. Owner, 2026-10-17 (desktop
+    session): Admin has too many sections and repeats itself — cut **13
+    sections to 6** (Dashboard · Members · Quarters · Models · Community ·
+    System), add per-member usage and a Quarters › 사용 분석 tab (where the
+    API money goes: by provider, feature, model, app, member, day). **Start
+    only after the batch deploy now running has gone out.** Decisions
+    (미참여 not 미신청; orange means "needs action"), the mock-up, the
+    branch plan and the open questions are in
+    [`ui-requests/admin-consolidation.md`](../ui-requests/admin-consolidation.md)
+    (mock: `admin-consolidation.html`). Supersedes the *Admin › 사용량 분석*
+    part of **usage-analytics** (decide at the start whether to merge the
+    two specs). Open: 공지 보내기 now or later; keep the old `/admin/*`
+    addresses as redirects (recommended).
