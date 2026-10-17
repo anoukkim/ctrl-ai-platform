@@ -8,6 +8,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { resetRuns } from "@/lib/running";
+
 import { ApiError } from "@/lib/api";
 import type { ChatMessage, StreamHandlers, StreamOutcome } from "@/lib/chat";
 
@@ -215,6 +217,8 @@ describe("ChatWorkspace", () => {
     window.localStorage.removeItem("ctrlai.chat-list-collapsed");
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     for (const fn of Object.values(chatApi)) fn.mockReset();
+    // The running store lives in a module: a reply a test left running must not show in the next.
+    resetRuns();
     chatApi.getChatInfo.mockResolvedValue({
       is_mock: true,
       rate_limit_per_minute: 10,
@@ -436,10 +440,12 @@ describe("ChatWorkspace", () => {
     expect(signal!.aborted).toBe(true);
     expect(chatApi.stopReply).not.toHaveBeenCalled();
     expect(screen.queryByText(/중지됨/)).toBeNull();
+    // Its row keeps the running dot (handed to the server's word).
+    expect(screen.getByTestId("row-running")).toBeTruthy();
 
     // Back: the reply is still being written — shown with the text so far, followed.
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "가계부 아이디어" }));
+      fireEvent.click(screen.getByRole("button", { name: /가계부 아이디어/ }));
     });
     expect(await screen.findByText("첫 대화의 답 이어서 끝")).toBeTruthy();
     expect(chatApi.followReply).toHaveBeenCalledWith(CONVERSATION.id, expect.anything(), expect.anything());

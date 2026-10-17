@@ -31,6 +31,9 @@ spent.
 from __future__ import annotations
 
 import asyncio
+
+import anyio
+import anyio.from_thread
 from datetime import datetime, timezone
 import logging
 import json
@@ -796,6 +799,17 @@ def send_message(
         pieces are saved and shown as one reply.
         """
         marker = chat_service.MarkerFilter()
+        # background-runs: the run's liveness lock, held on a connection of
+        # its own until the run row says how it ended — the sweep never ends
+        # a reply whose process is alive, however late its heartbeat.
+        bind = await run_in_threadpool(_in_session, session_factory, lambda db: db.get_bind())
+        liveness = await run_in_threadpool(chat_runs.hold, bind, chat_runs.CHAT_LOCK, run_id)
+        try:
+            await produce_turn(marker)
+        finally:
+            await run_in_threadpool(chat_runs.release, liveness, chat_runs.CHAT_LOCK, run_id)
+
+    async def produce_turn(marker) -> None:
         # A slot under the process-wide provider limit, waited for off the
         # event loop. Refused: a BUSY error — the provider was never
         # called, nothing is charged, and the status board is not marked.
@@ -980,9 +994,10 @@ def send_message(
         await end_run(result)
         queue.put_nowait(("end", result))
 
-    async def relay() -> AsyncIterator[str]:
-        # Started here, not in the route body: the route runs in a worker
-        # thread, and a task needs the event loop.
+    def start() -> None:
+        """Runs on the event loop (the route itself runs in a worker
+        thread). Started here, before the response — a page that goes away
+        before the first byte must not leave a run that nothing produces."""
         _STOPS[run_id] = (asyncio.get_running_loop(), stop)
         task = asyncio.create_task(produce())
         task.add_done_callback(lambda _task: _STOPS.pop(run_id, None))
@@ -993,6 +1008,10 @@ def send_message(
         # outlive the response it was started for.
         _RUNNING.add(task)
         task.add_done_callback(_RUNNING.discard)
+
+    anyio.from_thread.run_sync(start)
+
+    async def relay() -> AsyncIterator[str]:
         try:
             yield _sse(
                 "start",

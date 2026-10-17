@@ -430,14 +430,19 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
    * again, as after a run of its own. Read only.
    */
   const followTimer = useRef<number | null>(null);
+  // One chain at a time; a newer chain (or leaving the page) ends the older.
+  const followChain = useRef(0);
   useEffect(
     () => () => {
+      followChain.current += 1;
       if (followTimer.current !== null) window.clearTimeout(followTimer.current);
     },
     [],
   );
   const followGeneration = useCallback(
     (open: Generation) => {
+      const chain = ++followChain.current;
+      if (followTimer.current !== null) window.clearTimeout(followTimer.current);
       setGenRunning(true);
       setRunStartedAt((started) => started ?? Date.now());
       startRun("builder", Number(projectId));
@@ -445,6 +450,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         followTimer.current = window.setTimeout(() => {
           getOpenGeneration(projectId)
             .then((fresh) => {
+              if (chain !== followChain.current) return;
               if (fresh?.status === "running") {
                 setGeneration(fresh);
                 tick();
@@ -458,7 +464,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               if (!fresh) chooseMode("preview");
               reloadAfterRun();
             })
-            .catch(() => tick());
+            .catch(() => {
+              if (chain === followChain.current) tick();
+            });
         }, FOLLOW_MS);
       };
       setGeneration(open);

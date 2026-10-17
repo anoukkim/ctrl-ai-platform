@@ -991,13 +991,23 @@ processes, so everything a second page needs goes through the database:
   `usage.charge()` per call).
 - **Re-attaching** (`/live`) only reads the row; the page reloads the
   conversation for the receipt. Watching from two tabs never charges twice.
-- **Restarts.** A row whose heartbeat is older than 45 s is ended by
-  `chat_runs.sweep` (called when the member's running state, a
-  conversation or an open generation is read): the text is saved as a
-  중지됨 reply with a note and **not charged** — the call's real usage died
-  with the process, so the club absorbs it. A Builder generation has a
-  `heartbeat_at` beaten every 5 s by its route; a silent one becomes
-  `partial`/`failed` (이어서 만들기).
+- **Alive or dead.** A heartbeat's age cannot tell a dead run from a slow
+  one (a busy pool or event loop), and ending a live build lets 이어서
+  만들기 start a second worker that charges the same file twice. So every
+  running reply and build holds a PostgreSQL **advisory lock** (classes
+  `CHAT_LOCK` / `BUILD_LOCK`, the row's id) on a connection of its own for
+  as long as it runs (`chat_runs.hold` / `alive`, also around
+  `builder_eval`'s builds). A process that dies drops its connection and
+  the lock with it. The sweep ends a run only when its heartbeat is older
+  than 45 s **and** `pg_try_advisory_lock` succeeds. Off PostgreSQL (the
+  tests' SQLite) a build keeps the Builder's 15-minute rule.
+- **Restarts.** `chat_runs.sweep` (called when the member's running state,
+  a conversation or an open generation is read) saves a dead reply's text
+  as 중지됨 with a note — **not charged**: the last call's real usage died
+  with the process, so the club absorbs it — unless the reply had been
+  saved already (it then only points the row at it). A dead build becomes
+  `partial`/`failed` (이어서 만들기). A task's flush learns if its row was
+  ended and stops; `finish` never reopens an ended row.
 - **The running dots** read `GET /api/chat/running` every 5 s (and on
   focus) and merge it with what the page itself started (`lib/running`).
 

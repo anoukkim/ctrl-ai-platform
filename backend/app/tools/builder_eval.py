@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import SessionLocal
 from app.models import BuilderEvalReport, BuilderGeneration, BuilderProject, User, UserRole
-from app.services import builder_stages, builder_versions
+from app.services import chat_runs, builder_stages, builder_versions
 from app.services.builder_starter import StarterError
 from app.services.claude_provider import ClaudeError, get_claude_provider
 
@@ -107,10 +107,11 @@ def evaluate(
                 errors.append(str(data.get("detail", "")))
 
         try:
-            builder_stages.run(
-                db, settings, provider, user=admin, generation_id=generation.id, emit=emit,
-                is_mock=is_mock, spend_limit_krw=left - generation.charged_krw,
-            )
+            with chat_runs.alive(db.get_bind(), chat_runs.BUILD_LOCK, generation.id):
+                builder_stages.run(
+                    db, settings, provider, user=admin, generation_id=generation.id, emit=emit,
+                    is_mock=is_mock, spend_limit_krw=left - generation.charged_krw,
+                )
         except Exception as error:  # noqa: BLE001
             db.rollback()
             errors.append(str(error))

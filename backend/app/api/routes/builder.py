@@ -1405,15 +1405,18 @@ def run_generation(
         try:
             member = worker_db.get(User, user_id)
             try:
-                builder_stages.run(
-                    worker_db,
-                    config,
-                    provider,
-                    user=member,
-                    generation_id=generation_id,
-                    emit=emit,
-                    is_mock=is_mock,
-                )
+                # background-runs: held while it works — a restart's dead run
+                # is told from a slow one by this lock, not by the clock.
+                with chat_runs.alive(worker_db.get_bind(), chat_runs.BUILD_LOCK, generation_id):
+                    builder_stages.run(
+                        worker_db,
+                        config,
+                        provider,
+                        user=member,
+                        generation_id=generation_id,
+                        emit=emit,
+                        is_mock=is_mock,
+                    )
             except builder_starter.StarterError as error:
                 emit("error", {"detail": str(error), "partial": False, "files_done": []})
             except Exception:  # noqa: BLE001 — the member gets a Korean sentence either way
@@ -1469,9 +1472,14 @@ def run_generation(
         task = asyncio.create_task(run_in_threadpool(work, loop))
         _RUNNING.add(task)
         task.add_done_callback(_RUNNING.discard)
-        beating = asyncio.create_task(beat(task))
-        _RUNNING.add(beating)
-        beating.add_done_callback(_RUNNING.discard)
+        # Only with the app's own sessions: the tests hand every caller one
+        # shared session, which a second thread must not use while the run's
+        # thread does (the run stamps its heartbeat when it starts, which is
+        # what the tests read).
+        if get_db not in request.app.dependency_overrides:
+            beating = asyncio.create_task(beat(task))
+            _RUNNING.add(beating)
+            beating.add_done_callback(_RUNNING.discard)
         while True:
             try:
                 kind, data = await asyncio.wait_for(queue.get(), GENERATION_KEEPALIVE_SECONDS)

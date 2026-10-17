@@ -116,7 +116,7 @@ import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
-import { finishRun, isRunning, refreshServerRuns, startRun, useRuns } from "@/lib/running";
+import { finishRun, handOverRun, isRunning, refreshServerRuns, startRun, useRuns } from "@/lib/running";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
 import Skeleton from "./Skeleton";
@@ -541,6 +541,8 @@ export default function ChatWorkspace() {
   const [stopping, setStopping] = useState(false);
   // The re-attach (`follow`, below) for openConversation, which is defined first.
   const followRef = useRef<(id: number, live: LiveRun) => void>(() => undefined);
+  // The latest conversation asked for — an older answer arriving late is dropped.
+  const openSeq = useRef(0);
   /** Stop watching the reply on screen (it goes on on the server). */
   const detach = useCallback(() => {
     const controller = abortRef.current;
@@ -645,6 +647,7 @@ export default function ChatWorkspace() {
 
   const openConversation = useCallback(async (id: number) => {
     if (abortRef.current && activeIdRef.current === id) return; // 이미 보고 있어요
+    const opening = ++openSeq.current;
     // background-runs: 다른 대화로 옮겨도 쓰던 답장은 서버에서 계속돼요.
     detach();
     setListOpen(false);
@@ -665,6 +668,8 @@ export default function ChatWorkspace() {
       .catch(() => setPendingFiles([]));
     try {
       const detail = await getConversation(id);
+      // Another conversation was opened meanwhile: this answer is stale.
+      if (opening !== openSeq.current) return;
       setMessages(detail.messages.map(toView));
       setChosenModelId(detail.chat_model_id);
       setChosenDepth(detail.depth ?? null);
@@ -1064,16 +1069,39 @@ export default function ChatWorkspace() {
           remainingKrw: outcome.walletRemainingKrw,
           label: `채팅 · ${modelShortName(saved?.model_id)}`,
         });
-      } else if (outcome.kind === "stopped" || outcome.kind === "disconnected") {
+      } else if (outcome.kind === "disconnected") {
+        // background-runs: the connection dropped (wifi, a phone in the
+        // background) — the server goes on and will charge for the whole
+        // reply. Read the conversation again and follow the reply if it is
+        // still being written; never say it stopped.
+        patchReply(() => null);
+        try {
+          const detail = await getConversation(conversationId);
+          if (activeIdRef.current === conversationId) {
+            setMessages(detail.messages.map(toView));
+            setLongHistory(detail.long_history ?? null);
+            if (detail.running) {
+              followRef.current(conversationId, detail.running);
+            } else {
+              // Already saved: its receipt is the ledger's word.
+              const settled =
+                savedUserId === null
+                  ? undefined
+                  : detail.messages.find((message) => message.role === "assistant" && message.id > savedUserId!);
+              if (settled) {
+                reportCharge({ chargedKrw: settled.receipt?.charged_krw, label: `채팅 · ${modelShortName(settled.model_id)}` });
+              }
+              void refreshQuarter();
+            }
+          }
+        } catch {
+          setSendError("답장을 받는 중에 연결이 끊어졌어요. 서버에서는 답장을 계속 써요 — 대화를 다시 열면 이어서 보여요.");
+        }
+      } else if (outcome.kind === "stopped") {
         // 중지했거나 연결이 끊겼습니다 — 어느 쪽이든 백엔드는 그때까지
         // 만든 답장을 저장하고 쓴 만큼 차감하므로, 차감이 없었다고
         // 말하면 안 됩니다. 저장본과 영수증은 정산이 끝난 뒤 가져옵니다.
         patchReply((row) => (row.content ? { ...row, streaming: false, status: "stopped" } : null));
-        if (outcome.kind === "disconnected") {
-          setSendError(
-            `${outcome.detail} 여기까지 온 답장은 저장되고, 쓴 만큼만 차감됩니다.`,
-          );
-        }
         settleStopped(conversationId, replyKey, savedUserId, 0);
       } else {
         // 백엔드가 보낸 실패 — 이때만 아무것도 차감되지 않은 것이
@@ -1097,7 +1125,9 @@ export default function ChatWorkspace() {
         setStopping(false);
         setToolStatus(null);
       }
-      finishRun("chat", conversationId);
+      // Let go on purpose: the reply still runs; the server's dot stays.
+      if (detachedRef.current !== controller) finishRun("chat", conversationId);
+      else handOverRun("chat", conversationId);
       void refreshList();
       void refreshServerRuns();
     }
@@ -1127,7 +1157,9 @@ export default function ChatWorkspace() {
     if (id === null) return;
     setStopping(true);
     try {
-      await stopReply(id);
+      // Nothing running yet (the request has not reached the server) or any
+      // more: the button stays usable.
+      if (!(await stopReply(id))) setStopping(false);
     } catch (error) {
       setStopping(false);
       setSendError(describeError(error));
@@ -1138,6 +1170,11 @@ export default function ChatWorkspace() {
   // came back, or another tab started it). Read only — nothing is charged.
   const follow = useCallback(
     (id: number, live: LiveRun) => {
+      // Never two readers: let go of whatever this page was reading.
+      if (abortRef.current) {
+        detachedRef.current = abortRef.current;
+        abortRef.current.abort();
+      }
       const controller = new AbortController();
       abortRef.current = controller;
       detachedRef.current = null;
@@ -1198,7 +1235,8 @@ export default function ChatWorkspace() {
             setStreaming(false);
             setStopping(false);
           }
-          finishRun("chat", id);
+          if (detachedRef.current === controller) handOverRun("chat", id);
+          else finishRun("chat", id);
           void refreshList();
           void refreshServerRuns();
         });

@@ -54,6 +54,19 @@ export function setServerRuns(conversations: number[], projects: number[]): void
   save();
 }
 
+/**
+ * The page stopped watching a run that goes on on the server (it left the
+ * conversation): the dot stays, now as the server's — the next poll keeps
+ * or clears it.
+ */
+export function handOverRun(kind: RunKind, id: number): void {
+  const mine = local.find((run) => run.kind === kind && run.id === id);
+  if (!mine) return;
+  local = local.filter((run) => run !== mine);
+  if (!server.some((run) => run.kind === kind && run.id === id)) server = [...server, mine];
+  save();
+}
+
 /** How often the open page asks the server what is running. */
 export const SERVER_POLL_MS = 5000;
 

@@ -349,9 +349,15 @@ def test_a_build_a_restart_left_running_becomes_continue(
     db_session.commit()
     assert client.get("/api/chat/running").json()["projects"] == [project.id]
 
+    # A late heartbeat is not death: no dot, but the build is left alone (on
+    # PostgreSQL its liveness lock decides; here, the Builder's 15 minutes).
     live.heartbeat_at = datetime.now(timezone.utc) - timedelta(minutes=5)
     db_session.commit()
     assert client.get("/api/chat/running").json()["projects"] == []
+    assert client.get(f"/api/builder/projects/{project.id}/generation").json()["status"] == "running"
+
+    live.heartbeat_at = datetime.now(timezone.utc) - timedelta(minutes=20)
+    db_session.commit()
     opened = client.get(f"/api/builder/projects/{project.id}/generation").json()
     assert opened["status"] == "failed"
     assert opened["error"] == chat_runs.BUILD_RESTARTED
@@ -394,3 +400,47 @@ def test_stop_reaches_a_reply_running_in_another_process(
     [saved] = replies(db_session, conversation)
     assert saved.status is ChatMessageStatus.STOPPED
     assert db_session.query(UsageEvent).filter(UsageEvent.conversation_id == conversation).count() == 1
+
+
+def test_a_run_the_task_already_saved_is_not_saved_twice(
+    client: TestClient, db_session: Session, budgeted, dev_user, slow_config
+) -> None:
+    """The process died between saving the reply and closing its run row:
+    the sweep points the row at that reply instead of adding a second."""
+    conversation = Conversation(user_id=dev_user.id, title="저장됨")
+    db_session.add(conversation)
+    db_session.flush()
+    asked = ChatMessage(conversation_id=conversation.id, user_id=dev_user.id, role=ChatRole.USER, content="질문")
+    db_session.add(asked)
+    db_session.flush()
+    answer = ChatMessage(
+        conversation_id=conversation.id, user_id=dev_user.id, role=ChatRole.ASSISTANT, content="다 쓴 답",
+        status=ChatMessageStatus.COMPLETE,
+    )
+    db_session.add(answer)
+    old = datetime.now(timezone.utc) - timedelta(minutes=5)
+    db_session.add(
+        ChatRun(user_id=dev_user.id, conversation_id=conversation.id, user_message_id=asked.id, status="running",
+                text="다 쓴 답", heartbeat_at=old)
+    )
+    db_session.commit()
+    detail = client.get(f"/api/chat/conversations/{conversation.id}").json()
+    assert [m["content"] for m in detail["messages"] if m["role"] == "assistant"] == ["다 쓴 답"]
+    run = db_session.query(ChatRun).filter(ChatRun.conversation_id == conversation.id).one()
+    db_session.refresh(run)
+    assert run.status == "done" and run.message_id == answer.id
+
+
+def test_a_swept_row_stops_its_task_and_is_never_reopened(db_session: Session, dev_user) -> None:
+    """If a row is ended under a task, the task's next flush tells it to stop
+    and its own finish cannot turn the row back."""
+    conversation = Conversation(user_id=dev_user.id, title="x")
+    db_session.add(conversation)
+    db_session.commit()
+    run = ChatRun(user_id=dev_user.id, conversation_id=conversation.id, status="stopped")
+    db_session.add(run)
+    db_session.commit()
+    assert chat_runs.flush(db_session, run.id, "글", "") is True
+    chat_runs.finish(db_session, run.id, "done", message_id=None, text="글", thinking="")
+    db_session.refresh(run)
+    assert run.status == "stopped"

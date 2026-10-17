@@ -20,10 +20,13 @@ real usage died with the process; the club absorbs it).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -40,12 +43,77 @@ from app.models import (
 
 #: How often the task writes what it has (and reads 중지).
 FLUSH_SECONDS = 0.5
-#: A run whose heartbeat is older than this is gone (the process died).
+#: A run whose heartbeat is older than this *may* be gone; it is ended only
+#: when its liveness lock is free too (PostgreSQL, `hold`).
 STALE = timedelta(seconds=45)
+#: Without the lock (SQLite), a build is ended only after the Builder's own
+#: 15 minutes (`builder_stages.STALE_RUN`).
+BUILD_STALE = timedelta(minutes=15)
 
 ONE_AT_A_TIME = "다른 대화에서 답장을 쓰고 있어요. 그 답장이 끝나거나 중지한 뒤에 보내 주세요."
-RESTARTED_NOTE = "서버가 다시 시작되어 여기서 멈췄어요. 이 부분은 청구되지 않았어요."
+RESTARTED_NOTE = "서버가 다시 시작되어 여기서 멈췄어요. 마지막으로 쓰던 부분은 청구되지 않았어요."
 BUILD_RESTARTED = "서버가 다시 시작되어 만들기가 멈췄어요. 이어서 만들기로 계속할 수 있어요."
+
+
+#: PostgreSQL advisory-lock classes: a running reply / build holds its lock
+#: on a connection of its own for as long as it runs.
+CHAT_LOCK = 71001
+BUILD_LOCK = 71002
+
+
+def _postgres(bind) -> bool:
+    return getattr(getattr(bind, "dialect", None), "name", "") == "postgresql"
+
+
+def hold(bind, kind: int, object_id: int) -> Connection | None:
+    """Take the run's liveness lock on a dedicated connection and keep it.
+
+    A run is alive while this lock is held: the connection closes when its
+    process dies (a restart, a crash), which releases the lock — so the
+    sweep can tell a dead run from a slow one (a heartbeat late because the
+    pool or the event loop was busy), which a heartbeat's age cannot.
+    None off PostgreSQL (the tests' SQLite), where the heartbeat decides."""
+    if not _postgres(bind):
+        return None
+    engine = getattr(bind, "engine", bind)
+    connection = engine.connect()
+    try:
+        connection.execute(text("SELECT pg_advisory_lock(:k, :o)"), {"k": kind, "o": object_id})
+        connection.commit()
+    except Exception:
+        connection.close()
+        raise
+    return connection
+
+
+def release(connection: Connection | None, kind: int, object_id: int) -> None:
+    if connection is None:
+        return
+    try:
+        connection.execute(text("SELECT pg_advisory_unlock(:k, :o)"), {"k": kind, "o": object_id})
+        connection.commit()
+    finally:
+        connection.close()
+
+
+@contextmanager
+def alive(bind, kind: int, object_id: int) -> Iterator[None]:
+    connection = hold(bind, kind, object_id)
+    try:
+        yield
+    finally:
+        release(connection, kind, object_id)
+
+
+def _dead(db: Session, kind: int, object_id: int) -> bool:
+    """True when nobody holds the run's liveness lock (PostgreSQL); off it,
+    the heartbeat's age alone decides."""
+    if not _postgres(db.get_bind()):
+        return True
+    taken = bool(db.scalar(text("SELECT pg_try_advisory_lock(:k, :o)"), {"k": kind, "o": object_id}))
+    if taken:
+        db.execute(text("SELECT pg_advisory_unlock(:k, :o)"), {"k": kind, "o": object_id})
+    return taken
 
 
 class RunRefused(Exception):
@@ -94,24 +162,25 @@ def attach_user_message(db: Session, run_id: int, message_id: int) -> None:
     db.commit()
 
 
-def flush(db: Session, run_id: int, text: str, thinking: str) -> bool:
-    """Write what the reply has so far and the heartbeat; True when 중지 was
-    asked for (from any page). Commits."""
+def flush(db: Session, run_id: int, shown: str, thinking: str) -> bool:
+    """Write what the reply has so far and the heartbeat; True when the
+    reply must stop — 중지 was asked for (from any page), or the row is no
+    longer running (it was ended under it). Commits."""
     db.execute(
         update(ChatRun)
         .where(ChatRun.id == run_id, ChatRun.status == "running")
-        .values(text=text, thinking=thinking, heartbeat_at=_now())
+        .values(text=shown, thinking=thinking, heartbeat_at=_now())
     )
-    stop = db.scalar(select(ChatRun.stop_requested).where(ChatRun.id == run_id))
+    row = db.execute(select(ChatRun.stop_requested, ChatRun.status).where(ChatRun.id == run_id)).first()
     db.commit()
-    return bool(stop)
+    return row is None or bool(row.stop_requested) or row.status != "running"
 
 
 def finish(db: Session, run_id: int, status: str, *, message_id: int | None, text: str, thinking: str, error: str = "") -> None:
     """The reply is saved (or failed): the row says how it ended. Commits."""
     db.execute(
         update(ChatRun)
-        .where(ChatRun.id == run_id)
+        .where(ChatRun.id == run_id, ChatRun.status == "running")
         .values(
             status=status,
             message_id=message_id,
@@ -192,6 +261,28 @@ def sweep(db: Session, *, user_id: int | None = None) -> int:
         query = query.where(ChatRun.user_id == user_id)
     ended = 0
     for run in db.scalars(query.with_for_update(skip_locked=True)).all():
+        if not _dead(db, CHAT_LOCK, run.id):
+            continue  # slow, not dead: its process still holds it
+        # Saved after all (the process died between saving and saying so):
+        # point at that reply instead of saving a second one.
+        saved = None
+        if run.user_message_id is not None:
+            saved = db.scalar(
+                select(ChatMessage.id)
+                .where(
+                    ChatMessage.conversation_id == run.conversation_id,
+                    ChatMessage.role == ChatRole.ASSISTANT,
+                    ChatMessage.id > run.user_message_id,
+                )
+                .order_by(ChatMessage.id)
+                .limit(1)
+            )
+        if saved is not None:
+            run.status = "done"
+            run.message_id = saved
+            run.finished_at = _now()
+            ended += 1
+            continue
         message_id = None
         if run.text.strip() and db.get(Conversation, run.conversation_id) is not None:
             message = ChatMessage(
@@ -215,9 +306,15 @@ def sweep(db: Session, *, user_id: int | None = None) -> int:
         BuilderGeneration.heartbeat_at.is_not(None),
         BuilderGeneration.heartbeat_at < cutoff,
     )
+    # Off PostgreSQL there is no liveness lock: a build keeps the old
+    # 15-minute rule, so a slow build is never ended under its worker.
+    if not _postgres(db.get_bind()):
+        builds = builds.where(BuilderGeneration.heartbeat_at < _now() - BUILD_STALE)
     if user_id is not None:
         builds = builds.where(BuilderGeneration.user_id == user_id)
     for generation in db.scalars(builds.with_for_update(skip_locked=True)).all():
+        if not _dead(db, BUILD_LOCK, generation.id):
+            continue
         generation.status = "partial" if generation.files_done else "failed"
         generation.error = BUILD_RESTARTED
         ended += 1
