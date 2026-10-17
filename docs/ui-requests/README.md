@@ -21,6 +21,7 @@ to a member.
 | `builder-first-build-running.html` | `builder-first-build-running` | Project Builder's first build (empty project): the 만들 계획 kept, with the shared stage list, timer, sweep and a growing file list on the left, and the Claude panel narrating. Fake values. |
 | `publish-done-popup.html` | `publish-done-popup` | 게시 완료 today (full-screen letters and confetti) next to a popup card (A) and a one-line pill (B). Click a card to replay. |
 | `chat-preview-fullscreen.html` | `chat-preview-fullscreen` | Chat's 미리보기 card with the new 전체 화면 button and its overlay (새로고침, 폰/데스크톱, 닫기 / Esc). |
+| `admin-consolidation.html` | admin consolidation (proposal, [`admin-consolidation.md`](admin-consolidation.md)) | Admin cut from 13 sections to 6, in the real shell: Dashboard (처리할 일), Members (+ 사용률 열), Quarters (예산 + 사용 분석), Models, Community, System, plus the member detail 사용 내역. Static, fake figures. |
 
 HTML mock-ups are single files with no network access and no build step —
 double-click to open. Like the screenshots, they are documentation, not
