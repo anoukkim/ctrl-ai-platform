@@ -238,7 +238,37 @@ def published_url(settings: Settings, project: BuilderProject) -> str:
     return f"{origin}/{slug}/_app/index.html?v={quote(stamp, safe='')}"
 
 
+def draft_url(settings: Settings, project: BuilderProject) -> str:
+    """draft-server-thumbnails: the working copy's files on the apps
+    origin — the same strict shape as `published_url`, built from the
+    project's own draft slug. The draft folder is what the Builder's
+    preview already loads from the apps origin by its unguessable slug;
+    the worker reads exactly that, so nothing is made readable that was
+    not already."""
+    origin = settings.apps_origin
+    if origin is None:
+        raise RenderError("앱 주소(APPS_BASE_URL)가 없어 서버에서 찍을 수 없어요.", 503)
+    slug = project.draft_slug or ""
+    if project.app_runtime_at is None or not _SLUG.match(slug):
+        raise RenderError("미리보기가 아직 없어요.", 409)
+    stamp = project.app_runtime_at.isoformat()
+    return f"{origin}/{slug}/_app/index.html?v={quote(stamp, safe='')}"
+
+
 # ------------------------------------------------------------ one render
+
+
+def render_draft_now(db: Session, settings: Settings, project: BuilderProject) -> None:
+    """The working copy's picture (the Builder card), or `RenderError`."""
+    renderer = get_renderer(settings)
+    if renderer is None:
+        raise RenderError(OFF, 503)
+    data = renderer.render(draft_url(settings, project))
+    try:
+        thumbnails.save_draft(db, get_storage(settings), project, data)
+    except AttachmentRefusal as refusal:
+        logger.warning("thumbnail worker returned a bad image: %s", refusal)
+        raise RenderError(FAILED) from refusal
 
 
 def render_now(db: Session, settings: Settings, project: BuilderProject) -> None:
@@ -260,10 +290,10 @@ def render_now(db: Session, settings: Settings, project: BuilderProject) -> None
         raise RenderError(FAILED) from refusal
 
 
-def render_quietly(db: Session, settings: Settings, project: BuilderProject) -> bool:
-    """`render_now` for the queue: False instead of an exception."""
+def render_quietly(db: Session, settings: Settings, project: BuilderProject, kind: str = "published") -> bool:
+    """`render_now` / `render_draft_now` for the queue: False instead of an exception."""
     try:
-        render_now(db, settings, project)
+        (render_draft_now if kind == "draft" else render_now)(db, settings, project)
     except RenderError as error:
         logger.info("thumbnail render skipped for project %s: %s", project.id, error)
         return False
@@ -295,27 +325,30 @@ class RenderQueue:
         self._settings_for = settings_for
         #: Tests run jobs by hand with `run_one`; no thread is started.
         self._background = background
-        self._queue: queue.Queue[int] = queue.Queue(maxsize=maxsize)
-        self._waiting: set[int] = set()
+        #: (project id, "published" | "draft") — the same project's draft and
+        #: published pictures are separate jobs.
+        self._queue: queue.Queue[tuple[int, str]] = queue.Queue(maxsize=maxsize)
+        self._waiting: set[tuple[int, str]] = set()
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self.done = 0
         self.failed = 0
         self.dropped = 0
 
-    def submit(self, project_id: int) -> bool:
-        """Queue a project; False when it is already waiting or the queue
-        is full (logged — the in-browser capture still happened)."""
+    def submit(self, project_id: int, kind: str = "published") -> bool:
+        """Queue a project's picture; False when it is already waiting or
+        the queue is full (logged — the in-browser capture still happened)."""
+        job = (project_id, kind)
         with self._lock:
-            if project_id in self._waiting:
+            if job in self._waiting:
                 return False
             try:
-                self._queue.put_nowait(project_id)
+                self._queue.put_nowait(job)
             except queue.Full:
                 self.dropped += 1
-                logger.warning("thumbnail render queue full; project %s not queued", project_id)
+                logger.warning("thumbnail render queue full; project %s (%s) not queued", project_id, kind)
                 return False
-            self._waiting.add(project_id)
+            self._waiting.add(job)
         return True
 
     def pending(self) -> int:
@@ -324,24 +357,24 @@ class RenderQueue:
     def run_one(self, block: bool = True, timeout: float | None = None) -> bool:
         """Take and render one project. False when nothing was waiting."""
         try:
-            project_id = self._queue.get(block=block, timeout=timeout)
+            job = self._queue.get(block=block, timeout=timeout)
         except queue.Empty:
             return False
         with self._lock:
-            self._waiting.discard(project_id)
+            self._waiting.discard(job)
         try:
-            self._render(project_id)
+            self._render(*job)
         finally:
             self._queue.task_done()
         return True
 
-    def _render(self, project_id: int) -> None:
+    def _render(self, project_id: int, kind: str = "published") -> None:
         db = self._session_factory()
         try:
             project = db.get(BuilderProject, project_id)
             if project is None or project.deleted_at is not None:
                 return
-            if render_quietly(db, self._settings_for(), project):
+            if render_quietly(db, self._settings_for(), project, kind):
                 db.commit()
                 self.done += 1
             else:
@@ -393,15 +426,16 @@ def use_queue(instance: RenderQueue | None) -> None:
         _queue = instance
 
 
-def enqueue(settings: Settings, project_id: int) -> bool:
-    """After 게시: ask for the published version's picture, in the
-    background. A no-op (False) while the renderer is `browser`. Never
-    raises — 게시 has already happened and must answer normally."""
+def enqueue(settings: Settings, project_id: int, kind: str = "published") -> bool:
+    """After 게시 (`published`) or a new working copy (`draft`,
+    draft-server-thumbnails): ask for the picture, in the background. A
+    no-op (False) while the renderer is `browser`. Never raises — the
+    change has already happened and must answer normally."""
     try:
         if get_renderer(settings) is None:
             return False
         instance = shared_queue()
-        queued = instance.submit(project_id)
+        queued = instance.submit(project_id, kind)
         if queued:
             instance.start()
         return queued

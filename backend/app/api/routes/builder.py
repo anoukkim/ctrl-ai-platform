@@ -624,6 +624,13 @@ def _refresh_runtime(db: Session, settings: Settings, project: BuilderProject) -
         app_runtime.write_draft(db, settings, project, files)
     except (app_runtime.AppRuntimeError, OSError) as error:
         logger.warning("app runtime write failed for project %s: %s", project.id, error)
+        return
+    # draft-server-thumbnails: with THUMBNAIL_RENDERER=server the new working
+    # copy is photographed by the worker too (the Builder card); the
+    # in-browser capture still runs. Queued after the caller's commit is
+    # the norm, but the job reads the row itself and the slug and folder
+    # already exist, so a job that runs first just photographs this copy.
+    thumbnail_render.enqueue(settings, project.id, "draft")
 
 
 def _version_read(

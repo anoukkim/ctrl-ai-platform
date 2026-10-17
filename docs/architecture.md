@@ -321,6 +321,15 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
       (no internet, no GCE metadata server 169.254.169.254)
 ```
 
+0. **Draft pictures too** (draft-server-thumbnails, 2026-10-17): every
+   new working copy (`_refresh_runtime` after a change) queues a `draft`
+   job beside 게시's `published` one (separate jobs, de-duplicated per
+   project and kind); its address is `draft_url` — the project's own
+   `draft_slug` + `/_app/index.html`, refused before the copy is written.
+   It is the folder the Builder preview already loads by its unguessable
+   slug, so nothing becomes readable that was not; the worker's checks are
+   unchanged. The worker waits for `document.fonts` (≤ 4 s) and 1.5 s
+   more before the screenshot, inside the same deadline.
 1. **The api asks for one address only** (`services/thumbnail_render`):
    `APPS_BASE_URL` + the project's own ten-letter slug +
    `/_app/index.html` — never a URL from a request body. 게시 queues the

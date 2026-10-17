@@ -1073,7 +1073,9 @@ with `THUMBNAIL_RENDERER=server` (thumbnail-render-worker, 2026-10-17),
 asks the server's own headless Chromium for an exact screenshot of each
 app, one at a time ("서버의 브라우저가 … 찍어요"); 게시 then also gets the
 server's picture a few seconds after the maker's browser's, and a failed
-server render keeps whatever picture or cover the app had;
+server render keeps whatever picture or cover the app had — and since
+draft-server-thumbnails (2026-10-17) the Builder card's working-copy
+picture is the server's too, after every change (fonts loaded first);
 until a picture exists the cover is the app's name on its colour with a
 large faint initial behind it (no more `</>`), on CtrlAIApps and Builder
 cards alike. A visitor's browser never uploads a thumbnail. **(a2) The
