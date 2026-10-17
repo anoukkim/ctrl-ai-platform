@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
-from app.models import TubeComment, TubeVideo, User
+from app.models import AppComment, BuilderProject, TubeComment, TubeVideo, User
+from app.schemas.apps import AppCommentReportRead
 from app.schemas.tube import TubeAdminAction, TubeReportRead, TubeResolve
-from app.services import tube
+from app.services import app_discussion, tube
 
 router = APIRouter(prefix="/admin/tube", tags=["admin"])
 
@@ -66,5 +67,60 @@ def resolve_report(
     report_id: int, payload: TubeResolve, db: Session = Depends(get_db), admin: User = Depends(require_admin)
 ) -> dict:
     tube.resolve_report(db, admin, report_id, payload.note)
+    db.commit()
+    return {"detail": "신고를 닫았어요."}
+
+
+# ------------------------------------------------ ctrlaiapps-reactions: app comments
+
+
+@router.get(
+    "/app-reports", response_model=list[AppCommentReportRead], summary="Open app-comment reports, oldest first"
+)
+def list_app_comment_reports(db: Session = Depends(get_db), _: User = Depends(require_admin)) -> list[AppCommentReportRead]:
+    out = []
+    for row in app_discussion.open_reports(db):
+        comment = db.get(AppComment, row.comment_id) if row.comment_id is not None else None
+        project = db.get(BuilderProject, comment.project_id) if comment else None
+        reporter = db.get(User, row.reporter_id) if row.reporter_id else None
+        author = db.get(User, comment.user_id) if comment and comment.user_id else None
+        out.append(
+            AppCommentReportRead(
+                id=row.id,
+                comment_id=row.comment_id,
+                app_slug=(project.app_slug or "") if project else "",
+                app_name=project.name if project else "",
+                reason=row.reason,
+                excerpt=row.excerpt,
+                reporter_username=reporter.username if reporter else "",
+                author_username=author.username if author else "",
+                created_at=row.created_at,
+                comment_live=comment is not None and comment.deleted_at is None and comment.hidden_at is None,
+            )
+        )
+    return out
+
+
+@router.post("/app-comments/{comment_id}/hide", response_model=dict, summary="Hide an app comment for everyone (audited)")
+def hide_app_comment(
+    comment_id: int, payload: TubeAdminAction, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+) -> dict:
+    return _run(db, lambda: app_discussion.admin_hide(db, admin, comment_id, payload.reason))
+
+
+@router.post("/app-comments/{comment_id}/delete", response_model=dict, summary="Delete an app comment for good (audited)")
+def delete_app_comment(
+    comment_id: int, payload: TubeAdminAction, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+) -> dict:
+    return _run(db, lambda: app_discussion.admin_delete(db, admin, comment_id, payload.reason))
+
+
+@router.post(
+    "/app-reports/{report_id}/resolve", response_model=dict, summary="Close an app-comment report and keep the comment (audited)"
+)
+def resolve_app_comment_report(
+    report_id: int, payload: TubeResolve, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+) -> dict:
+    app_discussion.resolve_report(db, admin, report_id, payload.note)
     db.commit()
     return {"detail": "신고를 닫았어요."}

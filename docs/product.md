@@ -966,6 +966,20 @@ optional for using CTRL+AI.
 
 ### CtrlAIApps (route `/ctrlaistore`)
 
+**반응과 댓글** (ctrlaiapps-reactions, 2026-10-17; owner: "7:3 … 영상처럼
+댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:
+the app on the left, a **반응과 댓글** panel on the right with 좋아요 ·
+유용해요 · 흥미로워요 and the comments — CtrlAITube's shape: one level of
+replies, the author edits and deletes, 신고 goes to Admin › Content (the
+comment-report table now holds 영상 and 앱 rows), the admin hides or
+deletes with a reason (audited). The panel folds away to give the app the
+full width (remembered per browser); on a phone it sits under the app.
+Reading needs an account; reacting and commenting need a member taking
+part this quarter. The maker hears 반응을 얻었어요 (a member once a day for
+reactions, every comment); a comment's author hears of a reply. An app
+that is unpublished or deleted takes its reactions and comments with it;
+purge removes them.
+
 The community surface for published apps (Phase 5). **Built so far
 (`ctrlaiapps-publish`, 2026-10-14):** 게시 from the Builder publishes the
 project's newest *version*; CtrlAIApps lists it (name, short Korean

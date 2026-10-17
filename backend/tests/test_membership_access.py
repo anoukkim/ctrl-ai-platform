@@ -449,6 +449,17 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/builder/projects/{project_id}/assets"): "get_current_user",
     ("GET", "/api/builder/projects/{project_id}/assets/{asset_id}/file"): "get_current_user",
     ("DELETE", "/api/builder/projects/{project_id}/assets/{asset_id}"): "require_active_member",
+    # ctrlaiapps-reactions: CtrlAITube's shape for a published app.
+    ("GET", "/api/apps/{slug}/discussion"): "get_current_user",
+    ("POST", "/api/apps/{slug}/reactions"): "require_active_member",
+    ("POST", "/api/apps/{slug}/comments"): "require_active_member",
+    ("PATCH", "/api/apps/comments/{comment_id}"): "require_active_member",
+    ("DELETE", "/api/apps/comments/{comment_id}"): "require_active_member",
+    ("POST", "/api/apps/comments/{comment_id}/report"): "get_current_user",
+    ("GET", "/api/admin/tube/app-reports"): "require_admin",
+    ("POST", "/api/admin/tube/app-comments/{comment_id}/hide"): "require_admin",
+    ("POST", "/api/admin/tube/app-comments/{comment_id}/delete"): "require_admin",
+    ("POST", "/api/admin/tube/app-reports/{report_id}/resolve"): "require_admin",
     # chat-pins: the same 고정 for a conversation.
     ("POST", "/api/chat/conversations/{conversation_id}/pin"): "get_current_user",
     # ctrlaiapps-publish
@@ -724,6 +735,8 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         ("POST", "/api/builder/projects/{project_id}/pin"),
         ("POST", "/api/video/projects/{project_id}/pin"),
         ("POST", "/api/chat/conversations/{conversation_id}/pin"),
+        # ctrlaiapps-reactions: 신고 of an app comment, like the tube one.
+        ("POST", "/api/apps/comments/{comment_id}/report"),
         # promo-videos: 신고 of a CtrlAITube comment, likewise.
         ("POST", "/api/tube/comments/{comment_id}/report"),
         # Feedback. Spends nothing; a member who cannot create is exactly

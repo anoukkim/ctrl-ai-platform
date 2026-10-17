@@ -44,6 +44,9 @@ from app.models import (
     AuditAction,
     BuilderGeneration,
     BuilderReference,
+    AppComment,
+    AppCommentReport,
+    AppReaction,
     BuilderAsset,
     BuilderProject,
     BuilderProjectFile,
@@ -178,7 +181,16 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
         ).rowcount
         # The project points at its published version; cut that first.
         db.execute(update(BuilderProject).where(BuilderProject.id == pid).values(published_version_id=None))
+        # ctrlaiapps-reactions: the app's comment reports, comments, reactions.
+        db.execute(
+            delete(AppCommentReport).where(
+                AppCommentReport.comment_id.in_(select(AppComment.id).where(AppComment.project_id == pid))
+            )
+        )
+        db.execute(update(AppComment).where(AppComment.project_id == pid).values(parent_id=None))
         for child in (
+            AppComment,
+            AppReaction,
             AppReport,
             AppDataItem,
             AppDataCollection,

@@ -145,6 +145,11 @@ the same commit that adds it.
 | `GET /api/apps`, `GET /api/apps/mine`, `GET /api/apps/{slug}` | `get_current_user` | CtrlAIApps listing, the member's own published apps (Profile), and detail |
 | `POST /api/apps/{slug}/report` | `get_current_user` | 신고 — not creating anything |
 | `GET /api/apps/{slug}/thumbnail` | `get_current_user` | The published version's picture (CtrlAIApps cards and the detail head); 404 while there is none |
+| `GET /api/apps/{slug}/discussion` | `get_current_user` | ctrlaiapps-reactions: the app's reaction counts, mine, and the comment tree — through the published listing (404 once unpublished or deleted) |
+| `POST /api/apps/{slug}/reactions`, `POST /api/apps/{slug}/comments` | **`require_active_member`** | Toggle 좋아요 · 유용해요 · 흥미로워요 (`{kind}`); comment or reply (`{body, parent_id}`) — CtrlAITube's rules |
+| `PATCH`/`DELETE /api/apps/comments/{id}` | **`require_active_member`** | Edit / delete my own comment (anyone else's is a 404) |
+| `POST /api/apps/comments/{id}/report` | `get_current_user` | 신고 an app comment (one open report per member per comment) |
+| `GET /api/admin/tube/app-reports`, `POST /api/admin/tube/app-comments/{id}/hide\|delete`, `POST /api/admin/tube/app-reports/{id}/resolve` | `require_admin` | Admin › Content's comment queue for app comments (audited, closes open reports) |
 | `POST /api/apps/{slug}/favorite` | `get_current_user` | ★ 즐겨찾기 on / off — the member's own `app_favorites` row; spends nothing, so not participating may still pin |
 | `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |

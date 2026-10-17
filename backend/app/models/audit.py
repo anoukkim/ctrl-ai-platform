@@ -63,6 +63,9 @@ class AuditAction:
     TUBE_COMMENT_HIDDEN = "tube_comment.hidden"
     TUBE_COMMENT_DELETED = "tube_comment.deleted"
     TUBE_REPORT_RESOLVED = "tube_report.resolved"
+    APP_COMMENT_HIDDEN = "app_comment.hidden"
+    APP_COMMENT_DELETED = "app_comment.deleted"
+    APP_COMMENT_REPORT_RESOLVED = "app_comment_report.resolved"
     ROLE_SET = "role.set"
     QUARTER_CREATED = "quarter.created"
     QUARTER_UPDATED = "quarter.updated"
@@ -156,6 +159,9 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.TUBE_COMMENT_HIDDEN: "영상 댓글 숨김",
     AuditAction.TUBE_COMMENT_DELETED: "영상 댓글 삭제",
     AuditAction.TUBE_REPORT_RESOLVED: "영상 댓글 신고 처리",
+    AuditAction.APP_COMMENT_HIDDEN: "앱 댓글 숨김",
+    AuditAction.APP_COMMENT_DELETED: "앱 댓글 삭제",
+    AuditAction.APP_COMMENT_REPORT_RESOLVED: "앱 댓글 신고 처리",
     AuditAction.ROLE_SET: "역할 변경",
     AuditAction.QUARTER_CREATED: "분기 생성",
     AuditAction.QUARTER_UPDATED: "분기 수정",

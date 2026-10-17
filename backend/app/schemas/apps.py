@@ -169,3 +169,34 @@ class AdminDataAction(BaseModel):
     """숨기기 / 지우기 of one item (audited). A reason is required."""
 
     reason: str = Field(default="", max_length=200)
+
+
+# ------------------------------------------------ ctrlaiapps-reactions
+
+
+class AppDiscussionRead(BaseModel):
+    """A published app's reactions and comments (the detail page's panel).
+    The comment shape is CtrlAITube's."""
+
+    reactions: dict[str, int]
+    my_reactions: list[str] = []
+    comment_count: int
+    comments: list["TubeCommentRead"]
+
+
+class AppCommentReportRead(BaseModel):
+    id: int
+    comment_id: int | None
+    app_slug: str
+    app_name: str
+    reason: str
+    excerpt: str
+    reporter_username: str
+    author_username: str
+    created_at: datetime
+    comment_live: bool
+
+
+from app.schemas.tube import TubeCommentRead  # noqa: E402 — the shared comment shape
+
+AppDiscussionRead.model_rebuild()
