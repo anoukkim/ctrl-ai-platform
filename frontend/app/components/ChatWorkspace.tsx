@@ -32,6 +32,8 @@ import {
   Globe,
   ListIcon,
   Lock,
+  PanelLeftClose,
+  PanelLeftOpen,
   MessageSquare,
   Pencil,
   Pin,
@@ -410,6 +412,28 @@ export function statusNote(message: ViewMessage): string | undefined {
   return STATUS_NOTE[message.status];
 }
 
+/** chat-list-collapse: the folded list, remembered per browser (like the sidebar). */
+export const CHAT_LIST_STORAGE_KEY = "ctrlai.chat-list-collapsed";
+
+function readListCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(CHAT_LIST_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** The container query's threshold (ChatWorkspace.module.css): the list is a drawer at or below it. */
+const DRAWER_MAX_WIDTH = 856;
+/** The sidebar's width, for the first guess before the layout is measured. */
+const SIDEBAR_WIDTH = 244;
+
+function readNarrow(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth - SIDEBAR_WIDTH <= DRAWER_MAX_WIDTH;
+}
+
 export default function ChatWorkspace() {
   const mayCreate = useMayCreate();
   // 답장이 끝나면 사이드바의 지갑이 그 자리에서 줄어듭니다 — done
@@ -458,6 +482,43 @@ export default function ChatWorkspace() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 좁은 화면에서 대화 목록을 펼쳤는지. */
   const [listOpen, setListOpen] = useState(false);
+  // chat-list-collapse: on a wide screen the list folds to a slim rail
+  // (새 대화 + 목록 펼치기), remembered per browser like the sidebar. On a
+  // narrow screen the drawer above is what shows the list; the rail is
+  // not drawn there.
+  const [listCollapsed, setListCollapsed] = useState(readListCollapsed);
+  const toggleListCollapsed = useCallback(() => {
+    setListCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(CHAT_LIST_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* 기억하지 못해도 접기·펴기는 됩니다 */
+      }
+      return next;
+    });
+  }, []);
+  // Whether this area is narrow enough for the drawer (the CSS container
+  // query's 856px on .layout) — measured, so a drawer left open on a narrow
+  // screen never leaks into the rail when the area widens.
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(readNarrow);
+  useEffect(() => {
+    const node = layoutRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      const isNarrow = width <= DRAWER_MAX_WIDTH;
+      setNarrow(isNarrow);
+      if (!isNarrow) setListOpen(false);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const drawerOpen = narrow && listOpen;
+  // The rows are drawn when the list is open as a panel or as a drawer.
+  const listShown = !listCollapsed || drawerOpen;
+  const listId = useId();
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -1129,14 +1190,49 @@ export default function ChatWorkspace() {
       : "Enter로 보내고 Shift+Enter로 줄을 바꿉니다. 답장마다 동아리 지원에서 쓴 만큼 차감됩니다.";
 
   return (
-    <div className={styles.layout}>
-      <aside className={`${styles.list} ${listOpen ? styles.listOpen : ""}`} aria-label="대화 목록">
-        <button className={styles.newChat} type="button" onClick={startNew} disabled={streaming}>
-          <Plus size={15} aria-hidden="true" /> 새 대화
-        </button>
+    <div
+      className={`${styles.layout} ${listCollapsed ? styles.layoutCollapsed : ""}`}
+      data-list-collapsed={listCollapsed || undefined}
+      ref={layoutRef}
+    >
+      <aside
+        className={`${styles.list} ${drawerOpen ? styles.listOpen : ""} ${listCollapsed ? styles.listCollapsed : ""}`}
+        aria-label="대화 목록"
+      >
+        <div className={styles.listHead}>
+          {listShown ? (
+            <button className={styles.newChat} type="button" onClick={startNew} disabled={streaming}>
+              <Plus size={15} aria-hidden="true" /> 새 대화
+            </button>
+          ) : (
+            <button
+              className={`${styles.newChat} ${styles.newChatRail}`}
+              type="button"
+              onClick={startNew}
+              disabled={streaming}
+              aria-label="새 대화"
+              title="새 대화"
+            >
+              <Plus size={16} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            className={styles.collapseList}
+            type="button"
+            onClick={toggleListCollapsed}
+            aria-expanded={!listCollapsed}
+            aria-controls={listId}
+            aria-label={listCollapsed ? "목록 펼치기" : "목록 접기"}
+            title={listCollapsed ? "목록 펼치기" : "목록 접기"}
+          >
+            {listCollapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
+          </button>
+        </div>
 
-        {listError !== null && <p className={styles.listNote}>{listError}</p>}
-        {listError === null && conversations.length === 0 && (
+        {/* What the fold button controls; `display: contents`, so the aside's column is unchanged. */}
+        <div id={listId} className={styles.listBody}>
+        {listShown && listError !== null && <p className={styles.listNote}>{listError}</p>}
+        {listShown && listError === null && conversations.length === 0 && (
           <EmptyState
             compact
             icon={MessageSquare}
@@ -1146,7 +1242,7 @@ export default function ChatWorkspace() {
           />
         )}
 
-        {(() => {
+        {listShown && (() => {
           // chat-pins: 고정됨 first (newest pin first), then 최근 대화.
           const { pinned, rest } = splitPinned(conversations);
           const row = (conversation: Conversation) => (
@@ -1250,6 +1346,7 @@ export default function ChatWorkspace() {
             </>
           );
         })()}
+        </div>
       </aside>
 
       <div className={styles.chat}>
@@ -1258,7 +1355,7 @@ export default function ChatWorkspace() {
             type="button"
             className={styles.listToggle}
             onClick={() => setListOpen((open) => !open)}
-            aria-expanded={listOpen}
+            aria-expanded={drawerOpen}
           >
             <ListIcon size={15} aria-hidden="true" /> 대화 목록
           </button>

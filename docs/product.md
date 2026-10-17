@@ -176,8 +176,14 @@ files to the apps volume (a random slug; **미리보기 갱신** writes them
 again by hand). `apps.ctrlai.my/<app-slug>/` is CTRL+AI's own **shell**
 page; the app runs inside it in a frame with an opaque origin, from
 `/<app-slug>/_app/` (sandboxed even when opened on its own, no network,
-no cookies). The Builder preview and CtrlAIApps frame the shell; 새 창에서
-열기 opens it on its own. A deleted project stops being served at once.
+no cookies). The shell's tab shows the app's own cover as its icon — its
+colour from the slug and its first letter or digit, the same cover as
+the CtrlAIApps card, drawn by the shell as an SVG data URL, so every app
+has one without the member doing anything (app-tab-icon, 2026-10-17;
+Chrome, Edge and Firefox — Safari ignores SVG tab icons and keeps its
+default, a PNG fallback is a later item if wanted). The
+Builder preview and CtrlAIApps frame the shell; 새 창에서 열기 opens it
+on its own. A deleted project stops being served at once.
 An app keeps data with **`ctrlai.storage`** (and its old `localStorage`
 keeps working): per app, per visitor, about 1 MB, signed out too — one
 app can no longer read another's. **Since P2** an app can ask a visitor
@@ -327,7 +333,12 @@ Chat is the opening screen and a real conversation with Claude, behind
 `CLAUDE_PROVIDER` (mock by default; the screen says
 **테스트 모드 – 실제 AI 결과가 아닙니다** while it is).
 
-- **Conversations** are listed on the left: 새 대화, and each row's ⋯ menu
+- **Conversations** are listed on the left (chat-list-collapse,
+  2026-10-17: the list folds like the sidebar — a 목록 접기 button at its
+  head turns it into a slim rail with 새 대화 and 목록 펼치기, the
+  conversation takes the full width, and the choice is remembered per
+  browser; on a narrow screen the 대화 목록 drawer is the list as before):
+  새 대화, and each row's ⋯ menu
   with 이름 바꾸기 · 맨 위에 고정 / 고정 해제 · 지우기 (chat-pins,
   2026-10-17 — the two hover icons became the same ⋯ menu a Builder or
   Video card has). A pinned conversation wears a small pin and sits under
