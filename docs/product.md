@@ -661,10 +661,17 @@ same signal shows in four places: a sweeping bar on the card or header, a
 pulsing dot on Chat / Project Builder in the sidebar and on the
 conversation row, a **작업 중** chip in the Chat top bar, the Builder header
 (with the elapsed time) and the project's card in the Builder list. A
-Builder run keeps its dot while the member looks at other screens; a Chat
-reply stops when the member leaves Chat (as before), so its signal lives
-on the Chat screen. Nothing is kept across a reload — the page that was
-watching is gone, and an unknown state is never shown as running.
+Builder run keeps its dot while the member looks at other screens.
+**Since background-runs (2026-10-17)** a Chat reply and a Builder run go on
+on the server when the member leaves the page or closes the tab; only
+**중지** stops a reply (from any tab — the reply is saved with what was
+written and charged for that). The dots now come from the server, so they
+survive a reload and show a reply started in another tab; coming back to
+the conversation shows the text so far and follows it to the end (the
+Builder shows its running screen until the build ends). One reply runs at
+a time per member ("다른 대화에서 답장을 쓰고 있어요…"). A server restart
+ends a reply as 중지됨 with what was written, uncharged, and a build as
+이어서 만들기.
 Progress is shown, not implied, and only from real events: the Chat card
 names 뼈대 → 스타일 → 동작 by what has arrived, with "12초 · 지금까지 약
 56원" and a flowchart skeleton that draws itself in; the Builder's preview

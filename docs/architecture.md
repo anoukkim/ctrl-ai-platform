@@ -106,7 +106,10 @@ the same commit that adds it.
 | `PATCH /api/chat/conversations/{id}` | **`require_active_member`** | Renaming |
 | `POST /api/chat/conversations/{id}/pin` | `get_current_user` | 맨 위에 고정 / 고정 해제 (`{on}`, chat-pins) — a reading preference, so the owner may while not participating; `updated_at` and `last_message_at` untouched |
 | `DELETE /api/chat/conversations/{id}` | **`require_active_member`** | A real delete; its usage events stay |
-| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet |
+| `POST /api/chat/conversations/{id}/messages` | **`require_active_member`** | Claude replies — spends the wallet. background-runs: one running reply per member (409 otherwise); closing the connection no longer stops it |
+| `POST /api/chat/conversations/{id}/stop` | `get_current_user` | background-runs: 중지 (JSON body) — sets the run row's flag (and this process's event); the reply is saved and charged for what was produced. Allowed while not participating: it only stops spending |
+| `GET /api/chat/conversations/{id}/live` | `get_current_user` | background-runs: re-attach (SSE `snapshot` → `delta`/`thinking` → `done` {message_id} / `error`), read from the run row; 204 when nothing runs. Never charges |
+| `GET /api/chat/running` | `get_current_user` | background-runs: `{conversations, projects}` the running dots show (a fresh heartbeat) |
 | `POST /api/chat/conversations/{id}/attachments` | **`require_active_member`** | Attach a file to the next message (bytes as the body, `?name=`); checked, then stored |
 | `DELETE /api/chat/attachments/{id}` | **`require_active_member`** | ✕ on a file not sent yet |
 | `GET /api/chat/attachments/{id}/file` | `get_current_user` | The member's own stored copy — works while not taking part |
@@ -971,3 +974,30 @@ rate on Admin › System pins by itself. `fx` is also a provider card on the
 health strip (`providers.PROVIDERS`), whose 연결 확인 fetches a quote and
 applies nothing. Every usage event keeps the rate it was priced at
 (`UsageEvent.exchange_rate_krw`), so a new rate reaches only new charges.
+
+## Background runs (background-runs, 2026-10-17)
+
+A Chat reply and a Builder run go on on the server when the member
+leaves the page; only 중지 stops a reply. The api runs two worker
+processes, so everything a second page needs goes through the database:
+
+- **`chat_runs`** — one row per reply being written: the text so far and
+  the thinking (written by the reply's task every 0.5 s), a heartbeat, the
+  member's `stop_requested`, and at the end the status and the saved
+  message. A partial unique index keeps **one running reply per member**.
+- **중지** sets the flag (and, in the same process, the task's event at
+  once); the task reads the flag at every flush, stops the provider stream
+  and saves/charges exactly as 중지 always did (`settle_segment`, one
+  `usage.charge()` per call).
+- **Re-attaching** (`/live`) only reads the row; the page reloads the
+  conversation for the receipt. Watching from two tabs never charges twice.
+- **Restarts.** A row whose heartbeat is older than 45 s is ended by
+  `chat_runs.sweep` (called when the member's running state, a
+  conversation or an open generation is read): the text is saved as a
+  중지됨 reply with a note and **not charged** — the call's real usage died
+  with the process, so the club absorbs it. A Builder generation has a
+  `heartbeat_at` beaten every 5 s by its route; a silent one becomes
+  `partial`/`failed` (이어서 만들기).
+- **The running dots** read `GET /api/chat/running` every 5 s (and on
+  focus) and merge it with what the page itself started (`lib/running`).
+

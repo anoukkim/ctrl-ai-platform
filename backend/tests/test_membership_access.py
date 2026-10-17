@@ -462,6 +462,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/tube/app-reports/{report_id}/resolve"): "require_admin",
     # chat-pins: the same 고정 for a conversation.
     ("POST", "/api/chat/conversations/{conversation_id}/pin"): "get_current_user",
+    # background-runs: the running dots, re-attaching to a live reply
+    # (read only), and 중지 — which only ever saves money, so a member who
+    # is not taking part may stop their own reply too.
+    ("GET", "/api/chat/running"): "get_current_user",
+    ("GET", "/api/chat/conversations/{conversation_id}/live"): "get_current_user",
+    ("POST", "/api/chat/conversations/{conversation_id}/stop"): "get_current_user",
     # ctrlaiapps-publish
     ("PATCH", "/api/builder/projects/{project_id}/versions/{number}"): "require_active_member",
     ("POST", "/api/builder/projects/{project_id}/publish"): "require_active_member",
@@ -738,6 +744,9 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
         ("POST", "/api/builder/projects/{project_id}/pin"),
         ("POST", "/api/video/projects/{project_id}/pin"),
         ("POST", "/api/chat/conversations/{conversation_id}/pin"),
+        # background-runs: 중지 only ever stops spending — a reply already
+        # running must be stoppable after the member's quarter ended.
+        ("POST", "/api/chat/conversations/{conversation_id}/stop"),
         # ctrlaiapps-reactions: 신고 of an app comment, like the tube one.
         ("POST", "/api/apps/comments/{comment_id}/report"),
         # promo-videos: 신고 of a CtrlAITube comment, likewise.

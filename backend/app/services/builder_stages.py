@@ -376,6 +376,8 @@ def run(
     generation.status = "running"
     generation.error = ""
     generation.updated_at = now
+    # background-runs: alive from the first moment (the route beats on).
+    generation.heartbeat_at = now
     db.commit()
 
     project = db.get(BuilderProject, generation.project_id)

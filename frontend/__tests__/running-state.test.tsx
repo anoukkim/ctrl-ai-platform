@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import AuroraCard from "@/app/components/AuroraCard";
 import BuilderRunPanel, { STAGES, tailOf } from "@/app/builder/[projectId]/BuilderRunPanel";
 import { AURORA_KEY, setAurora } from "@/lib/aurora";
-import { finishRun, isRunning, resetRuns, startRun, useRuns } from "@/lib/running";
+import { finishRun, isRunning, resetRuns, setServerRuns, startRun, useRuns } from "@/lib/running";
 
 function Probe() {
   const runs = useRuns();
@@ -41,6 +41,22 @@ describe("the running store survives navigation", () => {
     render(<FreshProbe />);
     expect(screen.getByTestId("fresh").textContent).toBe("0");
     expect(isRunning([], "builder")).toBe(false);
+  });
+});
+
+describe("background-runs — the dots come from the server too", () => {
+  beforeEach(() => resetRuns());
+
+  test("the server's runs show beside this tab's own, once each; a finish clears both until the next poll", () => {
+    render(<Probe />);
+    act(() => startRun("chat", 3));
+    act(() => setServerRuns([3, 8], [12]));
+    // A reply this tab did not start (another tab, or before a reload) and a build.
+    expect(screen.getByTestId("probe").textContent).toBe("chat:3,chat:8,builder:12");
+    act(() => finishRun("chat", 3));
+    expect(screen.getByTestId("probe").textContent).toBe("chat:8,builder:12");
+    act(() => setServerRuns([], []));
+    expect(screen.getByTestId("probe").textContent).toBe("");
   });
 });
 

@@ -139,6 +139,8 @@ const chatApi = {
   deleteConversation: vi.fn(),
   setConversationPinned: vi.fn(),
   sendMessage: vi.fn(),
+  stopReply: vi.fn(),
+  followReply: vi.fn(),
 };
 
 vi.mock("@/lib/chat", async (importOriginal) => {
@@ -154,6 +156,8 @@ vi.mock("@/lib/chat", async (importOriginal) => {
     deleteConversation: (...args: unknown[]) => chatApi.deleteConversation(...args),
     setConversationPinned: (...args: unknown[]) => chatApi.setConversationPinned(...args),
     sendMessage: (...args: unknown[]) => chatApi.sendMessage(...args),
+    stopReply: (...args: unknown[]) => chatApi.stopReply(...args),
+    followReply: (...args: unknown[]) => chatApi.followReply(...args),
   };
 });
 
@@ -350,16 +354,27 @@ describe("ChatWorkspace", () => {
     expect(box.value).toBe("비싼 질문");
   });
 
-  test("the stop button aborts the reply and keeps what arrived", async () => {
+  test("중지 asks the server to stop (any tab) and keeps reading until it is saved as 중지됨", async () => {
+    // background-runs: leaving no longer stops a reply, so 중지 is a request
+    // to the server; the stream then ends with the saved, stopped reply.
     let signal: AbortSignal | null = null;
+    let finish: (outcome: StreamOutcome) => void = () => {};
     chatApi.sendMessage.mockImplementation(
       (_id: number, _text: string, handlers: StreamHandlers, sig: AbortSignal) =>
         new Promise<StreamOutcome>((resolve) => {
           signal = sig;
+          finish = resolve;
           handlers.onDelta?.("쓰는 중인 답");
-          sig.addEventListener("abort", () => resolve({ kind: "stopped" }));
         }),
     );
+    chatApi.stopReply.mockImplementation(async () => {
+      finish({
+        kind: "done",
+        message: { ...SAVED_REPLY, id: 31, content: "쓰는 중인 답", status: "stopped" },
+        chargedKrw: 4,
+      });
+      return true;
+    });
     await renderChat();
 
     typeAndSend("길게 설명해 주세요");
@@ -368,9 +383,78 @@ describe("ChatWorkspace", () => {
       fireEvent.click(stop);
     });
 
-    expect(signal!.aborted).toBe(true);
+    expect(chatApi.stopReply).toHaveBeenCalledWith(CONVERSATION.id);
+    expect(signal!.aborted).toBe(false);
     expect(await screen.findByText(/중지됨/)).toBeTruthy();
     expect(screen.getByText("쓰는 중인 답")).toBeTruthy();
+  });
+
+  test("leaving for another conversation lets the reply go on; coming back follows it", async () => {
+    let signal: AbortSignal | null = null;
+    chatApi.sendMessage.mockImplementation(
+      (_id: number, _text: string, handlers: StreamHandlers, sig: AbortSignal) =>
+        new Promise<StreamOutcome>((resolve) => {
+          signal = sig;
+          handlers.onDelta?.("첫 대화의 답");
+          sig.addEventListener("abort", () => resolve({ kind: "stopped" }));
+        }),
+    );
+    const OTHER = { ...CONVERSATION, id: 6, title: "다른 대화" };
+    chatApi.listConversations.mockResolvedValue([CONVERSATION, OTHER]);
+    let opened = 0;
+    chatApi.getConversation.mockImplementation(async (id: number) => {
+      if (id === OTHER.id) return { ...OTHER, messages: [] };
+      opened += 1;
+      return {
+        ...CONVERSATION,
+        messages: [{ ...SAVED_REPLY, role: "user", id: 1, content: "길게 설명해 주세요" }],
+        // The second time it is opened, the reply sent meanwhile is still being written.
+        running:
+          opened > 1
+            ? { run_id: 3, text: "첫 대화의 답 이어서", thinking: "", started_at: "2026-10-17T00:00:00Z" }
+            : null,
+      };
+    });
+    let followed: (outcome: unknown) => void = () => {};
+    chatApi.followReply.mockImplementation(
+      (_id: number, handlers: { onDelta?: (text: string) => void }) =>
+        new Promise((resolve) => {
+          handlers.onDelta?.(" 끝");
+          followed = resolve;
+        }),
+    );
+    await renderChat();
+    fireEvent.click(await screen.findByRole("button", { name: "가계부 아이디어" }));
+    await screen.findByText("길게 설명해 주세요");
+    typeAndSend("또 질문");
+    await screen.findByText("첫 대화의 답");
+
+    // Another conversation while the reply streams: allowed, nothing is stopped.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "다른 대화" }));
+    });
+    expect(signal!.aborted).toBe(true);
+    expect(chatApi.stopReply).not.toHaveBeenCalled();
+    expect(screen.queryByText(/중지됨/)).toBeNull();
+
+    // Back: the reply is still being written — shown with the text so far, followed.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "가계부 아이디어" }));
+    });
+    expect(await screen.findByText("첫 대화의 답 이어서 끝")).toBeTruthy();
+    expect(chatApi.followReply).toHaveBeenCalledWith(CONVERSATION.id, expect.anything(), expect.anything());
+    // It ends: the conversation is read again for the saved reply and its receipt.
+    chatApi.getConversation.mockResolvedValue({
+      ...CONVERSATION,
+      messages: [
+        { ...SAVED_REPLY, role: "user", id: 1, content: "길게 설명해 주세요" },
+        { ...SAVED_REPLY, id: 40, content: "다 쓴 답이에요" },
+      ],
+    });
+    await act(async () => {
+      followed({ kind: "done", messageId: 40 });
+    });
+    expect(await screen.findByText("다 쓴 답이에요")).toBeTruthy();
   });
 
   test("Enter while composing Korean does not send", async () => {
