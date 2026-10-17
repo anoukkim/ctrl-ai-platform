@@ -520,6 +520,13 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/admin/members/{user_id}/usage"): "require_admin",
     ("GET", "/api/admin/quarters/{quarter_id}/close-steps"): "require_admin",
     ("POST", "/api/admin/quarters/{quarter_id}/apps-archived"): "require_admin",
+    # admin-consolidation v3 (4): password reset, 공지 띠, 알림 기준, 백업 상태.
+    ("POST", "/api/admin/members/{user_id}/password-reset"): "require_admin",
+    ("GET", "/api/admin/site/banner"): "require_admin",
+    ("PUT", "/api/admin/site/banner"): "require_admin",
+    ("GET", "/api/admin/alert-thresholds"): "require_admin",
+    ("PUT", "/api/admin/alert-thresholds"): "require_admin",
+    ("GET", "/api/admin/backups"): "require_admin",
     # thumbnail-render-worker
     ("GET", "/api/admin/apps/thumbnail-renderer"): "require_admin",
     ("POST", "/api/admin/apps/{project_id}/thumbnail/render"): "require_admin",

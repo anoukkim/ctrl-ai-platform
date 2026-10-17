@@ -57,6 +57,9 @@ export interface AdminDashboard {
   wallet_alerts?: WalletAlert[];
   anthropic_month?: { month: string; used_usd: number; budget_usd: number | null; used_pct: number | null } | null;
   thumbnail_server?: "off" | "ok" | "down";
+  /** admin-consolidation v3 (4): 알림 기준과 마지막 백업. */
+  alert_thresholds?: AlertThresholds;
+  backups?: BackupLine[];
   week_top?: { places: { label: string; krw: number; pct: number }[]; app_name: string | null; app_krw: number };
 }
 
@@ -583,4 +586,74 @@ export function setFeature(key: string, open: boolean, note: string): Promise<Fe
     method: "POST",
     body: JSON.stringify({ open, note }),
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* admin-consolidation v3 (4): 비밀번호 재설정 · 공지 띠 · 알림 기준 · 백업  */
+
+export interface PasswordReset {
+  username: string;
+  /** 한 번만 보여 줍니다 — 서버에는 해시만 남아요. */
+  temporary_password: string;
+  sessions_ended: number;
+  /** 회원 앱(apps.ctrlai.my)의 로그인도 함께 끝낸 수. */
+  app_sessions_ended?: number;
+}
+
+export function resetMemberPassword(userId: number): Promise<PasswordReset> {
+  return request<PasswordReset>(`/admin/members/${userId}/password-reset`, {
+    method: "POST",
+    body: JSON.stringify({ confirm: true }),
+  });
+}
+
+export interface BannerSetting {
+  shown: boolean;
+  text: string;
+  feedback_link: boolean;
+  default_text: string;
+  max_length: number;
+  set_by_username: string;
+  set_at: string | null;
+}
+
+export function getBannerSetting(): Promise<BannerSetting> {
+  return request<BannerSetting>("/admin/site/banner");
+}
+
+export function saveBannerSetting(value: { shown: boolean; text: string; feedback_link: boolean }): Promise<BannerSetting> {
+  return request<BannerSetting>("/admin/site/banner", { method: "PUT", body: JSON.stringify(value) });
+}
+
+export interface AlertThresholds {
+  /** 지원금을 이만큼(%) 넘게 쓴 회원을 알림에 올리고 Members에서 주황으로. */
+  wallet_pct: number;
+  /** Anthropic 이번 달 예산의 이만큼(%)에서 경고. */
+  month_pct: number;
+  /** 마지막 백업이 이 시간보다 오래되면 경고. */
+  backup_hours: number;
+}
+
+export interface AlertThresholdSetting extends AlertThresholds {
+  ranges: Record<keyof AlertThresholds, [number, number]>;
+  set_by_username: string;
+  set_at: string | null;
+}
+
+export const DEFAULT_ALERTS: AlertThresholds = { wallet_pct: 80, month_pct: 80, backup_hours: 48 };
+
+export function getAlertThresholds(): Promise<AlertThresholdSetting> {
+  return request<AlertThresholdSetting>("/admin/alert-thresholds");
+}
+
+export function saveAlertThresholds(value: AlertThresholds): Promise<AlertThresholdSetting> {
+  return request<AlertThresholdSetting>("/admin/alert-thresholds", { method: "PUT", body: JSON.stringify(value) });
+}
+
+export interface BackupLine {
+  kind: "local" | "offsite";
+  file_name: string | null;
+  size_bytes: number;
+  at: string | null;
+  late: boolean;
 }

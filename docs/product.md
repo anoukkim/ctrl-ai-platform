@@ -82,12 +82,12 @@ disabled, so the shell is never mistaken for working functionality.
 | `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
 | `/admin`              | Dashboard       | 처리할 일 (only what has a count: 참여 신청 승인 대기, 열린 신고), **알림** (automatic: a member past 80% of their wallet, the Anthropic month budget, the thumbnail server, a failing provider, the attachment disk) and **이번 주 가장 많이 쓴 곳** (admin-consolidation v3) |
-| `/admin/members`      | Members         | One list: chips 전체 · 승인 대기 · 활동 · 미참여 · 초대 코드, a 사용률 column (amber at ≥ 80%), 승인/거절 in the row; a row opens the **member panel** on the right (`?member=`) with every action — 지원금 ± 조정, 참여 상태, 역할, 탈퇴 — **사용 내역** (사용 · 사용률 · 남음 · 호출 · 소진 예상, by feature, by model with tokens, recent calls; club-absorbed calls left out) and **지운 작업** (복구 / 완전히 삭제) |
+| `/admin/members`      | Members         | One list: chips 전체 · 승인 대기 · 활동 · 미참여 · 초대 코드, a 사용률 column (amber at the 알림 기준's wallet share, 80% by default), 승인/거절 in the row; a row opens the **member panel** on the right (`?member=`) with every action — 지원금 ± 조정, 참여 상태, 역할, **비밀번호 재설정** (a temporary password shown once; the account is signed out of the site and every member app and its lockout lifts; the admin must have signed in within 10 minutes; audited without the password; not for the admin's own account, another admin or a 탈퇴 account), 탈퇴 — **사용 내역** (사용 · 사용률 · 남음 · 호출 · 소진 예상, by feature, by model with tokens, recent calls; club-absorbed calls left out) and **지운 작업** (복구 / 완전히 삭제) |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
 | `/admin/quarters`     | Quarters        | Tabs **분기 · 예산** — the quarter list, **돈의 흐름** (credit bought → 회원이 쓴 돈 · 줬지만 안 쓴 돈 · 여유분, what the reserve paid for, the end-of-quarter forecast; `GET /api/admin/quarters/{id}/money-flow`) and **분기 마감** in five steps (신청 마감 → 정산 확인 → 휴지통 비우기 → 앱 보관 → 다음 분기 열기, driving the existing 분기 마감) — and **사용 분석** (`?tab=budget`): 원가 (USD and its won) and 청구 side by side — per provider with the credit left and when it runs out at the last two weeks' pace, cache savings, by feature, by model, the top 5 apps and members, the last 30 days with the end-of-quarter forecast — then folds for 크레딧 구매 기록, 캐시, 대조 and CSV exports, including **Concur** (the quarter's credit purchases as expense lines) |
 | `/admin/models`       | Models          | Tabs Chat (with 이번 분기 사용 per model) · Video · 한도 (채팅 한도, from System) · 보정 (비용 보정) |
 | `/admin/community`    | Community       | Tabs 신고 · 의견 · 앱 — the former Content, Feedback and Apps (`/admin/apps/[id]` stays the app's detail); Deleted Items moved to the member panel |
-| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — one health strip (서버 · DB · 썸네일 서버 · each provider once, 모두 확인), 기능 열기, 환율, 유지보수 (썸네일 다시 만들기, 환율 새로 고침), 서버 설정, 빌더 점검; and the Audit Log |
+| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — one health strip (서버 · DB · **백업** (the last local and off-site backup the server reported) · 썸네일 서버 · each provider once, 모두 확인), 기능 열기, **공지 띠** (the top strip's text, 「띠 보이기」 and its 의견 보내기 link — every page follows `/api/site`; never saved = shown on the beta only, with the old sentence), **알림 기준** (지원금 사용률 %, Anthropic 월 예산 %, 백업 간격 in hours — the Dashboard's alerts and the Members amber follow them), 환율, 유지보수 (썸네일 다시 만들기, 환율 새로 고침), 서버 설정, 빌더 점검; and the Audit Log |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
 
 **admin-consolidation v3 (owner, 2026-10-17), batch (1):** Admin has six
@@ -102,7 +102,7 @@ Members › 참여 신청, `/admin/budget` → Quarters › 예산, `/admin/ai-m
 감사 기록. Badges: 승인 대기 on Members, 열린 신고 on Community. The header
 has a search (회원·앱 이름, ⌘K) beside the one quarter switcher. The
 merges inside the sections (the member panel, the money-flow card, the
-quarter-close stepper, 사용 분석, 공지 띠) follow in batches (2)–(4).
+quarter-close stepper, 사용 분석, 공지 띠) came in batches (2)–(4).
 
 The App Store route is still `/ctrlaistore` although the screen is now called
 **CtrlAIApps**; the path was kept so existing links do not break.

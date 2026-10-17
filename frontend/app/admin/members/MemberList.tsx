@@ -5,7 +5,7 @@
  *
  * admin-consolidation v3 (2): 참여 신청이 이 목록 안으로 들어왔어요 — 칩
  * 전체 · 승인 대기 · 활동 · 미참여, 승인 대기 줄에서 바로 승인/거절, 사용률
- * 열(80% 이상은 주황), 초대 코드는 칩 뒤에. 줄을 누르면 오른쪽에 회원
+ * 열(알림 기준 이상은 주황, 기본 80%), 초대 코드는 칩 뒤에. 줄을 누르면 오른쪽에 회원
  * 상세가 열리고(`?member=`), 모든 일을 거기서 해요.
  *
  * 찾는 화면입니다. 역할과 지원금처럼 그 사람을 보고 정해야 하는 일은
@@ -65,7 +65,8 @@ function isOut(member: MemberWithMembership): boolean {
   return member.account_status !== "former" && member.membership_status !== "active" && !isPending(member);
 }
 
-/** 사용률 at which the bar turns amber (the Dashboard alert's 80%). */
+/** 사용률 at which the bar turns amber when 알림 기준 is not loaded yet
+ *  (the Dashboard alert's threshold, Admin › System). */
 const USAGE_WARN_PCT = 80;
 
 /** 한 쪽에 보여 줄 줄 수. 넘치면 쪽을 나눕니다. */
@@ -73,7 +74,8 @@ const PAGE_SIZE = 25;
 
 export default function MemberList() {
   const router = useRouter();
-  const { selected, refresh: refreshDashboard } = useAdminQuarter();
+  const { selected, refresh: refreshDashboard, dashboard } = useAdminQuarter();
+  const warnPct = dashboard?.alert_thresholds?.wallet_pct ?? USAGE_WARN_PCT;
   const quarterId = selected?.id ?? null;
 
   /**
@@ -294,7 +296,7 @@ export default function MemberList() {
         const pct = usedPct(member);
         if (pct === null || frozen) return <span className="small dim">—</span>;
         return (
-          <span className={styles.usageCell} data-warn={pct >= USAGE_WARN_PCT ? "true" : undefined}>
+          <span className={styles.usageCell} data-warn={pct >= warnPct ? "true" : undefined}>
             <span className={styles.usageBar} aria-hidden="true">
               <span style={{ width: `${pct}%` }} />
             </span>

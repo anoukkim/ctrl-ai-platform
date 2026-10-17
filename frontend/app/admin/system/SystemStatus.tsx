@@ -18,6 +18,8 @@ import PageHeader from "@/app/components/PageHeader";
 
 import Fold, { FoldGroup } from "../components/Fold";
 import { sectionLabel } from "../sections";
+import AlertsPanel from "./AlertsPanel";
+import BannerPanel from "./BannerPanel";
 import BuilderEvalPanel from "./BuilderEvalPanel";
 import ClaudePricingPanel from "./ClaudePricingPanel";
 import FeaturePanel from "./FeaturePanel";
@@ -34,7 +36,7 @@ export default function AdminSystemPage() {
         title={sectionLabel("system")}
         subtitle={
           <>
-            상태(서버 · 데이터베이스 · 썸네일 서버 · 외부 서비스를 한 번씩), 기능 열기, 유지보수.
+            상태(서버 · 데이터베이스 · 백업 · 썸네일 서버 · 외부 서비스를 한 번씩), 기능 열기, 공지 띠, 알림 기준, 유지보수.
             감사 기록은 옆 탭에 있어요.
           </>
         }
@@ -49,6 +51,14 @@ export default function AdminSystemPage() {
 
         <Fold id="features" title="기능 열기" note="회원에게 열어 둘 기능. 바꾸면 감사 기록에 남습니다.">
           <FeaturePanel />
+        </Fold>
+
+        <Fold id="banner" title="공지 띠" note="모든 화면 맨 위의 한 줄 — 문구, 보이기, 의견 보내기 링크">
+          <BannerPanel />
+        </Fold>
+
+        <Fold id="alerts" title="알림 기준" note="Dashboard 알림이 울리는 곳 — 지원금 사용률, 월 예산, 백업">
+          <AlertsPanel />
         </Fold>
 
         {/* 외부 서비스는 위의 연결 상태 한 줄에 한 번만 (admin-consolidation v3). */}

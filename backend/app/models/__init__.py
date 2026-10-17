@@ -54,6 +54,7 @@ from app.models.provider import (
 )
 from app.models.invite import InviteCode, InviteStatus
 from app.models.feature_switch import FeatureSwitch
+from app.models.site_setting import BackupRun, SiteSetting
 from app.models.pricing import ChatLimits, ChatModel, ChatModelVisibility, ExchangeRate, FxStatus
 from app.models.quarter import (
     ApplicationStatus,
@@ -87,7 +88,9 @@ from app.models.withdrawal import (
 )
 
 __all__ = [
+    "BackupRun",
     "ChatRun",
+    "SiteSetting",
     "AppComment",
     "AppCommentReport",
     "AppReaction",

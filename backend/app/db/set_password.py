@@ -11,8 +11,8 @@ keeps working as an alias.
   never appears in the command line, the shell history or any log.
 * At least 12 characters and not a known default — the same rule as
   the admin's password (`admin_password_problem`), messages in Korean.
-* Every session of the account is ended (a stolen cookie dies with the
-  old password) and its failed sign-ins are cleared, lifting a lockout.
+* Every session of the account is ended — the site's and every member
+  app's (a stolen cookie dies with the old password) and its failed sign-ins are cleared, lifting a lockout.
 * An audit row records that the server operator reset it — never the
   password. There is no signed-in admin in a shell, so the actor is
   "서버 운영자" and the OS user goes into the detail.
@@ -29,13 +29,13 @@ import getpass as getpass_module
 import sys
 from getpass import getpass
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.core.config import DEFAULT_ADMIN_PASSWORDS, MIN_ADMIN_PASSWORD_LENGTH
 from app.core.security import hash_password
 from app.db.session import SessionLocal
-from app.models import AccountStatus, LoginAttempt, User, UserSession
-from app.services import audit
+from app.models import AccountStatus, User
+from app.services import account_sessions, audit
 
 USAGE = "사용법: python -m app.db.set_password <아이디>"
 
@@ -83,9 +83,9 @@ def main(argv: list[str], *, command: str = "set_password") -> int:
 
         user.password_hash = hash_password(password)
         # The old password may be in someone else's hands — their open
-        # sessions and the lockout they caused go with it.
-        db.execute(delete(UserSession).where(UserSession.user_id == user.id))
-        db.execute(delete(LoginAttempt).where(LoginAttempt.username == username.lower()))
+        # sessions (site and member apps) and the lockout they caused go
+        # with it.
+        account_sessions.end_everywhere(db, user)
         audit.record(
             db,
             actor=None,

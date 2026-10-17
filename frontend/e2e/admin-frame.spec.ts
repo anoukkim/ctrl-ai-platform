@@ -128,3 +128,40 @@ test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four t
   await page.screenshot({ path: `${SHOTS}/1440-dark-system.png` });
 });
 
+
+test("batch 4: 공지 띠 follows System on every page; 백업 and 알림 기준 are in System", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const reset = () =>
+    page.context().request.put(`${SITE}/api/admin/site/banner`, { data: { shown: false, text: "", feedback_link: true } });
+  try {
+    await page.goto(`${SITE}/admin/system`);
+    await expect(page.getByTestId("health-strip")).toContainText("백업");
+    await page.getByRole("button", { name: /공지 띠/ }).click();
+    const panel = page.getByTestId("banner-panel");
+    await panel.getByTestId("banner-shown").check();
+    await panel.getByLabel(/문구/).fill("10월 25일 밤 점검이 있어요");
+    await panel.getByTestId("banner-feedback").uncheck();
+    await panel.getByRole("button", { name: "저장" }).click();
+    await expect(panel.getByRole("status")).toContainText("저장했어요");
+
+    await page.goto(`${SITE}/usage`);
+    const strip = page.getByRole("region", { name: /공지|베타 안내/ });
+    await expect(strip).toContainText("10월 25일 밤 점검이 있어요");
+    await expect(strip.getByRole("button", { name: "의견 보내기" })).toHaveCount(0);
+    await theme(page, "dark");
+    await page.screenshot({ path: `${SHOTS}/1440-dark-banner.png` });
+
+    await reset();
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("region", { name: /공지|베타 안내/ })).toHaveCount(0);
+
+    await page.goto(`${SITE}/admin/system`);
+    await page.getByRole("button", { name: /알림 기준/ }).click();
+    await expect(page.getByTestId("alerts-panel").getByLabel(/지원금을 이만큼/)).toHaveValue(/\d+/);
+  } finally {
+    await reset();
+  }
+});

@@ -23,6 +23,15 @@ class TestMode(BaseModel):
     community: bool
 
 
+class BannerInfo(BaseModel):
+    """admin-consolidation v3 (4): the top strip (공지 띠), set in Admin ›
+    System. Without a saved setting it shows on the beta only."""
+
+    shown: bool = False
+    text: str = ""
+    feedback_link: bool = True
+
+
 class SiteInfo(BaseModel):
     environment: str
     is_development: bool
@@ -41,4 +50,5 @@ class SiteInfo(BaseModel):
     #: 관리자 flips it (Admin › System); locked by default. The menu and
     #: the Video screens say "다음 단계에서 열려요" while it is false.
     video_open: bool = False
+    banner: BannerInfo = BannerInfo()
     test_mode: TestMode

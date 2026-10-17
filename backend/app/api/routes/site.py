@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.schemas.site import SiteInfo, TestMode
-from app.services import feature_switches
+from app.schemas.site import BannerInfo, SiteInfo, TestMode
+from app.services import feature_switches, site_settings
 from app.services.google_login import google_login_available
 
 router = APIRouter(tags=["site"])
@@ -26,6 +26,7 @@ router = APIRouter(tags=["site"])
 def site_info(settings: Settings = Depends(get_settings), db: Session = Depends(get_db)) -> SiteInfo:
     deployed = not settings.is_development
     claude_mock = settings.provider_is_mock("claude")
+    banner = site_settings.banner(db, settings)
     return SiteInfo(
         environment=settings.app_env,
         is_development=settings.is_development,
@@ -36,6 +37,7 @@ def site_info(settings: Settings = Depends(get_settings), db: Session = Depends(
         google_login=google_login_available(settings),
         apps_base_url=settings.apps_base_url.strip().rstrip("/") or None,
         video_open=feature_switches.is_open(db, feature_switches.VIDEO),
+        banner=BannerInfo(shown=banner.shown, text=banner.text, feedback_link=banner.feedback_link),
         test_mode=TestMode(
             chat=deployed and claude_mock,
             # Project Builder's starter app is written by Claude.

@@ -31,3 +31,8 @@ if [ "$(gzip -dc "$file" | wc -c)" -lt 1000 ]; then
 fi
 
 echo "백업 완료: $file ($(du -h "$file" | cut -f1))"
+
+# Tell Admin › System (admin-consolidation v3 (4)). Only the file's name and
+# size go in; a failure here never fails the backup.
+"${compose[@]}" exec -T api python -m app.db.record_backup local "$(basename "$file")" "$(stat -c %s "$file")" >/dev/null 2>&1 \
+  || echo "(Admin에 백업 기록을 남기지 못했습니다 — 백업 파일은 그대로 있습니다)"

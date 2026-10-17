@@ -24,7 +24,9 @@ import styles from "../../admin.module.css";
 const TOKENS = new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFractionDigits: 1 });
 
 export default function MemberUsagePanel({ userId }: { userId: number }) {
-  const { selected } = useAdminQuarter();
+  const { selected, dashboard } = useAdminQuarter();
+  // 알림 기준 (Admin › System), as on the Members list.
+  const warnPct = dashboard?.alert_thresholds?.wallet_pct ?? 80;
   const [loaded, setLoaded] = useState<{ key: string; usage: MemberUsage } | null>(null);
   const [failed, setFailed] = useState<{ key: string; message: string } | null>(null);
   const key = `${userId}:${selected?.id}`;
@@ -63,7 +65,7 @@ export default function MemberUsagePanel({ userId }: { userId: number }) {
           <StatCards
             cards={[
               { key: "used", label: "사용", value: formatKrw(usage.used_krw) },
-              { key: "pct", label: "사용률", value: usage.used_pct === null ? "—" : `${usage.used_pct}%`, accent: (usage.used_pct ?? 0) >= 80 },
+              { key: "pct", label: "사용률", value: usage.used_pct === null ? "—" : `${usage.used_pct}%`, accent: (usage.used_pct ?? 0) >= warnPct },
               { key: "left", label: "남음", value: formatKrw(usage.remaining_krw) },
               { key: "calls", label: "호출", value: usage.calls, unit: "번" },
               { key: "runs-out", label: "소진 예상", value: usage.runs_out_on ? formatDate(usage.runs_out_on) : "—" },

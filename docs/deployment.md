@@ -548,6 +548,12 @@ cd ~/ctrl-ai-platform
 # 백업 완료: /home/ctrlai_platform/backups/ctrlai-20261013-101500.sql.gz (48K)
 ```
 
+끝나면 스크립트가 백업 파일의 이름과 크기만 데이터베이스에 남깁니다
+(`python -m app.db.record_backup`, api 컨테이너 안). Admin › System의 연결
+상태에 **백업** 점으로 보이고, 알림 기준(기본 48시간)보다 오래되면 Dashboard가
+알립니다. 기록이 실패해도 백업 자체는 실패하지 않습니다. `offsite-backup.sh`도
+올린 뒤 같은 기록을 남깁니다.
+
 **백업은 서버 밖으로 꺼내야 백업입니다.** 디스크가 망가지거나 VM이 지워지면
 같은 디스크의 백업도 함께 사라집니다. 둘 중 하나로 내 PC에 받아 둡니다:
 

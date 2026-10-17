@@ -68,8 +68,9 @@ class WalletAlert:
     remaining_krw: int
 
 
-def wallet_alerts(db: Session, quarter: Quarter | None) -> list[WalletAlert]:
-    """Members of the quarter whose wallet is 80% or more used (not frozen)."""
+def wallet_alerts(db: Session, quarter: Quarter | None, share: float = WALLET_ALERT_SHARE) -> list[WalletAlert]:
+    """Members of the quarter whose wallet is `share` or more used (not
+    frozen) — 80% unless 알림 기준 says otherwise."""
     if quarter is None:
         return []
     rows = db.execute(
@@ -80,7 +81,7 @@ def wallet_alerts(db: Session, quarter: Quarter | None) -> list[WalletAlert]:
             QuarterAllocation.budget_krw > 0,
             QuarterAllocation.frozen_at.is_(None),
             User.account_status == AccountStatus.ACTIVE,
-            QuarterAllocation.consumed_krw >= QuarterAllocation.budget_krw * WALLET_ALERT_SHARE,
+            QuarterAllocation.consumed_krw >= QuarterAllocation.budget_krw * share,
         )
     ).all()
     alerts = [
