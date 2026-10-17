@@ -30,6 +30,7 @@ Apps' 썸네일 다시 만들기 asks for one at a time and waits (`render_now`)
 
 from __future__ import annotations
 
+import json
 import logging
 import queue
 import re
@@ -84,6 +85,21 @@ class Renderer(Protocol):
         ...
 
 
+def _detail(response: object) -> str:
+    """The worker's `detail` (its JSON error body), at most 300 characters,
+    for the log — never raises."""
+    try:
+        body = b""
+        for chunk in response.iter_bytes():  # type: ignore[attr-defined]
+            body += chunk
+            if len(body) > 2048:
+                break
+        detail = json.loads(body[:2048].decode("utf-8", "replace")).get("detail", "")
+        return str(detail)[:300]
+    except Exception:  # noqa: BLE001 — the log line must not fail the job
+        return "?"
+
+
 class WorkerRenderer:
     """The real thing: `POST {worker_url}/render {"url"}` with the shared
     secret in a header; the body back is the PNG.
@@ -132,7 +148,7 @@ class WorkerRenderer:
             ) as response:
                 status = getattr(response, "status_code", 0)
                 if status != 200:
-                    logger.warning("thumbnail worker answered %s", status)
+                    logger.warning("thumbnail worker answered %s: %s", status, _detail(response))
                     raise RenderError(FAILED)
                 headers = response.headers
                 if not str(headers.get("content-type", "")).startswith("image/png"):
@@ -263,9 +279,10 @@ def render_draft_now(db: Session, settings: Settings, project: BuilderProject) -
     renderer = get_renderer(settings)
     if renderer is None:
         raise RenderError(OFF, 503)
+    stamp = project.app_runtime_at
     data = renderer.render(draft_url(settings, project))
     try:
-        thumbnails.save_draft(db, get_storage(settings), project, data)
+        thumbnails.save_draft(db, get_storage(settings), project, data, source=thumbnails.SERVER, taken_of=stamp)
     except AttachmentRefusal as refusal:
         logger.warning("thumbnail worker returned a bad image: %s", refusal)
         raise RenderError(FAILED) from refusal
@@ -283,7 +300,7 @@ def render_now(db: Session, settings: Settings, project: BuilderProject) -> None
     url = published_url(settings, project)
     data = renderer.render(url)
     try:
-        thumbnails.save_version(db, get_storage(settings), project, version, data)
+        thumbnails.save_version(db, get_storage(settings), project, version, data, source=thumbnails.SERVER)
     except AttachmentRefusal as refusal:
         # The worker sent something that is not a usable image.
         logger.warning("thumbnail worker returned a bad image: %s", refusal)

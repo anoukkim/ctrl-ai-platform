@@ -119,6 +119,11 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
     #: was last captured in the maker's browser; the bytes live in storage
     #: under `thumbnails.draft_key()`. NULL = none yet.
     draft_thumbnail_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: fix-draft-thumbs: who made that picture — "server" (the thumbnail
+    #: worker) or "browser" (the in-browser capture). While
+    #: THUMBNAIL_RENDERER=server a browser picture never replaces a current
+    #: server one (`thumbnails.browser_may_replace_draft`). NULL = before this.
+    draft_thumbnail_source: Mapped[str | None] = mapped_column(String(8), nullable=True)
     #: owner-polish-3 (a2): set when the maker picked the published
     #: thumbnail. Unused since the picker was removed (owner, 2026-10-17 —
     #: every thumbnail is the first screen); the column stays, never squashed.
@@ -244,6 +249,8 @@ class BuilderProjectVersion(TimestampMixin, Base):
     #: captured — taken right after 게시, from the published app. NULL =
     #: none; the listing falls back to the generated cover.
     thumbnail_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: fix-draft-thumbs: "server" or "browser", as `draft_thumbnail_source`.
+    thumbnail_source: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
     def __repr__(self) -> str:
         return f"<BuilderProjectVersion v{self.number} project={self.project_id}>"

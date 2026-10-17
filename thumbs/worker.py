@@ -223,9 +223,13 @@ def render(
             try:
                 page.goto(url, wait_until="load", timeout=nav_ms)
                 # Web fonts (Pretendard and the app fonts) before the picture;
-                # a page whose fonts never settle still gets its picture.
+                # a page whose fonts never settle still gets its picture. The
+                # predicate is a function, not an expression: Playwright polls
+                # an expression with eval(), which the files' CSP (no
+                # 'unsafe-eval') refuses — every app whose fonts were still
+                # loading at `load` failed with 502 (fix-draft-thumbs).
                 try:
-                    page.wait_for_function("document.fonts.status === 'loaded'", timeout=FONTS_MS)
+                    page.wait_for_function("() => document.fonts.status === 'loaded'", timeout=FONTS_MS)
                 except PlaywrightTimeout:
                     pass
                 page.wait_for_timeout(SETTLE_MS)
@@ -233,7 +237,11 @@ def render(
             except PlaywrightTimeout as error:
                 raise Refusal(504, "render timed out") from error
             except PlaywrightError as error:
-                raise Refusal(502, f"page failed: {type(error).__name__}") from error
+                # The first line of Playwright's message names the cause (a
+                # CSP refusal, an aborted navigation …); the API logs it.
+                reason = (str(error).strip().splitlines() or [""])[0][:200]
+                logger.warning("page failed: %s: %s", type(error).__name__, reason)
+                raise Refusal(502, f"page failed: {type(error).__name__}: {reason}") from error
         finally:
             browser.close()
 

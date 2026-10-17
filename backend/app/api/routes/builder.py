@@ -1015,6 +1015,14 @@ async def upload_thumbnail(
     data = await read_upload_body(
         request, thumbnails.MAX_UPLOAD_BYTES, thumbnails.TOO_BIG, "썸네일은 application/octet-stream 형식으로 보내 주세요."
     )
+    # fix-draft-thumbs: while the server renders, the browser's picture is
+    # only the fallback — a current server picture is kept and the upload
+    # is answered as accepted (nothing for the member to fix).
+    server_on = thumbnail_render.enabled(settings)
+    if (version is not None and not thumbnails.browser_may_replace_version(version, server_on)) or (
+        version is None and not thumbnails.browser_may_replace_draft(project, server_on)
+    ):
+        return project
     storage = get_storage(settings)
     try:
         if version is not None:
