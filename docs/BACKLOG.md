@@ -823,6 +823,18 @@ New UI requests go here until they are folded into a UI batch.
   fallback: paste or upload a screenshot (Safari, or capture refused);
   「자동으로 되돌리기」. A chosen picture is not replaced by automatic renders
   until reset. After fix-draft-thumbs, same rules.
+- **background-runs** — owner, 2026-10-17 ("채팅하다 중간에 나가면 계속
+  돌아가?" → after hearing it stops today: "만약 나갔다면 채팅에 오로라로 점?
+  돌아가고 있다는거 보이게"). A Chat reply (and a Builder run) keeps going on
+  the server when the member leaves the page or closes the tab; only 「중지」
+  stops it. The finished reply is saved and charged as today (the ledger is
+  already server-side). While it runs, the conversation's row in the Chat
+  list, the sidebar's Chat item and the Builder card show a small glowing
+  aurora dot (running-state-calm's running signal, which must then come from
+  the server, not the page); coming back mid-run re-attaches to the live
+  stream. Open points: one running reply per member at a time (or per
+  conversation); a server restart mid-run ends it as 중지 with what was
+  written; reduced-motion shows a static dot. Not scheduled.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
