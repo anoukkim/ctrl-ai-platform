@@ -44,7 +44,7 @@ ctrlai-server (Google Cloud, 서울)
 | 기종 | e2-medium — vCPU 2개, 메모리 4 GB (**유료**, 한 달 약 US$32) |
 | 운영체제 | Debian 13 (trixie), x86_64 |
 | 디스크 | 표준 영구 디스크 30 GB (10 GB에서 늘리는 중) |
-| 고정 외부 IP | `34.47.78.228` |
+| 고정 외부 IP | `34.64.59.76` (예약된 주소 `ctrlai-ip`, 2026-10-17부터. 그 전 `34.47.78.228`은 예약되지 않은 임시 주소라 VM을 멈출 때 사라졌습니다) |
 | 방화벽 | HTTP(80), HTTPS(443) 허용 + 기본 SSH 규칙만 |
 | 도메인 | `ctrlai.my` (`www.ctrlai.my`는 `ctrlai.my`로 이동) |
 | 이미 해 둔 것 | `apt upgrade`, git, Docker Engine + Compose 플러그인, 사용자 `ctrlai_platform`의 docker 그룹 등록, 2 GB 스왑 |
@@ -101,9 +101,9 @@ ctrlai-server (Google Cloud, 서울)
 
 | 이름(호스트) | 종류 | 값 |
 | --- | --- | --- |
-| `@` | A | `34.47.78.228` |
+| `@` | A | `34.64.59.76` |
 | `www` | CNAME | `ctrlai.my` |
-| `apps` | A | `34.47.78.228` |
+| `apps` | A | `34.64.59.76` |
 
 `apps`는 회원이 만든 앱이 도는 주소(`apps.ctrlai.my`, builder-static-runtime)
 입니다. 이 레코드가 아직 없으면 Caddy가 그 인증서만 받지 못하고 계속 다시
@@ -120,7 +120,7 @@ nslookup www.ctrlai.my 8.8.8.8
 nslookup apps.ctrlai.my 8.8.8.8
 ```
 
-세 결과 모두 `34.47.78.228`이 보이면 됩니다.
+세 결과 모두 `34.64.59.76`이 보이면 됩니다.
 
 ---
 

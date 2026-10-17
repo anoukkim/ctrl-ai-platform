@@ -308,7 +308,7 @@ Phase 9, and every item below bills someone.
 The invite-only beta does **not** use the full layout below. It runs on
 `ctrlai.my` from one Compute Engine VM, `ctrlai-server`: an **e2-medium**
 (2 vCPU, 4 GB RAM, paid) in **Seoul** (`asia-northeast3-c`), Debian 13,
-a 30 GB standard disk and the static IP `34.47.78.228`, on the Google
+a 30 GB standard disk and the static IP `34.64.59.76`, on the Google
 Cloud free trial until about 2027-01-11. Docker Compose
 (`docker-compose.prod.yml`) runs four services:
 
