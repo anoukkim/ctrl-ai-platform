@@ -949,6 +949,18 @@ New UI requests go here until they are folded into a UI batch.
   data), features, stack, run locally, docs links; (3) repository
   description/topics/website; site-side beta marks or icons only after
   asking; (4) a "what changed and where to look" guide in the desktop chat.
+  **Then (owner, 2026-10-17, verbatim):** "after all that finishes do a full
+  check everything thouroghly, drop me a list of what needs updates or
+  confirmation and then prune? the repo" — (5) a thorough check of
+  production and the repo: every screen against the deployed features
+  (signed in as admin and as a test member), the money path (estimate →
+  charge → Usage), the isolation checks of the thumbs worker, backups,
+  the full test suites, docs vs code (BACKLOG Next/Done, product.md,
+  architecture.md, deployment.md, CLAUDE.md §3 sections count), stale
+  specs; (6) a list for the owner: what needs updating and what needs their
+  confirmation; (7) prune the repo: merged branches (local + remote),
+  worktrees, untracked scratch files, superseded mock-ups — anything not
+  merged or not obviously dead is listed and asked about first.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
