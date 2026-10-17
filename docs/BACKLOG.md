@@ -802,6 +802,14 @@ New UI requests go here until they are folded into a UI batch.
   `document.fonts.ready` and ~1–2 s more before the screenshot (both for
   published and draft renders). Scheduled right after builder-images, under
   the same rules as the queue.
+- **thumbnail-choice** — owner, 2026-10-17 (seeing 미니 테트리스's empty
+  start screen; "썸네일을 지정하시오 … 네모가 나와서 옆에 개발중인 데서 고를 수
+  있게... 아님 말고", "사진을 직접 추가하는 일은 많진 않을 것 같아서"). A small
+  썸네일 square at the top of the Builder's file panel: **자동 (첫 화면)** (the
+  server's picture, default) or **내 그림** — paste a screenshot (⌘⇧4) or
+  upload one; back to 자동 any time. The chosen picture is used on the
+  Builder card and CtrlAIApps until changed; re-encoded like every upload.
+  Optional, small. Not scheduled.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
