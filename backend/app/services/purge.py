@@ -43,6 +43,8 @@ from app.models import (
     AppSession,
     AuditAction,
     BuilderGeneration,
+    BuilderReference,
+    BuilderAsset,
     BuilderProject,
     BuilderProjectFile,
     BuilderProjectStep,
@@ -53,7 +55,7 @@ from app.models import (
     VideoProject,
     VideoVersion,
 )
-from app.services import app_runtime, audit
+from app.services import app_runtime, builder_assets, builder_references, audit
 from app.services.chat_limits import KST
 from app.services.storage import AssetStorage, StorageKeyError
 
@@ -166,6 +168,8 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
             versions=_count(db, BuilderProjectVersion, BuilderProjectVersion.project_id == pid),
             files=_count(db, BuilderProjectFile, BuilderProjectFile.project_id == pid),
             slugs=[slug for slug in (item.app_slug, item.draft_slug) if slug],
+            # builder-images (1): the reference pictures' files.
+            storage_keys=builder_references.storage_keys(db, pid) + builder_assets.storage_keys(db, pid),
         )
         facts.usage_events = db.execute(
             update(UsageEvent)
@@ -183,6 +187,8 @@ def purge(db: Session, item: BuilderProject | VideoProject) -> Purged:
             AppSession,
             AppConsent,
             AppFavorite,
+            BuilderReference,
+            BuilderAsset,
             BuilderGeneration,
             BuilderProjectFile,
             BuilderProjectStep,

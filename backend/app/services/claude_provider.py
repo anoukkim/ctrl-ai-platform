@@ -454,6 +454,7 @@ class ClaudeProvider(Protocol):
         max_tokens: int = 4096,
         style: str = "",
         effort: str | None = None,
+        images: list[dict] | None = None,
     ) -> ProjectPlan: ...
 
     def write_project_file(
@@ -467,6 +468,7 @@ class ClaudeProvider(Protocol):
         max_tokens: int = 16000,
         style: str = "",
         effort: str | None = None,
+        images: list[dict] | None = None,
     ) -> ProjectEdit: ...
 
     def check_project(
@@ -774,6 +776,32 @@ WRITE_FILE_TOOL: dict[str, Any] = {
 #: every file in one reply; a second round only happens when it stops to
 #: wait for the result of the first call.
 EDIT_MAX_ROUNDS = 4
+
+
+#: builder-images (1): put before the request text when the member attached
+#: reference pictures. They guide the look; they are not files of the app.
+REFERENCE_NOTE = (
+    "The member attached reference picture(s) above, for the look they want. "
+    "Follow their design — colours, layout, type, spacing, mood — as far as it "
+    "fits the request. Do not embed, link or recreate the pictures as files: "
+    "they are not part of the app."
+)
+
+
+def content_tokens(content: str | list[dict]) -> int:
+    """The estimate for a user message's content, pictures included — the
+    attachments module's, imported late (it imports pricing)."""
+    from app.services.attachments import content_tokens as estimate
+
+    return estimate(content)
+
+
+def with_images(text: str, images: list[dict] | None) -> str | list[dict]:
+    """A user message's content: the text alone, or the pictures first and
+    the note plus the text after them."""
+    if not images:
+        return text
+    return [*images, {"type": "text", "text": REFERENCE_NOTE + "\n\n" + text}]
 
 
 def edit_request_text(
@@ -1713,6 +1741,7 @@ class MockClaudeProvider:
         max_tokens: int = 4096,
         style: str = "",
         effort: str | None = None,
+        images: list[dict] | None = None,
     ) -> ProjectPlan:
         """The files the one-shot mock would write, each with a purpose."""
         edit = self.edit_project(name, files, request, model, 16000, style)
@@ -1725,7 +1754,8 @@ class MockClaudeProvider:
             summary=summary,
             files=planned,
             model=model or self.model_id,
-            input_tokens=estimate_tokens(PLAN_SYSTEM + edit_request_text(name, files, request, style)),
+            input_tokens=estimate_tokens(PLAN_SYSTEM)
+            + content_tokens(with_images(edit_request_text(name, files, request, style), images)),
             output_tokens=40 + 30 * len(planned),
         )
 
@@ -1740,6 +1770,7 @@ class MockClaudeProvider:
         max_tokens: int = 16000,
         style: str = "",
         effort: str | None = None,
+        images: list[dict] | None = None,
     ) -> ProjectEdit:
         """That file as the one-shot mock would write it.
 
@@ -1768,7 +1799,7 @@ class MockClaudeProvider:
             summary=f"{path}을(를) 썼어요.",
             writes=writes,
             model=model or self.model_id,
-            input_tokens=estimate_tokens(FILE_SYSTEM + text),
+            input_tokens=estimate_tokens(FILE_SYSTEM) + content_tokens(with_images(text, images)),
             output_tokens=min(max_tokens, len(content or "") // 3 + 30),
         )
 
@@ -2454,6 +2485,7 @@ class AnthropicClaudeProvider:
         max_tokens: int = 4096,
         style: str = "",
         effort: str | None = None,
+        images: list[dict] | None = None,
     ) -> ProjectPlan:
         """One small call, structured JSON back (`PLAN_SCHEMA`). Not cached."""
         import json
@@ -2463,7 +2495,7 @@ class AnthropicClaudeProvider:
         client = self._builder_client()
         params = self.request_params(
             PLAN_SYSTEM,
-            [{"role": "user", "content": edit_request_text(name, files, request, style)}],
+            [{"role": "user", "content": with_images(edit_request_text(name, files, request, style), images)}],
             max_tokens,
             model,
             effort=effort,
@@ -2504,11 +2536,12 @@ class AnthropicClaudeProvider:
         max_tokens: int = 16000,
         style: str = "",
         effort: str | None = None,
+        images: list[dict] | None = None,
     ) -> ProjectEdit:
         """One file through `write_file`, with the plan and the files so far."""
         return self._tool_rounds(
             FILE_SYSTEM,
-            file_request_text(name, files, request, plan, path, style),
+            with_images(file_request_text(name, files, request, plan, path, style), images),
             model,
             max_tokens,
             effort,
@@ -2536,7 +2569,7 @@ class AnthropicClaudeProvider:
         return anthropic.Anthropic(**kwargs)
 
     def _tool_rounds(
-        self, system: str, user_text: str, model: str, max_tokens: int, effort: str | None
+        self, system: str, user_text: str | list[dict], model: str, max_tokens: int, effort: str | None
     ) -> ProjectEdit:
         """Rounds of `write_file` until Claude stops, the usage added up."""
         import anthropic

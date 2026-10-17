@@ -409,3 +409,31 @@ class GenerationRead(BaseModel):
 
 class GenerationRun(BaseModel):
     """시작 / 이어서 만들기 — no fields; a JSON body like every write."""
+
+
+class BuilderReferenceRead(BaseModel):
+    """A reference picture waiting in the request box (builder-images (1))."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    original_name: str
+    media_type: str
+    width: int
+    height: int
+    stored_size: int
+    #: What it adds to one Claude call, in tokens — the estimate counts it.
+    tokens: int = 0
+
+
+class BuilderAssetRead(BaseModel):
+    """A picture that is part of the app (builder-images (2))."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    path: str
+    media_type: str
+    width: int
+    height: int
+    stored_size: int

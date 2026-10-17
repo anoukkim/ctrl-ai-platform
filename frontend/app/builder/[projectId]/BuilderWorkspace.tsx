@@ -105,6 +105,8 @@ import CodeView from "./CodeView";
 import PublishCelebration from "@/app/components/PublishCelebration";
 
 import HiddenCapture from "./HiddenCapture";
+import AssetPanel from "./AssetPanel";
+import ReferencePicker, { imageFiles, type ReferencePickerHandle } from "./ReferencePicker";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
 import PublishDialog, { type PublishValues } from "./PublishDialog";
@@ -172,6 +174,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 말로 만들기 / 고치기 (builder-static-runtime).
   const { apps_base_url: appsBase } = useSite();
   const [ask, setAsk] = useState("");
+  // builder-images (1): the 참고 사진 waiting for the next 만들기 / 고치기.
+  const referencesRef = useRef<ReferencePickerHandle>(null);
   // 단계별 만들기(quality-tuning Q2): 끝나지 않은 작업, 진행, 계획 중.
   const [generation, setGeneration] = useState<Generation | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -363,6 +367,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     [projectId],
   );
 
+  /** 참고 사진이 바뀌면 예상 비용을 다시 읽습니다 (builder-images (1)). */
+  const refreshEstimate = useCallback(() => {
+    getGenerateEstimate(projectId).then(setGenerateEstimate).catch(() => undefined);
+  }, [projectId]);
+
   // 예시 앱을 만든 뒤에는 백엔드가 앱 주소에도 올렸으므로 프로젝트를 다시 읽습니다.
   const reloadProject = useCallback(() => {
     getBuilderProject(projectId)
@@ -453,6 +462,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       try {
         const plan = await planGeneration(projectId, input);
         setGeneration(plan);
+        // The plan took the waiting pictures for this run.
+        referencesRef.current?.reload();
         void refreshWallet();
         reportCharge({ chargedKrw: plan.charged_krw, label: "빌더 · 계획" });
         if (plan.kind === "edit") {
@@ -1218,6 +1229,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   )}
                 </div>
               )}
+              {/* builder-images (2): the app's pictures, written beside its files. */}
+              <AssetPanel projectId={projectId} disabled={!mayCreate || generating} onChange={reloadProject} />
             </div>
           </aside>
         )}
@@ -1286,6 +1299,17 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     disabled={!mayCreate}
                     error={generateError}
                     onPlan={(input) => void makePlan(input)}
+                    references={
+                      mayCreate ? (
+                        <ReferencePicker
+                          ref={referencesRef}
+                          projectId={projectId}
+                          disabled={planning}
+                          onChange={refreshEstimate}
+                        />
+                      ) : null
+                    }
+                    onImages={mayCreate ? (list) => referencesRef.current?.addFiles(list) ?? false : undefined}
                   />
                 )}
                 <p className={styles.limitsNote} data-testid="app-limits">
@@ -1561,6 +1585,19 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 maxLength={2000}
                 value={ask}
                 onChange={(event) => setAsk(event.target.value)}
+                onPaste={(event) => {
+                  if (mayCreate && referencesRef.current?.addFiles(imageFiles(event.clipboardData?.items))) {
+                    event.preventDefault();
+                  }
+                }}
+                onDragOver={(event) => {
+                  if (mayCreate && event.dataTransfer?.types.includes("Files")) event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  if (mayCreate && referencesRef.current?.addFiles(imageFiles(event.dataTransfer?.files))) {
+                    event.preventDefault();
+                  }
+                }}
                 onKeyDown={(event) => {
                   // Enter는 보내기, Shift+Enter는 줄 바꿈. 한글을 조합하는 중의
                   // Enter는 글자를 끝내는 것이라 보내지 않습니다.
@@ -1581,8 +1618,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 title={mayCreate ? undefined : NOT_PARTICIPATING_HINT}
               />
               <span className="sr-only" id="builder-ask-keys">
-                Enter로 보내고, Shift+Enter로 줄을 바꿔요.
+                Enter로 보내고, Shift+Enter로 줄을 바꿔요. 사진을 붙여 넣으면 디자인 참고로 함께 보내요.
               </span>
+              {mayCreate && !empty && (
+                <ReferencePicker
+                  ref={referencesRef}
+                  projectId={projectId}
+                  disabled={generating}
+                  onChange={refreshEstimate}
+                />
+              )}
               <div className={styles.askActions}>
                 {/* owner-polish 14: while working the button is busy, not
                     disabled — disabled gives the 🚫 cursor; busy gives

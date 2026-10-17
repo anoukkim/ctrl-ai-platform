@@ -439,6 +439,16 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # like ★, and never a change to the work.
     ("POST", "/api/builder/projects/{project_id}/pin"): "get_current_user",
     ("POST", "/api/video/projects/{project_id}/pin"): "get_current_user",
+    # builder-images (1): reference pictures for the next 만들기 / 고치기.
+    ("POST", "/api/builder/projects/{project_id}/references"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/references"): "get_current_user",
+    ("GET", "/api/builder/projects/{project_id}/references/{reference_id}/file"): "get_current_user",
+    ("DELETE", "/api/builder/projects/{project_id}/references/{reference_id}"): "require_active_member",
+    # builder-images (2): the app's pictures.
+    ("POST", "/api/builder/projects/{project_id}/assets"): "require_active_member",
+    ("GET", "/api/builder/projects/{project_id}/assets"): "get_current_user",
+    ("GET", "/api/builder/projects/{project_id}/assets/{asset_id}/file"): "get_current_user",
+    ("DELETE", "/api/builder/projects/{project_id}/assets/{asset_id}"): "require_active_member",
     # chat-pins: the same 고정 for a conversation.
     ("POST", "/api/chat/conversations/{conversation_id}/pin"): "get_current_user",
     # ctrlaiapps-publish

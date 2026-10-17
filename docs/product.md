@@ -158,6 +158,29 @@ placeholders". The one-shot 예시 앱 / `generate` routes remain in the API.
 --max-krw 3000` on the server (real provider, admin wallet, never past the
 limit); the Markdown report shows in Admin › System › 빌더 점검.
 
+**Project Builder — pictures** (builder-images, 2026-10-17; owner:
+"빌더에는 사진 추가 못하나..? 이런 디자인 참고 등으로" and "앱에 넣는 사진(로고
+등)"). Two kinds, both checked from their bytes and re-encoded without
+metadata (phone photos carry GPS):
+- **참고 사진** — up to 3 pictures attached to the next 만들기 / 고치기, by
+  the **참고 사진** button under the request box, by pasting (Ctrl+V) or by
+  dropping them on it; they show as small thumbnails with ✕. The next plan
+  takes them for its run: the plan call and every file call **see** them
+  (vision input) and follow their look; the self-check does not. They are
+  never files of the app. Each picture (stored at a 1,024 px long edge,
+  about 1,400 tokens) is in the request's estimate and in each call's
+  charge; uploading is free; a failed call charges 0 as always and the
+  pictures stay waiting.
+- **앱에 넣은 사진** — up to 10 pictures (1 MB each after re-encoding at a
+  1,600 px long edge, 5 MB together), added from the file sidebar's **사진
+  넣기**. Each lives at `images/<name>` (a safe name; `-2` when taken),
+  is written into the app's folder beside its files — the preview is
+  rewritten at once, 게시 carries them, the ZIP packs them, server
+  thumbnails show them — and every staged Claude call is told their paths
+  and sizes, so "로고를 머리에 넣어 줘" works. 경로 복사 copies the path.
+  They belong to the project, not to a version (되돌리기 brings back files,
+  not pictures). Free.
+
 **Project Builder — 만들기 / 고치기** (builder-static-runtime). In the
 workspace's Claude panel the member writes what to make or change ("버튼
 색을 바꿔 줘") and presses **만들기** (empty project) or **고치기**; the

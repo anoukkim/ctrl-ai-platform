@@ -165,7 +165,7 @@ def write_draft(
     """
     cleaned = _checked(settings, files)
     slug = ensure_draft_slug(db, project)
-    _write_or_explain(settings, slug, cleaned)
+    _write_or_explain(settings, slug, cleaned, _assets(db, settings, project))
     project.app_runtime_at = datetime.now(timezone.utc)
     # The lists ctrlai.json names exist in the preview's own data space
     # (app-platform P4), so trying the app works before anyone saves.
@@ -179,13 +179,25 @@ def write_public(
     """Write the published version to the public folder (게시 / 업데이트 게시)."""
     cleaned = _checked(settings, files)
     slug = ensure_slug(db, project)
-    _write_or_explain(settings, slug, cleaned)
+    _write_or_explain(settings, slug, cleaned, _assets(db, settings, project))
     app_manifest.declare(db, project, app_data.space_of("app"), cleaned)
 
 
-def _write_or_explain(settings: Settings, slug: str, cleaned: dict[str, str]) -> None:
+def _assets(db: Session, settings: Settings, project: BuilderProject) -> dict[str, bytes]:
+    """builder-images (2): the app's pictures, written beside its files —
+    never over one (a text file and a picture cannot share a path: text
+    types and picture types do not overlap)."""
+    from app.services import builder_assets
+    from app.services.storage import get_storage
+
+    return builder_assets.contents(db, get_storage(settings), project)
+
+
+def _write_or_explain(
+    settings: Settings, slug: str, cleaned: dict[str, str], assets: dict[str, bytes] | None = None
+) -> None:
     try:
-        _write(settings, slug, cleaned)
+        _write(settings, slug, cleaned, assets)
     except OSError as error:
         raise AppRuntimeError(
             "앱 파일을 저장하지 못했습니다. 잠시 뒤 다시 시도하고, 계속되면 관리자에게 알려 주세요.",
@@ -193,7 +205,9 @@ def _write_or_explain(settings: Settings, slug: str, cleaned: dict[str, str]) ->
         ) from error
 
 
-def _write(settings: Settings, slug: str, cleaned: dict[str, str]) -> None:
+def _write(
+    settings: Settings, slug: str, cleaned: dict[str, str], assets: dict[str, bytes] | None = None
+) -> None:
     """All-or-nothing: a hidden staging folder takes the old one's place."""
     root = apps_root(settings)
     root.mkdir(parents=True, exist_ok=True)
@@ -201,6 +215,8 @@ def _write(settings: Settings, slug: str, cleaned: dict[str, str]) -> None:
 
     fonts = app_fonts.used_in(cleaned)
     rendered = {path: with_shim(path, content, fonts).encode("utf-8") for path, content in cleaned.items()}
+    for path, data in (assets or {}).items():
+        rendered.setdefault(path, data)
     new_bytes = sum(len(data) for data in rendered.values())
     used = _folder_bytes(root) - (_folder_bytes(target) if target.exists() else 0)
     if used + new_bytes > settings.apps_max_total_mb * 1024 * 1024:

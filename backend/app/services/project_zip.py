@@ -116,16 +116,20 @@ def packable(path: str) -> bool:
     return is_safe_path(path) and not is_secret(path) and not is_skipped_directory(path)
 
 
-def check_size(files: dict[str, str]) -> None:
+def _size(content: str | bytes) -> int:
+    return len(content) if isinstance(content, bytes) else len(content.encode("utf-8"))
+
+
+def check_size(files: dict[str, str | bytes]) -> None:
     """Raise `ProjectTooLargeError` when `files` exceed `MAX_TOTAL_BYTES`."""
-    if sum(len(content.encode("utf-8")) for content in files.values()) > MAX_TOTAL_BYTES:
+    if sum(_size(content) for content in files.values()) > MAX_TOTAL_BYTES:
         raise ProjectTooLargeError(
             "프로젝트가 너무 커서 압축 파일로 내려받을 수 없습니다. "
             "GitHub에 올려 받는 방법을 사용해 주세요."
         )
 
 
-def pack(files: dict[str, str]) -> bytes:
+def pack(files: dict[str, str | bytes]) -> bytes:
     """Pack `path → content` into ZIP bytes, exactly these files.
 
     Unsafe or secret paths are dropped silently rather than refused: one
@@ -145,7 +149,9 @@ def pack(files: dict[str, str]) -> bytes:
     # size, and the member downloads this over a network.
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(packed):
-            archive.writestr(path, packed[path].encode("utf-8"))
+            content = packed[path]
+            # builder-images (2): an app picture is bytes already.
+            archive.writestr(path, content if isinstance(content, bytes) else content.encode("utf-8"))
 
     return buffer.getvalue()
 

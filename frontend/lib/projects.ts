@@ -267,6 +267,76 @@ export function builderPickerModel(model: BuilderModelOption): PickerModel {
   return { ...model, estimate_krw: model.estimated_krw };
 }
 
+/** builder-images (1): 다음 만들기 / 고치기에 함께 보낼 참고 사진 하나. */
+export interface BuilderReference {
+  id: number;
+  original_name: string;
+  media_type: string;
+  width: number;
+  height: number;
+  stored_size: number;
+  /** Claude 한 번 부를 때 이 사진이 더하는 양(토큰) — 예상 비용에 들어가 있어요. */
+  tokens: number;
+}
+
+/** 참고 사진은 한 번에 이만큼. 서버도 같은 수로 막습니다. */
+export const MAX_REFERENCES = 3;
+
+export function listReferences(projectId: number | string): Promise<BuilderReference[]> {
+  return request<BuilderReference[]>(`/builder/projects/${projectId}/references`);
+}
+
+/** 사진 하나를 올립니다 — 바이트 그대로. 서버가 종류를 확인하고 메타데이터 없이 다시 저장해요. */
+export function uploadReference(projectId: number | string, image: Blob, name: string): Promise<BuilderReference> {
+  return uploadBytes<BuilderReference>(
+    `/builder/projects/${projectId}/references`,
+    image,
+    { name: name || "image" },
+    "사진을 올리지 못했어요",
+  );
+}
+
+export function deleteReference(projectId: number | string, referenceId: number): Promise<void> {
+  return request<void>(`/builder/projects/${projectId}/references/${referenceId}`, { method: "DELETE" });
+}
+
+export function referenceUrl(projectId: number | string, referenceId: number): string {
+  return `${API_BASE_URL}/api/builder/projects/${projectId}/references/${referenceId}/file`;
+}
+
+/** builder-images (2): 앱에 넣은 사진 하나 — `images/…`에 있고 앱이 보여 줄 수 있어요. */
+export interface BuilderAsset {
+  id: number;
+  path: string;
+  media_type: string;
+  width: number;
+  height: number;
+  stored_size: number;
+}
+
+export const MAX_ASSETS = 10;
+
+export function listAssets(projectId: number | string): Promise<BuilderAsset[]> {
+  return request<BuilderAsset[]>(`/builder/projects/${projectId}/assets`);
+}
+
+export function uploadAsset(projectId: number | string, image: Blob, name: string): Promise<BuilderAsset> {
+  return uploadBytes<BuilderAsset>(
+    `/builder/projects/${projectId}/assets`,
+    image,
+    { name: name || "image" },
+    "사진을 넣지 못했어요",
+  );
+}
+
+export function deleteAsset(projectId: number | string, assetId: number): Promise<void> {
+  return request<void>(`/builder/projects/${projectId}/assets/${assetId}`, { method: "DELETE" });
+}
+
+export function assetUrl(projectId: number | string, assetId: number): string {
+  return `${API_BASE_URL}/api/builder/projects/${projectId}/assets/${assetId}/file`;
+}
+
 export function getGenerateEstimate(id: number | string): Promise<GenerateEstimate> {
   return request<GenerateEstimate>(`/builder/projects/${id}/generate-estimate`);
 }

@@ -70,6 +70,11 @@ def estimate(
     choice = builder_choice.choose(db, settings, user, project)
     files = builder_versions.current_files(db, project)
     tokens_in = _input_estimate(project, files, request or "x" * 120)
+    # builder-images (1): the pictures waiting in the request box.
+    from app.services import builder_references
+    from app.services.builder_stages import reference_tokens
+
+    tokens_in += reference_tokens(builder_references.pending(db, project))
     room = max(choice.room(tokens_in), 0)
     default = chat_models.default_row(db)
     return EditEstimate(
