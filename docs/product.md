@@ -385,7 +385,12 @@ Chat is the opening screen and a real conversation with Claude, behind
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
 - **Previews** (chat-plus-artifacts): a finished reply's fenced `html` or
-  `svg` block becomes a **미리보기** card — 코드 보기, 다운로드
+  `svg` block becomes a **미리보기** card — 코드 보기, 다운로드, **전체 화면**
+  (chat-preview-fullscreen, 2026-10-17: an in-page window over everything —
+  dark backdrop, 닫기 / Esc / a click outside, 새로고침, 데스크톱 / 폰
+  (390 px) width, a full-screen sheet on a phone; its own frame from the
+  same srcdoc with the same `allow-scripts`-only sandbox and CSP, started
+  only by the press and removed on close; no Fullscreen API),
   (`ctrlai-<conversation>-<reply>.html|svg`, built by the page, not the
   frame) and, for HTML, **Builder로 보내기** (a new project whose
   `index.html` is the block; free; participating members only). The

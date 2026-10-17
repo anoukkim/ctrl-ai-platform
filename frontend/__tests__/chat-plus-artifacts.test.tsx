@@ -198,3 +198,37 @@ describe("코드 보기 · 다운로드 · Builder로 보내기", () => {
     expect(button.disabled).toBe(true);
   });
 });
+
+describe("전체 화면 (chat-preview-fullscreen)", () => {
+  test("only after pressing, a frame with the same sandbox and CSP; width switch; 새로고침; Esc closes and removes it", () => {
+    renderReply("페이지예요.\n\n```html\n" + PAGE + "\n```\n");
+    expect(screen.queryByTestId("preview-fullscreen")).toBeNull();
+    fireEvent.click(screen.getByTestId("artifact-fullscreen"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    const frame = screen.getByTestId("preview-fullscreen-frame") as HTMLIFrameElement;
+    expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+    expect(frame.hasAttribute("allow")).toBe(false);
+    expect((frame.getAttribute("srcdoc") ?? "").startsWith(`<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`)).toBe(true);
+    // Focus starts on 닫기.
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("닫기 (Esc)");
+    fireEvent.click(screen.getByRole("button", { name: /폰/ }));
+    expect(screen.getByRole("button", { name: /폰/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("preview-fullscreen-frame").className).toContain("framePhone");
+    fireEvent.click(screen.getByRole("button", { name: /새로고침/ }));
+    expect(screen.getByTestId("preview-fullscreen-frame")).not.toBe(frame);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("preview-fullscreen")).toBeNull();
+    expect(screen.queryByTestId("preview-fullscreen-frame")).toBeNull();
+  });
+
+  test("the backdrop closes it; 닫기 too", () => {
+    renderReply("```html\n" + PAGE + "\n```\n");
+    fireEvent.click(screen.getByTestId("artifact-fullscreen"));
+    fireEvent.click(screen.getByTestId("preview-fullscreen"));
+    expect(screen.queryByTestId("preview-fullscreen")).toBeNull();
+    fireEvent.click(screen.getByTestId("artifact-fullscreen"));
+    fireEvent.click(screen.getByRole("button", { name: "닫기 (Esc)" }));
+    expect(screen.queryByTestId("preview-fullscreen")).toBeNull();
+  });
+});
