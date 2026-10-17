@@ -902,6 +902,19 @@ New UI requests go here until they are folded into a UI batch.
   liked; without a 미리보기 it stays as today. Small. **Scheduled and
   pre-approved** (owner, 2026-10-17, verbatim: "chat-to-builder-carry는
   background-runs 다음에 같은 규칙으로 해줘").
+- **after-the-queue (coordinator, after ⑤ chat-to-builder-carry)** — owner,
+  2026-10-17, verbatim: "5번까지 다 끝나고 해야할 것 … 1. 깃리포지터리 정리
+  chore-promo-videos 사이트에 올라간 것들 다른 곳에 있다면 정리해도 됨 2. 깃
+  리드미 정리 (사이트 스크린샷도 함께) 3. … 베타 버전이니까 그거 추가하고 …
+  아이콘을 추가한다던가 … 사이트들 비슷하게 정리 4. 그리고 채팅에 뭐가 바뀌었고
+  화면들어가서 뭘 보면 좋을지". (1) delete `origin/chore-promo-videos` only
+  after checking every file it holds is on main (else list what would be lost
+  and ask); (2) README rewritten like well-kept open-source repos: logo, one
+  line, badges (BETA, version, stack, license), screenshots of Chat, Project
+  Builder, CtrlAIApps, CtrlAITube, Admin taken with test accounts (no member
+  data), features, stack, run locally, docs links; (3) repository
+  description/topics/website; site-side beta marks or icons only after
+  asking; (4) a "what changed and where to look" guide in the desktop chat.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
