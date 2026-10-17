@@ -64,7 +64,7 @@ def test_the_requests_up_to_the_reply_become_spec_md(
     spec = files["SPEC.md"]
     assert "1. 영화 연결 지도를 만들어 줘" in spec and "3. 어두운 색으로 해 줘" in spec
     assert "나중 질문" not in spec
-    assert chat_carry.count_in(spec) == 3
+    assert sum(1 for line in spec.splitlines() if line[:1].isdigit()) == 3
     # A guide: never served on the app's address.
     assert builder_files.is_guide("SPEC.md")
     assert "SPEC.md" not in builder_files.app_files(files)
@@ -100,3 +100,32 @@ def test_a_page_without_a_name_is_named_by_one_absorbed_call(
     event = db_session.query(UsageEvent).one()
     assert event.feature == "project_name"
     assert event.charged_krw == 0 and event.club_absorbed
+
+
+def test_a_hostile_page_is_named_quickly() -> None:
+    """The page is the member's, up to 200 KB: the name search reads only
+    its head with plain string searches — no backtracking."""
+    import time
+
+    for page in ("<title>" * 28_000, "<h1>" * 50_000, "<" * 199_000, "<title>" + "a" * 199_000):
+        started = time.monotonic()
+        chat_carry.page_name(page)
+        chat_carry._plain(page)
+        assert time.monotonic() - started < 0.5, page[:20]
+
+
+def test_from_a_conversation_the_cut_title_is_never_the_name(
+    client: TestClient, db_session: Session, participating, dev_user, monkeypatch
+) -> None:
+    conversation, _ = conversation_with(db_session, dev_user, ["가계부"])
+
+    async def no_name(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(chat_carry, "claude_name", no_name)
+    response = client.post(
+        "/api/builder/projects/from-chat",
+        json={"name": "영화 제목을 검색하면 후보를 보", "html": "<p>x</p>", "conversation_id": conversation.id},
+    )
+    assert response.status_code == 201
+    assert db_session.query(BuilderProject).one().name == "채팅에서 만든 페이지"

@@ -8,6 +8,10 @@ than only the ones that remembered to check.
 """
 
 import asyncio
+
+import anyio
+import anyio.from_thread
+import functools
 import json
 import logging
 from datetime import datetime, timezone
@@ -209,7 +213,7 @@ FROM_CHAT_MAX_BYTES = 200_000
     status_code=status.HTTP_201_CREATED,
     summary="Builder로 보내기: a project whose index.html is a chat reply's HTML block",
 )
-async def create_project_from_chat(
+def create_project_from_chat(
     payload: BuilderProjectFromChat,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
@@ -229,12 +233,19 @@ async def create_project_from_chat(
         )
     asked = chat_carry.requirements(db, user, payload.conversation_id, payload.reply_id)
     candidate = chat_carry.page_name(payload.html)
-    if candidate is None and payload.conversation_id is not None:
-        candidate = await chat_carry.claude_name(
-            db, settings, get_claude_provider(settings), user=user, page=payload.html, asked=asked
+    owned = payload.conversation_id is not None and chat_carry.owns(db, user, payload.conversation_id)
+    if candidate is None and owned:
+        # The one call this route may make, on the event loop (this route
+        # runs in a worker thread); nothing else here waits on it.
+        candidate = anyio.from_thread.run(
+            functools.partial(
+                chat_carry.claude_name, db, settings, get_claude_provider(settings), user=user, page=payload.html, asked=asked
+            )
         )
     name = "채팅에서 만든 페이지"
-    for option in (candidate, payload.name):
+    # From a conversation, the name sent (its cut title) is never used —
+    # the page's own, Claude's, or the default (owner, 2026-10-17).
+    for option in (candidate, None if payload.conversation_id is not None else payload.name):
         if not option:
             continue
         try:

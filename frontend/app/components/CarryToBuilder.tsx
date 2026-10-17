@@ -22,24 +22,28 @@ import styles from "./ChatWorkspace.module.css";
 interface Props {
   previews: ChatPreview[];
   conversationId: number | null;
-  conversationTitle: string;
   disabled: boolean;
 }
 
-export default function CarryToBuilder({ previews, conversationId, conversationTitle, disabled }: Props) {
+export default function CarryToBuilder({ previews, conversationId, disabled }: Props) {
   const router = useRouter();
   const [picking, setPicking] = useState(false);
-  const [chosen, setChosen] = useState(0);
+  // Keyed by the page itself, so a new 미리보기 arriving never moves the choice.
+  const [chosenHtml, setChosenHtml] = useState<string | null>(null);
+  const chosen = Math.max(0, previews.findIndex((preview) => preview.html === chosenHtml));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const groupId = useId();
+  const pickerId = useId();
 
   const start = async (preview: ChatPreview) => {
     setBusy(true);
     setError(null);
     try {
       const project = await createProjectFromChat({
-        name: conversationTitle.slice(0, 40),
+        // The page names the project (the server reads it); never the
+        // conversation's cut title.
+        name: "",
         html: preview.html,
         conversation_id: conversationId,
         reply_id: preview.replyId,
@@ -59,11 +63,12 @@ export default function CarryToBuilder({ previews, conversationId, conversationT
         disabled={disabled || busy}
         onClick={() => (previews.length > 1 ? setPicking((open) => !open) : void start(previews[0]))}
         aria-expanded={previews.length > 1 ? picking : undefined}
+        aria-controls={previews.length > 1 ? pickerId : undefined}
       >
         {CARRY_LABEL} <span aria-hidden="true">→</span>
       </button>
       {picking && (
-        <fieldset className={styles.carryPicker}>
+        <fieldset className={styles.carryPicker} id={pickerId}>
           <legend>어느 미리보기로 시작할까요?</legend>
           {previews.map((preview, index) => (
             <label key={`${preview.replyId}-${index}`} className={styles.carryOption}>
@@ -71,7 +76,7 @@ export default function CarryToBuilder({ previews, conversationId, conversationT
                 type="radio"
                 name={groupId}
                 checked={chosen === index}
-                onChange={() => setChosen(index)}
+                onChange={() => setChosenHtml(preview.html)}
               />
               {preview.title}
               {index === 0 && <span className={styles.carryNewest}> · 가장 최근</span>}

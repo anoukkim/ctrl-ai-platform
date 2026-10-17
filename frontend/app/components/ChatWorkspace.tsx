@@ -1326,7 +1326,6 @@ export default function ChatWorkspace() {
   const lastIndex = messages.length - 1;
   // chat-to-builder-carry: the conversation's 미리보기, newest first.
   const previews = useMemo(() => previewsIn(messages), [messages]);
-  const activeTitle = conversations.find((row) => row.id === activeId)?.title ?? "";
 
   /**
    * 도구 켜고 끄기 (fix-composer-toolbar). 가격은 "도구" 판의 줄마다 켜기
@@ -1730,7 +1729,6 @@ export default function ChatWorkspace() {
                         <CarryToBuilder
                           previews={previews}
                           conversationId={activeId}
-                          conversationTitle={activeTitle}
                           disabled={!mayCreate}
                         />
                       ) : (

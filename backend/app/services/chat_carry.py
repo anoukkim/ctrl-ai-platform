@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import ChatMessage, ChatRole, Conversation, UsageFeature, User
-from app.services import app_ai, chat_models, pricing, providers
+from app.services import app_ai, chat_limits, chat_models, pricing, provider_limiter, providers
 from app.services import usage as usage_service
 from app.services.claude_provider import ChatRequest, ClaudeError
 
@@ -43,12 +43,15 @@ MAX_REQUIREMENTS = 15
 MAX_REQUIREMENT_CHARS = 400
 SPEC_TITLE = "# 요구사항 — 채팅에서 가져왔어요"
 
-_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-_HEADING = re.compile(r"<h[12][^>]*>(.*?)</h[12]>", re.IGNORECASE | re.DOTALL)
-_TAG = re.compile(r"<[^>]+>")
+#: Only the head of a page is searched for its name, and only a short
+#: stretch is cleaned of tags — the page is the member's and up to 200 KB.
+NAME_SCAN_CHARS = 20_000
+NAME_TEXT_CHARS = 1_000
+_TAG = re.compile(r"<[^<>]{0,500}>")
 
 
 def _plain(fragment: str) -> str:
+    fragment = fragment[:NAME_TEXT_CHARS * 4]
     text = html_lib.unescape(_TAG.sub(" ", fragment))
     return re.sub(r"\s+", " ", text).strip()
 
@@ -63,15 +66,40 @@ def shorten(name: str, limit: int = NAME_CHARS) -> str:
     return (cut[:space] if space >= limit // 2 else cut).rstrip(" -|·:—,") + "…"
 
 
+def _between(head: str, lower: str, opener: str, closers: tuple[str, ...]) -> str | None:
+    """The text inside the first `<opener …>…</closer>` — plain string
+    searches, no backtracking regex over a page someone else wrote."""
+    start = lower.find(opener)
+    while start != -1:
+        after = lower[start + len(opener) : start + len(opener) + 1]
+        if after in (">", " ", "\t", "\n", "\r", "/"):
+            close_tag = lower.find(">", start)
+            if close_tag == -1:
+                return None
+            ends = [index for index in (lower.find(closer, close_tag) for closer in closers) if index != -1]
+            if not ends:
+                return None
+            return head[close_tag + 1 : min(ends)][:NAME_TEXT_CHARS]
+        start = lower.find(opener, start + 1)
+    return None
+
+
 def page_name(page: str) -> str | None:
     """The page's own name: its `<title>`, else its first `<h1>`/`<h2>`."""
-    for pattern in (_TITLE, _HEADING):
-        found = pattern.search(page)
-        if found:
-            text = _plain(found.group(1))
+    head = page[:NAME_SCAN_CHARS]
+    lower = head.lower()
+    for opener, closers in (("<title", ("</title",)), ("<h1", ("</h1",)), ("<h2", ("</h2",))):
+        inside = _between(head, lower, opener, closers)
+        if inside is not None:
+            text = _plain(inside)
             if text:
                 return shorten(text)
     return None
+
+
+def owns(db: Session, user: User, conversation_id: int) -> bool:
+    conversation = db.get(Conversation, conversation_id)
+    return conversation is not None and conversation.user_id == user.id
 
 
 def requirements(db: Session, user: User, conversation_id: int | None, reply_id: int | None) -> list[str]:
@@ -108,13 +136,6 @@ def spec_md(name: str, items: list[str]) -> str:
     ]
     lines += [f"{number}. {text}" for number, text in enumerate(items, start=1)]
     return "\n".join(lines) + "\n"
-
-
-def count_in(spec: str) -> int:
-    """How many requirements a SPEC.md from Chat lists (the Builder's first bubble)."""
-    if not spec.startswith(SPEC_TITLE):
-        return 0
-    return sum(1 for line in spec.splitlines() if re.match(r"^\d+\. ", line))
 
 
 # ------------------------------------------------------------ the name, by Claude
@@ -157,7 +178,19 @@ async def claude_name(db: Session, settings: Settings, provider: Any, *, user: U
     except (app_ai.AppAIError, chat_models.ModelChoiceError, pricing.PricingError) as error:
         logger.warning("carry name: no model (%s)", error)
         return None
-    text = _plain(page)[:1500]
+    # A slot under the club's provider limit, like every call; none free →
+    # no name call (the default name stands).
+    if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
+        return None
+    try:
+        return await _named(db, settings, provider, user=user, page=page, asked=asked, model=model, price=price)
+    finally:
+        provider_limiter.release()
+
+
+async def _named(db: Session, settings: Settings, provider: Any, *, user: User, page: str, asked: list[str],
+                 model: chat_models.ChosenModel, price: pricing.Price) -> str | None:
+    text = _plain(page[:NAME_SCAN_CHARS])[:1500]
     prompt = "첫 요청: " + (asked[0] if asked else "") + "\n\n페이지의 글:\n" + text
     request = ChatRequest(system=_name_system(), messages=[{"role": "user", "content": prompt}], max_tokens=60, model=model.model_id)
     tally: app_ai.Tally | None = None
@@ -182,7 +215,8 @@ async def claude_name(db: Session, settings: Settings, provider: Any, *, user: U
             output_tokens=tally.output_tokens,
             cost=price.split(tally.input_tokens, tally.output_tokens),
             exchange_rate_krw=price.usd_krw,
-            commit=False,
+            # Kept even if making the project fails after: the club paid.
+            commit=True,
         )
     providers.record_success(db, "claude", "프로젝트 이름" + (" (mock)" if settings.provider_is_mock("claude") else ""))
     try:

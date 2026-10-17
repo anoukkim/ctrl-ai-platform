@@ -32,6 +32,17 @@ describe("미리보기 찾기", () => {
     ]);
     expect(pageTitle("<body><h1>제목 &amp; 부제</h1></body>")).toBe("제목 & 부제");
     expect(pageTitle("<p>없음</p>")).toBeNull();
+    expect(pageTitle("<title>&quot;작은&quot; 앱&nbsp;이름</title>")).toBe('"작은" 앱 이름');
+    // Case, CRLF and an empty block read as the reply view reads them.
+    const odd = previewsIn([
+      { role: "assistant", content: "```HTML\r\n<title>대문자</title>\r\n```\r\n```html\n```\n사이 글\n```html5\n<p>아님</p>\n```", key: "m8" },
+    ]);
+    expect(odd.map((p) => p.title)).toEqual(["대문자"]);
+    // A hostile page does not hang the tab.
+    const started = Date.now();
+    pageTitle("<title>".repeat(28_000));
+    pageTitle("<".repeat(199_000));
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 });
 
@@ -43,11 +54,11 @@ describe("이 미리보기로 Builder 시작", () => {
 
   test("one 미리보기: starts at once with the page, the conversation and its reply", async () => {
     const [preview] = previewsIn([{ role: "assistant", content: block("영화 지도"), key: "m12" }]);
-    render(<CarryToBuilder previews={[preview]} conversationId={5} conversationTitle="영화 제목을 검색하면" disabled={false} />);
+    render(<CarryToBuilder previews={[preview]} conversationId={5} disabled={false} />);
     fireEvent.click(screen.getByRole("button", { name: new RegExp(CARRY_LABEL) }));
     await waitFor(() => expect(api.push).toHaveBeenCalledWith("/builder/77"));
     expect(api.createProjectFromChat).toHaveBeenCalledWith(
-      expect.objectContaining({ html: preview.html, conversation_id: 5, reply_id: 12 }),
+      expect.objectContaining({ name: "", html: preview.html, conversation_id: 5, reply_id: 12 }),
     );
   });
 
@@ -56,7 +67,7 @@ describe("이 미리보기로 Builder 시작", () => {
       { role: "assistant", content: block("첫 시안"), key: "m2" },
       { role: "assistant", content: block("둘째 시안"), key: "m4" },
     ]);
-    render(<CarryToBuilder previews={previews} conversationId={5} conversationTitle="" disabled={false} />);
+    render(<CarryToBuilder previews={previews} conversationId={5} disabled={false} />);
     fireEvent.click(screen.getByRole("button", { name: new RegExp(CARRY_LABEL) }));
     const newest = screen.getByRole("radio", { name: /둘째 시안/ }) as HTMLInputElement;
     expect(newest.checked).toBe(true);

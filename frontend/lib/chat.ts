@@ -663,21 +663,47 @@ export interface ChatPreview {
   title: string;
 }
 
-const HTML_BLOCK = /```html[^\n]*\n([\s\S]*?)\n```/g;
+// A whole ```html block, the language exactly "html" (any case, as the
+// reply view reads it), fences at line starts; empty blocks match empty.
+const HTML_BLOCK = /^```html[ \t]*\r?\n([\s\S]*?)^```[ \t]*\r?$/gim;
 
-/** The page's `<title>`, else its first heading — as the server reads it. */
+/** Only the page's head is searched for its name (it may be 200 KB). */
+const TITLE_SCAN_CHARS = 20_000;
+
+function between(head: string, opener: string, closer: string): string | null {
+  const lower = head.toLowerCase();
+  let start = lower.indexOf(opener);
+  while (start !== -1) {
+    const next = lower.charAt(start + opener.length);
+    if (next === ">" || next === " " || next === "/" || next === "\t" || next === "\n" || next === "\r") {
+      const open = lower.indexOf(">", start);
+      const end = open === -1 ? -1 : lower.indexOf(closer, open);
+      return open === -1 || end === -1 ? null : head.slice(open + 1, end).slice(0, 1000);
+    }
+    start = lower.indexOf(opener, start + 1);
+  }
+  return null;
+}
+
+function plainText(fragment: string): string {
+  let text = fragment.replace(/<[^<>]{0,500}>/g, " ");
+  if (typeof DOMParser !== "undefined") {
+    text = new DOMParser().parseFromString(`<!doctype html><body>${text}`, "text/html").body.textContent ?? text;
+  }
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** The page's `<title>`, else its first heading — as the server names it (30 characters). */
 export function pageTitle(page: string): string | null {
-  const plain = (fragment: string) =>
-    fragment
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/\s+/g, " ")
-      .trim();
-  for (const pattern of [/<title[^>]*>([\s\S]*?)<\/title>/i, /<h[12][^>]*>([\s\S]*?)<\/h[12]>/i]) {
-    const found = pattern.exec(page);
-    if (found && plain(found[1])) return plain(found[1]);
+  const head = page.slice(0, TITLE_SCAN_CHARS);
+  for (const [opener, closer] of [
+    ["<title", "</title"],
+    ["<h1", "</h1"],
+    ["<h2", "</h2"],
+  ] as const) {
+    const inside = between(head, opener, closer);
+    const text = inside === null ? "" : plainText(inside);
+    if (text) return text.length > 30 ? `${text.slice(0, 30)}…` : text;
   }
   return null;
 }
@@ -691,7 +717,7 @@ export function previewsIn(
     if (message.role !== "assistant" || message.streaming) continue;
     const id = /^m(\d+)$/.exec(message.key);
     for (const match of message.content.matchAll(HTML_BLOCK)) {
-      const html = match[1];
+      const html = match[1].replace(/\r$/gm, "");
       if (!html.trim()) continue;
       found.push({ html, replyId: id ? Number(id[1]) : null, title: pageTitle(html) ?? "제목 없는 미리보기" });
     }

@@ -180,11 +180,11 @@ describe("코드 보기 · 다운로드 · Builder로 보내기", () => {
     fireEvent.click(screen.getByRole("button", { name: "Builder로 보내기" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/builder/99"));
     // The chat sentence is a request, never the project's description (ui-improvements).
-    expect(projects.createProjectFromChat).toHaveBeenCalledWith({
-      name: "동아리 소개",
-      description: "",
-      html: PAGE,
-    });
+    // chat-to-builder-carry: the conversation and the reply go too, for SPEC.md.
+    expect(projects.createProjectFromChat).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "", description: "", html: PAGE, conversation_id: expect.anything() }),
+    );
+    expect(projects.createProjectFromChat.mock.calls[0][0]).toHaveProperty("reply_id");
   });
 
   test("SVG에는 Builder로 보내기가 없다", () => {
