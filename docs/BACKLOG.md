@@ -567,6 +567,50 @@ Three things to carry into **budget-by-provider**:
 
 New UI requests go here until they are folded into a UI batch.
 
+- **builder-first-build-running** — owner, 2026-10-17, looking at a first
+  build on production ("처음 build할때도 ui 적용이 되니" — then "아직
+  배포전인데 저것도 적용이 될까 해서 채팅 창만 한 것 같아", "둘다 목업
+  만들어"). Follow-up to `running-state-calm`: the new running look
+  (`BuilderRunPanel`) is drawn inside `PreviewPane`, which exists only
+  once a project has files (`!empty`); a **first build** has none, so the
+  centre shows the older `PlanCard` (만들 계획, `0 / 5 파일` bar, step
+  list, `남은 파일 N개`) and the right Claude panel stays empty — no
+  stage list, big timer, top sweep, file chips or narrated log.
+  **Direction:** keep the 만들 계획 (the member approved it; it is also
+  the honest progress per file) and, while it runs, put the same stage
+  list (계획 확인 → 파일 쓰기 → 점검), large elapsed timer, header sweep and
+  faint aurora above it; fold the `0 / 5` bar into that header; the left
+  file list fills in as files finish (today "아직 파일이 없어요" until the
+  end); the Claude panel narrates the same events as for later builds;
+  the live code tail is optional here (the plan already lists purposes).
+  Same stages, same wording and same reduced-motion rules as the other
+  builds — one component, two hosts. Open point: the stage events already
+  exist for plan/file/check (`Progress`, `generation.files_done`), so
+  frontend only unless the first-build run lacks the per-file events.
+  Mock-up:
+  [`ui-requests/builder-first-build-running.html`](ui-requests/builder-first-build-running.html).
+  Not scheduled.
+- **publish-done-popup** — owner, 2026-10-17: "게시완료 하면 그냥 원래
+  사이트 배경에 흰글씨랑 컨페티 되거든 뭔가 복잡하단 말이지 차라리 그
+  toasting 처럼 팝업되는 그런걸 하는게 어떨까". Today
+  (`PublishCelebration.tsx`, `motion-modern` (5)) 게시 완료 covers the
+  whole screen for 1.9 s with light beams, a flash, confetti and white
+  "게시 완료!" letters. **Proposal (two shapes, mock-up shows both; A
+  recommended):** (A) a **popup card** in the toast style, bottom right
+  (top on phones): a check that pops with a few confetti pieces bursting
+  *around the check only*, "게시했어요", the app name · CtrlAIApps, and two
+  buttons — 열어 보기 (the app's address) and 링크 복사 — kept ~6 s because
+  it has buttons, closable, never covering the composer or taking focus;
+  (B) a one-line pill like the spend pill, ~3.5 s, tapping it opens
+  CtrlAIApps. Either way: no full-screen layer, no beams or flash; the
+  persistent notification row (`NotificationBell`) stays; reduced motion
+  keeps the card/pill without the confetti; the live-region line says
+  "게시했어요" once. Touches `PublishCelebration.tsx`,
+  `celebration.module.css`, the `celebrating` state in
+  `BuilderWorkspace.tsx`, its test. Frontend only. Small. Mock-up:
+  [`ui-requests/publish-done-popup.html`](ui-requests/publish-done-popup.html)
+  (현재 · A · B side by side). **Open: the owner picks A or B.** Not
+  scheduled.
 - **spend-toast-compact** — owner, 2026-10-17 (desktop session, with a
   screenshot of the 썼어요 toast: "알림이 조금 너무 큰 것 같아 … 줄이던가
   하는 거 있어?"), then picked **"A가 좋은데"** and **"지갑 쪽에서만
