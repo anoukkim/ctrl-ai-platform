@@ -15,17 +15,17 @@ from __future__ import annotations
 import secrets
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.config import Settings, get_settings
 from app.core.security import hash_password
 from app.db.session import get_db
-from app.models import AccountStatus, AuditAction, LoginAttempt, SiteSetting, User, UserSession
-from app.services import audit, backups, site_settings
+from app.api.routes.sign_in_methods import signed_in_recently
+from app.models import AccountStatus, AuditAction, SiteSetting, User, UserRole
+from app.services import account_sessions, audit, backups, site_settings
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -50,7 +50,9 @@ class PasswordResetRead(BaseModel):
     username: str
     #: Shown once; the server keeps only its hash.
     temporary_password: str
+    #: Site sessions and member-app sessions ended.
     sessions_ended: int
+    app_sessions_ended: int = 0
 
 
 @router.post(
@@ -61,12 +63,18 @@ class PasswordResetRead(BaseModel):
 def reset_member_password(
     user_id: int,
     payload: PasswordResetRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
     admin: User = Depends(require_admin),
 ) -> PasswordResetRead:
     if not payload.confirm:
         raise HTTPException(status_code=400, detail="비밀번호 재설정을 확인해 주세요.")
+    # Taking over an account: not from an admin browser left open long ago
+    # (the same rule as linking Google).
+    if not signed_in_recently(db, request, settings):
+        raise HTTPException(status_code=403, detail="보안을 위해 로그아웃했다가 다시 로그인한 뒤(10분 안에) 해 주세요.")
     member = db.get(User, user_id, with_for_update=True)
     if member is None:
         raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
@@ -74,13 +82,17 @@ def reset_member_password(
         raise HTTPException(status_code=400, detail="내 비밀번호는 Profile › 로그인 방법에서 바꿔 주세요.")
     if member.account_status is AccountStatus.FORMER:
         raise HTTPException(status_code=409, detail="탈퇴한 계정은 로그인할 수 없어 비밀번호를 바꾸지 않아요.")
+    if member.role is UserRole.ADMIN:
+        # One admin must not be able to become another (the audit log would
+        # then name the wrong person). Admins use Profile or set_password.
+        raise HTTPException(status_code=409, detail="관리자 계정은 여기서 재설정하지 않아요 — 본인이 Profile에서, 또는 서버의 set_password로.")
 
     password = temporary_password()
     had_password = member.password_hash is not None
     member.password_hash = hash_password(password)
-    # Whoever held the old password (or a cookie from it) is out.
-    ended = db.execute(delete(UserSession).where(UserSession.user_id == member.id)).rowcount or 0
-    db.execute(delete(LoginAttempt).where(LoginAttempt.username == member.username.lower()))
+    # Whoever held the old password (or a cookie from it) is out — of the
+    # site and of every member app, whose own sessions can spend the wallet.
+    ended = account_sessions.end_everywhere(db, member)
     audit.record(
         db,
         actor=admin,
@@ -90,12 +102,14 @@ def reset_member_password(
         target_label=member.username,
         summary=f"{member.display_name}에게 임시 비밀번호를 만들어 줬습니다"
         + ("" if had_password else " (비밀번호 로그인이 새로 생김)")
-        + f" — 로그인 {ended}곳 종료",
-        detail={"had_password": had_password, "sessions_ended": ended},
+        + f" — 로그인 {ended.site}곳, 앱 로그인 {ended.apps}곳 종료",
+        detail={"had_password": had_password, "sessions_ended": ended.site, "app_sessions_ended": ended.apps},
     )
     db.commit()
     response.headers["Cache-Control"] = "no-store"
-    return PasswordResetRead(username=member.username, temporary_password=password, sessions_ended=ended)
+    return PasswordResetRead(
+        username=member.username, temporary_password=password, sessions_ended=ended.site, app_sessions_ended=ended.apps
+    )
 
 
 # ------------------------------------------------------------ banner

@@ -10,7 +10,18 @@ from sqlalchemy.orm import Session
 
 from app.db import record_backup
 from app.main import app
-from app.models import AccountStatus, AuditLog, BackupRun, QuarterAllocation
+from app.models import (
+    AccountStatus,
+    AppLoginCode,
+    AppSession,
+    AuditLog,
+    BackupRun,
+    BuilderProject,
+    QuarterAllocation,
+    User,
+    UserRole,
+    UserSession,
+)
 from app.services import backups, site_settings
 
 from tests.conftest import JSON_HEADERS, MEMBER_PASSWORD
@@ -38,6 +49,44 @@ def test_an_admin_resets_a_members_password(client: TestClient, db_session: Sess
     assert row is not None and row.target_id == other_user.id
     # The audit row never holds the password.
     assert temporary not in (row.summary + str(row.detail))
+
+
+def test_a_reset_also_ends_the_members_app_sessions(client: TestClient, db_session: Session, other_user) -> None:
+    """A member app's own session can spend the wallet through 앱 AI; a
+    reset made because the account looks taken must end it too."""
+    app = BuilderProject(owner_user_id=other_user.id, name="앱", description="")
+    db_session.add(app)
+    db_session.flush()
+    later = datetime.now(timezone.utc) + timedelta(days=30)
+    session = AppSession(token_hash="a" * 64, user_id=other_user.id, project_id=app.id, expires_at=later)
+    code = AppLoginCode(code_hash="b" * 64, state_hash="c" * 64, user_id=other_user.id, project_id=app.id, expires_at=later)
+    db_session.add_all([session, code])
+    db_session.commit()
+    session_id, code_id = session.id, code.id
+
+    body = client.post(f"/api/admin/members/{other_user.id}/password-reset", json={"confirm": True}).json()
+    assert body["app_sessions_ended"] == 1
+    db_session.expire_all()
+    assert db_session.get(AppSession, session_id).revoked_at is not None
+    assert db_session.get(AppLoginCode, code_id) is None
+
+
+def test_a_reset_needs_a_recent_sign_in_and_a_member_target(client: TestClient, db_session: Session, dev_user, other_user) -> None:
+    other_admin = User(
+        username="admin2", email="admin2@ctrl.ai", password_hash="x", display_name="관리자 2",
+        role=UserRole.ADMIN, account_status=AccountStatus.ACTIVE,
+    )
+    db_session.add(other_admin)
+    db_session.commit()
+    # One admin cannot become another.
+    assert client.post(f"/api/admin/members/{other_admin.id}/password-reset", json={"confirm": True}).status_code == 409
+
+    # An admin browser signed in long ago signs in again first.
+    for row in db_session.query(UserSession).filter(UserSession.user_id == dev_user.id):
+        row.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
+    db_session.commit()
+    stale = client.post(f"/api/admin/members/{other_user.id}/password-reset", json={"confirm": True})
+    assert stale.status_code == 403 and "다시 로그인" in stale.json()["detail"]
 
 
 def test_password_reset_refuses_self_and_former(client: TestClient, db_session: Session, dev_user, other_user) -> None:

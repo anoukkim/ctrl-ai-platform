@@ -596,6 +596,8 @@ export interface PasswordReset {
   /** 한 번만 보여 줍니다 — 서버에는 해시만 남아요. */
   temporary_password: string;
   sessions_ended: number;
+  /** 회원 앱(apps.ctrlai.my)의 로그인도 함께 끝낸 수. */
+  app_sessions_ended?: number;
 }
 
 export function resetMemberPassword(userId: number): Promise<PasswordReset> {
@@ -654,14 +656,4 @@ export interface BackupLine {
   size_bytes: number;
   at: string | null;
   late: boolean;
-}
-
-export interface BackupStatus {
-  lines: BackupLine[];
-  late_after_hours: number;
-  is_development: boolean;
-}
-
-export function getBackupStatus(): Promise<BackupStatus> {
-  return request<BackupStatus>("/admin/backups");
 }

@@ -68,6 +68,16 @@ export default function AlertsPanel() {
   }
 
   const save = async () => {
+    const bad = FIELDS.find((field) => {
+      const value = Number(draft[field.key]);
+      const [low, high] = setting.ranges[field.key];
+      return draft[field.key].trim() === "" || !Number.isInteger(value) || value < low || value > high;
+    });
+    if (bad) {
+      const [low, high] = setting.ranges[bad.key];
+      setError(`${bad.label}: ${low}–${high} 사이의 정수로 적어 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     setSaved(false);

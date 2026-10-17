@@ -8,7 +8,7 @@
  *   - 임시 비밀번호는 확인한 뒤 한 번 보이고, 닫으면 사라진다.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -139,23 +139,36 @@ describe("비밀번호 재설정", () => {
   test("확인하면 임시 비밀번호가 한 번 보이고, 닫으면 사라진다", async () => {
     resetMemberPassword.mockResolvedValue({ username: "minji", temporary_password: "abcd-EFGH-2345-wxyz", sessions_ended: 2 });
     const askToConfirm = vi.fn();
-    const run = vi.fn(async (_text: string, action: () => Promise<unknown>) => {
-      await action();
-    });
+    const closeConfirm = vi.fn();
     const member = { user_id: 3, display_name: "민지" } as MemberDetail;
-    render(<PasswordReset member={member} busy={false} run={run} askToConfirm={askToConfirm} />);
+    render(<PasswordReset member={member} busy={false} askToConfirm={askToConfirm} closeConfirm={closeConfirm} />);
 
     await userEvent.click(screen.getByRole("button", { name: "비밀번호 재설정" }));
     expect(resetMemberPassword).not.toHaveBeenCalled();
     const request = askToConfirm.mock.calls[0][0];
     expect(request.danger).toBe(true);
-    await request.onConfirm("");
+    await act(() => request.onConfirm(""));
+    expect(closeConfirm).toHaveBeenCalled();
 
     const shown = await screen.findByTestId("temporary-password");
     expect(shown.textContent).toContain("abcd-EFGH-2345-wxyz");
+    // The live region announces the fact, never the password.
+    expect(screen.getByRole("status").textContent).not.toContain("abcd-EFGH-2345-wxyz");
     expect(shown.textContent).toContain("로그인 2곳");
     expect(resetMemberPassword).toHaveBeenCalledWith(3);
     await userEvent.click(screen.getByRole("button", { name: "닫기" }));
     expect(screen.queryByTestId("temporary-password")).toBeNull();
   });
+});
+
+test("재설정이 실패하면 오류를 보이고 확인창을 닫는다", async () => {
+  resetMemberPassword.mockRejectedValue(new Error("보안을 위해 다시 로그인한 뒤 해 주세요"));
+  const askToConfirm = vi.fn();
+  const closeConfirm = vi.fn();
+  render(<PasswordReset member={{ user_id: 3, display_name: "민지" } as MemberDetail} busy={false} askToConfirm={askToConfirm} closeConfirm={closeConfirm} />);
+  await userEvent.click(screen.getByRole("button", { name: "비밀번호 재설정" }));
+  await act(() => askToConfirm.mock.calls[0][0].onConfirm(""));
+  expect(closeConfirm).toHaveBeenCalled();
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(screen.queryByTestId("temporary-password")).toBeNull();
 });

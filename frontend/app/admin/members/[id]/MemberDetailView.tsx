@@ -307,9 +307,14 @@ export default function MemberDetailView({
             </button>
           ))}
         </div>
-        {/* 비밀번호 재설정: 내 계정은 Profile에서, 탈퇴한 계정은 로그인할 수 없어요. */}
-        {member.user_id !== currentUserId && member.account_status !== "former" && (
-          <PasswordReset member={member} busy={busy} run={run} askToConfirm={setConfirm} />
+        {/* 비밀번호 재설정: 내 계정과 관리자 계정은 Profile에서, 탈퇴한 계정은 로그인할 수 없어요. */}
+        {member.user_id !== currentUserId && member.account_status !== "former" && member.role !== "admin" && (
+          <PasswordReset
+            member={member}
+            busy={busy}
+            askToConfirm={setConfirm}
+            closeConfirm={() => setConfirm(null)}
+          />
         )}
       </section>
 
