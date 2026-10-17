@@ -21,7 +21,13 @@ import { useAdminQuarterOptional } from "../AdminQuarterProvider";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchHealth, type HealthResponse } from "@/lib/api";
-import { checkProvider, formatWhenOrNever, listProviders, type ProviderStatus } from "@/lib/admin";
+import {
+  checkProvider,
+  formatWhenOrNever,
+  listProviders,
+  type BackupLine,
+  type ProviderStatus,
+} from "@/lib/admin";
 import { describeError } from "@/lib/http";
 
 import styles from "../admin.module.css";
@@ -59,8 +65,37 @@ function providerDetail(provider: ProviderStatus): string {
     : `연결됨 · ${formatWhenOrNever(provider.last_success_at)}`;
 }
 
+/**
+ * 백업 한 줄 (admin-consolidation v3 (4)) — 서버의 백업 스크립트가 끝날 때
+ * 남긴 기록에서. 서버 안 백업이 없거나 알림 기준보다 오래됐으면 빨강. 서버 밖
+ * 백업은 설정했을 때만(기록이 한 번이라도 있을 때만) 따집니다.
+ */
+export function backupLight(lines: BackupLine[] | undefined, isDevelopment: boolean): Light | null {
+  if (lines === undefined) return null;
+  const local = lines.find((line) => line.kind === "local");
+  const offsite = lines.find((line) => line.kind === "offsite");
+  if (!local?.at) {
+    return {
+      key: "backup",
+      name: "백업",
+      tone: isDevelopment ? "muted" : "error",
+      detail: isDevelopment ? "개발 환경 — 백업 없음" : "기록 없음 · deploy/backup.sh",
+    };
+  }
+  const offsiteLate = Boolean(offsite?.at) && Boolean(offsite?.late);
+  const where = offsite?.at ? ` · 서버 밖 ${formatWhenOrNever(offsite.at)}` : "";
+  return {
+    key: "backup",
+    name: "백업",
+    tone: local.late || offsiteLate ? "error" : "ok",
+    detail: `${local.late ? "늦음 · " : ""}${formatWhenOrNever(local.at)}${where}`,
+  };
+}
+
 export default function HealthStrip() {
-  const thumbs = useAdminQuarterOptional()?.dashboard?.thumbnail_server;
+  const dashboard = useAdminQuarterOptional()?.dashboard;
+  const thumbs = dashboard?.thumbnail_server;
+  const backup = backupLight(dashboard?.backups, dashboard?.is_development ?? false);
   const [health, setHealth] = useState<HealthResponse | null | "down">(null);
   const [providers, setProviders] = useState<ProviderStatus[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +173,7 @@ export default function HealthStrip() {
           },
         ]
       : []),
+    ...(backup ? [backup] : []),
     ...(providers ?? []).map((provider) => ({
       key: provider.key,
       name: provider.name,

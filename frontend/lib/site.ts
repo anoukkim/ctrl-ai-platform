@@ -34,7 +34,27 @@ export interface SiteInfo {
    * 열려요"라고 말합니다 (오너, 2026-10-16: 가운데 자물쇠 하나 + 짧은 안내).
    */
   video_open?: boolean;
+  /**
+   * 맨 위 공지 띠 (admin-consolidation v3 (4)) — 문구, 보이기, 의견 보내기
+   * 링크. 관리자가 Admin › System에서 바꿉니다. 저장한 적이 없으면 베타에서만
+   * 보입니다. 옛 백엔드처럼 없으면 `siteBanner()`가 베타 여부로 채웁니다.
+   */
+  banner?: SiteBanner;
   test_mode: Record<TestModeArea, boolean>;
+}
+
+export interface SiteBanner {
+  shown: boolean;
+  text: string;
+  feedback_link: boolean;
+}
+
+/** 공지 띠의 기본 문구 — 백엔드 services/site_settings.py와 같습니다. */
+export const DEFAULT_BANNER_TEXT = "CTRL+AI는 지금 초대받은 회원과 함께 시험 운영 중입니다.";
+
+/** 이 페이지가 그릴 공지 띠. */
+export function siteBanner(site: SiteInfo): SiteBanner {
+  return site.banner ?? { shown: site.is_beta, text: DEFAULT_BANNER_TEXT, feedback_link: true };
 }
 
 /** Video Generator가 잠겨 있을 때 회원이 보는 한 문장. */

@@ -6,7 +6,7 @@
  * "처리할 일이 있으면 위에, 나머지는 한눈에." 위에서부터:
  *
  * 1. **처리할 일** — 승인 대기, 열린 신고. 0인 것은 보이지 않아요.
- * 2. **알림** — 기준을 넘으면 저절로: 지원금의 80%를 넘게 쓴 회원,
+ * 2. **알림** — 기준(Admin › System › 알림 기준)을 넘으면 저절로: 지원금을 많이 쓴 회원, 늦은 백업,
  *    Anthropic 이번 달 예산, 서버 썸네일, 연결에 문제가 생긴 제공자, 첨부
  *    파일 디스크.
  * 3. **이번 주 가장 많이 쓴 곳** — 메뉴별 비율과 가장 많이 쓴 앱.
@@ -17,7 +17,7 @@
 
 import Link from "next/link";
 
-import { type AdminDashboard } from "@/lib/admin";
+import { DEFAULT_ALERTS, formatWhenOrNever, type AdminDashboard } from "@/lib/admin";
 import { formatKrw } from "@/lib/quarters";
 
 import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
@@ -27,8 +27,9 @@ import styles from "./admin.module.css";
 import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
 
-/** Anthropic의 달 예산과 지원금 — 이만큼 쓰면 알림. */
-const ALERT_PCT = 80;
+/** 첨부 파일 디스크 — 이만큼 차면 알림. 지원금·월 예산·백업은 알림 기준
+ *  (Admin › System, `dashboard.alert_thresholds`)을 따릅니다. */
+const DISK_ALERT_PCT = 80;
 
 interface Todo {
   key: string;
@@ -69,6 +70,7 @@ export function todosOf(dashboard: AdminDashboard): Todo[] {
 
 export function alertsOf(dashboard: AdminDashboard): Alert[] {
   const alerts: Alert[] = [];
+  const limits = dashboard.alert_thresholds ?? DEFAULT_ALERTS;
   for (const name of dashboard.failing_providers) {
     alerts.push({ key: `provider-${name}`, tone: "warn", text: `${name} 연결에 문제가 있어요`, note: "마지막 호출이나 확인이 실패했어요", href: "/admin/system" });
   }
@@ -77,7 +79,7 @@ export function alertsOf(dashboard: AdminDashboard): Alert[] {
       key: `wallet-${wallet.user_id}`,
       tone: "warn",
       text: `${wallet.display_name} · 지원금 ${wallet.used_pct}% 사용`,
-      note: `${ALERT_PCT}% 넘음 · ${formatKrw(wallet.remaining_krw)} 남음`,
+      note: `${limits.wallet_pct}% 넘음 · ${formatKrw(wallet.remaining_krw)} 남음`,
       href: `/admin/members/${wallet.user_id}`,
     });
   }
@@ -85,11 +87,29 @@ export function alertsOf(dashboard: AdminDashboard): Alert[] {
   if (month && month.used_pct !== null && month.budget_usd) {
     alerts.push({
       key: "anthropic",
-      tone: month.used_pct >= ALERT_PCT ? "warn" : "info",
+      tone: month.used_pct >= limits.month_pct ? "warn" : "info",
       text: `Anthropic 이번 달 예산 ${month.used_pct}%`,
-      note: `$${month.used_usd.toFixed(2)} / $${month.budget_usd}${month.used_pct >= ALERT_PCT ? " · Console 한도에 닿으면 Chat이 멈춰요" : ""}`,
+      note: `$${month.used_usd.toFixed(2)} / $${month.budget_usd}${month.used_pct >= limits.month_pct ? " · Console 한도에 닿으면 Chat이 멈춰요" : ""}`,
       href: tabHref("quarters", "budget"),
     });
+  }
+  if (!dashboard.is_development && dashboard.backups) {
+    const local = dashboard.backups.find((line) => line.kind === "local");
+    const offsite = dashboard.backups.find((line) => line.kind === "offsite");
+    if (!local?.at) {
+      alerts.push({ key: "backup", tone: "warn", text: "백업 기록이 없어요", note: "서버에서 deploy/backup.sh가 도는지 확인해 주세요", href: "/admin/system" });
+    } else if (local.late) {
+      alerts.push({
+        key: "backup",
+        tone: "warn",
+        text: `마지막 백업이 ${limits.backup_hours}시간보다 오래됐어요`,
+        note: `${formatWhenOrNever(local.at)} · 매일 도는 작업(cron)을 확인해 주세요`,
+        href: "/admin/system",
+      });
+    }
+    if (offsite?.at && offsite.late) {
+      alerts.push({ key: "backup-offsite", tone: "warn", text: "서버 밖 백업이 늦어요", note: formatWhenOrNever(offsite.at), href: "/admin/system" });
+    }
   }
   const thumbs = dashboard.thumbnail_server ?? "off";
   if (thumbs !== "off") {
@@ -103,7 +123,7 @@ export function alertsOf(dashboard: AdminDashboard): Alert[] {
   }
   const used = dashboard.attachment_bytes;
   const limit = dashboard.attachment_limit_bytes;
-  if (used !== undefined && limit && used / limit >= ALERT_PCT / 100) {
+  if (used !== undefined && limit && used / limit >= DISK_ALERT_PCT / 100) {
     const mb = Math.round(used / (1024 * 1024));
     const gb = Math.round(limit / (1024 * 1024 * 1024));
     alerts.push({ key: "disk", tone: "warn", text: `첨부 파일 ${mb}MB / ${gb}GB — 거의 찼어요`, href: "/admin/system" });

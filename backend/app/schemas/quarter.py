@@ -407,6 +407,22 @@ class MonthBudgetRead(BaseModel):
     used_pct: int | None = None
 
 
+class AlertThresholdsRead(BaseModel):
+    """admin-consolidation v3 (4): 알림 기준 (Admin › System)."""
+
+    wallet_pct: int = 80
+    month_pct: int = 80
+    backup_hours: int = 48
+
+
+class BackupAlertRead(BaseModel):
+    kind: str
+    file_name: str | None = None
+    size_bytes: int = 0
+    at: datetime | None = None
+    late: bool = False
+
+
 class PlaceRead(BaseModel):
     label: str
     krw: int
@@ -463,6 +479,10 @@ class AdminDashboard(BaseModel):
     anthropic_month: MonthBudgetRead | None = None
     #: "off" | "ok" | "down"
     thumbnail_server: str = "off"
+    #: admin-consolidation v3 (4): the thresholds above alerts use, and the
+    #: last local / off-site backup the server reported.
+    alert_thresholds: AlertThresholdsRead = Field(default_factory=lambda: AlertThresholdsRead())
+    backups: list[BackupAlertRead] = Field(default_factory=list)
     week_top: WeekTopRead = Field(default_factory=lambda: WeekTopRead())
 
 

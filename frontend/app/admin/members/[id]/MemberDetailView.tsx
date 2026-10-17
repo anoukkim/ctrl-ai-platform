@@ -38,6 +38,7 @@ import { useAdminQuarter } from "../../AdminQuarterProvider";
 import { useBreadcrumbTail } from "../../AdminFrame";
 import AdminTable, { type Column } from "../../components/AdminTable";
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
+import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import ResultMessage, { type Result } from "../../components/ResultMessage";
 import {
   AccountBadge,
@@ -51,6 +52,7 @@ import styles from "../../admin.module.css";
 import Fact from "./Fact";
 import MemberDeletedWork from "./MemberDeletedWork";
 import MemberUsagePanel from "./MemberUsagePanel";
+import PasswordReset from "./PasswordReset";
 import WithdrawalPanel from "./WithdrawalPanel";
 import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
@@ -79,6 +81,8 @@ export default function MemberDetailView({
 
   // In the list's panel the breadcrumb stays the list's.
   useBreadcrumbTail(embedded ? null : (member?.display_name ?? null));
+  const { state: viewer } = useCurrentUser();
+  const currentUserId = viewer.phase === "authenticated" ? viewer.user.id : null;
 
   const load = useCallback(async () => {
     try {
@@ -303,6 +307,10 @@ export default function MemberDetailView({
             </button>
           ))}
         </div>
+        {/* 비밀번호 재설정: 내 계정은 Profile에서, 탈퇴한 계정은 로그인할 수 없어요. */}
+        {member.user_id !== currentUserId && member.account_status !== "former" && (
+          <PasswordReset member={member} busy={busy} run={run} askToConfirm={setConfirm} />
+        )}
       </section>
 
       {/* ---------- 이번 분기 참여 ---------- */}

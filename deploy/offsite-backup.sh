@@ -61,3 +61,8 @@ if [ "$size" != "$local_size" ]; then
   exit 1
 fi
 echo "서버 밖 백업 완료: $target ($local_size bytes)"
+
+# Tell Admin › System (admin-consolidation v3 (4)); never fails the upload.
+(cd "$(dirname "$0")/.." && docker compose -f docker-compose.prod.yml exec -T api \
+  python -m app.db.record_backup offsite "$name" "$local_size" >/dev/null 2>&1) \
+  || echo "(Admin에 백업 기록을 남기지 못했습니다 — 버킷의 파일은 그대로 있습니다)"

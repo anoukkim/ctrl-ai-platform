@@ -6,14 +6,15 @@
  * 로그인과 상관없이 읽습니다. 회원가입 화면의 저장 위치 안내와 베타
  * 배너는 로그인하기 전에도 보여야 하기 때문입니다.
  *
- * 베타라면 `<html data-beta>`를 붙입니다. 배너 높이(`--banner-h`)가
- * 거기에 매달려 있어, 화면 높이를 꽉 채우는 Chat과 작업 공간이 배너만큼
- * 줄어듭니다.
+ * 공지 띠가 보이면 `<html data-beta>`를 붙입니다. 띠 높이(`--banner-h`)가
+ * 거기에 매달려 있어, 화면 높이를 꽉 채우는 Chat과 작업 공간이 띠만큼
+ * 줄어듭니다. 관리자가 띠를 숨기면(admin-consolidation v3 (4)) 높이도 0이
+ * 됩니다.
  */
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-import { UNKNOWN_SITE, fetchSite, type SiteInfo } from "@/lib/site";
+import { UNKNOWN_SITE, fetchSite, siteBanner, type SiteInfo } from "@/lib/site";
 
 const SiteContext = createContext<SiteInfo>(UNKNOWN_SITE);
 /** 백엔드의 답을 받았는지(또는 못 받는다고 알았는지). 로그인 화면이 Google
@@ -50,11 +51,12 @@ export default function SiteProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
+  const bannerShown = siteBanner(site).shown;
   useEffect(() => {
     const root = document.documentElement;
-    if (site.is_beta) root.dataset.beta = "";
+    if (bannerShown) root.dataset.beta = "";
     else delete root.dataset.beta;
-  }, [site.is_beta]);
+  }, [bannerShown]);
 
   return (
     <SiteContext.Provider value={site}>

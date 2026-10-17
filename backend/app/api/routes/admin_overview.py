@@ -39,6 +39,8 @@ from app.models import (
 )
 from app.schemas.withdrawal import WithdrawalRead
 from app.schemas.quarter import (
+    AlertThresholdsRead,
+    BackupAlertRead,
     MonthBudgetRead,
     PlaceRead,
     WalletAlertRead,
@@ -60,8 +62,9 @@ from app.schemas.quarter import (
     StatusCounts,
     TopUpRead,
 )
-from app.services import admin_alerts, admin_stats, audit, providers
+from app.services import admin_alerts, admin_stats, audit, providers, site_settings
 from app.services import attachments as attachments_service
+from app.services import backups as backups_service
 from app.services import feedback_images as feedback_images_service
 from app.services.withdrawal import latest_withdrawal
 from app.services.quarters import current_quarter
@@ -207,6 +210,7 @@ def read_dashboard(
     # 회원 / 신청 승인 / 분기 설정 cannot show different numbers.
     figures = admin_stats.dashboard_counts(db, quarter)
     top = admin_alerts.week_top(db)
+    thresholds = site_settings.alerts(db)
 
     return AdminDashboard(
         quarter=QuarterRead.model_validate(quarter) if quarter is not None else None,
@@ -229,7 +233,11 @@ def read_dashboard(
         attachment_bytes=attachments_service.total_bytes(db) + feedback_images_service.total_bytes(db),
         attachment_limit_bytes=settings.chat_attachment_total_limit_gb * 1024 * attachments_service.MB,
         open_reports=admin_alerts.open_reports(db),
-        wallet_alerts=[WalletAlertRead(**vars(alert)) for alert in admin_alerts.wallet_alerts(db, quarter)],
+        wallet_alerts=[
+            WalletAlertRead(**vars(alert)) for alert in admin_alerts.wallet_alerts(db, quarter, thresholds.wallet_pct / 100)
+        ],
+        alert_thresholds=AlertThresholdsRead(**vars(thresholds)),
+        backups=[BackupAlertRead(**vars(line)) for line in backups_service.status(db, thresholds.backup_hours)],
         anthropic_month=MonthBudgetRead(**vars(admin_alerts.anthropic_month(db, settings))),
         thumbnail_server=admin_alerts.thumbnail_server(settings),
         week_top=WeekTopRead(

@@ -65,7 +65,8 @@ function isOut(member: MemberWithMembership): boolean {
   return member.account_status !== "former" && member.membership_status !== "active" && !isPending(member);
 }
 
-/** 사용률 at which the bar turns amber (the Dashboard alert's 80%). */
+/** 사용률 at which the bar turns amber when 알림 기준 is not loaded yet
+ *  (the Dashboard alert's threshold, Admin › System). */
 const USAGE_WARN_PCT = 80;
 
 /** 한 쪽에 보여 줄 줄 수. 넘치면 쪽을 나눕니다. */
@@ -73,7 +74,8 @@ const PAGE_SIZE = 25;
 
 export default function MemberList() {
   const router = useRouter();
-  const { selected, refresh: refreshDashboard } = useAdminQuarter();
+  const { selected, refresh: refreshDashboard, dashboard } = useAdminQuarter();
+  const warnPct = dashboard?.alert_thresholds?.wallet_pct ?? USAGE_WARN_PCT;
   const quarterId = selected?.id ?? null;
 
   /**
@@ -294,7 +296,7 @@ export default function MemberList() {
         const pct = usedPct(member);
         if (pct === null || frozen) return <span className="small dim">—</span>;
         return (
-          <span className={styles.usageCell} data-warn={pct >= USAGE_WARN_PCT ? "true" : undefined}>
+          <span className={styles.usageCell} data-warn={pct >= warnPct ? "true" : undefined}>
             <span className={styles.usageBar} aria-hidden="true">
               <span style={{ width: `${pct}%` }} />
             </span>
