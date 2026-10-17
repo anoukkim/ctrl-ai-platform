@@ -590,6 +590,10 @@ New UI requests go here until they are folded into a UI batch.
   Mock-up:
   [`ui-requests/builder-first-build-running.html`](ui-requests/builder-first-build-running.html).
   Not scheduled.
+  **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
+  "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
+  묶음으로, 같은 규칙으로 해줘") — one batch with thumbnail-choice, after
+  fix-draft-thumbs.
 - **publish-done-popup** — owner, 2026-10-17: "게시완료 하면 그냥 원래
   사이트 배경에 흰글씨랑 컨페티 되거든 뭔가 복잡하단 말이지 차라리 그
   toasting 처럼 팝업되는 그런걸 하는게 어떨까". Today
@@ -610,6 +614,10 @@ New UI requests go here until they are folded into a UI batch.
   [`ui-requests/publish-done-popup.html`](ui-requests/publish-done-popup.html)
   (현재 · A · B side by side). **Owner picked A (2026-10-17: "게시 완료
   팝업을 A로")** — B is dropped. Not scheduled.
+  **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
+  "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
+  묶음으로, 같은 규칙으로 해줘") — one batch with thumbnail-choice, after
+  fix-draft-thumbs.
 - **spend-toast-compact** — owner, 2026-10-17 (desktop session, with a
   screenshot of the 썼어요 toast: "알림이 조금 너무 큰 것 같아 … 줄이던가
   하는 거 있어?"), then picked **"A가 좋은데"** and **"지갑 쪽에서만
