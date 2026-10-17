@@ -99,10 +99,6 @@ class CheckResult:
 # --------------------------------------------------------------- 기록
 
 
-def get_status(db: Session, provider: str) -> ProviderStatus | None:
-    return db.get(ProviderStatus, provider)
-
-
 def all_status(db: Session) -> dict[str, ProviderStatus]:
     return {row.provider: row for row in db.scalars(select(ProviderStatus))}
 

@@ -80,11 +80,6 @@
   opacity: 0.6;
 }
 
-.note {
-  color: var(--text-dim);
-  font-size: var(--fs-chip);
-}
-
 .error {
   color: var(--error-text);
   font-size: var(--fs-chip);

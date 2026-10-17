@@ -106,38 +106,6 @@
   line-height: 1.5;
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.chip {
-  padding: 0.15rem 0.55rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--panel-2);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    color 0.12s ease;
-}
-
-.chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.chipActive {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent);
-  font-weight: 600;
-}
-
 .actions {
   display: grid;
   gap: 0.5rem;
@@ -574,7 +542,6 @@
   color: var(--text);
   font-weight: 600;
 }
-
 
 /* ---------- 생성 설정 (길이 / 비율 / 소리) ----------
  *

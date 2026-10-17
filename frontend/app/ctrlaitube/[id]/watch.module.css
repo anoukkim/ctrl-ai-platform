@@ -77,26 +77,6 @@
  * 어느 쪽이 작든 영상은 칸 안에 들어가고 비율은 그대로입니다. 앞의
  * width는 container query를 모르는 브라우저를 위한 대비책입니다 — 뒤
  * 선언이 무효가 되어도 적어도 칸을 넘지는 않습니다. */
-.player {
-  position: relative;
-  flex: 0 0 auto;
-  aspect-ratio: var(--player-ar, 16 / 9);
-  width: 100%;
-  width: min(100%, calc(100cqh * (var(--player-ar, 1.7778))));
-  max-width: 100%;
-  max-height: 100%;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  overflow: hidden;
-  color: var(--on-accent);
-  text-align: center;
-}
-
-.playerInner {
-  position: relative;
-  z-index: 1;
-}
 
 /* 진짜 영상(promo-videos): 틀을 채우고, 자막 줄(소리 켜기·크게 보기)은
    틀 아래가 아니라 안쪽 바닥에 둡니다. */
@@ -196,13 +176,6 @@
   font-weight: 600;
 }
 
-.playerNote {
-  margin-top: 0.5rem;
-  font-size: var(--fs-chip);
-  line-height: 1.6;
-  opacity: 0.8;
-}
-
 /* ---------- 제목과 한 줄 요약 ---------- */
 
 .title {
@@ -248,66 +221,7 @@
   line-height: 1.65;
 }
 
-.prompt {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  color: var(--text-muted);
-  font-size: var(--fs-section);
-  line-height: 1.65;
-}
-
 /* ---------- 자세히 ---------- */
-
-.extra {
-  min-width: 0;
-}
-
-.details {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-}
-
-.detailsSummary {
-  padding: 0.75rem 1rem;
-  color: var(--text-muted);
-  font-size: var(--fs-body);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.detailsSummary:hover {
-  color: var(--text);
-}
-
-.detailsBody {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0 1rem 0.85rem;
-}
-
-.detailRow {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--border);
-  font-size: var(--fs-body);
-}
-
-.detailRow:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.detailLabel {
-  color: var(--text-muted);
-}
 
 /* ---------- 오른쪽 칸 ---------- */
 
@@ -323,19 +237,6 @@
 }
 
 /* ---------- YouTube 탭 ---------- */
-
-.youtubePane {
-  display: grid;
-  justify-items: start;
-  gap: 0.6rem;
-  padding: 1rem;
-}
-
-.youtubeNote {
-  color: var(--text-muted);
-  font-size: var(--fs-body);
-  line-height: 1.6;
-}
 
 /* ---------- 넓은 칸 ---------- */
 

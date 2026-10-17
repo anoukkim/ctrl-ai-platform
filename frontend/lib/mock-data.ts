@@ -26,13 +26,6 @@ import type { MembershipStatus } from "./quarters";
 export type { MembershipStatus };
 export { MEMBERSHIP_LABEL } from "./quarters";
 
-/** 각 상태가 무엇을 뜻하는지 설명하는 문구. 상세 화면에서만 씁니다. */
-export const MEMBERSHIP_DESCRIPTION: Record<"active" | "inactive" | "former", string> = {
-  active: "이번 분기에 참여 중이며 모든 창작 기능을 사용할 수 있습니다.",
-  inactive: "이번 분기에는 참여하지 않지만, 만든 결과물은 그대로 남아 있습니다.",
-  former: "커뮤니티를 떠났지만, 게시한 작품에는 만든 사람의 이름이 계속 표시됩니다.",
-};
-
 export interface Creator {
   username: string;
   displayName: string;
@@ -56,13 +49,6 @@ export function formatDate(iso: string): string {
 
 export type ProjectStatus = "draft" | "building" | "ready" | "published";
 
-export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
-  draft: "초안",
-  building: "작업 중",
-  ready: "완료",
-  published: "게시됨",
-};
-
 export interface Project {
   id: string;
   name: string;
@@ -73,92 +59,6 @@ export interface Project {
   githubRepo: string | null;
   updatedAt: string;
 }
-
-export const MOCK_PROJECTS: Project[] = [
-  {
-    id: "p-habit",
-    name: "습관 한눈에",
-    description: "매일 습관을 체크하고 한 주의 달성률을 확인하는 앱입니다.",
-    status: "building",
-    framework: "Next.js",
-    githubRepo: null,
-    updatedAt: "2026-09-27",
-  },
-  {
-    id: "p-budget",
-    name: "가계부",
-    description: "지출을 분류별로 기록하고 이번 달 합계를 보여 줍니다.",
-    status: "published",
-    framework: "Next.js",
-    githubRepo: "yurikim/budget-book",
-    updatedAt: "2026-09-12",
-  },
-  {
-    id: "p-recipe",
-    name: "레시피 보관함",
-    description: "자주 만드는 요리를 저장하고 장보기 목록을 만들어 줍니다.",
-    status: "draft",
-    framework: "Next.js",
-    githubRepo: null,
-    updatedAt: "2026-09-02",
-  },
-];
-
-export const MOCK_BUILD_OUTPUT = [
-  "> next build",
-  "  ✓ 빌드 완료",
-  "  ✓ 페이지 생성 (3/3)",
-  "  미리보기 준비됨 — /preview/p-habit",
-];
-
-/* ------------------------------------------------------------------ */
-/* Video Generator                                                     */
-/* ------------------------------------------------------------------ */
-
-export interface VideoStep {
-  label: string;
-  detail: string;
-  /** 각 단계를 담당하는 주체. 서비스 이름은 영어를 유지합니다. */
-  provider: string;
-}
-
-export const VIDEO_STEPS: VideoStep[] = [
-  {
-    label: "아이디어 입력",
-    detail: "만들고 싶은 영상을 한국어로 자유롭게 적습니다.",
-    provider: "나",
-  },
-  {
-    label: "Claude로 프롬프트 다듬기",
-    detail: "Claude가 장면 설명과 대본을 정리해 줍니다.",
-    provider: "Claude",
-  },
-  {
-    label: "Higgsfield로 영상 생성",
-    detail: "정리된 내용을 바탕으로 영상을 만듭니다.",
-    provider: "Higgsfield",
-  },
-  {
-    label: "결과 확인",
-    detail: "완성된 영상이 내 보관함에 저장됩니다.",
-    provider: "CTRL+AI",
-  },
-  {
-    label: "YouTube에 게시",
-    detail: "내 채널에 올리고 CtrlAITube에서 공유합니다.",
-    provider: "YouTube",
-  },
-];
-
-export const VIDEO_STYLE_OPTIONS = ["영화 같은 분위기", "다큐멘터리", "애니메이션", "타임랩스"];
-export const VIDEO_DURATION_OPTIONS = ["10초", "15초", "20초", "30초"];
-export const VIDEO_ASPECT_OPTIONS = ["9:16 Shorts", "16:9", "1:1"];
-
-/** 사용자는 한국어로 프롬프트를 작성합니다. 영어로 쓸 필요가 없습니다. */
-export const MOCK_VIDEO_PROMPT =
-  "비 오는 밤 서울 골목을 걷는 사람의 모습을 감성적인 영화 분위기로 만들어줘. 네온사인이 젖은 도로에 반사되고 차분한 느낌의 15초 세로 영상.";
-
-/* ---------- Video Generator: 반복 작업용 목업 상태 ---------- */
 
 /**
  * 하나의 영상 프로젝트는 여러 버전을 가질 수 있습니다.
@@ -174,80 +74,6 @@ export interface VideoVersion {
   artwork: [string, string];
   note: string;
 }
-
-export const VIDEO_PROJECT_NAME = "서울의 밤";
-
-export const MOCK_VIDEO_VERSIONS: VideoVersion[] = [
-  {
-    id: "v1",
-    label: "v1",
-    createdAt: "17:42",
-    status: "ready",
-    prompt:
-      "비 오는 밤 서울 골목을 걷는 사람을 감성적인 영화 분위기의 15초 세로 영상으로 만들어줘. 네온사인이 젖은 도로에 반사되고 전체적으로 차분한 느낌.",
-    artwork: ["#1e1b4b", "#7c3aed"],
-    note: "첫 번째 생성 결과입니다.",
-  },
-  {
-    id: "v2",
-    label: "v2",
-    createdAt: "17:48",
-    status: "ready",
-    prompt:
-      "비 오는 밤 서울 골목을 걷는 사람을 감성적인 영화 분위기의 15초 세로 영상으로 만들어줘. 전체 조명을 낮추고 네온사인 반사를 더 강조해줘.",
-    artwork: ["#0f172a", "#6d28d9"],
-    note: "조명을 낮추고 네온 반사를 강조했습니다.",
-  },
-  {
-    id: "v3",
-    label: "v3",
-    createdAt: "18:01",
-    status: "ready",
-    prompt:
-      "비 오는 밤 서울 골목을 걷는 사람을 감성적인 영화 분위기의 15초 세로 영상으로 만들어줘. 조명은 어둡게, 네온 반사는 강조하고, 카메라는 느린 트래킹 샷으로 천천히 움직여줘.",
-    artwork: ["#0c1222", "#4338ca"],
-    note: "카메라를 느린 트래킹 샷으로 바꿨습니다.",
-  },
-];
-
-export interface VideoChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  body: string;
-  /** Claude가 프롬프트 수정본을 제안한 경우, 적용 버튼에 쓰입니다. */
-  revisedPrompt?: string;
-}
-
-export const MOCK_VIDEO_CHAT: VideoChatMessage[] = [
-  {
-    id: "m1",
-    role: "user",
-    body: "조금 더 어두운 분위기로 바꿔줘.",
-  },
-  {
-    id: "m2",
-    role: "assistant",
-    body: "좋아요. 전체 조명을 낮추고 네온 반사를 강조하는 방향으로 프롬프트를 수정했어요.",
-    revisedPrompt:
-      "비 오는 밤 서울 골목을 걷는 사람을 감성적인 영화 분위기의 15초 세로 영상으로 만들어줘. 전체 조명을 낮추고 네온사인 반사를 더 강조해줘.",
-  },
-  {
-    id: "m3",
-    role: "user",
-    body: "카메라 움직임은 조금 더 천천히 해줘.",
-  },
-  {
-    id: "m4",
-    role: "assistant",
-    body: "카메라 이동을 느린 트래킹 샷으로 조정해볼게요. 인물을 따라가는 속도를 줄이면 차분한 느낌이 더 살아납니다.",
-    revisedPrompt:
-      "비 오는 밤 서울 골목을 걷는 사람을 감성적인 영화 분위기의 15초 세로 영상으로 만들어줘. 조명은 어둡게, 네온 반사는 강조하고, 카메라는 느린 트래킹 샷으로 천천히 움직여줘.",
-  },
-];
-
-/* ------------------------------------------------------------------ */
-/* CtrlAIApps                                                         */
-/* ------------------------------------------------------------------ */
 
 export type ReactionType = "like" | "useful" | "interesting";
 
@@ -298,71 +124,3 @@ export const QUARTER_STATUS_LABEL: Record<QuarterStatus, string> = {
   active: "진행 중",
   closed: "종료",
 };
-
-export interface QuarterSummary {
-  code: string;
-  name: string;
-  startsAt: string;
-  endsAt: string;
-  status: QuarterStatus;
-  members: number;
-}
-
-export const MOCK_QUARTERS: QuarterSummary[] = [
-  {
-    code: "2026-Q4",
-    name: "2026 Q4",
-    startsAt: "2026-10-01",
-    endsAt: "2026-12-31",
-    status: "application_open",
-    members: 5,
-  },
-  {
-    code: "2026-Q3",
-    name: "2026 Q3",
-    startsAt: "2026-07-01",
-    endsAt: "2026-09-30",
-    status: "closed",
-    members: 4,
-  },
-  {
-    code: "2026-Q1",
-    name: "2026 Q1",
-    startsAt: "2026-01-01",
-    endsAt: "2026-03-31",
-    status: "closed",
-    members: 3,
-  },
-];
-
-export interface AdminMember {
-  username: string;
-  displayName: string;
-  role: "admin" | "member";
-  membership: MembershipStatus;
-  quarter: string;
-  buildBudgetKrw: number;
-  videoBudgetKrw: number;
-}
-
-/* ------------------------------------------------------------------ */
-/* 공통 도우미                                                          */
-/* ------------------------------------------------------------------ */
-
-export function formatNumber(value: number): string {
-  return value.toLocaleString("ko-KR");
-}
-
-/** 650000 -> "650K", 2000000 -> "2M". 좁은 자리에 큰 수를 넣을 때 씁니다. */
-export function formatCompact(value: number): string {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    return `${Number.isInteger(millions) ? millions : millions.toFixed(2)}M`;
-  }
-  if (value >= 1_000) {
-    const thousands = value / 1_000;
-    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(0)}K`;
-  }
-  return String(value);
-}
-

@@ -278,10 +278,9 @@ class Settings(BaseSettings):
     chat_cache_ttl: str = "5m"
 
     # Project Builder's generations (예시 앱, and 만들기 / 고치기 since
-    # builder-static-runtime): the most one generation may write, and how
-    # long to wait for it. 16,000 tokens is a whole small app rewritten
-    # (≈ 230원 on Sonnet); the pre-check reserves all of it.
-    builder_max_output_tokens: int = 16000
+    # builder-static-runtime): how long to wait for one call. The room and
+    # the per-call cap come from the Builder's 생각 깊이 (Admin › Models ›
+    # 한도 › 빌더) since quality-tuning Q1.
     builder_timeout_seconds: float = 300.0
 
     # ---------- Member apps (builder-static-runtime) ----------

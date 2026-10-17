@@ -38,10 +38,6 @@ export function unreadCount(): Promise<{ unread: number }> {
   return request<{ unread: number }>("/notifications/unread");
 }
 
-export function markRead(id: number): Promise<Notification> {
-  return request<Notification>(`/notifications/${id}/read`, { method: "POST", body: JSON.stringify({}) });
-}
-
 export function markAllRead(): Promise<{ unread: number }> {
   return request<{ unread: number }>("/notifications/read-all", { method: "POST", body: JSON.stringify({}) });
 }

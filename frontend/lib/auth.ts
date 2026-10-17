@@ -118,10 +118,6 @@ export interface GoogleConnection {
   email: string;
 }
 
-export function fetchGoogleConnection(): Promise<GoogleConnection> {
-  return request<GoogleConnection>("/account/google");
-}
-
 // ------------------------------------------------------------ 로그인 방법 (member-password-login)
 
 /** Profile › 로그인 방법. 둘 중 하나는 늘 남아 있어야 합니다(백엔드가 지킵니다). */

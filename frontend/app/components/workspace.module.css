@@ -34,36 +34,10 @@
   background: var(--panel);
 }
 
-.topbarTitle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.92rem;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
 .topbarDivider {
   width: 1px;
   height: 1.1rem;
   background: var(--border-strong);
-}
-
-.topbarProject {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 0.84rem;
-}
-
-.topbarProjectName {
-  color: var(--text);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .topbarSpacer {
@@ -350,9 +324,6 @@
 }
 
 /* 여백 없이 꽉 채우는 내용(코드, 영상)에 씁니다. */
-.paneBodyFlush {
-  padding: 0;
-}
 
 /* ---------- 아래쪽 막대 ---------- */
 
@@ -360,20 +331,6 @@
   flex: 0 0 auto;
   border-top: 1px solid var(--border);
   background: var(--panel);
-}
-
-.bottomHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--text-muted);
 }
 
 /* ---------- Claude 대화 ---------- */
@@ -428,14 +385,6 @@
 }
 
 /* ---------- 상태 점 ---------- */
-
-.dot {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: currentColor;
-  flex: none;
-}
 
 /* ---------- 좁은 화면 ---------- */
 

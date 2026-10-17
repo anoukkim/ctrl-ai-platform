@@ -243,15 +243,6 @@ export interface StarterResult {
  */
 export const GENERATION_TIMEOUT_MS = 200_000;
 
-/** 빈 프로젝트에 Claude가 작은 예시 앱을 만듭니다. 지원금에서 차감됩니다. */
-export function createStarterApp(id: number | string, idea = ""): Promise<StarterResult> {
-  return request<StarterResult>(`/builder/projects/${id}/starter`, {
-    method: "POST",
-    body: JSON.stringify({ idea }),
-    timeoutMs: GENERATION_TIMEOUT_MS,
-  });
-}
-
 // ------------------------------------------------ 만들기 / 고치기, 버전, 앱 주소
 
 export interface GenerateEstimate extends StarterEstimate {
@@ -778,9 +769,6 @@ export interface VideoProjectDetail extends VideoProject {
   selected_model: VideoModel | null;
 }
 
-/** "Auto"는 CTRL+AI의 선택지이지 Higgsfield 모델 id가 아닙니다. */
-export const AUTO_MODEL = "auto" as const;
-
 export function listVideoModels(): Promise<VideoModel[]> {
   return request<VideoModel[]>("/video/models");
 }
@@ -1009,11 +997,6 @@ export function listDeletedItems(): Promise<DeletedItem[]> {
 
 export function restoreWork(kind: WorkKind, id: number): Promise<void> {
   return request<void>(`/admin/work/${kind}/${id}/restore`, { method: "POST" });
-}
-
-/** 남의 작업물을 지웁니다. 감사 로그에 남습니다. */
-export function deleteWork(kind: WorkKind, id: number): Promise<void> {
-  return request<void>(`/admin/work/${kind}/${id}`, { method: "DELETE" });
 }
 
 /**
