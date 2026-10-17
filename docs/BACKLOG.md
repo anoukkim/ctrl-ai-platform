@@ -356,7 +356,11 @@ The owner's words, verbatim:
     when the item starts.
 
 8. **admin-consolidation** · M1 · eight small branches, one per row of the plan
-    *Last in the queue, not pre-approved.* Owner, 2026-10-17 (desktop
+    **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+    "admin-consolidation(v3 기준, 4묶음)도 ⑤ 다음에 같은 규칙으로 해줘") — after
+    chat-to-builder-carry, built from the **v3** revision in
+    `ui-requests/admin-consolidation.md` (mock `admin-consolidation-v3.html`) in
+    **four batches**, each: review clean + tests pass → merge + deploy. Owner, 2026-10-17 (desktop
     session): Admin has too many sections and repeats itself — cut **13
     sections to 6** (Dashboard · Members · Quarters · Models · Community ·
     System), add per-member usage and a Quarters › 사용 분석 tab (where the
