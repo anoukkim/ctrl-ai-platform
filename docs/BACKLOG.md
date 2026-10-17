@@ -631,6 +631,20 @@ New UI requests go here until they are folded into a UI batch.
   ZIP and thumbnails follow. (1) first. **Scheduled** (owner, 2026-10-17:
   "지금 작업 이후에") — (1) after builder-snapshots; branch, tests, review,
   then the owner's go before merge (no pre-approval given for this one).
+  Owner, later the same morning: (2) **app assets too** ("빌더 사진: 앱에 넣는
+  사진(로고 등)") — in the same queue.
+- **ctrlaiapps-reactions** — owner, 2026-10-17 ("CtrlAIApps 댓글·반응"):
+  comments and reactions on a published app's CtrlAIApps page, the same
+  shape as CtrlAITube's (reactions, threaded comments, 신고, admin
+  hide/delete, 반응을 얻었어요 notifications). Phase 5's remaining slice.
+- **ai-switch-wording** — owner, 2026-10-17: "실제 AI켜기 가 아니라 로그인해서
+  사용하기 (토큰 소모 있을 수도 있음) 뭔가 이런식으로 쓰면 좋을 듯". The shell
+  bar's 「실제 AI 켜기」 becomes 「로그인해서 사용하기」 with a short note that
+  the member's 지원금 may be used (e.g. "AI를 쓰면 내 지원금이 조금 쓰일 수
+  있어요"); wording only, the same switch.
+- **Order (owner, 2026-10-17: "이거 끝나면 진행")** — after the server
+  thumbnails are switched on and builder-snapshots is deployed: builder-images
+  (reference, then assets), ctrlaiapps-reactions, ai-switch-wording.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
