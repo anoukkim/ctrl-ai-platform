@@ -16,6 +16,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     XDG_CACHE_HOME=/tmp/.cache \
     XDG_CONFIG_HOME=/tmp/.config
 
+# The image ships the browsers (/ms-playwright, PLAYWRIGHT_BROWSERS_PATH)
+# but not the Python package — installed here at exactly the image's
+# version, so it finds those browsers (found at the first server render,
+# 2026-10-17: "No module named 'playwright'"). The image's Python is the
+# system one; this container has nothing else to break.
+RUN pip install --no-cache-dir --break-system-packages playwright==1.62.0 \
+    && python -c "import playwright.sync_api"
+
 WORKDIR /srv/thumbs
 COPY worker.py ./
 
