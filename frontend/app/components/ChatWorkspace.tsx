@@ -48,7 +48,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import {
   ACTION_LABEL,
@@ -82,6 +82,7 @@ import {
   type ToolKind,
   type StreamEstimate,
   followReply,
+  previewsIn,
   stopReply,
   type LiveRun,
 } from "@/lib/chat";
@@ -116,6 +117,7 @@ import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
 import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
+import CarryToBuilder from "./CarryToBuilder";
 import { finishRun, handOverRun, isRunning, refreshServerRuns, startRun, useRuns } from "@/lib/running";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
@@ -1322,6 +1324,9 @@ export default function ChatWorkspace() {
     ? (levelFor(selectedPicker, effectiveDepth)?.estimate_krw ?? selectedPicker.estimate_krw)
     : null;
   const lastIndex = messages.length - 1;
+  // chat-to-builder-carry: the conversation's 미리보기, newest first.
+  const previews = useMemo(() => previewsIn(messages), [messages]);
+  const activeTitle = conversations.find((row) => row.id === activeId)?.title ?? "";
 
   /**
    * 도구 켜고 끄기 (fix-composer-toolbar). 가격은 "도구" 판의 줄마다 켜기
@@ -1720,12 +1725,22 @@ export default function ChatWorkspace() {
                         </button>
                       )}
                     {message.action && !message.streaming && (
-                      <Link
-                        className={styles.suggestion}
-                        href={actionHref(message.action, ideaBefore(index), message.actionTitle)}
-                      >
-                        {ACTION_LABEL[message.action]} <span aria-hidden="true">→</span>
-                      </Link>
+                      message.action === "builder" && previews.length > 0 ? (
+                        // chat-to-builder-carry: the 미리보기 goes, not just the words.
+                        <CarryToBuilder
+                          previews={previews}
+                          conversationId={activeId}
+                          conversationTitle={activeTitle}
+                          disabled={!mayCreate}
+                        />
+                      ) : (
+                        <Link
+                          className={styles.suggestion}
+                          href={actionHref(message.action, ideaBefore(index), message.actionTitle)}
+                        >
+                          {ACTION_LABEL[message.action]} <span aria-hidden="true">→</span>
+                        </Link>
+                      )
                     )}
                     {message.error && (
                       <>

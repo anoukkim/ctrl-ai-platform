@@ -141,6 +141,16 @@ export const ASK_EXAMPLES = [
   "글씨를 조금 더 크게 해 줘",
 ];
 const EXAMPLE_MS = 4000;
+/** chat-to-builder-carry: SPEC.md from Chat → its numbered requirements, else null. */
+export function carriedRequirements(spec: string | undefined): string[] | null {
+  if (!spec || !spec.startsWith("# 요구사항 — 채팅에서 가져왔어요")) return null;
+  const items = spec
+    .split("\n")
+    .map((line) => /^\d+\. (.*)$/.exec(line)?.[1])
+    .filter((item): item is string => Boolean(item));
+  return items.length > 0 ? items : null;
+}
+
 /** background-runs: how often a followed build is read again. */
 const FOLLOW_MS = 1500;
 
@@ -1038,6 +1048,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const appFileList = (files ?? []).filter((file) => !isGuideDoc(file.path));
   const guideFileList = (files ?? []).filter((file) => isGuideDoc(file.path));
   const empty = files !== null && files.length === 0;
+  // chat-to-builder-carry: the requirements that came with a 미리보기 from
+  // Chat (SPEC.md written by the server), for the first Claude bubble.
+  const carried = carriedRequirements(fileMap["SPEC.md"]);
   // builder-first-build-running: while a first build runs, the files it has
   // finished (in the plan's order) — null otherwise.
   const firstBuildDone =
@@ -1666,6 +1679,21 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     예시 앱 / 가져오기 / 되돌리기 would show the same rows here and
                     in 모든 버전 — so until the first 만들기/고치기 only the list
                     below shows, opened. */}
+                {carried && (
+                  // chat-to-builder-carry: what came from Chat with the page.
+                  <div className={`${ws.chatMessage} ${ws.chatAssistant}`} data-testid="carried-spec">
+                    <span className={ws.chatRole}>Claude</span>
+                    채팅에서 가져왔어요 · 요구사항 {carried.length}개
+                    <details className={styles.carriedList}>
+                      <summary>요구사항 보기</summary>
+                      <ol>
+                        {carried.map((item, number) => (
+                          <li key={number}>{item}</li>
+                        ))}
+                      </ol>
+                    </details>
+                  </div>
+                )}
                 {hasClaudeHistory && (
                   <ClaudeHistory
                     steps={history?.steps ?? []}

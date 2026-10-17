@@ -646,7 +646,55 @@ export function actionHref(action: ChatAction, idea: string, title: string): str
   return `${base}?${params.toString()}`;
 }
 
+/** chat-to-builder-carry: the builder action when the conversation has a 미리보기. */
+export const CARRY_LABEL = "이 미리보기로 Builder 시작";
+
 export const ACTION_LABEL: Record<ChatAction, string> = {
   builder: "Project Builder에서 예시 앱 만들기",
   video: "Video Generator 열기",
 };
+
+/** chat-to-builder-carry: one 미리보기 (a whole ```html block) in a reply. */
+export interface ChatPreview {
+  html: string;
+  /** The saved reply's id (null for a reply not saved yet). */
+  replyId: number | null;
+  /** The page's own name, for the picker. */
+  title: string;
+}
+
+const HTML_BLOCK = /```html[^\n]*\n([\s\S]*?)\n```/g;
+
+/** The page's `<title>`, else its first heading — as the server reads it. */
+export function pageTitle(page: string): string | null {
+  const plain = (fragment: string) =>
+    fragment
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\s+/g, " ")
+      .trim();
+  for (const pattern of [/<title[^>]*>([\s\S]*?)<\/title>/i, /<h[12][^>]*>([\s\S]*?)<\/h[12]>/i]) {
+    const found = pattern.exec(page);
+    if (found && plain(found[1])) return plain(found[1]);
+  }
+  return null;
+}
+
+/** Every whole HTML 미리보기 in the conversation's finished replies, newest first. */
+export function previewsIn(
+  messages: { role: string; content: string; key: string; streaming?: boolean }[],
+): ChatPreview[] {
+  const found: ChatPreview[] = [];
+  for (const message of messages) {
+    if (message.role !== "assistant" || message.streaming) continue;
+    const id = /^m(\d+)$/.exec(message.key);
+    for (const match of message.content.matchAll(HTML_BLOCK)) {
+      const html = match[1];
+      if (!html.trim()) continue;
+      found.push({ html, replyId: id ? Number(id[1]) : null, title: pageTitle(html) ?? "제목 없는 미리보기" });
+    }
+  }
+  return found.reverse();
+}

@@ -816,6 +816,45 @@
   border-color: var(--accent);
 }
 
+/* chat-to-builder-carry: the button is a <button> too, and the picker. */
+button.suggestion {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.suggestion:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.carryPicker {
+  display: grid;
+  gap: 6px;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-body);
+}
+
+.carryPicker legend {
+  padding: 0 0.3rem;
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+}
+
+.carryOption {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.carryNewest {
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
 /* ---------- 아직 대화가 없을 때 ---------- */
 
 .empty {

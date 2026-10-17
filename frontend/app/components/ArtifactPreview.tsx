@@ -177,7 +177,11 @@ export default function ArtifactPreview({
     setError(null);
     try {
       const project = await createProjectFromChat({
+        // chat-to-builder-carry: the page's own title names it (the server
+        // reads it); the conversation's title is only the last resort.
         name: context!.conversationTitle.slice(0, 40) || "채팅에서 만든 페이지",
+        conversation_id: context!.conversationId,
+        reply_id: context!.replyNumber,
         // The member's chat sentence is a request, not the project's
         // description (owner, 2026-10-16): 게시 writes the real one.
         description: "",

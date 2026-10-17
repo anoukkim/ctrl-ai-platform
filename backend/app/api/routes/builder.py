@@ -93,7 +93,7 @@ from app.services import (
     project_zip,
 )
 from app.services import attachments as attachments_service
-from app.services import builder_assets, builder_references, chat_runs, thumbnail_render, thumbnails
+from app.services import builder_assets, builder_references, chat_carry, chat_runs, thumbnail_render, thumbnails
 from app.services import usage as usage_service
 from app.services.attachments import AttachmentRefusal
 from app.services.quiet import quiet_update
@@ -209,24 +209,39 @@ FROM_CHAT_MAX_BYTES = 200_000
     status_code=status.HTTP_201_CREATED,
     summary="Builder로 보내기: a project whose index.html is a chat reply's HTML block",
 )
-def create_project_from_chat(
+async def create_project_from_chat(
     payload: BuilderProjectFromChat,
     db: Session = Depends(get_db),
     user: User = Depends(require_active_member),
     settings: Settings = Depends(get_settings),
 ) -> BuilderProject:
     """The one Builder route that writes a file from the browser
-    (chat-plus-artifacts). Free — nothing is generated; the member's own
-    reply is copied. `require_active_member` like creating a project."""
+    (chat-plus-artifacts). Free to the member — the member's own reply is
+    copied. `require_active_member` like creating a project.
+
+    chat-to-builder-carry: the name is the page's own (`<title>` / first
+    heading), else one tiny club-absorbed Claude call, else the name sent;
+    the member's requests in that conversation become SPEC.md."""
     if len(payload.html.encode("utf-8")) > FROM_CHAT_MAX_BYTES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="페이지가 너무 커서(200KB 초과) Builder로 보낼 수 없습니다.",
         )
-    try:
-        name = clean_name(payload.name)
-    except InvalidNameError:
-        name = "채팅에서 만든 페이지"
+    asked = chat_carry.requirements(db, user, payload.conversation_id, payload.reply_id)
+    candidate = chat_carry.page_name(payload.html)
+    if candidate is None and payload.conversation_id is not None:
+        candidate = await chat_carry.claude_name(
+            db, settings, get_claude_provider(settings), user=user, page=payload.html, asked=asked
+        )
+    name = "채팅에서 만든 페이지"
+    for option in (candidate, payload.name):
+        if not option:
+            continue
+        try:
+            name = clean_name(option)
+            break
+        except InvalidNameError:
+            continue
     project = BuilderProject(
         owner_user_id=user.id,
         name=name,
@@ -234,9 +249,14 @@ def create_project_from_chat(
     )
     db.add(project)
     db.flush()
-    db.add(BuilderProjectFile(project_id=project.id, path="index.html", content=payload.html))
+    files = {"index.html": payload.html}
+    if asked:
+        files[chat_carry.SPEC_PATH] = chat_carry.spec_md(name, asked)
+    for path, content in files.items():
+        db.add(BuilderProjectFile(project_id=project.id, path=path, content=content))
     db.flush()
-    builder_versions.snapshot(db, project, "채팅에서 가져옴", {"index.html": payload.html}, settings)
+    note = f"채팅에서 가져왔어요 · 요구사항 {len(asked)}개" if asked else "채팅에서 가져옴"
+    builder_versions.snapshot(db, project, note, files, settings)
     _refresh_runtime(db, settings, project)
     db.commit()
     db.refresh(project)
