@@ -966,6 +966,12 @@ optional for using CTRL+AI.
 
 ### CtrlAIApps (route `/ctrlaistore`)
 
+**AI 스위치 문구** (ai-switch-wording, 2026-10-17; owner: "실제 AI켜기가
+아니라 로그인해서 사용하기 (토큰 소모 있을 수도 있음)"): the shell bar's
+button reads **로그인해서 사용하기** for a visitor who is not signed in and
+**AI 사용하기** for one who is (it was 실제 AI 켜기); in demo the bar says
+"AI를 쓰면 내 지원금이 조금 쓰일 수 있어요". Wording only — the same switch.
+
 **반응과 댓글** (ctrlaiapps-reactions, 2026-10-17; owner: "7:3 … 영상처럼
 댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:
 the app on the left, a **반응과 댓글** panel on the right with 좋아요 ·
