@@ -45,11 +45,11 @@ principles.
 | Chat (default page)   | **Built** — conversations, streamed Markdown replies with 중지, live 약 N원 + ledger receipts, per-reply/daily cost caps, tool toggles (웹 검색·페이지 읽기·코드 실행, mock), 기능 둘러보기 examples, action buttons into Builder/Video; mock Claude by default, charged to the member's one wallet by the token |
 | Project Builder       | Full-viewport workspace: files │ code │ Claude, preview and build output below    |
 | Video Generator       | Generate / edit / extend through the **mock** Higgsfield provider, charged in KRW to the member's one 동아리 지원 wallet. **Locked for members by default** (owner-polish 6, 2026-10-16): the 관리자 opens it in Admin › System › 기능 열기 the quarter video starts; until then the menu item carries a lock and the whole screen is one centred lock with "다음 단계에서 열려요 — 지금은 준비 중이에요" (owner's shape, 2026-10-16); the 관리자 sees the same screen plus "Admin › System에서 열 수 있어요", and the API never locks the 관리자 out |
-| CtrlAIApps            | Mock listings; detail page is a hero, one primary action and three tabs (소개 / 댓글 / 업데이트 기록) sharing CtrlAITube's comment section |
+| CtrlAIApps            | Real listings since `ctrlaiapps-publish`; the detail page is one head row, the app itself in its sandboxed frame, and a **반응과 댓글** panel beside it (좋아요 · 유용해요 · 흥미로워요 and comments, CtrlAITube's shape — `ctrlaiapps-reactions`) |
 | CtrlAITube            | Real rows only: the club's intro video (공식 — the 9:16 cut, played in the page on every device, real reactions and comments since `promo-videos`; no sample cards since `fix-promo-video-placement`); watch page is two columns — a vertical player with the text beside it, sticky comment panel; CTRL+AI comments kept separate from YouTube comments |
 | Usage                 | **Live** — one 동아리 지원 wallet with a 채팅/빌더/영상/기타 breakdown, 대화별 / 날짜별 totals split into 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구, this quarter's 캐시로 아낀 금액, and the ledger; the 개인 잔액 block is hidden while top-ups are off (personal-topup-off) |
 | Profile               | Live signed-in member, quarter participation, application form and 회원 탈퇴        |
-| Admin                 | **Live** — section hub, member/application/quarter figures, wallets and spend by provider, audit log |
+| Admin                 | **Live** — six sections since admin-consolidation v3 (2026-10-17): Dashboard · Members · Quarters · Models · Community · System, each with its tabs (`?tab=`) |
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — Google or username/password for every member (both allowed, at least one kept); invite code to sign up; Argon2 hashes; HttpOnly session cookie |
@@ -57,9 +57,11 @@ principles.
 | Higgsfield            | Mock provider behind `VIDEO_PROVIDER`; real adapter not built                     |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 
-No mock data remains anywhere money is involved. What is still mock: the
-CtrlAIApps and CtrlAITube listings (Phases 5 and 8), and Claude's replies
-until `CLAUDE_PROVIDER=anthropic` is set with a key.
+No mock data remains anywhere money is involved. The CtrlAIApps and
+CtrlAITube listings are real rows (CtrlAITube holds only the club's own
+video until the YouTube feed, Phase 8). What is still mock: Claude's
+replies until `CLAUDE_PROVIDER=anthropic` is set with a key, video assets
+(placeholder clips) and Google sign-in in development.
 
 Everything that is not built yet renders a **준비 중** badge, and its controls are
 disabled, so the shell is never mistaken for working functionality.
@@ -76,7 +78,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/builder`            | Project Builder | Workspace: files, code, Claude, preview      |
 | `/video`              | Video Generator | Workspace: prompt, 9:16 player, Claude, versions |
 | `/ctrlaistore`        | CtrlAIApps      | Community app listings                       |
-| `/ctrlaistore/[slug]` | App detail      | Hero, 앱 실행, tabs; same comments as CtrlAITube |
+| `/ctrlaistore/[slug]` | App detail      | Head row, the app in its frame, 반응과 댓글 panel (same shape as CtrlAITube's comments) |
 | `/ctrlaitube`         | CtrlAITube      | Community video feed                         |
 | `/ctrlaitube/[id]`    | Video detail    | CTRL+AI comments + separate YouTube section  |
 | `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
@@ -87,7 +89,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/admin/quarters`     | Quarters        | Tabs **분기 · 예산** — the quarter list, **돈의 흐름** (credit bought → 회원이 쓴 돈 · 줬지만 안 쓴 돈 · 여유분, what the reserve paid for, the end-of-quarter forecast; `GET /api/admin/quarters/{id}/money-flow`) and **분기 마감** in five steps (신청 마감 → 정산 확인 → 휴지통 비우기 → 앱 보관 → 다음 분기 열기, driving the existing 분기 마감) — and **사용 분석** (`?tab=budget`): 원가 (USD and its won) and 청구 side by side — per provider with the credit left and when it runs out at the last two weeks' pace, cache savings, by feature, by model, the top 5 apps and members, the last 30 days with the end-of-quarter forecast — then folds for 크레딧 구매 기록, 캐시, 대조 and CSV exports, including **Concur** (the quarter's credit purchases as expense lines) |
 | `/admin/models`       | Models          | Tabs Chat (with 이번 분기 사용 per model) · Video · 한도 (채팅 한도, from System) · 보정 (비용 보정) |
 | `/admin/community`    | Community       | Tabs 신고 · 의견 · 앱 — the former Content, Feedback and Apps (`/admin/apps/[id]` stays the app's detail); Deleted Items moved to the member panel |
-| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — one health strip (서버 · DB · **백업** (the last local and off-site backup the server reported) · 썸네일 서버 · each provider once, 모두 확인), 기능 열기, **공지 띠** (the top strip's text, 「띠 보이기」 and its 의견 보내기 link — every page follows `/api/site`; never saved = shown on the beta only, with the old sentence), **알림 기준** (지원금 사용률 %, Anthropic 월 예산 %, 백업 간격 in hours — the Dashboard's alerts and the Members amber follow them), 환율, 유지보수 (썸네일 다시 만들기, 환율 새로 고침), 서버 설정, 빌더 점검; and the Audit Log |
+| `/admin/system`       | System          | Tabs 상태 · 감사 기록 (`?tab=audit`) — one health strip (서버 · DB · **백업** (the last local and off-site backup the server reported) · 썸네일 서버 · each provider once, 모두 확인), 기능 열기, **공지 띠** (the top strip's text, 「띠 보이기」 and its 의견 보내기 link — every page follows `/api/site`; never saved = shown on the beta only, with the old sentence), **알림 기준** (지원금 사용률 %, Anthropic 월 예산 %, 백업 간격 in hours — the Dashboard's alerts and the Members amber follow them), 환율, 유지보수 (썸네일 다시 만들기, 환율 새로 고침), 서버 설정, 빌더 점검; the 감사 기록 tab is the audit log |
 | `/admin/topups`       | Top-ups         | Confirm personal top-up deposits — **hidden** while `PERSONAL_TOPUP_ENABLED` is false (`personal-topup-off`, 2026-10-14) |
 
 **admin-consolidation v3 (owner, 2026-10-17), batch (1):** Admin has six
@@ -95,11 +97,14 @@ sections — Dashboard · Members · Quarters · Models · Community · System �
 shown once in the sidebar and once as the top tabs; the former sections are
 tabs inside them (a second row of chips), defined once in
 `frontend/app/admin/sections.ts`. Every former address redirects to its new
-place, keeping `?quarter=` and filters: `/admin/applications` →
-Members › 참여 신청, `/admin/budget` → Quarters › 예산, `/admin/ai-models`
-(and `/claude-models`) and `/admin/video-models` → Models, `/admin/content`,
-`/feedback`, `/apps`, `/deleted` → Community, `/admin/audit` → System ›
-감사 기록. Badges: 승인 대기 on Members, 열린 신고 on Community. The header
+place, keeping `?quarter=` and filters (`LEGACY_ROUTES` in
+`sections.ts`; as of batch (4)): `/admin/applications` → Members with the
+승인 대기 chip (`?filter=pending`), `/admin/budget` → Quarters › 사용 분석,
+`/admin/ai-models` (and `/claude-models`) → Models › Chat,
+`/admin/video-models` → Models › Video, `/admin/content` → Community › 신고,
+`/admin/feedback` → Community › 의견, `/admin/apps` → Community › 앱
+(`/admin/apps/[id]` stays the app's detail), `/admin/deleted` → Members (지운
+작업 is in the member panel), `/admin/audit` → System › 감사 기록. Badges: 승인 대기 on Members, 열린 신고 on Community. The header
 has a search (회원·앱 이름, ⌘K) beside the one quarter switcher. The
 merges inside the sections (the member panel, the money-flow card, the
 quarter-close stepper, 사용 분석, 공지 띠) came in batches (2)–(4).
@@ -249,8 +254,8 @@ use **`ctrlai.ai`** — Claude, paid by the **visitor** from their own 동아리
 지원, at most 200원 a call and 2,000원 a day across apps (an admin setting),
 only for members taking part this quarter. The app sees a display name and
 a per-app id, never the email, username or balance. Profile › 연결된 앱
-disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Apps can
-stop an app's 기능 상자. **Since P3** an app has a database of its own,
+disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Community ›
+앱 (the app's detail) can stop an app's 기능 상자. **Since P3** an app has a database of its own,
 **`ctrlai.db`**: named lists that are either 개인 (each signed-in visitor
 sees only their own — a diary, a score history) or 공유 (everyone reads,
 signed out too; members write, with their display name on each item — a
@@ -259,8 +264,8 @@ board, a poll, a ranking). The app says which with every call
 two separate lists, so no visitor can turn another's private data public. An item is at most 4 KB, an app holds 2,000
 items / 5 MB, a visitor writes 30 times a minute at most; the author can
 change or delete their item, the app's maker can delete any shared item,
-and 신고 of a shared item reaches Admin › Content, where the admin hides
-or deletes it (audited; the app's own data is also under Admin › Apps). The Builder's 미리보기 has data of its own, so
+and 신고 of a shared item reaches Admin › Community › 신고, where the admin hides
+or deletes it (audited; the app's own data is also under Admin › Community › 앱). The Builder's 미리보기 has data of its own, so
 trying an app never changes the live app's. **Since P4a** the lists an
 app uses are the maker's to declare, in the project's `ctrlai.json`
 (a visitor cannot make one); the Builder's Claude knows the whole 기능
@@ -275,11 +280,11 @@ from their own 지원금 ("미리보기 사용 · N원", Usage: "앱 미리보�
 with the same options never costs more than that figure, the server's
 JSON retry included); the three **showcase apps** run on 실제 AI when the
 visitor is signed in, with a toggle back to 데모 and nothing charged until
-a button is pressed; **Admin › Apps** lists every app that uses the 기능
+a button is pressed; **Admin › Community › 앱** (then Admin › Apps) lists every app that uses the 기능
 상자 (published or not) with its AI use — visitors' today and this
 quarter, the maker's 미리보기 apart — consents, data, reports, and holds
-기능 상자 멈추기, 공유 데이터 and 게시 내리기, while Admin › Content keeps
-the 신고 queue; and **/help/apps** explains all of it to members in
+기능 상자 멈추기, 공유 데이터 and 게시 내리기 on each app's detail, while
+Community › 신고 keeps the 신고 queue; and **/help/apps** explains all of it to members in
 Korean, with code to copy. A template project starts with an empty
 description and a 고치기 request never becomes one. **Since
 app-ai-access** (owner, 2026-10-16) the maker of an app that uses AI
@@ -291,7 +296,7 @@ browser; a bar rather than a floating pill, so it never covers the app's
 own buttons or a phone's tab bar); the 관리자 keeps 기능 상자 멈추기. 데모 means no AI call and
 0원 — the server refuses the visitor's call and the app shows its demo
 answer; the maker's own 미리보기 always runs the real thing. CtrlAIApps'
-detail page says which an app is; Admin › Apps shows it beside the app.
+detail page says which an app is; Admin › Community › 앱 shows it beside the app.
 With the runtime off (local development without `dev_apps_server`), the
 preview runs the files inside the page as before.
 
@@ -307,8 +312,8 @@ key, `node_modules`, `.git`, the owner's name, usage or cost, or anyone
 else's data. **내 Claude로 이어서 만들기** is a guided sheet with a claude.ai
 tab (① ZIP ② attach ③ paste the prompt, with "무엇을 더 하고 싶나요?" filled
 into its blank live) and a Claude Code tab (`claude`, a first sentence to
-copy). Admin › Content › ZIP 미리보기 shows an example app's ZIP file by
-file. Downloading stays open to a member who is not participating this
+copy). Admin › Community › 앱 › (an app) › ZIP 미리보기 shows an example
+app's ZIP file by file. Downloading stays open to a member who is not participating this
 quarter: their work is theirs.
 
 **다운로드** works on any finished version, and keeps working for a member who
@@ -343,7 +348,7 @@ as the estimate next to the button, compared with what is left.
 
 What a member can choose — lengths, ratios, resolutions, sound, whether edit and
 extend exist — is the selected model's **catalogue entry**, edited in
-Admin › Video Models. The seeded prices are placeholders and are marked 예시
+Admin › Models › Video. The seeded prices are placeholders and are marked 예시
 there until an admin saves the model. Each version records how it was made
 (생성 / 수정 / 이어서), its source version and its exact settings.
 
@@ -402,7 +407,7 @@ Chat is the opening screen and a real conversation with Claude, behind
   conversation, `POST …/pin {on}`; a pin is the owner's reading
   preference — it works while not participating and moves no date). They
   are private to the member. Deleting is a real delete — a chat is not
-  *work*, so it does not go to Deleted Items — but the money it spent
+  *work*, so it does not go to 지운 작업 — but the money it spent
   stays in Usage.
 - **Replies stream** in as Claude writes them, with a **중지** button. A
   stopped reply keeps its text and is charged for the tokens used so far.
@@ -449,7 +454,7 @@ Chat is the opening screen and a real conversation with Claude, behind
   Anthropic and stay until the conversation is deleted. Sent messages show
   image thumbnails and download chips for the rest; a member who is not
   participating can still download their own files. 200 MB per member,
-  5 GB per server (Admin › Dashboard › System shows the figure). Deleting
+  5 GB per server (Admin › Dashboard raises an alert as the disk fills). Deleting
   the conversation — or anonymising a withdrawn member — deletes the
   bytes. Sent to Claude as base64 `image` / `document` blocks, never as
   Files API ids (workspace-wide).
@@ -479,8 +484,8 @@ Chat is the opening screen and a real conversation with Claude, behind
   1.25 × input price + cache reads × the cache-read price + output × output
   price in dollars, × the won-per-dollar rate, rounded up to whole won. Each charge
   records the model, both token counts, the dollar cost and the rate. Prices
-  are edited with the models in Admin › AI Models, the rate in Admin ›
-  System; both are audited.
+  are edited with the models in Admin › Models › Chat, the rate in Admin ›
+  System › 상태 › 환율; both are audited.
 - **Live cost and the receipt** (live-cost-display). While a reply
   streams, 약 N원 ticks up beside it (an estimate, updated a few times a
   second). When it ends, the bubble shows the **ledger's** receipt — 입력 /
@@ -499,12 +504,12 @@ Chat is the opening screen and a real conversation with Claude, behind
   Builder, to effort + `max_tokens` + a per-call cap (defaults: chat 낮음
   low/4,096/200원, 보통 medium/8,192/200원, 높음 high/16,000/400원, 최고
   max/32,000/800원; builder 16,000/500원 at 낮음·보통, 32,000/900원 높음,
-  32,000/1,200원 최고 — Admin › System › 채팅 한도, audited). Remembered per
+  32,000/1,200원 최고 — Admin › Models › 한도, audited). Remembered per
   conversation, per project, and as the member's default. Sonnet 5.5 at
-  최고 thinks adaptively (the picker says so). Admin › Budget shows Claude
-  usage by model × feature × depth.
-- **The per-call cap and the daily cap** (token-guard). Admin › System ›
-  **채팅 한도** sets each depth's per-call cost cap, the chat history sent
+  최고 thinks adaptively (the picker says so). Admin › Quarters › 사용 분석
+  shows Claude usage by model and by feature.
+- **The per-call cap and the daily cap** (token-guard). Admin › Models ›
+  **한도** (채팅 한도) sets each depth's per-call cost cap, the chat history sent
   with each reply (대화 기억, default 64,000 tokens), the reply timeout
   (응답 대기, 180 s), a long-conversation warning threshold and an
   optional daily cap per member (0 = off), all audited. The cap is
@@ -515,7 +520,7 @@ Chat is the opening screen and a real conversation with Claude, behind
   the assistant's turn with a "[이어서] 끊긴 바로 다음 글자부터" request,
   each call under the same per-call cap, each charged on its own with the
   wallet checked first — until the reply ends, the member presses 중지,
-  the whole reply reaches that depth's **전체 한도** (Admin › System › 채팅
+  the whole reply reaches that depth's **전체 한도** (Admin › Models ›
   한도, default 낮음 600 · 보통 1,500 · 높음 3,000 · 최고 6,000원; 0 = one
   call only), eight calls have been made, or the wallet runs short. While it continues the screen says
   "이어서 쓰는 중… (n번째) · 지금까지 N원" and 중지 stays; the pieces are
@@ -530,7 +535,7 @@ Chat is the opening screen and a real conversation with Claude, behind
 - **Tools in Chat** (chat-plus-tools — **mock only** until Phase 9: no
   real API call, no real fee). 웹 검색, 웹 페이지 읽기 and 코드 실행 as
   Anthropic server tools. An admin opens each tool per model in Admin ›
-  AI Models; the member switches it on per conversation next to the model
+  Models › Chat; the member switches it on per conversation next to the model
   picker, and sees the cost first (search ≈ 14원 each plus result tokens).
   Both switches must be on or the tool is not sent. Each enabled tool's
   worst case — its fee plus its result tokens — is reserved **inside** the
@@ -563,11 +568,11 @@ Chat is the opening screen and a real conversation with Claude, behind
   is their wallet. Five guards keep one member from draining the club:
   the per-minute message limit, the per-reply cap, the daily cap, the
   wallet pre-check and a **global concurrency limit** on outgoing provider
-  calls (Admin › System, audited; over it the member sees "지금 요청이
+  calls (Admin › Models › 한도, audited; over it the member sees "지금 요청이
   많아요" and nothing is charged). Out of credit shows Korean, charges
   nothing and raises a named alert on the Admin dashboard;
-  `ANTHROPIC_MONTHLY_BUDGET_USD` draws a month bar in Admin › Budget with
-  an 80% warning. Details: [`api-distribution.md`](api-distribution.md).
+  `ANTHROPIC_MONTHLY_BUDGET_USD` drives the Anthropic month alert on the
+  Admin Dashboard (at 80% by default — System › 상태 › 알림 기준). Details: [`api-distribution.md`](api-distribution.md).
 - **Prompt caching** (prompt-caching). Every request marks the system
   prompt and the conversation so far as cacheable, so each reply re-reads
   the earlier turns at a fraction of the input price (Sonnet 5.5 and
@@ -578,16 +583,16 @@ Chat is the opening screen and a real conversation with Claude, behind
   byte-identical prefix. The check before a call still prices the whole
   input as a cache write, the dearest case. Haiku 4.5 only caches once the
   prefix passes 4,096 tokens (Anthropic's minimum), so short Haiku
-  conversations run uncached — documented, accepted. Admin › Budget shows
-  the cache share per provider, and Admin › AI Models › 비용 보정 › 캐시
-  절약 shows hits and won saved per model and day;
+  conversations run uncached — documented, accepted. Admin › Quarters ›
+  사용 분석 shows 캐시로 아낀 돈 and a 캐시 fold, and Admin › Models › 보정 ›
+  캐시 절약 shows hits and won saved per model and day;
   `CHAT_PROMPT_CACHE` / `CHAT_CACHE_TTL` switch it.
 - **Cost calibration** (cost-calibration). Each Chat usage event keeps
   the input estimate made before the call. Once a model has 10 real
   replies, "답장 1회 약 N원" becomes the median of its recent replies
   (labelled 최근 실제 기준) and the pre-check prices input at the observed
   ratio × 1.2 — never above one token per character, output still the full
-  maximum. Admin › AI Models › 비용 보정 shows estimate vs reality per
+  maximum. Admin › Models › 보정 (비용 보정) shows estimate vs reality per
   model.
 - **Choosing a model** (chat-model-choice). Next to the composer, per
   conversation: each model shows its Korean label, a one-line description
@@ -613,9 +618,11 @@ Explore, Manage, Account — in that order; Manage only for admins, holding
 the expanding Admin item, with a 관리자 badge beside the admin's name at
 the bottom; owner decision 2026-10-14), the item names (Chat, Project Builder, Video Generator,
 CtrlAIApps, CtrlAITube, Usage, Profile, Admin) and the Admin section
-names (Dashboard, Members, Applications, Quarters, Budget, Video
-Models, AI Models, Feedback, Deleted Items, Audit Log, System; Top-ups is
-hidden while personal top-ups are off — `personal-topup-off`). Feedback
+names (Dashboard, Members, Quarters, Models, Community, System — six since
+admin-consolidation v3, 2026-10-17; Top-ups is hidden while personal
+top-ups are off — `personal-topup-off`). The tabs inside a section are
+Korean (회원; 분기 · 예산, 사용 분석; 한도, 보정; 신고, 의견, 앱; 상태, 감사
+기록), except the Models tabs Chat and Video. Feedback
 has no menu item for members: the 의견 보내기 button in the sidebar footer
 is the one way to send a note (admin-and-nav-cleanup, 2026-10-14). A screen's own heading matches its
 menu name, so the two never disagree.
@@ -630,7 +637,7 @@ line stays under them: "화면에 개인정보가 보이면 가린 뒤 올려 �
 The server treats a picture exactly like a Chat attachment — kind read
 from the bytes, re-encoded (EXIF and location gone), stored on disk, a
 limit refused in Korean with nothing stored. **Only an admin ever sees a
-picture**: Admin › Feedback shows thumbnails that open large; the member
+picture**: Admin › Community › 의견 shows thumbnails that open large; the member
 who sent it has no route back to it, and another member gets 403.
 Closing the dialog without sending removes what was uploaded. An admin's
 지우기 removes the note and its pictures together, audited (의견 삭제);
@@ -782,17 +789,17 @@ at creation into `subsidy_limit_krw` and keeps its own, edited in Admin ›
 Quarters as **1인 지원금** and audited. Approving an application copies the
 quarter's amount into the wallet, so changing a quarter's amount later never
 moves a wallet that already exists; an admin adjusts one member's wallet in
-Members › member detail — **+/− with a required reason, recorded as an
+Admin › Members › the member panel — **+/− with a required reason, recorded as an
 adjustment row, never an overwrite** (cost-clarity), and refused below what
 is already spent.
 
-**분기 마감** (Admin › Quarters, cost-clarity): freezes every wallet of the
+**분기 마감** (Admin › Quarters › 분기 · 예산, cost-clarity): freezes every wallet of the
 quarter (nothing is charged to it again), records each member's unspent
 money as **회수**, and — at the carry-over % the admin chooses (default 0) —
 adds that share to the member's next approved wallet, once. No wallet or
 usage row is deleted; a closed quarter does not reopen. The close also
-**purges everything still in Deleted Items that was deleted by the
-quarter's last day** (`ui-improvements` B, owner 2026-10-16; a quarter
+**purges everything still deleted (지운 작업) by the quarter's last
+day** (the stepper's 휴지통 비우기) (`ui-improvements` B, owner 2026-10-16; a quarter
 closed late leaves this week's deletions for their own quarter) — the
 dialog says how many — and usage events of purged work keep the work's
 name (`(삭제됨)` in Usage). **신청 마감** is different: it
@@ -811,10 +818,12 @@ shows 입력 / 캐시 쓰기 / 캐시 읽기 / 출력 / 도구 / 합계 in won, 
 (`frontend/lib/money.ts` › `CACHE_EXPLAINER`). The parts are unrounded; the
 total is their sum rounded up once per reply. Usage repeats the same split
 per conversation and per KST day, with this quarter's total saving. Admin ›
-Budget adds the club side: credit bought per provider (append-only purchase
-records), used (ledger), estimated remaining ("Anthropic 콘솔이 최종 기준"),
-지급 vs 사용, a per-member table, a caching panel, CSV exports and an
-optional reconciliation against Anthropic's cost report.
+Quarters adds the club side: 분기 · 예산's 돈의 흐름 (credit bought → 회원이
+쓴 돈 · 줬지만 안 쓴 돈 · 여유분), and 사용 분석 — 원가 and 청구 per provider
+with the credit left, top members and apps, and folds for 크레딧 구매 기록
+(append-only purchase records; "Anthropic 콘솔이 최종 기준"), 캐시, 대조
+(an optional reconciliation against Anthropic's cost report) and CSV
+exports. One member's figures are in the member panel's 사용 내역.
 
 **The spend moment** (feat-spend-feedback, owner add-on B, 2026-10-14).
 Whenever money leaves the wallet the member sees it happen, using only the
@@ -831,7 +840,7 @@ several shows only the highest. Profile › 알림 › **사용 알림 표시** 
 off (default on); the device's reduced-motion setting drops the count-down
 and the chip and keeps the toast. Nothing takes focus or blocks input;
 screen readers hear one polite line per toast. Every usage event still records the **provider, feature, model
-and native units** (tokens, seconds), so Admin › Budget can total each
+and native units** (tokens, seconds), so Admin › Quarters › 사용 분석 can total each
 quarter's spend **by provider** — the figure the club leader reads before
 buying the next round of credit from Anthropic and from Higgsfield. The club
 still buys per provider; members just do not have to guess the split.
@@ -988,12 +997,12 @@ its own screen needs:
 | Video Generator | project name, prompt | status |
 | CtrlAIApps | app name, description, creator | category, sort |
 | CtrlAITube | title, description, creator | creator, sort |
-| Admin — Members | name, username | role, account status, membership status, sort |
-| Admin — Applications | member name, username | status tabs + stat cards |
+| Admin — header search (⌘K) | member username or display name, app name | — |
+| Admin — Members | name, username | chips 전체 · 승인 대기 · 활동 · 미참여 · 초대 코드, sort |
 | Admin — Top-ups (hidden while top-ups are off) | member name, username | top-up status |
-| Admin — Audit Log | summary, admin, action, target | action |
-| Admin — Video Models | model name, provider, model id | — |
-| Admin — AI Models | label, provider, model id | — |
+| Admin — System › 감사 기록 | summary, admin, action, target | action |
+| Admin — Models › Video | model name, provider, model id | — |
+| Admin — Models › Chat | label, provider, model id | — |
 
 Filtering currently happens in the browser, because the data is small and
 each screen already holds its list. `SearchBar` only lifts the query out, so
@@ -1002,7 +1011,7 @@ moving to server-side search later changes the data call and not the screen.
 ## Leaving CTRL+AI (회원 탈퇴)
 
 A member withdraws from the bottom of **Profile**, after re-entering their
-password; an admin can do the same from **Admin › Members › (member)**.
+password; an admin can do the same from **Admin › Members › (the member panel)**.
 Both go through one service, `backend/app/services/withdrawal.py`, so the
 rules are the same either way:
 
@@ -1077,7 +1086,7 @@ button reads **로그인해서 사용하기** for a visitor who is not signed in
 댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:
 the app on the left, a **반응과 댓글** panel on the right with 좋아요 ·
 유용해요 · 흥미로워요 and the comments — CtrlAITube's shape: one level of
-replies, the author edits and deletes, 신고 goes to Admin › Content (the
+replies, the author edits and deletes, 신고 goes to Admin › Community › 신고 (the
 comment-report table now holds 영상 and 앱 rows), the admin hides or
 deletes with a reason (audited). The panel folds away to give the app the
 full width (remembered per browser); on a phone it sits under the app.
@@ -1110,12 +1119,12 @@ under it the app itself in its sandboxed frame, taking the first screen
 (the frame's height follows the viewport, at 390px too); the big colour
 block and the duplicate 앱 실행 button are gone. The honest note under the
 frame is per app: when the published version's `ctrlai.json` declares a
-shared list it says "이 앱의 공유 글은 다른 회원도 볼 수 있어요". Admin › Content lists open
-reports (the apps themselves are under Admin › Apps since app-platform
+shared list it says "이 앱의 공유 글은 다른 회원도 볼 수 있어요". Admin › Community › 신고 lists open
+reports (the apps themselves are under Community › 앱 — Admin › Apps since app-platform
 P4b); **게시 내리기** (with a reason) is audited and
 closes the app's reports; closing a report without taking the app down is
-audited too. No mock listings remain. Later: reactions (Like / Useful /
-Interesting), threaded comments, GitHub link. Published
+audited too. No mock listings remain. Reactions and one level of comments
+came with `ctrlaiapps-reactions` (above). Later: GitHub link. Published
 apps stay visible when their developer is no longer participating —
 attribution is never erased, a former member shows as 탈퇴 회원.
 **Every listing query filters the project's `deleted_at`** — deleting is
@@ -1163,7 +1172,7 @@ controls, never autoplaying, muted until the member presses **소리
 toggle per member) and comments (one level of replies) are stored:
 reading needs a signed-in account, reacting and commenting a member taking
 part this quarter; a comment is its author's to edit or delete (anyone
-else's is a 404); a member may 신고 a comment; Admin › Content lists those
+else's is a 404); a member may 신고 a comment; Admin › Community › 신고 lists those
 reports and the admin hides (for everyone, with a reason) or deletes
 (replies included) the comment — both audited — or closes the report and
 keeps it. Per-comment 공감 is not stored yet, so the official video shows
@@ -1174,11 +1183,11 @@ screen with them.
 
 ### Admin, eventually
 
-Beyond what exists (members, quarters, applications, wallets, budget by
-provider, catalogues, feedback, deleted items, audit log): content
-moderation — hide an app or video, moderate comments, disable a member's
-publishing. Admin can choose what simplified units members see; the club
-buys credit per provider, so Budget stays the purchase evidence.
+Beyond what exists (members, quarters, applications, wallets, usage by
+provider, catalogues, reports and comment moderation, feedback, deleted
+work, audit log): disable a member's publishing. Admin can choose what
+simplified units members see; the club buys credit per provider, so
+Quarters › 사용 분석 › 크레딧 구매 기록 stays the purchase evidence.
 
 **owner-polish-3 (2026-10-16, the owner's evening walk through production).**
 (a) **Thumbnails**: the stored picture is **the app's first screen, like a
@@ -1187,7 +1196,7 @@ screenshot** — filled into 640×400 and cut from the top, never letterboxed
 in a 1024×640 frame so text stays readable on the card; the Builder's
 미리보기 photographs the app after every load of the frame (so after
 every new version) and once more a few seconds later when the first try
-failed; 게시 photographs the published app; Admin › Apps has a one-time
+failed; 게시 photographs the published app; Admin › Community › 앱 has a one-time
 **썸네일 만들기** that opens each published app without a picture in the
 admin's own browser, one at a time, and saves what the SDK drew — or,
 with `THUMBNAIL_RENDERER=server` (thumbnail-render-worker, 2026-10-17),
@@ -1200,15 +1209,14 @@ picture is the server's too, after every change (fonts loaded first);
 until a picture exists the cover is the app's name on its colour with a
 large faint initial behind it (no more `</>`), on CtrlAIApps and Builder
 cards alike. A visitor's browser never uploads a thumbnail. **(a2) The
-maker chooses**: the 게시 dialog photographs three candidates from the
-미리보기 — 첫 화면, 조금 내려간 화면, 폰 너비 — and 「지금 화면으로」 adds the
-preview exactly as it is; nothing chosen means the first screen; no AI,
-no charge. Once published, **the chosen picture is the thumbnail
-everywhere** — CtrlAIApps and the Builder card both show it, and the
-automatic draft captures stop replacing it (`thumbnail_chosen_at`); the
-게시 menu's **썸네일 바꾸기…** opens the same picker later. Admin › Apps'
-썸네일 만들기 stays for apps published before this.
-(b) **The exchange rate is automatic**: Admin › System › 환율 shows
+maker chooses** — *the 게시 dialog's three-candidate picker described here
+was retired by thumbnail-choice (2026-10-17; its stamps cleared by a data
+migration)*. The maker now picks the picture in the Builder's 썸네일
+panel: **자동** or **직접 지정**, with **지정하기** framing the 미리보기 (see
+**Project Builder — pictures** › 썸네일 above); a chosen picture is the thumbnail
+everywhere and no automatic picture replaces it. Admin › Community › 앱's
+썸네일 만들기 stays for apps without a picture.
+(b) **The exchange rate is automatic**: Admin › System › 상태 › 환율 shows
 자동 반영 (the ECB's USD→KRW through Frankfurter — free, keyless, fetched
 once a day by the server's daily job; `FX_PROVIDER=mock|frankfurter`) with
 the last check and its outcome, 지금 새로 고침, and the admin's **환율
@@ -1216,7 +1224,7 @@ the last check and its outcome, 지금 새로 고침, and the admin's **환율
 warning in that fold instead; a rate typed in by hand pins itself (자동
 반영 off until switched back on); a failed fetch keeps the last rate and
 never blocks a charge; every change — automatic, held back, pinned — is
-in the Audit Log; only new charges use a new rate, wallets never move.
+in System › 감사 기록; only new charges use a new rate, wallets never move.
 (d) The CtrlAIApps header says what apps can do now: AI inside an app is
 paid by the signed-in active member who presses the button, a 데모 app
 calls no AI, what an app stores on CTRL+AI (게시판·투표) shows on every

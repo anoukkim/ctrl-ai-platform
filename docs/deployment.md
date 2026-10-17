@@ -296,7 +296,7 @@ dc run --rm api alembic upgrade head
 dc run --rm api python -m app.db.bootstrap
 ```
 
-`.env`의 `ADMIN_*`로 **관리자 한 명**과 영상 모델 목록(Admin › Video Models가
+`.env`의 `ADMIN_*`로 **관리자 한 명**과 영상 모델 목록(Admin › Models › Video가
 고치는 목록)을 만들고, 그 밖에는 아무것도 만들지 않습니다. 두 번 실행해도
 안전합니다 — 이미 있는 계정은 비밀번호까지 그대로 둡니다.
 
@@ -347,8 +347,8 @@ curl.exe -I https://www.ctrlai.my      # 301 → https://ctrlai.my/
 
 ### 회원에게 주소를 알리기 전에
 
-- **가입에는 초대 코드가 필요합니다.** 관리자로 로그인해 Admin › Members 아래의
-  **초대 코드**에서 코드를 만듭니다(자동 생성 또는 직접 정한 코드, 몇 명까지,
+- **가입에는 초대 코드가 필요합니다.** 관리자로 로그인해 Admin › Members의
+  **초대 코드** 칩에서 코드를 만듭니다(자동 생성 또는 직접 정한 코드, 몇 명까지,
   언제까지). **가입 링크 복사**를 누르면 `https://ctrlai.my/signup?code=…`
   링크가 복사되니, 그 링크를 회원에게 보내면 됩니다. 코드가 새어 나가면
   **사용 중지** — 새 가입만 막히고 이미 가입한 계정은 그대로입니다.
@@ -383,7 +383,7 @@ crontab -e
 (`python -m app.jobs.refresh_fx`, owner-polish-3)도 돌립니다 — `.env`의
 `FX_PROVIDER=frankfurter`일 때 ECB 환율(무료, 키 없음)을 받아 5% 규칙으로
 반영하고, 실패하면 마지막 환율을 그대로 둡니다. 결과는 `~/ctrlai-jobs.log`와
-Admin › System › 환율에 보입니다. 손으로 한 번 보려면:
+Admin › System › 상태 › 환율에 보입니다. 손으로 한 번 보려면:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec -T api python -m app.jobs.refresh_fx --dry-run
@@ -497,7 +497,7 @@ dc up -d --force-recreate api
 dc ps                                   # api 가 (healthy)
 ```
 
-**확인:** 관리자로 로그인 → Admin › System → Claude **연결 확인**. 그다음
+**확인:** 관리자로 로그인 → Admin › System(상태 탭) → 위쪽 상태 줄의 **모두 확인** → Claude 칸이 정상인지 봅니다. 그다음
 Chat에서 짧은 메시지 하나를 보내 답이 한 글자씩 나오는지, Usage에 사용 기록이
 생기는지 봅니다. Chat 입력창 위의 "테스트 모드" 표시는 사라집니다.
 (이것이 BACKLOG의 *Phase 2 point 10* 확인입니다 — 기본 모델과 Haiku 4.5로 한
@@ -512,9 +512,9 @@ Chat의 서버 도구(웹 검색 · 페이지 읽기 · 코드 실행, chat-plus
 목업에서는 공짜 흉내지만, `CLAUDE_PROVIDER=anthropic`이 되는 순간 **실제
 요금**이 됩니다:
 
-- **웹 검색** — 검색 1회당 약 $0.01 (요금은 Admin › AI Models의 모델
+- **웹 검색** — 검색 1회당 약 $0.01 (요금은 Admin › Models › Chat의 모델
   설정에서 바꿉니다) **더하기** 그 답장에 들어오는 검색 결과 토큰. 한
-  답장의 검색 횟수는 Admin › System › 채팅 한도의 **웹 검색**(기본 5회,
+  답장의 검색 횟수는 Admin › Models › 한도(채팅 한도)의 **웹 검색**(기본 5회,
   1–10)으로 정합니다. 도구는 기본 버전(`web_search_20250305`,
   `web_fetch_20250910`)을 씁니다 — 더 새 버전은 코드 실행 안에서
   검색해 결과를 JSON으로 다루는데, 그 과정이 회원에게 그대로
@@ -523,7 +523,7 @@ Chat의 서버 도구(웹 검색 · 페이지 읽기 · 코드 실행, chat-plus
   청구서에도 같은 구조로 나옵니다. token-guard의 1회 비용 한도는 검색
   요금과 결과 토큰의 최대치까지 미리 셈에 넣습니다.
 - **페이지 읽기** — 따로 요금은 없지만 읽은 본문이 그 답장의 입력
-  토큰이 됩니다 (기본 답장당 1회 × 10,000토큰 — Admin › System › 채팅
+  토큰이 됩니다 (기본 답장당 1회 × 10,000토큰 — Admin › Models ›
   한도에서 조절). 기본 1회 비용 한도 200원 안에 들어가므로(Sonnet 기준
   예약 약 35원) 그대로 쓸 수 있고, 관리자가 한도를 많이 낮추면 거절
   문구가 끄는 법을 안내합니다.
@@ -531,9 +531,9 @@ Chat의 서버 도구(웹 검색 · 페이지 읽기 · 코드 실행, chat-plus
   실행되지 않습니다). 조직의 무료 사용량(월 1,550 컨테이너-시간) 안에서
   돌아갑니다.
 
-**끄는 법:** 도구는 **기본으로 꺼져** 있습니다 — 모델마다 Admin › AI
-Models에서 관리자가 열고, 회원이 대화마다 또 켜야 돌아갑니다. 실제
-요금이 걱정되면 Admin › AI Models에서 모든 모델의 도구를 꺼 두면 그걸로
+**끄는 법:** 도구는 **기본으로 꺼져** 있습니다 — 모델마다 Admin › Models ›
+Chat에서 관리자가 열고, 회원이 대화마다 또 켜야 돌아갑니다. 실제
+요금이 걱정되면 Admin › Models › Chat에서 모든 모델의 도구를 꺼 두면 그걸로
 끝입니다.
 
 ---
@@ -549,8 +549,8 @@ cd ~/ctrl-ai-platform
 ```
 
 끝나면 스크립트가 백업 파일의 이름과 크기만 데이터베이스에 남깁니다
-(`python -m app.db.record_backup`, api 컨테이너 안). Admin › System의 연결
-상태에 **백업** 점으로 보이고, 알림 기준(기본 48시간)보다 오래되면 Dashboard가
+(`python -m app.db.record_backup`, api 컨테이너 안). Admin › System › 상태의 연결
+상태 줄에 **백업** 점으로 보이고, 알림 기준(기본 48시간)보다 오래되면 Dashboard가
 알립니다. 기록이 실패해도 백업 자체는 실패하지 않습니다. `offsite-backup.sh`도
 올린 뒤 같은 기록을 남깁니다.
 
@@ -800,7 +800,7 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d`. 그 업데이트가
    기록에도, 로그에도 비밀번호가 남지 않습니다. 12자 이상, 알려진
    기본값(`devpassword` 등)은 거절합니다.
 3. 바꾸면 그 계정은 모든 기기에서 로그아웃되고, 로그인 시도 제한 잠금도
-   풀립니다. 감사 기록(Admin › Audit Log)에 "서버 운영자가 셸에서 …의
+   풀립니다. 감사 기록(Admin › System › 감사 기록)에 "서버 운영자가 셸에서 …의
    비밀번호를 재설정"이 남습니다 — 비밀번호 자체는 어디에도 남지 않습니다.
 4. 새 비밀번호는 본인에게 직접 전하고, 로그인한 뒤 Profile에서 바로
    바꾸게 합니다.
@@ -825,7 +825,7 @@ dc exec api python -m app.db.import_example_apps <관리자 아이디> --replace
 
 - `--replace`는 먼저 예전 예시 앱 세 개(동아리 출석 체크 · 오늘의 할 일 +
   집중 타이머 · AI 상식 퀴즈 — 그 관리자의 것만)를 **게시 취소하고 지웁니다**.
-  지운 것은 Admin › Deleted Items에서 되살릴 수 있습니다. 예전 앱을 올린 적이
+  지운 것은 Admin › Members에서 그 관리자의 회원 판 › **지운 작업**에서 되살릴 수 있습니다(예전 `/admin/deleted`는 Members로 넘어갑니다). 예전 앱을 올린 적이
   없으면 내릴 것 없이 새 앱만 올립니다.
 - 두 번 실행해도 바뀌는 것이 없습니다(이미 있는 앱은 그대로, 감사 기록은 무언가
   바뀌었을 때만 — "예시 앱 교체", "예시 앱 게시").
@@ -917,7 +917,7 @@ dc exec api python -m app.db.rewrite_app_runtime
    probe 172.30.88.2 443 && echo "thumbs → caddy 172.30.88.2:443 열림 (정상)" || echo "!! thumbs가 caddy에 닿지 않음 — 렌더가 실패합니다"
    ```
 
-   그다음 https://ctrlai.my/admin/apps 에서 **썸네일 다시 만들기**를 누르면
+   그다음 Admin › Community › 앱(https://ctrlai.my/admin/community?tab=apps — 예전 `/admin/apps`도 이리로 넘어갑니다)에서 **썸네일 다시 만들기**를 누르면
    안내가 "서버의 브라우저가 … 찍어요"로 바뀌고, 앱 하나에 10초쯤 걸리며
    저장된 수가 늘어납니다. 첫 앱이 **실패**로 나오면 `dc logs thumbs`를
    봅니다 — `page failed`/`render timed out`이면 caddy로 가는 길(위 (c))이나

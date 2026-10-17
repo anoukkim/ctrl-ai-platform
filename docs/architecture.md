@@ -41,7 +41,7 @@ that route — there is no second check further in.
 | `get_current_user` | Is anyone signed in, and is the account usable? | 401, or 403 for a `former` account |
 | `require_admin` | Is this person an `admin`? | 403 |
 | `require_active_member` | Are they **participating in the current quarter**? | 403 |
-| `require_video_open` | `require_active_member`, and is the **Video Generator open** to members (Admin › System switch, locked by default; the 관리자 is never locked out)? | 403 "다음 단계에서 열려요" |
+| `require_video_open` | `require_active_member`, and is the **Video Generator open** to members (Admin › System › 상태 › 기능 열기, locked by default; the 관리자 is never locked out)? | 403 "다음 단계에서 열려요" |
 
 `require_active_member` builds on `get_current_user`, so signing in is
 assumed. A **missing** `QuarterMembership` row means "not participating":
@@ -85,7 +85,7 @@ the same commit that adds it.
 | `GET /api/admin/backups` | `require_admin` | The last local and off-site backup (`backup_runs`, written by `deploy/backup.sh` / `offsite-backup.sh` through `python -m app.db.record_backup`), each flagged late past the threshold |
 | `GET /api/admin/apps/thumbnail-renderer` | `require_admin` | thumbnail-render-worker: `{renderer: browser\|server}` — whether 썸네일 다시 만들기 opens each app in the admin's browser or asks the server |
 | `POST /api/admin/apps/{project_id}/thumbnail/render` | `require_admin` | thumbnail-render-worker: the server's own browser photographs the published files (`{}`); one app per call; 503 with the reason while the renderer is `browser` or the worker fails (the old picture stays), 409 without a published version |
-| `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Content › 데이터 (P3): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
+| `GET /api/admin/apps/{project_id}/data`, `POST /api/admin/apps/data/{item_id}/hide`, `POST …/delete` | `require_admin` | Admin › Community › 앱 › (an app) › 공유 데이터 보기 (P3; was Admin › Content › 데이터): an app's collections and shared items; 숨기기 / 지우기 with a reason, audited |
 | `POST /api/feedback` | `get_current_user` | 의견 보내기 — spends nothing; open to members not participating; names the screenshots uploaded first (`image_ids`) |
 | `POST /api/feedback/images` | `get_current_user` | One screenshot for the next note (bytes as the body, `?name=`, `application/octet-stream`); checked like a Chat image, then stored (feedback-screenshots) |
 | `DELETE /api/feedback/images/{image_id}` | `get_current_user` | ✕ on a picture not sent yet — own and waiting only, else 404 |
@@ -164,9 +164,9 @@ the same commit that adds it.
 | `POST /api/apps/{slug}/reactions`, `POST /api/apps/{slug}/comments` | **`require_active_member`** | Toggle 좋아요 · 유용해요 · 흥미로워요 (`{kind}`); comment or reply (`{body, parent_id}`) — CtrlAITube's rules |
 | `PATCH`/`DELETE /api/apps/comments/{id}` | **`require_active_member`** | Edit / delete my own comment (anyone else's is a 404) |
 | `POST /api/apps/comments/{id}/report` | `get_current_user` | 신고 an app comment (one open report per member per comment) |
-| `GET /api/admin/tube/app-reports`, `POST /api/admin/tube/app-comments/{id}/hide\|delete`, `POST /api/admin/tube/app-reports/{id}/resolve` | `require_admin` | Admin › Content's comment queue for app comments (audited, closes open reports) |
+| `GET /api/admin/tube/app-reports`, `POST /api/admin/tube/app-comments/{id}/hide\|delete`, `POST /api/admin/tube/app-reports/{id}/resolve` | `require_admin` | Admin › Community › 신고 — the comment queue for app comments (audited, closes open reports) |
 | `POST /api/apps/{slug}/favorite` | `get_current_user` | ★ 즐겨찾기 on / off — the member's own `app_favorites` row; spends nothing, so not participating may still pin |
-| `GET/POST /api/admin/apps…` | `require_admin` | Admin › Content: published apps, reports, unpublish (audited) |
+| `GET/POST /api/admin/apps…` | `require_admin` | Admin › Community › 신고 and › 앱: published apps, reports, unpublish (audited) |
 | `GET /api/builder/projects/{id}/download` | `get_current_user` | Taking a copy out — works while inactive |
 | `GET /api/video/models` | `get_current_user` | Reading the catalogue |
 | `GET /api/video/projects` | `get_current_user` | Reading your own work |
@@ -197,7 +197,7 @@ the same commit that adds it.
 | `GET /api/admin/quarters/{id}/members` | `require_admin` | |
 | `PUT /api/admin/quarters/{id}/members/{user_id}` | `require_admin` | |
 | `PUT /api/admin/quarters/{id}/allocations/{user_id}` | `require_admin` | Sets a member's one wallet |
-| `GET /api/admin/quarters/{id}/budget` | `require_admin` | Admin › Budget: wallets and spend by provider, read-only |
+| `GET /api/admin/quarters/{id}/budget` | `require_admin` | The former Admin › Budget screen's data: wallets and spend by provider, read-only (Quarters › 사용 분석 reads `usage-analysis` instead) |
 | `PUT /api/admin/members/{user_id}/role` | `require_admin` | |
 | `GET /api/admin/top-ups` | `require_admin` | |
 | `POST /api/admin/top-ups/{id}/confirm` | `require_admin` | |
@@ -210,7 +210,7 @@ the same commit that adds it.
 | `PATCH /api/admin/invites/{invite_id}` | `require_admin` | Change 최대 가입 수 later, never below the sign-ups made; audited |
 | `POST /api/admin/invites/{invite_id}/deactivate` | `require_admin` | Stops new sign-ups only; audited |
 | `POST /api/admin/invites/{invite_id}/reactivate` | `require_admin` | Audited |
-| `GET /api/admin/feedback` | `require_admin` | Admin › Feedback, with each note's pictures |
+| `GET /api/admin/feedback` | `require_admin` | Admin › Community › 의견, with each note's pictures |
 | `GET /api/admin/feedback/images/{image_id}/file` | `require_admin` | A sent screenshot, inline — the only route that serves one (the uploader has none) |
 | `DELETE /api/admin/feedback/{feedback_id}` | `require_admin` | Removes a note and its pictures (rows and bytes); audited `feedback.deleted` |
 | `GET /api/admin/dashboard` | `require_admin` | Read-only; counts and the last 10 audit rows; since admin-consolidation v3 also `open_reports`, `wallet_alerts` (≥ 80% used), `anthropic_month`, `thumbnail_server` (the worker's /health) and `week_top` |
@@ -219,7 +219,7 @@ the same commit that adds it.
 | `GET /api/admin/stats/members` | `require_admin` | Read-only; grouped counts for one quarter |
 | `GET /api/admin/quarters-with-stats` | `require_admin` | Read-only; every quarter with its figures |
 | `GET /api/admin/claude-pricing` | `require_admin` | Claude prices, exchange rate, chat limits |
-| `GET /api/admin/chat-models` | `require_admin` | The AI model catalogue (Admin › AI Models) |
+| `GET /api/admin/chat-models` | `require_admin` | The AI model catalogue (Admin › Models › Chat) |
 | `GET /api/admin/chat-models/providers` | `require_admin` | Providers in display order; `ready` false = 연결 준비 중, its models stay closed |
 | `POST /api/admin/chat-models` | `require_admin` | Audited |
 | `PATCH /api/admin/chat-models/{id}` | `require_admin` | Audited (prices incl. cache-read price) |
@@ -231,7 +231,7 @@ the same commit that adds it.
 | `GET /api/admin/deleted-items` | `require_admin` | The only route that can see soft-deleted work |
 | `POST /api/admin/work/{kind}/{id}/restore` | `require_admin` | Not participation-gated: moderating is not creating |
 | `DELETE /api/admin/work/{kind}/{id}` | `require_admin` | Any member's work; audited |
-| `DELETE /api/admin/work/{kind}/{id}/purge` | `require_admin` | Deleted work only, JSON `{reason}`; removes the row, children, app folders and stored files; money rows stay with the work's name (`services/purge.py`); audited. 분기 마감 (`POST …/close`) does the same for everything in Deleted Items deleted by the quarter's last day (KST); the reason stays in the audit `detail` |
+| `DELETE /api/admin/work/{kind}/{id}/purge` | `require_admin` | Deleted work only, JSON `{reason}`; removes the row, children, app folders and stored files; money rows stay with the work's name (`services/purge.py`); audited. 분기 마감 (`POST …/close`) does the same for all work still deleted by the quarter's last day (KST); the reason stays in the audit `detail` |
 | `GET /api/admin/members/{user_id}/withdrawal` | `require_admin` | Read-only; what withdrawing would do |
 | `POST /api/admin/members/{user_id}/withdrawal` | `require_admin` | Same rules as the member's own; audited |
 | `POST /api/admin/members/{user_id}/withdrawal/restore` | `require_admin` | 복구, within 30 days only; audited |
@@ -367,13 +367,13 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
    with the `app_runtime_at` it photographed (not the time it finished),
    so a render that ends after the next edit never looks current; no
    written files (`app_runtime_at` NULL) also lets the browser store.
-   Admin › Apps' in-browser 썸네일 만들기 is an explicit admin action and
+   Admin › Community › 앱's in-browser 썸네일 만들기 is an explicit admin action and
    still stores (labelled `browser`).
 1. **The api asks for one address only** (`services/thumbnail_render`):
    `APPS_BASE_URL` + the project's own ten-letter slug +
    `/_app/index.html` — never a URL from a request body. 게시 queues the
    render (one background thread, one at a time, a bounded queue that
-   drops rather than piles up); Admin › Apps' 썸네일 다시 만들기 asks for
+   drops rather than piles up); Admin › Community › 앱's 썸네일 다시 만들기 asks for
    one app at a time and waits. The PNG back (≤ 4 MB) goes through
    `thumbnails.encode` like an upload; any failure keeps the old picture
    or cover. The api never waits for a render inside a member's request
@@ -623,7 +623,7 @@ Alembic has migrated (`backend/app/models/`).
   never by email), encrypted credential reference.
 - **Supporting tables that exist today** — user_sessions (server-side
   sessions), invite_codes + signup_attempts + login_attempts, chat
-  conversations/messages, chat_models (the AI Models catalogue),
+  conversations/messages, chat_models (the Models › Chat catalogue),
   exchange_rates, feedback + feedback_images (screenshots on a note,
   bytes in storage under `feedback/<user_id>/<id>`; cascade from the
   note), account_withdrawals, oauth_states / pending_google_signups,
@@ -734,12 +734,12 @@ ctrlai.my (Builder / CtrlAIApps)
   Sonnet catalogue rows; per visitor 10 and per app 60 calls a minute;
   the per-call cap (200원) is worked out as `max_tokens` (a JSON retry
   shares it); the visitor's app-AI day cap (`chat_limits.app_ai_daily_cap_krw`,
-  2,000원 by default, Admin › System, audited, 0 = off), then the wallet;
+  2,000원 by default, Admin › Models › 한도, audited, 0 = off), then the wallet;
   images ≤ 5 MB (4 at most), re-encoded like Chat's; our safety preamble
   comes before the app's system prompt; a JSON Schema is checked (a safe
   subset) with one automatic retry. One ledger row per call; Usage shows
   "앱 · <앱 이름>", the shell shows "앱 AI · N원 · 내 동아리 지원금에서".
-  **Kill switch**: Admin › Content › 기능 상자 멈추기 (a reason, audited) —
+  **Kill switch**: Admin › Community › 앱 › (an app) › 기능 상자 멈추기 (a reason, audited) —
   every `/_ctrlai/v1` call of that app is refused at once.
 * **P3 — `ctrlai.db`** (`services/app_data.py`, `/_ctrlai/v1/data/*`).
   An app's data is **collections** of JSON objects (`app_data_collections`,
@@ -767,7 +767,7 @@ ctrlai.my (Builder / CtrlAIApps)
   The author updates or removes their item; the app's owner may remove any
   shared item of their app. `ctrlai.db.report(collection, id, reason)` puts
   a shared item in the admin's queue (`AppReport.data_item_id` + an excerpt
-  that outlives the item). Admin › Content shows each app's data size, and
+  that outlives the item). Admin › Community › 앱 shows each app's data size, and
   per app its collections and shared items with 숨기기 (`hidden_at`, gone
   for everyone, the row kept) or 지우기 — both need a reason, both audited
   (`app_data.hidden` / `app_data.deleted`, with the excerpt), both close the
@@ -820,13 +820,14 @@ ctrlai.my (Builder / CtrlAIApps)
   the sources, calling nothing when nothing matches. Every button shows
   "1회 약 N원 · 최대 M원" from `estimate` first, and opening or switching
   spends nothing (`frontend/e2e/app-platform-p4b.spec.ts`). **Admin › Apps**
+  (now Admin › Community › 앱, `/admin/apps/[id]` for one app)
   (`GET /api/admin/apps/overview`, `GET /api/admin/apps/{id}`,
   `require_admin`): every app that uses the 기능 상자 — published, or with
   a consent or an AI call (the maker's 미리보기 counts) — with the
   visitors' calls and won today and this quarter, the maker's 미리보기
   this quarter apart, active consents, data, open reports, and the
   actions (기능 상자 멈추기/켜기, 공유 데이터 숨기기/지우기, 게시 내리기, ZIP
-  미리보기); Admin › Content keeps the 신고 queue. **/help/apps** is the
+  미리보기); Admin › Content (now Community › 신고) keeps the 신고 queue. **/help/apps** is the
   members' guide. A 고치기 request never becomes a project's description
   (only a 만들기 does); a template project starts with none.
 * **ui-improvements — thumbnails, SDK version "5"** (now "6", app-ai-access). A picture of an app
@@ -887,7 +888,7 @@ ctrlai.my (Builder / CtrlAIApps)
   "demo" like signed-out (the demo answer, marked "데모"); the three
   showcases and the AI 챗봇 template do the same and import as 전체 기능
   (`import_example_apps`). CtrlAIApps' detail says which it is; Admin ›
-  Apps shows "AI 전체 기능 / 데모만" beside each app; the kill switch is
+  Community › 앱 shows "AI 전체 기능 / 데모만" beside each app; the kill switch is
   unchanged.
 * **publish-summary** (`services/publish_summary.py`, `POST
   /api/builder/projects/{id}/publish-summary` with a JSON body — it
@@ -972,7 +973,7 @@ network; Frankfurter reads the ECB's daily reference rate from
 `api.frankfurter.dev` — free, keyless, never a paid service (the owner's
 rule: stop and ask if one were needed). `fx.refresh()` runs from
 `app/jobs/refresh_fx.py` (in `deploy/daily-jobs.sh`, so once a day by
-cron — never inside a request) and from Admin › System's 지금 새로 고침:
+cron — never inside a request) and from Admin › System › 상태's 지금 새로 고침 (환율, or 유지보수):
 unchanged → nothing; a move over `MAX_JUMP_PCT` (5%) → held back, the
 reason stored in the one `fx_status` row and shown as a warning, an
 `exchange_rate.blocked` audit row; otherwise a new `exchange_rates` row
@@ -980,8 +981,8 @@ with `source` = the provider and `fetched_for` = the quoted day, an
 `exchange_rate.auto` audit row. A failed fetch records the failure and
 keeps the last rate. The admin's **환율 고정** (`fx_status.auto_enabled`
 off; `exchange_rate.auto_set` audited) stops the fetch entirely; typing a
-rate on Admin › System pins by itself. `fx` is also a provider card on the
-health strip (`providers.PROVIDERS`), whose 연결 확인 fetches a quote and
+rate on Admin › System › 상태 › 환율 pins by itself. `fx` is also a provider card on the
+health strip (`providers.PROVIDERS`), whose check (모두 확인) fetches a quote and
 applies nothing. Every usage event keeps the rate it was priced at
 (`UsageEvent.exchange_rate_krw`), so a new rate reaches only new charges.
 
