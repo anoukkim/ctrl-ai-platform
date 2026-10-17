@@ -616,7 +616,11 @@ New UI requests go here until they are folded into a UI batch.
   typing stop, dots stay static). Mock-ups (open in a browser):
   [`ui-requests/running-state-calm-chat.html`](ui-requests/running-state-calm-chat.html)
   and [`running-state-calm-builder.html`](ui-requests/running-state-calm-builder.html),
-  both with the aurora switch. Not scheduled.
+  both with the aurora switch.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+  "running-state-calm(시안 그대로)이랑 chat-preview-fullscreen 지금 배포 끝나면
+  다음으로, 같은 규칙으로 해줘") — after the feat-batch-1017 deploy; review clean
+  + tests pass → merge + deploy.
 
 - **chat-preview-fullscreen** — owner, 2026-10-17 (desktop session, with a
   screenshot of a Chat 미리보기 card): "지금 미리보기로 뭘 생성하면,
