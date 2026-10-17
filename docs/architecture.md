@@ -360,9 +360,11 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
    public address. **Chromium's own sandbox stays on**: the
    container runs under `deploy/chromium-seccomp.json` (Playwright's
    published profile — Docker's default plus the namespace syscalls)
-   with `cap_drop: ALL` and `no-new-privileges` still in force, so a
-   renderer bug in member HTML lands inside Chromium's sandbox before it
-   lands inside the container. Then `mem_limit: 768m`, `cpus: 1`,
+   with `cap_drop: ALL` (plus `SYS_CHROOT` back in the bounding set only —
+   Chromium chroots inside its own user namespace and cannot without it;
+   the worker's user has no effective or permitted capability) and
+   `no-new-privileges` still in force, so a renderer bug in member HTML
+   lands inside Chromium's sandbox before it lands inside the container. Then `mem_limit: 768m`, `cpus: 1`,
    `pids_limit: 256`, `read_only: true` with a tmpfs for Chromium's
    profile, the image's non-root user. The service starts only with
    `COMPOSE_PROFILES=thumbs` in the server `.env`, so a server on
