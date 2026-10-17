@@ -355,6 +355,21 @@ The owner's words, verbatim:
     The mock-ups live in the owner's desktop session; the owner shows them
     when the item starts.
 
+8. **admin-consolidation** · M1 · eight small branches, one per row of the plan
+    *Last in the queue, not pre-approved.* Owner, 2026-10-17 (desktop
+    session): Admin has too many sections and repeats itself — cut **13
+    sections to 6** (Dashboard · Members · Quarters · Models · Community ·
+    System), add per-member usage and a Quarters › 사용 분석 tab (where the
+    API money goes: by provider, feature, model, app, member, day). **Start
+    only after the batch deploy now running has gone out.** Decisions
+    (미참여 not 미신청; orange means "needs action"), the mock-up, the
+    branch plan and the open questions are in
+    [`ui-requests/admin-consolidation.md`](ui-requests/admin-consolidation.md)
+    (mock: `admin-consolidation.html`). Supersedes the *Admin › 사용량 분석*
+    part of **usage-analytics** (decide at the start whether to merge the
+    two specs). Open: 공지 보내기 now or later; keep the old `/admin/*`
+    addresses as redirects (recommended).
+
 ## app-platform — full spec
 
 Added by the owner on 2026-10-15. Saved verbatim:
