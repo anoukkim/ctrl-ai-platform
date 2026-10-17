@@ -599,7 +599,7 @@ Branch `ui-admin-restructure`, merged. Saved exactly as written by the
 developer, and kept for reference: it is the clearest statement of why
 the Admin screens are shaped the way they are.
 
-**Before:** [`docs/ui-requests/admin-before.png`](../ui-requests/admin-before.png)
+**Before:** [`docs/archive/ui-requests-2026-10/admin-before.png`](ui-requests-2026-10/admin-before.png)
 — the current single-page Admin screen this item replaces: ten sections
 stacked on one route, from 회원 관리 down to 시스템.
 
@@ -2567,7 +2567,7 @@ a tool's worst case still refuses with the Korean notice.
 PART F of the owner's 2026-10-14 addendum (merge pre-approved when clean;
 "include in the PART E deploy if it finishes before it, otherwise list it
 as 'deploy next'" — it finished after, so it deploys next). The owner's
-words are in the run log (docs/progress/RUN-2026-10-13.md › Run of
+words are in the run log (docs/archive/progress-2026-10/RUN-2026-10-13.md › Run of
 2026-10-14) and the built details in
 [`progress-2026-10-13/audit-caching.md`](progress-2026-10-13/audit-caching.md) and
 [`progress-2026-10-13/audit-caching-and-distribution.md`](progress-2026-10-13/audit-caching-and-distribution.md);

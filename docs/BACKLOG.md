@@ -28,7 +28,7 @@ instruction"). **Add-on (owner, same evening):** fix-quarter-form-autofill
 and feat-spend-feedback, also pre-approved to merge and deploy, done right
 after cost-clarity. anonymous-feedback-board and builder-python: branch,
 test, report, WAIT. The board is
-[`progress/RUN-2026-10-14b.md`](progress/RUN-2026-10-14b.md).
+[`progress/RUN-2026-10-14b.md`](archive/progress-2026-10/RUN-2026-10-14b.md).
 
 Owner answers recorded with this run (2026-10-14): the Google `.env`
 change on the server was the owner's; no re-consent for existing accounts
@@ -54,7 +54,7 @@ the reply streams, the usage event and deduction are right, and a wrong
 key shows the Korean message with no charge. The request shape has so far
 only been checked against a fake transport. **Owner's step:** the
 morning guide of the 2026-10-14 batch walks through it
-(`progress/MORNING-2026-10-14.md`, section 5) — it is the first thing to
+(`archive/progress-2026-10/MORNING-2026-10-14.md`, section 5) — it is the first thing to
 run after the real key goes into the server `.env`.
 
 ---
@@ -413,7 +413,7 @@ P4 — make it usable
 
 P5 — ctrlai.files (branch + WAIT): images/files per app on the VM disk with caps (5 MB each, 100 MB per app, 2 GB total setting), served from apps.ctrlai.my/<slug>/_files/… with nosniff and safe content types; plan for Cloud Storage later.
 
-Everything Korean for members, light/dark, 390px. Progress in docs/progress/RUN-2026-10-15.md with "now on". Final report in Korean: per phase commit + backup, what I must test (with exact steps and test sentences), known risks, and the branch you are on.
+Everything Korean for members, light/dark, 390px. Progress in docs/archive/progress-2026-10/RUN-2026-10-15.md with "now on". Final report in Korean: per phase commit + backup, what I must test (with exact steps and test sentences), known risks, and the branch you are on.
 
 ---
 
@@ -607,7 +607,7 @@ New UI requests go here until they are folded into a UI batch.
   exist for plan/file/check (`Progress`, `generation.files_done`), so
   frontend only unless the first-build run lacks the per-file events.
   Mock-up:
-  [`ui-requests/builder-first-build-running.html`](ui-requests/builder-first-build-running.html).
+  [`ui-requests/builder-first-build-running.html`](archive/ui-requests-2026-10/builder-first-build-running.html).
   Not scheduled.
   **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
   "builder-first-build-running이랑 publish-done-popup(A)도 썸네일 지정이랑 한
@@ -630,7 +630,7 @@ New UI requests go here until they are folded into a UI batch.
   "게시했어요" once. Touches `PublishCelebration.tsx`,
   `celebration.module.css`, the `celebrating` state in
   `BuilderWorkspace.tsx`, its test. Frontend only. Small. Mock-up:
-  [`ui-requests/publish-done-popup.html`](ui-requests/publish-done-popup.html)
+  [`ui-requests/publish-done-popup.html`](archive/ui-requests-2026-10/publish-done-popup.html)
   (현재 · A · B side by side). **Owner picked A (2026-10-17: "게시 완료
   팝업을 A로")** — B is dropped. Not scheduled.
   **Bundled and pre-approved** (owner, 2026-10-17, verbatim:
@@ -675,7 +675,7 @@ New UI requests go here until they are folded into a UI batch.
   2 s timing, the no-flight rule, the under-10원 rule), and the "spend
   moment" paragraph in `docs/product.md`. Frontend only, no money logic, no
   migration. Small. Mock-up:
-  [`ui-requests/spend-toast-compact.html`](ui-requests/spend-toast-compact.html)
+  [`ui-requests/spend-toast-compact.html`](archive/ui-requests-2026-10/spend-toast-compact.html)
   (현재 vs 제안 switch). Not scheduled; best built with `running-state-calm`
   since both retune the shared motion.
   **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
@@ -728,8 +728,8 @@ New UI requests go here until they are folded into a UI batch.
   sidebar dot needs the "running" state to survive navigation (it is
   client-only now); (c) honour `prefers-reduced-motion` (sweeps and
   typing stop, dots stay static). Mock-ups (open in a browser):
-  [`ui-requests/running-state-calm-chat.html`](ui-requests/running-state-calm-chat.html)
-  and [`running-state-calm-builder.html`](ui-requests/running-state-calm-builder.html),
+  [`ui-requests/running-state-calm-chat.html`](archive/ui-requests-2026-10/running-state-calm-chat.html)
+  and [`running-state-calm-builder.html`](archive/ui-requests-2026-10/running-state-calm-builder.html),
   both with the aurora switch.
   **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
   "running-state-calm(시안 그대로)이랑 chat-preview-fullscreen 지금 배포 끝나면
@@ -755,7 +755,7 @@ New UI requests go here until they are folded into a UI batch.
   and a phone / desktop width switch in the overlay header, like the
   Builder's 미리보기, which already has an expand icon to match; (4) works
   on touch (full-screen sheet at phone width). No money, no backend. Small. Mock-up:
-  [`ui-requests/chat-preview-fullscreen.html`](ui-requests/chat-preview-fullscreen.html).
+  [`ui-requests/chat-preview-fullscreen.html`](archive/ui-requests-2026-10/chat-preview-fullscreen.html).
   Not scheduled.
 - **builder-snapshots** — owner, 2026-10-17: "하나 누를때마다 버전 올라가서
   좀 부담스러움", then "이것저것 하고 이걸 버전으로 저장 하고 스냅샷
