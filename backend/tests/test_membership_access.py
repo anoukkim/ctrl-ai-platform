@@ -509,6 +509,9 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     # admin-consolidation v3: the header's search.
     ("GET", "/api/admin/search"): "require_admin",
     ("GET", "/api/admin/quarters/{quarter_id}/money-flow"): "require_admin",
+    ("GET", "/api/admin/quarters/{quarter_id}/usage-analysis"): "require_admin",
+    ("GET", "/api/admin/quarters/{quarter_id}/export/concur.csv"): "require_admin",
+    ("GET", "/api/admin/members/{user_id}/usage"): "require_admin",
     ("GET", "/api/admin/quarters/{quarter_id}/close-steps"): "require_admin",
     ("POST", "/api/admin/quarters/{quarter_id}/apps-archived"): "require_admin",
     # thumbnail-render-worker
