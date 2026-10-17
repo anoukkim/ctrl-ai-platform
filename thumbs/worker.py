@@ -324,6 +324,12 @@ class UnixHTTPServer(ThreadingHTTPServer):
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
     Handler.cfg = config()
+    # Fail at start, not at the first render: a container that cannot
+    # render must not answer /health (it would look ready and return 500s).
+    try:
+        import playwright.sync_api  # noqa: F401
+    except ImportError as error:
+        raise SystemExit(f"playwright is not installed: {error}") from error
     if Handler.cfg["socket"]:
         server: ThreadingHTTPServer = UnixHTTPServer(Handler.cfg["socket"], Handler)  # type: ignore[arg-type]
         logger.info(
