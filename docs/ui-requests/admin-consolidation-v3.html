@@ -1,0 +1,404 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin v3 시안</title>
+<style>
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /*
+   * 색은 모두 여기에서만 정합니다. 화면 파일에는 색을 직접 쓰지 않습니다.
+   *
+   * 바탕은 중립 회색입니다. 개발 도구(VS Code, GitHub, Linear)처럼 배경은
+   * 색을 거의 갖지 않고, 회사 색은 강조에만 씁니다. 배경까지 색을 입히면
+   * 정작 강조해야 할 곳이 묻힙니다.
+   *
+   * 쓰지 않는 색:
+   *   #003c71, 브랜드 그라데이션 — 회사 로고 전용입니다.
+   *   남색 계열 배경(#001433 등) — 바탕은 중립 회색만 씁니다.
+   * 회사 로고 자체도 제품 화면에는 넣지 않습니다.
+   */
+
+  /* ---------- 바탕 (중립 회색, 어두운 쪽에서 밝은 쪽으로) ---------- */
+  --bg: #0a0a0b;
+  --bg-rail: #111113;
+  --panel: #161618;
+  --panel-2: #1c1c1f;
+  --elevated: #1c1c1f;
+
+  /* ---------- 선 ----------
+   * --border 는 칸을 나누는 장식용 선입니다. 장식이라 대비 기준이 없습니다.
+   * --border-strong 은 입력칸·버튼처럼 조작하는 요소의 테두리입니다.
+   * 그런 요소의 윤곽은 배경과 3:1 이상이어야 하는데, #2a2a2e 는 가장 밝은
+   * 바탕 위에서 1.19:1 밖에 되지 않아 따로 밝은 값을 둡니다. */
+  --border: #2a2a2e;
+  --border-strong: #6e6e78;
+
+  /* ---------- 글자 ---------- */
+  --text: #f2f2f2;
+  --text-muted: #cccccc;
+  --text-dim: #999999;
+
+  /* ---------- 강조 ----------
+   * 회사 색은 여기부터입니다. 바탕이 중립이라 적게 써도 충분히 보입니다. */
+  --accent: #9ac2fe;
+  --accent-soft: rgba(154, 194, 254, 0.12);
+  /* running-state-calm: the one colour of "something is running" — the
+     sweep, the dot, the outlined working button. */
+  --run: #7c6cf0;
+  --run-soft: rgba(124, 108, 240, 0.16);
+  --run-track: rgba(255, 255, 255, 0.06);
+  /* The page a member's app is drawn on in the Builder preview — the
+     browser default, the same in both themes. */
+  --preview-canvas: #fff;
+  /* 고른 상태의 칩·탭 테두리. --accent 를 그대로 쓰면 가리키기만 한
+   * 상태와 구분이 되지 않아, 같은 색을 옅게 깐 값을 따로 둡니다. */
+  --accent-border: rgba(154, 194, 254, 0.4);
+
+  /* 기본 버튼의 채움색. 어두운 바탕 위의 글자색으로는 쓰지 않습니다 —
+   * 바탕과 2.68:1 밖에 되지 않습니다. 버튼 윤곽이 보이도록 테두리에는
+   * 한 단계 밝은 파랑을 씁니다. */
+  --accent-strong: #0153cc;
+  --accent-strong-edge: #3485fe;
+  --on-accent: #ffffff;
+  /* 초점 표시선. 키보드로 이동할 때 어디에 있는지 보여 줍니다. */
+  --focus: #3485fe;
+
+  /* ---------- 영역별 강조색 ---------- */
+  --build: #bb33ff;
+  --build-text: #dd99ff;
+  --build-soft: rgba(187, 51, 255, 0.14);
+  --video: #00eeff;
+  --video-text: #00eeff;
+  --video-soft: rgba(0, 238, 255, 0.12);
+  /* 영상 미리보기 무대 위쪽의 옅은 빛. 장식이라 글자가 올라가지 않습니다. */
+  --video-glow: rgba(0, 238, 255, 0.08);
+  /* 미리보기에서 영상이 차지하지 않는 자리. 영상관처럼 어둡게 둡니다 —
+     비율이 다른 영상이 같은 칸에 들어와도 틀은 그대로입니다. */
+  --video-letterbox: #05070a;
+
+  /* 영상 버전의 자리 그림. 실제 영상이 아니라 목록에서 버전을 구분하기
+   * 위한 색이고, 네 가지를 돌려 씁니다. 모두 --video(#00eeff)를 어둡게
+   * 한 단계들이어서 영상 영역의 색에서 벗어나지 않습니다. 그림 위에는
+   * 흰 글자가 올라가므로 어두운 쪽 값만 씁니다. */
+  --video-art-1: linear-gradient(150deg, #081619, #0b6b76);
+  --video-art-2: linear-gradient(150deg, #0a1b1f, #107f8b);
+  --video-art-3: linear-gradient(150deg, #071317, #0a5460);
+  --video-art-4: linear-gradient(150deg, #0b1d20, #13929f);
+
+  /* ---------- 상태 ----------
+   * 성공과 주의는 원본 팔레트에 없어 중립 바탕에 맞게 골랐습니다. */
+  --ok: #4ec98b;
+  --ok-text: #7ee0b0;
+  --ok-soft: rgba(78, 201, 139, 0.13);
+  --warn: #e0a722;
+  --warn-text: #f0c35c;
+  --warn-soft: rgba(224, 167, 34, 0.13);
+  --error: #e64d54;
+  --error-text: #f2a6aa;
+  --error-soft: rgba(230, 77, 84, 0.13);
+
+  /* ---------- 로고 ----------
+   * 화면 전체에서 유일한 그라데이션입니다. + 표식에만 씁니다. */
+  --logo-from: #3485fe;
+  --logo-to: #bb33ff;
+
+  /* 배지 테두리. 배지 바탕(-soft)보다 한 단계 진한 같은 색입니다. */
+  --ok-border: rgba(93, 219, 164, 0.3);
+  --warn-border: rgba(240, 180, 41, 0.3);
+  --error-border: rgba(230, 77, 84, 0.4);
+  --error-hover: rgba(230, 77, 84, 0.22);
+  --error-strong-text: #ffd2d4;
+
+  /* 영상 진행 막대의 밝은 끝. */
+  --video-bright: #7df6ff;
+
+  /* 코드 편집기의 글자색. */
+  --code-keyword: #d7a6ff;
+  --code-string: #9fe3b8;
+
+  /* 그림자 아래 덧씌우는 어둠 — 모달 뒤, 좁은 화면의 서랍 뒤. */
+  --scrim: rgba(0, 0, 0, 0.55);
+
+
+  /*
+   * 코드·숫자·날짜 전용 글꼴.
+   *
+   * 뒤쪽에 한글 글꼴을 일부러 넣어 두었습니다. 글꼴 목록은 글자 하나하나에
+   * 대해 적용되므로, 숫자와 영문은 앞쪽 monospace 글꼴로, 한글은 본문과 같은
+   * 한글 글꼴로 그려집니다.
+   *
+   * 이것이 없으면 맨 뒤의 일반 `monospace`가 한글까지 고정폭으로 그려서
+   * "이 번 분 기 지 원"처럼 자간이 벌어집니다. 금액 "100,000원"처럼 숫자와
+   * 한글이 한 덩어리로 섞이는 경우가 많아 글꼴 단계에서 막는 편이 확실합니다.
+   */
+  --mono:
+    ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Pretendard Variable",
+    "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", monospace;
+}
+
+/* ---------- 밝은 테마 ----------
+ * 같은 토큰 이름의 값만 바꿉니다. 영상 무대(--video-letterbox)는 밝은
+
+/* ---------- 모양 (변형 B): 두 테마 모두 ---------- */
+:root {
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-chip: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ---------- 글꼴과 글자 크기 (두 테마 모두) ----------
+ *
+ * 글꼴은 Pretendard Variable 1.3.9입니다. npm 패키지 `pretendard`에서
+ * 가져와 우리 서버가 직접 내려 줍니다(layout.tsx의 dynamic-subset CSS) —
+ * 화면에 실제로 나온 한글 범위의 작은 파일만 받습니다. 목록의 나머지는
+ * 그 파일이 오기 전, 또는 받지 못했을 때 쓰는 한글 우선 대체 글꼴입니다.
+ *
+ * 크기는 디자인 시안(Claude Design)에서 잰 값입니다. 화면은 숫자를 직접
+ * 쓰지 않고 이 이름을 씁니다. */
+:root {
+  --font-ui:
+    "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕",
+    "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-eyebrow: 12px; /* ● Create */
+  --fs-page-title: 24px;
+  --fs-page-subtitle: 14px;
+  --fs-section: 14px;
+  --fs-card-name: 16px;
+  --fs-body: 13.5px;
+  --fs-meta: 12px; /* 날짜·부가 정보 */
+  --fs-label: 11px; /* 사이드바 묶음 이름, 썸네일 자리 표시 */
+  --fs-nav: 14px;
+  --fs-chip: 12.5px;
+  --fs-count: 13px;
+  --fs-button: 14px;
+  --fs-brand: 17px;
+  --fs-brand-sub: 11.5px;
+
+  --fw-title: 750;
+  --fw-strong: 650;
+  --fw-card-name: 700;
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size:var(--fs-body);line-height:1.5}
+.beta{background:var(--warn-soft);color:var(--warn-text);text-align:center;font-size:12px;padding:6px;border-bottom:1px solid var(--warn-border)}
+.shell{display:grid;grid-template-columns:232px 1fr;min-height:calc(100vh - 30px)}
+.rail{background:var(--bg-rail);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.logo{font-weight:700;font-size:15px;padding:0 8px 2px}.tag{color:var(--text-dim);font-size:11px;padding:0 8px 14px}
+.grp{font-size:var(--fs-label);color:var(--text-dim);font-weight:600;padding:14px 8px 4px}
+.it{padding:7px 10px;border-radius:var(--radius-chip);color:var(--text-muted)}.it.on{background:var(--accent-soft);color:var(--accent)}
+.sub{padding-left:14px}.sub .it{font-size:12.5px;padding:5px 10px}
+.me{margin-top:auto;padding:10px 8px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+.av{width:28px;height:28px;border-radius:50%;background:var(--accent-strong);display:grid;place-items:center;font-size:12px}
+.main{padding:22px 32px;max-width:1040px;width:100%}
+.crumb{color:var(--text-dim);font-size:12px;margin-bottom:10px}
+.tabsRow{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);gap:12px}
+.tabs{display:flex;gap:2px}
+.tab{background:none;border:0;font:inherit;font-weight:600;color:var(--text-muted);padding:10px 11px 11px;display:inline-flex;gap:6px;align-items:center;cursor:pointer;box-shadow:inset 0 -2px 0 transparent}
+.tab:hover{color:var(--text);box-shadow:inset 0 -2px 0 var(--border-strong)}
+.tab.on{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.cnt{min-width:18px;height:18px;padding:0 5px;border-radius:99px;border:1px solid var(--warn-border);background:var(--warn-soft);color:var(--warn-text);font-family:var(--mono);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.qsw{font-size:12px;border:1px solid var(--accent-border);background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:4px 11px;margin-bottom:4px;white-space:nowrap}
+.eye{color:var(--accent);font-size:var(--fs-eyebrow);margin:22px 0 2px}h1{font-size:var(--fs-page-title);margin:0 0 4px}
+.subt{color:var(--text-muted);font-size:var(--fs-page-subtitle);margin:0 0 18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.6rem;margin-bottom:1.1rem}
+.stat{padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius)}
+.stat.w{background:var(--warn-soft);border-color:var(--warn-border)}
+.sv{font-family:var(--mono);font-size:1.35rem;font-weight:700}.sl{color:var(--text-muted);font-size:12px}
+h2{font-size:var(--fs-section);margin:20px 0 8px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:var(--text-dim);font-weight:600;padding:10px 16px;background:var(--panel-2)}
+td{padding:11px 16px;border-top:1px solid var(--border)}.h{font-family:var(--mono);font-size:11.5px;color:var(--text-dim)}
+.badge{font-size:11.5px;padding:2px 9px;border-radius:99px;border:1px solid var(--ok-border);background:var(--ok-soft);color:var(--ok-text);white-space:nowrap}
+.badge.n{border-color:var(--border);background:transparent;color:var(--text-dim)}.badge.w{border-color:var(--warn-border);background:var(--warn-soft);color:var(--warn-text)}
+.chips{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+.chip{font:inherit;font-size:12.5px;padding:5px 12px;border:1px solid var(--border);border-radius:99px;background:transparent;color:var(--text-muted);cursor:pointer}
+.chip.on{border-color:var(--accent-border);background:var(--accent-soft);color:var(--accent)}
+.acc{display:flex;justify-content:space-between;gap:12px;padding:13px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--panel);margin-bottom:8px}
+.acc b{font-weight:600}.acc span{color:var(--text-muted);font-size:12.5px}
+.btn{font:inherit;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:var(--radius-chip);border:1px solid var(--border-strong);background:transparent;color:var(--text)}
+.btn.p{background:var(--accent-strong);border-color:var(--accent-strong-edge);color:var(--on-accent)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border)}.row:first-child{border-top:0}
+.ok{color:var(--ok-text)}
+.note{font-size:12px;color:var(--text-dim);margin:10px 0}
+.in{border:1px solid var(--border);background:var(--panel-2);border-radius:var(--radius-chip);padding:7px 12px;color:var(--text-dim);width:280px;font-size:13px}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:10px;padding:16px}.f{font-size:12px;color:var(--text-dim)}.f div{margin-top:4px;border:1px solid var(--border);background:var(--panel-2);border-radius:var(--radius-chip);padding:7px 10px;color:var(--text);font-family:var(--mono)}
+</style><style>.frame{margin:0 0 40px}.lab{padding:8px 16px;font-size:12px;color:var(--accent);font-weight:700;background:var(--panel-2);border-bottom:1px solid var(--border)}.shell{min-height:0}.rail{min-height:560px}.chips .chip{cursor:default}</style><style>
+.shell{min-height:100vh}.rail{min-height:100vh}
+.tab,.chip,.it{cursor:pointer}
+.view{display:none}.view.on{display:block}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--panel-2);border-radius:var(--radius-chip);padding:7px 12px;color:var(--text-dim);font-size:13px;min-width:260px}
+.search kbd{margin-left:auto;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:0 6px}
+.todo{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--border)}.todo:first-child{border-top:0}
+.todo .n{font-family:var(--mono);font-weight:800;color:var(--warn-text);min-width:22px}.todo .go{margin-left:auto}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.bar{height:6px;background:var(--panel-2);border-radius:3px;width:110px;display:inline-block;vertical-align:middle;margin-right:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}.bar.hot i{background:var(--warn-text)}
+tr.click{cursor:pointer}tr.click:hover td{background:var(--panel-2)}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--bg-rail);border-left:1px solid var(--border);padding:20px;overflow:auto;transform:translateX(100%);transition:transform .2s;z-index:5}
+.drawer.on{transform:none}.drawer h1{font-size:20px}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 16px}
+.btn.d{border-color:var(--error-border,rgba(230,77,84,.5));color:var(--error-text)}
+.switch{width:38px;height:22px;border-radius:99px;background:var(--panel-2);border:1px solid var(--border-strong);position:relative;cursor:pointer;flex:none}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text-dim);transition:left .15s}
+.switch.on{background:var(--accent-strong);border-color:var(--accent-strong-edge)}.switch.on::after{left:18px;background:#fff}
+.txt{flex:1;min-width:220px;border:1px solid var(--border-strong);background:var(--bg);color:var(--text);border-radius:var(--radius-chip);padding:8px 10px;font:inherit;font-size:13px}
+.steps{margin:0;padding:12px 16px 4px 34px}.steps li{margin:5px 0}.steps .done{color:var(--ok-text)}.steps .cur{color:var(--warn-text)}
+.flex{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gridc{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.mocknote{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px dashed var(--border-strong);color:var(--text-dim);font-size:12px;padding:6px 12px;border-radius:99px;z-index:6}
+.qc{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px 18px 16px}
+.qc-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.qc-top b{font-size:15px}.qc-dd{font-family:var(--mono);font-size:12px;color:var(--warn-text);border:1px solid var(--warn-border);background:var(--warn-soft);border-radius:99px;padding:2px 10px}
+.stepper{display:flex;margin:18px 0 6px;position:relative}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;min-width:0}
+.step::before{content:"";position:absolute;top:15px;left:calc(-50% + 18px);right:calc(50% + 18px);height:2px;background:var(--border)}
+.step:first-child::before{display:none}
+.step.done::before,.step.cur::before{background:var(--ok-text)}
+.circ{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--mono);border:2px solid var(--border-strong);color:var(--text-dim);background:var(--bg);z-index:1}
+.step.done .circ{background:var(--ok-soft);border-color:var(--ok-text);color:var(--ok-text)}
+.step.cur .circ{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
+.step .t{margin-top:8px;font-size:12.5px;font-weight:600}.step .d{font-size:11.5px;color:var(--text-dim);margin-top:2px;padding:0 4px}
+.step.cur .t{color:var(--accent)}
+.qc-now{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--accent-soft);border:1px solid var(--accent-border)}
+.qc-now .k{font-size:12px;color:var(--accent)}.qc-now .v{font-size:13.5px}
+.qc-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.qc-facts div{background:var(--panel-2);border-radius:var(--radius-sm);padding:9px 10px}.qc-facts span{display:block;font-size:11.5px;color:var(--text-dim)}.qc-facts b{font-family:var(--mono);font-size:14px}
+@media (max-width:700px){.stepper{flex-direction:column;align-items:flex-start;gap:12px}.step{flex-direction:row;gap:10px;text-align:left}.step::before{display:none}.step .t{margin-top:0}}
+.flow{display:flex;height:22px;border-radius:7px;overflow:hidden;gap:2px;background:var(--panel-2)}
+.flow span{display:block;height:100%;box-sizing:border-box}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
+.legend div{display:grid;grid-template-columns:14px 1fr;column-gap:8px;row-gap:2px;align-items:center;background:var(--panel-2);border-radius:var(--radius-sm);padding:10px}
+.legend i{width:12px;height:12px;border-radius:3px;grid-row:span 3;align-self:start;margin-top:3px}
+.legend span{font-size:12.5px;color:var(--text-muted)}.legend b{font-family:var(--mono);font-size:16px}.legend em{font-style:normal;font-size:11.5px;color:var(--text-dim)}
+</style></head><body>
+<div class="beta" id="betabar">베타 · CTRL+AI는 지금 초대받은 회원과 함께 시험 운영 중입니다. <u>의견 보내기</u></div>
+<div class="shell"><aside class="rail"><div class="logo">+ CTRL+AI</div><div class="tag">함께 만들고 함께 나누는 AI 창작 커뮤니티</div>
+<div class="grp">Create</div><div class="it">Chat</div><div class="it">Project Builder</div><div class="it">Video Generator</div>
+<div class="grp">Explore</div><div class="it">CtrlAIApps</div><div class="it">CtrlAITube</div>
+<div class="grp">Manage</div><div class="it on">Admin</div><div class="sub" id="side">
+<div class="it on" data-v="dash">Dashboard</div><div class="it" data-v="mem">Members</div><div class="it" data-v="qtr">Quarters</div><div class="it" data-v="mod">Models</div><div class="it" data-v="com">Community</div><div class="it" data-v="sys">System</div></div>
+<div class="me"><div class="av">a</div><div>admin <span class="badge">관리자</span></div></div></aside>
+<main class="main">
+<div class="flex" style="justify-content:space-between"><div class="crumb">Admin › <span id="crumb">Dashboard</span></div><div class="search">⌕ 회원·앱 이름으로 찾기<kbd>⌘K</kbd></div></div>
+<div class="tabsRow"><div class="tabs" id="tabs"><span class="tab on" data-v="dash">Dashboard</span><span class="tab" data-v="mem">Members <span class="cnt">2</span></span><span class="tab" data-v="qtr">Quarters</span><span class="tab" data-v="mod">Models</span><span class="tab" data-v="com">Community <span class="cnt">1</span></span><span class="tab" data-v="sys">System</span></div><span class="qsw">2026 Q4 · 신청 접수 중 · D-75 ▾</span></div>
+
+<section class="view on" id="dash"><div class="eye">● Admin</div><h1>Admin</h1><p class="subt">처리할 일이 있으면 위에, 나머지는 한눈에.</p>
+<div class="gridc"><div><h2>처리할 일</h2><div class="card">
+<div class="todo"><span class="n">2</span>참여 신청 승인 대기<span class="go"><span class="badge w">Members ›</span></span></div>
+<div class="todo"><span class="n">1</span>열린 신고 (CtrlAIApps 댓글)<span class="go"><span class="badge w">Community ›</span></span></div></div>
+<p class="note">0개인 할 일은 보이지 않아요.</p></div>
+<div><h2>알림 <span class="h">기준을 넘으면 자동</span></h2><div class="card">
+<div class="row"><span class="flex"><span class="dot" style="background:var(--warn-text)"></span>민지 · 지원금 86% 사용</span><span class="badge w">80% 넘음</span></div>
+<div class="row"><span class="flex"><span class="dot" style="background:var(--warn-text)"></span>Anthropic 이번 달 예산</span><span class="badge w">71%</span></div>
+<div class="row"><span class="flex"><span class="dot" style="background:var(--ok-text)"></span>백업 · 서버 썸네일</span><span class="ok">정상 · 04:28</span></div></div></div></div>
+<h2>이번 주 가장 많이 쓴 곳</h2><div class="card"><div class="row"><span>Project Builder 58% · Chat 34% · 앱 AI 8%</span><span class="h">가장 많이 쓴 앱 · 동아리 게시판 1,240원</span></div></div>
+</section>
+
+<section class="view" id="mem"><div class="eye">● Admin</div><h1>Members</h1><p class="subt">참여 신청, 회원, 초대 코드. 줄을 누르면 회원 상세.</p>
+<div class="chips"><span class="chip on">전체 14</span><span class="chip">승인 대기 <span class="cnt">2</span></span><span class="chip">활동 11</span><span class="chip">미참여 1</span><span class="chip" style="margin-left:auto">초대 코드 ›</span></div>
+<div class="card"><table><tr><th>회원</th><th>상태</th><th>사용률 ⇅</th><th>남음</th><th></th></tr>
+<tr class="click" data-open><td><b>민지</b> <span class="h">@minji</span></td><td><span class="badge">활동</span></td><td><span class="bar hot"><i style="width:86%"></i></span>86%</td><td class="h">11,200원</td><td class="h">›</td></tr>
+<tr class="click" data-open><td><b>admin</b> <span class="h">@admin</span></td><td><span class="badge">활동</span></td><td><span class="bar"><i style="width:14%"></i></span>14%</td><td class="h">68,305원</td><td class="h">›</td></tr>
+<tr><td><b>준호</b> <span class="h">@junho</span></td><td><span class="badge w">승인 대기</span></td><td class="h">—</td><td class="h">—</td><td><span class="btn p">승인</span> <span class="btn">거절</span></td></tr>
+<tr class="click" data-open><td><b>서연</b> <span class="h">@seoyeon</span></td><td><span class="badge n">미참여</span></td><td class="h">—</td><td class="h">—</td><td class="h">›</td></tr></table></div></section>
+
+<section class="view" id="qtr"><div class="eye">● Admin</div><h1>Quarters</h1><p class="subt">분기 · 예산은 "산 돈이 어디로 나뉘었나", 사용 분석은 "어디에 썼나". 분기는 위쪽에서 바꿔요.</p>
+<div class="chips" id="qchips"><span class="chip on" data-q="qb">분기 · 예산</span><span class="chip" data-q="qa">사용 분석</span></div>
+<div id="qb">
+<h2>돈의 흐름 <span class="h">2026 Q4 · 원 기준</span></h2>
+<div class="card" style="padding:16px">
+<div class="flex" style="justify-content:space-between;margin-bottom:10px"><span><b>산 크레딧 전체</b> <span class="h">Anthropic 등 제공자에서 구매</span></span><b style="font-family:var(--mono);font-size:18px">₩1,200,000</b></div>
+<div class="flow" title="산 크레딧 전체">
+<span style="width:8%;background:var(--accent)" title="회원 사용"></span>
+<span style="width:65.3%;background:var(--accent-soft);border:1px solid var(--accent-border)" title="회원 미사용"></span>
+<span style="width:26.7%;background:var(--ok-soft);border:1px solid var(--ok-border)" title="여유분"></span>
+</div>
+<div class="legend">
+<div><i style="background:var(--accent)"></i><span>회원이 쓴 돈</span><b>₩96,410</b><em>지급의 11%</em></div>
+<div><i style="background:var(--accent-soft);border:1px solid var(--accent-border)"></i><span>회원에게 줬지만 아직 안 쓴 돈</span><b>₩783,590</b><em>11명 지갑</em></div>
+<div><i style="background:var(--ok-soft);border:1px solid var(--ok-border)"></i><span>여유분 · 나눠 주지 않은 돈</span><b>₩320,000</b><em>유지보수 · 테스트 · 추가 지급</em></div>
+</div>
+<div class="row" style="padding:12px 0 0;margin-top:12px"><span class="h">회원에게 준 몫 = 11명 × ₩80,000 = ₩880,000 · 여유분에서 쓴 돈(관리자 테스트, 썸네일 등) ₩4,200</span><span class="h">분기 말 예상: 회원 사용 ₩412,000 → 여유 충분</span></div>
+</div>
+<p class="note">실제 원가(제공자 청구, 달러)와 회원 지갑에서 빠진 돈은 따로 기록돼요 — 원가 기준은 "사용 분석" 탭.</p>
+<div class="gridc"><div style="grid-column:1/-1"><h2>분기 마감</h2><div class="qc">
+<div class="qc-top"><b>2026 Q4 마감</b><span class="qc-dd">12월 31일 · D-75</span></div>
+<div class="stepper">
+<div class="step done"><div class="circ">✓</div><div class="t">신청 마감</div><div class="d">10월 31일</div></div>
+<div class="step cur"><div class="circ">2</div><div class="t">정산 확인</div><div class="d">지갑 동결 · 회수 금액</div></div>
+<div class="step"><div class="circ">3</div><div class="t">휴지통 비우기</div><div class="d">지운 작업 영구 삭제</div></div>
+<div class="step"><div class="circ">4</div><div class="t">앱 보관</div><div class="d">데모만 · 지난 분기로</div></div>
+<div class="step"><div class="circ">5</div><div class="t">다음 분기 열기</div><div class="d">2027 Q1 신청</div></div>
+</div>
+<div class="qc-now"><div><div class="k">지금 할 단계 · 2</div><div class="v">정산 확인 — 남은 지원금을 동결하고, 다음 분기로 넘길 몫을 정해요</div></div><span class="btn p">정산 확인 시작…</span></div>
+<div class="qc-facts"><div><span>동결할 지갑</span><b>11개</b></div><div><span>회수 예정</span><b>783,590원</b></div><div><span>보관할 앱</span><b>4개</b></div></div>
+<p class="note">되돌릴 수 없는 단계(3·4)는 누를 때 한 번 더 물어요. 단계마다 감사 기록이 남아요.</p>
+</div></div>
+</div></div>
+<div id="qa" style="display:none">
+<div class="stats">
+<div class="stat"><div class="sv">₩89,100</div><div class="sl">이번 분기 원가 ($61.20)</div></div>
+<div class="stat"><div class="sv">₩96,410</div><div class="sl">회원에게 청구된 금액</div></div>
+<div class="stat"><div class="sv">₩6,200</div><div class="sl">캐시로 아낀 돈</div></div>
+<div class="stat"><div class="sv">12월 9일</div><div class="sl">크레딧 소진 예상</div></div>
+</div>
+<div class="gridc">
+<div><h2>제공자별 <span class="h">원가와 청구를 나란히</span></h2><div class="card"><table><tr><th>제공자</th><th>원가</th><th>청구</th><th>남은 크레딧</th><th>소진 예상</th></tr>
+<tr><td>Anthropic</td><td class="h">$61.20</td><td class="h">89,100원</td><td class="h">$188.80</td><td class="h">12월 9일</td></tr><tr><td>Higgsfield</td><td class="h">$0</td><td class="h">0원</td><td class="h">—</td><td class="h">—</td></tr></table>
+<div class="row"><span class="h">사용 내역 · 크레딧 구매 기록</span><span class="btn">⤓ CSV 내보내기 (Concur)</span></div></div></div>
+<div><h2>기능별</h2><div class="card"><div class="row"><span>Project Builder</span><span class="h">₩55,900 · 58%</span></div><div class="row"><span>Chat</span><span class="h">₩32,800 · 34%</span></div><div class="row"><span>앱 AI</span><span class="h">₩7,700 · 8%</span></div></div></div>
+<div><h2>모델별</h2><div class="card"><div class="row"><span>Sonnet 5.5</span><span class="h">₩71,300</span></div><div class="row"><span>Haiku 4.5</span><span class="h">₩12,900</span></div></div></div>
+<div><h2>앱 TOP 5</h2><div class="card"><div class="row"><span>동아리 게시판</span><span class="h">₩1,240</span></div><div class="row"><span>문서 챗봇 메이커</span><span class="h">₩980</span></div><div class="row"><span>여행 일정 메이커</span><span class="h">₩610</span></div></div></div>
+<div><h2>회원 TOP 5</h2><div class="card"><div class="row"><span>민지</span><span class="h">₩68,800</span></div><div class="row"><span>admin</span><span class="h">₩11,695</span></div><div class="row"><span>준호</span><span class="h">₩6,100</span></div></div></div>
+</div>
+<h2>일별 추이</h2><div class="card" style="padding:14px 16px"><svg viewBox="0 0 600 90" width="100%" height="90" preserveAspectRatio="none"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="0,80 40,72 80,74 120,60 160,64 200,50 240,55 280,40 320,46 360,30 400,36 440,22 480,28 520,18 560,24 600,12"/><polyline fill="none" stroke="var(--text-dim)" stroke-dasharray="4 4" stroke-width="1.5" points="600,12 600,12"/></svg><div class="note" style="margin:6px 0 0">지난 30일 · 점선은 분기 말까지 예상</div></div>
+</div>
+</section>
+
+<section class="view" id="mod"><div class="eye">● Admin</div><h1>Models</h1><p class="subt">Chat · Video 모델, 한도, 비용 보정.</p>
+<div class="chips"><span class="chip on">Chat</span><span class="chip">Video</span><span class="chip">한도</span><span class="chip">보정</span></div>
+<div class="card"><table><tr><th>모델</th><th>상태</th><th>가격 (1M 토큰)</th><th>이번 분기 사용</th></tr>
+<tr><td>Sonnet 5.5 <span class="badge n">기본</span></td><td><span class="badge">열림</span></td><td class="h">$3 / $15</td><td class="h">71,300원</td></tr>
+<tr><td>Haiku 4.5</td><td><span class="badge">열림</span></td><td class="h">$1 / $5</td><td class="h">12,900원</td></tr>
+<tr><td>Opus 5.5</td><td><span class="badge n">닫힘</span></td><td class="h">$15 / $75</td><td class="h">—</td></tr></table></div></section>
+
+<section class="view" id="com"><div class="eye">● Admin</div><h1>Community</h1><p class="subt">신고 · 의견 · 앱. 비어 있는 칸은 숨김.</p>
+<div class="chips"><span class="chip on">신고 <span class="cnt">1</span></span><span class="chip">의견</span><span class="chip">앱</span></div>
+<div class="acc"><div><b>신고 · 동아리 게시판 댓글</b><br><span>"광고 같아요" · 2시간 전</span></div><div class="flex"><span class="btn">숨기기</span><span class="btn">닫기</span></div></div>
+</section>
+
+<section class="view" id="sys"><div class="eye">● Admin</div><h1>System</h1><p class="subt">상태, 공지 띠, 유지보수, 감사 기록.</p>
+<div class="gridc"><div><h2>상태 <span class="h">제공자는 한 번만</span></h2><div class="card">
+<div class="row"><span class="flex"><span class="dot" style="background:var(--ok-text)"></span>서버 · DB · 백업 · 썸네일 서버</span><span class="ok">정상</span></div>
+<div class="row"><span class="flex"><span class="dot" style="background:var(--ok-text)"></span>Anthropic · 환율 (Frankfurter)</span><span class="h">1,332원</span></div>
+<div class="row"><span class="flex"><span class="dot" style="background:var(--text-dim)"></span>Higgsfield · GitHub · YouTube</span><span class="h">연결 준비 중</span></div></div></div>
+<div><h2>공지 띠 <span class="h">맨 위의 노란 띠</span></h2><div class="card">
+<div class="row"><span><b>띠 보이기</b><br><span class="h">끄면 모든 화면에서 사라져요</span></span><span class="switch on" id="bannerSwitch" role="switch" aria-checked="true"></span></div>
+<div class="row" style="gap:8px"><input class="txt" id="bannerText" value="베타 · CTRL+AI는 지금 초대받은 회원과 함께 시험 운영 중입니다."><span class="btn p" id="bannerSave">바꾸기</span></div>
+<div class="row"><span class="h">「의견 보내기」 링크 함께 보이기</span><span class="switch on"></span></div></div>
+<p class="note">알림 일괄 발송은 나중에 — 우선 띠 문구와 켜고 끄기만.</p></div>
+<div><h2>유지보수</h2><div class="card"><div class="row"><span>게시된 앱 썸네일</span><span class="btn">다시 만들기</span></div><div class="row"><span>환율</span><span class="btn">지금 새로 고침</span></div></div></div>
+<div><h2>감사 기록</h2><div class="card"><div class="row"><span>admin · 썸네일 다시 만들기 · 4개</span><span class="h">04:28</span></div><div class="row"><span>admin · 민지 지원금 +5,000원 · "행사"</span><span class="h">03:12</span></div></div></div></div></section>
+</main></div>
+
+<aside class="drawer" id="drawer"><div class="flex" style="justify-content:space-between"><div class="eye" style="margin:0">● Members</div><span class="btn" id="close">닫기</span></div>
+<h1>민지 <span class="h">@minji</span></h1><span class="badge">활동 · 2026 Q4</span>
+<div class="acts"><span class="btn">지원금 ± 조정…</span><span class="btn">비밀번호 재설정…</span><span class="btn d">비활성화…</span></div>
+<div class="stats"><div class="stat"><div class="sv">68,800원</div><div class="sl">사용</div></div><div class="stat w"><div class="sv">86%</div><div class="sl">사용률</div></div><div class="stat"><div class="sv">11,200원</div><div class="sl">남음</div></div><div class="stat"><div class="sv">11/20</div><div class="sl">소진 예상</div></div></div>
+<h2>기능별</h2><div class="card"><div class="row"><span>빌더</span><span class="h">41,200원</span></div><div class="row"><span>채팅</span><span class="h">22,900원</span></div><div class="row"><span>앱 AI</span><span class="h">4,700원</span></div></div>
+<h2>모델별</h2><div class="card"><table><tr><th>모델</th><th>토큰</th><th>원</th></tr><tr><td>Sonnet 5.5</td><td class="h">1.9M</td><td class="h">59,100</td></tr><tr><td>Haiku 4.5</td><td class="h">2.4M</td><td class="h">9,700</td></tr></table></div>
+<h2>연결된 앱 · 지운 작업</h2><div class="card"><div class="row"><span>연결된 앱 · 동아리 게시판, 문서 챗봇</span><span class="btn">관리</span></div><div class="row"><span>지운 작업 · 미니 게임</span><span class="btn">복구</span></div></div>
+</aside>
+<div class="mocknote">시안 v3 · 실제 화면 틀 · 숫자는 가짜 · 탭·줄·스위치를 눌러 보세요</div>
+<script>
+const names={dash:"Dashboard",mem:"Members",qtr:"Quarters",mod:"Models",com:"Community",sys:"System"};
+function go(v){document.querySelectorAll("[data-v]").forEach(x=>x.classList.toggle("on",x.dataset.v===v));document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id===v));document.getElementById("crumb").textContent=names[v];}
+document.querySelectorAll("[data-v]").forEach(x=>x.onclick=()=>go(x.dataset.v));
+document.querySelectorAll("[data-open]").forEach(r=>r.onclick=()=>document.getElementById("drawer").classList.add("on"));
+document.getElementById("close").onclick=()=>document.getElementById("drawer").classList.remove("on");
+document.querySelectorAll(".switch").forEach(s=>s.onclick=()=>{s.classList.toggle("on");s.setAttribute("aria-checked",s.classList.contains("on"));if(s.id==="bannerSwitch")document.getElementById("betabar").style.display=s.classList.contains("on")?"":"none";});
+document.querySelectorAll('#qchips .chip').forEach(c=>c.onclick=()=>{document.querySelectorAll('#qchips .chip').forEach(x=>x.classList.toggle('on',x===c));document.getElementById('qb').style.display=c.dataset.q==='qb'?'':'none';document.getElementById('qa').style.display=c.dataset.q==='qa'?'':'none';});
+document.getElementById("bannerSave").onclick=()=>{document.getElementById("betabar").firstChild.textContent=document.getElementById("bannerText").value+" ";};
+</script>
+</body></html>

@@ -356,7 +356,11 @@ The owner's words, verbatim:
     when the item starts.
 
 8. **admin-consolidation** · M1 · eight small branches, one per row of the plan
-    *Last in the queue, not pre-approved.* Owner, 2026-10-17 (desktop
+    **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+    "admin-consolidation(v3 기준, 4묶음)도 ⑤ 다음에 같은 규칙으로 해줘") — after
+    chat-to-builder-carry, built from the **v3** revision in
+    `ui-requests/admin-consolidation.md` (mock `admin-consolidation-v3.html`) in
+    **four batches**, each: review clean + tests pass → merge + deploy. Owner, 2026-10-17 (desktop
     session): Admin has too many sections and repeats itself — cut **13
     sections to 6** (Dashboard · Members · Quarters · Models · Community ·
     System), add per-member usage and a Quarters › 사용 분석 tab (where the
@@ -917,6 +921,21 @@ New UI requests go here until they are folded into a UI batch.
   liked; without a 미리보기 it stays as today. Small. **Scheduled and
   pre-approved** (owner, 2026-10-17, verbatim: "chat-to-builder-carry는
   background-runs 다음에 같은 규칙으로 해줘").
+  **Refined (owner, 2026-10-17, with screenshots):** "빌더로 보내기 이거를 하면
+  잘 가긴 하거든? 근데 html만 띡 가고 제목도 저렇게만 되고 프로젝트 빌드하기
+  누르면 프롬프트만 가서 이상한거 만들어지고". So: (1) one action — in a
+  conversation with a 미리보기, 「Project Builder에서 예시 앱 만들기」 becomes
+  「이 미리보기로 Builder 시작」 (same as the card's 「Builder로 보내기」); (2) the
+  project name comes from the page (`<title>` / first heading, shortened), a
+  Haiku name only when the page has none — not the truncated conversation
+  title; (3) the conversation's requirements travel too: a short requirements
+  note (what was asked and decided: features, data, look) saved as the
+  project's SPEC.md (a guide doc, not served) and shown in the Builder's
+  first Claude bubble ("채팅에서 가져왔어요 · 요구사항 N개"), so later 고치기
+  build on it instead of starting over; Haiku summary charged and estimated
+  like any call (a few 원), or free when it can be taken from the messages as
+  they are; (4) several 미리보기 in the conversation → pick one (newest by
+  default).
 - **after-the-queue (coordinator, after ⑤ chat-to-builder-carry)** — owner,
   2026-10-17, verbatim: "5번까지 다 끝나고 해야할 것 … 1. 깃리포지터리 정리
   chore-promo-videos 사이트에 올라간 것들 다른 곳에 있다면 정리해도 됨 2. 깃
@@ -930,6 +949,18 @@ New UI requests go here until they are folded into a UI batch.
   data), features, stack, run locally, docs links; (3) repository
   description/topics/website; site-side beta marks or icons only after
   asking; (4) a "what changed and where to look" guide in the desktop chat.
+  **Then (owner, 2026-10-17, verbatim):** "after all that finishes do a full
+  check everything thouroghly, drop me a list of what needs updates or
+  confirmation and then prune? the repo" — (5) a thorough check of
+  production and the repo: every screen against the deployed features
+  (signed in as admin and as a test member), the money path (estimate →
+  charge → Usage), the isolation checks of the thumbs worker, backups,
+  the full test suites, docs vs code (BACKLOG Next/Done, product.md,
+  architecture.md, deployment.md, CLAUDE.md §3 sections count), stale
+  specs; (6) a list for the owner: what needs updating and what needs their
+  confirmation; (7) prune the repo: merged branches (local + remote),
+  worktrees, untracked scratch files, superseded mock-ups — anything not
+  merged or not obviously dead is listed and asked about first.
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the

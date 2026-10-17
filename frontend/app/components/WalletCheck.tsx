@@ -21,7 +21,8 @@ export default function WalletCheck({ costKrw }: { costKrw: number | null }) {
   if (verdict === null) return null;
 
   return (
-    <span className={`${styles.check} ${styles[verdict.tone]}`} data-testid="wallet-check">
+    // data-spend-anchor: the spend pill appears just above this line.
+    <span className={`${styles.check} ${styles[verdict.tone]}`} data-testid="wallet-check" data-spend-anchor>
       {verdict.text}
     </span>
   );

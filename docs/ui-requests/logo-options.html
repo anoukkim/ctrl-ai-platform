@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CTRL+AI 로고 시안</title>
+<style>
+  :root {
+    --bg:#0b0b0f; --card:#15151c; --line:#26262f; --text:#f2f2f5; --dim:#9a9aa8;
+    /* 세 기본색 (브랜드 그라데이션의 재료) */
+    --brand-primary:#1b2a7a;   /* 깊은 남색 */
+    --accent-primary:#a63cf6;  /* 보라 */
+    --accent-secondary:#5fe3f7;/* 하늘 */
+    --action-primary:#3a6df0;  /* 파랑 */
+    --gradient-brand: linear-gradient(90deg, var(--brand-primary), var(--accent-primary), var(--accent-secondary));
+    --gradient-primary: linear-gradient(90deg, var(--accent-secondary), var(--action-primary));
+    --gradient-secondary: linear-gradient(90deg, var(--accent-primary), var(--brand-primary));
+    --gradient-accent: linear-gradient(90deg, #4f7cff, var(--accent-primary));
+  }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2.sec { font-size:17px; margin:32px 0 6px; }
+  p.lead { color:var(--dim); margin:0 0 18px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { color:var(--dim); font-weight:600; font-size:12px; }
+  .sw { width:120px; height:30px; border-radius:6px; }
+  code { color:#f58bd0; font-size:12.5px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+  .opt { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; }
+  .opt h3 { font-size:15px; margin:0 0 2px; } .opt .why { color:var(--dim); font-size:13px; margin:0 0 14px; }
+  .stage { display:flex; align-items:center; gap:12px; padding:18px; border-radius:12px; margin-bottom:10px; }
+  .dark { background:#0f0f14; } .light { background:#f6f6f9; color:#111; }
+  .word { font-weight:800; font-size:26px; letter-spacing:-.01em; }
+  .sizes { display:flex; align-items:end; gap:14px; color:var(--dim); font-size:12px; flex-wrap:wrap; }
+  .sizes div { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .tab { display:flex; align-items:center; gap:6px; background:#22222b; border-radius:8px 8px 0 0; padding:6px 10px; font-size:12px; color:#ddd; }
+  .plus { background:var(--gradient-brand); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .readme { margin-top:10px; background:#0d1117; border:1px solid #30363d; border-radius:12px; padding:22px; text-align:center; }
+  .badges { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:14px; font:600 11px/1 ui-monospace, Menlo, monospace; letter-spacing:.08em; }
+  .badge { display:flex; } .badge span { padding:6px 9px; } .badge span:first-child { background:#3a3f4b; color:#fff; }
+  .rule { color:var(--dim); font-size:13px; margin:6px 0 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>CTRL+AI 로고 시안 v2 — 그라데이션 체계</h1>
+<p class="lead">보내 주신 예처럼: 세 기본색으로 만든 <b>브랜드 그라데이션</b>은 로고처럼 높은 곳에만 아껴 쓰고, 장식용 그라데이션 셋은 한 화면에 하나만.</p>
+
+<h2 class="sec">그라데이션</h2>
+<table>
+  <tr><th>견본</th><th>이름</th><th>각도</th><th>색</th><th>쓰는 곳</th></tr>
+  <tr><td><div class="sw" style="background:var(--gradient-brand)"></div></td><td>Brand</td><td>90°</td><td><code>brand-primary, accent-primary, accent-secondary</code></td><td>로고·README 머리만</td></tr>
+  <tr><td><div class="sw" style="background:var(--gradient-primary)"></div></td><td>Primary</td><td>90°</td><td><code>accent-secondary, action-primary</code></td><td>장식(배지, 진행 줄)</td></tr>
+  <tr><td><div class="sw" style="background:var(--gradient-secondary)"></div></td><td>Secondary</td><td>90°</td><td><code>accent-primary, brand-primary</code></td><td>장식(카드 테두리)</td></tr>
+  <tr><td><div class="sw" style="background:var(--gradient-accent)"></div></td><td>Accent</td><td>90°</td><td><code>action-blue, accent-primary</code></td><td>장식 — 지금 사이트 색과 가장 가까움</td></tr>
+</table>
+<p class="rule">규칙: 브랜드 그라데이션은 로고에만 · 장식 그라데이션은 한 화면에 하나만 · 나머지는 단색.</p>
+
+<h2 class="sec">로고 (브랜드 그라데이션 적용)</h2>
+<div class="grid" id="grid"></div>
+
+<h2 class="sec">README 머리 예시 (B 기준)</h2>
+<div class="readme" id="readme"></div>
+</main>
+<script>
+const stops = `<stop stop-color="#1b2a7a"/><stop offset=".55" stop-color="#a63cf6"/><stop offset="1" stop-color="#5fe3f7"/>`;
+const G = (id) => `<defs><linearGradient id="${id}" x1="0" y1="1" x2="1" y2="0">${stops}</linearGradient></defs>`;
+const marks = {
+  A: (s,id) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32">${G(id)}<rect width="32" height="32" rx="8" fill="url(#${id})"/><path d="M16 9.5V22.5M9.5 16H22.5" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
+  B: (s,id) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32">${G(id)}<rect x="1" y="3.5" width="30" height="27" rx="7" fill="#11163f"/><rect x="1" y="1" width="30" height="26" rx="7" fill="url(#${id})"/><path d="M16 8V20M10 14H22" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`,
+  C: (s,id) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32">${G(id)}<path d="M16 2.5c1.4 7.4 6.1 12.1 13.5 13.5-7.4 1.4-12.1 6.1-13.5 13.5-1.4-7.4-6.1-12.1-13.5-13.5 7.4-1.4 12.1-6.1 13.5-13.5z" fill="url(#${id})"/></svg>`,
+  "B+C": (s,id) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32">${G(id)}<rect x="1" y="3.5" width="30" height="27" rx="7" fill="#11163f"/><rect x="1" y="1" width="30" height="26" rx="7" fill="url(#${id})"/><path d="M16 6.5c.8 4.2 3.3 6.7 7.5 7.5-4.2.8-6.7 3.3-7.5 7.5-.8-4.2-3.3-6.7-7.5-7.5 4.2-.8 6.7-3.3 7.5-7.5z" fill="#fff"/></svg>`,
+};
+const options = [
+  ["A", "A. 지금 모양 + 브랜드 그라데이션", "모양은 그대로, 색만 세 색 그라데이션(남색→보라→하늘)으로."],
+  ["B", "B. 키캡 + 브랜드 그라데이션", "'Ctrl+' 키 느낌. 아래 남색 그림자로 눌리는 키."],
+  ["C", "C. 반짝이 + 브랜드 그라데이션", "+를 ✦ 모양으로 — 'AI로 만든다'. 배경 없이 모양 자체가 로고."],
+  ["B+C", "B+C. 키캡 안에 반짝이", "키캡 모양 + 흰 반짝이. 이름(단축키)과 AI 둘 다."],
+];
+const word = `CTRL<span class="plus">+</span>AI`;
+document.getElementById("grid").innerHTML = options.map(([k, name, why], i) => `
+  <section class="opt">
+    <h3>${name}</h3><p class="why">${why}</p>
+    <div class="stage dark">${marks[k](44, "d"+i)}<span class="word">${word}</span></div>
+    <div class="stage light">${marks[k](44, "l"+i)}<span class="word">${word}</span></div>
+    <div class="sizes"><div>${marks[k](64,"s1"+i)}64</div><div>${marks[k](32,"s2"+i)}32</div><div>${marks[k](16,"s3"+i)}16</div>
+      <div><span class="tab">${marks[k](14,"t"+i)} CTRL+AI</span>탭</div></div>
+  </section>`).join("");
+const badge = (a, b, bg) => `<span class="badge"><span>${a}</span><span style="background:${bg};color:#fff">${b}</span></span>`;
+document.getElementById("readme").innerHTML = `
+  <div style="display:flex;align-items:center;justify-content:center;gap:14px">${marks.B(56,"rm")}<span class="word" style="font-size:40px">${word}</span></div>
+  <div style="color:#9aa4b2;margin-top:8px">말만 하면 만들어 주는 AI 창작 커뮤니티 — 앱 · 영상 · 공유</div>
+  <div class="badges">${badge("STATUS","BETA","#a63cf6")}${badge("VERSION","0.9","#3a6df0")}${badge("STACK","NEXT.JS · FASTAPI","#1b2a7a")}${badge("SITE","CTRLAI.MY","#1f9fb8")}</div>`;
+</script>
+</body>
+</html>
