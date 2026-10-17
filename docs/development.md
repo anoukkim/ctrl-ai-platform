@@ -5,7 +5,7 @@ pieces fit together, environment files, providers, tests, troubleshooting
 and the operator notes. Moved here from the repository README and
 `docs/BACKLOG.md` on 2026-10-07; the text is unchanged.
 
-The short version is in the [README](../README.md#quick-start).
+The short version is in the [README](../README.md#run-it-locally).
 
 ## Prerequisites
 
@@ -13,14 +13,34 @@ The short version is in the [README](../README.md#quick-start).
 | -------------- | ------------ | ------------------------------------------------- |
 | Python         | 3.11+        | Backend                                           |
 | Node.js        | 20+          | Frontend (Node 24 verified)                       |
-| Docker Desktop | any current  | PostgreSQL only; must be running for the database |
+| PostgreSQL 16  | 16           | **Docker Desktop** (`docker compose up -d` — must be running for the database) **or Homebrew PostgreSQL 16** on a Mac (`brew install postgresql@16`) |
+
+Without Docker, the database needs the role and database that
+`.env.example`'s `DATABASE_URL` names (`ctrlai` / `ctrlai`, database
+`ctrlai`). `CREATEDB` lets the PostgreSQL tests create their own
+`ctrlai_test` on first use:
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+export PATH="$(brew --prefix postgresql@16)/bin:$PATH"   # psql and createdb (keg-only formula)
+psql postgres -c "CREATE ROLE ctrlai LOGIN PASSWORD 'ctrlai' CREATEDB;"
+createdb -O ctrlai ctrlai
+```
+
+Then skip `docker compose up -d` in the steps below.
 
 ## First-time setup
 
-Run each block from the directory shown. Commands are written for PowerShell
-on Windows.
+Run each block from the directory shown. Each step has a **macOS / Linux**
+(bash or zsh) block and a **Windows** (PowerShell) block — the same steps
+as the README's [Run it locally](../README.md#run-it-locally).
 
 **1. Create the environment file** (repository root):
+
+```bash
+cp .env.example .env
+```
 
 ```powershell
 Copy-Item .env.example .env
@@ -29,6 +49,13 @@ Copy-Item .env.example .env
 `.env` is git-ignored. The defaults work as-is for local development.
 
 **2. Install backend dependencies** (`backend/`):
+
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt
+```
 
 ```powershell
 cd backend
@@ -39,16 +66,35 @@ py -m venv .venv
 
 A *virtual environment* (`.venv`) is a private copy of Python for this
 project, so its packages never collide with other projects. Calling
-`.\.venv\Scripts\python.exe` directly always uses it.
+`.venv/bin/python` (macOS / Linux) or `.\.venv\Scripts\python.exe`
+(Windows) directly always uses it — no activation needed.
 
 **3. Install frontend dependencies** (`frontend/`):
 
-```powershell
+```bash
 cd frontend
 npm install
 ```
 
+```powershell
+cd frontend
+npm.cmd install
+```
+
+`npm.cmd` rather than `npm` in PowerShell: its default execution policy
+blocks `npm.ps1`. The same holds for `npm.cmd run dev`, `npm.cmd test` and
+so on below.
+
 **4. Start PostgreSQL and create the tables** (repository root, then `backend/`):
+
+```bash
+docker compose up -d       # or skip it with Homebrew PostgreSQL (above)
+docker compose ps          # wait until the db service reports "healthy"
+
+cd backend
+.venv/bin/alembic upgrade head
+.venv/bin/python -m app.db.init_db
+```
 
 ```powershell
 docker compose up -d
@@ -69,6 +115,12 @@ cannot undo an admin's changes.
 ### Resetting the local test data
 
 To throw the local database away and start again from a fresh seed:
+
+```bash
+cd backend
+.venv/bin/python -m app.db.reset_dev        # asks you to type "reset"
+.venv/bin/python -m app.db.reset_dev --yes  # no question
+```
 
 ```powershell
 cd backend
@@ -168,18 +220,19 @@ out ends the session immediately rather than waiting for an expiry.
 Three processes. Use a separate terminal for each, because the two servers
 keep running and print logs.
 
-| # | Directory   | Command                                                        | URL                   |
-| - | ----------- | -------------------------------------------------------------- | --------------------- |
-| 1 | root        | `docker compose up -d`                                         | localhost:5432        |
-| 2 | `backend/`  | `.\.venv\Scripts\uvicorn.exe app.main:app --reload --port 8000` | http://localhost:8000 |
-| 3 | `frontend/` | `npm run dev`                                                  | http://localhost:3000 |
+| # | Directory   | macOS / Linux                                         | Windows (PowerShell)                                            | URL                   |
+| - | ----------- | ----------------------------------------------------- | --------------------------------------------------------------- | --------------------- |
+| 1 | root        | `docker compose up -d` (or Homebrew PostgreSQL)       | `docker compose up -d`                                          | localhost:5432        |
+| 2 | `backend/`  | `.venv/bin/uvicorn app.main:app --reload --port 8000` | `.\.venv\Scripts\uvicorn.exe app.main:app --reload --port 8000` | http://localhost:8000 |
+| 3 | `frontend/` | `npm run dev`                                         | `npm.cmd run dev`                                               | http://localhost:3000 |
 
 Then open **http://localhost:3000**, which lands on **Chat**.
 
 **Member apps (optional).** Project Builder's preview runs inside the page
 unless the apps origin is on. To see it as on the server, run a fourth
-process in `backend/` — `.\.venv\Scripts\python.exe -m app.dev_apps_server`
-(http://localhost:8300, answering as Caddy's `apps.` block: the shell at
+process in `backend/` — `.venv/bin/python -m app.dev_apps_server`
+(Windows: `.\.venv\Scripts\python.exe -m app.dev_apps_server`;
+http://localhost:8300, answering as Caddy's `apps.` block: the shell at
 `/<slug>/`, the member's files at `/<slug>/_app/…`, `/_ctrlai/*` passed to
 the backend at `--api`, default http://127.0.0.1:8000) — and start the
 backend with `APPS_BASE_URL=http://localhost:8300` (in `.env`, or in the
@@ -194,7 +247,7 @@ another app's shell. The P4b spec needs the showcases published from the
 current files (`python -m app.db.import_example_apps dev --update`). The
 P2–P4b specs also need the dev member to have a
 wallet this quarter (apply from the sidebar and approve it in Admin ›
-Applications, or through the API) — an AI call without one fails with
+Members under the 승인 대기 chip, or through the API) — an AI call without one fails with
 "이번 분기 지원금이 부족합니다". `APPS_ORIGIN` points it elsewhere — e.g. the real
 `deploy/Caddyfile` in a container:
 
@@ -214,13 +267,15 @@ Only one `next dev` may run at a time. If a previous one is still running,
 Next.js says so and prints the command to stop it; two dev servers sharing the
 same `.next` folder cause confusing build errors.
 
-The live backend status card is on **Admin → System** (`/admin/system`):
+The live backend status is the health strip at the top of **Admin ›
+System** (상태 tab, `/admin/system`): one dot each for 서버 (the API) and
+DB, then 백업, 썸네일 서버 and each provider.
 
-| Card shows    | Meaning                             |
-| ------------- | ----------------------------------- |
-| 정상          | Backend and database both reachable  |
-| 일부 장애      | Backend is up, PostgreSQL is not     |
-| 연결 안 됨     | The backend itself is not reachable  |
+| Dot    | Meaning                                                  |
+| ------ | -------------------------------------------------------- |
+| green  | 연결됨 — reachable                                        |
+| red    | the last record is an error, or it cannot be reached      |
+| grey   | mock (테스트), or not known yet                            |
 
 ## External services
 
@@ -228,10 +283,11 @@ Every provider sits behind an interface with a mock implementation, chosen
 by a `*_PROVIDER` variable, and **mock is the default** — so the platform
 runs with no keys (the provider rule in CLAUDE.md).
 
-**Admin → System** shows one card per provider: mock or real, whether a key
-is configured, when it last worked, and why it last failed in Korean. The
-**연결 확인** button runs a check only when pressed, using the cheapest
-request available — in mock mode nothing leaves the process, and for Claude
+**Admin › System**'s health strip shows one dot per provider, with a line
+under it: mock (테스트), API 키 없음, 키 설정됨 · 아직 확인 전, when it last
+worked, or why it last failed in Korean. Opening the screen calls nothing;
+**모두 확인** runs each provider's check in turn, only when pressed, using
+the cheapest request available — in mock mode nothing leaves the process, and for Claude
 the real check lists models, which validates the key without spending a
 token. Where a real adapter does not exist yet, the check says so rather
 than showing a green light that means nothing.
@@ -247,7 +303,7 @@ The mock streams canned Korean replies and charges the member's wallet as if
 it were the conversation's chosen model (chat-model-choice: Sonnet 5.5 by
 default, Haiku 4.5 if the member picks it), so the ledger and the budget
 behave as they will for real. The model comes from the catalogue in
-Admin › AI Models; `ANTHROPIC_MODEL` is only the fallback when that
+Admin › Models › Chat; `ANTHROPIC_MODEL` is only the fallback when that
 catalogue is empty. To see an error path without a key,
 put a marker in a message:
 
@@ -285,6 +341,17 @@ Useful extra URLs:
 - http://localhost:8000/api/users - the seeded development user
 
 ## Verifying the project
+
+```bash
+# Backend tests (backend/) - no database required
+.venv/bin/python -m pytest
+
+# Frontend tests, type check, lint, and production build (frontend/)
+npm test
+npx tsc --noEmit
+npm run lint
+npm run build
+```
 
 ```powershell
 # Backend tests (backend/) - no database required
@@ -326,7 +393,9 @@ database would not be caught by it, so tests must use the fixtures.
 
 ## Stopping
 
-```powershell
+The same on every system:
+
+```bash
 # Ctrl+C in the uvicorn and npm terminals, then from the root:
 docker compose down        # stop the database, keep the data
 docker compose down -v     # stop it and DELETE all local data
@@ -463,13 +532,13 @@ real, its data moves to the backend and the matching export there is deleted.
 
 | Symptom                                 | Fix                                                                                          |
 | --------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Status card shows **연결 안 됨**          | The backend is not running. Start uvicorn in `backend/`. Every other screen still works.      |
-| Status card shows **일부 장애**           | PostgreSQL is not running. Run `docker compose up -d` from the root.                          |
+| Admin › System: **서버** dot red        | The backend is not running. Start uvicorn in `backend/`. Every other screen still works.      |
+| Admin › System: **DB** dot red          | PostgreSQL is not running. Run `docker compose up -d` from the root (Homebrew: `brew services start postgresql@16`).                          |
 | `docker compose up` cannot connect      | Docker Desktop is not started. Launch it and wait for it to finish starting.                  |
-| `relation "users" does not exist`       | Run `.\.venv\Scripts\python.exe -m app.db.init_db` from `backend/`.                           |
+| `relation "users" does not exist`       | Run the migrations, then the seed, from `backend/`: `.venv/bin/alembic upgrade head` and `.venv/bin/python -m app.db.init_db` (Windows: `.\.venv\Scripts\python.exe -m alembic upgrade head`, then `-m app.db.init_db`). |
 | "Another next dev server is running"    | Stop the old one first; the message prints its PID and the command to stop it.                |
 | Odd dev-server build errors             | Stop `next dev`, delete `frontend/.next`, and start it again.                                 |
-| `Activate.ps1 cannot be loaded`         | PowerShell execution policy. Skip activation and call `.\.venv\Scripts\python.exe` directly.  |
+| `Activate.ps1 cannot be loaded` (Windows) | PowerShell execution policy. Skip activation and call `.\.venv\Scripts\python.exe` directly.  |
 | Port 3000 or 8000 already in use        | Stop the other process, or pass `--port` to uvicorn / `npm run dev -- -p 3001`.               |
 
 ## Operator notes
@@ -493,7 +562,7 @@ each one cost an investigation.
   rm -rf frontend/.next && cd frontend && npm run dev
   ```
 
-- **`alembic` can take about two minutes per command on Windows** while
+- **Windows only: `alembic` can take about two minutes per command** while
   the app itself answers in 0.1 s. Unconfirmed suspicion: `localhost`
   resolves to IPv6 `::1` first, and Docker publishes PostgreSQL on
   `127.0.0.1` only, so each connection waits for the IPv6 attempt to
