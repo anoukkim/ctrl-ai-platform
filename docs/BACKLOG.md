@@ -891,7 +891,9 @@ New UI requests go here until they are folded into a UI batch.
   the project **from that page** (the newest one; a picker if there are
   several) via the same `from-chat` path, with the idea as its first request
   context, so the Builder continues from the design the member already
-  liked; without a 미리보기 it stays as today. Small. Not scheduled.
+  liked; without a 미리보기 it stays as today. Small. **Scheduled and
+  pre-approved** (owner, 2026-10-17, verbatim: "chat-to-builder-carry는
+  background-runs 다음에 같은 규칙으로 해줘").
 - **profile-photo** — later. Members keep the **letter avatar** for now
   (owner, 2026-10-16: "letters okay for now", said while asking for
   feedback-screenshots). When it comes: the same upload path as the
