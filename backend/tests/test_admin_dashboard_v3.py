@@ -55,14 +55,21 @@ def test_the_dashboard_lists_what_waits_and_alerts(
 
 def test_the_header_search_finds_members_and_apps(client: TestClient, db_session: Session, other_user) -> None:
     db_session.add(BuilderProject(owner_user_id=other_user.id, name="동아리 게시판", description=""))
-    db_session.add(BuilderProject(owner_user_id=other_user.id, name="지운 게시판", description="", deleted_at=None))
+    from datetime import datetime, timezone
+
+    db_session.add(BuilderProject(owner_user_id=other_user.id, name="지운 게시판", description="", deleted_at=datetime.now(timezone.utc)))
+    db_session.add(BuilderProject(owner_user_id=other_user.id, name="a_b 앱", description=""))
     db_session.commit()
     response = client.get("/api/admin/search", params={"q": other_user.username[:4]})
     assert response.status_code == 200, response.text
     found = response.json()
     assert [m["username"] for m in found["members"]] == [other_user.username]
     apps = client.get("/api/admin/search", params={"q": "게시판"}).json()["apps"]
-    assert {a["name"] for a in apps} == {"동아리 게시판", "지운 게시판"}
+    # A member's deleted work is not found.
+    assert {a["name"] for a in apps} == {"동아리 게시판"}
+    # "_" is a character, not a wildcard.
+    assert [a["name"] for a in client.get("/api/admin/search", params={"q": "a_b"}).json()["apps"]] == ["a_b 앱"]
+    assert client.get("/api/admin/search", params={"q": "a_x"}).json()["apps"] == []
     assert client.get("/api/admin/search", params={"q": "  "}).json() == {"members": [], "apps": []}
     # % and _ are text, not wildcards.
     assert client.get("/api/admin/search", params={"q": "%"}).json()["members"] == []
@@ -70,3 +77,38 @@ def test_the_header_search_finds_members_and_apps(client: TestClient, db_session
 
 def test_the_search_is_for_admins(other_client: TestClient) -> None:
     assert other_client.get("/api/admin/search", params={"q": "a"}).status_code == 403
+
+
+def test_frozen_and_former_wallets_raise_no_alert_and_a_down_worker_is_said(
+    client: TestClient, db_session: Session, dev_user, other_user, participating, monkeypatch
+) -> None:
+    from datetime import datetime, timezone
+
+    from app.core.config import Settings, get_settings
+    from app.main import app
+    from app.models import AccountStatus
+    from app.services import thumbnail_render
+
+    db_session.add(
+        QuarterAllocation(user_id=other_user.id, quarter_id=participating.id, budget_krw=1000, consumed_krw=900,
+                          frozen_at=datetime.now(timezone.utc))
+    )
+    db_session.add(QuarterAllocation(user_id=dev_user.id, quarter_id=participating.id, budget_krw=1000, consumed_krw=790))
+    db_session.commit()
+    assert client.get(f"/api/admin/dashboard?quarter_id={participating.id}").json()["wallet_alerts"] == []
+    wallet = db_session.query(QuarterAllocation).filter(QuarterAllocation.user_id == dev_user.id).one()
+    wallet.consumed_krw = 800  # exactly 80%
+    db_session.commit()
+    assert [a["used_pct"] for a in client.get(f"/api/admin/dashboard?quarter_id={participating.id}").json()["wallet_alerts"]] == [80]
+    other_user.account_status = AccountStatus.FORMER
+    db_session.commit()
+
+    settings = Settings(app_env="development", thumbnail_renderer="server", thumbnail_worker_url="http://thumbs", thumbnail_worker_secret="x")
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        monkeypatch.setattr(thumbnail_render, "worker_healthy", lambda _settings: False)
+        assert client.get("/api/admin/dashboard").json()["thumbnail_server"] == "down"
+        monkeypatch.setattr(thumbnail_render, "worker_healthy", lambda _settings: True)
+        assert client.get("/api/admin/dashboard").json()["thumbnail_server"] == "ok"
+    finally:
+        app.dependency_overrides.pop(get_settings, None)

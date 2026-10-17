@@ -33,6 +33,11 @@ interface AdminQuarterValue {
 
 const AdminQuarterContext = createContext<AdminQuarterValue | null>(null);
 
+/** The same, or null outside the Admin layout (a screen rendered on its own in a test). */
+export function useAdminQuarterOptional(): AdminQuarterValue | null {
+  return useContext(AdminQuarterContext);
+}
+
 export function useAdminQuarter(): AdminQuarterValue {
   const value = useContext(AdminQuarterContext);
   if (value === null) {

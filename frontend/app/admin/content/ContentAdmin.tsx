@@ -28,7 +28,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import PageHeader from "@/app/components/PageHeader";
+import { useAdminNav } from "@/app/components/AdminNavProvider";
 import { useToast } from "@/app/components/ToastProvider";
+
+import { useAdminQuarterOptional, withQuarter } from "../AdminQuarterProvider";
 import {
   adminDataItem,
   adminUnpublish,
@@ -95,6 +98,10 @@ export default function AdminContentPage() {
     load();
   }, [load]);
 
+  // admin-consolidation v3: 열린 신고 drives the Community badges and the
+  // Dashboard's 처리할 일 — read them again after each handled report.
+  const quarter = useAdminQuarterOptional();
+  const nav = useAdminNav();
   const run = (action: () => Promise<{ detail: string }>) => async () => {
     setBusy(true);
     setConfirmError(null);
@@ -103,6 +110,8 @@ export default function AdminContentPage() {
       toast.show(result.detail);
       setConfirm(null);
       load();
+      void quarter?.refresh();
+      void nav.refresh();
     } catch (caught) {
       setConfirmError(describeError(caught));
     } finally {
@@ -192,7 +201,7 @@ export default function AdminContentPage() {
       <PageHeader
         eyebrow="Admin"
         title={sectionLabel("content")}
-        subtitle={<>회원들의 신고입니다. 앱 자체(기능 상자, 데이터, 멈추기)는 <Link href="/admin/community?tab=apps">Community › 앱</Link>에서 다룹니다.</>}
+        subtitle={<>회원들의 신고입니다. 앱 자체(기능 상자, 데이터, 멈추기)는 <Link href={withQuarter("/admin/community?tab=apps", quarter?.selected?.id)}>Community › 앱</Link>에서 다룹니다.</>}
       />
 
       {error && (

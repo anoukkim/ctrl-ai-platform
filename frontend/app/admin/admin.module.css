@@ -1897,10 +1897,11 @@ td.modelIdCell {
   color: var(--accent);
 }
 
-/* The header's search (⌘K). */
+/* The header's search (⌘K), beside the quarter switcher. */
 .search {
   position: relative;
   margin-left: auto;
+  padding: 4px 0;
 }
 
 .searchField {
@@ -1944,6 +1945,7 @@ td.modelIdCell {
 
 .searchItem {
   display: block;
+  cursor: pointer;
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
   color: var(--text);
@@ -2007,3 +2009,7 @@ a.alertItem:hover {
   font-size: var(--fs-body);
 }
 
+
+.search ~ .quarterSwitch {
+  margin-left: 0;
+}

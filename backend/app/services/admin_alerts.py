@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models import (
+    AccountStatus,
     AppCommentReport,
     AppReport,
     BuilderProject,
@@ -78,6 +79,7 @@ def wallet_alerts(db: Session, quarter: Quarter | None) -> list[WalletAlert]:
             QuarterAllocation.quarter_id == quarter.id,
             QuarterAllocation.budget_krw > 0,
             QuarterAllocation.frozen_at.is_(None),
+            User.account_status == AccountStatus.ACTIVE,
             QuarterAllocation.consumed_krw >= QuarterAllocation.budget_krw * WALLET_ALERT_SHARE,
         )
     ).all()
@@ -159,6 +161,9 @@ def week_top(db: Session) -> WeekTop:
             UsageEvent.created_at >= since,
             UsageEvent.feature == "app_ai",
             UsageEvent.charged_krw > 0,
+            UsageEvent.funding_source == FundingSource.COMMUNITY,
+            # A member's deleted work is never listed (CLAUDE.md §10).
+            BuilderProject.deleted_at.is_(None),
         )
         .group_by(BuilderProject.id, BuilderProject.name)
         .order_by(func.sum(UsageEvent.charged_krw).desc())

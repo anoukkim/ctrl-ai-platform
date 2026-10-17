@@ -20,7 +20,9 @@ import { useAdminNav } from "@/app/components/AdminNavProvider";
 
 import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
 import AdminSearch from "./AdminSearch";
-import { activeSection, activeTab, tabHref, visibleSections } from "./sections";
+import { QUARTER_STATUS_LABEL, type Quarter } from "@/lib/quarters";
+
+import { activeSection, activeTab, tabHref, visibleSections, type AdminSection } from "./sections";
 
 import styles from "./admin.module.css";
 
@@ -40,6 +42,25 @@ export function useBreadcrumbTail(label: string | null): void {
     setTail(label);
     return () => setTail(null);
   }, [label, setTail]);
+}
+
+/** The parent a detail screen's breadcrumb leads back to. */
+function detailParent(section: AdminSection, pathname: string): string {
+  if (section.key === "community" && pathname.startsWith("/admin/apps/")) return tabHref("community", "apps");
+  return section.href;
+}
+
+/** "2026 Q4 · 신청 접수 중 · D-75" — the quarter, its state, the days left. */
+export function quarterLine(quarter: Quarter): string {
+  const parts = [quarter.display_name];
+  const state = QUARTER_STATUS_LABEL[quarter.status as keyof typeof QUARTER_STATUS_LABEL];
+  if (state) parts.push(state);
+  const ends = Date.parse(quarter.ends_at);
+  if (!Number.isNaN(ends)) {
+    const days = Math.ceil((ends - Date.now()) / 86_400_000);
+    if (days >= 0) parts.push(`D-${days}`);
+  }
+  return parts.join(" · ");
 }
 
 export default function AdminFrame({ children }: { children: React.ReactNode }) {
@@ -92,13 +113,16 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
                   {tab && current.tabs.length > 1 && tab.key !== current.tabs[0].key ? ` › ${tab.label}` : ""}
                 </span>
               ) : (
-                <Link className={styles.crumb} href={withQuarter(current.href, selected?.id)}>
+                // A detail screen: back to the tab it belongs to (an app → Community › 앱).
+                <Link
+                  className={styles.crumb}
+                  href={withQuarter(detailParent(current, pathname), selected?.id)}
+                >
                   {current.label}
                 </Link>
               )}
             </>
           )}
-          <AdminSearch />
           {tail !== null && (
             <>
               <span aria-hidden="true" className={styles.crumbSeparator}>
@@ -133,6 +157,13 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
             })}
           </ul>
 
+          <AdminSearch quarterId={selected?.id ?? null} />
+          {selected && (quarters === null || quarters.length <= 1) && (
+            // One quarter: no switcher, but its state still shows (v3 mock).
+            <span className={styles.quarterSwitchLabel} data-testid="quarter-now">
+              {quarterLine(selected)}
+            </span>
+          )}
           {quarters !== null && quarters.length > 1 && (
             <div className={styles.quarterSwitch}>
               <label className={styles.quarterSwitchLabel} htmlFor="admin-quarter">
@@ -146,7 +177,7 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
               >
                 {quarters.map((quarter) => (
                   <option key={quarter.id} value={quarter.id}>
-                    {quarter.display_name}
+                    {quarter.id === selected?.id ? quarterLine(quarter) : quarter.display_name}
                   </option>
                 ))}
               </select>
