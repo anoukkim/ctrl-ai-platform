@@ -595,8 +595,7 @@ New UI requests go here until they are folded into a UI batch.
   toasting 처럼 팝업되는 그런걸 하는게 어떨까". Today
   (`PublishCelebration.tsx`, `motion-modern` (5)) 게시 완료 covers the
   whole screen for 1.9 s with light beams, a flash, confetti and white
-  "게시 완료!" letters. **Proposal (two shapes, mock-up shows both; A
-  recommended):** (A) a **popup card** in the toast style, bottom right
+  "게시 완료!" letters. **Proposal (two shapes were mocked; A chosen):** (A) a **popup card** in the toast style, bottom right
   (top on phones): a check that pops with a few confetti pieces bursting
   *around the check only*, "게시했어요", the app name · CtrlAIApps, and two
   buttons — 열어 보기 (the app's address) and 링크 복사 — kept ~6 s because
@@ -609,8 +608,8 @@ New UI requests go here until they are folded into a UI batch.
   `celebration.module.css`, the `celebrating` state in
   `BuilderWorkspace.tsx`, its test. Frontend only. Small. Mock-up:
   [`ui-requests/publish-done-popup.html`](ui-requests/publish-done-popup.html)
-  (현재 · A · B side by side). **Open: the owner picks A or B.** Not
-  scheduled.
+  (현재 · A · B side by side). **Owner picked A (2026-10-17: "게시 완료
+  팝업을 A로")** — B is dropped. Not scheduled.
 - **spend-toast-compact** — owner, 2026-10-17 (desktop session, with a
   screenshot of the 썼어요 toast: "알림이 조금 너무 큰 것 같아 … 줄이던가
   하는 거 있어?"), then picked **"A가 좋은데"** and **"지갑 쪽에서만
