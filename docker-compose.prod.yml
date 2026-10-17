@@ -225,6 +225,11 @@ networks:
     ipam:
       config:
         - subnet: 172.30.88.0/24
+          # Containers without a fixed address get one from the upper half
+          # only, so caddy's fixed 172.30.88.2 is never taken first: on
+          # 2026-10-17 a reboot started thumbs first, it took .2, and caddy
+          # (the site) could not start.
+          ip_range: 172.30.88.128/25
 
 volumes:
   pgdata:
