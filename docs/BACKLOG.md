@@ -618,6 +618,26 @@ New UI requests go here until they are folded into a UI batch.
   combined Builder, the Chat before/after, and both full-page versions
   with the aurora switch. Not scheduled.
 
+- **chat-preview-fullscreen** — owner, 2026-10-17 (desktop session, with a
+  screenshot of a Chat 미리보기 card): "지금 미리보기로 뭘 생성하면,
+  전체화면으로 보기? 이런게 없음 … 빌더로하기만 있고". A Chat reply's
+  미리보기 card (`ArtifactPreview.tsx`: 코드 보기 · 다운로드 · Builder로
+  보내기, then 미리보기 열기) shows the page only inside the narrow card;
+  the only way to see it bigger is to send it to the Builder, which makes a
+  project and costs a step. Add a **전체 화면** button beside 코드 보기 /
+  다운로드 that opens the same preview large. Shape to settle when built:
+  (1) an **in-page overlay** (almost full window, dark backdrop, 닫기 and
+  Esc) rather than the browser's Fullscreen API — the frame is
+  `sandbox="allow-scripts"` only and must stay so (no `allow-fullscreen`);
+  (2) the overlay should carry the frame **already running** if it can
+  (moving an iframe reloads it and restarts the page), otherwise open a
+  second frame from the same `srcdoc` and say nothing about it — the
+  runaway-loop rule stands: it starts only after the member pressed 미리보기
+  열기 or 전체 화면, and closing it removes the frame; (3) a 새로고침 button
+  and a phone / desktop width switch in the overlay header, like the
+  Builder's 미리보기, which already has an expand icon to match; (4) works
+  on touch (full-screen sheet at phone width). No money, no backend. Small.
+  Not scheduled.
 - **builder-snapshots** — owner, 2026-10-17: "하나 누를때마다 버전 올라가서
   좀 부담스러움", then "이것저것 하고 이걸 버전으로 저장 하고 스냅샷
   만들기? 그렇게 하자 괜찮을 것 같아" and "그냥 나가기하면 … 이 버전을
