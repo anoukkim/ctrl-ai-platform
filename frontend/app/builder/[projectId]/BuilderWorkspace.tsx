@@ -62,6 +62,8 @@ import {
   setAiAccess,
   unpublishProject,
   uploadThumbnail,
+  chooseThumbnail,
+  resetThumbnailChoice,
   getBuilderProject,
   getGenerateEstimate,
   getVersionFiles,
@@ -97,7 +99,7 @@ import {
   type Generation,
   type PlanInput,
 } from "@/lib/generation";
-import { NO_PROGRESS, PlanCard, StartForm, type Progress } from "./StagedGeneration";
+import { NO_PROGRESS, PlanCard, StartForm, stepState, type Progress } from "./StagedGeneration";
 import type { DepthLevel, PickerModel } from "@/lib/depth";
 import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
@@ -108,8 +110,8 @@ import PublishCelebration from "@/app/components/PublishCelebration";
 
 import HiddenCapture from "./HiddenCapture";
 import WorkingSince from "@/app/components/WorkingSince";
-import AssetPanel from "./AssetPanel";
-import { tailOf } from "./BuilderRunPanel";
+import ThumbnailPanel from "./ThumbnailPanel";
+import { FirstBuildRun, tailOf } from "./BuilderRunPanel";
 import ReferencePicker, { imageFiles, type ReferencePickerHandle } from "./ReferencePicker";
 import PreviewPane from "./PreviewPane";
 import HandoffSheet, { type HandoffMode } from "./HandoffSheet";
@@ -217,7 +219,9 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   // 게시 직후 게시본의 썸네일을 찍을 숨은 프레임의 주소 (ui-improvements).
   const [captureUrl, setCaptureUrl] = useState<string | null>(null);
   // motion-modern (5): the 게시 완료 moment, once per publish.
-  const [celebrating, setCelebrating] = useState(0);
+  // thumbnail-choice: the 16:10 frame over the 미리보기 is open.
+  const [framing, setFraming] = useState(false);
+  const [celebrating, setCelebrating] = useState<{ key: number; name: string; url: string | null } | null>(null);
   const [labelling, setLabelling] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
 
@@ -241,7 +245,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const mode: Mode = savedTab === "code" ? "code" : "preview";
 
   const chooseMode = useCallback(
-    (next: Mode) => writePref(`tab.${projectId}`, next),
+    (next: Mode) => {
+      // thumbnail-choice: leaving the 미리보기 closes the frame for good.
+      if (next !== "preview") setFraming(false);
+      writePref(`tab.${projectId}`, next);
+    },
     [projectId],
   );
 
@@ -412,6 +420,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
    */
   const runPlan = useCallback(
     async (plan: Generation) => {
+      setFraming(false);
       setGenRunning(true);
       setGenerateError(null);
       setProgress(NO_PROGRESS);
@@ -493,6 +502,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   /** 계획 세우기. 고치기는 계획이 나오면 바로 시작합니다. */
   const makePlan = useCallback(
     async (input: PlanInput) => {
+      setFraming(false);
       setPlanning(true);
       setGenerateError(null);
       setLastInput(input);
@@ -558,11 +568,12 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setState({ phase: "ready", project: updated });
         setPublishOpen(false);
         loadVersions();
-        toast.show(`CtrlAIApps에 v${updated.published_version_number}을(를) 게시했어요.`);
-        setCelebrating((n) => n + 1);
+        // publish-done-popup (A): the card says 게시했어요 with 열어 보기 /
+        // 링크 복사 — it replaces the toast line (announced once).
+        const publicAddress = publicUrl(updated, appsBase);
+        setCelebrating({ key: Date.now(), name: updated.name, url: publicAddress });
         // The first screen of the public address, taken in a hidden frame in
         // this browser (owner-polish 4; no picker since 2026-10-17).
-        const publicAddress = publicUrl(updated, appsBase);
         if (publicAddress) setCaptureUrl(`${publicAddress}?v=${encodeURIComponent(updated.published_at ?? "")}`);
       } catch (error) {
         setPublishError(describeError(error));
@@ -570,7 +581,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         setPublishing(false);
       }
     },
-    [appsBase, loadVersions, projectId, toast],
+    [appsBase, loadVersions, projectId],
   );
 
   /** 썸네일 하나 저장 — 미리보기가 보여 주는 쪽(작업 중 / 게시본)에. */
@@ -593,6 +604,40 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     },
     [previewWhich, projectId, toast],
   );
+
+  // thumbnail-choice: 지정하기 → the frame over the 미리보기; a picture
+  // (framed, uploaded or pasted) → the chosen thumbnail; 자동으로 되돌리기.
+  const takeProject = useCallback((updated: BuilderProject) => {
+    setState((current) =>
+      current.phase === "ready"
+        ? {
+            phase: "ready",
+            project: {
+              ...current.project,
+              thumbnail_chosen_at: updated.thumbnail_chosen_at ?? null,
+              draft_thumbnail_at: updated.draft_thumbnail_at,
+              published_thumbnail_at: updated.published_thumbnail_at,
+            },
+          }
+        : current,
+    );
+  }, []);
+  const storeChosenThumbnail = useCallback(
+    async (image: Blob) => {
+      takeProject(await chooseThumbnail(projectId, image));
+      setFraming(false);
+      toast.show("썸네일을 지정했어요. 목록 카드와 CtrlAIApps에 이 그림이 보여요.");
+    },
+    [projectId, takeProject, toast],
+  );
+  const startFraming = useCallback(() => {
+    chooseMode("preview");
+    setFraming(true);
+  }, [chooseMode]);
+  const resetChosenThumbnail = useCallback(async () => {
+    takeProject(await resetThumbnailChoice(projectId));
+    toast.show("썸네일을 자동(첫 화면)으로 되돌렸어요.");
+  }, [projectId, takeProject, toast]);
 
   // app-ai-access: 게시 메뉴의 스위치 — 데모만 ↔ 전체 기능, 언제든.
   const askToSwitchAiAccess = useCallback(() => {
@@ -929,6 +974,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
   const appFileList = (files ?? []).filter((file) => !isGuideDoc(file.path));
   const guideFileList = (files ?? []).filter((file) => isGuideDoc(file.path));
   const empty = files !== null && files.length === 0;
+  // builder-first-build-running: while a first build runs, the files it has
+  // finished (in the plan's order) — null otherwise.
+  const firstBuildDone =
+    empty && genRunning && generation
+      ? generation.plan
+          .filter((step) => stepState(generation, progress, step.path) === "done")
+          .map((step) => step.path)
+      : null;
   const draftUrl = appUrl(project, appsBase);
   const publishedUrl = publicUrl(project, appsBase);
   const liveUrl = previewWhich === "published" && publishedUrl ? publishedUrl : draftUrl;
@@ -1256,7 +1309,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className={ws.paneBody}>
               {filesError !== null && <p className={styles.hint}>파일을 불러오지 못했습니다. {filesError}.</p>}
-              {empty && <p className={styles.hint}>아직 파일이 없어요. 가운데에서 앱을 만들 수 있어요.</p>}
+              {empty && firstBuildDone === null && (
+                <p className={styles.hint}>아직 파일이 없어요. 가운데에서 앱을 만들 수 있어요.</p>
+              )}
+              {/* builder-first-build-running: the files fill in as they finish. */}
+              {empty && firstBuildDone !== null && (
+                firstBuildDone.length === 0 ? (
+                  <p className={styles.hint}>아직 파일이 없어요. 만들어지는 대로 여기에 나타나요.</p>
+                ) : (
+                  <ul className={styles.fileList} aria-label="다 쓴 파일" data-testid="first-build-files">
+                    {firstBuildDone.map((path) => (
+                      <li key={path} className={`${styles.fileRow} success-pop`}>
+                        <span className={styles.fileGlyph} aria-hidden="true">
+                          ·
+                        </span>
+                        {path}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              )}
               <ul className={styles.fileList}>
                 {fileTree(appFileList).map((node) =>
                   node.folder ? (
@@ -1294,8 +1366,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   )}
                 </div>
               )}
-              {/* builder-images (2): the app's pictures, written beside its files. */}
-              <AssetPanel projectId={projectId} disabled={!mayCreate || generating} onChange={reloadProject} />
+              {/* thumbnail-choice (owner, 2026-10-17): replaced 「앱에 넣은 사진」. */}
+              <ThumbnailPanel
+                project={project}
+                disabled={!mayCreate || generating}
+                canFrame={!empty && Boolean(liveUrl) && !viewing}
+                framing={framing}
+                onFrame={startFraming}
+                onFile={storeChosenThumbnail}
+                onReset={resetChosenThumbnail}
+              />
             </div>
           </aside>
         )}
@@ -1348,7 +1428,26 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
           <div className={styles.centerBody}>
             {empty && (
               <div className={styles.starterArea}>
-                {generation ? (
+                {generation && genRunning ? (
+                  // builder-first-build-running: the approved plan stays, with
+                  // the same stages, timer and sweep as every other build.
+                  <FirstBuildRun
+                    stage={progress.check === "idle" ? 1 : 2}
+                    since={runStartedAt}
+                    files={{ done: firstBuildDone?.length ?? 0, total: generation.plan.length }}
+                    tail={liveTail}
+                  >
+                    <PlanCard
+                      generation={generation}
+                      running
+                      progress={progress}
+                      disabled={!mayCreate || generating}
+                      onStart={() => void runPlan(generation)}
+                      onCancel={() => void dropPlan()}
+                      progressInHeader
+                    />
+                  </FirstBuildRun>
+                ) : generation ? (
                   <PlanCard
                     generation={generation}
                     running={genRunning}
@@ -1412,6 +1511,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                   toolbarStart={versionSelect}
                   toolbarEnd={claudeOpener}
                   onCapture={mayCreate ? storeThumbnail : undefined}
+                  framing={
+                    framing && mayCreate && !generating
+                      ? { onShot: storeChosenThumbnail, onFile: storeChosenThumbnail, onCancel: () => setFraming(false) }
+                      : null
+                  }
                   working={
                     generating
                       ? {
@@ -1662,7 +1766,8 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                 </details>
               )}
             </div>
-            <div className={ws.chatComposer}>
+            {/* data-popup-avoid: the 게시했어요 card stays above this box. */}
+            <div className={ws.chatComposer} data-popup-avoid="">
               <label className="sr-only" htmlFor="builder-ask">
                 Claude에게 만들거나 고쳐 달라고 하기
               </label>
@@ -1800,7 +1905,14 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
         />
       )}
 
-      {celebrating > 0 && <PublishCelebration key={celebrating} onDone={() => setCelebrating(0)} />}
+      {celebrating && (
+        <PublishCelebration
+          key={celebrating.key}
+          name={celebrating.name}
+          url={celebrating.url}
+          onDone={() => setCelebrating(null)}
+        />
+      )}
 
       <UnsavedDialog
         busy={deleting}

@@ -5,7 +5,7 @@
  * pops its letters and leaves on its own, and under 움직임 줄이기 shows
  * only the text; nothing waits on a click.
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { useEffect } from "react";
@@ -50,37 +50,80 @@ describe("오로라 카드 (1)", () => {
   });
 });
 
-describe("게시 완료 (5)", () => {
+describe("게시 완료 — 팝업 카드 (publish-done-popup A, replacing (5))", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
     vi.useRealTimers();
     motion.reduced = false;
   });
 
-  test("글자가 한 자씩 튀어 오르고, 색종이가 흩날리며, 스스로 사라진다", async () => {
+  const URL = "http://apps.test/k3m9qx7pwa/";
+
+  test("체크 둘레에만 색종이, 게시했어요 + 앱 이름, 열어 보기 / 링크 복사; 6초 뒤 스스로 사라진다", async () => {
     const onDone = vi.fn();
-    render(<PublishCelebration onDone={onDone} />);
-    const stage = screen.getByTestId("publish-celebration");
-    expect(stage.textContent?.replace(/\u00a0/g, " ")).toBe("게시 완료!");
-    expect(stage.querySelectorAll("[class*='confetti']").length).toBeGreaterThan(10);
-    expect(stage.querySelectorAll("[class*='letter']").length).toBe(6);
-    // Clicks go straight through: the stage never takes the pointer (the
-    // CSS module is not loaded in jsdom, so the stylesheet is read as text).
+    render(<PublishCelebration name="오늘 할 일" url={URL} onDone={onDone} />);
+    const card = screen.getByTestId("publish-celebration");
+    expect(card.textContent).toContain("게시했어요");
+    expect(card.textContent).toContain("오늘 할 일 · CtrlAIApps");
+    // A few pieces, all inside the check — no full-screen layer.
+    const pieces = card.querySelectorAll("[class*='confetti']");
+    expect(pieces.length).toBeGreaterThan(0);
+    expect(pieces.length).toBeLessThanOrEqual(8);
+    pieces.forEach((piece) => expect(piece.parentElement?.className).toMatch(/check/));
     const css = readFileSync(resolve(__dirname, "../app/components/celebration.module.css"), "utf8");
-    expect(css).toMatch(/\.stage\s*\{[^}]*pointer-events:\s*none/);
-    expect(stage.getAttribute("aria-hidden")).toBe("true");
+    expect(css).not.toMatch(/inset:\s*0/);
+    expect(css).toMatch(/\.card\s*\{[^}]*bottom:\s*9\.5rem/);
+    const open = screen.getByRole("link", { name: /열어 보기/ });
+    expect(open.getAttribute("href")).toBe(URL);
+    expect(open.getAttribute("rel")).toContain("noopener");
+    // Never takes focus; announced once.
+    expect(document.activeElement).toBe(document.body);
+    // The live region is there empty first, then says it — read once.
+    expect(screen.getAllByRole("status").map((node) => node.textContent)).toEqual([""]);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(CELEBRATION_MS + 50);
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(screen.getAllByRole("status").map((node) => node.textContent)).toEqual(["게시했어요"]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CELEBRATION_MS - 300);
+    });
+    expect(screen.queryByTestId("publish-celebration")).not.toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
     });
     expect(screen.queryByTestId("publish-celebration")).toBeNull();
     expect(onDone).toHaveBeenCalled();
   });
 
-  test("움직임 줄이기면 글자만 잠깐", () => {
+  test("링크 복사는 주소를 복사하고, ✕로 바로 닫힌다; 손이 올라가 있으면 기다린다", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<PublishCelebration name="오늘 할 일" url={URL} onDone={() => {}} />);
+    const card = screen.getByTestId("publish-celebration");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /링크 복사/ }));
+    });
+    expect(writeText).toHaveBeenCalledWith(URL);
+    expect(card.textContent).toContain("복사했어요");
+    fireEvent.pointerEnter(card);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CELEBRATION_MS + 500);
+    });
+    expect(screen.queryByTestId("publish-celebration")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(screen.queryByTestId("publish-celebration")).toBeNull();
+  });
+
+  test("움직임 줄이기면 색종이 없이 카드만", () => {
     motion.reduced = true;
-    render(<PublishCelebration onDone={() => {}} />);
-    const stage = screen.getByTestId("publish-celebration");
-    expect(stage.textContent?.replace(/\u00a0/g, " ")).toBe("게시 완료!");
-    expect(stage.querySelectorAll("[class*='confetti']").length).toBe(0);
+    render(<PublishCelebration name="오늘 할 일" url={null} onDone={() => {}} />);
+    const card = screen.getByTestId("publish-celebration");
+    expect(card.textContent).toContain("게시했어요");
+    expect(card.querySelectorAll("[class*='confetti']").length).toBe(0);
+    // No address yet: no buttons that lead nowhere.
+    expect(screen.queryByRole("link", { name: /열어 보기/ })).toBeNull();
   });
 });

@@ -192,16 +192,26 @@ interface PlanCardProps {
   disabled: boolean;
   onStart: () => void;
   onCancel: () => void;
+  /** builder-first-build-running: the run header above shows `n / m 파일`. */
+  progressInHeader?: boolean;
 }
 
 /** 파일 한 줄의 상태: 다 씀 / 쓰는 중 / 대기. */
-function stepState(generation: Generation, progress: Progress, path: string) {
+export function stepState(generation: Generation, progress: Progress, path: string) {
   if (generation.files_done.includes(path) || path in progress.charged) return "done";
   if (progress.current === path) return "writing";
   return "waiting";
 }
 
-export function PlanCard({ generation, running, progress, disabled, onStart, onCancel }: PlanCardProps) {
+export function PlanCard({
+  generation,
+  running,
+  progress,
+  disabled,
+  onStart,
+  onCancel,
+  progressInHeader = false,
+}: PlanCardProps) {
   const resumable = generation.status === "partial" || generation.status === "failed";
   // owner-polish 14: how long the current step has been running, and a
   // thin n / m bar — 20~60초 동안 아무것도 움직이지 않던 자리입니다.
@@ -231,7 +241,7 @@ export function PlanCard({ generation, running, progress, disabled, onStart, onC
     <section className={styles.plan} aria-label="만들 계획" data-testid="plan-card">
       <p className={styles.title}>{generation.kind === "create" ? "만들 계획" : "바꿀 계획"}</p>
       {generation.summary && <p className={styles.text}>{generation.summary}</p>}
-      {(running || done > 0) && total > 0 && (
+      {(running || done > 0) && total > 0 && !progressInHeader && (
         <div className={styles.progress} data-testid="plan-progress">
           <span className={styles.progressTrack} aria-hidden="true">
             <span className={styles.progressFill} style={{ width: `${Math.round((done / total) * 100)}%` }} />

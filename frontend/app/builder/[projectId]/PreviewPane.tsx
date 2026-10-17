@@ -36,6 +36,7 @@ import { captureFrame, originOf } from "@/lib/thumbnail-capture";
 
 
 import BuilderRunPanel from "./BuilderRunPanel";
+import ThumbnailFrame from "./ThumbnailFrame";
 import styles from "./workspace.module.css";
 
 /** 미리보기에 넘길 프로젝트 파일. 경로 → 내용. */
@@ -66,6 +67,8 @@ export interface AppRuntimeProps {
   onCapture?: (image: Blob, manual: boolean) => Promise<void>;
   /** running-state-calm: while Claude builds, the run panel covers the preview. */
   working?: React.ComponentProps<typeof BuilderRunPanel> | null;
+  /** thumbnail-choice: 지정하기 — the 16:10 frame over the preview. */
+  framing?: React.ComponentProps<typeof ThumbnailFrame> | null;
 }
 
 /** 프레임이 뜬 뒤 이만큼 기다렸다 찍습니다 — 앱의 첫 그림이 그려질 시간. */
@@ -217,6 +220,7 @@ export default function PreviewPane({
   toolbarEnd,
   onCapture,
   working = null,
+  framing = null,
 }: PreviewRuntimeProps & AppRuntimeProps & PreviewToolbarProps) {
   const [fullscreen, setFullscreen] = useState(false);
   // 썸네일 (ui-improvements): 프레임이 뜨고 CAPTURE_DELAY_MS 뒤 한 번, 그리고
@@ -372,6 +376,7 @@ export default function PreviewPane({
           <Runtime key={run} files={files} entry={entry} />
         )}
         {working && <BuilderRunPanel {...working} />}
+        {framing && !working && <ThumbnailFrame {...framing} />}
       </div>
     </div>
   );

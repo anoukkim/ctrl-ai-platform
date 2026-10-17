@@ -38,11 +38,11 @@ interface Props {
   costKrw: number | null;
 }
 
-export default function BuilderRunPanel({ stage, since, files, tail, costKrw }: Props) {
-  const [mountedAt] = useState(() => Date.now());
+/** The run's top sweep and the faint aurora — absolute inside a positioned host. */
+function RunBackdrop() {
   const aurora = useAurora();
   return (
-    <div className={styles.panel} data-testid="builder-run-panel">
+    <>
       <span className="run-sweep run-sweep--top" aria-hidden="true" />
       {aurora && (
         <span className={styles.aurora} aria-hidden="true" data-testid="aurora-glow">
@@ -50,6 +50,28 @@ export default function BuilderRunPanel({ stage, since, files, tail, costKrw }: 
           <span className={`${styles.blob} ${styles.blob2}`} />
         </span>
       )}
+    </>
+  );
+}
+
+/**
+ * The stage, large; the time, larger; the three stages — one component for
+ * both hosts (builder-first-build-running): the preview pane of a later
+ * build and the 만들 계획 of a first build, where `files` folds the plan's
+ * `n / m 파일` bar into this header.
+ */
+export function RunHeader({
+  stage,
+  since,
+  files,
+}: {
+  stage: 0 | 1 | 2;
+  since: number | null;
+  files?: { done: number; total: number } | null;
+}) {
+  const [mountedAt] = useState(() => Date.now());
+  return (
+    <>
       <div className={styles.head}>
         {/* The words the owner wanted visible: the stage, large; the time, larger. */}
         <p className={styles.stageNow} data-testid="run-stage">
@@ -68,6 +90,57 @@ export default function BuilderRunPanel({ stage, since, files, tail, costKrw }: 
           </li>
         ))}
       </ol>
+      {files && files.total > 0 && (
+        <div className={styles.fileBar} data-testid="run-file-bar">
+          <span className={styles.fileTrack} aria-hidden="true">
+            <span className={styles.fileFill} style={{ width: `${Math.round((files.done / files.total) * 100)}%` }} />
+          </span>
+          <span className={styles.fileCount}>
+            {files.done} / {files.total} 파일
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * builder-first-build-running: a first build has no preview yet, so the
+ * same header sits above the approved 만들 계획 (`children`) in the centre.
+ */
+export function FirstBuildRun({
+  stage,
+  since,
+  files,
+  tail,
+  children,
+}: {
+  stage: 0 | 1 | 2;
+  since: number | null;
+  files: { done: number; total: number };
+  tail: { path: string; lines: string[] } | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={styles.firstRun} data-testid="first-build-run">
+      <RunBackdrop />
+      <RunHeader stage={stage} since={since} files={files} />
+      {children}
+      {tail && tail.lines.length > 0 && (
+        <pre className={styles.code} aria-label={`${tail.path}의 끝부분`} data-testid="run-tail">
+          {tail.lines.join("\n")}
+          <span className={styles.caret} aria-hidden="true" />
+        </pre>
+      )}
+    </div>
+  );
+}
+
+export default function BuilderRunPanel({ stage, since, files, tail, costKrw }: Props) {
+  return (
+    <div className={styles.panel} data-testid="builder-run-panel">
+      <RunBackdrop />
+      <RunHeader stage={stage} since={since} />
       {files.length > 0 && (
         <ul className={styles.files} aria-label="파일">
           {files.map((file) => (

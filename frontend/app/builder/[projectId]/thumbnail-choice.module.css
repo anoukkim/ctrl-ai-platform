@@ -1,0 +1,200 @@
+/* thumbnail-choice — the file sidebar's 썸네일 panel and the 16:10 frame
+   over the 미리보기 (owner, 2026-10-17). */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-chip);
+  font-weight: var(--fw-strong);
+}
+
+.badge {
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.picture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--panel);
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-chip);
+  cursor: pointer;
+}
+
+.action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.note {
+  color: var(--text-dim);
+  font-size: var(--fs-chip);
+}
+
+.error {
+  color: var(--error-text);
+  font-size: var(--fs-chip);
+}
+
+/* The frame over the 미리보기: the layer lets every click through to the
+   app (a game stays playable); only the move bar and the corner grip
+   take the pointer. */
+.layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.layerHidden {
+  visibility: hidden;
+}
+
+.frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  /* Dims what will not be in the picture. */
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.32);
+}
+
+.grip,
+.move {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.move {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-chip);
+  white-space: nowrap;
+  cursor: grab;
+}
+
+.frameTop .move {
+  /* Too close to the top for the bar to sit above: inside instead. */
+  top: 0;
+  transform: translate(-50%, 0);
+  border-radius: 0 0 6px 6px;
+}
+
+.move:active {
+  cursor: grabbing;
+}
+
+.grip {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: nwse-resize;
+}
+
+.move:focus-visible,
+.grip:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.bar {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  font-size: var(--fs-chip);
+}
+
+.barText {
+  color: var(--text-muted);
+}
+
+.barError {
+  flex-basis: 100%;
+  color: var(--error-text);
+  text-align: center;
+}

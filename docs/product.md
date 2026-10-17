@@ -171,7 +171,25 @@ metadata (phone photos carry GPS):
   about 1,400 tokens) is in the request's estimate and in each call's
   charge; uploading is free; a failed call charges 0 as always and the
   pictures stay waiting.
-- **앱에 넣은 사진** — up to 10 pictures (1 MB each after re-encoding at a
+- **썸네일** (thumbnail-choice, owner 2026-10-17: "앱에 넣을 사진 빼고
+  썸네일 지정 …") — the file sidebar's panel under the files, in place of
+  「앱에 넣은 사진」. It shows the card's picture and **자동** (the
+  server's first screen, the default) or **직접 지정**. **지정하기** opens
+  the 미리보기 with a 16:10 frame over it: the app stays usable (a game can
+  be mid-play); the frame moves by its 옮기기 bar and resizes by its corner
+  (arrows / Shift+arrows on the keyboard). **이 화면으로** asks the browser
+  to share *this tab* (Chrome offers it first), takes one frame, stops the
+  share at once and keeps only the pixels inside the frame — nothing goes
+  anywhere but the thumbnail upload. Where the browser cannot (Safari) or
+  the member declines, **사진 올리기** or ⌘V with a screenshot does the
+  same. The server re-encodes it like every upload. While chosen, the
+  Builder card and CtrlAIApps show it and no automatic picture — server or
+  browser — replaces it; **자동으로 되돌리기** brings the newest automatic
+  picture back. Free.
+- **앱에 넣은 사진** — *its panel was removed by thumbnail-choice
+  (2026-10-17)*; the routes, the table and Claude's note stay, so pictures
+  already in an app keep working (the folder, 게시, the ZIP). Up to 10
+  pictures (1 MB each after re-encoding at a
   1,600 px long edge, 5 MB together), added from the file sidebar's **사진
   넣기**. Each lives at `images/<name>` (a safe name; `-2` when taken),
   is written into the app's folder beside its files — the preview is
@@ -660,6 +678,15 @@ says "작업이 끝나면 이어서 말해요". The aurora is now a very faint g
 inside the 그림 card and the 미리보기 pane only, with a Profile switch
 **오로라 배경** (per device, on by default). Under 움직임 줄이기 the sweeps
 stand still, the dots stop, the skeleton is drawn, the glow is off.
+**A first build** (builder-first-build-running, 2026-10-17) looks the
+same: a project with no files has no preview pane, so the approved 만들 계획
+stays in the centre and the same header — stage in large words, the big
+timer, the three stages, the top sweep and the optional glow — sits above
+it, with the plan's `n / m 파일` bar folded into that header and the end of
+the last file written below. The file list on the left fills in as files
+finish ("아직 파일이 없어요. 만들어지는 대로 여기에 나타나요." until the
+first), and the Claude panel narrates as for every build. One header
+component (`RunHeader`), two hosts.
 
 **Motion (motion-modern, 2026-10-16)** — points (1)'s loud aurora, (2)'s
 composer ring and (4)'s flight from the toast were replaced on
@@ -686,7 +713,15 @@ toast pops (the sound stays the Profile switch). (5) 게시 완료 is **쭈욱
 flash, confetti falls from the centre and the letters of "게시 완료!"
 pop one by one, in white, warm gold and a touch of lavender; it leaves
 by itself after about two seconds and nothing can be clicked on it.
-No dino. Under 동작 줄이기 every one of these keeps its text and loses
+No dino. *(Replaced 2026-10-17 by publish-done-popup, option A: a small
+card like the spend notice — bottom right above the composer, under the
+header on a phone — with a check that pops and a few confetti pieces
+around the check only, "게시했어요", the app name · CtrlAIApps, and
+**열어 보기** / **링크 복사**. It stays 6 s (longer while the pointer or
+focus is on it), closes with ✕, never takes focus, and the screen reader
+hears "게시했어요" once; it replaces the old toast line. Under 동작
+줄이기 the card shows without confetti. The bell's notification row
+stays.)* Under 동작 줄이기 every one of these keeps its text and loses
 its motion (the aurora is a still card, the stars and confetti do not
 appear), and nothing ever waits on an animation. CSS, motion/react and
 the Web Animations API only.
