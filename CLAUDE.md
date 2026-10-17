@@ -94,21 +94,23 @@ area carries a small **관리자** badge. Admin pages keep the breadcrumb
 remembered) whose sections are defined **once**, in
 `frontend/app/admin/sections.ts`, which the sidebar, tabs, breadcrumbs,
 and each section's own heading all read. **Six sections** since
-`admin-consolidation` (owner, 2026-10-17, v3): **Dashboard** (처리할 일 with
-zeros hidden, alerts, 이번 주 가장 많이 쓴 곳), **Members** (회원 · 참여 신청),
-**Quarters** (분기 · 예산), **Models** (Chat · Video), **Community** (신고 · 의견
-· 앱 · 지운 작업), **System** (상태 · 감사 기록). The former sections live on as
-tabs (`?tab=`), and every former `/admin/*` address redirects to its new place
+`admin-consolidation` (owner, 2026-10-17, v3, built in four batches):
+**Dashboard** (처리할 일 with zeros hidden, alerts, 이번 주 가장 많이 쓴 곳),
+**Members** (회원 — the list with 승인 대기 chips; a row opens the member panel,
+which holds every action, 사용 내역 and 지운 작업), **Quarters** (분기 · 예산 ·
+사용 분석), **Models** (Chat · Video · 한도 · 보정), **Community** (신고 · 의견 ·
+앱), **System** (상태 · 감사 기록). The former sections live on as tabs
+(`?tab=`), and every former `/admin/*` address redirects to its new place
 (keeping `?quarter=`). A header search finds members and apps. A section
 whose feature has not landed — Top-ups (`personal-topup-off`) — stays in
 the code with its route and a `hidden` flag.
 
-**AI Models** (`/admin/ai-models`; `/admin/claude-models` redirects)
-groups the chat catalogue by provider, Anthropic (Claude) first. A
-provider without an adapter shows **연결 준비 중**: its models can be
-listed and priced but never opened or made the default — the backend
-refuses (`chat_models.check_open`). **Deleted Items** restores
-soft-deleted member work.
+**Models › Chat** (`/admin/models`; `/admin/ai-models` and
+`/admin/claude-models` redirect) groups the chat catalogue by provider,
+Anthropic (Claude) first. A provider without an adapter shows **연결 준비
+중**: its models can be listed and priced but never opened or made the
+default — the backend refuses (`chat_models.check_open`). Soft-deleted
+member work is restored from the member panel's **지운 작업**.
 
 # 4. Money
 
@@ -208,6 +210,7 @@ default.**
 | GitHub | `GITHUB_PROVIDER` | `mock` (default) \| `github` |
 | Google/YouTube | `YOUTUBE_PROVIDER` | `mock` (default) \| `google` |
 | Google sign-in | `GOOGLE_LOGIN_PROVIDER` | `mock` (development only) \| `google` |
+| App thumbnails | `THUMBNAIL_RENDERER` | `browser` (default — the admin's browser photographs each app) \| `server` (the isolated `thumbs` worker) |
 | USD→KRW rate | `FX_PROVIDER` | `mock` (default) \| `frankfurter` — free and keyless (the ECB's rates); never a paid service (owner-polish-3, 2026-10-16) |
 
 (Feature switches such as `PERSONAL_TOPUP_ENABLED` follow the same
@@ -286,7 +289,7 @@ what to build next is always [`docs/BACKLOG.md`](docs/BACKLOG.md) › Next.
 | 2 | Chat (mock Claude by default) | done |
 | 3 | Builder MVP (Claude writes project files) | done — `builder-static-runtime` (static apps on `apps.ctrlai.my`) |
 | 4 | GitHub integration (GitHub App, per member) | not started |
-| 5 | CtrlAIApps (publish, listings, comments) | first slice done — `ctrlaiapps-publish` (게시 of a chosen version, 신고, admin unpublish); comments and reactions not started |
+| 5 | CtrlAIApps (publish, listings, comments) | done apart from GitHub (Phase 4) and app-platform P5 (files) — 게시, listings, comments, reactions, 신고, the 기능 상자 (P1–P4b) |
 | 6 | Video Generator (real Higgsfield adapter) | mock done |
 | 7 | YouTube (per-member OAuth upload) | not started |
 | 8 | CtrlAITube (feed from pasted YouTube URLs; **does not depend on 7**) | first slice — `promo-videos` (the club's own hosted video first in the feed, with real reactions, comments, 신고 and admin hide/delete); the YouTube feed not started |
@@ -457,10 +460,11 @@ Standing facts that do not change when the queue is reordered:
 - Accounts, quarters, participation, wallets, the usage ledger and the
   append-only audit log work end to end on a real database. No mock data
   remains in the money path.
-- Still mock: the Claude replies (`CLAUDE_PROVIDER=mock`), video assets
-  (placeholder clips) and Google sign-in in development. The CtrlAIApps
+- Production runs **real Claude** (`CLAUDE_PROVIDER=anthropic`) and the
+  **server thumbnail renderer** (`THUMBNAIL_RENDERER=server`). Still mock:
+  video (`VIDEO_PROVIDER=mock`, placeholder clips), and Google sign-in in
+  development. The CtrlAIApps
   and CtrlAITube listings are real rows (CtrlAITube holds only the club's
   own video until the YouTube feed, Phase 8).
-- The invite-only beta's code is deployed to `ctrlai-server` on mock
-  providers ([`docs/deployment.md`](docs/deployment.md)); done items and
+- The invite-only beta's code is deployed to `ctrlai-server` ([`docs/deployment.md`](docs/deployment.md)); done items and
   dates are in [`docs/archive/done.md`](docs/archive/done.md).
