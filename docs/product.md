@@ -210,10 +210,10 @@ files to the apps volume (a random slug; **미리보기 갱신** writes them
 again by hand). `apps.ctrlai.my/<app-slug>/` is CTRL+AI's own **shell**
 page; the app runs inside it in a frame with an opaque origin, from
 `/<app-slug>/_app/` (sandboxed even when opened on its own, no network,
-no cookies). The shell's tab shows the app's own cover as its icon — its
-colour from the slug and its first letter or digit, the same cover as
-the CtrlAIApps card, drawn by the shell as an SVG data URL, so every app
-has one without the member doing anything (app-tab-icon, 2026-10-17;
+no cookies). The shell's tab shows one shared 「앱」 icon — four tiles on
+the Primary gradient (sky → blue), the same for every app, told apart
+from CTRL+AI's own brand-gradient + (app-tab-icon, 2026-10-17, revised by
+the owner the same day, option 1;
 Chrome, Edge and Firefox — Safari ignores SVG tab icons and keeps its
 default, a PNG fallback is a later item if wanted). The
 Builder preview and CtrlAIApps frame the shell; 새 창에서 열기 opens it
