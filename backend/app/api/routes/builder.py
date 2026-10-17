@@ -245,7 +245,9 @@ def create_project_from_chat(
     name = "채팅에서 만든 페이지"
     # From a conversation, the name sent (its cut title) is never used —
     # the page's own, Claude's, or the default (owner, 2026-10-17).
-    for option in (candidate, None if payload.conversation_id is not None else payload.name):
+    # Without one (an API caller naming its project), the name sent comes first.
+    options = (candidate,) if payload.conversation_id is not None else (payload.name, candidate)
+    for option in options:
         if not option:
             continue
         try:

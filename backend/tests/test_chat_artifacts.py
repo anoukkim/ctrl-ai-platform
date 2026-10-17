@@ -24,8 +24,8 @@ def test_builder_로_보내기_creates_one_project_with_one_index_html(
     )
     assert response.status_code == 201, response.text
     project = db_session.query(BuilderProject).one()
-    # chat-to-builder-carry: the page's own heading names it, not the name sent.
-    assert project.name == "안녕"
+    # No conversation: the name sent stands (from a conversation, the page names it).
+    assert project.name == "동아리 소개"
     assert project.description == "동아리 소개 페이지를 만들어 줘"
     files = db_session.query(BuilderProjectFile).all()
     assert [(f.path, f.content) for f in files] == [("index.html", PAGE)]
