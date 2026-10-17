@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spend-toast-compact — Chat (mock-up)</title>
+<!--
+  Mock-up for the BACKLOG item `spend-toast-compact` (owner-approved 2026-10-17).
+  Static, self-contained, no network, nothing here is served to a member.
+  Compares today's "썼어요" toast (big card, coin, stars flying from the toast
+  to the wallet, 3 s) with the proposal: a one-line pill (2 s) and the stars
+  only twinkling at the wallet. Amounts are fake. Press 다시 보기 to replay.
+-->
+<style>
+:root{--text-secondary:#8b91a3}
+html,body{margin:0;background:#0a0b0f;color:#e6e8ee;font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+h1{font-size:16px;font-weight:500;margin:0 0 4px}
+.sub{font-size:13px;color:var(--text-secondary);margin:0 0 12px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.seg{display:flex;border:1px solid #2c3140;border-radius:999px;overflow:hidden}
+.seg button,.re{border:none;background:transparent;color:#8b91a3;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.seg button.on{background:#1b1f2c;color:#cfc9ff}
+.re{border:1px solid #2c3140;border-radius:999px}
+.pg{position:relative;display:flex;height:520px;background:#0f1116;border:1px solid #1f2330;border-radius:12px;overflow:hidden;font-size:13px}
+.sb{width:170px;border-right:1px solid #1f2330;padding:14px 10px;display:flex;flex-direction:column;flex:none}
+.sb .lg{font-size:15px;margin-bottom:10px}
+.it{padding:7px 9px;border-radius:8px;color:#aab0c2}.it.on{background:#1b1f2c;color:#cfc9ff}
+.wal{margin-top:auto;position:relative;border:1px solid #1f2330;border-radius:10px;padding:9px;font-size:11px;color:#8b91a3;line-height:1.5}
+.wal b{display:block;font-weight:400;color:#e6e8ee;font-size:14px;font-variant-numeric:tabular-nums}
+.wal.pulse{animation:glow 1s ease-out}
+@keyframes glow{30%{border-color:#7c6cf0;box-shadow:0 0 0 2px #26213f}}
+.dn{position:absolute;right:8px;top:6px;color:#cfc9ff;font-size:11px;opacity:0}
+.mn{flex:1;display:flex;flex-direction:column;padding:16px 22px;position:relative;min-width:0}
+.me{margin-left:auto;background:#171a23;border:1px solid #2a2f40;border-radius:14px;padding:9px 13px;margin-bottom:12px}
+.bub{background:#14171f;border:1px solid #232733;border-radius:12px;padding:12px 14px;line-height:1.6;max-width:560px}
+.cost{color:#6e7488;font-size:11px;margin-top:6px}
+.inp{margin-top:auto;border:1px solid #2c3140;border-radius:12px;background:#0d0f14;padding:12px 14px;color:#6e7488}
+.old{position:absolute;right:20px;bottom:90px;width:230px;display:flex;gap:10px;align-items:center;background:#171a23;border:1px solid #3a3566;border-radius:10px;padding:10px 12px;opacity:0}
+.old .c{width:32px;height:32px;border-radius:50%;background:#26213f;display:grid;place-items:center;color:#cfc9ff;flex:none}
+.old big{display:block;font-size:18px;font-weight:600;color:#cfc9ff;line-height:1.1}
+.old small{color:#aab0c2;font-size:12px;line-height:1.4;display:block}
+.pill{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);background:#171a23;border:1px solid #2a2f40;border-radius:999px;padding:5px 14px;color:#cfd3e0;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:0}
+.st{position:absolute;width:5px;height:5px;border-radius:50%;background:#e9d9a6;opacity:0}
+.tw{position:absolute;width:4px;height:4px;border-radius:50%;background:#e9d9a6;opacity:0}
+.go.mode-old .old{animation:pop 3s ease-out}
+.go.mode-old .dn{animation:rise 1.6s ease-out .8s}
+.go.mode-old .st{animation:fly .9s ease-in-out forwards}
+.go.mode-old .tw{animation:twk .8s ease-in-out forwards}
+.go.mode-new .pill{animation:pop 2s ease-out}
+.go.mode-new .dn{animation:rise 1.6s ease-out .1s}
+.go.mode-new .tw{animation:twk .8s ease-in-out .1s forwards}
+@keyframes pop{0%{opacity:0;transform:translate(var(--tx,0),12px)}10%{opacity:1;transform:translate(var(--tx,0),0)}85%{opacity:1}100%{opacity:0}}
+.pill{--tx:-50%}
+.pg.go.mode-new .pill{animation-name:popc}
+@keyframes popc{0%{opacity:0;transform:translate(-50%,10px)}10%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,0)}}
+@keyframes rise{0%{opacity:0;transform:translateY(6px)}20%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+@keyframes fly{0%{opacity:0;transform:translate(0,0) scale(.5)}20%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.6)}}
+@keyframes twk{0%{opacity:0;transform:scale(.3)}30%{opacity:1;transform:scale(1.4)}60%{opacity:.2}80%{opacity:1}100%{opacity:0;transform:scale(.2)}}
+.note{margin-top:10px;font-size:12px;color:var(--text-secondary);line-height:1.6}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.go .pill,.go .old{opacity:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>spend-toast-compact · 사용 알림 줄이기</h1>
+<p class="sub">현재(큰 카드 + 별가루가 알림에서 지갑으로 날아감)와 제안(한 줄 알약 + 별가루는 지갑에서만 반짝임)을 번갈아 볼 수 있어요. 금액은 가짜 값이에요.</p>
+<div class="bar">
+  <div class="seg"><button id="m-old">현재</button><button id="m-new" class="on">제안</button></div>
+  <button class="re" id="re">다시 보기</button>
+</div>
+
+<div class="pg mode-new" id="pg">
+  <div class="sb">
+    <div class="lg">+ CTRL+AI</div>
+    <div class="it on">Chat</div><div class="it">Project Builder</div><div class="it">Video Generator</div>
+    <div class="wal" id="wal">동아리 지원<b id="bal">68,492원</b><span class="dn" id="dn">−156원</span>
+      <i class="tw" style="left:20px;top:26px"></i><i class="tw" style="left:84px;top:18px;animation-delay:.1s"></i><i class="tw" style="left:60px;top:40px;animation-delay:.2s"></i><i class="tw" style="left:110px;top:34px;animation-delay:.3s"></i>
+    </div>
+  </div>
+  <div class="mn">
+    <div class="me">이어지는 영화 필터도 넣어줘</div>
+    <div class="bub">이번 버전은 이렇게 쓰시면 돼요. 왼쪽 목록에서 영화를 누르면 오른쪽에 큰 번호와 설명이 나와요.
+      <div class="cost">합계 156원 · 균형 잡힌 답변 (Sonnet 5.5) · 보통</div></div>
+    <div class="inp">만들고 싶은 것을 이야기해 보세요</div>
+    <div class="pill" id="pill">−156원 · 68,336원 남음</div>
+    <div class="old" id="old"><span class="c">●</span><span><big>-156원</big><small>156원을 사용했어요! 남은 지원금 68,336원</small><small style="color:#6e7488">채팅 · Sonnet</small></span></div>
+    <i class="st" style="right:130px;bottom:120px;--dx:-600px;--dy:150px"></i><i class="st" style="right:140px;bottom:124px;--dx:-610px;--dy:140px;animation-delay:.05s"></i><i class="st" style="right:120px;bottom:116px;--dx:-590px;--dy:160px;animation-delay:.1s"></i>
+  </div>
+</div>
+<p class="note"><b style="font-weight:500">제안</b>: 알림은 한 줄, 2초. 용도(채팅 · Sonnet)는 마우스를 올렸을 때만. 별가루는 알림에서 날지 않고 사이드바 지갑 위에서만 반짝여요. 10원 미만이면 알약 없이 숫자와 <code>−N원</code>만 움직여요. 지갑이 안 보일 때(사이드바 접힘, 폰)는 알약만 나와요.</p>
+</div>
+
+<script>
+var pg=document.getElementById('pg'),bal=document.getElementById('bal'),wal=document.getElementById('wal'),mode='new',iv;
+function roll(){clearInterval(iv);var from=68492,to=68336,t0=Date.now(),d=mode=='old'?1500:200;
+ bal.textContent='68,492원';
+ setTimeout(function(){iv=setInterval(function(){var p=Math.min((Date.now()-t0-d)/700,1);if(p<0)return;bal.textContent=Math.round(from+(to-from)*p).toLocaleString()+'원';if(p==1)clearInterval(iv)},30)},0)}
+function play(){pg.classList.remove('go');wal.classList.remove('pulse');void pg.offsetWidth;pg.classList.add('go');setTimeout(function(){wal.classList.add('pulse')},mode=='old'?900:150);roll()}
+function setMode(m){mode=m;pg.className='pg mode-'+m;document.getElementById('m-old').classList.toggle('on',m=='old');document.getElementById('m-new').classList.toggle('on',m=='new');play()}
+document.getElementById('m-old').onclick=function(){setMode('old')};
+document.getElementById('m-new').onclick=function(){setMode('new')};
+document.getElementById('re').onclick=play;
+setMode('new');
+</script>
+</body>
+</html>

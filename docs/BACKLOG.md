@@ -567,6 +567,50 @@ Three things to carry into **budget-by-provider**:
 
 New UI requests go here until they are folded into a UI batch.
 
+- **spend-toast-compact** — owner, 2026-10-17 (desktop session, with a
+  screenshot of the 썼어요 toast: "알림이 조금 너무 큰 것 같아 … 줄이던가
+  하는 거 있어?"), then picked **"A가 좋은데"** and **"지갑 쪽에서만
+  반짝이게 줄임 이거까지 해서 백로그"**. Today
+  (`SpendFeedbackProvider.tsx` + `spend-feedback.module.css`) the toast is a
+  card — a 2.1rem coin, a 1.15rem bold `-156원`, a sentence, a label line —
+  up to 22rem wide, sitting just above the composer at the bottom right,
+  for 3 s, while stars fly from it to the sidebar wallet; the same amount
+  also shows as `-156원` by the wallet and as `합계 156원` under the reply.
+  **Change (the owner's pick, A + stars only at the wallet):**
+  1. **One-line pill** instead of the card: `−156원 · 68,336원 남음`
+     (merged charges: `−36원 (3번) · 68,336원 남음`) — no coin, no label
+     line, no big amount. What it was for ("채팅 · Sonnet") moves to the
+     pill's `title` and the screen-reader line (`toastText` keeps the full
+     sentence, so assistive tech is unchanged). `toastMainText` is the one
+     place that builds the wording.
+  2. **2 s, not 3** (`TOAST_MS` 3000 → 2000); `MERGE_WINDOW_MS` stays 3000
+     so charges that arrive together still merge. Still opens Usage on
+     click; still takes no focus and never covers the composer (centred
+     just above it, or the same corner but lower — settle at build).
+  3. **Stars only at the wallet**: no more stars flying from the toast
+     (`planFlight` and `Flight.from` go away); when the sidebar balance is
+     on screen the 4 twinkles (`TWINKLE_COUNT`) play on the wallet, with the
+     existing count-down, `-N원` rise and pulse. When the wallet is not
+     visible (collapsed sidebar, phone) there is nothing to twinkle — the
+     pill alone says it.
+  4. **Small charges stay quiet**: under 10원 no pill at all — only the
+     wallet count-down, the `-N원` rise and the twinkles (Profile › 알림 ›
+     사용 알림 표시 off still hides everything but the number; reduced
+     motion still drops the twinkles and the count-down and keeps the pill).
+  5. **Unchanged**: milestone cards (첫 사용, 25 / 50 / 75 %, 잔액
+     10,000원 이하, 잔액 0) keep their size — rare and they matter; the
+     sound switch; the backend (`charged_krw` is still the only source).
+  Touches: `SpendFeedbackProvider.tsx`, `spend-feedback.module.css`,
+  `frontend/__tests__/spend-feedback.test.tsx` (the toast text, the 3 s →
+  2 s timing, the no-flight rule, the under-10원 rule), and the "spend
+  moment" paragraph in `docs/product.md`. Frontend only, no money logic, no
+  migration. Small. Mock-up:
+  [`ui-requests/spend-toast-compact.html`](ui-requests/spend-toast-compact.html)
+  (현재 vs 제안 switch). Not scheduled; best built with `running-state-calm`
+  since both retune the shared motion.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+  "spend-toast-compact(시안 A 그대로)도 running-state-calm이랑 같이, 같은 규칙으로
+  해줘") — on the same branch as running-state-calm and chat-preview-fullscreen.
 - **running-state-calm** — owner, 2026-10-17 (desktop session, after
   mock-ups the owner approved: "오 좋음 빌더도 만들어줘" → "응 좋다, 그거까지
   백로그로 보내"). Follow-up to `motion-modern` (8b, merged): while Chat
@@ -616,7 +660,11 @@ New UI requests go here until they are folded into a UI batch.
   typing stop, dots stay static). Mock-ups (open in a browser):
   [`ui-requests/running-state-calm-chat.html`](ui-requests/running-state-calm-chat.html)
   and [`running-state-calm-builder.html`](ui-requests/running-state-calm-builder.html),
-  both with the aurora switch. Not scheduled.
+  both with the aurora switch.
+  **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
+  "running-state-calm(시안 그대로)이랑 chat-preview-fullscreen 지금 배포 끝나면
+  다음으로, 같은 규칙으로 해줘") — after the feat-batch-1017 deploy; review clean
+  + tests pass → merge + deploy.
 
 - **chat-preview-fullscreen** — owner, 2026-10-17 (desktop session, with a
   screenshot of a Chat 미리보기 card): "지금 미리보기로 뭘 생성하면,
