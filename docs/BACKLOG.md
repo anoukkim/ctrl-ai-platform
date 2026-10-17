@@ -921,6 +921,21 @@ New UI requests go here until they are folded into a UI batch.
   liked; without a 미리보기 it stays as today. Small. **Scheduled and
   pre-approved** (owner, 2026-10-17, verbatim: "chat-to-builder-carry는
   background-runs 다음에 같은 규칙으로 해줘").
+  **Refined (owner, 2026-10-17, with screenshots):** "빌더로 보내기 이거를 하면
+  잘 가긴 하거든? 근데 html만 띡 가고 제목도 저렇게만 되고 프로젝트 빌드하기
+  누르면 프롬프트만 가서 이상한거 만들어지고". So: (1) one action — in a
+  conversation with a 미리보기, 「Project Builder에서 예시 앱 만들기」 becomes
+  「이 미리보기로 Builder 시작」 (same as the card's 「Builder로 보내기」); (2) the
+  project name comes from the page (`<title>` / first heading, shortened), a
+  Haiku name only when the page has none — not the truncated conversation
+  title; (3) the conversation's requirements travel too: a short requirements
+  note (what was asked and decided: features, data, look) saved as the
+  project's SPEC.md (a guide doc, not served) and shown in the Builder's
+  first Claude bubble ("채팅에서 가져왔어요 · 요구사항 N개"), so later 고치기
+  build on it instead of starting over; Haiku summary charged and estimated
+  like any call (a few 원), or free when it can be taken from the messages as
+  they are; (4) several 미리보기 in the conversation → pick one (newest by
+  default).
 - **after-the-queue (coordinator, after ⑤ chat-to-builder-carry)** — owner,
   2026-10-17, verbatim: "5번까지 다 끝나고 해야할 것 … 1. 깃리포지터리 정리
   chore-promo-videos 사이트에 올라간 것들 다른 곳에 있다면 정리해도 됨 2. 깃
