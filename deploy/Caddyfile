@@ -87,11 +87,17 @@ apps.{$SITE_DOMAIN} {
 		reverse_proxy api:8000
 	}
 
+	# Cache-Control no-cache (fix-app-file-cache, 2026-10-19): a member's
+	# files change with every 고치기 and keep their names, so Chrome
+	# asks each time (an unchanged file is a 304 by its ETag). Without it
+	# Chrome guessed a lifetime from the file's age and showed an old
+	# index.html beside a new search.js for hours.
 	@appfile path_regexp appfile ^/([a-z2-9]{10})/_app/(.+)$
 	handle @appfile {
 		@notRead not method GET HEAD
 		respond @notRead 405
 		header {
+			Cache-Control "no-cache"
 			Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; frame-ancestors https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}"
 			-Set-Cookie
 		}
