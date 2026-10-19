@@ -68,3 +68,23 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def release_before_stream(db: Session, request) -> None:
+    """End the request's transaction — and hand its connection back — before
+    a long Server-Sent Events stream starts (fix-stream-db-sessions,
+    2026-10-19).
+
+    FastAPI runs `get_db`'s clean-up only after a StreamingResponse
+    finishes, so a route that read anything kept a transaction "idle in
+    transaction" for the whole stream: its read locks blocked a deploy's
+    ALTER TABLE, and every query behind that queued — the site stopped for
+    ten minutes. The streams do their own work in sessions of their own.
+
+    The tests hand every caller one shared session (`dependency_overrides`);
+    that one is only committed, never closed under them.
+    """
+    if get_db in request.app.dependency_overrides:
+        db.commit()
+    else:
+        db.close()

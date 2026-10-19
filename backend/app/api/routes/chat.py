@@ -51,7 +51,7 @@ from app.api.deps import get_current_user, require_active_member
 from app.services.quiet import quiet_update
 from app.api.uploads import clean_upload_name, file_response, read_upload_body
 from app.core.config import Settings, get_settings
-from app.db.session import get_db
+from app.db.session import get_db, release_before_stream
 from app.models import (
     ChatRun,
     AttachmentKind,
@@ -1098,6 +1098,7 @@ def send_message(
             # task finishes, saves and charges as it would have.
             pass
 
+    release_before_stream(db, request)
     return StreamingResponse(
         relay(),
         media_type="text/event-stream",
@@ -1229,6 +1230,7 @@ def follow_reply(
                 yield ": keepalive\n\n"
                 quiet = 0.0
 
+    release_before_stream(db, request)
     return StreamingResponse(
         watch(),
         media_type="text/event-stream",

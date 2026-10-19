@@ -18,6 +18,9 @@ mkdir -p "$HOME/backups"
 chmod 700 "$HOME/backups"
 file="$HOME/backups/ctrlai-$(date -u +%Y%m%d-%H%M%S).sql.gz"
 
+# A failed or partial dump is removed rather than left among the kept 14,
+# where it would push out a good one (2026-10-19 audit).
+trap 'rm -f "$file"' ERR
 "${compose[@]}" exec -T db sh -c \
   'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' \
   | gzip > "$file"
@@ -27,8 +30,10 @@ chmod 600 "$file"
 # that a backup.
 if [ "$(gzip -dc "$file" | wc -c)" -lt 1000 ]; then
   echo "백업 파일이 너무 작습니다. 데이터베이스가 켜져 있는지 확인하세요: $file" >&2
+  rm -f "$file"
   exit 1
 fi
+trap - ERR
 
 echo "백업 완료: $file ($(du -h "$file" | cut -f1))"
 

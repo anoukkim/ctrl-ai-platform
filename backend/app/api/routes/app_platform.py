@@ -23,6 +23,7 @@ of this is reachable from `ctrlai.my`.
 """
 
 import json
+import logging
 from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
@@ -32,10 +33,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.db.session import get_db
+from app.db.session import get_db, release_before_stream
 from app.models import BuilderProject, User
 from app.services import app_ai, app_ai_access, app_auth, app_data, app_fonts, app_shell, chat_limits, provider_limiter
 from app.services.claude_provider import ClaudeError, get_claude_provider
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/_ctrlai", tags=["app-platform"])
 #: The one route under the app's own address (P2): where signing in ends.
@@ -414,7 +417,7 @@ async def ai_ask(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     _ai_allowed(call)
-    limit = chat_limits.current(db).provider_concurrency
+    limit = await run_in_threadpool(lambda: chat_limits.current(db).provider_concurrency)
     if not await run_in_threadpool(provider_limiter.acquire, limit):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=BUSY)
     try:
@@ -461,12 +464,13 @@ async def ai_stream(
     if body.json_schema is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JSON 형식은 ask에서만 쓸 수 있어요.")
     try:
-        prepared = app_ai.prepare(
-            db, settings, user=call.visitor.user, project=call.target.project, data=body.as_input()
+        # Off the event loop: this route is async (fix-stream-db-sessions).
+        prepared = await run_in_threadpool(
+            app_ai.prepare, db, settings, user=call.visitor.user, project=call.target.project, data=body.as_input()
         )
     except app_ai.AppAIError as error:
-        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
-    limit = chat_limits.current(db).provider_concurrency
+        raise _ai_error(error) from error
+    limit = await run_in_threadpool(lambda: chat_limits.current(db).provider_concurrency)
     user_id, project_id = call.visitor.user.id, call.target.project.id
     preview = call.target.mode == "preview"
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
@@ -512,12 +516,21 @@ async def ai_stream(
             failure = error
         finally:
             provider_limiter.release()
-        charged = await run_in_threadpool(settle, tally, failure)
+        try:
+            charged = await run_in_threadpool(settle, tally, failure)
+        except Exception:  # noqa: BLE001 — the visitor gets a Korean sentence either way
+            # The provider was paid but the ledger row could not be written
+            # (a quarter closed mid-stream, a database error): say so, and
+            # leave the trace for the admin rather than ending in silence.
+            logger.exception("app AI stream settle failed for project %s", project_id)
+            yield _sse("error", {"message": "답은 받았지만 사용 기록을 남기지 못했어요. 관리자에게 알려 주세요.", "chargedKrw": 0})
+            return
         if failure is not None:
             yield _sse("error", {"message": str(failure), "chargedKrw": charged})
         else:
             yield _sse("done", {"text": tally.text if tally else "", "chargedKrw": charged, "model": prepared.label})
 
+    release_before_stream(db, request)
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
 

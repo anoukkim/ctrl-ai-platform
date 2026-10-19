@@ -233,7 +233,9 @@ def visitor(db: Session, project: BuilderProject, token: str | None) -> Visitor 
     if _aware(session.expires_at) <= _now():
         return None
     user = db.get(User, session.user_id)
-    if user is None or user.account_status is AccountStatus.FORMER:
+    # The site's own rule (`get_current_user`): only an account that may
+    # sign in may hold an app session — not 탈퇴, and not 사용 중지 either.
+    if user is None or not user.can_sign_in:
         return None
     consent = active_consent(db, user.id, project.id)
     if consent is None:
