@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_active_member
 from app.api.uploads import clean_upload_name, file_response, read_upload_body
-from app.db.session import get_db
+from app.db.session import get_db, release_before_stream
 from app.models import (
     BuilderGeneration,
     BuilderProject,
@@ -1524,6 +1524,7 @@ def run_generation(
                 break
             yield _sse(kind, data)
 
+    release_before_stream(db, request)
     return StreamingResponse(
         relay(),
         media_type="text/event-stream",

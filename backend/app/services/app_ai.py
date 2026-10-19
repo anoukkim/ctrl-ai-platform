@@ -34,6 +34,7 @@ from decimal import Decimal
 from typing import Any, AsyncIterator
 
 from sqlalchemy import func, select
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -572,7 +573,19 @@ async def ask(
 ) -> AskResult:
     """`ctrlai.ai.ask`: one answer, as text — or JSON checked against the
     schema, with one automatic retry inside the same per-call cap."""
-    prepared = prepare(db, settings, user=user, project=project, data=data)
+    # fix-stream-db-sessions (2026-10-19): every database step runs on a worker
+    # thread — this is an async route, and a lock wait here would stall every
+    # request on the event loop — and the transaction ends before Claude is
+    # awaited, so no read lock is held for the whole call.
+    def in_db(work, *args, **kwargs):
+        def step():
+            try:
+                return work(*args, **kwargs)
+            finally:
+                db.commit()
+        return run_in_threadpool(step)
+
+    prepared = await in_db(prepare, db, settings, user=user, project=project, data=data)
     first_prepared = prepared
     total_in = total_out = 0
     messages = prepared.request.messages
@@ -586,9 +599,9 @@ async def ask(
                     tally = value
         except ClaudeError as error:
             if total_in or total_out:
-                charge(db, settings, user=user, project=project, prepared=first_prepared,
+                await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
                        input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
-            record_failure(db, error)
+            await in_db(record_failure, db, error)
             raise AppAIError(str(error), 503, "provider") from error
         assert tally is not None
         total_in += tally.input_tokens
@@ -598,7 +611,7 @@ async def ask(
         if tally.stop_reason == "max_tokens":
             # Cut at the output limit: asking again would be cut the same
             # way. Say why, and what the app can change.
-            charged = charge(db, settings, user=user, project=project, prepared=first_prepared,
+            charged = await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
                              input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
             raise AppAIError(
                 f"AI 답이 길어서 중간에 잘렸어요(최대 {prepared.request.max_tokens:,}토큰). "
@@ -615,7 +628,7 @@ async def ask(
         if problem is None:
             break
         if attempt >= 2:
-            charged = charge(db, settings, user=user, project=project, prepared=first_prepared,
+            charged = await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
                              input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
             raise AppAIError(
                 f"AI 답이 정해 준 JSON 형식에 맞지 않았어요({problem}). {charged}원이 쓰였어요.",
@@ -634,16 +647,16 @@ async def ask(
         try:
             # The retry lives inside the first attempt's worst case: the
             # visitor never pays more than the "최대 M원" they were shown.
-            prepared = prepare(
-                db, settings, user=user, project=project, data=data, spent_krw=spent, messages=messages,
+            prepared = await in_db(
+                prepare, db, settings, user=user, project=project, data=data, spent_krw=spent, messages=messages,
                 cap_krw=first_prepared.max_krw,
             )
         except AppAIError:
-            charge(db, settings, user=user, project=project, prepared=first_prepared,
+            await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
                    input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
             raise
 
-    charged = charge(db, settings, user=user, project=project, prepared=first_prepared,
+    charged = await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
                      input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
     return AskResult(
         text=tally.text,
