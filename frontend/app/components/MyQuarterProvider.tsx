@@ -47,6 +47,11 @@ export function useMyQuarter(): Value {
   return value;
 }
 
+/** The same, or null outside the provider (a screen rendered on its own). */
+export function useMyQuarterOptional(): Value | null {
+  return useContext(MyQuarterContext);
+}
+
 /**
  * 지금 새로 만들 수 있는지.
  *

@@ -150,6 +150,50 @@ export function membershipBadge(status: MembershipStatus | null): string {
  * 지금 없는 기능을 약속하지 않도록 그 부분만 뺐습니다. 다운로드가 생기면
  * 이 한 줄만 고치면 됩니다.
  */
+/**
+ * 이번 분기의 내 자리 — 화면마다 같은 말 (2026-10-19 audit). 참여 기록과
+ * 신청을 함께 봐야 "승인 대기"가 사이드바와 Usage에서도 보입니다.
+ */
+export type Standing = "active" | "pending" | "stopped" | "none";
+
+export function standingOf(
+  status: { membership_status: MembershipStatus | null; application: { status: ApplicationStatus } | null } | null,
+): Standing {
+  if (!status) return "none";
+  if (status.membership_status === "active") return "active";
+  if (status.membership_status === "inactive") return "stopped";
+  if (status.application?.status === "submitted") return "pending";
+  return "none";
+}
+
+export const STANDING_LABEL: Record<Standing, string> = {
+  active: "참여 중",
+  pending: "승인 대기",
+  stopped: "참여 중지",
+  none: "미참여",
+};
+
+export const STANDING_BADGE: Record<Standing, string> = {
+  active: "badge-ok",
+  pending: "badge-warn",
+  stopped: "badge-warn",
+  none: "badge-muted",
+};
+
+/** 만들 수 없을 때 한 줄 안내와, 할 수 있는 일이 있으면 그 링크. */
+export function standingHint(standing: Standing): { text: string; link: { label: string; href: string } | null } {
+  if (standing === "pending") {
+    return { text: "이번 분기 참여 신청을 확인하고 있어요. 승인되면 바로 쓸 수 있어요.", link: null };
+  }
+  if (standing === "stopped") {
+    return {
+      text: "이번 분기 참여가 중지됐어요. 지금까지 만든 작업물은 그대로 볼 수 있어요. 다시 쓰려면 운영진에게 말해 주세요.",
+      link: null,
+    };
+  }
+  return { text: NOT_PARTICIPATING_HINT, link: { label: "Profile에서 참여 신청하기", href: "/profile" } };
+}
+
 export const NOT_PARTICIPATING_HINT =
   "이번 분기에 참여하지 않아 AI 기능을 사용할 수 없습니다. 지금까지 만든 작업물은 그대로 볼 수 있습니다.";
 

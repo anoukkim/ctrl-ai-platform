@@ -158,7 +158,12 @@ export default function WithdrawalSection() {
         </ul>
       </div>
 
-      {loadError && <p className="small muted">탈퇴 정보를 불러오지 못했습니다. {loadError}.</p>}
+      {loadError && (
+        <>
+          <p className="small muted">탈퇴 정보를 불러오지 못했어요.</p>
+          <p className="small muted">{loadError}</p>
+        </>
+      )}
 
       {preview?.refund_hold && (
         <p className={styles.withdrawWarning} role="alert">

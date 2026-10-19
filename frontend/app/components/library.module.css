@@ -8,6 +8,9 @@
 .sectionLabel {
   display: flex;
   align-items: baseline;
+  /* "내 프로젝트 2개" stays on one line on a phone (2026-10-19 audit). */
+  flex: none;
+  white-space: nowrap;
   gap: var(--lib-gap-xs);
   font-size: var(--fs-count);
   font-weight: var(--fw-strong);

@@ -18,9 +18,9 @@
 import { Lock } from "lucide-react";
 import Link from "next/link";
 
-import { NOT_PARTICIPATING_HINT } from "@/lib/quarters";
+import { standingHint, standingOf } from "@/lib/quarters";
 
-import { useMayCreate } from "./MyQuarterProvider";
+import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import styles from "./NotParticipatingBanner.module.css";
 
 interface Props {
@@ -30,7 +30,10 @@ interface Props {
 
 export default function NotParticipatingBanner({ inWorkspace = false }: Props) {
   const mayCreate = useMayCreate();
+  const { state } = useMyQuarter();
   if (mayCreate) return null;
+  // 승인 대기 · 참여 중지인 회원에게는 "신청하기"가 아니라 지금 상태를 말합니다.
+  const hint = standingHint(standingOf(state.phase === "ready" ? state.quarter : null));
 
   return (
     <div
@@ -39,10 +42,12 @@ export default function NotParticipatingBanner({ inWorkspace = false }: Props) {
     >
       <Lock className={styles.icon} size={14} strokeWidth={2} aria-hidden />
       <p className={styles.body}>
-        <span>{NOT_PARTICIPATING_HINT}</span>
-        <Link className={styles.link} href="/profile">
-          Profile에서 참여 신청하기
-        </Link>
+        <span>{hint.text}</span>
+        {hint.link && (
+          <Link className={styles.link} href={hint.link.href}>
+            {hint.link.label}
+          </Link>
+        )}
       </p>
     </div>
   );

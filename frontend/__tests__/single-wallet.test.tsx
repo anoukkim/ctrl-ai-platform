@@ -212,7 +212,7 @@ describe("Usage", () => {
     getMyUsage.mockResolvedValue({ ...usage, wallet: null, breakdown: [], events: [] });
     render(<UsageView />);
 
-    expect(await screen.findByText(/아직 승인된 지원금이 없습니다/)).toBeTruthy();
+    expect(await screen.findByText(/동아리 지원을 준비하고 있어요/)).toBeTruthy();
   });
 });
 

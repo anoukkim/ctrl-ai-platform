@@ -62,8 +62,9 @@ import { useSite, useSiteLoaded } from "./SiteProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 
 import {
-  membershipBadge,
-  membershipLabel,
+  STANDING_BADGE,
+  STANDING_LABEL,
+  standingOf,
   formatDate,
   formatKrw,
   walletSentence,
@@ -656,9 +657,9 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
 
   if (state.phase !== "ready" || state.quarter.quarter === null) return null;
 
-  const { quarter, allocation, days_remaining, membership_status } = state.quarter;
-  // membership-wording: no row this quarter is 미참여, not 참여 중지.
-  const status = membership_status;
+  const { quarter, allocation, days_remaining } = state.quarter;
+  // The same standing as Usage and Profile: 승인 대기 shows here too.
+  const standing = standingOf(state.quarter);
 
   // 지갑은 하나입니다(single-wallet). 채팅도 영상도 같은 잔액에서 씁니다.
   const percent =
@@ -678,7 +679,7 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
           {quarter.display_name}
           {days_remaining !== null && <span className={styles.memberDday}>D-{days_remaining}</span>}
         </span>
-        <span className={`badge ${membershipBadge(status)}`}>{membershipLabel(status)}</span>
+        <span className={`badge ${STANDING_BADGE[standing]}`}>{STANDING_LABEL[standing]}</span>
       </div>
 
       <div className={styles.memberRange}>
@@ -708,7 +709,7 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
           <div
             className="meter"
             role="img"
-            aria-label={`지원금 중 ${percent}% 사용`}
+            aria-label={`동아리 지원 중 ${percent}% 사용`}
           >
             <div className="meter-fill" style={{ width: `${percent}%` }} />
           </div>
@@ -716,7 +717,13 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
         </div>
       ) : (
         <p className={styles.memberEmpty}>
-          {status === "active" ? "승인된 지원금이 없습니다." : "이번 분기에 참여하고 있지 않습니다."}
+          {standing === "active"
+            ? "동아리 지원을 준비하고 있어요."
+            : standing === "pending"
+              ? "승인되면 동아리 지원이 생겨요."
+              : standing === "stopped"
+                ? "이번 분기 참여가 중지됐어요."
+                : "이번 분기에 참여하고 있지 않아요."}
         </p>
       )}
     </Link>

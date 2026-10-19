@@ -22,14 +22,17 @@ import { Gauge, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import EmptyState from "@/app/components/EmptyState";
+import { useMyQuarterOptional } from "@/app/components/MyQuarterProvider";
+import Link from "next/link";
 import { CACHE_EXPLAINER, ROUND_UP_NOTE, formatWonPart, type MoneySplit } from "@/lib/money";
 import { useSite } from "@/app/components/SiteProvider";
 
 import {
   FUNDING_LABEL,
-  membershipBadge,
-  membershipLabel,
-  NOT_PARTICIPATING_HINT,
+  STANDING_BADGE,
+  STANDING_LABEL,
+  standingHint,
+  standingOf,
   SPENDING_LABEL,
   SPENDING_ORDER_NOTE,
   formatKrw,
@@ -58,6 +61,7 @@ function formatDay(iso: string): string {
 
 export default function UsageView() {
   const [state, setState] = useState<State>({ phase: "loading" });
+  const quarterState = useMyQuarterOptional()?.state ?? { phase: "loading" as const };
   const site = useSite();
 
   // 효과 본문에서 바로 상태를 바꾸지 않도록 약속이 끝난 뒤 반영합니다.
@@ -84,13 +88,20 @@ export default function UsageView() {
   if (state.phase === "error") {
     return (
       <div className="card">
-        <p className="small muted">사용량을 불러오지 못했습니다. {state.message}.</p>
+        <p className="small muted">사용량을 불러오지 못했어요.</p>
+        <p className="small muted">{state.message}</p>
       </div>
     );
   }
 
   const usage = state.usage;
-  const status = usage.membership_status;
+  // The same standing as the sidebar and Profile (승인 대기 included).
+  const standing = standingOf(
+    quarterState.phase === "ready"
+      ? quarterState.quarter
+      : { membership_status: usage.membership_status, application: null },
+  );
+  const hint = standingHint(standing);
   const personal = usage.personal;
 
   return (
@@ -102,7 +113,7 @@ export default function UsageView() {
             <p className={styles.seasonName}>{usage.quarter_name}</p>
             {usage.quarter_code && <p className={styles.seasonRange}>{usage.quarter_code}</p>}
           </div>
-          <span className={`badge ${membershipBadge(status)}`}>{membershipLabel(status)}</span>
+          <span className={`badge ${STANDING_BADGE[standing]}`}>{STANDING_LABEL[standing]}</span>
           <span className={styles.seasonSpacer} />
           {usage.days_remaining !== null && (
             <span className={styles.seasonDday}>
@@ -115,7 +126,17 @@ export default function UsageView() {
         </div>
       )}
 
-      {status !== "active" && <p className="notice">{NOT_PARTICIPATING_HINT}</p>}
+      {standing !== "active" && (
+        <p className="notice">
+          {hint.text}
+          {hint.link && (
+            <>
+              {" "}
+              <Link href={hint.link.href}>{hint.link.label}</Link>
+            </>
+          )}
+        </p>
+      )}
 
       {/* 동아리 지원 — 지갑 하나 */}
       <h2 className="section-title">동아리 지원</h2>
@@ -123,8 +144,17 @@ export default function UsageView() {
       {usage.wallet === null ? (
         <div className="card" style={{ marginBottom: "1.6rem" }}>
           <p className="small muted">
-            아직 승인된 지원금이 없습니다. Profile에서 이번 분기 참여를 신청할 수 있습니다.
+            {standing === "active"
+              ? "동아리 지원을 준비하고 있어요."
+              : standing === "pending"
+                ? "승인되면 이번 분기 동아리 지원이 생겨요."
+                : "아직 이번 분기 동아리 지원이 없어요."}
           </p>
+          {standing === "none" && (
+            <Link className="btn btn-primary btn-sm" href="/profile" style={{ marginTop: "0.6rem" }}>
+              분기 참여 신청
+            </Link>
+          )}
         </div>
       ) : (
         <WalletCard wallet={usage.wallet} breakdown={usage.breakdown} />
@@ -179,8 +209,18 @@ export default function UsageView() {
         <EmptyState
           icon={Gauge}
           title="아직 쓴 기록이 없어요"
-          text="Chat에서 질문하거나 Project Builder, Video Generator에서 무언가를 만들면 쓴 금액이 여기에 쌓여요."
-          action={{ label: "Chat에서 시작하기", href: "/" }}
+          text={
+            standing === "active"
+              ? "Chat에서 질문하거나 Project Builder에서 무언가를 만들면 쓴 금액이 여기에 쌓여요."
+              : "이번 분기에 참여하면 Chat과 Project Builder에서 쓴 금액이 여기에 쌓여요."
+          }
+          action={
+            standing === "active"
+              ? { label: "Chat에서 시작하기", href: "/" }
+              : standing === "none"
+                ? { label: "분기 참여 신청", href: "/profile" }
+                : undefined
+          }
         />
       ) : (
         <div className="table-wrap">

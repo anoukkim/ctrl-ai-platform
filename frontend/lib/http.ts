@@ -11,6 +11,32 @@ import { API_BASE_URL, ApiError } from "./api";
  *  보이지 않도록 끊습니다. */
 export const REQUEST_TIMEOUT_MS = 8000;
 
+/**
+ * When the server sent no Korean sentence: a plain one by status, never
+ * "(HTTP 422)" (2026-10-19 audit).
+ */
+export function statusSentence(status: number): string {
+  if (status === 400) return "요청을 처리하지 못했어요. 입력한 내용을 확인해 주세요.";
+  if (status === 401) return "로그인이 필요해요. 다시 로그인해 주세요.";
+  if (status === 403) return "이 작업을 할 수 있는 권한이 없어요.";
+  if (status === 404) return "찾을 수 없어요. 이미 지워졌을 수 있어요.";
+  if (status === 409) return "지금은 할 수 없는 작업이에요. 화면을 새로고침해 주세요.";
+  if (status === 413) return "보낸 내용이 너무 커요.";
+  if (status === 422) return "입력한 내용을 다시 확인해 주세요.";
+  if (status === 429) return "요청이 많아요. 잠시 후 다시 시도해 주세요.";
+  if (status >= 500) return "서버에 잠시 문제가 있어요. 잠시 후 다시 시도해 주세요.";
+  return "요청을 처리하지 못했어요.";
+}
+
+/** The backend's sentence: a string, or {message, code} (app platform). */
+function detailText(detail: unknown): string | null {
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && typeof (detail as { message?: unknown }).message === "string") {
+    return (detail as { message: string }).message;
+  }
+  return null;
+}
+
 export interface RequestOptions extends RequestInit {
   /** 이 요청만의 대기 시간(ms). Claude가 파일을 쓰는 요청처럼 오래 걸리는 것만. */
   timeoutMs?: number;
@@ -50,10 +76,11 @@ export async function request<T>(path: string, init?: RequestOptions): Promise<T
 
     if (!response.ok) {
       // 백엔드는 한국어 detail을 돌려줍니다. 있으면 그대로 보여 줍니다.
-      let detail = `요청이 실패했습니다 (HTTP ${response.status})`;
+      let detail = statusSentence(response.status);
       try {
         const body = await response.json();
-        if (body && typeof body.detail === "string") detail = body.detail;
+        const text = body ? detailText(body.detail) : null;
+        if (text) detail = text;
         // 422(스키마가 거절)는 목록으로 옵니다. 백엔드가 쓴 한국어 문장을
         // 꺼내고, Pydantic이 붙이는 "Value error, "는 뗍니다.
         else if (body && Array.isArray(body.detail) && body.detail.length > 0) {
@@ -110,10 +137,11 @@ export async function uploadBytes<T>(
     throw new ApiError("서버에 연결할 수 없습니다", 0);
   }
   if (!response.ok) {
-    let detail = `${fallback} (HTTP ${response.status})`;
+    let detail = `${fallback} ${statusSentence(response.status)}`;
     try {
       const body = await response.json();
-      if (body && typeof body.detail === "string") detail = body.detail;
+      const text = body ? detailText(body.detail) : null;
+      if (text) detail = text;
     } catch {
       /* 기본 문구 */
     }
