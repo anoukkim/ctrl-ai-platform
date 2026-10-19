@@ -1028,6 +1028,24 @@ licences and attribution; (15) the real provider is connected only after
 the security tests (internal IP, DNS rebinding, redirects, SVG, a fake
 extension, a huge file, a slow reply, a domain not allowed) all pass.
 
+**Part B review — 2026-10-19 (waiting for the owner's OK on D1–D5).**
+D1: the server looks images up itself — `ctrlai.images.find(query)` asks
+Wikimedia's API and fetches only addresses from its answer, so no URL ever
+comes from an app (the allow-list gains `*.wikipedia.org/w/api.php`,
+read-only). D2: Commons files only (`/wikipedia/commons/…`) with licence
+and author shown — Wikipedia's fair-use posters are not ours to reuse;
+posters would be a separate decision (e.g. TMDB with its terms). D3:
+fetching needs a signed-in participating member; viewing is public by an
+unguessable id (a sandboxed app's image requests carry no cookies); CSP
+stays `img-src 'self'`. D4: apps first, Chat later behind a switch that
+starts off (the server looks images up while saving a reply). D5: 500 MB
+in all, 2 MB and 1600 px per image, unused for 30 days → removed by the
+daily job. Wikimedia's User-Agent policy: a descriptive UA with the club's
+contact address. Checkpoints, each with tests and a report: (1) the
+security tests, (2) the service with the mock provider, (3) the SDK and a
+real-browser CSP check, (4) admin stop / remove / audit, (5) the real
+provider, off until the owner turns it on, (6) Chat, its own branch.
+
 ## builder-python — full spec
 
 Branch `feat-builder-python`. M2. Added by the owner on 2026-10-13. Saved
