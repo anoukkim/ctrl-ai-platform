@@ -87,6 +87,7 @@ archived in
 each entry below says whether it is pre-approved.
 
 0. **web-search-and-images** · M3 · branch `feat-web-search-and-images`
+   **A (app AI web search) merged 2026-10-19** as `feat-app-ai-web-search`; B (images) next.
    *Owner's request 2026-10-19 — direction decided, built in the stated
    order, tests and a report at each step, WAIT before merging.*
    `ctrlai.ai.ask({ webSearch: true })` (Anthropic's server web search,

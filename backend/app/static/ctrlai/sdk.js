@@ -22,7 +22,7 @@
  *
  *   ctrlai.user()                    → Promise<{ displayName, appUserId } | null>
  *   ctrlai.login() / ctrlai.logout() → Promise
- *   ctrlai.ai.ask({ prompt, system?, images?, json?, model?, maxTokens? })
+ *   ctrlai.ai.ask({ prompt, system?, images?, json?, model?, maxTokens?, webSearch? })
  *                                    → Promise<{ text, json, chargedKrw, model }>
  *   ctrlai.ai.stream(options, onChunk) → Promise<{ text, chargedKrw, model }>
  *   ctrlai.ai.estimate(options)        → Promise<{ typicalKrw, maxKrw, model }>  (free, signed out too)
@@ -493,6 +493,7 @@
     };
     if (options.json && typeof options.json === "object") out.json = options.json;
     if (options.maxTokens) out.maxTokens = Number(options.maxTokens);
+    if (options.webSearch) out.webSearch = true;
     return out;
   }
 
