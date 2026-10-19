@@ -13,7 +13,8 @@
 import { API_BASE_URL, ApiError } from "./api";
 import { request } from "./http";
 
-export type GenerationStatus = "planned" | "running" | "partial" | "failed" | "done" | "cancelled";
+/** answered — builder-answer-only: 질문에 답만 했고 실행할 것이 없어요. */
+export type GenerationStatus = "planned" | "running" | "partial" | "failed" | "done" | "cancelled" | "answered";
 
 export interface PlanStep {
   path: string;
@@ -27,6 +28,11 @@ export interface Generation {
   request: string;
   style: string;
   summary: string;
+  /**
+   * builder-answer-only: 회원이 바꿔 달라는 대신 물어본 때의 Claude 답.
+   * 바꾸자는 계획이 함께 오면(status "planned") 적용하기로 실행해요.
+   */
+  answer?: string;
   plan: PlanStep[];
   files_done: string[];
   status: GenerationStatus;

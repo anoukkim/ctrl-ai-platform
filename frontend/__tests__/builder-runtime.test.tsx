@@ -275,6 +275,76 @@ describe("말로 고치기와 버전", () => {
     expect(await screen.findByText("작업 중 · v1 이후 바뀐 것", { selector: "option" })).toBeTruthy();
   });
 
+  test("builder-answer-only: 질문에는 답만 하고, 아무것도 만들지 않는다", async () => {
+    planGeneration.mockResolvedValue({
+      id: 5,
+      kind: "edit",
+      request: "검색은 어디서 해?",
+      style: "",
+      summary: "",
+      answer: "검색은 search.js가 해요.\n\n영화 목록에서 제목을 찾아요.",
+      plan: [],
+      files_done: [],
+      status: "answered",
+      check_summary: "",
+      check_fixed: [],
+      charged_krw: 3,
+      error: "",
+      version_number: null,
+      created_at: "2026-10-19T00:00:00Z",
+      estimated_krw: null,
+      max_call_krw: null,
+    });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    const box = await screen.findByLabelText("Claude에게 만들거나 고쳐 달라고 하기");
+    await user.type(box, "검색은 어디서 해?");
+    await user.click(screen.getByRole("button", { name: "고치기" }));
+
+    expect(await screen.findByText(/검색은 search\.js가 해요\./)).toBeTruthy();
+    expect(runGeneration).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("plan-card")).toBeNull();
+    expect((box as HTMLTextAreaElement).value).toBe("");
+  });
+
+  test("builder-answer-only: 바꾸자는 계획이 있으면 답과 함께 보여 주고, 적용하기를 눌러야 만든다", async () => {
+    const suggested = {
+      id: 6,
+      kind: "edit",
+      request: "버튼 색을 바꾸면 어떨까?",
+      style: "",
+      summary: "버튼 색을 주황색으로 바꿔요.",
+      answer: "주황색이 눈에 잘 띄어요.",
+      plan: [{ path: "style.css", purpose: "색과 배치" }],
+      files_done: [],
+      status: "planned",
+      check_summary: "",
+      check_fixed: [],
+      charged_krw: 3,
+      error: "",
+      version_number: null,
+      created_at: "2026-10-19T00:00:00Z",
+      estimated_krw: 40,
+      max_call_krw: 200,
+    };
+    planGeneration.mockResolvedValue(suggested);
+    runGeneration.mockResolvedValue({ kind: "done", chargedKrw: 49, filesDone: ["style.css"], checkFixed: [] });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    await user.type(await screen.findByLabelText("Claude에게 만들거나 고쳐 달라고 하기"), "버튼 색을 바꾸면 어떨까?");
+    await user.click(screen.getByRole("button", { name: "고치기" }));
+
+    const card = await screen.findByTestId("plan-card");
+    expect(within(card).getByText("주황색이 눈에 잘 띄어요.")).toBeTruthy();
+    expect(within(card).getByText("이렇게 바꿀 수 있어요")).toBeTruthy();
+    expect(runGeneration).not.toHaveBeenCalled();
+
+    await user.click(within(card).getByRole("button", { name: /적용하기/ }));
+    expect(runGeneration).toHaveBeenCalledWith("7", 6, expect.anything());
+  });
+
   test("불러오기는 확인을 받고, 새 버전을 만들지 않는다고 알린다", async () => {
     listVersions.mockResolvedValue([{ ...V1, number: 2, note: "고치기: 색" }, V1]);
     getHistory.mockResolvedValue(CLEAN);

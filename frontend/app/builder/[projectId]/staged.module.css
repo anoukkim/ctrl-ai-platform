@@ -35,6 +35,21 @@
   color: var(--text-dim);
 }
 
+/* builder-answer-only: Claude's answer above the change it suggests. */
+.answer {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.answerText {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .field {
   display: grid;
   gap: 0.3rem;
