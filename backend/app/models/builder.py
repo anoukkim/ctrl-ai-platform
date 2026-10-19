@@ -382,6 +382,12 @@ class BuilderGeneration(TimestampMixin, Base):
     #: [[path, purpose], …] in writing order.
     plan: Mapped[list] = mapped_column(JSON, nullable=False)
     files_done: Mapped[list] = mapped_column(JSON, nullable=False)
+    #: builder-file-continue: {"path", "content", "extra"} of a file a cut
+    #: call left half-written — the parts that arrived whole, and a whole
+    #: ctrlai.json written beside it ("extra"), saved with the file. The
+    #: next call (in this run, or 이어서 만들기) continues after it; NULL
+    #: once it is saved.
+    partial_file: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(12), nullable=False)
     #: The self-check's one sentence, and the files it rewrote.
     check_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)

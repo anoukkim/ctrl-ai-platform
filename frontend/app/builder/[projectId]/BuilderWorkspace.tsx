@@ -525,6 +525,11 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
               })
               .catch(() => undefined);
           },
+          onFileProgress: (path, chars, krw) => {
+            // builder-file-continue: a long file goes on in the next call.
+            spent += krw;
+            logActivity(`› ${path} 이어 쓰는 중 · ${chars.toLocaleString("ko-KR")}자`);
+          },
           onCheckStart: () => {
             setProgress((current) => ({ ...current, check: "running" }));
             logActivity("› 미리보기 조립 중");

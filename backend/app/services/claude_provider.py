@@ -245,6 +245,14 @@ class ProjectEdit:
     model: str
     input_tokens: int
     output_tokens: int
+    #: builder-file-continue: `write_project_file` only — the named file is
+    #: not finished. Its entry in `writes` is everything written so far
+    #: (the beginning it was given, plus the parts that arrived whole); the
+    #: caller saves it and asks again from there.
+    incomplete: bool = False
+    #: …and the reply was cut at its output limit (rather than ending
+    #: without finishing): a sign the call's room is too small.
+    cut: bool = False
 
 
 @dataclass(frozen=True)
@@ -475,6 +483,7 @@ class ClaudeProvider(Protocol):
         effort: str | None = None,
         images: list[dict] | None = None,
         notes: str = "",
+        so_far: str = "",
     ) -> ProjectEdit: ...
 
     def check_project(
@@ -781,6 +790,35 @@ WRITE_FILE_TOOL: dict[str, Any] = {
     },
 }
 
+#: builder-file-continue: a staged file is written in parts, each its own
+#: call, so a reply cut off at its output limit keeps every part that
+#: arrived whole and the next call carries on after them.
+WRITE_PART_TOOL: dict[str, Any] = {
+    "name": "write_file_part",
+    "description": (
+        "Write the next part of one file. Parts are joined exactly as given, "
+        "in order. Set done to true on the file's last part."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Relative path, e.g. index.html or js/app.js"},
+            "content": {"type": "string", "description": "The next part of the file"},
+            "done": {"type": "boolean", "description": "True when this is the last part"},
+        },
+        "required": ["path", "content", "done"],
+        "additionalProperties": False,
+    },
+}
+
+def _part_path(raw: str) -> str:
+    """`./app.js` and `/app.js` are app.js — the caller checks paths fully."""
+    path = raw.strip()
+    while path.startswith(("./", "/")):
+        path = path[2:] if path.startswith("./") else path[1:]
+    return path
+
 #: Rounds of tool use one generation may take. Claude is asked to write
 #: every file in one reply; a second round only happens when it stops to
 #: wait for the result of the first call.
@@ -884,8 +922,11 @@ changed.
 - First decide "kind". "question" when the member asks something (how the \
 app works, where something is, why, what is possible) or says not to \
 build or change anything yet ("빌드하지 말고", "답만") — and also when you \
-cannot tell whether they want a change. A polite request ("글씨 크게 해 \
-줄래?", "추가해 줄 수 있어?") is a change, not a question. Then "answer" is your reply in \
+cannot tell whether they want a change. A report of a problem that does \
+not say to fix it ("AI 호출이 실패하고 있음", "버튼이 안 눌려") is a \
+question too: the answer explains the likely cause, and "files" is the \
+fix. A polite request ("글씨 크게 해 줄래?", "추가해 줄 수 있어?") is a \
+change, not a question. Then "answer" is your reply in \
 Korean for a beginner: short paragraphs, everyday words, concrete about \
 this app's files, without code. "files" is then \
 the change you would suggest, only when one would clearly help (the \
@@ -935,8 +976,13 @@ FILE_SYSTEM = (
 You write one file of a web app for CTRL+AI, a Korean club where \
 beginners make apps with AI. The member's request, the plan (every file \
 and what it is for) and the files written so far follow. Write ONLY the \
-file named at the end: call write_file once with its path and its \
-complete content — never a fragment or a diff. The other files are \
+file named at the end, in parts: call write_file_part with its path, \
+the next part of its content (at most about 4,000 characters, ending at \
+a line break) and done false — several calls in one reply, without \
+waiting — and done true on the last part. The parts are joined exactly \
+as given, so the whole file is complete — never a diff. When the request \
+shows the file's beginning as already written, write only what comes \
+after it, starting exactly where it stops. The other files are \
 written in their own steps, so use exactly the ids, classes, function \
 names and paths the plan and the files so far imply, so the parts fit \
 together. When the file already exists, keep everything the request does \
@@ -946,7 +992,7 @@ Rules:
 """
     + _APP_RULES
     + """
-After the call, reply with one short Korean sentence about the file."""
+After the last part, reply with one short Korean sentence about the file."""
 )
 
 CHECK_SYSTEM = (
@@ -985,8 +1031,10 @@ def file_request_text(
     path: str,
     style: str = "",
     notes: str = "",
+    so_far: str = "",
 ) -> str:
-    """The request, the plan, the files so far, and the one file to write."""
+    """The request, the plan, the files so far, and the one file to write —
+    with its beginning when an earlier call was cut off (builder-file-continue)."""
     parts = [f"프로젝트 이름: {name.strip()}", "", "요청:", request.strip(), ""]
     if style.strip():
         parts += ["원하는 스타일:", style.strip(), ""]
@@ -1002,6 +1050,12 @@ def file_request_text(
     if notes.strip():
         parts += ["", notes.strip()]
     parts += ["", f"지금 쓸 파일: {path}"]
+    if so_far:
+        parts += [
+            "",
+            "이 파일은 앞부분까지 이미 썼어요. 아래 글자 바로 뒤부터 이어서 쓰세요 (같은 내용을 다시 쓰지 마세요):",
+            f'<written path="{path}">\n{so_far}</written>',
+        ]
     return "\n".join(parts)
 
 
@@ -1023,6 +1077,11 @@ MOCK_CHECK_FIX = "MOCK_CHECK_FIX"
 #: Mock only (app-platform P4): `MOCK_MANIFEST` in a request makes the
 #: file stage write ctrlai.json beside app.js; `MOCK_CHECK_MANIFEST` in a
 #: file makes the check stage add a missing ctrlai.json.
+#: builder-file-continue (mock): a file cut before any part, and one cut
+#: half-way through on its first call.
+MOCK_STUCK_FILE = re.compile(r"\[mock-stuck-file:([^\]]+)\]")
+MOCK_LONG_FILE = re.compile(r"\[mock-long-file:([^\]]+)\]")
+MOCK_LONG_CONTENT = "".join(f"// 긴 파일 {line}번째 줄\n" for line in range(1, 201))
 MOCK_MANIFEST = "MOCK_MANIFEST"
 MOCK_CHECK_MANIFEST = "MOCK_CHECK_MANIFEST"
 MOCK_MANIFEST_JSON = '{"db": [{"name": "posts", "shared": true}]}\n'
@@ -1840,6 +1899,7 @@ class MockClaudeProvider:
         effort: str | None = None,
         images: list[dict] | None = None,
         notes: str = "",
+        so_far: str = "",
     ) -> ProjectEdit:
         """That file as the one-shot mock would write it.
 
@@ -1850,6 +1910,30 @@ class MockClaudeProvider:
         failure = MOCK_ERROR_FILE.search(request)
         if failure and failure.group(1) == path:
             raise ClaudeError(ProviderErrorKind.TIMEOUT, "mock file")
+        # builder-file-continue: `[mock-stuck-file:<path>]` is cut before a
+        # single part arrives; `[mock-long-file:<path>]` is cut half-way on
+        # the first call and finished by the next.
+        stuck = MOCK_STUCK_FILE.search(request)
+        if stuck and stuck.group(1) == path:
+            return ProjectEdit(
+                summary="", writes=[(path, so_far)] if so_far else [], model=model or self.model_id,
+                input_tokens=estimate_tokens(FILE_SYSTEM) + 400, output_tokens=max_tokens, incomplete=True,
+                cut=True,
+            )
+        long = MOCK_LONG_FILE.search(request)
+        if long and long.group(1) == path:
+            whole = MOCK_LONG_CONTENT
+            half = whole[: len(whole) // 2]
+            done = bool(so_far)
+            return ProjectEdit(
+                summary=f"{path}을(를) 썼어요." if done else "",
+                writes=[(path, so_far + whole[len(so_far):] if done else half)],
+                model=model or self.model_id,
+                input_tokens=estimate_tokens(FILE_SYSTEM) + 400 + len(so_far) // 3,
+                output_tokens=len(half) // 3 + 40,
+                incomplete=not done,
+                cut=not done,
+            )
         planned = {item for item, _ in plan}
         if {"index.html", "style.css", "app.js"} <= planned:
             title = name.strip() or "내 앱"
@@ -2613,11 +2697,14 @@ class AnthropicClaudeProvider:
         effort: str | None = None,
         images: list[dict] | None = None,
         notes: str = "",
+        so_far: str = "",
     ) -> ProjectEdit:
-        """One file through `write_file`, with the plan and the files so far."""
-        return self._tool_rounds(
-            FILE_SYSTEM,
-            with_images(file_request_text(name, files, request, plan, path, style, notes), images),
+        """One file in `write_file_part` parts (builder-file-continue), with
+        the plan, the files so far and — after a cut — its beginning."""
+        return self._part_rounds(
+            path,
+            so_far,
+            with_images(file_request_text(name, files, request, plan, path, style, notes, so_far), images),
             model,
             max_tokens,
             effort,
@@ -2644,6 +2731,74 @@ class AnthropicClaudeProvider:
         if self._http_client is not None:
             kwargs["http_client"] = self._http_client
         return anthropic.Anthropic(**kwargs)
+
+    def _part_rounds(
+        self,
+        path: str,
+        so_far: str,
+        user_text: str | list[dict],
+        model: str,
+        max_tokens: int,
+        effort: str | None,
+    ) -> ProjectEdit:
+        """One request of `write_file_part` calls (builder-file-continue).
+
+        Exactly one request, so its cost stays inside the room the caller
+        checked the wallet for; the caller calls again for the rest. A cut
+        is not a failure: every part that arrived whole is kept — the block
+        being written when the limit hit is the last one and is dropped —
+        and the edit comes back `incomplete` (and `cut`), the file so far in
+        `writes`. Another file written beside it (ctrlai.json) counts only
+        once done. A reply that ends on its own has finished the file,
+        whether or not its last part said done.
+        """
+        import anthropic
+
+        client = self._builder_client()
+        params = self.request_params(
+            FILE_SYSTEM, [{"role": "user", "content": user_text}], max_tokens, model, effort=effort
+        )
+        params["tools"] = [WRITE_PART_TOOL]
+        params["tool_choice"] = {"type": "auto"}
+        try:
+            message = client.messages.create(**params)
+        except anthropic.APIError as error:
+            raise classify(error) from None
+        billed = (message.usage.input_tokens or 0, message.usage.output_tokens or 0)
+        if message.stop_reason == "refusal":
+            raise ClaudeError(ProviderErrorKind.UNKNOWN, "edit refusal", usage=billed)
+        cut = message.stop_reason == "max_tokens"
+        blocks = list(message.content)
+        if cut and blocks and blocks[-1].type == "tool_use":
+            blocks = blocks[:-1]  # the block being written when the limit hit
+        written: dict[str, str] = {path: so_far}
+        finished: set[str] = set()
+        texts: list[str] = []
+        for block in blocks:
+            if block.type == "text" and block.text.strip():
+                texts.append(block.text.strip())
+            elif block.type == "tool_use":
+                data = block.input if isinstance(block.input, dict) else {}
+                part_path, content = data.get("path"), data.get("content")
+                if block.name != "write_file_part" or not isinstance(part_path, str) or not isinstance(content, str):
+                    raise ClaudeError(ProviderErrorKind.UNKNOWN, "edit tool", usage=billed)
+                part_path = _part_path(part_path)
+                written[part_path] = written.get(part_path, "") + content
+                if data.get("done") is True:
+                    finished.add(part_path)
+        if message.stop_reason == "end_turn" and (written[path] or so_far):
+            finished.add(path)
+        writes = [(path, written[path])] if written[path] else []
+        writes += [(other, content) for other, content in written.items() if other != path and other in finished]
+        return ProjectEdit(
+            summary=texts[-1] if texts else "",
+            writes=writes,
+            model=message.model or model or self.model_id,
+            input_tokens=billed[0],
+            output_tokens=billed[1],
+            incomplete=path not in finished,
+            cut=cut,
+        )
 
     def _tool_rounds(
         self, system: str, user_text: str | list[dict], model: str, max_tokens: int, effort: str | None

@@ -13,7 +13,10 @@ generation is three kinds of call, each timed out and charged on its own:
 2. **One call per file**, in plan order, each seeing the plan and the
    files written so far. A file is checked and **saved the moment it is
    done**, so a timeout keeps what was finished and 이어서 만들기 carries on
-   with the rest.
+   with the rest. builder-file-continue: a file is written in parts; a
+   call cut at its output limit keeps (and charges) the parts that came
+   whole, and the next call — up to `MAX_CALLS_PER_FILE` in a run, then
+   이어서 만들기 — writes on after them instead of starting the file over.
 3. **Self-check** — one call reads the whole app and fixes broken
    references or obvious errors (at most `CHECK_MAX_FIXES` files). If it
    fails, the files stay as they are.
@@ -71,6 +74,9 @@ MAX_PLAN_FILES = 12
 MAX_REQUEST_CHARS = 4_000
 #: A run still marked running after this long died with its server.
 STALE_RUN = timedelta(minutes=15)
+#: builder-file-continue: calls one run spends on one file before it
+#: stops and lets 이어서 만들기 decide (each call is under the per-call cap).
+MAX_CALLS_PER_FILE = 6
 #: builder-answer-only: the longest answer kept.
 MAX_ANSWER_CHARS = 8_000
 #: A typical file, for the estimate shown before 시작.
@@ -329,6 +335,10 @@ def run_estimate(
     choice = builder_choice.choose(db, settings, user, project)
     files = builder_versions.current_files(db, project)
     remaining = [step for step in generation.plan if step[0] not in set(generation.files_done)]
+    following = remaining[0][0] if remaining else "index.html"
+    # builder-file-continue: a half-written file is sent with the next call.
+    partial = generation.partial_file or {}
+    so_far = partial.get("content", "") if partial.get("path") == following else ""
     tokens_in = pricing.estimate_tokens(
         FILE_SYSTEM
         + file_request_text(
@@ -336,15 +346,26 @@ def run_estimate(
             sorted(files.items()),
             generation.request,
             [tuple(step) for step in generation.plan],
-            remaining[0][0] if remaining else "index.html",
+            following,
             generation.style,
             builder_assets.note(db, project),
+            so_far,
         )
     ) + reference_tokens(builder_references.of_generation(db, generation))
     per_file = choice.price.krw(tokens_in, TYPICAL_FILE_OUTPUT_TOKENS)
     per_call_max = choice.price.krw(tokens_in, max(choice.room(tokens_in), 0))
     # The files, then the self-check (about one more file's worth).
     return per_file * (len(remaining) + 1), per_call_max
+
+
+def _too_big(choice: builder_choice.BuildChoice, path: str) -> str:
+    """builder-file-continue: a call cut before one whole part arrived."""
+    cap = choice.level.cap_krw
+    limit = f"1회 한도({cap:,}원)" if cap > 0 else "1회 한도"
+    return (
+        f"{path}을(를) 이 생각 깊이의 {limit} 안에서 한 조각도 쓰지 못했어요. "
+        "생각 깊이를 높이거나 Sonnet으로 바꿔서 이어서 만들어 보세요."
+    )
 
 
 def _stop(db: Session, generation: BuilderGeneration, message: str, emit: Emit) -> BuilderGeneration:
@@ -443,70 +464,126 @@ def run(
         if path in generation.files_done:
             continue
         emit("file_start", {"path": path})
-        files = builder_versions.current_files(db, project)
-        text = file_request_text(
-            project.name, sorted(files.items()), generation.request, plan_steps, path, generation.style, notes
-        )
-        tokens_in = pricing.estimate_tokens(FILE_SYSTEM + text) + picture_tokens
-        room = choice.room(tokens_in)
-        if room < builder_choice.MIN_ROOM_TOKENS:
-            return _stop(db, generation, builder_choice.room_refusal(choice), emit)
-        worst = choice.price.krw(tokens_in + picture_reserve, room)
-        if over_limit(worst):
-            return _stop(db, generation, f"점검 예산({spend_limit_krw:,}원)에 닿아 멈췄어요.", emit)
-        try:
-            usage_service.ensure_affordable(db, user=user, amount_krw=worst, settings=settings)
-        except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
-            return _stop(db, generation, str(error), emit)
-        if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
-            return _stop(db, generation, str(ClaudeError(ProviderErrorKind.BUSY, "limit")), emit)
-        try:
-            written = provider.write_project_file(
-                project.name,
-                sorted(files.items()),
-                generation.request,
-                plan_steps,
-                path,
-                choice.model.model_id,
-                room,
-                generation.style,
-                effort=choice.effort,
-                images=images or None,
-                notes=notes,
+        # builder-file-continue: a file is written over as many calls as it
+        # needs (each under the per-call cap); a cut call's whole parts are
+        # saved and the next call carries on after them.
+        partial = generation.partial_file or {}
+        same = partial.get("path") == path
+        so_far = partial.get("content", "") if same else ""
+        held: dict[str, str] = dict(partial.get("extra") or {}) if same else {}
+        for _call in range(MAX_CALLS_PER_FILE):
+            files = builder_versions.current_files(db, project)
+            text = file_request_text(
+                project.name, sorted(files.items()), generation.request, plan_steps, path, generation.style, notes, so_far
             )
-        except ClaudeError as error:
-            providers.record_failure(db, "claude", error.kind, error.detail)
-            _record_absorbed(db, user, project, choice.model.model_id, choice.price, error.usage)
-            return _stop(db, generation, f"{path}을(를) 쓰다 멈췄어요: {error}", emit)
-        finally:
-            provider_limiter.release()
-
-        usage = (written.input_tokens, written.output_tokens)
-        try:
-            # Only files in the plan; anything else Claude wrote is dropped —
-            # except ctrlai.json, which the SDK rules make Claude write beside
-            # any file that uses ctrlai.db (app-platform P4).
-            writes = [
-                (clean, content)
-                for raw, content in written.writes
-                if (clean := builder_files.clean_path(raw)) in planned_paths or clean == MANIFEST_FILE
-            ]
-            if path not in {clean for clean, _ in writes}:
-                raise builder_files.FileRuleError(
-                    f"{path}을(를) 쓰지 못했어요. 이어서 만들기로 다시 시도해 주세요."
+            tokens_in = pricing.estimate_tokens(FILE_SYSTEM + text) + picture_tokens
+            room = choice.room(tokens_in)
+            if room < builder_choice.MIN_ROOM_TOKENS:
+                return _stop(db, generation, builder_choice.room_refusal(choice), emit)
+            worst = choice.price.krw(tokens_in + picture_reserve, room)
+            if over_limit(worst):
+                return _stop(db, generation, f"점검 예산({spend_limit_krw:,}원)에 닿아 멈췄어요.", emit)
+            try:
+                usage_service.ensure_affordable(db, user=user, amount_krw=worst, settings=settings)
+            except (usage_service.InsufficientBudgetError, usage_service.NoQuarterError) as error:
+                return _stop(db, generation, str(error), emit)
+            if not provider_limiter.acquire(chat_limits.current(db).provider_concurrency):
+                return _stop(db, generation, str(ClaudeError(ProviderErrorKind.BUSY, "limit")), emit)
+            try:
+                written = provider.write_project_file(
+                    project.name,
+                    sorted(files.items()),
+                    generation.request,
+                    plan_steps,
+                    path,
+                    choice.model.model_id,
+                    room,
+                    generation.style,
+                    effort=choice.effort,
+                    images=images or None,
+                    notes=notes,
+                    so_far=so_far,
                 )
-            updated_files, _changed = builder_files.apply_writes(files, writes)
-        except builder_files.FileRuleError as error:
-            _record_absorbed(db, user, project, choice.model.model_id, choice.price, usage)
-            return _stop(db, generation, str(error), emit)
+            except ClaudeError as error:
+                providers.record_failure(db, "claude", error.kind, error.detail)
+                _record_absorbed(db, user, project, choice.model.model_id, choice.price, error.usage)
+                return _stop(db, generation, f"{path}을(를) 쓰다 멈췄어요: {error}", emit)
+            finally:
+                provider_limiter.release()
 
-        charged = _charge(db, settings, user, project, choice, *usage)
-        builder_versions.replace_files(db, project, updated_files)
-        done = set(generation.files_done) | {clean for clean, _ in writes}
-        generation.files_done = [step for step, _ in plan_steps if step in done]
-        generation.charged_krw += charged
-        db.commit()
-        emit("file_done", {"path": path, "charged_krw": charged})
+            usage = (written.input_tokens, written.output_tokens)
+            if written.incomplete:
+                grown = dict(written.writes).get(path, "")
+                if len(grown) <= len(so_far) or not grown.startswith(so_far):
+                    # Nothing to keep, so the call is free. Cut before a whole
+                    # part: another call would end the same way — say why.
+                    _record_absorbed(db, user, project, choice.model.model_id, choice.price, usage)
+                    message = (
+                        _too_big(choice, path)
+                        if written.cut
+                        else f"{path}을(를) 쓰지 못했어요. 이어서 만들기로 다시 시도해 주세요."
+                    )
+                    return _stop(db, generation, message, emit)
+                if len(grown.encode("utf-8")) > builder_files.MAX_FILE_BYTES:
+                    _record_absorbed(db, user, project, choice.model.model_id, choice.price, usage)
+                    return _stop(db, generation, f"{path}이(가) 한 파일 한도보다 커졌어요. 파일을 나눠 달라고 해 보세요.", emit)
+                charged = _charge(db, settings, user, project, choice, *usage)
+                # A ctrlai.json that arrived whole beside it is kept with the
+                # half file and saved with it: the continuation writes only
+                # the named file (app-platform P4), and a new app cannot hold
+                # a manifest before its index.html.
+                held = {
+                    MANIFEST_FILE: content
+                    for raw, content in written.writes
+                    if raw != path and builder_files.clean_path(raw) == MANIFEST_FILE
+                } or held
+                so_far = grown
+                generation.partial_file = {"path": path, "content": so_far, "extra": held}
+                generation.charged_krw += charged
+                db.commit()
+                emit("file_progress", {"path": path, "chars": len(so_far), "charged_krw": charged})
+                continue
+
+            try:
+                # Only files in the plan; anything else Claude wrote is dropped —
+                # except ctrlai.json, which the SDK rules make Claude write beside
+                # any file that uses ctrlai.db (app-platform P4).
+                writes = [
+                    (clean, content)
+                    for raw, content in written.writes
+                    if (clean := builder_files.clean_path(raw)) in planned_paths or clean == MANIFEST_FILE
+                ]
+                # A manifest held from a cut call, unless this call wrote one.
+                writes += [(held_path, content) for held_path, content in held.items()
+                           if held_path not in {clean for clean, _ in writes}]
+                if path not in {clean for clean, _ in writes}:
+                    raise builder_files.FileRuleError(
+                        f"{path}을(를) 쓰지 못했어요. 이어서 만들기로 다시 시도해 주세요."
+                    )
+                updated_files, _changed = builder_files.apply_writes(files, writes)
+            except builder_files.FileRuleError as error:
+                _record_absorbed(db, user, project, choice.model.model_id, choice.price, usage)
+                return _stop(db, generation, str(error), emit)
+
+            charged = _charge(db, settings, user, project, choice, *usage)
+            builder_versions.replace_files(db, project, updated_files)
+            done = set(generation.files_done) | {clean for clean, _ in writes}
+            generation.files_done = [step for step, _ in plan_steps if step in done]
+            generation.partial_file = None
+            generation.charged_krw += charged
+            db.commit()
+            emit("file_done", {"path": path, "charged_krw": charged})
+            break
+        else:
+            # Still not finished after this run's calls: what is written is
+            # kept, and 이어서 만들기 carries on from it.
+            return _stop(
+                db,
+                generation,
+                f"{path}이(가) 길어서 아직 다 못 썼어요({len(so_far):,}자까지 저장). "
+                "이어서 만들기를 누르면 쓴 데서부터 계속 써요.",
+                emit,
+            )
 
     # Stage 3: the self-check. A failure leaves the files as they are.
     emit("check_start", {})

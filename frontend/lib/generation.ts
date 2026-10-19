@@ -85,6 +85,11 @@ export function cancelGeneration(projectId: number | string, generationId: numbe
 export interface RunHandlers {
   onFileStart?: (path: string) => void;
   onFileDone?: (path: string, chargedKrw: number) => void;
+  /**
+   * builder-file-continue: 긴 파일을 한 번에 다 못 써서 쓴 데까지 저장했고,
+   * 서버가 바로 이어서 써요. `chars`는 지금까지 쓴 글자 수.
+   */
+  onFileProgress?: (path: string, chars: number, chargedKrw: number) => void;
   onCheckStart?: () => void;
   onCheckDone?: (fixed: string[], summary: string, chargedKrw: number) => void;
 }
@@ -149,6 +154,8 @@ export async function runGeneration(
     const payload = JSON.parse(data);
     if (name === "file_start") handlers.onFileStart?.(payload.path);
     else if (name === "file_done") handlers.onFileDone?.(payload.path, payload.charged_krw ?? 0);
+    else if (name === "file_progress")
+      handlers.onFileProgress?.(payload.path, payload.chars ?? 0, payload.charged_krw ?? 0);
     else if (name === "check_start") handlers.onCheckStart?.();
     else if (name === "check_done")
       handlers.onCheckDone?.(payload.fixed ?? [], payload.summary ?? "", payload.charged_krw ?? 0);
