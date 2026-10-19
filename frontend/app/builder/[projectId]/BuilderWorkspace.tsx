@@ -637,6 +637,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     }
     setGeneration(null);
     setProgress(NO_PROGRESS);
+    if (generation.answer) {
+      // builder-answer-only: 괜찮아요 keeps the answer in the conversation,
+      // and an unfinished run the suggestion stood in front of comes back.
+      setThread((list) => [...list, { role: "claude", text: generation.answer ?? "" }]);
+      getOpenGeneration(projectId)
+        .then((open) => {
+          if (open) setGeneration(open);
+        })
+        .catch(() => undefined);
+    }
   }, [generation, projectId]);
 
   // 게시 / 업데이트 게시 (ctrlaiapps-publish). 무료 — 고른 버전을 올릴 뿐.

@@ -345,6 +345,38 @@ describe("말로 고치기와 버전", () => {
     expect(runGeneration).toHaveBeenCalledWith("7", 6, expect.anything());
   });
 
+  test("builder-answer-only: 괜찮아요를 누르면 계획은 닫히고 답은 대화에 남는다", async () => {
+    planGeneration.mockResolvedValue({
+      id: 8,
+      kind: "edit",
+      request: "버튼 색을 바꾸면 어떨까?",
+      style: "",
+      summary: "버튼 색을 주황색으로 바꿔요.",
+      answer: "주황색이 눈에 잘 띄어요.",
+      plan: [{ path: "style.css", purpose: "색과 배치" }],
+      files_done: [],
+      status: "planned",
+      check_summary: "",
+      check_fixed: [],
+      charged_krw: 3,
+      error: "",
+      version_number: null,
+      created_at: "2026-10-19T00:00:00Z",
+      estimated_krw: 40,
+      max_call_krw: 200,
+    });
+    const user = userEvent.setup();
+    render(<BuilderWorkspace projectId="7" />);
+
+    await user.type(await screen.findByLabelText("Claude에게 만들거나 고쳐 달라고 하기"), "버튼 색을 바꾸면 어떨까?");
+    await user.click(screen.getByRole("button", { name: "고치기" }));
+    await user.click(within(await screen.findByTestId("plan-card")).getByRole("button", { name: "괜찮아요" }));
+
+    await waitFor(() => expect(screen.queryByTestId("plan-card")).toBeNull());
+    expect(screen.getByText("주황색이 눈에 잘 띄어요.")).toBeTruthy();
+    expect(runGeneration).not.toHaveBeenCalled();
+  });
+
   test("불러오기는 확인을 받고, 새 버전을 만들지 않는다고 알린다", async () => {
     listVersions.mockResolvedValue([{ ...V1, number: 2, note: "고치기: 색" }, V1]);
     getHistory.mockResolvedValue(CLEAN);

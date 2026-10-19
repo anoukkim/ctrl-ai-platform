@@ -281,9 +281,10 @@ def plan(
         raise StarterError(str(error), 502) from error
 
     charged = _charge(db, settings, user, project, choice, *usage)
-    if steps:
-        # Only a plan replaces an open run; a bare answer leaves it (and its
-        # pictures) where it was.
+    if steps and not question:
+        # A plan replaces an open run. An answer — even one suggesting a
+        # change — leaves it (and its pictures) where it was: 적용하기 is
+        # what replaces it (`run`), and 괜찮아요 gives it back.
         for older in db.scalars(
             select(BuilderGeneration).where(
                 BuilderGeneration.project_id == project.id,
@@ -307,9 +308,13 @@ def plan(
     )
     db.add(generation)
     db.flush()
-    # The pictures go with a plan; a bare answer leaves them waiting in the
-    # request box for the next one.
-    for row in references if steps else []:
+    # The pictures go with a plan; an answer takes only the waiting ones,
+    # and only when it suggests a change — an open run keeps its own.
+    if not steps:
+        references = []
+    elif question:
+        references = [row for row in references if row.generation_id is None]
+    for row in references:
         row.generation_id = generation.id
     providers.record_success(db, "claude", "빌더 계획" + (" (mock)" if is_mock else ""))
     db.commit()
@@ -397,6 +402,16 @@ def run(
         updated = updated.replace(tzinfo=timezone.utc)
     if generation.status == "running" and updated is not None and now - updated < STALE_RUN:
         raise StarterError("이미 만들고 있어요. 잠시만 기다려 주세요.", 409)
+    # builder-answer-only: 적용하기 on a suggested change replaces whatever
+    # run was still open (a plan made from a change already did this).
+    for older in db.scalars(
+        select(BuilderGeneration).where(
+            BuilderGeneration.project_id == generation.project_id,
+            BuilderGeneration.id != generation.id,
+            BuilderGeneration.status.in_(("planned", "partial", "failed")),
+        )
+    ):
+        older.status = "cancelled"
     generation.status = "running"
     generation.error = ""
     generation.updated_at = now

@@ -83,6 +83,29 @@ def test_an_answer_leaves_an_open_run_and_its_pictures_alone(
     assert client.get(f"/api/builder/projects/{project.id}/generation").json()["id"] == waiting["id"]
 
 
+def test_a_suggestion_keeps_the_open_run_until_it_is_applied(
+    client: TestClient, db_session: Session, project, budgeted, config
+) -> None:
+    built(client, project)
+    waiting = plan(client, project, "버튼 색을 바꿔 줘").json()
+    suggested = plan(client, project, "버튼 색을 바꾸면 어떨까?").json()
+    assert suggested["status"] == "planned" and suggested["answer"]
+    db_session.expire_all()
+    # 괜찮아요 would give the open run back: it is still there.
+    assert db_session.get(BuilderGeneration, waiting["id"]).status == "planned"
+
+    run(client, project, suggested["id"])  # 적용하기 replaces it
+    db_session.expire_all()
+    assert db_session.get(BuilderGeneration, waiting["id"]).status == "cancelled"
+    assert db_session.get(BuilderGeneration, suggested["id"]).status == "done"
+
+
+def test_a_polite_request_is_a_change(client: TestClient, project, budgeted, config) -> None:
+    built(client, project)
+    body = plan(client, project, "버튼 색을 바꿔 줄래?").json()
+    assert body["answer"] == "" and body["plan"]
+
+
 def test_a_new_app_is_always_built_even_when_it_reads_like_a_question(
     client: TestClient, project, budgeted, config
 ) -> None:
