@@ -142,7 +142,7 @@ describe("참여 신청", () => {
     // 소개하지 않습니다 — 백엔드가 403으로 막는 스위치입니다.
     getMyQuarter.mockResolvedValue(
       myQuarter({
-        participation: "활동 회원",
+        participation: "참여 중",
         allocation: {
           id: 1,
           quarter_id: QUARTER.id,

@@ -270,7 +270,7 @@ class MyQuarterStatus(BaseModel):
     application: ApplicationRead | None
     allocation: AllocationRead | None
     personal: PersonalBalanceRead | None
-    #: 신청 가능 / 승인 대기 / 활동 회원 / 미참여 / 신청 거절
+    #: 신청 가능 / 승인 대기 / 참여 중 / 참여 중지 / 미참여 / 신청 거절
     participation: str
     days_remaining: int | None
     #: 이번 분기 참여 상태. None이면 참여 기록이 없다는 뜻입니다.

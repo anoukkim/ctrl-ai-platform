@@ -158,11 +158,11 @@ export default function MemberDetailView({
     {
       status: "active",
       label: "참여 등록",
-      effect: `${member.display_name}이(가) 이 분기에 참여하게 되고, 앱과 영상을 만들 수 있습니다.`,
+      effect: `${member.display_name}이(가) 이 분기에 참여하게 되고, 아직 지원금이 없으면 이 분기 동아리 지원이 생깁니다 (참여 신청 승인과 같아요).`,
     },
     {
       status: "inactive",
-      label: "비활동으로",
+      label: "참여 중지",
       effect: `${member.display_name}은(는) 로그인과 조회는 되지만, 이 분기에 새로 만들 수 없습니다. 이미 만든 것은 그대로 남습니다.`,
     },
     // 탈퇴 처리는 아래 "회원 탈퇴" 영역에 있습니다. 게시 작품을 어떻게
@@ -346,7 +346,7 @@ export default function MemberDetailView({
                         ? "조회는 되지만 새로 만들 수 없습니다."
                         : currentRow?.membership_status === "former"
                           ? "로그인할 수 없습니다."
-                          : "이 분기에 참여 기록이 없습니다 — 비활동과 같은 제한을 받습니다."}
+                          : "이 분기에 참여 기록이 없습니다(미참여) — 새로 만들 수 없습니다."}
                   </span>
                 }
               />

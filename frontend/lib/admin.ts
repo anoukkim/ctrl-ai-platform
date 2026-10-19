@@ -135,7 +135,7 @@ export function getMemberDetail(userId: number): Promise<MemberDetail> {
  */
 export const ACCOUNT_STATUS_LABEL: Record<AccountStatus, string> = {
   active: "사용 가능",
-  inactive: "비활동",
+  inactive: "사용 중지",
   former: "탈퇴 회원",
 };
 

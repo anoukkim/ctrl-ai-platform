@@ -172,12 +172,12 @@ describe("회원 목록의 칩과 사용률 (admin-consolidation v3)", () => {
     await waitFor(() => expect(rows()).toHaveLength(6));
     expect(chip("전체").textContent).toContain("6");
     expect(chip("승인 대기").textContent).toContain("1");
-    expect(chip("활동").textContent).toContain("2");
+    expect(chip("참여 중").textContent).toContain("2");
     expect(chip("미참여").textContent).toContain("2");
 
-    await user.click(chip("활동"));
+    await user.click(chip("참여 중"));
     expect(rows().map((row) => row.textContent)).toEqual([expect.stringContaining("관리담당"), expect.stringContaining("김유리")]);
-    expect(chip("활동").getAttribute("aria-pressed")).toBe("true");
+    expect(chip("참여 중").getAttribute("aria-pressed")).toBe("true");
     await user.click(chip("미참여"));
     // 미참여: no participation and not waiting, former members aside.
     expect(rows().map((row) => row.textContent?.includes("박민호") || row.textContent?.includes("이소라"))).toEqual([true, true]);

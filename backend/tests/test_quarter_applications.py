@@ -139,7 +139,7 @@ def test_approval_creates_the_allocation(
     assert allocation.approved_at is not None
 
     status_body = client.get("/api/quarters/me").json()
-    assert status_body["participation"] == "활동 회원"
+    assert status_body["participation"] == "참여 중"
 
 
 def test_rejection_creates_no_allocation(

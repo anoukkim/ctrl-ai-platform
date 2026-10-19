@@ -323,7 +323,7 @@ export default function MemberList() {
   const chips: { key: Chip; label: string; count?: number }[] = [
     { key: "all", label: "전체", count: counts.all },
     { key: "pending", label: "승인 대기", count: counts.pending },
-    { key: "active", label: "활동", count: counts.active },
+    { key: "active", label: "참여 중", count: counts.active },
     { key: "none", label: "미참여", count: counts.none },
     { key: "invites", label: "초대 코드" },
   ];
@@ -434,19 +434,19 @@ export default function MemberList() {
                 onSelect: () =>
                   setConfirm({
                     title: `참여 등록 — ${member.display_name}`,
-                    effect: `${member.display_name}이(가) ${selected.display_name}에 참여하게 되고, 앱과 영상을 만들 수 있습니다.`,
+                    effect: `${member.display_name}이(가) ${selected.display_name}에 참여하게 되고, 아직 지원금이 없으면 이 분기 동아리 지원 ${selected.subsidy_limit_krw.toLocaleString("ko-KR")}원이 생깁니다 (참여 신청 승인과 같아요).`,
                     confirmLabel: "참여 등록",
                     onConfirm: () => changeMembership(member, "active"),
                   }),
               },
               {
-                label: "비활동으로",
+                label: "참여 중지",
                 disabled: busy || member.membership_status === "inactive",
                 onSelect: () =>
                   setConfirm({
-                    title: `비활동으로 — ${member.display_name}`,
+                    title: `참여 중지 — ${member.display_name}`,
                     effect: `${member.display_name}은(는) 로그인과 조회는 되지만, ${selected.display_name}에 새로 만들 수 없습니다. 이미 만든 것은 그대로 남습니다.`,
-                    confirmLabel: "비활동으로",
+                    confirmLabel: "참여 중지",
                     onConfirm: () => changeMembership(member, "inactive"),
                   }),
               },

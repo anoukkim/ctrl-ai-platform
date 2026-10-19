@@ -321,3 +321,78 @@ def test_one_membership_row_per_member_per_quarter(
     )
     assert len(rows) == 1
     assert rows[0].status is MembershipStatus.INACTIVE
+
+
+# ------------------------------------------------- membership-wording (2026-10-19)
+
+
+def _enrol(client: TestClient, quarter: Quarter, user_id: int, status: str):
+    return client.put(f"/api/admin/quarters/{quarter.id}/members/{user_id}", json={"status": status})
+
+
+def test_enrolling_by_hand_gives_the_quarters_wallet_once(
+    client: TestClient, dev_user, other_user, quarter, db_session
+) -> None:
+    """참여 등록 is approval without an application: the member gets the
+    quarter's 동아리 지원 — before, they were 참여 중 with nothing to spend."""
+    from app.models import AuditLog, QuarterAllocation
+
+    client.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
+    assert _enrol(client, quarter, other_user.id, "active").status_code == 200
+    wallets = db_session.query(QuarterAllocation).filter_by(user_id=other_user.id, quarter_id=quarter.id).all()
+    assert len(wallets) == 1 and wallets[0].budget_krw == quarter.subsidy_limit_krw
+    assert wallets[0].approved_by == dev_user.id
+    latest = db_session.query(AuditLog).order_by(AuditLog.id.desc()).first()
+    assert f"{quarter.subsidy_limit_krw:,}원을 배정" in latest.summary
+
+    # 참여 중지 → 참여 등록 gives the same wallet back; nothing new is granted.
+    wallets[0].consumed_krw = 1_234
+    db_session.commit()
+    assert _enrol(client, quarter, other_user.id, "inactive").status_code == 200
+    assert _enrol(client, quarter, other_user.id, "active").status_code == 200
+    db_session.expire_all()
+    again = db_session.query(QuarterAllocation).filter_by(user_id=other_user.id, quarter_id=quarter.id).all()
+    assert len(again) == 1 and again[0].consumed_krw == 1_234
+
+
+def test_enrolling_approves_a_waiting_application(
+    client: TestClient, dev_user, other_user, quarter, db_session
+) -> None:
+    from app.models import ApplicationStatus, QuarterAllocation, QuarterApplication
+
+    application = QuarterApplication(
+        user_id=other_user.id, quarter_id=quarter.id, status=ApplicationStatus.SUBMITTED,
+        requested_budget_krw=quarter.subsidy_limit_krw,
+    )
+    db_session.add(application)
+    db_session.commit()
+    client.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
+    assert _enrol(client, quarter, other_user.id, "active").status_code == 200
+    db_session.expire_all()
+    assert db_session.get(QuarterApplication, application.id).status is ApplicationStatus.APPROVED
+    wallet = db_session.query(QuarterAllocation).filter_by(user_id=other_user.id).one()
+    assert wallet.application_id == application.id
+
+
+def test_a_closed_quarter_grants_nothing(client: TestClient, dev_user, other_user, quarter, db_session) -> None:
+    from app.models import QuarterAllocation
+
+    quarter.status = QuarterStatus.CLOSED
+    db_session.commit()
+    client.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
+    _enrol(client, quarter, other_user.id, "active")
+    assert db_session.query(QuarterAllocation).filter_by(user_id=other_user.id).count() == 0
+
+
+def test_profile_says_participation_in_the_shared_words(
+    client: TestClient, dev_user, quarter, db_session
+) -> None:
+    """참여 중 with a wallet, 참여 중지 once stopped — never 활동/비활동 회원."""
+    from app.models import QuarterAllocation
+
+    client.post("/api/auth/login", json={"username": dev_user.username, "password": DEV_PASSWORD})
+    db_session.add(QuarterAllocation(user_id=dev_user.id, quarter_id=quarter.id, budget_krw=1000))
+    participate(db_session, dev_user.id, quarter.id, MembershipStatus.ACTIVE)
+    assert client.get("/api/quarters/me").json()["participation"] == "참여 중"
+    participate(db_session, dev_user.id, quarter.id, MembershipStatus.INACTIVE)
+    assert client.get("/api/quarters/me").json()["participation"] == "참여 중지"
