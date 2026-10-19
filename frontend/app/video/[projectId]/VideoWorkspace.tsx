@@ -566,7 +566,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                 onEdit={(instruction) =>
                   void runPaid(
                     () => editVideoVersion(projectId, actionSource.id, instruction),
-                    "영상 수정",
+                    "영상 고치기",
                   )
                 }
                 onExtend={(seconds) =>
@@ -872,7 +872,7 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
                   {selected?.instruction && (
                     <>
                       <span aria-hidden="true">·</span>
-                      <span>수정 요청: {selected.instruction}</span>
+                      <span>고친 내용: {selected.instruction}</span>
                     </>
                   )}
                 </p>
@@ -1001,18 +1001,9 @@ export default function VideoWorkspace({ projectId }: { projectId: string }) {
               {!mayCreate && <Lock size={12} aria-hidden="true" />}{" "}
               {isFinal ? "최종본으로 지정됨" : "최종본으로 선택"}
             </button>
-            <button
-              className="btn btn-sm btn-primary"
-              type="button"
-              disabled
-              title={
-                project.final_version_id
-                  ? "YouTube 게시는 Phase 7에서 제공됩니다"
-                  : "먼저 최종본을 선택해 주세요"
-              }
-            >
-              YouTube에 게시
-            </button>
+            {/* YouTube upload is not built yet (Phase 7): a quiet note, not a
+                blue button that can never be pressed (2026-10-19 audit). */}
+            <span className="badge badge-muted">YouTube 게시 준비 중</span>
           </span>
         </div>
       </div>

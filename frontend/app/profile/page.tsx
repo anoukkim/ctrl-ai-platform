@@ -23,6 +23,7 @@ import QuarterParticipation from "./QuarterParticipation";
 import ConnectedAppsSection from "./ConnectedAppsSection";
 import DefaultModelSection from "./DefaultModelSection";
 import SignInMethodsSection from "./SignInMethodsSection";
+import ServiceConnections from "./ServiceConnections";
 import WithdrawalSection from "./WithdrawalSection";
 import styles from "./profile.module.css";
 
@@ -52,41 +53,7 @@ export default function ProfilePage() {
 
         <SignInMethodsSection />
 
-        <section className="card">
-          <h2 className="section-title">연결한 서비스</h2>
-          <div className={styles.connection}>
-            <div>
-              <p className={styles.connectionName}>GitHub 연결</p>
-              <p className={styles.connectionHint}>
-                만든 프로젝트를 내 저장소에 보관합니다.
-              </p>
-            </div>
-            <span className={styles.connectionRight}>
-              <span className="badge badge-muted">연결 안 됨</span>
-              <button className="btn btn-sm" type="button" disabled title="Phase 4에서 제공됩니다">
-                연결하기
-              </button>
-            </span>
-          </div>
-          <div className={styles.connection}>
-            <div>
-              <p className={styles.connectionName}>YouTube 연결</p>
-              <p className={styles.connectionHint}>
-                만든 영상을 내 채널에 올립니다. 연결할 때 같은 Google 계정에 업로드 권한을
-                따로 물어봅니다.
-              </p>
-            </div>
-            <span className={styles.connectionRight}>
-              <span className="badge badge-muted">연결 안 됨</span>
-              <button className="btn btn-sm" type="button" disabled title="Phase 7에서 제공됩니다">
-                연결하기
-              </button>
-            </span>
-          </div>
-          <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            CTRL+AI는 GitHub나 Google의 비밀번호·토큰을 붙여 넣어 달라고 하지 않습니다.
-          </p>
-        </section>
+        <ServiceConnections />
       </div>
 
       <div className={styles.lists}>

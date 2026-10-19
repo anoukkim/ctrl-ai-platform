@@ -24,7 +24,7 @@ test("422의 한국어 문장을 꺼내고 'Value error, '를 뗀다", async () 
 
 test("한국어가 아닌 422는 기본 문구", async () => {
   respond(422, { detail: [{ msg: "Field required", type: "missing" }] });
-  await expect(request("/x")).rejects.toThrow("요청이 실패했습니다 (HTTP 422)");
+  await expect(request("/x")).rejects.toThrow("입력한 내용을 다시 확인해 주세요.");
 });
 
 test("문자열 detail은 그대로", async () => {

@@ -18,7 +18,7 @@ import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { describeError } from "@/lib/http";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import { updateDisplayName, type AccountStatus, type UserRole } from "@/lib/auth";
-import { membershipBadge, membershipLabel } from "@/lib/quarters";
+import { STANDING_BADGE, STANDING_LABEL, standingOf } from "@/lib/quarters";
 
 import styles from "./profile.module.css";
 
@@ -54,10 +54,8 @@ export function Identity() {
         <span className={styles.badges}>
           {/* 이번 분기 참여 상태. 계정 상태(아래 계정 설정)와는 다른 값입니다. */}
           {quarterState.phase === "ready" && quarterState.quarter.quarter !== null && (
-            <span
-              className={`badge ${membershipBadge(quarterState.quarter.membership_status)}`}
-            >
-              {membershipLabel(quarterState.quarter.membership_status)}
+            <span className={`badge ${STANDING_BADGE[standingOf(quarterState.quarter)]}`}>
+              {STANDING_LABEL[standingOf(quarterState.quarter)]}
             </span>
           )}
           {quarterState.phase === "ready" && quarterState.quarter.quarter !== null && (

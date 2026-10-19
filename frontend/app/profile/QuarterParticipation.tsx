@@ -200,7 +200,7 @@ export default function QuarterParticipation() {
             {APPLICATION_STATUS_LABEL[application.status]}
           </p>
           <p className={styles.seasonNote}>
-            신청 금액 {formatKrw(application.requested_budget_krw)}
+            받을 동아리 지원 {formatKrw(application.requested_budget_krw)}
           </p>
           <p className={styles.seasonNote}>관리자 승인 후 사용할 수 있습니다.</p>
           <button

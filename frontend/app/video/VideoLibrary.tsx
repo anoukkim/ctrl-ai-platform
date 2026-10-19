@@ -163,7 +163,7 @@ export default function VideoLibrary() {
       setRemoveError(null);
       setConfirm({
         title: "영상 프로젝트 삭제",
-        effect: `'${project.name}' 영상 프로젝트을 삭제합니다. 만든 버전도 함께 사라지지만 관리자가 되살릴 수 있고, 사용량 기록은 그대로 남습니다.`,
+        effect: `'${project.name}' 영상 프로젝트를 삭제합니다. 만든 버전도 함께 사라지지만 관리자가 되살릴 수 있고, 사용량 기록은 그대로 남습니다.`,
         confirmLabel: "삭제",
         danger: true,
         onConfirm: () => remove(project.id),
