@@ -521,12 +521,15 @@ export default function BuilderLibrary() {
                   </span>
                 )}
                 <span className={styles.metaTime}>{formatRelative(project.updated_at)}</span>
-                <span className={styles.metaDot} aria-hidden="true">
-                  ·
-                </span>
-                <span>
-                  {project.github_repo ? `GitHub: ${project.github_repo}` : "GitHub 미연결"}
-                </span>
+                {/* GitHub (Phase 4) is not connected for anyone yet: only a linked repo is shown (owner, 2026-10-19). */}
+                {project.github_repo && (
+                  <>
+                    <span className={styles.metaDot} aria-hidden="true">
+                      ·
+                    </span>
+                    <span>GitHub: {project.github_repo}</span>
+                  </>
+                )}
               </p>
             </LibraryCard>
           ))}
