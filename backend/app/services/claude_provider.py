@@ -259,6 +259,10 @@ class ProjectPlan:
     model: str
     input_tokens: int
     output_tokens: int
+    #: builder-answer-only: "change" or "question". A question carries
+    #: `answer`, and `files` is the change Claude suggests (may be empty).
+    kind: str = "change"
+    answer: str = ""
 
 
 # ----------------------------------------------------- server tools
@@ -682,6 +686,8 @@ file with its path and full content.
 STARTER_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "kind": {"type": "string", "enum": ["change", "question"]},
+        "answer": {"type": "string"},
         "summary": {"type": "string"},
         "files": {
             "type": "array",
@@ -875,6 +881,17 @@ ctrlai.json too (its purpose: the app's lists).
 possible.
 - "summary" is one or two short Korean sentences: what will be built or \
 changed.
+- First decide "kind". "question" when the member asks something (how the \
+app works, where something is, why, what is possible) or says not to \
+build or change anything yet ("빌드하지 말고", "답만") — and also when you \
+cannot tell whether they want a change. Then "answer" is your reply in \
+Korean for a beginner: short paragraphs, everyday words, concrete about \
+this app's files, without code. "files" is then \
+the change you would suggest, only when one would clearly help (the \
+member applies it with one button), else empty; "summary" says what \
+that change would do. "change" when the member asks to make, add, fix or \
+change something: "answer" is "". When the project has no index.html \
+yet, "kind" is always "change".
 - When the files include SPEC.md, it holds what the member asked for and \
 decided in Chat (features, data, look): keep to it, and continue from the \
 existing index.html's look rather than starting over. SPEC.md, README.md, \
@@ -892,6 +909,8 @@ Return JSON only."""
 PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "kind": {"type": "string", "enum": ["change", "question"]},
+        "answer": {"type": "string"},
         "summary": {"type": "string"},
         "files": {
             "type": "array",
@@ -906,7 +925,7 @@ PLAN_SCHEMA: dict[str, Any] = {
             },
         },
     },
-    "required": ["summary", "files"],
+    "required": ["kind", "answer", "summary", "files"],
     "additionalProperties": False,
 }
 
@@ -1006,6 +1025,11 @@ MOCK_CHECK_FIX = "MOCK_CHECK_FIX"
 MOCK_MANIFEST = "MOCK_MANIFEST"
 MOCK_CHECK_MANIFEST = "MOCK_CHECK_MANIFEST"
 MOCK_MANIFEST_JSON = '{"db": [{"name": "posts", "shared": true}]}\n'
+#: builder-answer-only (mock): a request that reads as a question rather
+#: than a change, and one that also asks for a change to suggest.
+_MOCK_QUESTION = re.compile(r"[?？]|답만|빌드\s*하지\s*말|만들지\s*말|고치지\s*말|바꾸지\s*말|설명해")
+_MOCK_SUGGEST = re.compile(r"바꾸|바꿔|추가|넣어|고쳐|만들")
+
 #: What the mock says each starter file is for.
 _MOCK_PURPOSES = {
     "index.html": "화면의 뼈대와 글을 담아요.",
@@ -1765,11 +1789,28 @@ class MockClaudeProvider:
         images: list[dict] | None = None,
         notes: str = "",
     ) -> ProjectPlan:
-        """The files the one-shot mock would write, each with a purpose."""
+        """The files the one-shot mock would write, each with a purpose.
+
+        builder-answer-only: a request that reads as a question (a "?", or
+        "답만" / "빌드하지 말고" …) on an app that exists is answered; it
+        suggests the edit's files only when it also asks for a change."""
         edit = self.edit_project(name, files, request, model, 16000, style)
         planned = [(path, _MOCK_PURPOSES.get(path, "앱의 한 부분이에요.")) for path, _ in edit.writes]
+        kind, answer = "change", ""
         if "index.html" not in dict(files):
             summary = f"'{name.strip() or '내 앱'}'을(를) 파일 {len(planned)}개로 만들어요."
+        elif _MOCK_QUESTION.search(request):
+            kind = "question"
+            names = ", ".join(path for path, _ in files)
+            answer = (
+                f"지금 앱은 파일 {len(files)}개({names})로 되어 있어요. "
+                "질문은 실제 Claude가 이 파일들을 읽고 답해 드려요."
+            )
+            if _MOCK_SUGGEST.search(request):
+                answer += " 아래 바꿀 계획을 적용하면 바로 고쳐요."
+                summary = f"파일 {len(planned)}개를 바꾸면 돼요: " + ", ".join(path for path, _ in planned)
+            else:
+                planned, summary = [], ""
         else:
             summary = f"파일 {len(planned)}개를 바꿔요: " + ", ".join(path for path, _ in planned)
         return ProjectPlan(
@@ -1778,7 +1819,9 @@ class MockClaudeProvider:
             model=model or self.model_id,
             input_tokens=estimate_tokens(PLAN_SYSTEM)
             + content_tokens(with_images(edit_request_text(name, files, request, style, notes), images)),
-            output_tokens=40 + 30 * len(planned),
+            output_tokens=40 + 30 * len(planned) + len(answer) // 2,
+            kind=kind,
+            answer=answer,
         )
 
     def write_project_file(
@@ -2540,6 +2583,8 @@ class AnthropicClaudeProvider:
             data = json.loads(text)
             planned = [(str(item["path"]), str(item["purpose"])) for item in data["files"]]
             summary = str(data.get("summary", ""))
+            kind = "question" if data.get("kind") == "question" else "change"
+            answer = str(data.get("answer", ""))
         except (ValueError, KeyError, TypeError):
             raise ClaudeError(ProviderErrorKind.UNKNOWN, "plan json", usage=billed) from None
         return ProjectPlan(
@@ -2548,6 +2593,8 @@ class AnthropicClaudeProvider:
             model=message.model or model or self.model_id,
             input_tokens=billed[0],
             output_tokens=billed[1],
+            kind=kind,
+            answer=answer,
         )
 
     def write_project_file(

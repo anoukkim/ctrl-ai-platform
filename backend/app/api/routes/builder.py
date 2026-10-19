@@ -1279,6 +1279,7 @@ def _generation_read(
         request=generation.request,
         style=generation.style,
         summary=generation.summary,
+        answer=generation.answer,
         plan=[PlanStep(path=step[0], purpose=step[1]) for step in generation.plan],
         files_done=list(generation.files_done),
         status=generation.status,
@@ -1421,7 +1422,7 @@ def run_generation(
     with the rest."""
     project = _owned_project(project_id, db, user)
     generation = _owned_generation(db, project, generation_id)
-    if generation.status in ("done", "cancelled"):
+    if generation.status in builder_stages.FINISHED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="이미 끝난 작업이에요. 새로 요청해 주세요.")
     session_factory = request.app.dependency_overrides.get(get_db, get_db)
     provider = get_claude_provider(config)

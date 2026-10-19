@@ -357,7 +357,8 @@ class BuilderGeneration(TimestampMixin, Base):
 
     `status`: planned → running → done, or partial (some files saved, the
     rest can be continued), failed (nothing saved), cancelled (a newer plan
-    replaced it).
+    replaced it), answered (builder-answer-only: the member asked a
+    question; `answer` holds the reply and there is nothing to run).
     """
 
     __tablename__ = "builder_generations"
@@ -374,6 +375,10 @@ class BuilderGeneration(TimestampMixin, Base):
     request: Mapped[str] = mapped_column(Text, nullable=False)
     style: Mapped[str] = mapped_column(String(100), default="", nullable=False)
     summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    #: builder-answer-only: Claude's reply to a question, in Korean. Empty
+    #: for a change. A question with a suggested change is still `planned`
+    #: (적용하기 runs it); without one it is `answered`.
+    answer: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
     #: [[path, purpose], …] in writing order.
     plan: Mapped[list] = mapped_column(JSON, nullable=False)
     files_done: Mapped[list] = mapped_column(JSON, nullable=False)

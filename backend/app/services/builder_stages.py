@@ -6,6 +6,10 @@ generation is three kinds of call, each timed out and charged on its own:
 
 1. **Plan** — a small call lists the files to write and what each is for.
    The member sees it as 만들 계획 and presses 시작 (고치기 starts at once).
+   builder-answer-only: on an app that exists, the plan may find the
+   member *asked* rather than asked for a change. Then Claude's answer is
+   kept (`answer`) and nothing starts: with a suggested change the plan
+   waits for 적용하기, without one the row is `answered`.
 2. **One call per file**, in plan order, each seeing the plan and the
    files written so far. A file is checked and **saved the moment it is
    done**, so a timeout keeps what was finished and 이어서 만들기 carries on
@@ -57,16 +61,24 @@ logger = logging.getLogger(__name__)
 
 #: The plan is a short list: this much room is plenty.
 PLAN_MAX_TOKENS = 4_096
+#: builder-answer-only: on an app that exists the plan may be an answer
+#: instead — room for a full one, and Opus's thinking before it (owner,
+#: 2026-10-19). Still under the depth's per-call cap.
+ANSWER_PLAN_MAX_TOKENS = 8_192
 #: At most this many files in one plan.
 MAX_PLAN_FILES = 12
 #: The member's words, plus the guided start form's answers.
 MAX_REQUEST_CHARS = 4_000
 #: A run still marked running after this long died with its server.
 STALE_RUN = timedelta(minutes=15)
+#: builder-answer-only: the longest answer kept.
+MAX_ANSWER_CHARS = 8_000
 #: A typical file, for the estimate shown before 시작.
 TYPICAL_FILE_OUTPUT_TOKENS = 2_500
 
 OPEN = ("planned", "running", "partial", "failed")
+#: Nothing left to run: built, replaced, or only answered (builder-answer-only).
+FINISHED = ("done", "cancelled", "answered")
 
 Emit = Callable[[str, dict], None]
 
@@ -222,7 +234,7 @@ def plan(
     tokens_in = pricing.estimate_tokens(
         PLAN_SYSTEM + edit_request_text(project.name, sorted(files.items()), request, style, notes)
     ) + reference_tokens(references)
-    room = min(PLAN_MAX_TOKENS, choice.room(tokens_in))
+    room = min(PLAN_MAX_TOKENS if creating else ANSWER_PLAN_MAX_TOKENS, choice.room(tokens_in))
     if room < 1_024:
         raise StarterError(builder_choice.room_refusal(choice), 400)
     if spend_limit_krw is not None and choice.price.krw(tokens_in, room) > spend_limit_krw:
@@ -255,37 +267,49 @@ def plan(
         provider_limiter.release()
 
     usage = (planned.input_tokens, planned.output_tokens)
+    # builder-answer-only: a new app is always built (the start form asks
+    # for one); a question needs an answer to show.
+    question = planned.kind == "question" and not creating
+    answer = planned.answer.strip()[:MAX_ANSWER_CHARS] if question else ""
     try:
-        steps = _clean_plan(planned.files, creating)
+        if question and not answer:
+            raise builder_files.FileRuleError("답을 받지 못했어요. 다시 시도해 주세요.")
+        steps = _clean_plan(planned.files, creating) if planned.files or not question else []
     except builder_files.FileRuleError as error:
         _record_absorbed(db, user, project, choice.model.model_id, choice.price, usage)
         db.commit()
         raise StarterError(str(error), 502) from error
 
     charged = _charge(db, settings, user, project, choice, *usage)
-    for older in db.scalars(
-        select(BuilderGeneration).where(
-            BuilderGeneration.project_id == project.id,
-            BuilderGeneration.status.in_(("planned", "partial", "failed")),
-        )
-    ):
-        older.status = "cancelled"
+    if steps:
+        # Only a plan replaces an open run; a bare answer leaves it (and its
+        # pictures) where it was.
+        for older in db.scalars(
+            select(BuilderGeneration).where(
+                BuilderGeneration.project_id == project.id,
+                BuilderGeneration.status.in_(("planned", "partial", "failed")),
+            )
+        ):
+            older.status = "cancelled"
     generation = BuilderGeneration(
         project_id=project.id,
         user_id=user.id,
         kind="create" if creating else "edit",
         request=request,
         style=style,
-        summary=planned.summary.strip()[:2000],
+        summary=planned.summary.strip()[:2000] if steps else "",
+        answer=answer,
         plan=steps,
         files_done=[],
-        status="planned",
+        status="planned" if steps else "answered",
         check_fixed=[],
         charged_krw=charged,
     )
     db.add(generation)
     db.flush()
-    for row in references:
+    # The pictures go with a plan; a bare answer leaves them waiting in the
+    # request box for the next one.
+    for row in references if steps else []:
         row.generation_id = generation.id
     providers.record_success(db, "claude", "빌더 계획" + (" (mock)" if is_mock else ""))
     db.commit()
@@ -365,7 +389,7 @@ def run(
     )
     if generation is None:
         raise StarterError("찾을 수 없는 작업이에요.", 404)
-    if generation.status in ("done", "cancelled"):
+    if generation.status in FINISHED:
         raise StarterError("이미 끝난 작업이에요. 새로 요청해 주세요.", 409)
     now = datetime.now(timezone.utc)
     updated = generation.updated_at
