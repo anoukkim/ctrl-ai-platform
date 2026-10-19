@@ -29,7 +29,22 @@ echo "== 3/5 새 이미지 받기"
 "${compose[@]}" pull
 
 echo "== 4/5 데이터베이스 마이그레이션"
-"${compose[@]}" run --rm api alembic upgrade head
+# A migration gives up after a few seconds when a table is busy (a Builder
+# run going; backend/alembic/env.py, lock_timeout) instead of holding up
+# the whole site — and is tried again here, for about 5 minutes.
+migrated=false
+for attempt in $(seq 1 30); do
+  if "${compose[@]}" run --rm api alembic upgrade head; then
+    migrated=true
+    break
+  fi
+  echo "   표가 사용 중이라 마이그레이션을 다시 시도합니다 ($attempt/30)"
+  sleep 10
+done
+if [ "$migrated" != true ]; then
+  echo "마이그레이션을 끝내지 못했어요. 사이트는 그대로 예전 버전으로 돌아가요." >&2
+  exit 1
+fi
 
 echo "== 5/5 다시 시작"
 "${compose[@]}" up -d --remove-orphans
