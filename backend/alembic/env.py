@@ -10,6 +10,7 @@ Two deliberate choices:
   models.
 """
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -66,6 +67,15 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        if connection.dialect.name == "postgresql":
+            # fix-deploy-migration-lock (2026-10-19): a migration waiting for
+            # a table lock queues every later query on that table behind it —
+            # a Builder run streaming during a deploy took the site down for
+            # 10 minutes. Give up after a few seconds instead; the deploy
+            # script tries again, and nothing was changed (one transaction).
+            timeout = os.environ.get("MIGRATION_LOCK_TIMEOUT", "5s")
+            connection.exec_driver_sql(f"SET lock_timeout = '{timeout}'")
+            connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
