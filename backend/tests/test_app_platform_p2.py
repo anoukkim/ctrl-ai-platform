@@ -249,7 +249,8 @@ def test_json_schema_answers_are_parsed_checked_and_retried_once(
     failed = client.post(
         "/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "MOCK_ALWAYS_BAD_JSON", "json": schema}
     )
-    assert failed.status_code == 502 and "JSON" in failed.json()["detail"]
+    assert failed.status_code == 502 and failed.json()["detail"]["code"] == "bad_json"
+    assert "JSON" in failed.json()["detail"]["message"]
     assert db_session.query(UsageEvent).count() == 3  # the club paid: charged
 
 
@@ -270,7 +271,7 @@ def test_only_participating_members_with_the_scope_and_money(
     set_membership(db_session, dev_user.id, budgeted.quarter_id, MembershipStatus.INACTIVE)
     db_session.commit()
     refused = client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕"})
-    assert refused.status_code == 403 and "참여" in refused.json()["detail"]
+    assert refused.status_code == 403 and "참여" in refused.json()["detail"]["message"]
     set_membership(db_session, dev_user.id, budgeted.quarter_id, MembershipStatus.ACTIVE)
     consent = db_session.query(AppConsent).one()
     consent.scopes = ["profile"]
@@ -290,7 +291,7 @@ def test_the_day_cap_and_the_rate_limit(
     )
     db_session.commit()
     capped = client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕"})
-    assert capped.status_code == 402 and "오늘" in capped.json()["detail"]
+    assert capped.status_code == 402 and "오늘" in capped.json()["detail"]["message"]
 
     db_session.add(
         ChatLimits(reply_cap_krw=200, long_history_tokens=8000, daily_cap_krw=0, app_ai_daily_cap_krw=0)
@@ -382,3 +383,27 @@ def test_the_schema_checker() -> None:
     assert app_ai.validate(True, {"type": "integer"}) is not None
     assert app_ai.parse_json('```json\n{"a": 1}\n```') == {"a": 1}
     assert app_ai.validate(app_ai.sample_for(schema), schema) is None
+
+
+def test_a_json_answer_gets_room_and_a_cut_one_says_why(
+    client: TestClient, db_session: Session, shop: BuilderProject, budgeted
+) -> None:
+    """app-ai-long-answers: a JSON call defaults to 4,096 output tokens, and an
+    answer cut at its limit is not retried — it says so, and is charged once."""
+    from app.services import app_ai
+
+    sign_in(client, shop)
+    schema = {"type": "object", "required": ["shop"], "properties": {"shop": {"type": "string"}}}
+    with_json = client.post("/_ctrlai/v1/ai/estimate", headers=headers(shop), json={"prompt": "영화 20편", "json": schema})
+    plain = client.post("/_ctrlai/v1/ai/estimate", headers=headers(shop), json={"prompt": "영화 20편"})
+    assert with_json.json()["maxKrw"] > plain.json()["maxKrw"]
+    assert app_ai.DEFAULT_JSON_MAX_TOKENS == 4096 and app_ai.MAX_TOKENS_LIMIT == 8192
+
+    cut = client.post(
+        "/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "읽어 줘", "json": schema, "maxTokens": 5}
+    )
+    assert cut.status_code == 502
+    body = cut.json()
+    assert "잘렸어요" in body["detail"]["message"] and "maxTokens" in body["detail"]["message"]
+    assert body["detail"]["code"] == "too_long"
+    assert db_session.query(UsageEvent).count() == 1  # one call, no retry, charged
