@@ -40,8 +40,8 @@ execution in Chat; merged 2026-10-14) · ✅ cost-clarity · ✅ chat-plus-files
 anonymous-feedback-board — not built: the owner chose admin-only feedback
 with screenshots instead (✅ feedback-screenshots, 2026-10-16) ·
 ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
-`ctrlai-server`, e2-medium in Seoul, on mock providers) ·
-⬜ Phase 2 point 10 — one real Claude message (owner's step).
+`ctrlai-server`, e2-medium in Seoul; real Claude since the owner's key went in) ·
+✅ Phase 2 point 10 — production runs real Claude (members' chats are charged real usage; the wrong-key message check stays optional).
 The three `chat-plus-*` items joined on 2026-10-07: members have never
 used Claude, so Chat shows what it can do — tables, files, previews —
 before the site opens.

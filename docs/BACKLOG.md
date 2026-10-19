@@ -26,16 +26,17 @@ ending at `a7190f8`: background-runs (`33fc533`), chat-to-builder-carry
 (RUN-2026-10-14b) and the 2026-10-16 pre-approvals are archived in
 [`archive/done-specs.md`](archive/done-specs.md#backlog-now-and-next-pre-approvals-2026-10-14--2026-10-16-moved-2026-10-17).
 
-**In progress — after-the-queue** (UI requests › after-the-queue): the
-thorough check (5) and the list for the owner (6) are done; the README (2)
-was rewritten (`0dc7215`); this docs tidy-up is in progress on
-`docs-tidy-1017`; the unused-code removal runs on a parallel branch
-(`chore-tidy-code`).
+**Done — after-the-queue** (UI requests › after-the-queue): the thorough
+check, the owner's list, the README (`0dc7215`), the docs tidy-up
+(`a5b521d`) and the unused-code removal (`74168b7`) are merged. A second
+audit ran on 2026-10-19; its code and docs fixes are merged (Done rows
+for 2026-10-19), and its operational checklist went to the owner.
 
 **Open owner items:**
 
-- **Point 10 — one real Claude message** (below): the owner's decision and
-  step; still not run.
+- **Point 10 — closed 2026-10-19**: production runs real Claude
+  (`CLAUDE_PROVIDER=anthropic`) and members' chats are charged real usage.
+  The wrong-key message check stays optional.
 - **owner-polish point 12** — image provider research; a real provider is
   a paid resource (CLAUDE.md §10), so the owner decides (Next 5).
 - **usage-analytics** — mostly delivered by admin-consolidation batch 3
@@ -54,7 +55,8 @@ quarter. Notes below that say a feature "charges Build" or "the Video
 budget" record what was true when they were written; read them as "the
 wallet", with the provider on the usage event.
 
-**Open check carried from Phase 2 — Chat: point 10 has not been run (owner decision).**
+**Closed 2026-10-19 — Phase 2 point 10** (kept for the record: production
+runs real Claude; the steps below remain a useful check after a key change).
 One short real message with the owner's key (`CLAUDE_PROVIDER=anthropic`;
 the model now comes from the catalogue (`chat-model-choice`) —
 send one message on the default Sonnet 5.5 and one on Haiku 4.5) — confirm
@@ -83,6 +85,20 @@ Earlier orders and pre-approvals (2026-10-14 evening, 2026-10-16) are
 archived in
 [`archive/done-specs.md`](archive/done-specs.md#backlog-now-and-next-pre-approvals-2026-10-14--2026-10-16-moved-2026-10-17);
 each entry below says whether it is pre-approved.
+
+0. **web-search-and-images** · M3 · branch `feat-web-search-and-images`
+   *Owner's request 2026-10-19 — direction decided, built in the stated
+   order, tests and a report at each step, WAIT before merging.*
+   `ctrlai.ai.ask({ webSearch: true })` (Anthropic's server web search,
+   search only, ≤ 3 uses, paid by the visitor inside the 1,000원 cap,
+   `web_search_count` on the usage row, off in 데모 and under 기능 상자
+   멈추기) and one shared **image fetch service** for apps and Chat: the
+   server fetches from a code-fixed allow-list (`upload.wikimedia.org`),
+   checks and re-encodes, and serves by its own id from our origins — never
+   an open URL proxy; `IMAGE_FETCH_PROVIDER=mock|web` (mock default; real
+   only after every security test passes and the owner turns it on); Chat
+   shows such images only behind a switch that starts off. Full spec:
+   [web-search-and-images](#web-search-and-images--full-spec).
 
 1. **app-platform P5** · M3 · branch `feat-app-platform-p5`
    *Branch + tests + WAIT — not pre-approved.* "CTRL+AI 기능 상자" for
@@ -967,6 +983,49 @@ dialog (not from the menu). Everything else above stands.
 → **live-cost-display — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#live-cost-display--full-spec-merged-2026-10-14).
 
 → **chat-thinking-view — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-thinking-view--full-spec-merged-2026-10-14).
+
+## web-search-and-images — full spec
+
+Owner's request, 2026-10-19 (from Film Atlas: "없다" for films Claude does
+not remember, and no posters — the apps' CSP is `img-src 'self' data:
+blob:`, `connect-src 'none'`; Chat's `ChatMarkdown` turns images into
+`[그림: …]`). Order: (1) safety rules and security tests first, (2) the
+image service with a mock provider, (3) app AI web search, (4) images in
+apps (mock), (5) the real fetch provider (still off by default), (6)
+images in Chat (off by default). Tests and a report after each step.
+
+**A. App AI web search** — `ctrlai.ai.ask({ webSearch: true })`: reuse
+Chat's server-tool price and caps (`web_search_usd_per_call`,
+`web_search_max_uses`), search only (no `web_fetch`), at most 3 searches
+a call, fewer when the 1,000원 cap would be passed; the visitor's wallet
+via `usage.charge()` (feature `app_ai`); nothing in 데모; the count on the
+usage row; documented in the 기능 상자 guide and the Builder's app rules;
+covered by 기능 상자 멈추기.
+
+**B. Image fetch (apps and Chat)** — the browser never calls an outside
+address: the server fetches and serves from our origin (apps:
+`apps.ctrlai.my`, CSP unchanged). `IMAGE_FETCH_PROVIDER=mock|web`, mock
+by default, in `.env.example`.
+
+**Safety rules (each held by a test):** (1) a code-fixed allow-list,
+starting with `upload.wikimedia.org` — never widened by env or member
+input; (2) https on the standard port only, no userinfo; (3) SSRF: refuse
+private, loopback, link-local and metadata addresses after DNS, pin the
+address used, no redirects (or re-check each); (4) sniff content — png,
+jpeg, webp only (no SVG/GIF), size (e.g. 2 MB) and pixel limits, connect
+and read timeouts; (5) decode and re-encode (metadata dropped; undecodable
+discarded); (6) served by a server-made id only — no endpoint takes a URL
+to fetch on demand; (7) fixed `Content-Type`, `nosniff`, no cookies or
+credentials sent out, the visitor's IP never exposed; (8) signed-in active
+members only, rate-limited, usage tied to member and quarter; (9) a total
+storage cap, one copy per source URL, old images removed; (10) an admin
+switch "이미지 가져오기 멈추기", admin removal of an image, audited; (11)
+failures fall back quietly (text, or the app's default card); (12) the
+standing rules hold — host-only cookie, JSON bodies, no CORS to the apps
+origin; (13) any key only in the server `.env`; (14) a docs note on image
+licences and attribution; (15) the real provider is connected only after
+the security tests (internal IP, DNS rebinding, redirects, SVG, a fake
+extension, a huge file, a slow reply, a domain not allowed) all pass.
 
 ## builder-python — full spec
 

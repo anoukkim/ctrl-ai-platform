@@ -78,7 +78,7 @@ api ──unix socket──► thumbs — headless Chromium on an internal netwo
 Providers sit behind interfaces with a mock chosen by an environment
 variable (`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `GITHUB_PROVIDER`,
 `YOUTUBE_PROVIDER`, `GOOGLE_LOGIN_PROVIDER`, `FX_PROVIDER`,
-`THUMBNAIL_RENDERER`); the mock is the default. Details:
+`THUMBNAIL_RENDERER`); the mock is the default (thumbnails default to `browser`). Details:
 [`docs/architecture.md`](docs/architecture.md).
 
 ## Run it locally

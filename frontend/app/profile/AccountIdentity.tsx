@@ -6,8 +6,8 @@
  * 목업이 아니라 로그인한 실제 회원을 보여 줍니다. Client Component인 이유는
  * 회원 정보를 CurrentUserProvider에서 가져오기 때문입니다.
  *
- * 회원 상태(활동/비활동/탈퇴)는 Phase 1a가 넣은 account_status를 그대로
- * 씁니다. 분기 참여에 따른 규칙은 Phase 1b에서 붙습니다.
+ * 계정 상태(사용 가능/사용 중지/탈퇴)는 Phase 1a가 넣은 account_status를
+ * 그대로 씁니다. 이번 분기 참여(참여 중 · 승인 대기 · 참여 중지 · 미참여)와는 다른 값이에요. 분기 참여에 따른 규칙은 Phase 1b에서 붙습니다.
  */
 
 import { setAurora, useAurora } from "@/lib/aurora";
