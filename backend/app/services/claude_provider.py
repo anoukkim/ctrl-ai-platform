@@ -607,7 +607,11 @@ the real `chargedKrw`. Keep prompts short; use \
 at most `maxTokens` long (1,024 by default, 4,096 with `json`, up to \
 8,192) — for a long list or long text pass a bigger `maxTokens` (about \
 150 per item in Korean), or ask for fewer items, and handle \
-`error.code === "too_long"` (the answer was cut); say in Korean \
+`error.code === "too_long"` (the answer was cut); for facts Claude may
+not remember (new films, prices, recent events) pass `webSearch: true`:
+Claude searches the web (at most 3 searches, about 15원 each plus their
+results, all inside the 1,000원 cap — `estimate` includes it), so use it
+only on the button that needs fresh facts; say in Korean \
 when a call fails.
   · Every AI feature also has a **demo path**: when `window.ctrlai` is \
 missing, the visitor is signed out (`user()` is null or a call fails \

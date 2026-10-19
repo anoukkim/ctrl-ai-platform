@@ -28,7 +28,7 @@ import base64
 import binascii
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, AsyncIterator
@@ -54,7 +54,41 @@ DEFAULT_MAX_TOKENS = 1024
 #: app-ai-long-answers (2026-10-19): a JSON answer is often a list, and a
 #: cut one is useless — Film Atlas's 20 films in Korean ran past 1,024.
 DEFAULT_JSON_MAX_TOKENS = 4096
+#: app-ai-web-search: searches per call at most — fewer when the fee and
+#: the room for results would pass the per-call cap.
+WEB_SEARCH_MAX_USES = 3
 MAX_TOKENS_LIMIT = 8192
+
+
+def search_plan(
+    price: pricing.Price, model: chat_models.ChosenModel, data: "AskInput", cap_krw: int, input_estimate: int
+) -> tuple[int, int]:
+    """(searches allowed, won reserved for them) — the fee for every search
+    plus room for its results, priced as Chat's cap prices them
+    (`chat_tools.cap_extra_krw`). Fewer searches when that would leave no
+    room to answer inside `cap_krw`; (0, 0) when the call does not search.
+
+    Raises `AppAIError` when web search was asked for but the model has it
+    switched off (Admin › Models › Chat 도구) or not even one search fits.
+    """
+    if not data.web_search:
+        return 0, 0
+    from app.services import chat_tools
+
+    if not model.tools_web_search:
+        raise AppAIError(
+            "이 AI 모델은 웹 검색이 꺼져 있어요. 관리자에게 알려 주세요.", 409, "web_search_off"
+        )
+    for uses in range(WEB_SEARCH_MAX_USES, 0, -1):
+        extra = chat_tools.cap_extra_krw(
+            price, ("web_search",), model.web_search_usd_per_call,
+            fetch_max_uses=0, fetch_max_content_tokens=0, search_max_uses=uses,
+        )
+        if chat_limits.output_budget(price, cap_krw - extra, input_estimate) >= 256:
+            return uses, extra
+    raise AppAIError(
+        f"웹 검색까지 넣으면 1회 비용 한도({CALL_CAP_KRW:,}원)를 넘어요. 요청을 줄여 주세요.", 400, "too_costly"
+    )
 
 
 def wanted_tokens(data: "AskInput") -> int:
@@ -103,6 +137,9 @@ class AskInput:
     schema: dict | None = None
     model: str = "fast"
     max_tokens: int | None = None
+    #: app-ai-web-search (owner, 2026-10-19): Anthropic's server web search,
+    #: search only, at most `WEB_SEARCH_MAX_USES` searches, inside the cap.
+    web_search: bool = False
 
 
 @dataclass
@@ -116,6 +153,8 @@ class Prepared:
     #: held inside the first attempt's figure, so a visitor never pays
     #: more than the "최대 M원" `estimate()` showed for the same options.
     max_krw: int = CALL_CAP_KRW
+    #: Searches allowed in this attempt (0 = no web search).
+    search_uses: int = 0
 
 
 @dataclass(frozen=True)
@@ -428,14 +467,15 @@ def prepare(
     input_estimate = content_tokens(system) + sum(content_tokens(m["content"]) for m in messages)
 
     cap_left = cap_krw - spent_krw
-    budget = chat_limits.output_budget(price, cap_left, input_estimate)
+    uses, search_extra = search_plan(price, model, data, cap_left, input_estimate)
+    budget = chat_limits.output_budget(price, cap_left - search_extra, input_estimate)
     if budget < 1:
         if spent_krw:
             raise AppAIError("AI 답이 JSON 형식에 맞지 않았고, 다시 물어볼 비용이 남지 않았어요.", 502, "bad_json")
         raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW:,}원)에 닿아요. 줄여서 다시 보내 주세요.")
     wanted = wanted_tokens(data)
     max_tokens = min(wanted, budget)
-    worst_case = price.worst_case_krw(input_estimate, max_tokens)
+    worst_case = price.worst_case_krw(input_estimate, max_tokens) + search_extra
     # A retry may spend only what the first attempt's figure left.
     max_krw = min(cap_krw, spent_krw + worst_case)
     if spent_krw == 0:
@@ -448,12 +488,20 @@ def prepare(
         raise AppAIError(str(error), 409, "no_quarter") from error
 
     return Prepared(
-        request=ChatRequest(system=system, messages=messages, max_tokens=max_tokens, model=model.model_id),
+        request=ChatRequest(
+            system=system,
+            messages=messages,
+            max_tokens=max_tokens,
+            model=model.model_id,
+            tools=("web_search",) if uses else (),
+            search_max_uses=uses or WEB_SEARCH_MAX_USES,
+        ),
         price=price,
         model=model,
         label=label,
         input_estimate=input_estimate,
         max_krw=max_krw,
+        search_uses=uses,
     )
 
 
@@ -474,14 +522,23 @@ def estimate(db: Session, settings: Settings, data: AskInput, image_count: int) 
     system = system_prompt(data.system or "", data.schema)
     prompt = (data.prompt or "").strip() or "이 이미지를 봐 줘."
     input_estimate = content_tokens(system) + content_tokens(prompt) + image_count * IMAGE_TOKENS_UPPER
-    budget = chat_limits.output_budget(price, CALL_CAP_KRW, input_estimate)
+    uses, search_extra = search_plan(price, model, data, CALL_CAP_KRW, input_estimate)
+    budget = chat_limits.output_budget(price, CALL_CAP_KRW - search_extra, input_estimate)
     if budget < 1:
         raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW:,}원)에 닿아요. 줄여서 다시 보내 주세요.")
     wanted = wanted_tokens(data)
     max_tokens = min(wanted, budget)
+    # A typical search call: one search and its results on top of the answer.
+    typical_search = 0
+    if uses:
+        from app.services import chat_tools
+
+        typical_search = chat_tools.search_fee_krw(price, model.web_search_usd_per_call, 1) + price.krw(
+            chat_tools.SEARCH_RESULT_RESERVE_TOKENS, 0
+        )
     return Estimate(
-        typical_krw=max(1, price.krw(input_estimate, min(max_tokens, TYPICAL_OUTPUT_TOKENS))),
-        max_krw=min(CALL_CAP_KRW, price.worst_case_krw(input_estimate, max_tokens)),
+        typical_krw=max(1, price.krw(input_estimate, min(max_tokens, TYPICAL_OUTPUT_TOKENS)) + typical_search),
+        max_krw=min(CALL_CAP_KRW, price.worst_case_krw(input_estimate, max_tokens) + search_extra),
         model=label,
     )
 
@@ -495,6 +552,8 @@ class Tally:
     input_tokens: int = 0
     output_tokens: int = 0
     stop_reason: str = ""
+    #: Searches the provider billed (app-ai-web-search).
+    web_search_count: int = 0
 
 
 async def run(provider: Any, prepared: Prepared) -> AsyncIterator[tuple[str, Any]]:
@@ -512,6 +571,7 @@ async def run(provider: Any, prepared: Prepared) -> AsyncIterator[tuple[str, Any
     if last_usage is not None:
         tally.input_tokens = last_usage.input_tokens + last_usage.cache_write_tokens + last_usage.cache_read_tokens
         tally.output_tokens = last_usage.output_tokens
+        tally.web_search_count = last_usage.web_search_count
     yield "done", tally
 
 
@@ -526,11 +586,18 @@ def charge(
     output_tokens: int,
     is_mock: bool,
     preview: bool = False,
+    searches: int = 0,
 ) -> int:
     """One ledger row for the whole call (a JSON retry included). `preview`:
-    the Builder's 미리보기 — the maker's own try, labelled apart."""
+    the Builder's 미리보기 — the maker's own try, labelled apart.
+    `searches`: web searches the provider billed (app-ai-web-search), each
+    at the catalogue's per-search price, on top of the tokens — as Chat."""
+    from app.services import chat_tools
+
     price = prepared.price
-    amount = price.krw(input_tokens, output_tokens)
+    per_search = prepared.model.web_search_usd_per_call
+    fee = chat_tools.search_fee_krw(price, per_search, searches)
+    amount = price.krw(input_tokens, output_tokens) + fee
     result = usage_service.charge(
         db,
         user=user,
@@ -540,11 +607,15 @@ def charge(
         model_id=prepared.model.model_id,
         provider_units=input_tokens + output_tokens,
         provider_unit="tokens",
-        provider_cost=price.usd(input_tokens, output_tokens).quantize(Decimal("0.000001")),
+        provider_cost=(price.usd(input_tokens, output_tokens) + Decimal(searches) * per_search).quantize(
+            Decimal("0.000001")
+        ),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         exchange_rate_krw=price.usd_krw,
-        cost=price.split(input_tokens, output_tokens),
+        cost=price.split(input_tokens, output_tokens).with_tools(Decimal(searches) * per_search),
+        web_search_count=searches or None,
+        tool_fee_krw=fee or None,
         builder_project_id=project.id,
         commit=False,
         cap_to_available=True,
@@ -588,6 +659,7 @@ async def ask(
     prepared = await in_db(prepare, db, settings, user=user, project=project, data=data)
     first_prepared = prepared
     total_in = total_out = 0
+    searches = 0
     messages = prepared.request.messages
     attempt = 0
     while True:
@@ -600,19 +672,20 @@ async def ask(
         except ClaudeError as error:
             if total_in or total_out:
                 await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
-                       input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
+                       input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview, searches=searches)
             await in_db(record_failure, db, error)
             raise AppAIError(str(error), 503, "provider") from error
         assert tally is not None
         total_in += tally.input_tokens
         total_out += tally.output_tokens
+        searches += tally.web_search_count
         if data.schema is None:
             break
         if tally.stop_reason == "max_tokens":
             # Cut at the output limit: asking again would be cut the same
             # way. Say why, and what the app can change.
             charged = await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
-                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
+                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview, searches=searches)
             raise AppAIError(
                 f"AI 답이 길어서 중간에 잘렸어요(최대 {prepared.request.max_tokens:,}토큰). "
                 f"maxTokens를 늘리거나 한 번에 요청하는 양을 줄여 주세요. {charged}원이 쓰였어요.",
@@ -629,7 +702,7 @@ async def ask(
             break
         if attempt >= 2:
             charged = await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
-                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
+                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview, searches=searches)
             raise AppAIError(
                 f"AI 답이 정해 준 JSON 형식에 맞지 않았어요({problem}). {charged}원이 쓰였어요.",
                 502,
@@ -647,17 +720,18 @@ async def ask(
         try:
             # The retry lives inside the first attempt's worst case: the
             # visitor never pays more than the "최대 M원" they were shown.
+            # The retry only fixes the format: it does not search again.
             prepared = await in_db(
-                prepare, db, settings, user=user, project=project, data=data, spent_krw=spent, messages=messages,
+                prepare, db, settings, user=user, project=project, data=replace(data, web_search=False), spent_krw=spent, messages=messages,
                 cap_krw=first_prepared.max_krw,
             )
         except AppAIError:
             await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
-                   input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
+                   input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview, searches=searches)
             raise
 
     charged = await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
-                     input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
+                     input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview, searches=searches)
     return AskResult(
         text=tally.text,
         json=parsed if data.schema is not None else None,

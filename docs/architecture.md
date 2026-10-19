@@ -740,7 +740,13 @@ ctrlai.my (Builder / CtrlAIApps)
   subset) with one automatic retry — unless the answer was cut at its
   output limit, which answers 502 `too_long` (charged once) instead;
   a JSON ask defaults to 4,096 output tokens, plain text to 1,024, at
-  most 8,192 (app-ai-long-answers). Errors carry `{message, code}`. One ledger row per call; Usage shows
+  most 8,192 (app-ai-long-answers). Errors carry `{message, code}`.
+  `webSearch: true` (app-ai-web-search, 2026-10-19) sends Anthropic's
+  server web search (search only, ≤ 3 uses, fewer if the cap is tight;
+  refused with `web_search_off` when the admin has search off for the
+  model): the fee and room for results are reserved inside the cap, the
+  fee is charged per billed search (`web_search_count`, `tool_fee_krw`), and
+  a JSON retry does not search again. One ledger row per call; Usage shows
   "앱 · <앱 이름>", the shell shows "앱 AI · N원 · 내 동아리 지원금에서".
   **Kill switch**: Admin › Community › 앱 › (an app) › 기능 상자 멈추기 (a reason, audited) —
   every `/_ctrlai/v1` call of that app is refused at once.

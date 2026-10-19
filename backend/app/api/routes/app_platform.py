@@ -335,6 +335,8 @@ class AskBody(BaseModel):
     json_schema: dict | None = Field(default=None, alias="json")
     model: str = "fast"
     max_tokens: int | None = Field(default=None, ge=1, le=app_ai.MAX_TOKENS_LIMIT, alias="maxTokens")
+    #: app-ai-web-search: `webSearch: true` in the SDK.
+    web_search: bool = Field(default=False, alias="webSearch")
 
     def as_input(self) -> app_ai.AskInput:
         return app_ai.AskInput(
@@ -344,6 +346,7 @@ class AskBody(BaseModel):
             schema=self.json_schema,
             model=self.model,
             max_tokens=self.max_tokens,
+            web_search=self.web_search,
         )
 
 
@@ -400,7 +403,8 @@ def ai_estimate(
     if call.target.project.sdk_disabled_at is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SDK_OFF)
     data = app_ai.AskInput(
-        prompt=body.prompt, system=body.system, images=[], schema=body.json_schema, model=body.model, max_tokens=body.max_tokens
+        prompt=body.prompt, system=body.system, images=[], schema=body.json_schema, model=body.model,
+        max_tokens=body.max_tokens, web_search=body.web_search,
     )
     try:
         figures = app_ai.estimate(db, settings, data, body.image_count)
@@ -493,6 +497,7 @@ async def ai_stream(
                     output_tokens=tally.output_tokens,
                     is_mock=is_mock,
                     preview=preview,
+                    searches=tally.web_search_count,
                 )
             if failure is not None:
                 app_ai.record_failure(session, failure)
