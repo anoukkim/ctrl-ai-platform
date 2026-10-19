@@ -429,10 +429,17 @@ async def ai_ask(
             preview=call.target.mode == "preview",
         )
     except app_ai.AppAIError as error:
-        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+        raise _ai_error(error) from error
     finally:
         provider_limiter.release()
     return {"text": result.text, "json": result.json, "chargedKrw": result.charged_krw, "model": result.model}
+
+
+def _ai_error(error: app_ai.AppAIError) -> HTTPException:
+    """The sentence, and — when there is one — the code the app can act on
+    (`too_long`, `bad_json`, …): the shell passes it on as `error.code`."""
+    detail = {"message": str(error), "code": error.code} if error.code else str(error)
+    return HTTPException(status_code=error.status_code, detail=detail)
 
 
 def _sse(event: str, data: dict) -> str:

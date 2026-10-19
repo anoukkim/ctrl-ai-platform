@@ -50,7 +50,16 @@ from app.services.quarters import current_quarter, membership_for
 CALL_CAP_KRW = 1000
 #: Output tokens when the app does not say.
 DEFAULT_MAX_TOKENS = 1024
-MAX_TOKENS_LIMIT = 4096
+#: app-ai-long-answers (2026-10-19): a JSON answer is often a list, and a
+#: cut one is useless — Film Atlas's 20 films in Korean ran past 1,024.
+DEFAULT_JSON_MAX_TOKENS = 4096
+MAX_TOKENS_LIMIT = 8192
+
+
+def wanted_tokens(data: "AskInput") -> int:
+    """What the app asked for, or the default for its kind of answer."""
+    default = DEFAULT_JSON_MAX_TOKENS if data.schema is not None else DEFAULT_MAX_TOKENS
+    return min(max(1, int(data.max_tokens or default)), MAX_TOKENS_LIMIT)
 MAX_PROMPT_CHARS = 20_000
 MAX_SYSTEM_CHARS = 8_000
 MAX_IMAGES = 4
@@ -423,7 +432,7 @@ def prepare(
         if spent_krw:
             raise AppAIError("AI 답이 JSON 형식에 맞지 않았고, 다시 물어볼 비용이 남지 않았어요.", 502, "bad_json")
         raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW:,}원)에 닿아요. 줄여서 다시 보내 주세요.")
-    wanted = min(max(1, int(data.max_tokens or DEFAULT_MAX_TOKENS)), MAX_TOKENS_LIMIT)
+    wanted = wanted_tokens(data)
     max_tokens = min(wanted, budget)
     worst_case = price.worst_case_krw(input_estimate, max_tokens)
     # A retry may spend only what the first attempt's figure left.
@@ -467,7 +476,7 @@ def estimate(db: Session, settings: Settings, data: AskInput, image_count: int) 
     budget = chat_limits.output_budget(price, CALL_CAP_KRW, input_estimate)
     if budget < 1:
         raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW:,}원)에 닿아요. 줄여서 다시 보내 주세요.")
-    wanted = min(max(1, int(data.max_tokens or DEFAULT_MAX_TOKENS)), MAX_TOKENS_LIMIT)
+    wanted = wanted_tokens(data)
     max_tokens = min(wanted, budget)
     return Estimate(
         typical_krw=max(1, price.krw(input_estimate, min(max_tokens, TYPICAL_OUTPUT_TOKENS))),
@@ -586,6 +595,17 @@ async def ask(
         total_out += tally.output_tokens
         if data.schema is None:
             break
+        if tally.stop_reason == "max_tokens":
+            # Cut at the output limit: asking again would be cut the same
+            # way. Say why, and what the app can change.
+            charged = charge(db, settings, user=user, project=project, prepared=first_prepared,
+                             input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview)
+            raise AppAIError(
+                f"AI 답이 길어서 중간에 잘렸어요(최대 {prepared.request.max_tokens:,}토큰). "
+                f"maxTokens를 늘리거나 한 번에 요청하는 양을 줄여 주세요. {charged}원이 쓰였어요.",
+                502,
+                "too_long",
+            )
         problem: str | None
         try:
             parsed = parse_json(tally.text)

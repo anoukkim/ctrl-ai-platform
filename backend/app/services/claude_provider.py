@@ -603,7 +603,11 @@ draws; pass `images` as a count when the photo is not picked yet) — or, \
 without it, about 10 for "fast" and 30 for "smart", 최대 1,000원. A call \
 with the same options never costs more than maxKrw. After the call show \
 the real `chargedKrw`. Keep prompts short; use \
-`json` with a schema when the app needs structured data; say in Korean \
+`json` with a schema when the app needs structured data; an answer is \
+at most `maxTokens` long (1,024 by default, 4,096 with `json`, up to \
+8,192) — for a long list or long text pass a bigger `maxTokens` (about \
+150 per item in Korean), or ask for fewer items, and handle \
+`error.code === "too_long"` (the answer was cut); say in Korean \
 when a call fails.
   · Every AI feature also has a **demo path**: when `window.ctrlai` is \
 missing, the visitor is signed out (`user()` is null or a call fails \
