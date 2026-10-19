@@ -213,6 +213,8 @@ export function PlanCard({
   progressInHeader = false,
 }: PlanCardProps) {
   const resumable = generation.status === "partial" || generation.status === "failed";
+  // builder-answer-only: Claude answered a question and suggests this change.
+  const suggestion = Boolean(generation.answer) && !resumable;
   // owner-polish 14: how long the current step has been running, and a
   // thin n / m bar — 20~60초 동안 아무것도 움직이지 않던 자리입니다.
   const [stepSince, setStepSince] = useState(() => Date.now());
@@ -239,7 +241,15 @@ export function PlanCard({
       : "";
   return (
     <section className={styles.plan} aria-label="만들 계획" data-testid="plan-card">
-      <p className={styles.title}>{generation.kind === "create" ? "만들 계획" : "바꿀 계획"}</p>
+      {suggestion && !running && (
+        <div className={styles.answer} data-testid="plan-answer">
+          <p className={styles.title}>Claude의 답</p>
+          <p className={styles.answerText}>{generation.answer}</p>
+        </div>
+      )}
+      <p className={styles.title}>
+        {generation.kind === "create" ? "만들 계획" : suggestion && !running ? "이렇게 바꿀 수 있어요" : "바꿀 계획"}
+      </p>
       {generation.summary && <p className={styles.text}>{generation.summary}</p>}
       {(running || done > 0) && total > 0 && !progressInHeader && (
         <div className={styles.progress} data-testid="plan-progress">
@@ -361,11 +371,11 @@ export function PlanCard({
       {!running && (
         <div className={styles.actions}>
           <button className="btn btn-primary btn-sm" type="button" onClick={onStart} disabled={disabled}>
-            {resumable ? "이어서 만들기" : "시작"}
+            {resumable ? "이어서 만들기" : suggestion ? "적용하기" : "시작"}
             {estimate}
           </button>
           <button className={styles.link} type="button" onClick={onCancel} disabled={disabled}>
-            {resumable ? "처음부터 다시" : "다시 계획"}
+            {resumable ? "처음부터 다시" : suggestion ? "괜찮아요" : "다시 계획"}
           </button>
         </div>
       )}

@@ -590,12 +590,24 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
       if (files !== null && files.length > 0) setThread((list) => [...list, { role: "member", text: input.request }]);
       try {
         const plan = await planGeneration(projectId, input);
-        setGeneration(plan);
         // The plan took the waiting pictures for this run.
         referencesRef.current?.reload();
         void refreshWallet();
-        reportCharge({ chargedKrw: plan.charged_krw, label: "빌더 · 계획" });
+        reportCharge({ chargedKrw: plan.charged_krw, label: plan.answer ? "빌더 · 질문" : "빌더 · 계획" });
         logActivity("✓ 요청 이해 완료");
+        if (plan.answer) {
+          // builder-answer-only: a question is answered, never built. With a
+          // suggested change the plan card waits for 적용하기; without one
+          // the answer joins the thread and any open run stays as it was.
+          setAsk("");
+          if (plan.status === "answered") {
+            setThread((list) => [...list, { role: "claude", text: plan.answer ?? "" }]);
+          } else {
+            setGeneration(plan);
+          }
+          return;
+        }
+        setGeneration(plan);
         if (plan.kind === "edit") {
           continues = true;
           setPlanning(false);
@@ -625,6 +637,16 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
     }
     setGeneration(null);
     setProgress(NO_PROGRESS);
+    if (generation.answer) {
+      // builder-answer-only: 괜찮아요 keeps the answer in the conversation,
+      // and an unfinished run the suggestion stood in front of comes back.
+      setThread((list) => [...list, { role: "claude", text: generation.answer ?? "" }]);
+      getOpenGeneration(projectId)
+        .then((open) => {
+          if (open) setGeneration(open);
+        })
+        .catch(() => undefined);
+    }
   }, [generation, projectId]);
 
   // 게시 / 업데이트 게시 (ctrlaiapps-publish). 무료 — 고른 버전을 올릴 뿐.
@@ -1710,7 +1732,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                     key={index}
                   >
                     <span className={ws.chatRole}>{message.role === "member" ? "나" : "Claude"}</span>
-                    {message.text}
+                    <span className={styles.threadText}>{message.text}</span>
                   </div>
                 ))}
                 {generating && (

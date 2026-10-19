@@ -397,9 +397,12 @@ class GenerationRead(BaseModel):
     request: str
     style: str
     summary: str
+    #: builder-answer-only: Claude's reply when the member asked a question
+    #: (empty for a change). With a plan, 적용하기 runs it.
+    answer: str = ""
     plan: list[PlanStep]
     files_done: list[str]
-    #: planned · running · partial · failed · done · cancelled
+    #: planned · running · partial · failed · done · cancelled · answered
     status: str
     check_summary: str
     check_fixed: list[str]
