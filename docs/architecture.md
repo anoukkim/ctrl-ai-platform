@@ -717,7 +717,7 @@ ctrlai.my (Builder / CtrlAIApps)
   `ctrlai.my/apps/connect?app=…&state=…` in a new window (if the browser
   blocks it, the shell shows "CTRL+AI 회원만 쓸 수 있어요" + 로그인). The
   consent page (site session) shows the app, its maker, what it may do and
-  "1회 약 N원 (최대 200원)"; 허용 → `POST /api/app-connect/<slug>` records
+  "1회 약 N원 (최대 1,000원)"; 허용 → `POST /api/app-connect/<slug>` records
   an `AppConsent` (audited) and a one-time `AppLoginCode` (60 s, hash
   only) → the window goes to `apps.<domain>/<slug>/_ctrlai/callback`, which
   spends the code only with the matching state cookie and sets
@@ -732,12 +732,15 @@ ctrlai.my (Builder / CtrlAIApps)
   `builder_project_id` = the app); they must have allowed "ai" and be an
   active member this quarter. "fast"/"smart" map to the members' Haiku /
   Sonnet catalogue rows; per visitor 10 and per app 60 calls a minute;
-  the per-call cap (200원) is worked out as `max_tokens` (a JSON retry
+  the per-call cap (`CALL_CAP_KRW`, 1,000원 since 2026-10-19) is worked out as `max_tokens` (a JSON retry
   shares it); the visitor's app-AI day cap (`chat_limits.app_ai_daily_cap_krw`,
   2,000원 by default, Admin › Models › 한도, audited, 0 = off), then the wallet;
   images ≤ 5 MB (4 at most), re-encoded like Chat's; our safety preamble
   comes before the app's system prompt; a JSON Schema is checked (a safe
-  subset) with one automatic retry. One ledger row per call; Usage shows
+  subset) with one automatic retry — unless the answer was cut at its
+  output limit, which answers 502 `too_long` (charged once) instead;
+  a JSON ask defaults to 4,096 output tokens, plain text to 1,024, at
+  most 8,192 (app-ai-long-answers). Errors carry `{message, code}`. One ledger row per call; Usage shows
   "앱 · <앱 이름>", the shell shows "앱 AI · N원 · 내 동아리 지원금에서".
   **Kill switch**: Admin › Community › 앱 › (an app) › 기능 상자 멈추기 (a reason, audited) —
   every `/_ctrlai/v1` call of that app is refused at once.
@@ -787,7 +790,7 @@ ctrlai.my (Builder / CtrlAIApps)
   nothing secret), ships in the ZIP, and taking an entry out never
   deletes a list. **The Builder knows the SDK**: one `_SDK_RULES` block in
   the starter, edit and staged prompts (`claude_provider.py`) — storage,
-  sign-in, `ctrlai.ai` only from a button with "1회 약 N원 · 최대 200원"
+  sign-in, `ctrlai.ai` only from a button with "1회 약 N원 · 최대 1,000원"
   beside it and a demo answer marked "데모" when signed out or outside
   CTRL+AI, `ctrlai.db` with `ctrlai.json`; the self-check looks for an
   undeclared list and AI on page load. **Templates**
@@ -1022,3 +1025,25 @@ processes, so everything a second page needs goes through the database:
 - **The running dots** read `GET /api/chat/running` every 5 s (and on
   focus) and merge it with what the page itself started (`lib/running`).
 
+
+
+## Builder runs — answers, parts, sessions (2026-10-19)
+
+- **builder-answer-only**: the plan call (`PLAN_SCHEMA`) returns `kind`
+  ("change" | "question") and `answer`. A question with no suggested change
+  is stored as `builder_generations.status = "answered"` with `answer` and
+  never runs; with one it is `planned` and runs on 적용하기. Plans on an
+  existing app get 8,192 output tokens (a new app's plan keeps 4,096).
+- **builder-file-continue**: a staged file is written with the
+  `write_file_part` tool, one request per call. A reply cut at
+  `max_tokens` drops its last (cut) block, keeps the whole parts, charges
+  them and stores the file so far in `builder_generations.partial_file`;
+  the next call gets the beginning and writes on (up to
+  `MAX_CALLS_PER_FILE` = 6 a run). A whole `ctrlai.json` from a cut call is
+  held there and saved with the file.
+- **Streams release the request session**: every `StreamingResponse` route
+  calls `release_before_stream` first (FastAPI closes a dependency's
+  session only after the stream), so no read lock or pool connection is
+  held for the length of a run (fix-stream-db-sessions; a test checks every
+  route). Migrations set `lock_timeout` (5s, `MIGRATION_LOCK_TIMEOUT`) and
+  `deploy/update.sh` retries them for about five minutes.

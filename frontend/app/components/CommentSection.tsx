@@ -758,8 +758,8 @@ function insertReply(comments: Comment[], parentId: string, reply: Comment): Com
  * 댓글을 쓰는 사람 — 지금 로그인한 회원.
  *
  * 이름은 계정에서, 회원 상태는 이번 분기 참여 기록에서 옵니다. 참여
- * 기록이 없으면 "이번 분기에 참여하지 않음"이므로 비활동으로 봅니다.
- * 꼬리표는 사실을 보여 주는 자리라 모를 때 활동 회원으로 적지 않습니다.
+ * 기록이 없으면 "이번 분기에 참여하지 않음"이므로 참여 중으로 적지 않습니다.
+ * 꼬리표는 사실을 보여 주는 자리라 모를 때 참여 중으로 적지 않습니다.
  */
 export function useMe(): Creator {
   const { state: userState } = useCurrentUser();

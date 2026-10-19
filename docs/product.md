@@ -84,7 +84,7 @@ disabled, so the shell is never mistaken for working functionality.
 | `/usage`              | Usage           | The one 동아리 지원 wallet, in KRW (개인 잔액 hidden while top-ups are off) |
 | `/profile`            | Profile         | Quarter participation, application, accounts, 회원 탈퇴 |
 | `/admin`              | Dashboard       | 처리할 일 (only what has a count: 참여 신청 승인 대기, 열린 신고), **알림** (automatic: a member past 80% of their wallet, the Anthropic month budget, the thumbnail server, a failing provider, the attachment disk) and **이번 주 가장 많이 쓴 곳** (admin-consolidation v3) |
-| `/admin/members`      | Members         | One list: chips 전체 · 승인 대기 · 활동 · 미참여 · 초대 코드, a 사용률 column (amber at the 알림 기준's wallet share, 80% by default), 승인/거절 in the row; a row opens the **member panel** on the right (`?member=`) with every action — 지원금 ± 조정, 참여 상태, 역할, **비밀번호 재설정** (a temporary password shown once; the account is signed out of the site and every member app and its lockout lifts; the admin must have signed in within 10 minutes; audited without the password; not for the admin's own account, another admin or a 탈퇴 account), 탈퇴 — **사용 내역** (사용 · 사용률 · 남음 · 호출 · 소진 예상, by feature, by model with tokens, recent calls; club-absorbed calls left out) and **지운 작업** (복구 / 완전히 삭제) |
+| `/admin/members`      | Members         | One list: chips 전체 · 승인 대기 · 참여 중 · 미참여 · 초대 코드, a 사용률 column (amber at the 알림 기준's wallet share, 80% by default), 승인/거절 in the row; a row opens the **member panel** on the right (`?member=`) with every action — 지원금 ± 조정, 참여 상태, 역할, **비밀번호 재설정** (a temporary password shown once; the account is signed out of the site and every member app and its lockout lifts; the admin must have signed in within 10 minutes; audited without the password; not for the admin's own account, another admin or a 탈퇴 account), 탈퇴 — **사용 내역** (사용 · 사용률 · 남음 · 호출 · 소진 예상, by feature, by model with tokens, recent calls; club-absorbed calls left out) and **지운 작업** (복구 / 완전히 삭제) |
 | `/admin/members/[id]` | Member detail   | Participation history, wallet, audit trail   |
 | `/admin/quarters`     | Quarters        | Tabs **분기 · 예산** — the quarter list, **돈의 흐름** (credit bought → 회원이 쓴 돈 · 줬지만 안 쓴 돈 · 여유분, what the reserve paid for, the end-of-quarter forecast; `GET /api/admin/quarters/{id}/money-flow`) and **분기 마감** in five steps (신청 마감 → 정산 확인 → 휴지통 비우기 → 앱 보관 → 다음 분기 열기, driving the existing 분기 마감) — and **사용 분석** (`?tab=budget`): 원가 (USD and its won) and 청구 side by side — per provider with the credit left and when it runs out at the last two weeks' pace, cache savings, by feature, by model, the top 5 apps and members, the last 30 days with the end-of-quarter forecast — then folds for 크레딧 구매 기록, 캐시, 대조 and CSV exports, including **Concur** (the quarter's credit purchases as expense lines) |
 | `/admin/models`       | Models          | Tabs Chat (with 이번 분기 사용 per model) · Video · 한도 (채팅 한도, from System) · 보정 (비용 보정) |
@@ -144,6 +144,21 @@ failed or cut-off generation is free. The preview runs `index.html` with
 its CSS and JS inlined in an `<iframe srcdoc sandbox="allow-scripts">`
 behind a CSP that blocks all network — never on the backend. Files are
 read-only in the editor; Claude changes them (below).
+
+**Builder questions** (builder-answer-only, 2026-10-19). A message that
+asks rather than asks for a change ("검색은 어디서 해?", "빌드하지 말고 답만
+해", or a problem report without "고쳐 줘") is answered, not built: the
+plan call returns Claude's answer (charged as the plan only). With a
+suggested change the answer sits above "이렇게 바꿀 수 있어요" and runs only
+on **적용하기**; 괜찮아요 keeps the answer in the conversation. A new app
+is always built; a polite request ("해 줄래?") is a change.
+
+**Long files continue** (builder-file-continue, 2026-10-19). A file is
+written in parts; when a call is cut at its output limit, the parts that
+arrived whole are kept and charged, and the next call writes on after
+them — up to six calls in a run, then **이어서 만들기** carries on from the
+same place. A call cut before one whole part is free and says the per-call
+cap (생각 깊이) is the cause.
 
 **Project Builder — 만들기 / 고치기 in stages** (quality-tuning Q2,
 2026-10-15). An empty project opens a short **start form** — 만들고 싶은 앱
@@ -249,9 +264,9 @@ An app keeps data with **`ctrlai.storage`** (and its old `localStorage`
 keeps working): per app, per visitor, about 1 MB, signed out too — one
 app can no longer read another's. **Since P2** an app can ask a visitor
 to sign in with CTRL+AI (a consent window on ctrlai.my: the app, its maker,
-"이 앱이 할 수 있는 일", "1회 약 N원 (최대 200원)", [허용] [거절]) and then
+"이 앱이 할 수 있는 일", "1회 약 N원 (최대 1,000원)", [허용] [거절]) and then
 use **`ctrlai.ai`** — Claude, paid by the **visitor** from their own 동아리
-지원, at most 200원 a call and 2,000원 a day across apps (an admin setting),
+지원, at most 1,000원 a call (200원 until 2026-10-19) and 2,000원 a day across apps (an admin setting),
 only for members taking part this quarter. The app sees a display name and
 a per-app id, never the email, username or balance. Profile › 연결된 앱
 disconnects; Usage lists each call as "앱 · <앱 이름>"; Admin › Community ›
@@ -1009,7 +1024,7 @@ its own screen needs:
 | CtrlAIApps | app name, description, creator | category, sort |
 | CtrlAITube | title, description, creator | creator, sort |
 | Admin — header search (⌘K) | member username or display name, app name | — |
-| Admin — Members | name, username | chips 전체 · 승인 대기 · 활동 · 미참여 · 초대 코드, sort |
+| Admin — Members | name, username | chips 전체 · 승인 대기 · 참여 중 · 미참여 · 초대 코드, sort |
 | Admin — Top-ups (hidden while top-ups are off) | member name, username | top-up status |
 | Admin — System › 감사 기록 | summary, admin, action, target | action |
 | Admin — Models › Video | model name, provider, model id | — |
