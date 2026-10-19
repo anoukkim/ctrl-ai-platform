@@ -114,7 +114,7 @@ def test_the_consent_screen_needs_the_site_session_and_tells_what_the_app_may_do
     info = client.get(f"/api/app-connect/{shop.app_slug}").json()
     assert info["name"] == "영수증 읽기" and info["owner_name"] == "Other Member"
     assert [scope["key"] for scope in info["scopes"]] == ["profile", "ai", "data"]
-    assert info["call_cap_krw"] == 200 and info["connected"] is False
+    assert info["call_cap_krw"] == app_ai.CALL_CAP_KRW == 1000 and info["connected"] is False
     assert client.get("/api/app-connect/zzzzzzzzzz").status_code == 404
 
 

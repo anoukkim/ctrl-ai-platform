@@ -165,7 +165,7 @@ export default function AppDetailView({ projectId }: { projectId: number }) {
               <Fact label="연결 동의" value={app.consents > 0 ? `${app.consents}명` : "없음"} mono />
             </div>
             <p className="small muted" style={{ marginTop: "0.6rem" }}>
-              방문자의 AI는 각자의 동아리 지원금에서, 미리보기는 만든 사람의 지원금에서 나갔어요. 1회 상한 200원, 하루 상한은 System의 설정을 따릅니다.
+              방문자의 AI는 각자의 동아리 지원금에서, 미리보기는 만든 사람의 지원금에서 나갔어요. 1회 상한 1,000원, 하루 상한은 System의 설정을 따릅니다.
             </p>
           </section>
 

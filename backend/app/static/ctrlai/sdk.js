@@ -28,7 +28,7 @@
  *   ctrlai.ai.estimate(options)        → Promise<{ typicalKrw, maxKrw, model }>  (free, signed out too)
  *   ctrlai.ai.mode()                   → Promise<"live" | "demo">
  *
- * AI is paid by the visitor from their own 동아리 지원 (at most 200원 a call).
+ * AI is paid by the visitor from their own 동아리 지원 (at most 1,000원 a call).
  * `json` is a JSON Schema; the answer comes back parsed and checked.
  * `model` is "fast" (default) or "smart". `images` are data URLs, 5 MB each.
  *
