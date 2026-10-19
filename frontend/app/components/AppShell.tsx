@@ -62,8 +62,8 @@ import { useSite, useSiteLoaded } from "./SiteProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 
 import {
-  MEMBERSHIP_BADGE,
-  MEMBERSHIP_LABEL,
+  membershipBadge,
+  membershipLabel,
   formatDate,
   formatKrw,
   walletSentence,
@@ -657,7 +657,8 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
   if (state.phase !== "ready" || state.quarter.quarter === null) return null;
 
   const { quarter, allocation, days_remaining, membership_status } = state.quarter;
-  const status = membership_status ?? "inactive";
+  // membership-wording: no row this quarter is 미참여, not 참여 중지.
+  const status = membership_status;
 
   // 지갑은 하나입니다(single-wallet). 채팅도 영상도 같은 잔액에서 씁니다.
   const percent =
@@ -677,7 +678,7 @@ function MemberStatus({ onNavigate }: { onNavigate: () => void }) {
           {quarter.display_name}
           {days_remaining !== null && <span className={styles.memberDday}>D-{days_remaining}</span>}
         </span>
-        <span className={`badge ${MEMBERSHIP_BADGE[status]}`}>{MEMBERSHIP_LABEL[status]}</span>
+        <span className={`badge ${membershipBadge(status)}`}>{membershipLabel(status)}</span>
       </div>
 
       <div className={styles.memberRange}>

@@ -29,7 +29,7 @@ from app.db.base import Base, TimestampMixin, status_enum
 class MembershipStatus(str, enum.Enum):
     """Participation in one quarter.
 
-    Korean labels (활동 회원 / 비활동 회원 / 탈퇴 회원) live in the frontend;
+    Korean labels (참여 중 / 참여 중지 / 탈퇴 회원; no row = 미참여) live in the frontend;
     the database stores the English value.
     """
 

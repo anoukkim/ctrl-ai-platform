@@ -546,6 +546,53 @@ def list_quarter_members(
     return result
 
 
+def _grant_wallet(db: Session, *, admin: User, member: User, quarter: Quarter) -> int:
+    """membership-wording (owner, 2026-10-19): 참여 등록 gives the member the
+    quarter's 동아리 지원, exactly as approving their application would —
+    before, it made them 참여 중 with no wallet, so nothing they pressed
+    could be paid for.
+
+    Only when they have no wallet this quarter (참여 중지 → 참여 등록 gives
+    the old one back untouched) and the quarter is not closed. A waiting
+    application is approved with it. Returns the won granted (0 for none).
+    Does not commit.
+    """
+    if quarter.status is QuarterStatus.CLOSED:
+        return 0
+    existing = db.scalar(
+        select(QuarterAllocation).where(
+            QuarterAllocation.user_id == member.id, QuarterAllocation.quarter_id == quarter.id
+        )
+    )
+    if existing is not None:
+        return 0
+    application = db.scalar(
+        select(QuarterApplication).where(
+            QuarterApplication.user_id == member.id, QuarterApplication.quarter_id == quarter.id
+        )
+    )
+    now = datetime.now(timezone.utc)
+    if application is not None and application.status is ApplicationStatus.SUBMITTED:
+        application.status = ApplicationStatus.APPROVED
+        application.reviewed_at = now
+        application.reviewed_by = admin.id
+        application.admin_note = application.admin_note or "참여 등록"
+    amount = quarter.subsidy_limit_krw
+    allocation = QuarterAllocation(
+        user_id=member.id,
+        quarter_id=quarter.id,
+        application_id=application.id if application is not None and application.status is ApplicationStatus.APPROVED else None,
+        budget_krw=amount,
+        approved_at=now,
+        approved_by=admin.id,
+        pricing_snapshot={"captured_at": now.isoformat()},
+    )
+    db.add(allocation)
+    db.flush()
+    carried = accounting.apply_carry_over(db, admin=admin, allocation=allocation)
+    return amount + carried
+
+
 @router.put(
     "/quarters/{quarter_id}/members/{user_id}",
     response_model=MemberWithMembership,
@@ -580,6 +627,7 @@ def set_quarter_membership(
     if member is None:
         raise HTTPException(status_code=404, detail="회원을 찾을 수 없습니다.")
 
+    granted = 0
     if payload.status is MembershipStatus.FORMER:
         if member.id == _.id:
             raise HTTPException(
@@ -607,6 +655,8 @@ def set_quarter_membership(
         if member.account_status is AccountStatus.FORMER:
             # Bringing a former member back re-opens the account.
             member.account_status = AccountStatus.ACTIVE
+        if payload.status is MembershipStatus.ACTIVE:
+            granted = _grant_wallet(db, admin=_, member=member, quarter=quarter)
 
     audit.record(
         db,
@@ -618,8 +668,9 @@ def set_quarter_membership(
         summary=(
             f"{member.display_name}의 {quarter.display_name} 참여 상태를 "
             f"{payload.status.value}(으)로 바꿨습니다."
+            + (f" 동아리 지원 {granted:,}원을 배정했습니다." if granted else "")
         ),
-        detail={"quarter": quarter.code, "status": payload.status.value},
+        detail={"quarter": quarter.code, "status": payload.status.value, "granted_krw": granted},
     )
 
     db.commit()

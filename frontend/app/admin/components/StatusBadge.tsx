@@ -21,6 +21,7 @@ import {
   APPLICATION_STATUS_LABEL,
   MEMBERSHIP_BADGE,
   MEMBERSHIP_LABEL,
+  NO_MEMBERSHIP_LABEL,
   QUARTER_STATUS_BADGE,
   QUARTER_STATUS_LABEL,
   type ApplicationStatus,
@@ -37,9 +38,9 @@ export function AccountBadge({ status }: { status: AccountStatus }) {
   );
 }
 
-/** 참여 기록이 없으면(`null`) "미참여"입니다 — 비활동과 다릅니다. */
+/** 참여 기록이 없으면(`null`) "미참여"입니다 — 참여 중지와 다릅니다. */
 export function MembershipBadge({ status }: { status: MembershipStatus | null }) {
-  if (status === null) return <span className="badge badge-mock">미참여</span>;
+  if (status === null) return <span className="badge badge-mock">{NO_MEMBERSHIP_LABEL}</span>;
   return <span className={`badge ${MEMBERSHIP_BADGE[status]}`}>{MEMBERSHIP_LABEL[status]}</span>;
 }
 

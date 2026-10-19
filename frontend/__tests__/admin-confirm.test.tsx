@@ -131,7 +131,7 @@ describe("회원 목록의 참여 상태 변경", () => {
     await screen.findByText("김유리");
 
     await user.click(screen.getByRole("button", { name: "관리 ▾" }));
-    await user.click(screen.getByRole("menuitem", { name: "비활동으로" }));
+    await user.click(screen.getByRole("menuitem", { name: "참여 중지" }));
 
     // 확인창이 떴고,
     const dialog = await screen.findByRole("dialog");
@@ -163,10 +163,10 @@ describe("회원 목록의 참여 상태 변경", () => {
     await screen.findByText("김유리");
 
     await user.click(screen.getByRole("button", { name: "관리 ▾" }));
-    await user.click(screen.getByRole("menuitem", { name: "비활동으로" }));
+    await user.click(screen.getByRole("menuitem", { name: "참여 중지" }));
     await screen.findByRole("dialog");
 
-    await user.click(screen.getByRole("button", { name: "비활동으로" }));
+    await user.click(screen.getByRole("button", { name: "참여 중지" }));
 
     await waitFor(() => {
       expect(setQuarterMembership).toHaveBeenCalledWith(QUARTER.id, MEMBER.user_id, "inactive");
@@ -174,7 +174,7 @@ describe("회원 목록의 참여 상태 변경", () => {
 
     // 조용히 성공하면 아무 일도 없었던 화면과 구분되지 않습니다.
     const status = await screen.findByRole("status");
-    expect(status.textContent).toContain("비활동");
+    expect(status.textContent).toContain("참여 중지");
   });
 
   test("취소를 누르면 아무것도 바뀌지 않고 창이 닫힌다", async () => {
@@ -183,7 +183,7 @@ describe("회원 목록의 참여 상태 변경", () => {
     await screen.findByText("김유리");
 
     await user.click(screen.getByRole("button", { name: "관리 ▾" }));
-    await user.click(screen.getByRole("menuitem", { name: "비활동으로" }));
+    await user.click(screen.getByRole("menuitem", { name: "참여 중지" }));
     await screen.findByRole("dialog");
 
     await user.click(screen.getByRole("button", { name: "취소" }));

@@ -18,13 +18,14 @@ import { useSpendFeedback } from "@/app/components/SpendFeedbackProvider";
 import { describeError } from "@/lib/http";
 import { useMyQuarter } from "@/app/components/MyQuarterProvider";
 import { updateDisplayName, type AccountStatus, type UserRole } from "@/lib/auth";
-import { MEMBERSHIP_BADGE, MEMBERSHIP_LABEL } from "@/lib/quarters";
+import { membershipBadge, membershipLabel } from "@/lib/quarters";
 
 import styles from "./profile.module.css";
 
+/** 계정 — 로그인할 수 있는가. 이번 분기 참여(참여 중 · 미참여)와는 다른 말. */
 const STATUS_LABEL: Record<AccountStatus, string> = {
-  active: "활동 회원",
-  inactive: "비활동 회원",
+  active: "사용 가능",
+  inactive: "사용 중지",
   former: "탈퇴 회원",
 };
 
@@ -54,9 +55,9 @@ export function Identity() {
           {/* 이번 분기 참여 상태. 계정 상태(아래 계정 설정)와는 다른 값입니다. */}
           {quarterState.phase === "ready" && quarterState.quarter.quarter !== null && (
             <span
-              className={`badge ${MEMBERSHIP_BADGE[quarterState.quarter.membership_status ?? "inactive"]}`}
+              className={`badge ${membershipBadge(quarterState.quarter.membership_status)}`}
             >
-              {MEMBERSHIP_LABEL[quarterState.quarter.membership_status ?? "inactive"]}
+              {membershipLabel(quarterState.quarter.membership_status)}
             </span>
           )}
           {quarterState.phase === "ready" && quarterState.quarter.quarter !== null && (

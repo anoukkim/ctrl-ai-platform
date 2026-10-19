@@ -111,18 +111,33 @@ export interface TopUp {
 /** 이번 분기 참여 상태. 백엔드의 MembershipStatus와 짝을 이룹니다. */
 export type MembershipStatus = "active" | "inactive" | "former";
 
-/** 화면에 보여 줄 한국어 표기. */
+/**
+ * 화면에 보여 줄 한국어 표기 — 이번 분기 참여 (membership-wording, 2026-10-19).
+ * 미참여 → 승인 대기 → 참여 중 → (관리자가 멈추면) 참여 중지. 회원 화면도
+ * 관리자 화면도 이 말만 씁니다. 로그인할 수 있는지(계정)는 다른 말이에요.
+ */
 export const MEMBERSHIP_LABEL: Record<MembershipStatus, string> = {
-  active: "활동 회원",
-  inactive: "비활동 회원",
+  active: "참여 중",
+  inactive: "참여 중지",
   former: "탈퇴 회원",
 };
+
+/** 이번 분기 참여 기록이 없을 때. 참여 중지와 다릅니다. */
+export const NO_MEMBERSHIP_LABEL = "미참여";
+
+export function membershipLabel(status: MembershipStatus | null): string {
+  return status ? MEMBERSHIP_LABEL[status] : NO_MEMBERSHIP_LABEL;
+}
 
 export const MEMBERSHIP_BADGE: Record<MembershipStatus, string> = {
   active: "badge-ok",
   inactive: "badge-warn",
   former: "badge-muted",
 };
+
+export function membershipBadge(status: MembershipStatus | null): string {
+  return status ? MEMBERSHIP_BADGE[status] : "badge-muted";
+}
 
 /**
  * 참여하지 않는 회원에게 보여 줄 설명. 백엔드 403 문구와 뜻을 맞춥니다.
@@ -143,7 +158,7 @@ export interface MyQuarterStatus {
   application: QuarterApplication | null;
   allocation: QuarterAllocation | null;
   personal: PersonalBalance | null;
-  /** 신청 가능 / 승인 대기 / 활동 회원 / 미참여 / 신청 거절 */
+  /** 신청 가능 / 승인 대기 / 참여 중 / 참여 중지 / 미참여 / 신청 거절 */
   participation: string;
   days_remaining: number | null;
   /** null이면 이번 분기에 참여 기록이 없다는 뜻입니다. */

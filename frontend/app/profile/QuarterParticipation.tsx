@@ -136,7 +136,7 @@ export default function QuarterParticipation() {
         <span className={styles.seasonName}>{quarter.display_name}</span>
         <span
           className={`badge ${
-            participation === "활동 회원"
+            participation === "참여 중"
               ? "badge-ok"
               : participation === "승인 대기"
                 ? "badge-warn"

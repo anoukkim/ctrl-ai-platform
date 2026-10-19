@@ -17,6 +17,7 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.models import (
     ApplicationStatus,
+    MembershipStatus,
     PersonalBalance,
     PersonalTopUp,
     Quarter,
@@ -65,11 +66,16 @@ def _describe_participation(
     quarter: Quarter | None,
     application: QuarterApplication | None,
     allocation: QuarterAllocation | None,
+    membership_status: MembershipStatus | None = None,
 ) -> str:
+    """membership-wording (2026-10-19): 미참여 · 신청 가능 · 승인 대기 ·
+    신청 거절 · 참여 중 · 참여 중지 — the same words as every other screen."""
     if quarter is None:
         return "미참여"
+    if membership_status is MembershipStatus.INACTIVE:
+        return "참여 중지"
     if allocation is not None:
-        return "활동 회원"
+        return "참여 중"
     if application is None:
         return "신청 가능" if quarter.is_accepting_applications else "미참여"
     if application.status is ApplicationStatus.SUBMITTED:
@@ -123,7 +129,9 @@ def read_my_quarter(
         # personal-topup-off: while 개인 충전 is off, members see only the
         # 동아리 지원 wallet — the balance row stays in the database.
         personal=_wallet(db, user) if settings.top_ups_enabled else None,  # type: ignore[arg-type]
-        participation=_describe_participation(quarter, application, allocation),
+        participation=_describe_participation(
+            quarter, application, allocation, membership.status if membership else None
+        ),
         days_remaining=days_remaining,
         membership_status=membership.status if membership else None,
         # Computed once here so the UI does not re-implement the rule.

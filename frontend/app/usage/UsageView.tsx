@@ -27,8 +27,8 @@ import { useSite } from "@/app/components/SiteProvider";
 
 import {
   FUNDING_LABEL,
-  MEMBERSHIP_BADGE,
-  MEMBERSHIP_LABEL,
+  membershipBadge,
+  membershipLabel,
   NOT_PARTICIPATING_HINT,
   SPENDING_LABEL,
   SPENDING_ORDER_NOTE,
@@ -90,7 +90,7 @@ export default function UsageView() {
   }
 
   const usage = state.usage;
-  const status = usage.membership_status ?? "inactive";
+  const status = usage.membership_status;
   const personal = usage.personal;
 
   return (
@@ -102,7 +102,7 @@ export default function UsageView() {
             <p className={styles.seasonName}>{usage.quarter_name}</p>
             {usage.quarter_code && <p className={styles.seasonRange}>{usage.quarter_code}</p>}
           </div>
-          <span className={`badge ${MEMBERSHIP_BADGE[status]}`}>{MEMBERSHIP_LABEL[status]}</span>
+          <span className={`badge ${membershipBadge(status)}`}>{membershipLabel(status)}</span>
           <span className={styles.seasonSpacer} />
           {usage.days_remaining !== null && (
             <span className={styles.seasonDday}>

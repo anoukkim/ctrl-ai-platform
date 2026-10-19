@@ -27,7 +27,7 @@ export default function CtrlAIStorePage() {
              있는 것만 말합니다(ctrlai.storage는 기기에, ctrlai.db는 CTRL+AI에,
              AI는 쓰는 사람의 지원금에서, 데모는 0원). */
           <>
-            회원들이 Project Builder로 만들어 게시한 앱이에요. 앱 안의 AI는 로그인한 활동 회원이 버튼을
+            회원들이 Project Builder로 만들어 게시한 앱이에요. 앱 안의 AI는 로그인한 참여 중인 회원이 버튼을
             누를 때만 자기 이번 분기 지원금에서 나가고, 「데모」인 앱은 AI를 부르지 않고 미리 준비한
             답을 보여 줘요. 게시판·투표처럼 앱이 CTRL+AI에 저장하는 글은 다른 기기에서도 보이고, 앱이
             기기에만 저장하는 것은 그 브라우저에만 남아요.{" "}

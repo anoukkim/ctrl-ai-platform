@@ -898,11 +898,22 @@ provider is involved.
 
 A member who stops participating does not lose their published work:
 
+One set of words on every screen, member and admin alike
+(membership-wording, owner, 2026-10-19):
+
 | Status      | UI label   | Meaning                                                        |
 | ----------- | ---------- | -------------------------------------------------------------- |
-| `active`    | 활동 회원   | Participating this quarter; can use paid creation features      |
-| `inactive`  | 비활동 회원 | Account exists, not enrolled this quarter; work is preserved    |
+| (no row)    | 미참여      | Not taking part this quarter (never applied or enrolled)       |
+| (applied)   | 승인 대기   | Applied; waiting for an admin                                  |
+| `active`    | 참여 중     | Participating this quarter; can use paid creation features      |
+| `inactive`  | 참여 중지   | An admin stopped their participation; work is preserved        |
 | `former`    | 탈퇴 회원   | Has left the community; published work keeps their attribution  |
+
+The account — whether one can sign in — has its own words: **사용 가능** /
+**사용 중지** / **탈퇴 회원**. Admin's 「참여 등록」 is approval without an
+application: it gives the quarter's 동아리 지원 when the member has no
+wallet yet (and approves a waiting application); 참여 중지 → 참여 등록 gives
+the same wallet back.
 
 "탈퇴 회원" is used rather than anything meaning "deleted", because
 attribution on published apps and videos must continue to exist.
