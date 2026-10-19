@@ -132,6 +132,8 @@ class AppsHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Security-Policy", content_security_policy(self.frame_ancestors))
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
+            # fix-app-file-cache: files change under the same name.
+            self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
     def send_header(self, keyword: str, value: str) -> None:

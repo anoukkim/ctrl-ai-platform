@@ -82,6 +82,8 @@ def test_member_files_are_served_sandboxed_with_no_network(served: str) -> None:
     assert "allow-same-origin" not in csp and "connect-src 'none'" in csp
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert headers["Referrer-Policy"] == "no-referrer"
+    # fix-app-file-cache: every 고치기 rewrites files under the same name.
+    assert headers["Cache-Control"] == "no-cache"
     assert headers.get("Set-Cookie") is None
     assert fetch(f"{served}/{SLUG}/_app/js/app.js")[2] == "let a"
 
@@ -113,7 +115,7 @@ def test_the_caddyfile_sends_the_same_policies_and_routes() -> None:
     block = caddy[caddy.index("apps.{$SITE_DOMAIN} {") :]
     assert app_shell.app_files_csp("https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}") in block
     appfile = block[block.index("handle @appfile") : block.index("@bare")]
-    for line in ("-Set-Cookie", "hide .*", "root * /srv/apps", "respond @notRead 405"):
+    for line in ("-Set-Cookie", "hide .*", "root * /srv/apps", "respond @notRead 405", 'Cache-Control "no-cache"'):
         assert line in appfile, line
     for line in ('X-Content-Type-Options "nosniff"', 'Referrer-Policy "no-referrer"'):
         assert line in block
