@@ -12,7 +12,7 @@ a refusal:
 * models: "fast" / "smart", mapped to members' catalogue rows (Haiku /
   Sonnet), never anything the admin has not opened;
 * rate: per visitor and per app, counted from the ledger;
-* the per-call cap (`CALL_CAP_KRW`, 200원) — worked out as `max_tokens`,
+* the per-call cap (`CALL_CAP_KRW`, 1,000원 — 200원 until 2026-10-19) — worked out as `max_tokens`,
   as Chat does, and a JSON retry shares the same cap;
 * the visitor's app-AI day cap (`chat_limits.app_ai_daily_cap_krw`, per
   KST day, across every app), then the wallet (`ensure_affordable`);
@@ -45,8 +45,9 @@ from app.services.attachments import AttachmentRefusal, content_tokens
 from app.services.claude_provider import ChatRequest, ClaudeError, StreamEnd, TextDelta, UsageUpdate
 from app.services.quarters import current_quarter, membership_for
 
-#: The most one call may cost the visitor, input and output together.
-CALL_CAP_KRW = 200
+#: The most one call may cost the visitor, input and output together
+#: (owner, 2026-10-19: 200원 → 1,000원).
+CALL_CAP_KRW = 1000
 #: Output tokens when the app does not say.
 DEFAULT_MAX_TOKENS = 1024
 MAX_TOKENS_LIMIT = 4096
@@ -382,7 +383,7 @@ def prepare(
     """Every check that can refuse, and the request. Spends nothing.
 
     `spent_krw` is what earlier attempts of the same call already cost (a
-    JSON retry): they share one cap, `cap_krw` — the server's 200원, or
+    JSON retry): they share one cap, `cap_krw` — the server's `CALL_CAP_KRW`, or
     for a retry the first attempt's own worst case (P4b).
     """
     if project.sdk_disabled_at is not None:
@@ -421,7 +422,7 @@ def prepare(
     if budget < 1:
         if spent_krw:
             raise AppAIError("AI 답이 JSON 형식에 맞지 않았고, 다시 물어볼 비용이 남지 않았어요.", 502, "bad_json")
-        raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW}원)에 닿아요. 줄여서 다시 보내 주세요.")
+        raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW:,}원)에 닿아요. 줄여서 다시 보내 주세요.")
     wanted = min(max(1, int(data.max_tokens or DEFAULT_MAX_TOKENS)), MAX_TOKENS_LIMIT)
     max_tokens = min(wanted, budget)
     worst_case = price.worst_case_krw(input_estimate, max_tokens)
@@ -465,7 +466,7 @@ def estimate(db: Session, settings: Settings, data: AskInput, image_count: int) 
     input_estimate = content_tokens(system) + content_tokens(prompt) + image_count * IMAGE_TOKENS_UPPER
     budget = chat_limits.output_budget(price, CALL_CAP_KRW, input_estimate)
     if budget < 1:
-        raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW}원)에 닿아요. 줄여서 다시 보내 주세요.")
+        raise AppAIError(f"입력이 너무 길어 1회 비용 한도({CALL_CAP_KRW:,}원)에 닿아요. 줄여서 다시 보내 주세요.")
     wanted = min(max(1, int(data.max_tokens or DEFAULT_MAX_TOKENS)), MAX_TOKENS_LIMIT)
     max_tokens = min(wanted, budget)
     return Estimate(

@@ -572,7 +572,7 @@ CTRL+AI members can sign in.
 `{text, json, chargedKrw}` and `ctrlai.ai.stream(options, chunk => …)` → \
 `{text, chargedKrw}`: Claude, paid by the VISITOR from their own 동아리 \
 지원 — a short call is about 10원 on model "fast" (default) and about 30원 \
-on "smart"; the server caps one call at 200원. `json` is a JSON Schema: the \
+on "smart"; the server caps one call at 1,000원. `json` is a JSON Schema: the \
 answer comes back parsed in `json`. `images` are data URLs (≤ 5 MB each) \
 for photos the visitor picked. Needs sign-in: the SDK asks the visitor to \
 sign in on the first call; signed out it fails with `error.code === \
@@ -600,7 +600,7 @@ page load, never in a loop. Beside that button show "1회 약 N원 · 최대 \
 M원", with N and M from `ctrlai.ai.estimate(sameOptions)` → \
 `{typicalKrw, maxKrw}` (free, works signed out, call it when the screen \
 draws; pass `images` as a count when the photo is not picked yet) — or, \
-without it, about 10 for "fast" and 30 for "smart", 최대 200원. A call \
+without it, about 10 for "fast" and 30 for "smart", 최대 1,000원. A call \
 with the same options never costs more than maxKrw. After the call show \
 the real `chargedKrw`. Keep prompts short; use \
 `json` with a schema when the app needs structured data; say in Korean \

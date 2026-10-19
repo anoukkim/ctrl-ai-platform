@@ -60,7 +60,7 @@ export default function HelpAppsPage() {
             </td>
             <td>Claude. 글, 사진 읽기, JSON 답.</td>
             <td>회원만</td>
-            <td>쓰는 사람(방문자)의 동아리 지원금 · 1회 최대 200원 · 하루 상한 있음</td>
+            <td>쓰는 사람(방문자)의 동아리 지원금 · 1회 최대 1,000원 · 하루 상한 있음</td>
           </tr>
           <tr>
             <td>
@@ -94,7 +94,7 @@ export default function HelpAppsPage() {
           경우까지 포함해서요.
         </li>
         <li>
-          <strong>상한.</strong> 1회 200원, 하루에 앱 전체에서 쓸 수 있는 금액(관리자 설정, 기본 2,000원), 1분에 10번. 넘으면 한국어로 이유가 보여요.
+          <strong>상한.</strong> 1회 1,000원, 하루에 앱 전체에서 쓸 수 있는 금액(관리자 설정, 기본 2,000원), 1분에 10번. 넘으면 한국어로 이유가 보여요.
         </li>
         <li>
           <strong>데모와 실제 AI.</strong> 앱을 게시할 때 만든 사람이 다른 회원에게 AI를 <strong>데모만</strong> 열지 <strong>전체 기능</strong>으로 열지
