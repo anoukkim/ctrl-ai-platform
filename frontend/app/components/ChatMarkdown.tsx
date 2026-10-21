@@ -34,6 +34,10 @@ import ArtifactPreview, {
   isPreviewLanguage,
   type ArtifactContextValue,
 } from "./ArtifactPreview";
+import { codeExtension, fileNameFrom } from "@/lib/code-files";
+
+export { codeExtension };
+
 import styles from "./ChatMarkdown.module.css";
 
 /** 링크로 남겨 두는 주소의 시작. 대소문자는 가리지 않습니다. 같은 답장 안의
@@ -177,6 +181,7 @@ type HastNode = {
   value?: string;
   tagName?: string;
   properties?: { className?: unknown };
+  data?: { meta?: string };
   children?: HastNode[];
 };
 
@@ -184,18 +189,6 @@ function textOf(node: HastNode | undefined): string {
   if (!node) return "";
   if (node.type === "text") return node.value ?? "";
   return (node.children ?? []).map(textOf).join("");
-}
-
-/** 코드 블록의 언어 → 내려받는 파일의 확장자. 모르는 언어는 .txt. */
-const CODE_EXTENSIONS: Record<string, string> = {
-  python: "py", py: "py", javascript: "js", js: "js", jsx: "jsx", typescript: "ts", ts: "ts", tsx: "tsx",
-  html: "html", css: "css", json: "json", markdown: "md", md: "md", csv: "csv", sql: "sql",
-  bash: "sh", sh: "sh", shell: "sh", yaml: "yml", yml: "yml", xml: "xml", svg: "svg",
-  java: "java", c: "c", cpp: "cpp", go: "go", rust: "rs", ruby: "rb", php: "php", text: "txt", txt: "txt",
-};
-
-export function codeExtension(language: string): string {
-  return CODE_EXTENSIONS[language.toLowerCase()] ?? "txt";
 }
 
 /** 코드 블록 — 언어 이름과 **복사**·**다운로드** 단추. 색 입히기는 하지 않습니다. */
@@ -240,7 +233,8 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
     const url = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `code.${codeExtension(language)}`;
+    // ```csv members.csv — 펜스 뒤의 파일 이름이 있으면 그 이름으로.
+    link.download = fileNameFrom(code?.data?.meta ?? "") ?? `code.${codeExtension(language)}`;
     link.click();
     URL.revokeObjectURL(url);
   };

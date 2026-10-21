@@ -35,6 +35,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   MessageSquare,
+  Download,
   Pencil,
   Pin,
   PinOff,
@@ -118,6 +119,7 @@ import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
 import CarryToBuilder from "./CarryToBuilder";
+import { codeFiles, codeZip, conversationMarkdown, printableHtml, safeTitle, saveBlob } from "@/lib/export-conversation";
 import { finishRun, handOverRun, isRunning, refreshServerRuns, startRun, useRuns } from "@/lib/running";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
@@ -1544,6 +1546,54 @@ export default function ChatWorkspace() {
             </span>
           )}
           {info?.is_mock && <span className="badge badge-mock">{TEST_MODE_LABEL}</span>}
+          {started && !streaming && (
+            <span className={styles.exportMenu}>
+              <MenuButton
+                label="대화 내보내기"
+                items={(() => {
+                  const title = conversations.find((row) => row.id === activeId)?.title ?? "";
+                  const done = messages.filter((message) => message.status !== "refused");
+                  const files = codeFiles(done);
+                  return [
+                    {
+                      label: "대화를 Markdown으로 (.md)",
+                      icon: <Download size={14} />,
+                      onSelect: () =>
+                        saveBlob(
+                          new Blob([conversationMarkdown(title, done)], { type: "text/markdown;charset=utf-8" }),
+                          `${safeTitle(title)}.md`,
+                        ),
+                    },
+                    {
+                      label: "대화를 PDF로 (인쇄 창에서 저장)",
+                      icon: <Download size={14} />,
+                      onSelect: () => {
+                        // 글자만 담은 문서를 새 창에 열어 인쇄 — PDF로 저장은 인쇄 창에서.
+                        const popup = window.open("", "_blank");
+                        if (!popup) return;
+                        popup.document.write(printableHtml(title, done));
+                        popup.document.close();
+                        popup.focus();
+                        popup.print();
+                      },
+                    },
+                    {
+                      label: `코드 파일 모두 (.zip${files.length ? ` · ${files.length}개` : ""})`,
+                      icon: <Download size={14} />,
+                      disabled: files.length === 0,
+                      hint: files.length === 0 ? "이 대화에는 코드 블록이 없어요" : undefined,
+                      onSelect: () => {
+                        const zip = codeZip(done);
+                        if (zip) saveBlob(zip, `${safeTitle(title)}-코드.zip`);
+                      },
+                    },
+                  ];
+                })()}
+              >
+                <Download size={14} aria-hidden="true" /> 내보내기
+              </MenuButton>
+            </span>
+          )}
         </div>
 
         <div className={styles.threadScroll} ref={threadRef} role="log" aria-label="대화 내용">
