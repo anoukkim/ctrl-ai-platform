@@ -306,7 +306,7 @@ app-ai-access** (owner, 2026-10-16) the maker of an app that uses AI
 chooses at 게시 — "이 앱은 AI를 써요 — 다른 회원에게 AI 기능을 열까요?" —
 **데모만** (the default) or **전체 기능**, and can change it later from the
 Builder's 게시 menu; every visitor has a 데모 switch in a thin CTRL+AI
-bar above the app (실제 AI 켜기 / 데모로 보기, remembered per app in their
+bar above the app (one 실제 AI switch since ai-switch-toggle, remembered per app in their
 browser; a bar rather than a floating pill, so it never covers the app's
 own buttons or a phone's tab bar); the 관리자 keeps 기능 상자 멈추기. 데모 means no AI call and
 0원 — the server refuses the visitor's call and the app shows its demo
@@ -1107,6 +1107,19 @@ optional for using CTRL+AI.
 button reads **로그인해서 사용하기** for a visitor who is not signed in and
 **AI 사용하기** for one who is (it was 실제 AI 켜기); in demo the bar says
 "AI를 쓰면 내 지원금이 조금 쓰일 수 있어요". Wording only — the same switch.
+
+**AI 스위치** (ai-switch-toggle, 2026-10-21; owner: "AI기능이 켜져있는지를
+모르겠음 … 토글로"): the badge-plus-button became **one switch**
+(`role="switch"`, 켬/끔) beside a state word, and the bar's colour says the
+state — **green 실제 AI 켜짐**, **grey 데모 · AI 꺼짐**, **red AI 연결 문제**.
+Red comes from `/v1/app`'s `ai.health` ("trouble" while Claude's latest
+outcome is a setup failure — key, credit, no adapter — and nothing has
+worked since) or from a call that just failed that way; it reads "지금은
+AI가 답할 수 없어요 — 돈은 나가지 않아요. 관리자에게 알려 주세요." and clears
+on the next success. A busy or slow moment never turns it red. Signed out,
+the note keeps ai-switch-wording's point: "AI 버튼을 누르면 로그인하고, 내
+지원금에서 나가요." An app the maker opened as 데모만 shows **데모 전용** and
+no switch.
 
 **반응과 댓글** (ctrlaiapps-reactions, 2026-10-17; owner: "7:3 … 영상처럼
 댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:

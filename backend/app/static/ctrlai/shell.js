@@ -160,11 +160,14 @@
 
   function failure(status, detail) {
     var code = null;
+    var kind = "";
     if (detail && typeof detail === "object") {
       code = typeof detail.code === "string" ? detail.code : null;
+      kind = typeof detail.kind === "string" ? detail.kind : "";
       detail = detail.message;
     }
     var error = new Error(typeof detail === "string" ? detail : "요청을 처리하지 못했어요 (" + status + ").");
+    error.kind = kind;
     error.code =
       code || (status === 401 ? "login_required" : status === 403 ? "forbidden" : status === 402 ? "budget" : status === 429 ? "rate" : "error");
     error.status = status;
@@ -398,7 +401,7 @@
   function demoRefusal() {
     var error = new Error(
       aiAccess() === "full"
-        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). AI를 쓰려면 앱 맨 위 CTRL+AI 줄의 「로그인해서 사용하기」를 눌러 주세요."
+        ? "데모로 보는 중이에요 — AI를 부르지 않아요 (0원). AI를 쓰려면 앱 맨 위 CTRL+AI 줄의 스위치를 켜 주세요."
         : "이 앱의 AI는 데모로만 열려 있어요. 데모 답변을 보여 드려요."
     );
     error.code = "demo";
@@ -413,6 +416,37 @@
     toast(aiMode() === "demo" ? "데모로 봐요 — AI를 부르지 않아요 (0원)." : "AI를 써요 — 버튼을 누를 때만 내 지원금이 조금 쓰일 수 있어요.");
   }
 
+  // ai-switch-toggle (owner, 2026-10-21): a badge and a button looked alike,
+  // so "is it on?" had no answer. Now one switch carries the state, and the
+  // bar's colour says it from across the room: green on, grey off, red when
+  // the AI cannot answer at all (a key or credit problem — the server says
+  // so in `ai.health`, and a failed call says so too).
+  var SETUP_FAILURES = { auth: 1, credit: 1, not_implemented: 1 };
+  var aiTrouble = false; // a call just failed for a setup reason
+
+  function aiHealthy() {
+    return !aiTrouble && !(info && info.ai && info.ai.health === "trouble");
+  }
+
+  function noteAiOutcome(error) {
+    var trouble = !!(error && error.code === "provider" && SETUP_FAILURES[error.kind]);
+    if (!error) {
+      aiTrouble = false;
+      if (info && info.ai) info.ai.health = "ok";
+    } else if (trouble) {
+      aiTrouble = true;
+    } else {
+      return;
+    }
+    drawAiSwitch();
+  }
+
+  var BAR_LOOK = {
+    on: { bar: "#10241b", edge: "#3ddc97", text: "#7ff0b6" },
+    off: { bar: "#1d1d22", edge: "#6b6b75", text: "#d4d4dc" },
+    trouble: { bar: "#2c1214", edge: "#ff6b6b", text: "#ff9b9b" },
+  };
+
   /** A thin bar above the app: what mode it is in, and the visitor's switch.
    *  A bar, not a floating pill — a pill would sit on top of whatever the
    *  app keeps in that corner (a tab bar on a phone, its own buttons). */
@@ -424,56 +458,68 @@
       aiBox.id = "ctrlai-ai";
       aiBox.setAttribute("role", "group");
       aiBox.setAttribute("aria-label", "AI 모드");
-      aiBox.style.cssText =
-        "position:fixed;left:0;right:0;top:0;height:34px;z-index:2147483646;display:flex;gap:8px;align-items:center;" +
-        "padding:0 10px;box-sizing:border-box;background:rgba(20,20,24,.96);color:#fff;" +
-        "font:12px/1.4 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.25)";
       body.insertBefore(aiBox, frame);
       // The app keeps its whole height below the bar — nothing is covered.
       frame.style.marginTop = "34px";
       frame.style.height = "calc(100% - 34px)";
     }
     while (aiBox.firstChild) aiBox.removeChild(aiBox.firstChild);
+    var full = aiAccess() === "full";
     var live = aiMode() === "live";
     var signed = !!(info && info.signedIn);
-    var badge = document.createElement("span");
-    badge.setAttribute("data-mode", live ? "live" : "demo");
-    badge.textContent = live
-      ? signed
-        ? "실제 AI · 내 지원금에서"
-        : "실제 AI · 로그인하면 내 지원금에서"
-      : aiAccess() === "full"
-        ? "데모 · 0원"
-        : "데모 · AI 호출 없음";
-    badge.style.cssText =
-      "display:inline-block;padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap;" +
-      (live ? "background:rgba(94,234,160,.16);color:#7ff0b6" : "background:#2a3f3a;color:#ffc24b");
-    aiBox.appendChild(badge);
-    var note = document.createElement("span");
-    note.textContent = live
-      ? "AI 버튼을 누를 때만 나가요."
-      : aiAccess() === "full"
-        ? // ai-switch-wording (owner, 2026-10-17): say what using it means.
-          "데모 답변만 봐요. AI를 쓰면 내 지원금이 조금 쓰일 수 있어요."
-        : "만든 사람이 AI를 데모로만 열었어요.";
-    note.style.cssText = "opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1";
-    aiBox.appendChild(note);
-    if (aiAccess() === "full") {
-      var button = document.createElement("button");
-      button.type = "button";
-      // ai-switch-wording (owner, 2026-10-17: "실제 AI켜기가 아니라 로그인해서
-      // 사용하기 (토큰 소모 있을 수도 있음)"): signed out, the button says
-      // what happens next; signed in there is nothing to sign into.
-      button.textContent = live ? "데모로 보기" : signed ? "AI 사용하기" : "로그인해서 사용하기";
-      button.title = live ? "" : "AI를 쓰면 내 지원금이 조금 쓰일 수 있어요 — 버튼을 누를 때만";
-      button.style.cssText =
-        "flex:none;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;" +
-        "color:#fff;font:inherit;cursor:pointer";
-      button.addEventListener("click", function () {
+    var state = live ? (aiHealthy() ? "on" : "trouble") : "off";
+    var look = BAR_LOOK[state];
+    aiBox.setAttribute("data-mode", live ? "live" : "demo");
+    aiBox.setAttribute("data-state", state);
+    aiBox.style.cssText =
+      "position:fixed;left:0;right:0;top:0;height:34px;z-index:2147483646;display:flex;gap:10px;align-items:center;" +
+      "padding:0 12px 0 10px;box-sizing:border-box;color:#fff;font:12px/1.4 system-ui,sans-serif;" +
+      "box-shadow:0 2px 10px rgba(0,0,0,.25);background:" + look.bar + ";border-left:4px solid " + look.edge;
+
+    if (full) {
+      // A real switch: role="switch" + aria-checked, so a screen reader says
+      // "켬/끔" as plainly as the colour does.
+      var toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.setAttribute("role", "switch");
+      toggle.setAttribute("aria-checked", live ? "true" : "false");
+      toggle.setAttribute("aria-label", "실제 AI");
+      toggle.title = live
+        ? "끄면 데모로 봐요 — AI를 부르지 않아요 (0원)"
+        : "켜면 AI 버튼을 누를 때만 내 지원금이 조금 쓰여요";
+      toggle.style.cssText =
+        "flex:none;position:relative;width:34px;height:20px;padding:0;border:0;border-radius:10px;cursor:pointer;" +
+        "background:" + (live ? look.edge : "#55555f") + ";transition:background .15s";
+      var knob = document.createElement("span");
+      knob.style.cssText =
+        "position:absolute;top:2px;left:" + (live ? "16px" : "2px") + ";width:16px;height:16px;border-radius:50%;" +
+        "background:#fff;transition:left .15s";
+      toggle.appendChild(knob);
+      toggle.addEventListener("click", function () {
         setVisitorMode(live ? "demo" : "live");
       });
-      aiBox.appendChild(button);
+      aiBox.appendChild(toggle);
     }
+
+    var label = document.createElement("span");
+    label.className = "ctrlai-ai-state";
+    label.textContent = !full ? "데모 전용" : state === "on" ? "실제 AI 켜짐" : state === "trouble" ? "AI 연결 문제" : "데모 · AI 꺼짐";
+    label.style.cssText = "flex:none;font-weight:700;white-space:nowrap;color:" + look.text;
+    aiBox.appendChild(label);
+
+    var note = document.createElement("span");
+    note.textContent = !full
+      ? "만든 사람이 AI를 데모로만 열었어요. AI를 부르지 않아요 (0원)."
+      : state === "trouble"
+        ? "지금은 AI가 답할 수 없어요 — 돈은 나가지 않아요. 관리자에게 알려 주세요."
+        : live
+          ? signed
+            ? "AI 버튼을 누를 때만 내 지원금에서 나가요."
+            : "AI 버튼을 누르면 로그인하고, 내 지원금에서 나가요."
+          : // ai-switch-wording (owner, 2026-10-17): say what using it means.
+            "데모 답변만 봐요 (0원). 켜면 AI 버튼을 누를 때 내 지원금이 조금 쓰여요.";
+    note.style.cssText = "opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1";
+    aiBox.appendChild(note);
   }
 
   /** In 데모 the call stops here — after the server has said what the app
@@ -490,10 +536,12 @@
       return api("/v1/ai/ask", { method: "POST", body: options }).then(
         function (data) {
           charged(data.chargedKrw);
+          noteAiOutcome(null);
           return data;
         },
         function (error) {
           if (error.status === 401) info = null;
+          noteAiOutcome(error);
           throw error;
         }
       );
@@ -511,7 +559,9 @@
             } catch (error) {
               data = null;
             }
-            throw failure(response.status, data && data.detail);
+            var problem = failure(response.status, data && data.detail);
+            noteAiOutcome(problem);
+            throw problem;
           });
         }
         var reader = response.body.getReader();
@@ -532,12 +582,15 @@
               else if (name === "done") result = data;
               else if (name === "error") {
                 charged(data.chargedKrw || 0);
-                throw failure(503, data.message);
+                var problem = failure(503, data);
+                noteAiOutcome(problem);
+                throw problem;
               }
             });
             if (part.done) {
               if (!result) throw failure(503, "AI 답을 끝까지 받지 못했어요.");
               charged(result.chargedKrw);
+              noteAiOutcome(null);
               return result;
             }
             return pump();

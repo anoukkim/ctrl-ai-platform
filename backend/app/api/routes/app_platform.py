@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db, release_before_stream
 from app.models import BuilderProject, User
-from app.services import app_ai, app_ai_access, app_auth, app_data, app_fonts, app_shell, chat_limits, provider_limiter
+from app.services import app_ai, app_ai_access, app_auth, app_data, app_fonts, app_shell, chat_limits, provider_limiter, providers
 from app.services.claude_provider import ClaudeError, get_claude_provider
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,7 @@ def _secure(settings: Settings) -> bool:
 
 
 @router.get("/v1/app", summary="The app the shell is running, and who is signed in")
-def app_info(call: AppCall = Depends(app_call)) -> dict:
+def app_info(call: AppCall = Depends(app_call), db: Session = Depends(get_db)) -> dict:
     project = call.target.project
     return {
         "name": project.name,
@@ -211,6 +211,9 @@ def app_info(call: AppCall = Depends(app_call)) -> dict:
         "ai": {
             "usesAi": project.published_uses_ai if call.target.mode == "app" else True,
             "access": app_ai_access.FULL if _owners_preview(call) else project.ai_access,
+            # ai-switch-toggle: "trouble" while Claude's last outcome is a
+            # setup failure (key, credit) — the bar turns red before anyone pays.
+            "health": providers.health(db, "claude"),
         },
     }
 
@@ -446,6 +449,8 @@ def _ai_error(error: app_ai.AppAIError) -> HTTPException:
     """The sentence, and — when there is one — the code the app can act on
     (`too_long`, `bad_json`, …): the shell passes it on as `error.code`."""
     detail = {"message": str(error), "code": error.code} if error.code else str(error)
+    if error.kind:
+        detail["kind"] = error.kind
     return HTTPException(status_code=error.status_code, detail=detail)
 
 
@@ -531,7 +536,7 @@ async def ai_stream(
             yield _sse("error", {"message": "답은 받았지만 사용 기록을 남기지 못했어요. 관리자에게 알려 주세요.", "chargedKrw": 0})
             return
         if failure is not None:
-            yield _sse("error", {"message": str(failure), "chargedKrw": charged})
+            yield _sse("error", {"message": str(failure), "chargedKrw": charged, "code": "provider", "kind": failure.kind})
         else:
             yield _sse("done", {"text": tally.text if tally else "", "chargedKrw": charged, "model": prepared.label})
 

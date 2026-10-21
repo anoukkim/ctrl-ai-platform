@@ -54,31 +54,35 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
   };
 
   try {
-    // 1. 데모만: the pill says so, there is no button, and a call fails with code "demo" — no sign-in window.
+    // 1. 데모만: the bar says so, there is no switch, and a call fails with code "demo" — no sign-in window.
     await setAccess("demo");
     expect((await (await context.request.get(`${SITE}/api/apps/${slug}`)).json()).ai_access).toBe("demo");
     await page.goto(`${APPS}/${slug}/`);
     let frame = await appFrame(page, slug);
-    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · AI 호출 없음");
-    await expect(page.locator("#ctrlai-ai button")).toHaveCount(0);
+    await expect(page.locator("#ctrlai-ai")).toContainText("데모 전용");
+    await expect(page.getByRole("switch", { name: "실제 AI" })).toHaveCount(0);
     expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("demo");
     let outcome = await askOutcome(frame);
     expect(outcome).toMatchObject({ ok: false, code: "demo" });
     expect(context.pages().length).toBe(1);
 
-    // 2. 전체 기능: the pill offers 데모로 보기; the visitor's choice is kept across a reload.
+    // 2. 전체 기능: a switch, on by default; the visitor's choice is kept across a reload.
     await setAccess("full");
     await page.reload();
     frame = await appFrame(page, slug);
-    // Signed out of the app: the pill says the wallet pays only after sign-in.
-    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI · 로그인하면 내 지원금에서");
+    // Signed out of the app: the bar says the wallet pays only after sign-in.
+    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI 켜짐");
+    await expect(page.locator("#ctrlai-ai")).toContainText("로그인하고, 내 지원금에서");
+    await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "on");
+    await expect(page.getByRole("switch", { name: "실제 AI" })).toHaveAttribute("aria-checked", "true");
     expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("live");
     await frame.evaluate(() => {
       window.__modes = [];
       window.addEventListener("ctrlai:ai-mode", (event) => window.__modes.push((event as CustomEvent).detail.mode));
     });
-    await page.getByRole("button", { name: "데모로 보기" }).click();
-    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
+    await page.getByRole("switch", { name: "실제 AI" }).click();
+    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · AI 꺼짐");
+    await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "off");
     expect(await frame.evaluate(() => window.__modes)).toEqual(["demo"]);
     expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("demo");
     outcome = await askOutcome(frame);
@@ -86,9 +90,9 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
 
     await page.reload();
     frame = await appFrame(page, slug);
-    await expect(page.locator("#ctrlai-ai")).toContainText("데모 · 0원");
-    await page.getByRole("button", { name: /로그인해서 사용하기|AI 사용하기/ }).click();
-    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI");
+    await expect(page.getByRole("switch", { name: "실제 AI" })).toHaveAttribute("aria-checked", "false");
+    await page.getByRole("switch", { name: "실제 AI" }).click();
+    await expect(page.locator("#ctrlai-ai")).toContainText("실제 AI 켜짐");
 
     // 3. Live again, signed out of the app: a call starts the sign-in window
     // (the old path) — the local gate never mistakes "not signed in" for 데모.
