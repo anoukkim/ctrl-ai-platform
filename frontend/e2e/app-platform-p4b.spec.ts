@@ -62,9 +62,14 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   const shown = Number(/최대 (\d+)원/.exec((await price.textContent()) ?? "")![1]);
   expect(await spentKrw(context.request)).toBe(before);
 
-  // The button: one AI call (sign-in first, the consent window), charged to the visitor, within the figure shown.
-  const consentPromise = context.waitForEvent("page");
+  // Free first (ai-free-first): a sample opens its pre-made result — no call, no charge, no sign-in.
   await frame.locator("button.sample").first().click();
+  await expect(frame.locator("#review-form .notice")).toContainText("미리 만든 추출 결과", { timeout: 15_000 });
+  expect(await spentKrw(context.request)).toBe(before);
+
+  // Its own AI button: one call (sign-in first, the consent window), charged to the visitor, within the figure shown.
+  const consentPromise = context.waitForEvent("page");
+  await frame.locator("#read-ai").click();
   const consent = await consentPromise;
   await consent.waitForLoadState();
   await expect(consent.getByRole("heading", { name: /연결할까요/ })).toBeVisible({ timeout: 45_000 });
@@ -87,7 +92,7 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   expect(await spentKrw(context.request)).toBe(before + charged);
 });
 
-test("문서 챗봇 LIVE: an answer with its source, no call when nothing matches", async ({ page, context }) => {
+test("문서 챗봇 LIVE: the quote is free, AI로 정리 answers with its source, no AI button when nothing matches", async ({ page, context }) => {
   test.setTimeout(120_000);
   const login = await context.request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
   expect(login.ok()).toBeTruthy();
@@ -102,11 +107,16 @@ test("문서 챗봇 LIVE: an answer with its source, no call when nothing matche
   await expect(frame.locator("#chat-price")).toHaveText(/질문 1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
   const before = await spentKrw(context.request);
 
-  // A question the documents cover: Claude answers, the source is shown, one charge.
-  // The consent from the first test may still stand; if not, it comes with this first call.
+  // A question the documents cover: the free answer first (the quote, 0원) …
   await frame.getByLabel("질문").fill("회비는 얼마예요?");
-  const popup = context.waitForEvent("page", { timeout: 5_000 }).catch(() => null);
   await frame.getByRole("button", { name: "보내기" }).click();
+  const aiButton = frame.locator(".msg.bot").last().locator("[data-ai]");
+  await expect(aiButton).toBeVisible({ timeout: 15_000 });
+  expect(await spentKrw(context.request)).toBe(before);
+  // … then Claude only on its own button: the source is shown, one charge.
+  // The consent from the first test may still stand; if not, it comes with this first call.
+  const popup = context.waitForEvent("page", { timeout: 5_000 }).catch(() => null);
+  await aiButton.click();
   const consent = await popup;
   if (consent) {
     await consent.waitForLoadState();
@@ -117,14 +127,15 @@ test("문서 챗봇 LIVE: an answer with its source, no call when nothing matche
   const afterAnswer = await spentKrw(context.request);
   expect(afterAnswer).toBeGreaterThan(before);
 
-  // Nothing in the documents matches: no call, no charge, the not-found text.
+  // Nothing in the documents matches: the not-found text, and no AI button to press.
   await frame.getByLabel("질문").fill("zzqx");
   await frame.getByRole("button", { name: "보내기" }).click();
-  await expect(frame.locator(".msg.bot").last().locator(".demo.live")).toHaveText(/0원/, { timeout: 15_000 });
+  await expect(frame.locator(".msg.bot").last().locator(".after")).toBeVisible({ timeout: 15_000 });
+  await expect(frame.locator(".msg.bot").last().locator("[data-ai]")).toHaveCount(0);
   expect(await spentKrw(context.request)).toBe(afterAnswer);
 });
 
-test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, places stay in the list", async ({ page, context }) => {
+test("여행 일정 메이커 LIVE: 일정 만들기 is free, AI로 일정 짜기 priced and charged once, places stay in the list", async ({ page, context }) => {
   test.setTimeout(120_000);
   const login = await context.request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
   expect(login.ok()).toBeTruthy();
@@ -143,8 +154,16 @@ test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, 
   const shown = Number(/최대 (\d+)원/.exec((await frame.locator("#plan-price").textContent()) ?? "")![1]);
   expect(await spentKrw(context.request)).toBe(before);
 
+  // Free first: 일정 만들기 plans by the rules — 0원, no sign-in.
+  await frame.locator("#plan-submit").click();
+  await expect(frame.locator(".plannerLine")).toBeVisible({ timeout: 15_000 });
+  await expect(frame.locator(".plannerLine .demo.live")).toHaveCount(0);
+  expect(await spentKrw(context.request)).toBe(before);
+
+  // AI only on its own button.
+  await frame.getByRole("button", { name: "새 일정 만들기" }).click();
   const popup = context.waitForEvent("page", { timeout: 5_000 }).catch(() => null);
-  await frame.getByRole("button", { name: "일정 만들기" }).click();
+  await frame.locator("#plan-ai").click();
   const consent = await popup;
   if (consent) {
     await consent.waitForLoadState();
@@ -152,7 +171,7 @@ test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, 
     await consent.waitForEvent("close", { timeout: 15_000 });
   }
   // Mock Claude's ids are not in the list: the demo planner fills the days, still one real charge.
-  await expect(frame.locator(".plannerLine")).toBeVisible({ timeout: 60_000 });
+  await expect(frame.locator(".plannerLine .demo.live")).toBeVisible({ timeout: 60_000 });
   const usage = (await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage;
   expect(usage.events[0].charged_krw).toBeGreaterThan(0);
   expect(usage.events[0].charged_krw).toBeLessThanOrEqual(shown);

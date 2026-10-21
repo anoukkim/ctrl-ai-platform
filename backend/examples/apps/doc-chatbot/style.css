@@ -37,6 +37,9 @@ textarea { resize: vertical; }
 .ghost { background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; cursor: pointer; }
 .ghost:hover { border-color: var(--violet); }
 .ghost.danger, .danger { border-color: var(--warn); color: var(--warn); }
+/* AI가 붙은 버튼 — 누를 때만 지원금이 쓰여요 (무료 버튼과 구분). */
+.aiBtn { border-color: var(--violet); color: var(--violet); }
+.aiBtn::before { content: "✦ "; }
 .link { background: none; border: 0; padding: 0; color: var(--violet); text-decoration: underline; cursor: pointer; font-size: inherit; }
 .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .demoAll { background: rgba(167, 139, 250, 0.16); color: var(--violet); }

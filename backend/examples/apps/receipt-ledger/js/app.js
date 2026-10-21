@@ -363,13 +363,13 @@
           <input id="file" type="file" accept="image/*" hidden>
           <span class="dropIcon" aria-hidden="true">🧾</span>
           <b>영수증 사진을 여기에 끌어다 놓거나 눌러서 고르세요</b>
-          <small>${live.on
-            ? `실제 AI(Claude)가 읽어요 · 사진 읽기 ${priceLine("read", readOptions(null))} · 버튼을 눌렀을 때만 내 지원금에서 나가요.`
-            : `${sdk ? "지금은 데모예요 — 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 사진을 읽어요. " : ""}데모에서는 아래 샘플 영수증을 쓰면 미리 만든 추출 결과가 나와요. 다른 사진은 직접 입력하는 빈 양식이 열려요.`}</small>
+          <small>샘플 영수증은 미리 만든 추출 결과가, 다른 사진은 직접 입력하는 빈 양식이 열려요 (0원). ${live.on
+            ? `확인 화면에서 <b>AI로 사진 읽기</b>를 누르면 Claude가 읽어요 · ${priceLine("read", readOptions(null))} · 누를 때만 내 지원금에서 나가요.`
+            : sdk ? "지금은 데모예요 — 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 사진을 읽는 버튼이 생겨요." : ""}</small>
         </label>
       </section>
       <section class="card">
-        <h3>샘플 영수증 12장 <span class="demo">${live.on ? "실제 AI가 읽어요" : "데모 데이터"}</span></h3>
+        <h3>샘플 영수증 12장 <span class="demo">미리 만든 결과 · 0원</span></h3>
         <ul class="samples">${L.SAMPLES.map(
           (s) => `<li><button type="button" class="sample" data-sample="${s.id}"><img src="${L.receiptDataUrl(s.id)}" alt="${esc(s.shop)} 샘플 영수증"><span>${esc(s.shop)}</span></button>
             <a class="dl" href="${L.receiptDataUrl(s.id)}" download="sample-${s.id}.svg">내려받기</a></li>`,
@@ -378,13 +378,11 @@
       </section>`;
   }
 
+  // 무료가 기본: 올리면 먼저 샘플의 미리 만든 결과(아니면 빈 양식)가 열려요 (0원).
+  // Claude가 읽는 건 확인 화면의 「AI로 사진 읽기」를 눌렀을 때만이에요.
   function startReading(image, sampleId) {
     draft = { stage: "reading", image };
     render();
-    if (live.on && sdk) {
-      readWithAi(image, sampleId);
-      return;
-    }
     setTimeout(() => {
       const result = sampleId ? L.extractionFor(sampleId) : null;
       draft = {
@@ -461,12 +459,17 @@
       ? `<p class="notice"><span class="demo">데모</span> 미리 만든 추출 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
       : d.aiFailed
       ? `<p class="notice">AI가 읽지 못해 빈 양식을 열었어요. 직접 입력하거나 다시 시도해 주세요.</p>`
-      : `<p class="notice">${sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면 사진에서 자동으로 읽어요." : "데모에서는 샘플 영수증만 읽어요."} 지금은 직접 입력해 주세요.</p>`;
+      : `<p class="notice">${live.on && sdk ? "직접 입력하거나 아래 AI로 사진 읽기를 눌러 보세요." : sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면 사진에서 읽는 버튼이 생겨요." : "데모에서는 샘플 영수증만 읽어요."} 지금은 직접 입력해 주세요.</p>`;
+    // 무료 결과 위에 AI로 다시 읽기 (스위치가 켜져 있을 때만, 누를 때만 지원금).
+    const aiRead = live.on && sdk && !d.fromAi
+      ? `<p><button type="button" class="ghost aiBtn" id="read-ai">AI로 사진 읽기 · ${priceLine("read", readOptions(null))}</button></p>`
+      : "";
     return `<section class="card review">
       <div class="reviewGrid">
         <img class="receiptImg" src="${d.image}" alt="올린 영수증">
         <form id="review-form">
           ${note}
+          ${aiRead}
           <label>상호 <input id="r-shop" required value="${esc(d.shop)}"></label>
           <label>날짜 <input id="r-date" type="date" required value="${d.date}"></label>
           <fieldset><legend>품목별 금액</legend>
@@ -522,6 +525,12 @@
     on("#dash-month", "change", (e) => {
       dashMonth = e.target.value;
       render();
+    });
+    on("#read-ai", "click", () => {
+      const { image, sampleId } = draft;
+      draft = { stage: "reading", image };
+      render();
+      readWithAi(image, sampleId);
     });
     on("#pattern-ai", "click", async (e) => {
       const month = e.target.dataset.month;

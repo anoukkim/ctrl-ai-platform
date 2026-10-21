@@ -133,13 +133,10 @@
       form.querySelector(".send").disabled = true;
       suggest.hidden = true;
       add(`<div class="bubble">${B.esc(q)}</div>`, "msg me");
-      if (opts.live && opts.live()) {
-        await askAi(q);
-        busy = false;
-        form.querySelector(".send").disabled = false;
-        input.focus();
-        return;
-      }
+      // 무료가 기본: 문서에서 찾은 단락을 그대로 보여 줘요 (0원). 스위치가 켜져 있으면
+      // 그 답 아래 「AI로 정리해서 답하기」가 생기고, 눌렀을 때만 Claude를 불러요.
+      const live = Boolean(opts.live && opts.live());
+      const canAi = live && B.retrieve(q, opts.index(), 4).length > 0;
       const result = B.answer(q, opts.index());
       if (opts.onHits) opts.onHits(q, B.retrieve(q, opts.index(), 3));
       const log = {
@@ -161,7 +158,8 @@
             ${result.related.length ? `<div class="related">관련 단락: ${result.related
               .map((h, i) => `<button type="button" class="link" data-related="${i}">${B.esc(h.chunk.doc)} · ${B.esc(h.chunk.label)}</button>`)
               .join("")}</div>` : ""}
-            <span class="demo">${DEMO_BADGE}</span>
+            <span class="demo">${live ? "문서 문장 그대로 · 0원" : DEMO_BADGE}</span>
+            ${canAi ? `<button type="button" class="ghost aiBtn" data-ai>AI로 정리해서 답하기${opts.price && opts.price() ? ` · ${B.esc(opts.price())}` : ""}</button>` : ""}
             <span class="rate" role="group" aria-label="이 답이 도움이 됐나요?">
               <button type="button" data-rate="1" aria-pressed="false" aria-label="도움이 됐어요">👍</button>
               <button type="button" data-rate="-1" aria-pressed="false" aria-label="도움이 안 됐어요">👎</button>
@@ -196,6 +194,20 @@
           opts.onRate(log.id, log.rating);
         }),
       );
+      const aiButton = li.querySelector("[data-ai]");
+      if (aiButton) {
+        aiButton.addEventListener("click", async () => {
+          if (busy) return;
+          busy = true;
+          aiButton.disabled = true;
+          form.querySelector(".send").disabled = true;
+          await askAi(q);
+          aiButton.remove();
+          busy = false;
+          form.querySelector(".send").disabled = false;
+          input.focus();
+        });
+      }
       list.scrollTop = list.scrollHeight;
       opts.onLog(log);
       busy = false;

@@ -223,10 +223,12 @@
       <p id="form-error" class="error" role="alert"></p>
       <div class="actions">
         <button class="primary" type="submit" id="plan-submit">일정 만들기</button>
-        <span class="price" id="plan-price" aria-live="polite"></span>
+        ${live.on && sdk ? `<button class="ghost aiBtn" type="submit" id="plan-ai" data-ai="1">AI로 일정 짜기</button>
+        <span class="price" id="plan-price" aria-live="polite"></span>` : ""}
         ${state.trip ? `<button class="ghost" type="button" id="back-result">지금 일정으로 돌아가기</button>` : ""}
       </div>
-      <p class="muted small">${live.on && sdk ? `<span class="demo live">실제 AI</span> Claude가 아래 도시의 장소 목록에서만 골라 일정을 짜요 — 1회 비용은 버튼 옆에.` : `<span class="demo">데모 플래너${sdk ? " · 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 생성" : ""}</span> 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.`}</p>
+      <p class="muted small"><b>일정 만들기</b>는 정해진 규칙이 아래 도시의 장소 목록에서 골라요 (0원).
+        ${live.on && sdk ? `<span class="demo live">AI로 일정 짜기</span>는 Claude가 같은 목록에서 골라요 — 누를 때만, 비용은 버튼 옆에.` : sdk ? `<span class="demo">데모</span> 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 짜는 버튼도 생겨요.` : ""}</p>
     </form>`;
   }
 
@@ -258,6 +260,8 @@
     );
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      // 무료가 기본 — AI는 "AI로 일정 짜기" 버튼을 눌렀을 때만 (스위치가 켜져 있어도).
+      const useAi = Boolean(live.on && sdk && event.submitter && event.submitter.dataset.ai);
       const input = readForm();
       const error = $("#form-error");
       if (!input.prefs.length) return (error.textContent = "취향을 하나 이상 골라 주세요.");
@@ -276,11 +280,11 @@
         main.focus();
         say(`${input.city} ${input.days}일 일정을 만들었어요.`);
       };
-      if (live.on && sdk) {
+      if (useAi) {
         live.busy = true;
         error.textContent = "";
-        $("#plan-submit").disabled = true;
-        $("#plan-submit").textContent = "Claude가 일정을 짜는 중…";
+        $("#plan-ai").disabled = true;
+        $("#plan-ai").textContent = "Claude가 일정을 짜는 중…";
         planWithAi(input).then(
           (trip) => finish(trip, trip.ai.days < trip.ai.total ? { text: `AI가 ${trip.ai.days}일을 짰고, 나머지 ${trip.ai.total - trip.ai.days}일은 데모 플래너가 채웠어요.`, kind: "wait" } : null),
           (err) => {
@@ -407,9 +411,10 @@
         <p class="muted small">카드를 끌어서 순서를 바꾸거나 ↑ ↓ 버튼을 쓰세요. 이동 시간과 예산이 바로 다시 계산돼요.</p>
       </div>
       <form id="nl" class="nl">
-        <label for="nl-text"><b>문장으로 고치기</b> ${live.on && sdk ? `<span class="demo live">실제 AI · <span id="edit-price">비용 확인 중…</span></span>` : `<span class="demo">데모 규칙${sdk ? " · 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 이해" : ""}</span>`}</label>
+        <label for="nl-text"><b>문장으로 고치기</b> <span class="demo">바꾸기 · 세 가지 규칙 · 0원</span>${live.on && sdk ? ` <span class="demo live">AI로 바꾸기 · <span id="edit-price">비용 확인 중…</span></span>` : sdk ? ` <span class="demo">위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 어떤 문장이든 이해해요</span>` : ""}</label>
         <div class="nlRow"><input id="nl-text" type="text" placeholder="예: 비 오는 날 버전으로" autocomplete="off" maxlength="200">
-          <button class="primary" type="submit" id="nl-submit">바꾸기</button></div>
+          <button class="primary" type="submit" id="nl-submit">바꾸기</button>
+          ${live.on && sdk ? `<button class="ghost aiBtn" type="button" id="nl-ai">AI로 바꾸기</button>` : ""}</div>
         <div class="suggest">${["비 오는 날 버전으로", "더 저렴하게", "더 여유롭게"]
           .map((t) => `<button type="button" class="chipBtn" data-say="${t}">${t}</button>`)
           .join("")}</div>
@@ -497,6 +502,8 @@
       event.preventDefault();
       edit($("#nl-text").value);
     });
+    const nlAi = $("#nl-ai");
+    if (nlAi) nlAi.addEventListener("click", () => edit($("#nl-text").value, true));
     if (live.on && sdk) {
       // 가격은 가장 긴 부탁(200자) 기준 — 실제 부탁은 그보다 짧으니 최대 금액을 넘지 않아요.
       updatePrice($("#edit-price"), "edit", editOptions(trip, "가".repeat(200)));
@@ -562,17 +569,18 @@
     });
   }
 
-  function edit(text) {
+  // 무료가 기본: "바꾸기"는 세 가지 규칙만 (0원), "AI로 바꾸기"를 눌렀을 때만 Claude가 들어요.
+  function edit(text, useAi) {
     const trimmed = (text || "").trim();
     if (!trimmed) return;
-    if (live.on && sdk) {
+    if (useAi && live.on && sdk) {
       editWithAi(trimmed);
       return;
     }
     const intent = T.intent(trimmed);
     if (!intent) {
       message = {
-        text: `"${trimmed}" 같은 부탁은 ${sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면" : "데모에서는 못"} 알아들어요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'만 알아들어요.`,
+        text: `"${trimmed}" 같은 부탁은 규칙으로는 못 알아들어요 — ${live.on && sdk ? "'AI로 바꾸기'를 눌러 보세요 (비용은 위에)." : sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 알아들어요." : "데모에서는 못 알아들어요."} 규칙은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'예요.`,
         kind: "wait",
       };
       render();
@@ -590,7 +598,7 @@
 
   // 실제 AI: 부탁을 알아듣고 세 규칙 중 하나를 적용하거나, 아니면 한 줄로 답해요.
   async function editWithAi(text) {
-    const button = $("#nl-submit");
+    const button = $("#nl-ai");
     if (button) {
       button.disabled = true;
       button.textContent = "듣는 중…";
