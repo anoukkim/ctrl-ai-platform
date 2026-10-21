@@ -129,3 +129,75 @@ def test_from_a_conversation_the_cut_title_is_never_the_name(
     )
     assert response.status_code == 201
     assert db_session.query(BuilderProject).one().name == "채팅에서 만든 페이지"
+
+
+# ------------------------------------------------ 파일로 나누기 and Claude's explanation
+
+INLINE_PAGE = (
+    "<!doctype html><html><head><title>숫자 맞추기</title><style>body{color:red}</style>"
+    "<style>h1{margin:0}</style></head><body><h1>게임</h1>"
+    "<script>var a = 1;</script><p>중간</p>"
+    '<script type="application/json" id="d">{"x":1}</script>'
+    '<script src="other.js"></script><script>var b = 2;</script></body></html>'
+)
+
+
+def test_split_moves_inline_css_and_js_into_files() -> None:
+    files = chat_carry.split_page(INLINE_PAGE)
+    assert files is not None and set(files) == {"index.html", "style.css", "app.js"}
+    assert files["style.css"] == "body{color:red}\n\nh1{margin:0}\n"
+    assert files["app.js"] == "var a = 1;\n\nvar b = 2;\n"
+    html = files["index.html"]
+    assert html.count('<link rel="stylesheet" href="style.css">') == 1
+    assert "<style" not in html
+    # linked where the last inline script stood; data and src scripts stay
+    assert html.count('<script src="app.js"></script>') == 1 and html.index('src="app.js"') > html.index('src="other.js"')
+    assert 'type="application/json"' in html and "var a" not in html
+
+
+def test_split_gives_nothing_for_a_page_without_inline_code() -> None:
+    assert chat_carry.split_page("<html><body><h1>글</h1></body></html>") is None
+    assert chat_carry.split_page("<style>a{}</style" + "x" * 50_000) is None  # unclosed: quick, untouched
+
+
+def test_the_split_files_pass_the_builders_own_rules() -> None:
+    for path, content in (chat_carry.split_page(INLINE_PAGE) or {}).items():
+        assert builder_files.clean_path(path) == path and content
+
+
+def test_from_chat_can_split_and_spec_keeps_claudes_explanation(
+    client: TestClient, db_session: Session, participating, dev_user
+) -> None:
+    conversation, rows = conversation_with(db_session, dev_user, ["숫자 맞추기를 만들어 줘"])
+    reply = rows[1]
+    reply.content = "점수는 시도 횟수로 정해져요.\n\n```html\n<p>코드는 빠져요</p>\n```\n\n기록은 5개까지 저장돼요."
+    db_session.commit()
+    response = client.post(
+        "/api/builder/projects/from-chat",
+        json={"html": INLINE_PAGE, "conversation_id": conversation.id, "reply_id": reply.id, "split": True},
+    )
+    assert response.status_code == 201, response.text
+    project = db_session.query(BuilderProject).one()
+    paths = {f.path: f.content for f in db_session.query(BuilderProjectFile).filter_by(project_id=project.id)}
+    assert {"index.html", "style.css", "app.js", "SPEC.md"} == set(paths)
+    spec = paths["SPEC.md"]
+    assert "## Claude가 설명한 내용" in spec and "점수는 시도 횟수로 정해져요." in spec and "기록은 5개까지" in spec
+    assert "코드는 빠져요" not in spec
+
+
+def test_without_split_it_is_one_file_as_before(
+    client: TestClient, db_session: Session, participating, dev_user
+) -> None:
+    response = client.post("/api/builder/projects/from-chat", json={"html": INLINE_PAGE})
+    assert response.status_code == 201, response.text
+    paths = {f.path for f in db_session.query(BuilderProjectFile)}
+    assert paths == {"index.html"}
+
+
+def test_someone_elses_reply_explains_nothing(db_session: Session, dev_user, participating) -> None:
+    conversation, rows = conversation_with(db_session, dev_user, ["질문"])
+    other = Conversation(user_id=dev_user.id + 999, title="x")
+    db_session.add(other)
+    db_session.commit()
+    assert chat_carry.explanation(db_session, dev_user, other.id, rows[1].id) == ""
+    assert chat_carry.explanation(db_session, dev_user, conversation.id, rows[0].id) == ""  # a user message

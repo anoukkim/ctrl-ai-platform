@@ -122,7 +122,37 @@ def requirements(db: Session, user: User, conversation_id: int | None, reply_id:
     return trimmed[-MAX_REQUIREMENTS:]
 
 
-def spec_md(name: str, items: list[str]) -> str:
+#: How much of Claude's own explanation SPEC.md keeps.
+MAX_EXPLANATION_CHARS = 1_500
+
+
+def explanation(db: Session, user: User, conversation_id: int | None, reply_id: int | None) -> str:
+    """What Claude said about the page in that reply — its text without the
+    code blocks (the page is index.html already), so SPEC.md also records
+    the features, scoring and data the reply described. Free, no call.
+    Someone else's conversation, or a reply from another one, gives ''."""
+    if conversation_id is None or reply_id is None:
+        return ""
+    conversation = db.get(Conversation, conversation_id)
+    reply = db.get(ChatMessage, reply_id)
+    if (
+        conversation is None
+        or conversation.user_id != user.id
+        or reply is None
+        or reply.conversation_id != conversation_id
+        or reply.role != ChatRole.ASSISTANT
+    ):
+        return ""
+    # Text between the fences only: an odd part is inside a ``` block.
+    outside = "".join(part for index, part in enumerate(reply.content.split("```")) if index % 2 == 0)
+    paragraphs = [re.sub(r"[ \t]+", " ", block).strip() for block in re.split(r"\n\s*\n", outside)]
+    text = "\n\n".join(block for block in paragraphs if block)
+    if len(text) > MAX_EXPLANATION_CHARS:
+        text = text[:MAX_EXPLANATION_CHARS].rstrip() + "…"
+    return text
+
+
+def spec_md(name: str, items: list[str], said: str = "") -> str:
     lines = [
         SPEC_TITLE,
         "",
@@ -135,7 +165,81 @@ def spec_md(name: str, items: list[str]) -> str:
         "",
     ]
     lines += [f"{number}. {text}" for number, text in enumerate(items, start=1)]
+    if said:
+        lines += ["", "## Claude가 설명한 내용", "", said]
     return "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------------------ splitting the page into files
+
+STYLE_PATH = "style.css"
+SCRIPT_PATH = "app.js"
+#: Script types that are plain browser JavaScript; anything else (a module,
+#: JSON data, a template) stays where it is.
+_JS_TYPES = ("", "text/javascript", "application/javascript")
+_TAG_END = (">", " ", "\t", "\n", "\r", "/")
+
+
+def _blocks(page: str, lower: str, tag: str) -> list[tuple[int, int, str, str]]:
+    """Every `<tag …>…</tag>` as (start, end, attributes, content) — plain
+    searches, linear, no regex over a page someone else wrote."""
+    found = []
+    opener, closer = f"<{tag}", f"</{tag}"
+    position = lower.find(opener)
+    while position != -1:
+        after = lower[position + len(opener) : position + len(opener) + 1]
+        close_tag = lower.find(">", position)
+        end_tag = lower.find(closer, close_tag) if close_tag != -1 else -1
+        if after not in _TAG_END or close_tag == -1 or end_tag == -1:
+            position = lower.find(opener, position + 1)
+            continue
+        finish = lower.find(">", end_tag)
+        if finish == -1:
+            break
+        found.append((position, finish + 1, lower[position + len(opener) : close_tag], page[close_tag + 1 : end_tag]))
+        position = lower.find(opener, finish)
+    return found
+
+
+def _attribute(attributes: str, name: str) -> str | None:
+    match = re.search(rf"""\b{name}\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""", attributes[:500])
+    if match:
+        return next(group for group in match.groups() if group is not None).strip().lower()
+    return "" if re.search(rf"\b{name}\b", attributes[:500]) else None
+
+
+def split_page(page: str) -> dict[str, str] | None:
+    """The page as index.html + style.css + app.js, or None when it has no
+    inline CSS or JavaScript to move. Inline `<style>` blocks become
+    style.css (linked where the first one stood); inline plain `<script>`
+    blocks become app.js, linked where the **last** one stood so the page
+    it needs is already there. Nothing is rewritten — only moved."""
+    lower = page.lower()
+    styles = [b for b in _blocks(page, lower, "style") if _attribute(b[2], "media") is None]
+    scripts = [
+        b
+        for b in _blocks(page, lower, "script")
+        if _attribute(b[2], "src") is None and (_attribute(b[2], "type") or "") in _JS_TYPES
+    ]
+    if not styles and not scripts:
+        return None
+    # Replace from the end so earlier positions stay valid.
+    edits: list[tuple[int, int, str]] = []
+    if styles:
+        edits += [(s, e, "") for s, e, _a, _c in styles[1:]]
+        edits.append((styles[0][0], styles[0][1], f'<link rel="stylesheet" href="{STYLE_PATH}">'))
+    if scripts:
+        edits += [(s, e, "") for s, e, _a, _c in scripts[:-1]]
+        edits.append((scripts[-1][0], scripts[-1][1], f'<script src="{SCRIPT_PATH}"></script>'))
+    out = page
+    for start, end, text in sorted(edits, reverse=True):
+        out = out[:start] + text + out[end:]
+    files = {"index.html": out}
+    if styles:
+        files[STYLE_PATH] = "\n\n".join(c.strip("\n") for _s, _e, _a, c in styles).strip() + "\n"
+    if scripts:
+        files[SCRIPT_PATH] = "\n\n".join(c.strip("\n") for _s, _e, _a, c in scripts).strip() + "\n"
+    return files
 
 
 # ------------------------------------------------------------ the name, by Claude

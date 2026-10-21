@@ -39,6 +39,8 @@ class BuilderProjectFromChat(BuilderProjectBase):
     html: str = Field(min_length=1)
     conversation_id: int | None = None
     reply_id: int | None = None
+    #: 파일로 나누기: inline CSS/JS moved to style.css / app.js (free).
+    split: bool = False
 
 
 class BuilderProjectFromTemplate(BaseModel):

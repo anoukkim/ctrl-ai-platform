@@ -26,6 +26,8 @@ export function createProjectFromChat(input: {
   /** 요구사항(SPEC.md)을 가져올 대화와, 페이지가 나온 답장. */
   conversation_id?: number | null;
   reply_id?: number | null;
+  /** 인라인 CSS/JS를 style.css / app.js로 나눠서 보내요. */
+  split?: boolean;
 }): Promise<BuilderProject> {
   return request<BuilderProject>("/builder/projects/from-chat", {
     method: "POST",
