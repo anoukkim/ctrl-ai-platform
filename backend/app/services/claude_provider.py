@@ -613,13 +613,14 @@ Claude searches the web (at most 3 searches, about 15원 each plus their
 results, all inside the 1,000원 cap — `estimate` includes it), so use it
 only on the button that needs fresh facts; say in Korean \
 when a call fails.
-  · Every AI feature also has a **demo path**: when `window.ctrlai` is \
-missing, the visitor is signed out (`user()` is null or a call fails \
-with "login_required"), or the app is in 데모 (a call fails with code \
-"demo" — the maker opened the AI as 데모만, or the visitor chose 데모 in \
-CTRL+AI's switch; nothing is charged), show a fixed sample answer clearly \
-marked "데모". Signed out, add "CTRL+AI 회원만 쓸 수 있어요" and a 로그인 \
-button that calls `ctrlai.login()`; in 데모 just say it is a demo. \
+  · Every AI feature also has a **demo answer**: a fixed sample, clearly \
+marked "데모", shown when the AI cannot be called — outside CTRL+AI \
+(`window.ctrlai` missing: there is no switch, so the AI buttons stay and \
+give the sample), or when a call fails with code "demo" (nothing is \
+charged) or "login_required" (then also "CTRL+AI 회원만 쓸 수 있어요" and a \
+로그인 button that calls `ctrlai.login()`). While CTRL+AI's switch is off \
+(`ctrlai.ai.mode()` → "demo"; the maker's 데모만 too) the AI buttons are \
+**hidden**, with one line saying "위쪽 CTRL+AI 줄의 스위치를 켜면 …"; \
 `ctrlai.ai.mode()` → "live" | "demo" tells which it is now, and the \
 window event "ctrlai:ai-mode" fires when the visitor flips the switch. \
 The screen must always show what the feature would do.
@@ -637,9 +638,9 @@ AI (search a built-in list, plan by rules, quote a document, open a blank \
 form) always does it for free, with the switch on or off — the switch \
 never turns a free button into a paid one. Where AI can do better, add a \
 separate button beside it or on its result, its price on it ("✦ AI로 더 \
-찾기 · 약 10원"), and call `ctrlai.ai` only from that button. 데모 means \
-the AI buttons give the demo answer; everything else in the app still \
-works with the visitor's own input.
+찾기 · 약 10원"), and call `ctrlai.ai` only from that button. Switch off \
+(데모): the AI buttons are hidden and the app says the switch above brings \
+them; everything else in the app still works with the visitor's own input.
   · Signed-out visitors can use everything that needs no sign-in: reading \
 shared lists, playing, `ctrlai.storage`. Ask for sign-in only when a call \
 needs it.
