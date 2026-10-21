@@ -8,7 +8,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import ChatMarkdown, { prepareStreaming, safeUrl } from "@/app/components/ChatMarkdown";
+import ChatMarkdown, { codeExtension, prepareStreaming, safeUrl } from "@/app/components/ChatMarkdown";
 import { CHAT_EXAMPLES } from "@/lib/chat-examples";
 
 // ------------------------------------------------------------ 그리기
@@ -116,6 +116,30 @@ describe("ChatMarkdown", () => {
       });
       expect(screen.queryByRole("button", { name: /복사됨/ })).toBeNull();
       expect(screen.getByRole("button", { name: "복사" })).toBeTruthy();
+    });
+  });
+
+  describe("다운로드", () => {
+    test("the extension follows the language; unknown ones are .txt", () => {
+      expect(codeExtension("python")).toBe("py");
+      expect(codeExtension("JavaScript")).toBe("js");
+      expect(codeExtension("")).toBe("txt");
+      expect(codeExtension("brainfuck")).toBe("txt");
+    });
+
+    test("a code block downloads its exact text as a plain-text file", () => {
+      const made: Blob[] = [];
+      URL.createObjectURL = vi.fn((blob: Blob | MediaSource) => {
+        made.push(blob as Blob);
+        return "blob:x";
+      });
+      URL.revokeObjectURL = vi.fn();
+      const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+      render(<ChatMarkdown text={"```python\nprint('안녕')\n```"} />);
+      fireEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+      expect(made[0].type).toContain("text/plain");
+      expect(click).toHaveBeenCalled();
+      click.mockRestore();
     });
   });
 

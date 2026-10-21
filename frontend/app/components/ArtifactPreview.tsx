@@ -172,7 +172,7 @@ export default function ArtifactPreview({
     URL.revokeObjectURL(url);
   }
 
-  async function sendToBuilder() {
+  async function sendToBuilder(split = false) {
     setBusy(true);
     setError(null);
     try {
@@ -188,6 +188,8 @@ export default function ArtifactPreview({
         // description (owner, 2026-10-16): 게시 writes the real one.
         description: "",
         html: code,
+        // 파일로 나누기: inline CSS/JS become style.css / app.js (free).
+        split,
       });
       router.push(`/builder/${project.id}`);
     } catch (caught) {
@@ -220,6 +222,18 @@ export default function ArtifactPreview({
             >
               <ExternalLink size={13} aria-hidden="true" />
               Builder로 보내기
+            </button>
+          )}
+          {language === "html" && (
+            <button
+              type="button"
+              className={styles.button}
+              onClick={() => void sendToBuilder(true)}
+              disabled={busy || !context.mayCreate}
+              title={context.mayCreate ? "CSS와 JavaScript를 style.css, app.js로 나눠서 보내요" : "이번 분기에 참여해야 프로젝트를 만들 수 있습니다"}
+            >
+              <ExternalLink size={13} aria-hidden="true" />
+              Builder로 보내고 파일로 나누기
             </button>
           )}
           <button type="button" className={styles.button} onClick={() => setFull(true)} data-testid="artifact-fullscreen">

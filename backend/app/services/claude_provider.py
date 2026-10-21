@@ -517,7 +517,7 @@ practical.
 message starts with [이어서], continue exactly where the text stopped — no \
 greeting, no recap, no restarting a code block or a list — as if the two \
 parts were one reply. Never start over.
-- The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
+- The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Name a file after the language: ```csv a.csv. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
 - The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript, inline SVG for charts and drawings. No external scripts, fonts, images or network requests — they will not load. For a chart, use inline SVG or plain JavaScript on a canvas, never a chart library. Make the page complete and polished — every button works — rather than a bare sketch.
 
 When a tool is available (web search, page reading, code execution):

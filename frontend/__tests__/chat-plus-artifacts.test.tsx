@@ -187,6 +187,14 @@ describe("코드 보기 · 다운로드 · Builder로 보내기", () => {
     expect(projects.createProjectFromChat.mock.calls[0][0]).toHaveProperty("reply_id");
   });
 
+  test("Builder로 보내고 파일로 나누기는 split을 켜서 보낸다", async () => {
+    projects.createProjectFromChat.mockResolvedValue({ id: 98 });
+    renderReply("```html\n" + PAGE + "\n```");
+    fireEvent.click(screen.getByRole("button", { name: "Builder로 보내고 파일로 나누기" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/builder/98"));
+    expect(projects.createProjectFromChat).toHaveBeenCalledWith(expect.objectContaining({ html: PAGE, split: true }));
+  });
+
   test("SVG에는 Builder로 보내기가 없다", () => {
     renderReply("```svg\n" + CHART + "\n```");
     expect(screen.queryByRole("button", { name: "Builder로 보내기" })).toBeNull();

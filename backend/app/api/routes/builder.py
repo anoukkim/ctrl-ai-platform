@@ -262,13 +262,17 @@ def create_project_from_chat(
     )
     db.add(project)
     db.flush()
-    files = {"index.html": payload.html}
-    if asked:
-        files[chat_carry.SPEC_PATH] = chat_carry.spec_md(name, asked)
+    split = chat_carry.split_page(payload.html) if payload.split else None
+    files = split or {"index.html": payload.html}
+    said = chat_carry.explanation(db, user, payload.conversation_id, payload.reply_id)
+    if asked or said:
+        files[chat_carry.SPEC_PATH] = chat_carry.spec_md(name, asked, said)
     for path, content in files.items():
         db.add(BuilderProjectFile(project_id=project.id, path=path, content=content))
     db.flush()
     note = f"채팅에서 가져왔어요 · 요구사항 {len(asked)}개" if asked else "채팅에서 가져옴"
+    if split:
+        note += f" · 파일 {len(builder_files.app_files(files))}개로 나눔"
     builder_versions.snapshot(db, project, note, files, settings)
     _refresh_runtime(db, settings, project)
     db.commit()

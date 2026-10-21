@@ -150,12 +150,6 @@ each entry below says whether it is pre-approved.
       ("owner-polish-2026-10-16 — point 12"); a real provider is a paid
       resource (CLAUDE.md §10), so it waits for the owner. Pairs with
       **image-generation** (*After the beta*).
-    - **Small note (app-ai-access, 2026-10-16, not fixed yet):** Admin ›
-      Apps draws a `<Link>` inside the row's `rowHref` link —
-      `frontend/app/admin/apps/AppsList.tsx`, the name column's `<Link>`
-      (~line 62) inside `AdminTable`'s `rowHref` (~line 233) — so dev
-      mode logs one "<a> cannot be a descendant of <a>" hydration
-      warning; make the name column plain text there.
 
 ---
 
