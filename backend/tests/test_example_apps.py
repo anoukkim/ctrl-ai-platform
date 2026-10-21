@@ -226,6 +226,8 @@ def test_each_showcase_has_a_live_mode_that_prices_before_it_charges() -> None:
         assert 'id="mode-toggle"' not in files["index.html"], example.folder
         assert "ai.mode(" in code and '"ctrlai:ai-mode"' in code, example.folder
         assert "실제 AI 켜기" not in code and "setMode(" not in code, example.folder
+        # ai-free-first: every AI call sits behind its own "✦ AI로 …" button (.aiBtn), next to a free path.
+        assert "aiBtn" in code and ".aiBtn" in files["style.css"], example.folder
         assert "데모" in code and "실제 AI" in code, example.folder
         # Every ask sits inside a function the visitor triggers, never at the top level of a file.
         for path, content in files.items():

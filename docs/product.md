@@ -1121,6 +1121,24 @@ the note keeps ai-switch-wording's point: "AI 버튼을 누르면 로그인하�
 지원금에서 나가요." An app the maker opened as 데모만 shows **데모 전용** and
 no switch.
 
+**한 스위치, 무료 우선** (single-ai-switch 2026-10-21, ai-free-first
+2026-10-22; owner: "AI기능 안쓰고싶을수도 잇잖아 ex. 검색" — "그대로" and
+"이후에 앱을 하려면 비슷한 규칙으로"). The rule for every member app,
+taught by the Builder's app rules and followed by the three showcases:
+- **The bar's switch is the only AI switch.** An app never has its own
+  실제 AI toggle, mode badge or remembered mode; it follows
+  `ctrlai.ai.mode()` and the "ctrlai:ai-mode" event, both ways.
+- **Free first.** Anything that can work without AI (search a built-in
+  list, plan by rules, quote a document, a blank form) always does, 0원,
+  with the switch on or off. The switch never turns a free button into a
+  paid one.
+- **AI is its own button**, marked ✦ with its price ("✦ AI로 일정 짜기 ·
+  약 30원"), beside the free action or on its result. Switch on: the AI
+  buttons appear and cost only when pressed (sign-in comes then). Switch
+  off (데모): the AI buttons are hidden and the app says the switch above
+  brings them; everything else works with the visitor's own input.
+  데모만: no switch, never an AI button.
+
 **반응과 댓글** (ctrlaiapps-reactions, 2026-10-17; owner: "7:3 … 영상처럼
 댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:
 the app on the left, a **반응과 댓글** panel on the right with 좋아요 ·

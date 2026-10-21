@@ -154,7 +154,9 @@
               <li>그 단락을 <b>그대로 인용</b>하고 출처(문서 · 단락)를 붙여요.</li>
               <li>점수가 ${B.THRESHOLD}보다 낮으면 "못 찾을 때 문구"로 답해요.</li>
             </ol>
-            <p class="muted small" id="chat-price">${live.on ? priceText() : "위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 찾은 단락을 읽고 자연스러운 문장으로 정리해 줘요."}</p>
+            <p class="muted small">${live.on
+              ? `답은 먼저 문서 문장 그대로예요 (0원). 답 아래 「AI로 정리해서 답하기」를 누르면 Claude가 찾은 단락을 읽고 정리해 줘요 · <span id="chat-price">${priceText()}</span>`
+              : "위쪽 CTRL+AI 줄의 스위치를 켜면 답 아래에 Claude가 정리해 주는 버튼이 생겨요."}</p>
           </section>
           <section class="panel" aria-live="polite">
             <h3>마지막 질문의 점수</h3>
@@ -167,6 +169,7 @@
       index: () => index,
       live: () => live.on && Boolean(sdk),
       sdk: () => sdk,
+      price: () => (live.price ? `약 ${live.price.typicalKrw}원` : ""),
       summary,
       onLog: addLog,
       onRate: rate,

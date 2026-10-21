@@ -70,6 +70,9 @@ h1 { margin: 0; font-size: 1.45rem; letter-spacing: -0.03em; font-weight: 800; }
 .ghost:hover { border-color: var(--sky); }
 .ghost.danger { border-color: var(--coral); color: var(--coral); }
 .ghost:disabled { opacity: 0.5; cursor: default; }
+/* AI가 붙은 버튼 — 누를 때만 지원금이 쓰여요 (무료 버튼과 구분). */
+.aiBtn { border-color: var(--sky); color: var(--sky); }
+.aiBtn::before { content: "✦ "; }
 .link { background: none; border: 0; padding: 0; color: var(--sky); text-decoration: underline; cursor: pointer; }
 input, select {
   background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; min-width: 0;

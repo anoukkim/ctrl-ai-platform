@@ -632,6 +632,14 @@ Set the app's live flag from `ctrlai.ai.mode()` at start and from every \
 ("실제 AI · N원" or "데모"), and in 데모 say "위쪽 CTRL+AI 줄의 스위치를 \
 켜면 Claude가 …". A "데모 데이터" badge may show only when `window.ctrlai` \
 is missing (outside CTRL+AI, where there is no bar).
+  · **Free first; AI is its own button**: an action that can work without \
+AI (search a built-in list, plan by rules, quote a document, open a blank \
+form) always does it for free, with the switch on or off — the switch \
+never turns a free button into a paid one. Where AI can do better, add a \
+separate button beside it or on its result, its price on it ("✦ AI로 더 \
+찾기 · 약 10원"), and call `ctrlai.ai` only from that button. 데모 means \
+the AI buttons give the demo answer; everything else in the app still \
+works with the visitor's own input.
   · Signed-out visitors can use everything that needs no sign-in: reading \
 shared lists, playing, `ctrlai.storage`. Ask for sign-in only when a call \
 needs it.

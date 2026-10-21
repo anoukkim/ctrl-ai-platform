@@ -152,6 +152,9 @@ fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .primary { background: var(--accent); color: var(--accent-ink); border: 0; padding: 10px 18px; border-radius: 10px; font-weight: 800; cursor: pointer; }
 .ghost { background: transparent; border: 1px solid var(--line); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
 .ghost.danger, .danger { border-color: var(--warn); color: var(--warn); }
+/* AI가 붙은 버튼 — 누를 때만 지원금이 쓰여요 (무료 버튼과 구분). */
+.aiBtn { border-color: var(--accent); color: var(--accent); }
+.aiBtn::before { content: "✦ "; }
 
 .budgetForm { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .budgetForm label span { font-weight: 700; }
