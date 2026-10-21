@@ -24,7 +24,7 @@
  * 대화의 다른 답장들은 새 조각이 올 때마다 다시 그리지 않습니다(`memo`).
  */
 
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import { memo, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -186,7 +186,19 @@ function textOf(node: HastNode | undefined): string {
   return (node.children ?? []).map(textOf).join("");
 }
 
-/** 코드 블록 — 언어 이름과 **복사** 단추. 색 입히기는 하지 않습니다. */
+/** 코드 블록의 언어 → 내려받는 파일의 확장자. 모르는 언어는 .txt. */
+const CODE_EXTENSIONS: Record<string, string> = {
+  python: "py", py: "py", javascript: "js", js: "js", jsx: "jsx", typescript: "ts", ts: "ts", tsx: "tsx",
+  html: "html", css: "css", json: "json", markdown: "md", md: "md", csv: "csv", sql: "sql",
+  bash: "sh", sh: "sh", shell: "sh", yaml: "yml", yml: "yml", xml: "xml", svg: "svg",
+  java: "java", c: "c", cpp: "cpp", go: "go", rust: "rs", ruby: "rb", php: "php", text: "txt", txt: "txt",
+};
+
+export function codeExtension(language: string): string {
+  return CODE_EXTENSIONS[language.toLowerCase()] ?? "txt";
+}
+
+/** 코드 블록 — 언어 이름과 **복사**·**다운로드** 단추. 색 입히기는 하지 않습니다. */
 function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }) {
   const code = node?.children?.find((child) => child.tagName === "code");
   const classes = code?.properties?.className;
@@ -223,10 +235,21 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
     timer.current = setTimeout(() => setState("idle"), 2000);
   };
 
+  // 파일은 화면(CTRL+AI)이 Blob으로 만듭니다. 늘 text/plain이라 열어도 실행되지 않아요.
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `code.${codeExtension(language)}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const block = (
     <div className={styles.codeBlock}>
       <div className={styles.codeHead}>
         <span className={styles.codeLanguage}>{language || "코드"}</span>
+        <span className={styles.codeActions}>
         <button type="button" className={styles.copy} onClick={() => void copy()}>
           {state === "copied" ? (
             <Check size={13} aria-hidden="true" />
@@ -237,6 +260,11 @@ function CodeBlock({ node, children }: { node?: HastNode; children?: ReactNode }
             {state === "copied" ? "복사됨" : state === "failed" ? "복사하지 못했어요" : "복사"}
           </span>
         </button>
+        <button type="button" className={styles.copy} onClick={download}>
+          <Download size={13} aria-hidden="true" />
+          <span>다운로드</span>
+        </button>
+        </span>
       </div>
       <pre className={styles.pre}>{children}</pre>
     </div>

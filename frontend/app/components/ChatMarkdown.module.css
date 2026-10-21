@@ -151,6 +151,11 @@
   font-size: 0.78rem;
 }
 
+.codeActions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
 .codeLanguage {
   color: var(--text-muted);
   font-family: var(--mono);
