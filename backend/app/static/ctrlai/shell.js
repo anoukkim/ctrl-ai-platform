@@ -381,6 +381,11 @@
   var aiBox = null;
 
   function aiAccess() {
+    // In the 미리보기, before anyone has signed in, the server cannot tell the
+    // maker from a guest holding the link; it is almost always the maker, so
+    // the switch shows. The first AI call signs in, and a guest then gets the
+    // app's real setting (the server refuses with "demo" either way).
+    if (mode === "preview" && !(info && info.signedIn)) return "full";
     return info && info.ai && info.ai.access === "full" ? "full" : "demo";
   }
 
@@ -451,8 +456,10 @@
    *  A bar, not a floating pill — a pill would sit on top of whatever the
    *  app keeps in that corner (a tab bar on a phone, its own buttons). */
   function drawAiSwitch() {
-    // Only a published app that uses AI; the maker's 미리보기 has no switch.
-    if (mode !== "app" || !aiUsed()) return;
+    // Only an app that uses AI. preview-ai-switch (owner, 2026-10-22): the
+    // Builder's 미리보기 has the bar too, so the maker can try the app with
+    // the switch off — the 데모 look a visitor gets — before publishing.
+    if (!aiUsed()) return;
     if (!aiBox) {
       aiBox = document.createElement("div");
       aiBox.id = "ctrlai-ai";
@@ -512,6 +519,10 @@
       ? "만든 사람이 AI를 데모로만 열었어요. AI를 부르지 않아요 (0원)."
       : state === "trouble"
         ? "지금은 AI가 답할 수 없어요 — 돈은 나가지 않아요. 관리자에게 알려 주세요."
+        : mode === "preview"
+          ? live
+            ? "미리보기 · AI 버튼을 누르면 내 지원금에서 나가요. 끄면 방문자가 보는 데모 모습이에요."
+            : "미리보기 · 방문자가 스위치를 껐을 때 보는 모습이에요 (0원)."
         : live
           ? signed
             ? "AI 버튼을 누를 때만 내 지원금에서 나가요."
@@ -525,7 +536,8 @@
   /** In 데모 the call stops here — after the server has said what the app
    *  is (never on a stale `info`), and never in the maker's 미리보기. */
   function demoGate() {
-    if (mode === "preview") return Promise.resolve();
+    // In the maker's own 미리보기 the server reports "full" (the 데모만
+    // setting never limits the maker), so only their own switch can say 데모.
     return (info ? Promise.resolve(info) : refresh()).then(function () {
       if (aiMode() === "demo") throw demoRefusal();
     });

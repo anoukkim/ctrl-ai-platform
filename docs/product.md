@@ -1138,6 +1138,11 @@ taught by the Builder's app rules and followed by the three showcases:
   off (데모): the AI buttons are hidden and the app says the switch above
   brings them; everything else works with the visitor's own input.
   데모만: no switch, never an AI button.
+- **The 미리보기 has the same bar** (preview-ai-switch, 2026-10-22;
+  owner: "builder에서 AI 켜는 거 테스트 어떻게 함?"): the maker can turn the
+  switch off to see the 데모 look before 게시; on, AI buttons charge the
+  maker's own wallet as before. Before any sign-in the 미리보기 assumes the
+  maker (the switch shows, on); an app without AI shows no bar.
 
 **반응과 댓글** (ctrlaiapps-reactions, 2026-10-17; owner: "7:3 … 영상처럼
 댓글 윈도우"). On a wide screen a published app's page splits about 7 : 3:

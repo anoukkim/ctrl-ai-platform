@@ -114,3 +114,34 @@ test("데모만 refuses with code demo and 0원; 전체 기능 shows the visitor
     await setAccess("full");
   }
 });
+
+test("미리보기: the maker gets the same switch, so the 데모 look can be tried before 게시", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const login = await context.request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
+  expect(login.ok()).toBeTruthy();
+  const made = await context.request.post(`${SITE}/api/builder/projects/from-template`, {
+    data: { template: "ai-chatbot", name: `e2e 미리보기 ${Date.now().toString(36)}` },
+  });
+  expect(made.ok(), await made.text()).toBeTruthy();
+  const project = (await made.json()) as { id: number; draft_slug: string };
+  const slug = project.draft_slug;
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem("ctrlai.guide-done", "1");
+    } catch {
+      /* the app frame has no storage */
+    }
+  });
+  await page.goto(`${SITE}/builder/${project.id}`);
+  const frame = await appFrame(page, slug);
+  const shell = page.frames().find((f) => f.url().startsWith(`${APPS}/${slug}/`) && !f.url().includes("/_app/"))!;
+  // Before any sign-in the 미리보기 is the maker's: the switch shows, on.
+  await expect(shell.locator("#ctrlai-ai")).toHaveAttribute("data-state", "on");
+  await expect(shell.locator("#ctrlai-ai")).toContainText("미리보기");
+  // Off: the app hears 데모, and a call stops before sign-in or any charge.
+  await shell.getByRole("switch", { name: "실제 AI" }).click();
+  await expect(shell.locator("#ctrlai-ai")).toHaveAttribute("data-state", "off");
+  expect(await frame.evaluate(() => window.ctrlai.ai.mode())).toBe("demo");
+  expect(await askOutcome(frame)).toMatchObject({ ok: false, code: "demo" });
+  expect(context.pages().length).toBe(1);
+});
