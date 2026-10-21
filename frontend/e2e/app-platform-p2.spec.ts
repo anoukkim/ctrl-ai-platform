@@ -51,7 +51,7 @@ test("sign in through the consent window, then AI paid by the visitor", async ({
   await consent.waitForLoadState();
   expect(consent.url()).toContain("/apps/connect?app=");
   await expect(consent.getByRole("heading", { name: /연결할까요/ })).toBeVisible({ timeout: 45_000 });
-  await expect(consent.getByText(/최대 200원/)).toBeVisible();
+  await expect(consent.getByText(/최대 1,?000원/)).toBeVisible();
   await consent.getByRole("button", { name: "허용" }).click();
   await consent.waitForEvent("close", { timeout: 15_000 });
 

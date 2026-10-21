@@ -4,7 +4,7 @@ Claude Code가 이 프로젝트에서 일을 시작할 때 읽는 안내예요.
 
 ## 이 앱은
 
-영수증 사진을 올리면 상호·날짜·품목별 금액·합계·카테고리를 읽어 가계부에 넣고, 카테고리별 예산(80% 주의 · 100% 경고), 도넛·일별 그래프, 이번 달 소비 패턴 글, 검색·필터·CSV 내보내기를 제공하는 앱이에요. **CTRL+AI 안에서 로그인한 회원이 실제 AI를 켜면** Claude가 사진을 읽고(`readWithAi`, `RECEIPT_SCHEMA`) 소비 패턴 글을 써요(`PATTERN_SCHEMA`) — 그 사람의 지원금에서, 버튼을 눌렀을 때만, 가격은 `ctrlai.ai.estimate`로 먼저 보여 줘요. 로그인 전이거나 CTRL+AI 밖에서는 **데모**: "AI 결과"는 미리 만들어 둔 데이터예요. 원래 기획은 `SPEC.md`에 있어요.
+영수증 사진을 올리면 상호·날짜·품목별 금액·합계·카테고리를 읽어 가계부에 넣고, 카테고리별 예산(80% 주의 · 100% 경고), 도넛·일별 그래프, 이번 달 소비 패턴 글, 검색·필터·CSV 내보내기를 제공하는 앱이에요. **CTRL+AI 안에서 위쪽 줄의 실제 AI 스위치가 켜져 있으면** Claude가 사진을 읽고(`readWithAi`, `RECEIPT_SCHEMA`) 소비 패턴 글을 써요(`PATTERN_SCHEMA`) — 그 사람의 지원금에서, 버튼을 눌렀을 때만, 가격은 `ctrlai.ai.estimate`로 먼저 보여 줘요. 로그인 전이거나 CTRL+AI 밖에서는 **데모**: "AI 결과"는 미리 만들어 둔 데이터예요. 원래 기획은 `SPEC.md`에 있어요.
 
 만든 사람은 코딩을 잘 모르는 초보자예요. 설명은 쉬운 한국어로 해 주고, 파일을 바꾸기 전에 무엇을 왜 바꿀지 먼저 짧게 말해 주세요.
 
@@ -39,7 +39,7 @@ SPEC.md
 
 ## 실제 AI (CTRL+AI 기능 상자) 와 밖에서의 AI 연결 자리
 
-CTRL+AI 안에서는 `app.js` 맨 위의 `live` 상태(`#mode-toggle`, 저장 열쇠 `receipt-ledger-mode`)가 켜지면 `startReading`이 `readWithAi`로, `patternHtml`이 `#pattern-ai` 버튼으로 가요. 둘 다 `ctrlai.ai.ask`에 JSON 스키마를 주고, 결과는 아래 데모와 **같은 모양**이라 확인·저장 화면이 그대로예요. **CTRL+AI 밖에서 진짜로 연결할 때** 갈아 끼울 자리는 아래와 같아요.
+CTRL+AI 안에서는 `app.js` 맨 위의 `live` 상태가 앱 위쪽 CTRL+AI 줄의 스위치(`ctrlai.ai.mode()`, `ctrlai:ai-mode` 이벤트)를 그대로 따라가요 — 앱 안에 따로 토글을 두지 않아요. 켜지면 `startReading`이 `readWithAi`로, `patternHtml`이 `#pattern-ai` 버튼으로 가요. 둘 다 `ctrlai.ai.ask`에 JSON 스키마를 주고, 결과는 아래 데모와 **같은 모양**이라 확인·저장 화면이 그대로예요. **CTRL+AI 밖에서 진짜로 연결할 때** 갈아 끼울 자리는 아래와 같아요.
 
 지금 "AI"처럼 보이는 곳은 세 군데이고, 진짜로 바꿀 때 갈아 끼울 자리는 이래요.
 
@@ -47,7 +47,7 @@ CTRL+AI 안에서는 `app.js` 맨 위의 `live` 상태(`#mode-toggle`, 저장 �
 2. **자동 분류** — 위 결과의 `category`(지금은 `SAMPLES`의 값). → Claude가 `CATEGORIES` 중 하나를 고르게 해요.
 3. **이번 달 소비 패턴** — `patternHtml(month, sums)`가 `L.PATTERN_NOTES[String(offsetOf(month))]`를 읽어요. 열쇠는 `"-2"` · `"-1"` · `"0"`(오늘 기준 몇 달 전)이고, 글 속 `{카페}` 같은 자리는 그 달 실제 합계로 채워요. 그 밖의 달은 안내만 보여요(실제 AI에서는 버튼으로 Claude가 써요). → 서버가 그 달과 전월의 카테고리별 합계를 Claude에 보내 `{ headline, points: [...], tip }`를 받아 오면 같은 화면에 그대로 그려져요.
 
-데모 표시는 `<span class="demo">데모</span>`(결과마다)와 `.badge.demoAll`(메뉴 위, 실제 AI면 "실제 AI · 내 지원금에서")예요. 진짜로 연결한 부분에서만 빼 주세요. **Claude API 키는 절대 브라우저 코드에 넣지 말고 서버에만 두세요.**
+데모 표시는 `<span class="demo">데모</span>`(결과마다)와 `.badge.demoAll`(메뉴 위, CTRL+AI 밖에서만 — 안에서는 위쪽 줄이 보여 줘요)예요. 진짜로 연결한 부분에서만 빼 주세요. **Claude API 키는 절대 브라우저 코드에 넣지 말고 서버에만 두세요.**
 
 ## 저장
 

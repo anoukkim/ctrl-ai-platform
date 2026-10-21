@@ -214,13 +214,18 @@ def test_update_brings_existing_examples_to_the_image_s_files_as_a_published_ver
 
 
 def test_each_showcase_has_a_live_mode_that_prices_before_it_charges() -> None:
-    """app-platform P4b: 실제 AI behind a toggle, priced with ctrlai.ai.estimate
-    before any ctrlai.ai.ask, a demo path that stays, and AI never on load."""
+    """app-platform P4b: 실제 AI priced with ctrlai.ai.estimate before any
+    ctrlai.ai.ask, a demo path that stays, and AI never on load. Since
+    fix-single-ai-switch (2026-10-21) the one switch is CTRL+AI's bar: an
+    app follows `ctrlai.ai.mode()` and "ctrlai:ai-mode" and has no toggle
+    of its own."""
     for example in cli.EXAMPLES:
         files = cli.example_files(example)
         code = "\n".join(c for path, c in files.items() if path.endswith(".js"))
         assert "ai.estimate(" in code and "ai.ask(" in code, example.folder
-        assert 'id="mode-toggle"' in files["index.html"], example.folder
+        assert 'id="mode-toggle"' not in files["index.html"], example.folder
+        assert "ai.mode(" in code and '"ctrlai:ai-mode"' in code, example.folder
+        assert "실제 AI 켜기" not in code and "setMode(" not in code, example.folder
         assert "데모" in code and "실제 AI" in code, example.folder
         # Every ask sits inside a function the visitor triggers, never at the top level of a file.
         for path, content in files.items():

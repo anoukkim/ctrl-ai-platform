@@ -19,18 +19,17 @@
     if (!sdk || framedByMaker) return Promise.resolve();
     const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 1500));
     return Promise.race([sdk.app(), timeout])
-      .then((info) => (info ? sdk.user() : null))
-      // app-ai-access: CTRL+AI가 데모라고 하면(만든 사람의 설정이나 방문자의 스위치) 데모예요.
-      .then((user) => Promise.all([user, sdk.ai.mode ? sdk.ai.mode().catch(() => "live") : "live"]))
-      .then(([user, aiMode]) => {
-        liveOn = Boolean(user) && settings.mode !== "demo" && aiMode === "live";
+      // ai-switch-toggle: CTRL+AI 줄의 스위치 하나가 정해요 (만든 사람의 '데모만'이면 늘 데모).
+      .then((info) => (info && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo"))
+      .then((aiMode) => {
+        liveOn = aiMode === "live";
       })
       .catch(() => {
         liveOn = false;
       });
   }
   let framedByMaker = false;
-  // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
+  // CTRL+AI 줄의 스위치가 바뀌면 따라가요.
   window.addEventListener("ctrlai:ai-mode", (event) => {
     if (event.detail && event.detail.mode === "live") checkLive();
     else liveOn = false;

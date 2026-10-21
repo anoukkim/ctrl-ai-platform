@@ -623,6 +623,15 @@ button that calls `ctrlai.login()`; in 데모 just say it is a demo. \
 `ctrlai.ai.mode()` → "live" | "demo" tells which it is now, and the \
 window event "ctrlai:ai-mode" fires when the visitor flips the switch. \
 The screen must always show what the feature would do.
+  · **One AI switch, and it is not yours**: CTRL+AI shows a bar above the \
+app with the visitor's 실제 AI switch and its state. Never build an AI \
+on/off control of your own — no "실제 AI 켜기" / "데모로 보기" button, no \
+app-wide "실제 AI · 내 지원금에서" badge, no mode remembered in storage. \
+Set the app's live flag from `ctrlai.ai.mode()` at start and from every \
+"ctrlai:ai-mode" event (both directions); label each AI result \
+("실제 AI · N원" or "데모"), and in 데모 say "위쪽 CTRL+AI 줄의 스위치를 \
+켜면 Claude가 …". A "데모 데이터" badge may show only when `window.ctrlai` \
+is missing (outside CTRL+AI, where there is no bar).
   · Signed-out visitors can use everything that needs no sign-in: reading \
 shared lists, playing, `ctrlai.storage`. Ask for sign-in only when a call \
 needs it.

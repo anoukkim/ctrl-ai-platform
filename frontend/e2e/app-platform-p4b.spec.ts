@@ -7,7 +7,9 @@
  * switching to 실제 AI costs nothing; the price shows beside the button
  * before anything is sent; the first AI charge happens only when the
  * visitor presses the button, and never more than the 최대 shown; 데모
- * is one toggle away.
+ * is one toggle away. Since fix-single-ai-switch (2026-10-21) that toggle
+ * is CTRL+AI's bar above the app — the apps have none of their own, and
+ * sign-in comes with the first AI call.
  */
 
 import { expect, test, type Frame, type Page } from "@playwright/test";
@@ -48,17 +50,10 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
-  await expect(frame.locator(".badge.demoAll")).toHaveText("데모 데이터");
-
-  // 실제 AI needs the app sign-in: the consent window, then the badge turns.
-  const consentPromise = context.waitForEvent("page");
-  await frame.getByRole("button", { name: /실제 AI로 써 보기/ }).click();
-  const consent = await consentPromise;
-  await consent.waitForLoadState();
-  await expect(consent.getByRole("heading", { name: /연결할까요/ })).toBeVisible({ timeout: 45_000 });
-  await consent.getByRole("button", { name: "허용" }).click();
-  await consent.waitForEvent("close", { timeout: 15_000 });
-  await expect(frame.locator(".badge.demoAll")).toHaveText(/실제 AI/);
+  // One switch: the bar says 실제 AI, the app repeats nothing and has no toggle.
+  await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "on");
+  await expect(frame.locator(".badge.demoAll")).toBeHidden();
+  await expect(frame.locator("#mode-toggle")).toHaveCount(0);
 
   // The price shows before anything is sent; still nothing charged.
   await frame.getByRole("tab", { name: /영수증 추가/ }).click();
@@ -67,8 +62,14 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   const shown = Number(/최대 (\d+)원/.exec((await price.textContent()) ?? "")![1]);
   expect(await spentKrw(context.request)).toBe(before);
 
-  // The button: one AI call, charged to the visitor, within the figure shown.
+  // The button: one AI call (sign-in first, the consent window), charged to the visitor, within the figure shown.
+  const consentPromise = context.waitForEvent("page");
   await frame.locator("button.sample").first().click();
+  const consent = await consentPromise;
+  await consent.waitForLoadState();
+  await expect(consent.getByRole("heading", { name: /연결할까요/ })).toBeVisible({ timeout: 45_000 });
+  await consent.getByRole("button", { name: "허용" }).click();
+  await consent.waitForEvent("close", { timeout: 15_000 });
   await expect(frame.getByText(/실제 AI · \d+원 · 내 동아리 지원금에서/)).toBeVisible({ timeout: 60_000 });
   const charged = Number(/실제 AI · (\d+)원/.exec((await frame.locator(".notice .demo.live").textContent()) ?? "")![1]);
   expect(charged).toBeGreaterThan(0);
@@ -78,10 +79,11 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   expect(usage.events[0].label).toBe("앱 · 영수증 가계부");
   expect(usage.events[0].charged_krw).toBe(charged);
 
-  // Back to 데모 with one button; nothing more is charged.
+  // Back to 데모 with the bar's switch — the app follows; nothing more is charged.
   await frame.getByRole("button", { name: "취소" }).click();
-  await frame.getByRole("button", { name: "데모 데이터로 보기" }).click();
-  await expect(frame.locator(".badge.demoAll")).toHaveText("데모 데이터");
+  await page.getByRole("switch", { name: "실제 AI" }).click();
+  await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "off");
+  await expect(frame.locator("#drop small")).toContainText("위쪽 CTRL+AI 줄의 스위치를 켜면");
   expect(await spentKrw(context.request)).toBe(before + charged);
 });
 
@@ -96,22 +98,21 @@ test("문서 챗봇 LIVE: an answer with its source, no call when nothing matche
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
-  // The consent from the first test may still stand; either way the badge turns.
+  await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "on");
+  await expect(frame.locator("#chat-price")).toHaveText(/질문 1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
+  const before = await spentKrw(context.request);
+
+  // A question the documents cover: Claude answers, the source is shown, one charge.
+  // The consent from the first test may still stand; if not, it comes with this first call.
+  await frame.getByLabel("질문").fill("회비는 얼마예요?");
   const popup = context.waitForEvent("page", { timeout: 5_000 }).catch(() => null);
-  await frame.getByRole("button", { name: /실제 AI/ }).click();
+  await frame.getByRole("button", { name: "보내기" }).click();
   const consent = await popup;
   if (consent) {
     await consent.waitForLoadState();
     await consent.getByRole("button", { name: "허용" }).click({ timeout: 45_000 });
     await consent.waitForEvent("close", { timeout: 15_000 });
   }
-  await expect(frame.locator(".badge.demoAll")).toHaveText(/실제 AI/);
-  await expect(frame.locator("#chat-price")).toHaveText(/질문 1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
-  const before = await spentKrw(context.request);
-
-  // A question the documents cover: Claude answers, the source is shown, one charge.
-  await frame.getByLabel("질문").fill("회비는 얼마예요?");
-  await frame.getByRole("button", { name: "보내기" }).click();
   await expect(frame.locator(".msg.bot").last().locator(".demo.live")).toHaveText(/실제 AI · \d+원/, { timeout: 60_000 });
   const afterAnswer = await spentKrw(context.request);
   expect(afterAnswer).toBeGreaterThan(before);
@@ -134,15 +135,7 @@ test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, 
 
   await page.goto(`${APPS}/${slug}/`);
   const frame = await appFrame(page, slug);
-  const popup = context.waitForEvent("page", { timeout: 5_000 }).catch(() => null);
-  await frame.getByRole("button", { name: /실제 AI/ }).click();
-  const consent = await popup;
-  if (consent) {
-    await consent.waitForLoadState();
-    await consent.getByRole("button", { name: "허용" }).click({ timeout: 45_000 });
-    await consent.waitForEvent("close", { timeout: 15_000 });
-  }
-  await expect(frame.locator(".badge.demoAll")).toHaveText(/실제 AI/);
+  await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "on");
   const before = await spentKrw(context.request);
 
   await frame.getByRole("button", { name: "새 일정 만들기" }).click();
@@ -150,7 +143,14 @@ test("여행 일정 메이커 LIVE: priced before 일정 만들기, one charge, 
   const shown = Number(/최대 (\d+)원/.exec((await frame.locator("#plan-price").textContent()) ?? "")![1]);
   expect(await spentKrw(context.request)).toBe(before);
 
+  const popup = context.waitForEvent("page", { timeout: 5_000 }).catch(() => null);
   await frame.getByRole("button", { name: "일정 만들기" }).click();
+  const consent = await popup;
+  if (consent) {
+    await consent.waitForLoadState();
+    await consent.getByRole("button", { name: "허용" }).click({ timeout: 45_000 });
+    await consent.waitForEvent("close", { timeout: 15_000 });
+  }
   // Mock Claude's ids are not in the list: the demo planner fills the days, still one real charge.
   await expect(frame.locator(".plannerLine")).toBeVisible({ timeout: 60_000 });
   const usage = (await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage;

@@ -19,11 +19,11 @@
   const main = $("#main");
 
   // ---------------------------------------------------------------- 실제 AI (CTRL+AI 기능 상자, app-platform P4b)
-  // 로그인한 CTRL+AI 회원은 Claude가 일정을 짜고 문장을 알아들어요 — 방문자 자신의 지원금에서,
-  // 버튼을 눌렀을 때만. 장소는 여전히 이 앱의 목록 안에서만 골라요(밖의 id는 데모 플래너가 채워요).
+  // 실제 AI를 켜고 끄는 스위치는 하나 — 앱 위쪽 CTRL+AI 줄의 스위치예요 (ai-switch-toggle).
+  // 앱은 그 스위치(`ctrlai.ai.mode()`, "ctrlai:ai-mode")만 따라가요. 켜져 있으면 Claude가
+  // 일정을 짜고 문장을 알아들어요 — 방문자 자신의 지원금에서, 버튼을 눌렀을 때만 (로그인은 그때). 장소는 여전히 이 앱의 목록 안에서만 골라요(밖의 id는 데모 플래너가 채워요).
   const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
-  const MODE_KEY = "trip-planner-mode";
-  const live = { user: null, on: false, prices: {}, busy: false };
+  const live = { on: false, prices: {}, busy: false };
   const PLAN_SCHEMA = {
     type: "object",
     required: ["days", "notes"],
@@ -96,41 +96,11 @@
       timer = setTimeout(fn, ms);
     };
   }
+  // CTRL+AI 안에서는 위쪽 줄이 데모/실제 AI를 보여 줘요 — 앱이 같은 말을 또 하지 않아요.
+  // CTRL+AI 밖(파일만 연 경우)에서만 "데모 데이터" 배지를 보여요.
   function modeBadge() {
     const badge = $(".badge.demoAll");
-    const toggle = $("#mode-toggle");
-    if (!badge) return;
-    if (!sdk) {
-      badge.textContent = "데모 데이터";
-      if (toggle) toggle.hidden = true;
-      return;
-    }
-    badge.textContent = live.on ? "실제 AI · 내 지원금에서" : "데모 데이터";
-    badge.classList.toggle("liveAll", live.on);
-    if (toggle) {
-      toggle.hidden = false;
-      toggle.textContent = live.on ? "데모 데이터로 보기" : live.user ? "실제 AI 켜기" : "실제 AI로 써 보기 (로그인)";
-    }
-  }
-  async function setMode(on) {
-    if (on && !live.user) {
-      try {
-        live.user = await sdk.login();
-      } catch (error) {
-        say("로그인하지 않았어요. 데모로 계속해요.");
-        return;
-      }
-    }
-    // app-ai-access: 만든 사람이 '데모만'으로 두었거나 방문자가 CTRL+AI의 데모
-    // 스위치를 켰으면 실제 AI는 켜지지 않아요 (0원).
-    if (on && sdk.ai.mode && (await sdk.ai.mode().catch(() => "live")) === "demo") {
-      say("지금은 데모로만 볼 수 있어요. 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켜요.");
-      return;
-    }
-    live.on = on;
-    store.set(MODE_KEY, on ? "live" : "demo").catch(() => {});
-    modeBadge();
-    render();
+    if (badge) badge.style.display = sdk ? "none" : ""; // the CSS sets display, so not `hidden`
   }
   // Claude의 일정: 목록 안의 id만, 하루에 한 번씩, 6곳까지. 맞지 않는 날은 데모 플래너의 날을 그대로 둬요.
   async function planWithAi(input) {
@@ -256,7 +226,7 @@
         <span class="price" id="plan-price" aria-live="polite"></span>
         ${state.trip ? `<button class="ghost" type="button" id="back-result">지금 일정으로 돌아가기</button>` : ""}
       </div>
-      <p class="muted small">${live.on && sdk ? `<span class="demo live">실제 AI</span> Claude가 아래 도시의 장소 목록에서만 골라 일정을 짜요 — 1회 비용은 버튼 옆에.` : `<span class="demo">데모 플래너${sdk ? " · 로그인하면 Claude가 생성" : ""}</span> 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.`}</p>
+      <p class="muted small">${live.on && sdk ? `<span class="demo live">실제 AI</span> Claude가 아래 도시의 장소 목록에서만 골라 일정을 짜요 — 1회 비용은 버튼 옆에.` : `<span class="demo">데모 플래너${sdk ? " · 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 생성" : ""}</span> 정해진 규칙이 아래 도시의 장소 목록에서만 골라 일정을 짜요.`}</p>
     </form>`;
   }
 
@@ -360,7 +330,7 @@
           <small>${ratio > 1 ? `예산보다 ${won(budget.total - input.budget)} 많아요` : `${won(input.budget - budget.total)} 남아요`}</small>
         </div>
       </section>
-      <p class="plannerLine">${trip.ai ? `<span class="demo live">실제 AI · ${trip.ai.krw}원 · ${trip.ai.days}/${trip.ai.total}일</span>` : `<span class="demo">데모 플래너${live.on ? "" : " · 로그인하면 Claude가 생성"}</span>`}
+      <p class="plannerLine">${trip.ai ? `<span class="demo live">실제 AI · ${trip.ai.krw}원 · ${trip.ai.days}/${trip.ai.total}일</span>` : `<span class="demo">데모 플래너${live.on || !sdk ? "" : " · 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 생성"}</span>`}
         ${[trip.rain ? "☔ 비 오는 날 버전" : "", trip.cheap ? "💸 알뜰 버전" : "", trip.relaxed ? "🐢 여유 버전" : ""].filter(Boolean).map((t) => `<span class="mode">${t}</span>`).join("")}
         ${trip.notes.map((n) => `<span class="note">${esc(n)}</span>`).join("")}</p>
       <div class="dayTabs" role="tablist" aria-label="날짜">
@@ -437,7 +407,7 @@
         <p class="muted small">카드를 끌어서 순서를 바꾸거나 ↑ ↓ 버튼을 쓰세요. 이동 시간과 예산이 바로 다시 계산돼요.</p>
       </div>
       <form id="nl" class="nl">
-        <label for="nl-text"><b>문장으로 고치기</b> ${live.on && sdk ? `<span class="demo live">실제 AI · <span id="edit-price">비용 확인 중…</span></span>` : `<span class="demo">데모 규칙${sdk ? " · 로그인하면 Claude가 이해" : ""}</span>`}</label>
+        <label for="nl-text"><b>문장으로 고치기</b> ${live.on && sdk ? `<span class="demo live">실제 AI · <span id="edit-price">비용 확인 중…</span></span>` : `<span class="demo">데모 규칙${sdk ? " · 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 이해" : ""}</span>`}</label>
         <div class="nlRow"><input id="nl-text" type="text" placeholder="예: 비 오는 날 버전으로" autocomplete="off" maxlength="200">
           <button class="primary" type="submit" id="nl-submit">바꾸기</button></div>
         <div class="suggest">${["비 오는 날 버전으로", "더 저렴하게", "더 여유롭게"]
@@ -602,7 +572,7 @@
     const intent = T.intent(trimmed);
     if (!intent) {
       message = {
-        text: `"${trimmed}" 같은 부탁은 ${sdk ? "실제 AI를 켜면" : "데모에서는 못"} 알아들어요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'만 알아들어요.`,
+        text: `"${trimmed}" 같은 부탁은 ${sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면" : "데모에서는 못"} 알아들어요. 지금은 '비 오는 날 버전으로', '더 저렴하게', '더 여유롭게'만 알아들어요.`,
         kind: "wait",
       };
       render();
@@ -640,7 +610,6 @@
       if (error && error.code === "demo") {
         // 데모로 바뀌었어요(0원): 데모 규칙으로 돌아가요.
         live.on = false;
-        modeBadge();
         message = { text: "데모로 보여 줘요 — AI는 부르지 않았어요 (0원). 데모 규칙으로 다시 눌러 보세요.", kind: "wait" };
       } else {
         message = { text: `AI가 답하지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`, kind: "wait" };
@@ -736,28 +705,22 @@
       render();
     }
   });
-  const modeToggle = $("#mode-toggle");
-  if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
-  // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
+  // CTRL+AI 줄의 스위치가 바뀌면 그대로 따라가요 — 켜도, 꺼도.
   window.addEventListener("ctrlai:ai-mode", (event) => {
-    if (event.detail && event.detail.mode === "demo" && live.on) {
-      live.on = false;
-      modeBadge();
+    const on = Boolean(sdk && event.detail && event.detail.mode === "live");
+    if (on !== live.on) {
+      live.on = on;
       render();
     }
   });
   Promise.all([
     store.get(KEY),
-    sdk ? sdk.user().catch(() => null) : null,
-    sdk ? store.get(MODE_KEY).catch(() => null) : null,
-    sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "live") : "live",
+    sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo",
   ])
-    .then(([saved, user, mode, aiMode]) => {
+    .then(([saved, aiMode]) => {
       if (saved && saved.trip && saved.trip.input && T.CITIES[saved.trip.input.city]) state = saved;
-      // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
-      // CTRL+AI가 데모라고 하면(만든 사람의 설정이나 방문자의 스위치) 데모예요.
-      live.user = user || null;
-      live.on = Boolean(sdk && user && mode !== "demo" && aiMode === "live");
+      // CTRL+AI 줄의 스위치가 정해요 (만든 사람의 '데모만'이면 늘 데모).
+      live.on = Boolean(sdk && aiMode === "live");
       modeBadge();
     })
     .catch(() => {
