@@ -293,6 +293,9 @@ def test_the_builder_prompt_and_the_examples_know_the_demo_code() -> None:
     assert "One AI switch, and it is not yours" in _SDK_RULES and "위쪽 CTRL+AI 줄의 스위치" in _SDK_RULES
     # ai-free-first (2026-10-22): a free action stays free; AI is its own priced button.
     assert "Free first; AI is its own button" in _SDK_RULES and "never turns a free button into a paid one" in _SDK_RULES
+    # fix-demo-rule-wording: switch off hides the AI buttons (as the showcases
+    # and docs/product.md do); the sample answer is for outside CTRL+AI and refusals.
+    assert "the AI buttons are **hidden**" in _SDK_RULES and "the AI buttons give the demo answer" not in _SDK_RULES
     for example in cli.EXAMPLES:
         code = "\n".join(c for path, c in cli.example_files(example).items() if path.endswith(".js"))
         assert 'error.code === "demo"' in code and "ai.mode" in code, example.folder
