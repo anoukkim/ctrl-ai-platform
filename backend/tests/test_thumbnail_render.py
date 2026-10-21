@@ -268,6 +268,75 @@ def test_a_failed_render_keeps_the_old_picture(
     assert thumbnails.load_published(get_storage(settings), project) == before_bytes
 
 
+def test_an_update_keeps_the_previous_picture_until_the_new_one_is_taken(
+    client: TestClient, db_session: Session, budgeted, project, server_config
+) -> None:
+    """fix-thumbnail-keep (2026-10-21): 업데이트 게시 used to blank the
+    CtrlAIApps card until the render landed — and for good when it failed."""
+    from app.services import app_publish, builder_versions
+
+    settings, renderer = server_config
+    queue = make_queue(db_session, settings)
+    publish(client, project)
+    while queue.run_one(block=False):
+        pass
+    db_session.expire_all()
+    first_at = project.published_thumbnail_at
+    first_bytes = thumbnails.load_published(get_storage(settings), project)
+    assert first_at is not None and first_bytes is not None
+
+    # v2 is published; its own picture is not taken yet.
+    files = builder_versions.current_files(db_session, project)
+    files["index.html"] = files["index.html"].replace("</body>", "<p>v2</p></body>")
+    builder_versions.replace_files(db_session, project, files)
+    app_publish.publish(db_session, settings, project, description="할 일 앱이에요.", note="v2", notify=False)
+    db_session.commit()
+    assert project.published_version.thumbnail_at is None
+    assert project.published_thumbnail_at == first_at  # the card keeps v1's picture …
+    served = client.get(f"/api/apps/{project.app_slug}/thumbnail")
+    assert served.status_code == 200 and served.content == first_bytes
+    listing = {row["slug"]: row for row in client.get("/api/apps").json()}
+    assert listing[project.app_slug]["thumbnail_at"] is not None
+
+    # … a failed render changes nothing …
+    renderer.fail = True
+    assert thumbnail_render.render_quietly(db_session, settings, project) is False
+    assert project.published_thumbnail_at == first_at
+
+    # … and the new picture replaces it (a new time, so a new cache key).
+    renderer.fail = False
+    assert thumbnail_render.render_quietly(db_session, settings, project) is True
+    db_session.commit()
+    assert project.published_thumbnail_at not in (None, first_at)
+    assert project.published_picture_version.number == project.published_version.number
+
+
+def test_the_example_import_photographs_what_it_publishes(
+    monkeypatch, db_session: Session, dev_user, server_config, capsys
+) -> None:
+    """fix-thumbnail-keep: `import_example_apps` published without asking
+    for a picture, so an --update left the showcase with none."""
+    from app.db import import_example_apps as cli
+
+    settings, renderer = server_config
+
+    class Bound:
+        def __enter__(self):
+            return db_session
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(cli, "SessionLocal", lambda: Bound())
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    assert cli.main([dev_user.username]) == 0
+    out = capsys.readouterr().out
+    assert out.count("썸네일 찍음") == len(cli.EXAMPLES), out
+    for project in db_session.query(BuilderProject).filter(BuilderProject.deleted_at.is_(None)):
+        assert project.published_version.thumbnail_at is not None, project.name
+    assert len(renderer.urls) == len(cli.EXAMPLES)
+
+
 def test_the_queue_runs_one_at_a_time_and_never_piles_up(db_session: Session, settings_for) -> None:
     settings = settings_for(thumbnail_renderer="server", thumbnail_worker_url=WORKER, thumbnail_worker_secret=SECRET)
     factory = sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False)
