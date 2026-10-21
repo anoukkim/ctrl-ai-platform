@@ -458,6 +458,13 @@ Chat is the opening screen and a real conversation with Claude, behind
   `CHAT_MAX_OUTPUT_TOKENS` stays 4,096 — raising it to 8,192 for longer
   pages is the owner's decision (it roughly doubles the worst-case
   pre-check).
+- **Builder로 보내고 파일로 나누기** (chat-builder-split, 2026-10-22): beside Builder로 보내기 on an `html` 미리보기; the same project, but the
+  page's inline CSS and JavaScript become style.css and app.js (moved, never rewritten; free, no call). SPEC.md, either way, adds
+  **Claude가 설명한 내용** — the reply's own text without code blocks.
+- **Downloads and export** (chat-builder-split): every code block has 복사 and 다운로드 (`code.<ext>` from the language, or the
+  name after the fence — Chat's prompt asks for ```csv a.csv when the member wants a file). The top bar's **내보내기**: the
+  conversation as Markdown, as PDF (a text-only print window), and all code blocks of Claude's replies as one ZIP. All made in
+  the browser; nothing is sent anywhere.
 - **Files** (chat-plus-files): 📎 or drag-and-drop attaches up to 5 files
   to a message — JPEG/PNG/WebP/GIF (10 MB; re-encoded to a 1,568 px long
   edge with EXIF/GPS removed), PDF (10 MB, 30 pages, not encrypted), CSV

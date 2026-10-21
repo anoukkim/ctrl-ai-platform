@@ -284,6 +284,12 @@
   display: none;
 }
 
+.exportMenu {
+  position: absolute;
+  right: 1rem;
+  top: 10px;
+}
+
 .listToggle {
   display: none;
   position: absolute;

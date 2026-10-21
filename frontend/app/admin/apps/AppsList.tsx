@@ -9,7 +9,6 @@
  * Content는 신고 큐만 남았습니다.
  */
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import PageHeader from "@/app/components/PageHeader";
@@ -59,9 +58,8 @@ const COLUMNS: Column<AdminAppOverview>[] = [
     header: "앱",
     render: (app) => (
       <>
-        <Link href={`/admin/apps/${app.id}`}>
-          <strong>{app.name}</strong>
-        </Link>{" "}
+        {/* The whole row is already the link (rowHref); a second <a> inside it is invalid HTML. */}
+        <strong>{app.name}</strong>{" "}
         <AppStateBadges app={app} />
       </>
     ),
