@@ -6,7 +6,7 @@
   B.esc = (text) =>
     String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-  const DEMO_BADGE = "데모 · 문서 문장을 그대로 보여 줘요 (로그인하면 Claude가 정리)";
+  const DEMO_BADGE = "데모 · 문서 문장을 그대로 보여 줘요 (위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 정리)";
   // 실제 AI (app-platform P4b): 찾은 단락을 Claude에게 주고 출처가 붙은 답을 받아요.
   // 근거가 없으면(found: false) 설정의 "못 찾을 때 문구"를 그대로 보여 줘요.
   B.ANSWER_SCHEMA = {

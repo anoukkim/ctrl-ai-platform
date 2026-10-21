@@ -17,11 +17,12 @@
   const won = L.won;
 
   // ---------------------------------------------------------------- 실제 AI (CTRL+AI 기능 상자, app-platform P4b)
-  // CTRL+AI 안에서 로그인한 회원은 Claude가 영수증을 읽고 소비 패턴을 써 줘요 — 방문자 자신의
-  // 동아리 지원금에서, 버튼을 눌렀을 때만. 로그인 전이거나 밖에서 열면 데모 데이터예요.
+  // 실제 AI를 켜고 끄는 스위치는 하나 — 앱 위쪽 CTRL+AI 줄의 스위치예요 (ai-switch-toggle).
+  // 앱은 그 스위치(`ctrlai.ai.mode()`, "ctrlai:ai-mode")만 따라가요. 켜져 있으면 Claude가 영수증을
+  // 읽고 소비 패턴을 써 줘요 — 방문자 자신의 지원금에서, 버튼을 눌렀을 때만 (로그인은 그때).
+  // 꺼져 있거나 밖에서 열면 데모 데이터예요.
   const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
-  const MODE_KEY = "receipt-ledger-mode"; // "live" | "demo" — 이 기기에 기억해요
-  const live = { user: null, on: false, prices: {}, busy: false };
+  const live = { on: false, prices: {}, busy: false };
   const RECEIPT_SCHEMA = {
     type: "object",
     required: ["shop", "date", "items", "total", "category"],
@@ -68,41 +69,11 @@
     if (!p) return "1회 최대 200원";
     return `1회 약 ${p.typicalKrw}원 · 최대 ${p.maxKrw}원`;
   }
+  // CTRL+AI 안에서는 위쪽 줄이 데모/실제 AI를 보여 줘요 — 앱이 같은 말을 또 하지 않아요.
+  // CTRL+AI 밖(파일만 연 경우)에서만 "데모 데이터" 배지를 보여요.
   function modeBadge() {
     const badge = $(".badge.demoAll");
-    const toggle = $("#mode-toggle");
-    if (!badge) return;
-    if (!sdk) {
-      badge.textContent = "데모 데이터";
-      if (toggle) toggle.hidden = true;
-      return;
-    }
-    badge.textContent = live.on ? "실제 AI · 내 지원금에서" : "데모 데이터";
-    badge.classList.toggle("liveAll", live.on);
-    if (toggle) {
-      toggle.hidden = false;
-      toggle.textContent = live.on ? "데모 데이터로 보기" : live.user ? "실제 AI 켜기" : "실제 AI로 써 보기 (로그인)";
-    }
-  }
-  async function setMode(on) {
-    if (on && !live.user) {
-      try {
-        live.user = await sdk.login();
-      } catch (error) {
-        toast("로그인하지 않았어요. 데모로 계속해요.");
-        return;
-      }
-    }
-    // app-ai-access: 만든 사람이 '데모만'으로 두었거나 방문자가 CTRL+AI의 데모
-    // 스위치를 켰으면 실제 AI는 켜지지 않아요 (0원).
-    if (on && sdk.ai.mode && (await sdk.ai.mode().catch(() => "live")) === "demo") {
-      toast("지금은 데모로만 볼 수 있어요. 실제 AI는 앱 맨 위 CTRL+AI 줄에서 켜요.");
-      return;
-    }
-    live.on = on;
-    store.set(MODE_KEY, on ? "live" : "demo").catch(() => {});
-    modeBadge();
-    render();
+    if (badge) badge.style.display = sdk ? "none" : ""; // the CSS sets display, so not `hidden`
   }
   // SVG 샘플은 PNG로 바꿔 보내요 (AI는 PNG·JPEG·WebP·GIF만 받아요).
   function toPng(dataUrl) {
@@ -288,7 +259,7 @@
     }
     const note = L.PATTERN_NOTES[String(offsetOf(month))];
     if (!note) {
-      return `<section class="card pattern"><h3>이번 달 소비 패턴 <span class="demo">데모</span></h3><p class="muted">이 달의 예시 분석은 없어요. ${sdk ? "실제 AI를 켜면 Claude가 실제 내역으로 써 줘요." : "CTRL+AI 안에서 로그인하면 Claude가 써 줘요."}</p></section>`;
+      return `<section class="card pattern"><h3>이번 달 소비 패턴 <span class="demo">데모</span></h3><p class="muted">이 달의 예시 분석은 없어요. ${sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 실제 내역으로 써 줘요." : "CTRL+AI 안에서 로그인하면 Claude가 써 줘요."}</p></section>`;
     }
     const fill = (text) => text.replace(/\{(.+?)\}/g, (_, c) => (sums[c] || 0).toLocaleString("ko-KR"));
     return `<section class="card pattern">
@@ -296,7 +267,7 @@
       <p class="headline">${esc(note.headline)}</p>
       <ul>${note.points.map((p) => `<li>${esc(fill(p))}</li>`).join("")}</ul>
       <p class="tip">💡 ${esc(note.tip)}</p>
-      <p class="muted small">미리 써 둔 예시 분석이에요. ${sdk ? "실제 AI를 켜면" : "CTRL+AI 안에서 로그인하면"} Claude가 실제 내역을 보고 써 줘요.</p>
+      <p class="muted small">미리 써 둔 예시 분석이에요. ${sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면" : "CTRL+AI 안에서 로그인하면"} Claude가 실제 내역을 보고 써 줘요.</p>
     </section>`;
   }
 
@@ -394,7 +365,7 @@
           <b>영수증 사진을 여기에 끌어다 놓거나 눌러서 고르세요</b>
           <small>${live.on
             ? `실제 AI(Claude)가 읽어요 · 사진 읽기 ${priceLine("read", readOptions(null))} · 버튼을 눌렀을 때만 내 지원금에서 나가요.`
-            : "데모에서는 아래 샘플 영수증을 쓰면 미리 만든 추출 결과가 나와요. 다른 사진은 직접 입력하는 빈 양식이 열려요."}</small>
+            : `${sdk ? "지금은 데모예요 — 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 사진을 읽어요. " : ""}데모에서는 아래 샘플 영수증을 쓰면 미리 만든 추출 결과가 나와요. 다른 사진은 직접 입력하는 빈 양식이 열려요.`}</small>
         </label>
       </section>
       <section class="card">
@@ -460,7 +431,6 @@
       if (error && error.code === "demo") {
         // 데모로 바뀌었어요(0원): 데모 데이터로 보여 줘요.
         live.on = false;
-        modeBadge();
         toast("데모로 보여 줘요 — AI는 부르지 않았어요 (0원).");
       } else {
         // 실제 AI는 그대로 둬요(로그인 취소, 지원금 부족, 너무 잦음 모두 여기로). 양식을 직접 채우게 열어요.
@@ -491,7 +461,7 @@
       ? `<p class="notice"><span class="demo">데모</span> 미리 만든 추출 결과예요. 틀린 곳이 있으면 고쳐서 저장하세요.</p>`
       : d.aiFailed
       ? `<p class="notice">AI가 읽지 못해 빈 양식을 열었어요. 직접 입력하거나 다시 시도해 주세요.</p>`
-      : `<p class="notice">${sdk ? "실제 AI를 켜면 사진에서 자동으로 읽어요." : "데모에서는 샘플 영수증만 읽어요."} 지금은 직접 입력해 주세요.</p>`;
+      : `<p class="notice">${sdk ? "위쪽 CTRL+AI 줄의 스위치를 켜면 사진에서 자동으로 읽어요." : "데모에서는 샘플 영수증만 읽어요."} 지금은 직접 입력해 주세요.</p>`;
     return `<section class="card review">
       <div class="reviewGrid">
         <img class="receiptImg" src="${d.image}" alt="올린 영수증">
@@ -572,7 +542,6 @@
       } catch (error) {
         if (error && error.code === "demo") {
           live.on = false;
-          modeBadge();
           toast("데모로 보여 줘요 — AI는 부르지 않았어요 (0원).");
         } else {
           toast(`분석을 받지 못했어요: ${error && error.message ? error.message : "다시 시도해 주세요"}`);
@@ -752,13 +721,11 @@
       go("dashboard");
     }),
   );
-  const modeToggle = $("#mode-toggle");
-  if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
-  // CTRL+AI의 데모 스위치가 바뀌면 따라가요 (app-ai-access).
+  // CTRL+AI 줄의 스위치가 바뀌면 그대로 따라가요 — 켜도, 꺼도.
   window.addEventListener("ctrlai:ai-mode", (event) => {
-    if (event.detail && event.detail.mode === "demo" && live.on) {
-      live.on = false;
-      modeBadge();
+    const on = Boolean(sdk && event.detail && event.detail.mode === "live");
+    if (on !== live.on) {
+      live.on = on;
       render();
     }
   });
@@ -767,16 +734,12 @@
     window.ctrlai && window.ctrlai.connected
       ? window.ctrlai.app().then((info) => framedNote(Boolean(info && info.framed)), () => framedNote(true))
       : null,
-    sdk ? sdk.user().catch(() => null) : null,
-    sdk ? store.get(MODE_KEY).catch(() => null) : null,
-    sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "live") : "live",
+    sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo",
   ])
-    .then(([saved, , user, mode, aiMode]) => {
+    .then(([saved, , aiMode]) => {
       if (saved && Array.isArray(saved.transactions) && saved.budget) state = saved;
-      // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
-      // CTRL+AI가 데모라고 하면(만든 사람의 설정이나 방문자의 스위치) 데모예요.
-      live.user = user || null;
-      live.on = Boolean(sdk && user && mode !== "demo" && aiMode === "live");
+      // CTRL+AI 줄의 스위치가 정해요 (만든 사람의 '데모만'이면 늘 데모).
+      live.on = Boolean(sdk && aiMode === "live");
       modeBadge();
     })
     .catch(() => {

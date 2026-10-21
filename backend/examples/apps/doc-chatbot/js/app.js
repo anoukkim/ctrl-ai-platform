@@ -20,11 +20,12 @@
   const main = $("#main");
 
   // ---------------------------------------------------------------- 실제 AI (CTRL+AI 기능 상자, app-platform P4b)
-  // 로그인한 CTRL+AI 회원은 Claude가 찾은 단락을 읽고 답을 정리해요 — 방문자 자신의 지원금에서,
-  // 질문을 보냈을 때만(근거 단락이 없으면 부르지 않아요). 로그인 전이거나 밖에서 열면 데모예요.
+  // 실제 AI를 켜고 끄는 스위치는 하나 — 앱 위쪽 CTRL+AI 줄의 스위치예요 (ai-switch-toggle).
+  // 앱은 그 스위치(`ctrlai.ai.mode()`, "ctrlai:ai-mode")만 따라가요. 켜져 있으면 Claude가 찾은
+  // 단락을 읽고 답을 정리해요 — 방문자 자신의 지원금에서, 질문을 보냈을 때만(근거 단락이 없으면
+  // 부르지 않아요; 로그인은 그때). 꺼져 있거나 밖에서 열면 데모예요.
   const sdk = window.ctrlai && window.ctrlai.connected ? window.ctrlai : null;
-  const MODE_KEY = "doc-chatbot-mode";
-  const live = { user: null, on: false, price: undefined };
+  const live = { on: false, price: undefined };
   function priceText() {
     if (!live.on || !sdk) return "";
     if (live.price === undefined) {
@@ -46,36 +47,11 @@
     if (!live.price) return "질문 1회 최대 200원";
     return `질문 1회 약 ${live.price.typicalKrw}원 · 최대 ${live.price.maxKrw}원 · 보냈을 때만`;
   }
+  // CTRL+AI 안에서는 위쪽 줄이 데모/실제 AI를 보여 줘요 — 앱이 같은 말을 또 하지 않아요.
+  // CTRL+AI 밖(파일만 연 경우)에서만 "데모 데이터" 배지를 보여요.
   function modeBadge() {
     const badge = $(".badge.demoAll");
-    const toggle = $("#mode-toggle");
-    if (!badge) return;
-    if (!sdk) {
-      badge.textContent = "데모 데이터";
-      if (toggle) toggle.hidden = true;
-      return;
-    }
-    badge.textContent = live.on ? "실제 AI · 내 지원금에서" : "데모 데이터";
-    badge.classList.toggle("liveAll", live.on);
-    if (toggle) {
-      toggle.hidden = false;
-      toggle.textContent = live.on ? "데모로 보기" : live.user ? "실제 AI 켜기" : "실제 AI로 써 보기 (로그인)";
-    }
-  }
-  async function setMode(on) {
-    if (on && !live.user) {
-      try {
-        live.user = await sdk.login();
-      } catch (error) {
-        say("로그인하지 않았어요. 데모로 계속해요.");
-        return;
-      }
-    }
-    live.on = on;
-    state.settings.mode = on ? "live" : "demo"; // 위젯도 같은 설정을 읽어요
-    save();
-    modeBadge();
-    show(view);
+    if (badge) badge.style.display = sdk ? "none" : ""; // the CSS sets display, so not `hidden`
   }
 
   // ---------------------------------------------------------------- 저장
@@ -178,7 +154,7 @@
               <li>그 단락을 <b>그대로 인용</b>하고 출처(문서 · 단락)를 붙여요.</li>
               <li>점수가 ${B.THRESHOLD}보다 낮으면 "못 찾을 때 문구"로 답해요.</li>
             </ol>
-            <p class="muted small" id="chat-price">${live.on ? priceText() : "로그인해서 실제 AI를 켜면 Claude가 찾은 단락을 읽고 자연스러운 문장으로 정리해 줘요."}</p>
+            <p class="muted small" id="chat-price">${live.on ? priceText() : "위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 찾은 단락을 읽고 자연스러운 문장으로 정리해 줘요."}</p>
           </section>
           <section class="panel" aria-live="polite">
             <h3>마지막 질문의 점수</h3>
@@ -388,7 +364,6 @@
         tone: data.get("tone") === "공식" ? "공식" : "친근",
         welcome: String(data.get("welcome") || ""),
         notFound: String(data.get("notFound") || ""),
-        mode: state.settings.mode,
       };
       live.price = undefined; // 이름·말투가 바뀌면 가격도 다시
       $(".phone").innerHTML = `<div class="miniHead"><span class="avatar">${esc(state.settings.name.slice(0, 1))}</span><b>${esc(state.settings.name)}</b></div>
@@ -633,17 +608,22 @@
     }),
   );
 
-  const modeToggle = $("#mode-toggle");
-  if (modeToggle) modeToggle.addEventListener("click", () => setMode(!live.on));
-  Promise.all([store.get(KEY), sdk ? sdk.user().catch(() => null) : null])
-    .then(([saved, user]) => {
+  // CTRL+AI 줄의 스위치가 바뀌면 그대로 따라가요 — 켜도, 꺼도.
+  window.addEventListener("ctrlai:ai-mode", (event) => {
+    const on = Boolean(sdk && event.detail && event.detail.mode === "live");
+    if (on !== live.on) {
+      live.on = on;
+      show(view);
+    }
+  });
+  Promise.all([store.get(KEY), sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo"])
+    .then(([saved, aiMode]) => {
       if (saved && Array.isArray(saved.docs) && Array.isArray(saved.logs)) {
         state = { ...saved, settings: { ...B.DEFAULT_SETTINGS, ...saved.settings } };
         reindex();
       }
-      // 로그인한 회원은 실제 AI가 기본 — 데모로 돌려 두었다면 그대로 데모예요.
-      live.user = user || null;
-      live.on = Boolean(sdk && user && state.settings.mode !== "demo");
+      // CTRL+AI 줄의 스위치가 정해요 (만든 사람의 '데모만'이면 늘 데모).
+      live.on = Boolean(sdk && aiMode === "live");
       modeBadge();
     })
     .catch(() => {

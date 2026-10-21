@@ -259,6 +259,8 @@ def test_the_builder_prompt_and_the_examples_know_the_demo_code() -> None:
     from app.services.claude_provider import _SDK_RULES
 
     assert '"demo"' in _SDK_RULES and "ctrlai.ai.mode()" in _SDK_RULES
+    # fix-single-ai-switch: CTRL+AI's bar is the only switch — no toggle in the app.
+    assert "One AI switch, and it is not yours" in _SDK_RULES and "위쪽 CTRL+AI 줄의 스위치" in _SDK_RULES
     for example in cli.EXAMPLES:
         code = "\n".join(c for path, c in cli.example_files(example).items() if path.endswith(".js"))
         assert 'error.code === "demo"' in code and "ai.mode" in code, example.folder
