@@ -45,7 +45,7 @@ from sqlalchemy import select
 from app.core.config import BACKEND_DIR, get_settings
 from app.db.session import SessionLocal
 from app.models import AuditAction, BuilderProject, User, UserRole
-from app.services import app_publish, app_runtime, audit, builder_files, builder_versions
+from app.services import app_publish, app_runtime, audit, builder_files, builder_versions, thumbnail_render
 
 USAGE = "사용법: python -m app.db.import_example_apps <관리자 아이디> [--replace] [--update]"
 EXAMPLES_DIR = BACKEND_DIR / "examples" / "apps"
@@ -257,8 +257,20 @@ def main(argv: list[str]) -> int:
             print(f"게시하지 못했습니다: {error}")
             return 1
         db.commit()
+        # fix-thumbnail-keep: a published (or newly updated) example gets its
+        # picture now, as 게시 in the Builder does — until then CtrlAIApps
+        # keeps showing the previous version's. A failed render is not an
+        # error: the old picture stays and Admin › Apps can take it again.
+        pictures: dict[str, bool] = {}
+        if thumbnail_render.enabled(settings):
+            for name, outcome in results:
+                project = _live_project(db, admin, name) if outcome in ("imported", "updated") else None
+                if project is not None:
+                    pictures[name] = thumbnail_render.render_quietly(db, settings, project)
+                    db.commit()
     for name, outcome in results:
-        print(f"  {_OUTCOME[outcome]}: {name}")
+        picture = {True: " · 썸네일 찍음", False: " · 썸네일 못 찍음 (이전 사진 유지)"}.get(pictures.get(name), "")
+        print(f"  {_OUTCOME[outcome]}: {name}{picture}")
     return 0
 
 

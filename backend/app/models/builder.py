@@ -9,7 +9,8 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import select
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, status_enum
 
@@ -142,12 +143,40 @@ class BuilderProject(SoftDeleteMixin, TimestampMixin, Base):
         return self.published_version.number if self.published_version is not None else None
 
     @property
+    def published_picture_version(self) -> "BuilderProjectVersion | None":
+        """The version whose picture CtrlAIApps shows: the published one once
+        it has been photographed, until then the newest earlier version that
+        was (fix-thumbnail-keep, 2026-10-21) — an 업데이트 게시 must not blank
+        the card for the seconds the render takes, or for good if it fails."""
+        version = self.published_version
+        if version is None or version.thumbnail_at is not None:
+            return version
+        session = object_session(self)
+        if session is None:
+            return None
+        return session.scalars(
+            select(BuilderProjectVersion)
+            .where(
+                BuilderProjectVersion.project_id == self.id,
+                BuilderProjectVersion.number < version.number,
+                BuilderProjectVersion.thumbnail_at.is_not(None),
+            )
+            .order_by(BuilderProjectVersion.number.desc())
+            .limit(1)
+        ).first()
+
+    @property
     def published_thumbnail_at(self) -> datetime | None:
-        """When the published version's thumbnail was captured (ui-improvements)
-        — or, once published, when the maker chose one (thumbnail-choice)."""
+        """When the picture CtrlAIApps shows was captured (ui-improvements) —
+        or, once published, when the maker chose one (thumbnail-choice). The
+        newer picture's time is also its cache key, so the card swaps to the
+        new version's picture the moment it exists."""
         if self.published_version is None:
             return None
-        return self.thumbnail_chosen_at or self.published_version.thumbnail_at
+        if self.thumbnail_chosen_at is not None:
+            return self.thumbnail_chosen_at
+        picture = self.published_picture_version
+        return picture.thumbnail_at if picture is not None else None
 
     @property
     def published_uses_ai(self) -> bool:

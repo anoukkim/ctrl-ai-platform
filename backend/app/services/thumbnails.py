@@ -211,11 +211,12 @@ def load_version(storage: AssetStorage, project: BuilderProject, version: Builde
 
 def load_published(storage: AssetStorage, project: BuilderProject) -> bytes | None:
     """CtrlAIApps's picture: the chosen one once published, else the
-    published version's, or None."""
-    version = project.published_version
-    if version is None:
+    published version's — or, until that one is photographed, the newest
+    earlier version's (fix-thumbnail-keep) — or None."""
+    if project.published_version is None:
         return None
-    return load_chosen(storage, project) or load_version(storage, project, version)
+    picture = project.published_picture_version
+    return load_chosen(storage, project) or (load_version(storage, project, picture) if picture is not None else None)
 
 
 def storage_keys(project_id: int, numbers: list[int]) -> list[str]:
