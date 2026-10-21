@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import import_example_apps as cli
-from app.models import BuilderProject, MembershipStatus, UsageEvent, User
-from app.services import app_ai_access, app_publish, app_runtime, builder_versions
+from app.models import BuilderProject, MembershipStatus, ProviderErrorKind, UsageEvent, User
+from app.services import app_ai_access, app_publish, app_runtime, builder_versions, providers
 from app.services.quarters import set_membership
 from tests.conftest import DEV_PASSWORD, MEMBER_PASSWORD
 from tests.test_app_platform_p2 import config, headers, shop, sign_in  # noqa: F401 — fixtures
@@ -141,7 +141,7 @@ def test_in_demo_every_visitor_call_is_refused_before_any_charge(
     sign_in(client, shop)
 
     info = client.get("/_ctrlai/v1/app", headers=headers(shop)).json()
-    assert info["ai"] == {"usesAi": False, "access": "demo"}
+    assert info["ai"] == {"usesAi": False, "access": "demo", "health": "ok"}
 
     asked = client.post("/_ctrlai/v1/ai/ask", headers=headers(shop), json={"prompt": "안녕"})
     assert asked.status_code == 403
@@ -170,7 +170,7 @@ def test_the_makers_own_preview_is_never_limited_but_a_guest_of_the_preview_is(
     preview = {"X-CtrlAI-App": project.draft_slug, "Sec-Fetch-Site": "same-origin"}
     # Nobody signed in to the preview: the app's setting shows.
     info = client.get("/_ctrlai/v1/app", headers=preview).json()
-    assert info["mode"] == "preview" and info["ai"] == {"usesAi": True, "access": "demo"}
+    assert info["mode"] == "preview" and info["ai"] == {"usesAi": True, "access": "demo", "health": "ok"}
 
     # The maker (dev) signs in to their own 미리보기: full, and the call runs.
     login(client, dev_user, DEV_PASSWORD)
@@ -203,13 +203,45 @@ def test_the_shell_and_the_sdk_carry_the_switch(anon_client: TestClient) -> None
     assert 'error.code = "demo"' in shell and 'case "ai.mode":' in shell and 'id = "ctrlai-ai"' in shell
     assert shell.count("return demoGate().then(signedIn)") == 2
     assert shell.index("function demoGate") < shell.index("function askAI")
-    # ai-switch-wording: 「로그인해서 사용하기」 (signed out) / 「AI 사용하기」, and the note.
-    assert "로그인해서 사용하기" in shell and "AI 사용하기" in shell and "데모로 보기" in shell
-    assert "실제 AI 켜기" not in shell
+    # ai-switch-toggle (2026-10-21): one real switch carries the state —
+    # role="switch" + aria-checked — and the bar is green / grey / red.
+    assert 'setAttribute("role", "switch")' in shell and '"aria-checked"' in shell
+    assert "실제 AI 켜짐" in shell and "데모 · AI 꺼짐" in shell and "AI 연결 문제" in shell
+    # The old look-alike badge + button is gone.
+    assert "데모로 보기" not in shell and "실제 AI · 내 지원금에서" not in shell
+    # ai-switch-wording still holds: signed out, say that it signs in.
+    assert "로그인하고, 내 지원금에서" in shell and "실제 AI 켜기" not in shell
+    # A setup failure (key, credit) turns the bar red; a busy moment does not.
+    assert "var SETUP_FAILURES = { auth: 1, credit: 1, not_implemented: 1 };" in shell
+    assert shell.count("noteAiOutcome(") >= 6
     assert "내 지원금이 조금 쓰일 수 있어요" in shell
     assert "mode: function" in sdk and '"ctrlai:ai-mode"' in sdk and 'version: "6"' in sdk
     # Outside CTRL+AI everything is a demo.
     assert 'if (type === "ai.mode") return "demo";' in sdk
+
+
+def test_the_app_info_says_when_claude_cannot_answer(
+    anon_client: TestClient, db_session: Session, shop: BuilderProject  # noqa: F811
+) -> None:
+    """ai-switch-toggle: `ai.health` is "trouble" only while Claude's latest
+    outcome is a setup failure — the bar turns red before anyone pays."""
+
+    def health() -> str:
+        return anon_client.get("/_ctrlai/v1/app", headers=headers(shop)).json()["ai"]["health"]
+
+    assert health() == "ok"  # nothing recorded yet
+    providers.record_failure(db_session, "claude", ProviderErrorKind.RATE_LIMITED, "HTTP 429")
+    db_session.commit()
+    assert health() == "ok"  # busy is not broken
+    providers.record_failure(db_session, "claude", ProviderErrorKind.AUTH, "HTTP 401 AuthenticationError")
+    db_session.commit()
+    assert health() == "trouble"
+    providers.record_success(db_session, "claude", "연결 확인")  # the admin fixed the key
+    db_session.commit()
+    assert health() == "ok"
+    providers.record_failure(db_session, "claude", ProviderErrorKind.CREDIT, "HTTP 400")
+    db_session.commit()
+    assert health() == "trouble"
 
 
 def test_the_club_s_showcases_publish_as_full_and_are_known_to_use_ai(

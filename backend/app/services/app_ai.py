@@ -120,10 +120,13 @@ SAFETY_PREAMBLE = (
 class AppAIError(Exception):
     """A Korean sentence for the visitor, and an HTTP status."""
 
-    def __init__(self, message: str, status_code: int = 400, code: str = "") -> None:
+    def __init__(self, message: str, status_code: int = 400, code: str = "", kind: str = "") -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
+        #: For code "provider": the failure kind (`ProviderErrorKind`), so
+        #: the shell can tell a setup failure from a busy moment.
+        self.kind = kind
 
 
 # ------------------------------------------------------------ the request
@@ -674,7 +677,7 @@ async def ask(
                 await in_db(charge, db, settings, user=user, project=project, prepared=first_prepared,
                        input_tokens=total_in, output_tokens=total_out, is_mock=is_mock, preview=preview, searches=searches)
             await in_db(record_failure, db, error)
-            raise AppAIError(str(error), 503, "provider") from error
+            raise AppAIError(str(error), 503, "provider", kind=error.kind) from error
         assert tally is not None
         total_in += tally.input_tokens
         total_out += tally.output_tokens

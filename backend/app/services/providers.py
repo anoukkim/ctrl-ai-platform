@@ -139,6 +139,25 @@ def record_failure(db: Session, provider: str, kind: str, detail: str = "") -> P
     return row
 
 
+#: Failures that will not go away by trying again — a wrong or expired key,
+#: no credit, no adapter. A busy or slow provider is not one: the next call
+#: may well work, and saying "AI is down" for it would cry wolf.
+SETUP_FAILURES = frozenset({ProviderErrorKind.AUTH, ProviderErrorKind.CREDIT, ProviderErrorKind.NOT_IMPLEMENTED})
+
+
+def health(db: Session, provider: str) -> str:
+    """"trouble" when the provider's latest outcome is a setup failure (and
+    nothing has worked since), else "ok". Read-only — for the member app
+    shell's AI bar (ai-switch-toggle), which says so before a visitor pays
+    for a call that cannot work."""
+    row = db.get(ProviderStatus, provider)
+    if row is None or row.last_error_at is None or row.last_error_kind not in SETUP_FAILURES:
+        return "ok"
+    if row.last_success_at is not None and row.last_success_at >= row.last_error_at:
+        return "ok"
+    return "trouble"
+
+
 def explain(kind: str) -> str:
     """A failure code as a sentence a person can act on."""
     return PROVIDER_ERROR_LABEL.get(kind, PROVIDER_ERROR_LABEL[ProviderErrorKind.UNKNOWN])

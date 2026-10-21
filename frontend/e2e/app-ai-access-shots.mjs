@@ -63,7 +63,7 @@ for (const [width, height, theme, tag] of [[1440, 900, "light", "1440-light"], [
     await page.locator("#ctrlai-ai").waitFor();
     await page.waitForTimeout(1500);
     await shot(page, "shell-live", tag, false);
-    await page.getByRole("button", { name: "데모로 보기" }).click();
+    await page.getByRole("switch", { name: "실제 AI" }).click();
     await shot(page, "shell-visitor-demo", tag, false);
     await setAccess("demo");
     await page.reload();
