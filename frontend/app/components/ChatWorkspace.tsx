@@ -118,6 +118,8 @@ import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
 import CarryToBuilder from "./CarryToBuilder";
+import ArtifactPanel from "./ArtifactPanel";
+import { ArtifactPanelContext, type OpenArtifact } from "./artifact-panel-context";
 import { finishRun, handOverRun, isRunning, refreshServerRuns, startRun, useRuns } from "@/lib/running";
 import WalletCheck from "./WalletCheck";
 import NotParticipatingBanner from "./NotParticipatingBanner";
@@ -453,6 +455,16 @@ export default function ChatWorkspace() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
+  // chat-artifact-panel: the html/svg result shown beside the conversation.
+  // Another conversation closes it — the panel belongs to the one it came from.
+  const [artifact, setArtifact] = useState<OpenArtifact | null>(null);
+  const [artifactFor, setArtifactFor] = useState(activeId);
+  if (artifactFor !== activeId) {
+    setArtifactFor(activeId);
+    if (artifactFor !== null) setArtifact(null);
+  }
+  const closeArtifact = useCallback(() => setArtifact(null), []);
+  const panel = useMemo(() => ({ current: artifact, open: setArtifact, close: closeArtifact }), [artifact, closeArtifact]);
   /**
    * 지금 대화가 쓰는 모델. 아직 만들지 않은 새 대화라면 회원이 고른 값을
    * 여기 들고 있다가 첫 메시지로 대화를 만들 때 함께 보냅니다. null은 기본.
@@ -1528,6 +1540,8 @@ export default function ChatWorkspace() {
         </div>
       </aside>
 
+      <ArtifactPanelContext.Provider value={panel}>
+      <div className={styles.chatArea}>
       <div className={styles.chat}>
         <div className={styles.topBar}>
           <button
@@ -1961,6 +1975,9 @@ export default function ChatWorkspace() {
           </div>
         </div>
       </div>
+      {artifact && <ArtifactPanel artifact={artifact} onClose={closeArtifact} />}
+      </div>
+      </ArtifactPanelContext.Provider>
 
       <ConfirmDialog
         request={confirm}
