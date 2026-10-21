@@ -35,7 +35,18 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db, release_before_stream
 from app.models import BuilderProject, User
-from app.services import app_ai, app_ai_access, app_auth, app_data, app_fonts, app_shell, chat_limits, provider_limiter, providers
+from app.services import (
+    app_ai,
+    app_ai_access,
+    app_auth,
+    app_data,
+    app_fonts,
+    app_shell,
+    builder_versions,
+    chat_limits,
+    provider_limiter,
+    providers,
+)
 from app.services.claude_provider import ClaudeError, get_claude_provider
 
 logger = logging.getLogger(__name__)
@@ -209,7 +220,11 @@ def app_info(call: AppCall = Depends(app_call), db: Session = Depends(get_db)) -
         # The maker's own 미리보기 is always "full" — they pay for their own
         # tries; anyone else holding the preview link gets the app's setting.
         "ai": {
-            "usesAi": project.published_uses_ai if call.target.mode == "app" else True,
+            # preview-ai-switch: the 미리보기 draws the bar too, so it asks the
+            # working copy (an app without AI gets no switch there either).
+            "usesAi": project.published_uses_ai
+            if call.target.mode == "app"
+            else app_ai_access.uses_ai(builder_versions.current_files(db, project)),
             "access": app_ai_access.FULL if _owners_preview(call) else project.ai_access,
             # ai-switch-toggle: "trouble" while Claude's last outcome is a
             # setup failure (key, credit) — the bar turns red before anyone pays.

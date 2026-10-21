@@ -192,6 +192,36 @@ def test_the_makers_own_preview_is_never_limited_but_a_guest_of_the_preview_is(
     assert db_session.query(UsageEvent).count() == 1
 
 
+def test_the_preview_shows_the_switch_only_for_a_draft_that_uses_ai(
+    anon_client: TestClient, db_session: Session, dev_user: User, config  # noqa: F811
+) -> None:
+    """preview-ai-switch (owner, 2026-10-22): the 미리보기 draws the bar so
+    the maker can see the 데모 look before 게시 — asked of the working copy,
+    so an app without AI gets no switch there either."""
+    plain = own_project(db_session, dev_user, PLAIN_FILES, name="그냥 앱")
+    app_runtime.write_draft(db_session, config, plain, PLAIN_FILES)
+    ai = own_project(db_session, dev_user, AI_FILES)
+    app_runtime.write_draft(db_session, config, ai, AI_FILES)
+    db_session.commit()
+
+    def uses_ai(project: BuilderProject) -> bool:
+        headers = {"X-CtrlAI-App": project.draft_slug, "Sec-Fetch-Site": "same-origin"}
+        return anon_client.get("/_ctrlai/v1/app", headers=headers).json()["ai"]["usesAi"]
+
+    assert uses_ai(plain) is False
+    assert uses_ai(ai) is True
+    # The working copy decides, before any 게시.
+    builder_versions.replace_files(db_session, plain, AI_FILES)
+    db_session.commit()
+    assert uses_ai(plain) is True
+
+    shell = anon_client.get("/_ctrlai/shell.js").text
+    # The bar is no longer for published apps only, and the 미리보기 honours the maker's switch.
+    assert 'if (mode !== "app" || !aiUsed()) return;' not in shell and "if (!aiUsed()) return;" in shell
+    assert 'if (mode === "preview") return Promise.resolve();' not in shell
+    assert "끄면 방문자가 보는 데모 모습이에요" in shell
+
+
 # ------------------------------------------------------------ the shell, the SDK, the examples
 
 
