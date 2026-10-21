@@ -211,15 +211,19 @@
   cursor: not-allowed;
 }
 
+/* The site's primary colours (.btn-primary): a filled accent alone is too
+   light for white text in the dark theme. */
 .primary {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-strong-edge);
+  background: var(--accent-strong);
   color: var(--on-accent);
+  font-weight: 600;
 }
 
 .primary:hover:not(:disabled),
 .primary:focus-visible {
-  background: var(--accent-strong);
+  border-color: var(--accent);
+  background: var(--accent-strong-edge);
   color: var(--on-accent);
 }
 
