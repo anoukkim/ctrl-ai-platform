@@ -27,13 +27,14 @@
  * 엽니다 — Claude를 부르지 않으니 무료입니다.
  */
 
-import { Code2, Download, ExternalLink, Maximize2, Play, RotateCcw, X } from "lucide-react";
+import { ChevronRight, Code2, Download, ExternalLink, Image as ImageIcon, Maximize2, Play, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useState } from "react";
 
 import { createProjectFromChat } from "@/lib/projects";
 import { describeError } from "@/lib/http";
 
+import { artifactTitle, useArtifactPanel } from "./artifact-panel-context";
 import AuroraCard, { AuroraReveal, chipsFromCode } from "./AuroraCard";
 import PreviewFullscreen from "./PreviewFullscreen";
 import styles from "./ArtifactPreview.module.css";
@@ -96,6 +97,57 @@ export function downloadName(
   return `ctrlai-${conversationId ?? "chat"}-${replyNumber ?? 1}.${language}`;
 }
 
+/**
+ * 다운로드와 Builder로 보내기 — 대화 안의 카드와 결과물 패널이 함께 씁니다.
+ * 다운로드는 CTRL+AI 화면이 Blob으로 만듭니다(액자에는 내려받기 권한이 없습니다).
+ */
+export function useArtifactActions(code: string, language: "html" | "svg", context: ArtifactContextValue | null) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function download() {
+    const blob = new Blob([code], {
+      type: language === "svg" ? "image/svg+xml" : "text/html;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = downloadName(context?.conversationId ?? null, context?.replyNumber ?? null, language);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function sendToBuilder(split = false) {
+    if (!context) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const project = await createProjectFromChat({
+        // chat-to-builder-carry: the page's own title names it (the server
+        // reads it); the conversation's title is only the last resort.
+        // Without a conversation the title is all there is; with one, the
+        // server never uses it (the page, Claude, or the default).
+        name: context.conversationId === null ? context.conversationTitle.slice(0, 40) || "채팅에서 만든 페이지" : "",
+        conversation_id: context.conversationId,
+        reply_id: context.replyNumber,
+        // The member's chat sentence is a request, not the project's
+        // description (owner, 2026-10-16): 게시 writes the real one.
+        description: "",
+        html: code,
+        // 파일로 나누기: inline CSS/JS become style.css / app.js (free).
+        split,
+      });
+      router.push(`/builder/${project.id}`);
+    } catch (caught) {
+      setError(describeError(caught));
+      setBusy(false);
+    }
+  }
+
+  return { download, sendToBuilder, busy, error };
+}
+
 export default function ArtifactPreview({
   code,
   language,
@@ -107,14 +159,13 @@ export default function ArtifactPreview({
   codeView: React.ReactNode;
 }) {
   const context = useContext(ArtifactContext);
-  const router = useRouter();
+  const panel = useArtifactPanel();
+  const { download, sendToBuilder, busy, error } = useArtifactActions(code, language, context);
   const [open, setOpen] = useState(false);
   const [showCode, setShowCode] = useState(false);
   // chat-preview-fullscreen: the big window, with its own frame.
   const [full, setFull] = useState(false);
   const [version, setVersion] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // motion-modern (1): the aurora melts into the preview only right after
   // this card streamed — a saved conversation's cards just appear.
   const streamingNow = context?.streaming ?? false;
@@ -160,42 +211,35 @@ export default function ArtifactPreview({
     );
   }
 
-  function download() {
-    const blob = new Blob([code], {
-      type: language === "svg" ? "image/svg+xml" : "text/html;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = downloadName(context!.conversationId, context!.replyNumber, language);
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function sendToBuilder(split = false) {
-    setBusy(true);
-    setError(null);
-    try {
-      const project = await createProjectFromChat({
-        // chat-to-builder-carry: the page's own title names it (the server
-        // reads it); the conversation's title is only the last resort.
-        // Without a conversation the title is all there is; with one, the
-        // server never uses it (the page, Claude, or the default).
-        name: context!.conversationId === null ? context!.conversationTitle.slice(0, 40) || "채팅에서 만든 페이지" : "",
-        conversation_id: context!.conversationId,
-        reply_id: context!.replyNumber,
-        // The member's chat sentence is a request, not the project's
-        // description (owner, 2026-10-16): 게시 writes the real one.
-        description: "",
-        html: code,
-        // 파일로 나누기: inline CSS/JS become style.css / app.js (free).
-        split,
-      });
-      router.push(`/builder/${project.id}`);
-    } catch (caught) {
-      setError(describeError(caught));
-      setBusy(false);
-    }
+  // chat-artifact-panel: in Chat the block is a card; pressing it opens the
+  // panel beside the conversation (the press is the member's choice, as
+  // 미리보기 열기 was). Elsewhere the inline card below stays.
+  if (panel !== null) {
+    const title = artifactTitle(code, language);
+    const shown = panel.current?.code === code && panel.current.language === language;
+    const Icon = language === "svg" ? ImageIcon : Code2;
+    return (
+      <AuroraReveal play={reveal}>
+        <button
+          type="button"
+          className={`${styles.panelCard} ${shown ? styles.panelCardOn : ""}`}
+          onClick={() => (shown ? panel.close() : panel.open({ code, language, title, context }))}
+          aria-expanded={shown}
+          data-testid="artifact"
+        >
+          <span className={styles.panelIcon} aria-hidden="true">
+            <Icon size={18} />
+          </span>
+          <span className={styles.panelNames}>
+            <span className={styles.panelTitle}>{title}</span>
+            <span className={styles.panelKind}>
+              {language === "svg" ? "SVG 그림" : "HTML 페이지"} · {shown ? "패널에 열려 있어요" : "눌러서 열기"}
+            </span>
+          </span>
+          <ChevronRight size={16} className={styles.panelChevron} aria-hidden="true" />
+        </button>
+      </AuroraReveal>
+    );
   }
 
   return (

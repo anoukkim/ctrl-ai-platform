@@ -122,3 +122,87 @@
   color: var(--error-text);
   font-size: var(--fs-meta);
 }
+
+/* chat-artifact-panel: in Chat the block is one card; it opens the panel. */
+.panelCard {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 26rem;
+  margin: 0.6rem 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.panelCard:hover,
+.panelCard:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.panelCard:active {
+  transform: scale(0.99);
+}
+
+.panelCardOn {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.panelIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.panelNames {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.panelTitle {
+  overflow: hidden;
+  font-weight: var(--fw-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panelKind {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+}
+
+.panelChevron {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.panelCardOn .panelChevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelCard,
+  .panelChevron {
+    transition: none;
+  }
+}

@@ -32,10 +32,23 @@
   grid-template-columns: 52px minmax(0, 1fr);
 }
 
+/* The conversation and, when one is open, the result panel beside it
+   (chat-artifact-panel). On a narrow area the panel covers the
+   conversation instead (ArtifactPanel.module.css). */
+.chatArea {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
 .chat {
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-width: 0;
   height: 100%;
   min-height: 0;
 }
@@ -307,7 +320,7 @@
      바꿉니다. 그래서 칸 나누기는 그대로 두고, 대화 칸이 두 칸을 모두
      차지하게 합니다. 예전에는 .layout의 칸을 바꾸려다 무시되어, 휴대폰에서
      대화가 왼쪽 236px에만 그려졌습니다. */
-  .chat {
+  .chatArea {
     grid-column: 1 / -1;
   }
 
