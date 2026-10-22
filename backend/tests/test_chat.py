@@ -1127,7 +1127,9 @@ def test_chat_may_show_https_images_found_by_a_tool() -> None:
     it may — with an address a tool gave it, never one from memory."""
     from app.services.claude_provider import CHAT_SYSTEM_PROMPT
 
-    assert "The screen shows https images" in CHAT_SYSTEM_PROMPT
+    assert "Only when the member wants to see a picture" in CHAT_SYSTEM_PROMPT
     assert "never one from memory" in CHAT_SYSTEM_PROMPT
     assert "commons.wikimedia.org/wiki/Special:FilePath/" in CHAT_SYSTEM_PROMPT
-    assert 'search "site:commons.wikimedia.org"' in CHAT_SYSTEM_PROMPT
+    # The live check (owner, 2026-10-22: "뭔 사진을 가져온다는겨"): no talk
+    # about image sources the member did not ask for.
+    assert "Never explain to the member where images come from" in CHAT_SYSTEM_PROMPT
