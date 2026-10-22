@@ -51,7 +51,8 @@ APP_SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads"
 
 
 #: Where an app may load from besides its own files (app-open-services):
-#: any https host — never plain http or ws.
+#: any https host — never plain http or ws. Workers come from the app's own
+#: code (`blob:`), which map libraries such as MapLibre need.
 OUTSIDE = "https:"
 
 
@@ -61,7 +62,7 @@ def app_files_csp(frame_ancestors: str) -> str:
         f"sandbox {APP_SANDBOX}; default-src 'self'; script-src 'self' 'unsafe-inline' {OUTSIDE}; "
         f"style-src 'self' 'unsafe-inline' {OUTSIDE}; img-src 'self' data: blob: {OUTSIDE}; "
         f"media-src 'self' data: blob: {OUTSIDE}; font-src 'self' data: {OUTSIDE}; "
-        f"connect-src {OUTSIDE}; frame-ancestors {frame_ancestors}"
+        f"connect-src {OUTSIDE}; worker-src 'self' blob:; frame-ancestors {frame_ancestors}"
     )
 
 

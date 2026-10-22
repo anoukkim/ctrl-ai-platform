@@ -43,7 +43,7 @@ import styles from "./ArtifactPreview.module.css";
 /** 액자 안 문서의 맨 앞에 붙는 CSP — 인라인과 바깥 https만. */
 export const PREVIEW_CSP =
   "default-src 'none'; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; " +
-  "img-src data: blob: https:; font-src data: https:; media-src data: blob: https:; connect-src https:";
+  "img-src data: blob: https:; font-src data: https:; media-src data: blob: https:; connect-src https:; worker-src blob:";
 /** 액자의 샌드박스 — 정확히 이것 하나. */
 export const PREVIEW_SANDBOX = "allow-scripts";
 /** 이보다 큰 블록은 코드만. */

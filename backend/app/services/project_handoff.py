@@ -331,7 +331,7 @@ def claude_text(name: str, description: str, files: dict[str, str]) -> str:
         f"{lines}\n\n"
         "## 만들어진 조건 (CTRL+AI 안에서)\n\n"
         "- 서버 없이 방문자의 브라우저에서만 도는 **정적 앱**: HTML · CSS · JavaScript만.\n"
-        "- **네트워크 없음**: 다른 사이트에서 데이터나 스크립트·이미지를 받아 오지 않아요(CDN도 안 돼요).\n"
+        "- **바깥 서비스는 https만**: 지도·사진·라이브러리(CDN)·키 없는 API는 쓸 수 있어요. API 키는 코드에 넣지 마세요 — 누구나 볼 수 있어요.\n"
         f"- **크기 제한**: 파일 {builder_files.MAX_FILES}개, 파일 하나 {builder_files.MAX_FILE_BYTES // 1000}KB, "
         f"전체 {builder_files.MAX_PROJECT_BYTES // 1_000_000}MB, 폴더 깊이 {builder_files.MAX_DEPTH}단계, "
         "확장자 " + " ".join(sorted(builder_files.ALLOWED_EXTENSIONS)) + ".\n\n"

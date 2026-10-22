@@ -518,7 +518,7 @@ message starts with [이어서], continue exactly where the text stopped — no 
 greeting, no recap, no restarting a code block or a list — as if the two \
 parts were one reply. Never start over.
 - The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Name a file after the language: ```csv a.csv. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
-- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript, inline SVG for charts and drawings. No external scripts, fonts, images or network requests — they will not load. For a chart, use inline SVG or plain JavaScript on a canvas, never a chart library. Make the page complete and polished — every button works — rather than a bare sketch.
+- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript. It may load libraries from cdn.jsdelivr.net or cdnjs.cloudflare.com (an exact version, e.g. Chart.js for a chart, MapLibre GL JS with the OpenFreeMap style for a map) and data or images from https services that need no key — never http, never a key in the code, never an image address written from memory. Make the page complete and polished — every button works — rather than a bare sketch.
 
 When a tool is available (web search, page reading, code execution):
 - Use it without announcing it — no "검색해 볼게요" or step-by-step narration.
@@ -671,10 +671,38 @@ as a fallback, and use the name exactly as listed, in quotes. Pick one for \
 headings and one for body text at most; Pretendard is a good body font, \
 and a bold or rounded one suits a title. Use the weights the app needs \
 (400 and 700 exist for most; Pretendard, Noto Sans KR, Noto Serif KR and \
-Hahmlet are variable). A font that is not in the list does not load.
+Hahmlet are variable). Use these, not outside web fonts.
 """
 )
 _SDK_RULES += _FONT_RULES
+
+#: Outside services (app-open-services, owner 2026-10-22): an app may load
+#: from any https address. The rules steer Claude to free, keyless ones and
+#: away from the two mistakes that break apps — a key in the code, and an
+#: address written from memory.
+_OUTSIDE_RULES = """\
+- Outside services: the app may load scripts, styles, images, fonts and \
+data from any https address (never http). Prefer free services that need \
+no key and no sign-up: maps — MapLibre GL JS \
+(https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js and \
+its .css) with the OpenFreeMap style \
+https://tiles.openfreemap.org/styles/liberty, showing "© OpenStreetMap \
+contributors"; libraries for games, charts, 3D or sound (Phaser, Chart.js, \
+Three.js, Tone.js, p5.js …) from cdn.jsdelivr.net or cdnjs.cloudflare.com \
+with an exact version; weather — api.open-meteo.com; currency rates — \
+api.frankfurter.app; photos — Wikimedia Commons, searched while the app \
+runs (https://commons.wikimedia.org/w/api.php with origin=*), showing the \
+author and licence.
+- Never put an API key, token or password in the code: anyone can read an \
+app's files. If an idea needs a service with a key, say so in the summary \
+and use a keyless one or the demo instead.
+- Never write a photo, file or API address from memory — remembered \
+addresses are usually wrong. Use the services above, find images while the \
+app runs, or draw with inline SVG or CSS.
+- An outside service can be slow or down: show a short Korean message and \
+keep the rest of the app working. Send what a visitor types only to the \
+service the feature needs, never anywhere else.
+"""
 
 STARTER_SYSTEM = (
     """\
@@ -688,10 +716,9 @@ Rules:
 .js or .css files if really needed, plus ctrlai.json when the app uses \
 ctrlai.db). Plain HTML, CSS and browser JavaScript — no frameworks, no \
 build step, no server code.
-- No external scripts, stylesheets, fonts, images or network requests: the \
-preview blocks them all. Use inline SVG or CSS for icons and charts.
 """
     + _SDK_RULES
+    + _OUTSIDE_RULES
     + """\
 - index.html links its files exactly like this: \
 <link rel="stylesheet" href="style.css"> and <script src="app.js"></script>.
@@ -703,7 +730,7 @@ lorem ipsum. The layout fits a phone and a laptop.
 - Give each app its own look that fits the idea and the requested style \
 (colours, type, layout, mood) — not a default white card. Fonts: the \
 글씨체 list above, then local stacks (system-ui, "Apple SD Gothic Neo", \
-"Malgun Gothic", serif, monospace, cursive); no other web fonts or CDNs. \
+"Malgun Gothic", serif, monospace, cursive); no other web fonts. \
 Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs in the visitor's browser. What it keeps in ctrlai.storage \
@@ -758,10 +785,9 @@ Rules:
 - Static files only: HTML, CSS and browser JavaScript (.html .css .js \
 .json .svg .md .txt). No frameworks, no build step, no TypeScript, no \
 server code of any kind — it will be refused. index.html is the entry.
-- No external scripts, stylesheets, fonts, images or network requests: \
-they are blocked. Use inline SVG or CSS for icons and charts.
 """
     + _SDK_RULES
+    + _OUTSIDE_RULES
     + """\
 - An app that still uses localStorage directly keeps working; when you \
 touch its saving code anyway, move it to the store above.
@@ -778,7 +804,7 @@ the code. The layout fits a phone and a laptop.
 - Give each app its own look that fits the idea and the requested style \
 (colours, type, layout, mood) — not a default white card. Fonts: the \
 글씨체 list above, then local stacks (system-ui, "Apple SD Gothic Neo", \
-"Malgun Gothic", serif, monospace, cursive); no other web fonts or CDNs. \
+"Malgun Gothic", serif, monospace, cursive); no other web fonts. \
 Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show messages on the page, and ask "정말 지울까요?" with a second tap instead.
 - An app runs in the visitor's browser. What it keeps in ctrlai.storage \
@@ -907,10 +933,9 @@ _APP_RULES = (
 server code of any kind — it will be refused. index.html is the entry and \
 links its files with relative paths (<link rel="stylesheet" \
 href="style.css">, <script src="app.js"></script>).
-- No external scripts, stylesheets, fonts, images or network requests: \
-they are blocked. Use inline SVG or CSS for icons and charts.
 """
     + _SDK_RULES
+    + _OUTSIDE_RULES
     + """\
 - Everything the member sees is in Korean, with short Korean comments in \
 the code. The layout fits a phone and a laptop.
@@ -920,7 +945,7 @@ ipsum.
 - Give each app its own look that fits the idea and the requested style \
 (colours, type, layout, mood) — not a default white card. Fonts: the \
 글씨체 list above, then local stacks (system-ui, "Apple SD Gothic Neo", \
-"Malgun Gothic", serif, monospace, cursive); no other web fonts or CDNs. \
+"Malgun Gothic", serif, monospace, cursive); no other web fonts. \
 Keep text readable (contrast).
 - Never use alert(), confirm() or prompt(): the preview blocks them. Show \
 messages on the page, and ask "정말 지울까요?" with a second tap instead.

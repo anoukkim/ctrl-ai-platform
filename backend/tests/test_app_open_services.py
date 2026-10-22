@@ -41,6 +41,8 @@ def test_apps_may_load_from_any_https_host_and_nothing_else() -> None:
             assert word not in ("*", "http:", "ws:", "wss:", "'unsafe-eval'"), (name, word)
             assert not word.startswith("http://"), (name, word)
     assert policy["default-src"] == ["'self'"]
+    # Map libraries start workers from their own code.
+    assert policy["worker-src"] == ["'self'", "blob:"]
     assert policy["frame-ancestors"] == ["https://apps.ctrlai.my", "https://ctrlai.my"]
 
 
@@ -83,3 +85,16 @@ def test_the_api_answers_no_cors_to_a_sandboxed_app(anon_client: TestClient) -> 
     for path in ("/api/health", "/api/auth/me", "/api/usage/me"):
         response = anon_client.get(path, headers={"Origin": "null"})
         assert "access-control-allow-origin" not in response.headers, path
+
+
+def test_every_app_prompt_carries_the_outside_service_rules() -> None:
+    from app.services.claude_provider import EDIT_SYSTEM, STARTER_SYSTEM, _APP_RULES, _OUTSIDE_RULES
+
+    for prompt in (STARTER_SYSTEM, EDIT_SYSTEM, _APP_RULES):
+        assert _OUTSIDE_RULES in prompt
+        assert "No external scripts" not in prompt
+    # Free and keyless first; never a key; never an address from memory.
+    assert "tiles.openfreemap.org" in _OUTSIDE_RULES and "© OpenStreetMap" in _OUTSIDE_RULES
+    assert "Never put an API key" in _OUTSIDE_RULES
+    assert "Never write a photo, file or API address from memory" in _OUTSIDE_RULES
+    assert "never http" in _OUTSIDE_RULES

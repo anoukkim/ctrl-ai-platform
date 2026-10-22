@@ -61,7 +61,8 @@ def test_a_member_not_participating_is_refused(other_client: TestClient, db_sess
 
 def test_claude_is_told_to_write_self_contained_previewable_blocks() -> None:
     assert "self-contained ```html block" in CHAT_SYSTEM_PROMPT
-    assert "No external scripts, fonts, images or network requests" in CHAT_SYSTEM_PROMPT
+    # app-open-services: CDN libraries and keyless https services, never a key.
+    assert "cdn.jsdelivr.net" in CHAT_SYSTEM_PROMPT and "never a key in the code" in CHAT_SYSTEM_PROMPT
 
 
 def test_the_mocks_page_and_chart_replies_carry_html_and_svg_blocks() -> None:
