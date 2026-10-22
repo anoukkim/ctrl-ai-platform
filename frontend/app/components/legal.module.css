@@ -142,3 +142,23 @@
 .footLink:hover {
   color: var(--text);
 }
+
+/* 돌아가기 — "자세히"로 들어온 글에서 원래 화면으로 */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.back:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}

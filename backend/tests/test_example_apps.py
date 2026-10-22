@@ -25,6 +25,8 @@ OUTSIDE_ALLOWED = (
     "https://www.google.com/travel/flights",
     "https://open-meteo.com",
     "https://frankfurter.dev",
+    "https://ko.wikipedia.org/w/api.php",
+    "https://ko.wikipedia.org/wiki/",
 )
 
 
@@ -75,6 +77,7 @@ def test_each_showcase_keeps_its_original_spec() -> None:
     assert "App 1 — 출장·여행 준비 도우미" in spec["trip-prep"]
     assert "App 2 — 여행 일정 메이커" in spec["trip-planner"]
     assert "App 3 — 문서 챗봇 메이커" in spec["doc-chatbot"]
+    assert "App 4 — 동아리 게시판" in spec["club-board"]
     assert all("faithful STATIC DEMOS" in text for text in spec.values())
 
 
@@ -82,8 +85,8 @@ def test_the_showcases_each_look_different() -> None:
     """No shared template: each has its own background and accent."""
     roots = [re.search(r":root \{([^}]*)\}", cli.example_files(e)["style.css"]).group(1) for e in cli.EXAMPLES]
     backgrounds = [re.search(r"--bg:\s*([^;]+);", root).group(1) for root in roots]
-    assert len(set(backgrounds)) == 3
-    assert len(set(roots)) == 3
+    assert len(set(backgrounds)) == len(cli.EXAMPLES)
+    assert len(set(roots)) == len(cli.EXAMPLES)
 
 
 def test_the_showcases_use_sub_folders_and_the_runtime_serves_them(db_session: Session, dev_user, settings) -> None:
@@ -102,7 +105,7 @@ def test_the_showcases_use_sub_folders_and_the_runtime_serves_them(db_session: S
 def test_the_cli_publishes_once_and_a_second_run_changes_nothing(db_session: Session, dev_user, settings) -> None:
     first = cli.import_examples(db_session, dev_user, settings)
     db_session.commit()
-    assert [outcome for _, outcome in first] == ["imported"] * 3
+    assert [outcome for _, outcome in first] == ["imported"] * len(cli.EXAMPLES)
 
     projects = db_session.query(BuilderProject).filter_by(owner_user_id=dev_user.id).all()
     assert {p.name for p in projects} == {e.name for e in cli.EXAMPLES}
@@ -111,12 +114,12 @@ def test_the_cli_publishes_once_and_a_second_run_changes_nothing(db_session: Ses
         assert project.published_version_number == 1
     assert db_session.query(UsageEvent).count() == 0
     row = db_session.query(AuditLog).filter_by(action="example_apps.imported").one()
-    assert row.actor_user_id is None and len(row.detail["imported"]) == 3
+    assert row.actor_user_id is None and len(row.detail["imported"]) == len(cli.EXAMPLES)
 
     second = cli.import_examples(db_session, dev_user, settings, replace=True)
     db_session.commit()
-    assert [outcome for _, outcome in second] == ["unchanged"] * 3
-    assert db_session.query(BuilderProject).count() == 3
+    assert [outcome for _, outcome in second] == ["unchanged"] * len(cli.EXAMPLES)
+    assert db_session.query(BuilderProject).count() == len(cli.EXAMPLES)
     assert db_session.query(AuditLog).filter_by(action="example_apps.imported").count() == 1
     assert db_session.query(AuditLog).filter_by(action="example_apps.replaced").count() == 0
 
@@ -164,7 +167,7 @@ def test_replace_takes_the_earlier_examples_down_and_publishes_the_new_ones(
 
     again = cli.import_examples(db_session, dev_user, settings, replace=True)
     db_session.commit()
-    assert [outcome for _, outcome in again] == ["unchanged"] * 3
+    assert [outcome for _, outcome in again] == ["unchanged"] * len(cli.EXAMPLES)
     assert db_session.query(AuditLog).filter_by(action="example_apps.replaced").count() == 1
     assert db_session.query(AuditLog).filter_by(action="example_apps.imported").count() == 1
 
@@ -211,11 +214,11 @@ def test_update_brings_existing_examples_to_the_image_s_files_as_a_published_ver
     (root / "trip-planner" / "README.md").write_text("# 새 안내", encoding="utf-8")
 
     plain = cli.import_examples(db_session, dev_user, settings, root)
-    assert [outcome for _, outcome in plain] == ["unchanged"] * 3
+    assert [outcome for _, outcome in plain] == ["unchanged"] * len(cli.EXAMPLES)
 
     updated = cli.import_examples(db_session, dev_user, settings, root, update=True)
     db_session.commit()
-    assert dict(updated) == {"문서 챗봇 메이커": "unchanged", "여행 일정 메이커": "updated", "출장·여행 준비 도우미": "unchanged"}
+    assert dict(updated) == {"동아리 게시판": "unchanged", "문서 챗봇 메이커": "unchanged", "여행 일정 메이커": "updated", "출장·여행 준비 도우미": "unchanged"}
     trip = db_session.query(BuilderProject).filter_by(name="여행 일정 메이커").one()
     assert trip.published_version_number == 2
     assert builder_versions.current_files(db_session, trip)["README.md"] == "# 새 안내"
@@ -224,7 +227,7 @@ def test_update_brings_existing_examples_to_the_image_s_files_as_a_published_ver
     assert row.detail["updated"] == ["여행 일정 메이커"]
 
     again = cli.import_examples(db_session, dev_user, settings, root, update=True)
-    assert [outcome for _, outcome in again] == ["unchanged"] * 3
+    assert [outcome for _, outcome in again] == ["unchanged"] * len(cli.EXAMPLES)
 
 
 def test_each_showcase_has_a_live_mode_that_prices_before_it_charges() -> None:

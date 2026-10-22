@@ -177,7 +177,7 @@
         lastHits = { q, hits };
         $("#hits").innerHTML = hitsHtml();
       },
-      suggestions: ["회비는 얼마예요?", "장비 빌리려면 어떻게 해요?", "환불 받을 수 있나요?", "주차 가능한가요?"],
+      suggestions: ["연차는 며칠이에요?", "야근 수당은 얼마나 더 받아요?", "퇴사하면 마지막 월급은 언제 받아요?", "회사 와이파이 비밀번호 알려 주세요"],
     });
   }
 
@@ -217,6 +217,14 @@
         <b>파일을 끌어다 놓거나 눌러서 고르세요</b>
         <small>.txt · .md (한 파일 200KB까지) · PDF는 아직 지원하지 않아요</small>
       </label>
+      <form class="panel wiki" id="wiki-form">
+        <div><b>🌐 위키백과에서 가져오기</b>
+          <small class="muted">주제를 적으면 한국어 위키백과 문서를 가져와 챗봇 문서로 넣어요 (CC BY-SA — 출처가 함께 들어가요).</small></div>
+        <div class="wikiRow">
+          <input id="wiki-title" maxlength="60" placeholder="예: 최저임금, 4대 보험, 연말정산" aria-label="위키백과 문서 제목">
+          <button class="primary" type="submit" id="wiki-go">가져오기</button>
+        </div>
+      </form>
       <details class="panel paste">
         <summary>직접 붙여 넣기</summary>
         <form id="paste-form">
@@ -267,6 +275,10 @@
       drop.classList.remove("over");
       readFiles(event.dataTransfer.files);
     });
+    $("#wiki-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      fromWikipedia($("#wiki-title").value.trim());
+    });
     $("#paste-form").addEventListener("submit", (event) => {
       event.preventDefault();
       addDoc($("#paste-name").value.trim(), $("#paste-text").value);
@@ -313,6 +325,36 @@
       reader.onload = () => addDoc(name, String(reader.result));
       reader.onerror = () => notice(`"${f.name}"을(를) 읽지 못했어요.`, "warn");
       reader.readAsText(f, "utf-8");
+    }
+  }
+
+  // 위키백과에서 가져오기 — 한국어 위키백과 API(무료, 키 없음, origin=*로 앱에서 바로 불러요).
+  // 제목이 딱 맞지 않으면 검색해서 가장 비슷한 문서를 가져와요. "== 소제목 =="은 "## 소제목"으로 바꿔
+  // 단락 나누기(BOT.chunk)가 소제목마다 묶음을 만들게 해요.
+  const WIKI = "https://ko.wikipedia.org/w/api.php";
+  async function wikiJson(params) {
+    const response = await fetch(`${WIKI}?${new URLSearchParams({ format: "json", origin: "*", ...params })}`);
+    if (!response.ok) throw new Error(String(response.status));
+    return response.json();
+  }
+  async function fromWikipedia(query) {
+    if (!query) return notice("가져올 주제를 적어 주세요.", "warn");
+    notice(`위키백과에서 "${query}"을(를) 찾는 중…`, "ok");
+    try {
+      const found = await wikiJson({ action: "query", list: "search", srsearch: query, srlimit: "1" });
+      const hit = found.query && found.query.search && found.query.search[0];
+      if (!hit) return notice(`위키백과에서 "${query}"을(를) 찾지 못했어요. 다른 낱말로 해 보세요.`, "warn");
+      const page = await wikiJson({ action: "query", prop: "extracts", explaintext: "1", exsectionformat: "wiki", redirects: "1", titles: hit.title });
+      const text = Object.values(page.query.pages)[0].extract || "";
+      if (text.length < 200) return notice(`"${hit.title}" 문서가 너무 짧아요. 다른 주제로 해 보세요.`, "warn");
+      const body = text
+        .slice(0, MAX_FILE)
+        .replace(/^={2,}\s*(.+?)\s*={2,}\s*$/gm, "## $1")
+        .replace(/\n{3,}/g, "\n\n");
+      const url = `https://ko.wikipedia.org/wiki/${encodeURIComponent(hit.title.replace(/ /g, "_"))}`;
+      addDoc(`${hit.title} (위키백과)`, `# ${hit.title}\n\n출처: 위키백과 "${hit.title}" (${url}) · CC BY-SA 4.0\n\n${body}`);
+    } catch (error) {
+      notice("위키백과에 지금 닿지 못했어요. 조금 뒤에 다시 해 보세요.", "warn");
     }
   }
 

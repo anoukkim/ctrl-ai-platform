@@ -698,6 +698,8 @@ app, one question a second — search one at a time) → {"places": [{name, lat,
 lng, kind, country}]}; keep country "KR";
   · weather: https://api.open-meteo.com/v1/forecast;
   · currency rates: https://api.frankfurter.dev/v1/latest;
+  · articles: Korean Wikipedia, https://ko.wikipedia.org/w/api.php with \
+origin=* (action=query, prop=extracts, explaintext=1) — name it as the source;
   · photos: Wikimedia Commons — search while the app runs with \
 https://commons.wikimedia.org/w/api.php (origin=*, prop=imageinfo, \
 iiurlwidth) and use the thumburl it returns; show the author and licence.

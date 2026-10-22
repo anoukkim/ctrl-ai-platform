@@ -199,11 +199,11 @@
           )
           .join("")}
         <label class="cityCard anywhere"><input type="radio" name="city" value="${T.ANYWHERE}" ${f.city === T.ANYWHERE ? "checked" : ""}>
-          <span class="mini pin" aria-hidden="true">📍</span><b>다른 곳</b><small>실제 AI + 지도 검색</small></label>
+          <span class="mini pin" aria-hidden="true">📍</span><b>다른 곳</b><small>AI가 장소를 골라 줘요</small></label>
       </fieldset>
       <label class="anywhereField" ${f.city === T.ANYWHERE ? "" : "hidden"}>국내 어디로 갈까요?
         <input name="place" maxlength="20" placeholder="예: 강릉, 경주, 남해" value="${esc(f.place || "")}">
-        <small>${live.on && sdk ? "Claude가 갈 만한 곳을 고르고, 지도 검색으로 위치를 찾아요 — 「AI로 일정 짜기」를 눌러요." : "실제 AI가 필요해요 — 위쪽 CTRL+AI 줄의 스위치를 켜 주세요."}</small>
+        <small>${live.on && sdk ? "「AI로 일정 짜기」를 누르면 AI가 갈 만한 곳을 골라 지도에 올려요." : "위쪽 줄에서 실제 AI를 켜면 쓸 수 있어요."}</small>
       </label>
       <div class="formRow">
         <label>기간
@@ -233,8 +233,8 @@
         <span class="price" id="plan-price" aria-live="polite"></span>` : ""}
         ${state.trip ? `<button class="ghost" type="button" id="back-result">지금 일정으로 돌아가기</button>` : ""}
       </div>
-      <p class="muted small"><b>일정 만들기</b>는 정해진 규칙이 아래 도시의 장소 목록에서 골라요 (0원).
-        ${live.on && sdk ? `<span class="demo live">AI로 일정 짜기</span>는 Claude가 같은 목록에서 골라요 — 누를 때만, 비용은 버튼 옆에.` : sdk ? `<span class="demo">데모</span> 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 짜는 버튼도 생겨요.` : ""}</p>
+      <p class="muted small"><b>일정 만들기</b>는 무료예요.
+        ${live.on && sdk ? `<span class="demo live">AI로 일정 짜기</span>는 AI가 짜 줘요 — 금액은 버튼 옆에 있어요.` : sdk ? `위쪽 줄에서 실제 AI를 켜면 AI가 짜 주는 버튼도 생겨요.` : ""}</p>
     </form>`;
   }
 
@@ -389,12 +389,14 @@
           <small>${ratio > 1 ? `예산보다 ${won(budget.total - input.budget)} 많아요` : `${won(input.budget - budget.total)} 남아요`}</small>
         </div>
       </section>
-      <p class="plannerLine">${trip.ai ? `<span class="demo live">실제 AI · ${trip.ai.krw}원 · ${trip.ai.days}/${trip.ai.total}일</span>` : `<span class="demo">데모 플래너${live.on || !sdk ? "" : " · 위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 생성"}</span>`}
-        ${[trip.rain ? "☔ 비 오는 날 버전" : "", trip.cheap ? "💸 알뜰 버전" : "", trip.relaxed ? "🐢 여유 버전" : ""].filter(Boolean).map((t) => `<span class="mode">${t}</span>`).join("")}
-        ${trip.notes.map((n) => `<span class="note">${esc(n)}</span>`).join("")}</p>
-      <div class="dayTabs" role="tablist" aria-label="날짜">
-        ${trip.days.map((_, d) => `<button type="button" role="tab" data-day="${d}" aria-selected="${d === day}">${d + 1}일차</button>`).join("")}
+      <div class="dayBar">
+        <div class="dayTabs" role="tablist" aria-label="날짜">
+          ${trip.days.map((_, d) => `<button type="button" role="tab" data-day="${d}" aria-selected="${d === day}">${d + 1}일차</button>`).join("")}
+        </div>
+        <p class="plannerLine">${trip.ai ? `<span class="demo live">AI가 짠 일정 · ${trip.ai.krw}원</span>` : `<span class="demo">무료 규칙으로 짠 일정</span>`}
+          ${[trip.rain ? "☔ 비 오는 날" : "", trip.cheap ? "💸 알뜰" : "", trip.relaxed ? "🐢 여유" : ""].filter(Boolean).map((t) => `<span class="mode">${t}</span>`).join("")}</p>
       </div>
+      ${trip.notes.length ? `<ul class="notes">${trip.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       <div class="layout">
         <section class="card timeline" aria-labelledby="day-title">
           <header class="dayHead">
@@ -407,8 +409,11 @@
         <aside class="sideCol">
           <section class="card mapCard" aria-label="${day + 1}일차 지도">
             <div class="mapHolder">${T.routeMap(trip, day)}</div>
-            <p class="muted small">번호 = 방문 순서 · 흐린 점 = 다른 날 장소</p>
+            <p class="muted small">숫자는 가는 순서, 흐린 점은 다른 날 갈 곳이에요.</p>
           </section>
+        </aside>
+      </div>
+      <div class="lower">
           <section class="card budgetCard" aria-labelledby="budget-title">
             <h3 id="budget-title">예산</h3>
             <div class="budgetWrap">${T.donut(budget.parts, budget.total)}
@@ -418,10 +423,9 @@
             ${readOnly || input.days < 2 ? "" : `<label class="tier">숙소 등급 <select id="tier">${T.LODGING_TIERS.map(
               (t) => `<option ${t === trip.lodging ? "selected" : ""}>${t}</option>`,
             ).join("")}</select></label>`}
-            <p class="muted small">식비는 맛집 일정 + 나머지 끼니 1인 ${won(T.MEAL_ALLOWANCE)}로 어림했어요.</p>
+            <p class="muted small">식비는 맛집 값에, 나머지 끼니를 한 끼 1인 ${won(T.MEAL_ALLOWANCE)}으로 더했어요.</p>
           </section>
           ${readOnly ? "" : shareHtml()}
-        </aside>
       </div>`;
   }
 
@@ -463,10 +467,10 @@
           <button type="button" class="ghost" id="add" ${options.length ? "" : "disabled"}>장소 추가</button>
           <button type="button" class="ghost" id="regen">하루 다시 만들기</button>
         </div>
-        <p class="muted small">카드를 끌어서 순서를 바꾸거나 ↑ ↓ 버튼을 쓰세요. 이동 시간과 예산이 바로 다시 계산돼요.</p>
+        <p class="muted small">카드를 끌거나 ↑ ↓로 순서를 바꿀 수 있어요. 시간과 예산은 자동으로 다시 계산돼요.</p>
       </div>
       <form id="nl" class="nl">
-        <label for="nl-text"><b>문장으로 고치기</b> <span class="demo">바꾸기 · 세 가지 규칙 · 0원</span>${live.on && sdk ? ` <span class="demo live">AI로 바꾸기 · <span id="edit-price">비용 확인 중…</span></span>` : sdk ? ` <span class="demo">위쪽 CTRL+AI 줄의 스위치를 켜면 Claude가 어떤 문장이든 이해해요</span>` : ""}</label>
+        <label for="nl-text"><b>문장으로 고치기</b> <span class="demo">바꾸기 · 무료</span>${live.on && sdk ? ` <span class="demo live">AI로 바꾸기 · <span id="edit-price">비용 확인 중…</span></span>` : sdk ? ` <span class="demo">실제 AI를 켜면 어떤 문장이든 알아들어요</span>` : ""}</label>
         <div class="nlRow"><input id="nl-text" type="text" placeholder="예: 비 오는 날 버전으로" autocomplete="off" maxlength="200">
           <button class="primary" type="submit" id="nl-submit">바꾸기</button>
           ${live.on && sdk ? `<button class="ghost aiBtn" type="button" id="nl-ai">AI로 바꾸기</button>` : ""}</div>
@@ -480,7 +484,7 @@
   function shareHtml() {
     return `<section class="card shareCard" aria-labelledby="share-title">
       <h3 id="share-title">공유</h3>
-      <p class="muted small">일정이 링크 안에 그대로 들어가요. 서버에 저장하지 않고, 받은 사람은 보기만 할 수 있어요.</p>
+      <p class="muted small">링크를 받은 사람은 이 일정을 볼 수 있어요. 고치려면 자기 일정으로 가져가요.</p>
       <button type="button" class="ghost" id="make-link">공유 링크 만들기</button>
       ${shareUrl ? `<div class="shareRow"><input id="share-url" readonly value="${esc(shareUrl)}" aria-label="공유 링크">
         <button type="button" class="primary" id="copy">복사</button></div>
