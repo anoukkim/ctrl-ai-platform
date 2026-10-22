@@ -518,7 +518,7 @@ message starts with [이어서], continue exactly where the text stopped — no 
 greeting, no recap, no restarting a code block or a list — as if the two \
 parts were one reply. Never start over.
 - The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Name a file after the language: ```csv a.csv. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
-- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript; libraries from cdn.jsdelivr.net at an exact version (Chart.js for a chart, Leaflet with OpenStreetMap tiles for a map); never a key in the code, never an image address from memory. Make the page complete and polished — every button works — rather than a bare sketch.
+- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript; libraries from cdn.jsdelivr.net at an exact version (e.g. Chart.js for a chart); never a key in the code, never an image address from memory. Make the page complete and polished — every button works — rather than a bare sketch.
 
 When a tool is available (web search, page reading, code execution):
 - Use it without announcing it — no "검색해 볼게요" or step-by-step narration.
@@ -681,22 +681,25 @@ _SDK_RULES += _FONT_RULES
 #: away from the two mistakes that break apps — a key in the code, and an
 #: address written from memory.
 _OUTSIDE_RULES = """\
-- Outside services: the app may load scripts, styles, images, fonts and \
-data from any https address (never http). Prefer free services that need \
-no key and no sign-up: maps — Leaflet \
-(https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js and its .css) \
-with OpenStreetMap tiles https://tile.openstreetmap.org/{z}/{x}/{y}.png, \
-the tile layer's referrerPolicy "strict-origin-when-cross-origin" and the \
-attribution "© OpenStreetMap" (not MapLibre or other WebGL maps: they do \
-not load in the app frame); libraries for games, charts, 3D or sound (Phaser, Chart.js, \
-Three.js, Tone.js, p5.js …) from cdn.jsdelivr.net or cdnjs.cloudflare.com \
-with an exact version; weather — api.open-meteo.com; currency rates — \
-api.frankfurter.app; photos — Wikimedia Commons, searched while the app \
-runs (https://commons.wikimedia.org/w/api.php with origin=*), showing the \
-author and licence.
+- Outside services — use ONLY these; they are checked to work inside the \
+app's frame (it sends no Referer, so many hosts refuse it). No other host \
+for data, images or map tiles:
+  · libraries: cdn.jsdelivr.net or cdnjs.cloudflare.com at an exact \
+version (Phaser, Chart.js, Three.js, Tone.js, p5.js, Leaflet …);
+  · maps: Leaflet (https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js \
+and its .css) with the tile URL "/_ctrlai/tiles/{z}/{x}/{y}.png" (CTRL+AI \
+serves OpenStreetMap's tiles) and the attribution "© OpenStreetMap". Never \
+tile.openstreetmap.org or another tile host directly, never MapLibre or \
+other WebGL maps — they do not load in the app frame;
+  · weather: https://api.open-meteo.com/v1/forecast;
+  · currency rates: https://api.frankfurter.dev/v1/latest;
+  · photos: Wikimedia Commons — search while the app runs with \
+https://commons.wikimedia.org/w/api.php (origin=*, prop=imageinfo, \
+iiurlwidth) and use the thumburl it returns; show the author and licence.
+  If an idea needs any other outside service, do not use it: say in the \
+summary that it is not available in CTRL+AI yet.
 - Never put an API key, token or password in the code: anyone can read an \
-app's files. If an idea needs a service with a key, say so in the summary \
-and use a keyless one or the demo instead.
+app's files.
 - Never write a photo, file or API address from memory — remembered \
 addresses are usually wrong. Use the services above, find images while the \
 app runs, or draw with inline SVG or CSS.

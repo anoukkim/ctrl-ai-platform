@@ -36,7 +36,7 @@ SPEC.md
 - **앱 상태**(`app.js`): `state = { trip, day, view: "form"|"result", form }`. 저장 안 하는 것: `undo`(바로 전 일정 JSON), `message`, `shareUrl`, `shared`(주소로 받은 일정).
 - **데모 플래너**(`planner.js`): `T.plan(input)`이 날마다 `buildDay`를 불러요 — 점수(`score`: 취향 일치 3점·아니면 1점, 비 오는 날 실내 ±2, 알뜰 모드면 비용만큼 감점)가 높은 맛집 아닌 곳으로 시작해, "점수 × 10 − 이동 분 ÷ 3"이 가장 큰 곳을 하나씩 덧붙이는 욕심쟁이 방식. 하루 540분·5곳(여유 모드 420분·3곳), 맛집 최대 2곳, 쇼핑 최대 2곳. 그다음 `fitBudget`이 숙소 등급을 낮추고 가장 비싼 곳을 더 싼 곳으로 바꾸며 `notes`에 이유를 남겨요.
 - **이동과 예산**: `T.leg`가 `T.haversine` 직선 거리 × 1.3(도로 우회)으로 시간을 5분 단위로 계산 — 1.2km 이하는 도보(4.5km/h), 아니면 도시의 이동 수단. `T.budget`은 숙박(박 수 × 2명당 방 1개) / 식비(맛집 비용 + 나머지 끼니 1인 `T.MEAL_ALLOWANCE` 10,000원) / 교통 / 체험 네 갈래.
-- **진짜 지도**(`map.js` `T.mountMap`): `index.html`이 jsDelivr에서 Leaflet 1.9.4를 불러오고, 타일은 OpenStreetMap(`tile.openstreetmap.org`, 키 없음, 출처 표시, 타일 요청에만 referrer). `.mapHolder` 안 SVG 지도 위에 겹쳐 그리고 첫 타일이 오면 보여요. 10초 안에 타일이 안 오거나 타일 오류가 4번이면 지워서 SVG 지도가 남아요. 번호 핀(`.livePin`), 점선 경로, 다른 날 흐린 점. 휠 확대는 끔(페이지 스크롤을 뺏지 않게), +/− 버튼으로. 그릴 때마다 이전 지도를 `remove()`. MapLibre는 sandbox(출처 없는 페이지) 안에서 타일을 못 불러와서 쓰지 않아요.
+- **진짜 지도**(`map.js` `T.mountMap`): `index.html`이 jsDelivr에서 Leaflet 1.9.4를 불러오고, 타일은 CTRL+AI가 대신 받아 주는 OpenStreetMap 타일(`/_ctrlai/tiles/{z}/{x}/{y}.png`, 키 없음, 출처 표시 — 앱 칸은 referrer를 못 보내서 OSM에 직접 요청하면 막혀요; CTRL+AI 밖에서는 타일이 없어 단순 지도). `.mapHolder` 안 SVG 지도 위에 겹쳐 그리고 첫 타일이 오면 보여요. 10초 안에 타일이 안 오거나 타일 오류가 4번이면 지워서 SVG 지도가 남아요. 번호 핀(`.livePin`), 점선 경로, 다른 날 흐린 점. 휠 확대는 끔(페이지 스크롤을 뺏지 않게), +/− 버튼으로. 그릴 때마다 이전 지도를 `remove()`. MapLibre는 sandbox(출처 없는 페이지) 안에서 타일을 못 불러와서 쓰지 않아요.
 - **단순 지도**(`map.js` `T.routeMap`): 지도 타일 없이 SVG 문자열로 그려요. `projector`가 그날 장소들이 꽉 차게 위도·경도를 화면 좌표로 바꾸고(가로는 cos(위도)만큼 줄임, 최소 약 5km 범위), 도시 윤곽·한강 선 → 다른 날 장소(흐린 점) → 방문 순서 선 → 번호 표시를 그려요. 이름표는 오른쪽·왼쪽·위·아래 중 겹치지 않는 자리에, 자리가 없으면 번호만. 축척 막대와 북쪽 화살표 포함. 판 크기는 600×440, 폭 560px 미만이면 380×400(넘나들 때 다시 그림).
 - **그리기**: `render()`가 `main.innerHTML`을 통째로 바꾸고 `bindForm()`/`bindResult()`가 이벤트를 다시 달아요. 일정을 바꾸는 동작은 모두 `change(fn, note)`를 거쳐요 — 되돌리기용 복사 → 바꾸기 → 저장 → 다시 그리기 → `say()`로 `#status`에 알림.
 
@@ -58,7 +58,7 @@ CTRL+AI 안에서는 `app.js` 맨 위의 `live` 상태가 앱 위쪽 CTRL+AI 줄
 ## 만들어진 조건 (CTRL+AI 안에서)
 
 - 서버 없이 방문자의 브라우저에서만 도는 **정적 앱**: HTML · CSS · JavaScript만.
-- **바깥 서비스는 https만**: Leaflet(jsDelivr)과 OpenStreetMap 타일은 바깥에서 와요. 못 받으면 SVG 단순 지도가 남아요(썸네일을 찍는 서버도 바깥을 막아서 단순 지도로 찍혀요). 도넛은 SVG로 직접 그려요. API 키는 코드에 넣지 마세요 — 누구나 볼 수 있어요.
+- **바깥 서비스는 https만**: Leaflet은 jsDelivr에서, 지도 타일은 CTRL+AI(`/_ctrlai/tiles`)에서 와요. 못 받으면 SVG 단순 지도가 남아요(썸네일을 찍는 서버는 jsDelivr를 막아서 단순 지도로 찍혀요). 도넛은 SVG로 직접 그려요. API 키는 코드에 넣지 마세요 — 누구나 볼 수 있어요.
 - **크기 제한**: 파일 30개, 파일 하나 200KB, 전체 2MB, 폴더 깊이 3단계, 확장자 .css .html .js .json .md .svg .txt.
 - `alert` · `confirm` 금지 — 데모 초기화는 버튼을 "정말 지울까요? 한 번 더"로 바꾸는 화면 안 확인(4초 뒤 원래대로).
 

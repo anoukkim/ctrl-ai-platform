@@ -175,6 +175,13 @@ class Settings(BaseSettings):
     #: owner-polish-3 (b): the daily USD→KRW rate. `frankfurter` is the
     #: ECB's reference rates through api.frankfurter.dev — free, no key.
     fx_provider: str = "mock"
+    #: fix-app-map-tiles: map tiles for member apps, served by CTRL+AI at
+    #: apps.<domain>/_ctrlai/tiles/… `osm` = OpenStreetMap's tile servers,
+    #: fetched with the club's User-Agent and kept 7 days; `mock` = a plain
+    #: tile, no network. Keyless.
+    map_tile_provider: str = "mock"
+    #: The tile cache's size cap (in STORAGE_DIR/map-tiles), oldest out.
+    map_tile_cache_mb: int = 300
     #: thumbnail-render-worker: who photographs a published app for its
     #: card. `browser` (the default, today's behaviour): the maker's or the
     #: admin's own browser. `server`: a headless Chromium in its own
@@ -445,6 +452,7 @@ class Settings(BaseSettings):
             "github": self.github_provider,
             "youtube": self.youtube_provider,
             "fx": self.fx_provider,
+            "map_tiles": self.map_tile_provider,
             "thumbnail": self.thumbnail_renderer,
         }[provider].strip().lower()
 
@@ -457,7 +465,7 @@ class Settings(BaseSettings):
         Returned to the Admin screen as a yes/no. The key itself is not
         exposed by any route, logged, or put in an audit row.
         """
-        if provider == "fx":
+        if provider in ("fx", "map_tiles"):
             return True  # keyless by design (owner-polish-3): no paid service, ever
         return bool(
             {

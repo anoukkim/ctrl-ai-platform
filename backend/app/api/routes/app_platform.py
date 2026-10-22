@@ -41,6 +41,7 @@ from app.services import (
     app_auth,
     app_data,
     app_fonts,
+    map_tiles,
     app_shell,
     builder_versions,
     chat_limits,
@@ -114,6 +115,22 @@ def font_file(name: str) -> Response:
         content=path.read_bytes(),
         media_type="font/woff2",
         headers={**FONT_HEADERS, "Cache-Control": "public, max-age=604800"},
+    )
+
+
+@router.get("/tiles/{z}/{x}/{y}.png", include_in_schema=False)
+def map_tile(z: int, x: int, y: int, settings: Settings = Depends(get_settings)) -> Response:
+    """A map tile for member apps (`map_tiles`): public, cached, OSM only."""
+    if not map_tiles.valid(z, x, y):
+        return Response(status_code=404)
+    try:
+        data = map_tiles.get_tile(settings, z, x, y)
+    except map_tiles.TileError:
+        return Response(status_code=503, headers={"Retry-After": "60"})
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={**FONT_HEADERS, "Cache-Control": "public, max-age=86400"},
     )
 
 
