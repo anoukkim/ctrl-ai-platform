@@ -784,6 +784,8 @@
       render();
     }
   });
+  // 예시 일정으로 바로 그리고, 저장된 일정이 오면 다시 그려요 (첫 화면이 늦게 뜨지 않게).
+  render();
   Promise.all([
     store.get(KEY),
     sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo",

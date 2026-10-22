@@ -7,14 +7,16 @@
 
 import { useRouter } from "next/navigation";
 
+import { movedInApp } from "@/lib/in-app-nav";
+
 export default function BackButton({ className, fallback = "/" }: { className?: string; fallback?: string }) {
   const router = useRouter();
   const goBack = () => {
-    let fromHere = false;
+    let fromHere = movedInApp();
     try {
-      fromHere = Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
+      fromHere ||= Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
     } catch {
-      fromHere = false;
+      /* no referrer to read */
     }
     if (fromHere && window.history.length > 1) router.back();
     else router.push(fallback);

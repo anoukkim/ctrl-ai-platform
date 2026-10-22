@@ -40,6 +40,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { notePath } from "@/lib/in-app-nav";
+
 import { activeSection, visibleSections } from "@/app/admin/sections";
 
 import { VIDEO_LOCKED_HINT } from "@/lib/site";
@@ -158,6 +160,8 @@ const CHAT_PATH = "/";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // BackButton (guides opened from 자세히) needs to know we moved inside the site.
+  useEffect(() => notePath(pathname), [pathname]);
   const [menuOpen, setMenuOpen] = useState(false);
   // owner-polish-3 (c2): 의견 보내기 is a menu item now; its dialog is ours to open.
   const [feedbackOpen, setFeedbackOpen] = useState(false);

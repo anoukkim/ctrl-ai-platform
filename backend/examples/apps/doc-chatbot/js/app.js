@@ -661,6 +661,8 @@
       show(view);
     }
   });
+  // 샘플로 바로 그리고, 저장된 문서와 AI 스위치 상태가 오면 다시 그려요 (첫 화면이 늦게 뜨지 않게).
+  show("chat");
   Promise.all([store.get(KEY), sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo"])
     .then(([saved, aiMode]) => {
       if (saved && Array.isArray(saved.docs) && Array.isArray(saved.logs)) {
