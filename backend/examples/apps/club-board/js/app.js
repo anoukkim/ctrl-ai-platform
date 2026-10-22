@@ -156,11 +156,23 @@
       sdk.db.list("reactions", { ...SHARED, limit: 100 }).catch(() => ({ items: [] })),
       sdk.db.list("comments", { ...SHARED, limit: 100 }).catch(() => ({ items: [] })),
     ]);
-    reactions = recentReactions.items.filter((r) => ids.has(r.data.targetId));
+    // 최근 100개 안에 다 들어오면 한 번으로 끝, 넘치면(오래된 글이 빠질 수 있으니) 글마다 물어봐요.
+    if (recentReactions.items.length < 100) {
+      reactions = recentReactions.items.filter((r) => ids.has(r.data.targetId));
+    } else {
+      reactions = (await Promise.all(posts.map((p) => fetchReactionsFor(p.id)))).flat();
+    }
     commentCounts = {};
-    recentComments.items.forEach((c) => {
-      if (ids.has(c.data.postId)) commentCounts[c.data.postId] = (commentCounts[c.data.postId] || 0) + 1;
-    });
+    if (recentComments.items.length < 100) {
+      recentComments.items.forEach((c) => {
+        if (ids.has(c.data.postId)) commentCounts[c.data.postId] = (commentCounts[c.data.postId] || 0) + 1;
+      });
+    } else {
+      const counts = await Promise.all(
+        posts.map((p) => sdk.db.count("comments", { ...SHARED, where: { postId: p.id } }).catch(() => 0)),
+      );
+      posts.forEach((p, i) => (commentCounts[p.id] = Number(counts[i]) || 0));
+    }
   }
   // 상세 화면: 글과 댓글들의 반응을 불러와요.
   async function loadReactionsForOpen() {
@@ -269,9 +281,13 @@
       return;
     }
     try {
-      if (mineItem) {
-        await sdk.db.remove("reactions", mineItem.id, SHARED);
-        reactions = reactions.filter((r) => r.id !== mineItem.id);
+      // 화면에 없는 내 반응이 서버에 있을 수 있어요 — 누르기 전에 이 글의 반응을 다시 확인해요.
+      const current = await fetchReactionsFor(targetId);
+      reactions = reactions.filter((r) => r.data.targetId !== targetId).concat(current);
+      const mineNow = current.find((r) => r.mine && r.data.kind === kind) || mineItem;
+      if (mineNow) {
+        await sdk.db.remove("reactions", mineNow.id, SHARED);
+        reactions = reactions.filter((r) => r.id !== mineNow.id);
       } else {
         const saved = await sdk.db.save("reactions", { targetId, kind }, SHARED);
         reactions.push(saved);
@@ -340,6 +356,7 @@
       if (kind === "draft") {
         const result = await sdk.ai.ask(draftOptions(post));
         live.busy = "";
+        if (open !== post) return; // 그사이 다른 화면으로 갔어요
         renderDetail();
         $("comment-body").value = result.text.trim();
         $("comment-body").focus();
@@ -353,6 +370,7 @@
       note = error && error.code === "demo" ? "지금은 데모예요 — AI 없이 써 주세요." : error && error.code === "login_required" ? "로그인해야 AI를 쓸 수 있어요." : "AI가 답하지 못했어요. 잠시 뒤 다시 해 보세요.";
     }
     live.busy = "";
+    if (open !== post) return; // 그사이 다른 화면으로 갔어요
     const draft = $("comment-body") ? $("comment-body").value : "";
     renderDetail();
     if (draft) $("comment-body").value = draft;
@@ -442,6 +460,7 @@
       const options = { ...SHARED, limit: 50 };
       if (category) options.where = { category };
       const latest = (await sdk.db.list("posts", options)).items;
+      if (open || !$("editor").hidden) return; // 기다리는 동안 글을 열었으면 그대로 둬요
       const known = new Set(posts.map((p) => p.id));
       const count = latest.filter((p) => !known.has(p.id) && !p.mine).length;
       if (count !== fresh) {
