@@ -254,7 +254,7 @@ Members under the 승인 대기 chip, or through the API) — an AI call without
 ```powershell
 # backend reachable from Docker: uvicorn ... --host 0.0.0.0 --port 8000
 docker run -d --name ctrlai-e2e-caddy --add-host api:host-gateway --add-host web:host-gateway `
-  -p 443:443 -p 80:80 -v "${PWD}\deploy\Caddyfile:/etc/caddy/Caddyfile:ro" `
+  -p 443:443 -p 80:80 -v "${PWD}\deploy:/etc/caddy:ro" `
   -v "${PWD}\backend\var\apps:/srv/apps:ro" -e SITE_DOMAIN=localhost -e MAX_UPLOAD_MB=20 caddy:2-alpine
 cd frontend; $env:APPS_ORIGIN = "https://apps.localhost"; npm run e2e
 docker rm -f ctrlai-e2e-caddy

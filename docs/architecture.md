@@ -28,7 +28,13 @@ and a provider API key can live safely.
 
 From Phase 1a the frontend also **proxies `/api/*` to the backend** through
 Next.js rewrites, so the browser sees a single origin and the session cookie
-can be `HttpOnly` and same-origin. The same arrangement holds in production.
+can be `HttpOnly` and same-origin. In production the browser sees the same
+one origin, but caddy does that hop itself: `/api/*` goes from caddy straight
+to `api:8000` and everything else to `web:3000` (`deploy/Caddyfile`,
+chore-gapless-deploy, 2026-10-22), so that a request can be *held* for the
+seconds the api is being replaced during a deploy instead of failing in the
+Next.js proxy. The Next.js rewrite serves development; its `proxyTimeout`
+matters there only.
 
 ## Access rules per endpoint
 
@@ -319,10 +325,10 @@ Cloud free trial until about 2027-01-11. Docker Compose
 (`docker-compose.prod.yml`) runs four services:
 
 ```text
-Internet ─ 80/443 ─▶ caddy (HTTPS, Let's Encrypt; www → apex)
-                       └─▶ web  (Next.js standalone, /api/* rewrite)
-                             └─▶ api (FastAPI, reads the server's .env)
-                                   └─▶ db (PostgreSQL 16, no published port)
+Internet ─ 80/443 ─▶ caddy (HTTPS, Let's Encrypt; www → apex; 503 page while updating)
+                       ├─▶ web  (Next.js standalone: the pages)
+                       └─▶ api  (FastAPI, /api/*; reads the server's .env)
+                             └─▶ db (PostgreSQL 16, no published port)
 ```
 
 There is no `api` subdomain: the browser only talks to `ctrlai.my`.
