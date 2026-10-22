@@ -80,7 +80,8 @@ def test_a_refusal_or_non_png_is_an_error(answer: Answer) -> None:
 def test_the_server_selects_osm_and_its_referer() -> None:
     real = map_tiles.get_provider(Settings(map_tile_provider="osm", apps_base_url="https://apps.ctrlai.my"))
     assert isinstance(real, map_tiles.OsmTileProvider) and real.referer == "https://apps.ctrlai.my/"
-    assert isinstance(map_tiles.get_provider(Settings()), map_tiles.MockTileProvider)
+    assert isinstance(map_tiles.get_provider(Settings(map_tile_provider="mock")), map_tiles.MockTileProvider)
+    assert Settings.model_fields["map_tile_provider"].default == "mock"
 
 
 def test_a_cached_tile_is_not_fetched_again(tmp_path: Path) -> None:
