@@ -44,9 +44,9 @@ from app.models import (
     UsageEvent,
     WalletAdjustment,
 )
-from app.services import accounting, cost_report
+from app.services import accounting, claude_provider, cost_report
 from app.services import usage as usage_service
-from app.services.claude_provider import AnthropicClaudeProvider, server_tool_params
+from app.services.claude_provider import CHAT_SYSTEM_PROMPT, AnthropicClaudeProvider, server_tool_params
 from app.services.pricing import CostSplit, Price
 from tests.test_chat import new_conversation, send
 
@@ -128,9 +128,16 @@ def test_a_chat_reply_stores_its_split_and_receipt(
 
 
 def test_haiku_below_its_4096_minimum_is_never_billed_as_a_cache_read(
-    client: TestClient, db_session: Session, budgeted, config
+    client: TestClient, db_session: Session, budgeted, config, monkeypatch
 ) -> None:
-    """Short Haiku conversations do not cache; they pay full input."""
+    """Short Haiku conversations do not cache; they pay full input.
+
+    The mock counts one token per character, so the system prompt alone is
+    about 4,000 "tokens" there (real Haiku sees about a quarter of that).
+    The minimum is raised past it so the test stays about the rule — under
+    the model's minimum nothing is cached — not about the prompt's length.
+    """
+    monkeypatch.setitem(claude_provider.CACHE_MINIMUM_TOKENS, "claude-haiku-4-5", 4096 + len(CHAT_SYSTEM_PROMPT))
     haiku = db_session.query(ChatModel).filter_by(model_id="claude-haiku-4-5").one()
     conversation = client.post(
         "/api/chat/conversations", json={"chat_model_id": haiku.id}
