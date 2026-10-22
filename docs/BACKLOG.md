@@ -78,6 +78,10 @@ run after the real key goes into the server `.env`.
 
 ## Next (in order)
 
+**Owner's order, 2026-10-22:** after image-generation is deployed,
+**auto-depth (8)** is next, then **app-maps (9)** — ahead of the other
+items below (each still branch, test, report, WAIT).
+
 **The numbered list below is the authority on order** — numbers written
 inside spec sections are snapshots and go stale at every reorder. The
 reorder history up to 2026-10-13 is archived in
