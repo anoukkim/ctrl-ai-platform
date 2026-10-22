@@ -51,6 +51,8 @@ def test_the_app_frame_stays_opaque() -> None:
     assert policy["sandbox"] == app_shell.APP_SANDBOX.split()
     assert "allow-same-origin" not in app_shell.APP_SANDBOX
     assert "allow-top-navigation" not in app_shell.APP_SANDBOX
+    # A link the app opens is an ordinary window (feat-trip-country).
+    assert "allow-popups-to-escape-sandbox" in app_shell.APP_SANDBOX
 
 
 def test_the_session_cookie_never_rides_on_an_apps_request(anon_client: TestClient, dev_user) -> None:
@@ -97,6 +99,7 @@ def test_every_app_prompt_carries_the_outside_service_rules() -> None:
     # Only services checked inside the app frame (fix-app-map-tiles): map
     # tiles from CTRL+AI, never from a tile host directly.
     assert '"/_ctrlai/tiles/{z}/{x}/{y}.png"' in _OUTSIDE_RULES and "© OpenStreetMap" in _OUTSIDE_RULES
+    assert '"/_ctrlai/places?q=NAME' in _OUTSIDE_RULES  # feat-trip-country
     for host in ("api.open-meteo.com", "api.frankfurter.dev", "commons.wikimedia.org", "cdn.jsdelivr.net"):
         assert host in _OUTSIDE_RULES, host
     assert "api.frankfurter.app" not in _OUTSIDE_RULES  # redirects, and a redirect fails in the frame

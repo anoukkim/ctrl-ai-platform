@@ -319,6 +319,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/_ctrlai/fonts.css"): None,
     ("GET", "/_ctrlai/fonts/{name}"): None,
     ("GET", "/_ctrlai/tiles/{z}/{x}/{y}.png"): None,
+    ("GET", "/_ctrlai/places"): None,
     ("GET", "/_ctrlai/shell/{slug}"): None,
     # app-platform P2: the apps origin. `app_call` = app_request + who is
     # signed in to this app (its own cookie only); `signed_in_visitor` =

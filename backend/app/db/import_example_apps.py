@@ -72,22 +72,23 @@ EXAMPLES: tuple[Example, ...] = (
     Example(
         "trip-planner",
         "여행 일정 메이커",
-        "서울·부산·제주 중 한 곳과 기간, 예산, 취향을 고르면 하루하루 동선을 짜 줘요. 지도와 예산 도넛, "
-        "끌어서 순서 바꾸기, 링크로 공유까지. 로그인하면 Claude가 짜고 문장도 알아들어요(내 지원금에서) — 아니면 데모 플래너예요.",
+        "국내 여행의 하루하루 동선을 진짜 지도 위에 짜 줘요. 서울·부산·제주는 바로, 강릉·경주 같은 다른 곳은 Claude가 "
+        "갈 만한 곳을 고르고 지도 검색으로 위치를 찾아요(내 지원금에서). 예산 도넛, 끌어서 순서 바꾸기, 링크로 공유까지.",
         "CTRL+AI 쇼케이스 앱 · 데모",
     ),
     Example(
-        "receipt-ledger",
-        "영수증 가계부",
-        "영수증을 올리면 상호·품목·금액을 읽어 가계부에 넣어요. 카테고리 예산, 이번 달 소비 패턴, 차트와 "
-        "CSV 내보내기까지. 로그인하면 Claude가 사진을 읽고 분석을 써요(내 지원금에서) — 아니면 샘플 12장의 데모예요.",
-        "CTRL+AI 쇼케이스 앱 · 데모",
+        "trip-prep",
+        "출장·여행 준비 도우미",
+        "어디로, 언제 가는지 한 문장으로 쓰면 항공권 비교(네이버 항공권 · 구글 항공편), 현지 날씨, 환율, "
+        "준비물 체크리스트를 한 화면에. 로그인하면 Claude가 문장을 읽어 칸을 채워요(내 지원금에서) — 칸은 직접 골라도 돼요.",
+        "CTRL+AI 쇼케이스 앱",
     ),
 )
 
 #: The earlier examples (`example-apps`, 2026-10-14) that `--replace`
 #: takes down. Matched by project name, among the admin's live projects.
-LEGACY_NAMES: tuple[str, ...] = ("AI 상식 퀴즈", "오늘의 할 일 + 집중 타이머", "동아리 출석 체크")
+#: 영수증 가계부 was replaced by 출장·여행 준비 도우미 (owner, 2026-10-22).
+LEGACY_NAMES: tuple[str, ...] = ("AI 상식 퀴즈", "오늘의 할 일 + 집중 타이머", "동아리 출석 체크", "영수증 가계부")
 
 
 def example_files(example: Example, root: Path = EXAMPLES_DIR) -> dict[str, str]:

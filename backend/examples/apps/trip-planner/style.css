@@ -83,7 +83,11 @@ input, select {
 .formCard h2 { font-size: 2rem; margin: 4px 0 18px; letter-spacing: -0.03em; }
 fieldset { border: 0; padding: 0; margin: 0 0 18px; }
 legend { font-weight: 700; margin-bottom: 8px; }
-.cities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cities { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.cityCard .pin { display: grid; place-items: center; font-size: 2rem; }
+.anywhereField { display: grid; gap: 6px; margin-top: 12px; }
+.anywhereField[hidden] { display: none; }
+.anywhereField small { color: var(--muted); }
 .cityCard {
   position: relative; display: grid; justify-items: center; gap: 4px; padding: 16px 10px;
   border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); cursor: pointer;
@@ -259,7 +263,7 @@ legend { font-weight: 700; margin-bottom: 8px; }
   .topActions .ghost { padding: 6px 10px; font-size: 13px; }
   .formCard { padding: 18px; }
   .formCard h2 { font-size: 1.5rem; }
-  .cities { gap: 8px; }
+  .cities { gap: 8px; grid-template-columns: repeat(2, 1fr); }
   .mini { width: 48px; height: 48px; }
   .formRow { grid-template-columns: 1fr 1fr; }
   .formRow label:last-child { grid-column: 1 / -1; }

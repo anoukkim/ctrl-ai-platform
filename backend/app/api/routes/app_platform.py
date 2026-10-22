@@ -26,7 +26,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -41,6 +41,7 @@ from app.services import (
     app_auth,
     app_data,
     app_fonts,
+    map_places,
     map_tiles,
     app_shell,
     builder_versions,
@@ -131,6 +132,25 @@ def map_tile(z: int, x: int, y: int, settings: Settings = Depends(get_settings))
         content=data,
         media_type="image/png",
         headers={**FONT_HEADERS, "Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/places", include_in_schema=False)
+def place_search(
+    q: str = Query(min_length=1, max_length=map_places.MAX_QUERY),
+    lat: float | None = Query(default=None, ge=-90, le=90),
+    lon: float | None = Query(default=None, ge=-180, le=180),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """Place search for member apps (`map_places`): public, cached, one upstream question a second."""
+    try:
+        hits = map_places.search(settings, q, lat, lon)
+    except map_places.PlaceError:
+        return Response(status_code=503, headers={"Retry-After": "30", **FONT_HEADERS})
+    return Response(
+        content=json.dumps({"places": hits}, ensure_ascii=False),
+        media_type="application/json",
+        headers={**FONT_HEADERS, "Cache-Control": "public, max-age=3600"},
     )
 
 

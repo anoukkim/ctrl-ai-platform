@@ -44,10 +44,14 @@ SLUG_PATTERN = re.compile(r"^[a-z2-9]{10}$")
 
 #: The app frame's sandbox. Never `allow-same-origin`: the app's origin
 #: stays opaque. No `allow-modals` (alert/confirm stay blocked, as in the
-#: Builder), no top navigation; popups inherit the sandbox. Downloads are
+#: Builder), no top navigation. A window the app opens (a link to a flight
+#: search, a map's attribution) is an ordinary window since
+#: feat-trip-country (`allow-popups-to-escape-sandbox`): sandboxed, outside
+#: sites lost their storage and sign-in — the same as the visitor opening
+#: the link themselves; the app's own frame stays fenced in. Downloads are
 #: allowed — an app opened on its own used to save files (a CSV export);
 #: framed on the site, the outer frame still blocks them, as before.
-APP_SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads"
+APP_SANDBOX = "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
 
 
 #: Where an app may load from besides its own files (app-open-services):

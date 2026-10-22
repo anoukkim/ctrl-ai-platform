@@ -39,7 +39,7 @@
   // this shell answers (ui-improvements). Stamped by the server.
   var sites = (body.getAttribute("data-sites") || "").split(" ").filter(Boolean);
   var LIMIT = 1024 * 1024; // characters of key + value, per app
-  var SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads";
+  var SANDBOX = "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads";
 
   function say(text) {
     var box = document.createElement("p");

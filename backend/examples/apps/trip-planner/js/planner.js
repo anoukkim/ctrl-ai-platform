@@ -9,7 +9,8 @@
   T.MEAL_ALLOWANCE = 10000; // 맛집 일정이 없는 끼니 1인 식비
   T.WALK_KM = 1.2; // 이보다 가까우면 걸어가요
 
-  T.city = (trip) => T.CITIES[trip.input.city];
+  // "다른 곳"(anywhere.js)으로 만든 일정은 장소 목록을 일정 안(cityData)에 갖고 있어요.
+  T.city = (trip) => trip.cityData || T.CITIES[trip.input.city];
   T.place = (trip, id) => T.city(trip).places.find((p) => p.id === id);
 
   // 두 지점 사이의 직선 거리(km) — 하버사인 공식.
@@ -83,8 +84,9 @@
     return day.map((p) => p.id);
   }
 
-  T.plan = function (input) {
+  T.plan = function (input, cityData) {
     const trip = { input: { ...input, prefs: [...input.prefs] }, lodging: "보통", rain: false, cheap: false, relaxed: false, days: [], notes: [] };
+    if (cityData) trip.cityData = cityData;
     const used = new Set();
     for (let d = 0; d < input.days; d += 1) {
       const ids = buildDay(trip, used, 0);
@@ -293,17 +295,39 @@
   // 일정 전체를 주소의 # 뒤에 넣어요. 서버에는 아무것도 보내지 않아요.
   T.encode = function (trip) {
     const slim = { i: trip.input, l: trip.lodging, r: trip.rain, c: trip.cheap, x: trip.relaxed, d: trip.days };
+    if (trip.cityData) slim.p = trip.cityData.places.map((p) => [p.id, p.name, p.pref, p.indoor, p.lat, p.lng, p.minutes, p.cost, p.note]);
     const bytes = new TextEncoder().encode(JSON.stringify(slim));
     let bin = "";
     bytes.forEach((b) => (bin += String.fromCharCode(b)));
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   };
 
+  // 공유 링크로 받은 "다른 곳" 장소 목록 — 한국 안의 위치와 짧은 글만 받아요.
+  function sharedArea(name, rows) {
+    if (typeof name !== "string" || !T.areaCity) return null;
+    const places = rows
+      .slice(0, 16)
+      .filter((r) => Array.isArray(r) && r.length === 9)
+      .map(([id, label, pref, indoor, lat, lng, minutes, cost, note]) => ({
+        id: String(id).slice(0, 4),
+        name: String(label).slice(0, 30),
+        pref: T.PREFS.includes(pref) ? pref : "문화",
+        indoor: Boolean(indoor),
+        lat: Number(lat),
+        lng: Number(lng),
+        minutes: Math.max(30, Math.min(180, Number(minutes) || 60)),
+        cost: Math.max(0, Math.min(200000, Number(cost) || 0)),
+        note: String(note).slice(0, 60),
+      }))
+      .filter((p) => p.lat > 33 && p.lat < 39 && p.lng > 124 && p.lng < 132);
+    return places.length ? T.areaCity(name.slice(0, 20), places) : null;
+  }
+
   T.decode = function (text) {
     try {
       const bin = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
       const slim = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
-      const city = T.CITIES[slim.i && slim.i.city];
+      const city = Array.isArray(slim.p) ? sharedArea(slim.i && slim.i.city, slim.p) : T.CITIES[slim.i && slim.i.city];
       if (!city || !Array.isArray(slim.d)) return null;
       const known = new Set(city.places.map((p) => p.id));
       const days = slim.d.slice(0, 7).map((ids) => (Array.isArray(ids) ? ids.filter((id) => known.has(id)).slice(0, 8) : []));
@@ -315,7 +339,9 @@
         prefs: (slim.i.prefs || []).filter((p) => T.PREFS.includes(p)),
       };
       const lodging = T.LODGING_TIERS.includes(slim.l) ? slim.l : "보통";
-      return { input, lodging, rain: !!slim.r, cheap: !!slim.c, relaxed: !!slim.x, days, notes: [] };
+      const trip = { input, lodging, rain: !!slim.r, cheap: !!slim.c, relaxed: !!slim.x, days, notes: [] };
+      if (city.anywhere) trip.cityData = city;
+      return trip;
     } catch (error) {
       return null;
     }
