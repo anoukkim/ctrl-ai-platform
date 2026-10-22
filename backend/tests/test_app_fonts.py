@@ -40,7 +40,8 @@ def test_the_css_names_every_file_by_the_same_origin_path() -> None:
     for entry in app_fonts.catalogue():
         for face in entry["faces"]:
             assert f'url("/_ctrlai/fonts/{face["file"]}")' in css
-    # Nothing outside the app's own origin: that is what keeps the CSP unchanged.
+    # Nothing outside the app's own origin: the fonts work without a network
+    # (the thumbnail worker refuses other hosts).
     assert "http" not in css and "//" not in css.replace("/_ctrlai/", "")
 
 
@@ -64,9 +65,9 @@ def test_the_routes_serve_css_and_files_publicly(anon_client: TestClient) -> Non
     assert anon_client.get("/api/_ctrlai/fonts.css").status_code == 404
 
 
-def test_the_csp_did_not_widen() -> None:
-    """Fonts come from the app's own origin, which the policy already allowed."""
-    assert "font-src 'self' data:;" in app_shell.app_files_csp("https://ctrlai.my")
+def test_the_csp_allows_the_apps_own_fonts() -> None:
+    """Fonts come from the app's own origin, which the policy allows."""
+    assert "font-src 'self' data: https:;" in app_shell.app_files_csp("https://ctrlai.my")
 
 
 def test_an_app_that_names_a_font_gets_the_stylesheet() -> None:

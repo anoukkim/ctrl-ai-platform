@@ -73,13 +73,13 @@ def fetch(url: str, method: str = "GET", headers: dict | None = None):
         return error.code, error.headers, ""
 
 
-def test_member_files_are_served_sandboxed_with_no_network(served: str) -> None:
+def test_member_files_are_served_sandboxed(served: str) -> None:
     status, headers, body = fetch(f"{served}/{SLUG}/_app/index.html")
     assert status == 200 and body == "<p>앱</p>"
     csp = headers["Content-Security-Policy"]
     assert csp == content_security_policy("http://localhost:8300 http://localhost:3000")
     assert csp.startswith(f"sandbox {app_shell.APP_SANDBOX};")
-    assert "allow-same-origin" not in csp and "connect-src 'none'" in csp
+    assert "allow-same-origin" not in csp and "connect-src https:;" in csp
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert headers["Referrer-Policy"] == "no-referrer"
     # fix-app-file-cache: every 고치기 rewrites files under the same name.

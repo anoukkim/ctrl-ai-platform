@@ -111,7 +111,8 @@ www.{$SITE_DOMAIN} {
 #   /<slug>/_app/<f>    the member's files, static from the `apps_data`
 #                       volume (read-only here; the api writes it), with a
 #                       `sandbox` CSP so they are fenced in even when opened
-#                       on their own, and no network (connect-src 'none').
+#                       on their own; outside https services are allowed
+#                       (app-open-services), CTRL+AI's own data is not.
 #   /_ctrlai/*          the api's app-platform router (scripts, shell,
 #                       /_ctrlai/v1/*). Never the main /api: that is only
 #                       reachable on the site itself.
@@ -176,7 +177,7 @@ apps.{$SITE_DOMAIN} {
 		respond @notRead 405
 		header {
 			Cache-Control "no-cache"
-			Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; frame-ancestors https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}"
+			Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src https:; frame-ancestors https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}"
 			-Set-Cookie
 		}
 		root * /srv/apps

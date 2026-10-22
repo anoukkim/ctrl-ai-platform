@@ -1,12 +1,13 @@
 """The Korean font catalogue for member apps (feat-app-fonts).
 
-A member app runs fenced in: no network, and fonts only from its own origin
-(`font-src 'self' data:`, `app_shell.app_files_csp`). So an app that asks for
-"Jua" has nowhere to get it from — unless CTRL+AI itself serves the file.
+A member app runs fenced in (`app_shell.app_files_csp`). Since
+app-open-services it may load web fonts from any https host, but these
+Korean fonts are served by CTRL+AI itself so an app that asks for "Jua"
+works without an outside service (and in the thumbnail worker).
 That is this module: OFL fonts, cut down to what an app screen needs
 (`backend/tools/build_fonts.py`), kept in `static/fonts/` and served by the
 api under `/_ctrlai/` (the path Caddy and `dev_apps_server` already send to
-the api on the apps origin). The CSP does not change.
+the api on the apps origin).
 
 * `/_ctrlai/fonts.css` — one `@font-face` per file. The browser downloads
   only the files an app actually uses.

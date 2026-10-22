@@ -12,7 +12,7 @@ exactly as Caddy's `apps.` block does:
 * `/<slug>/` — the trusted shell, from the backend (`/_ctrlai/shell/<slug>`);
 * `/<slug>/_ctrlai/callback` — the end of signing in (P2), from the backend;
 * `/<slug>/_app/<file>` — the member's file from `APPS_DIR`, read-only,
-  with `app_shell.app_files_csp` (sandboxed, no network), nosniff,
+  with `app_shell.app_files_csp` (sandboxed, outside https only), nosniff,
   no-referrer, never a cookie, no listings, no hidden files;
 * `/_ctrlai/*` — passed to the backend (`--api`, default
   http://127.0.0.1:8000), method, headers and body as they came;
