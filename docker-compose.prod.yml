@@ -17,7 +17,12 @@
 #
 #   docker compose -f docker-compose.prod.yml pull
 #   docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
-#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml up -d --wait
+#
+# deploy/update.sh does those in the gapless order (api alone, then web,
+# then the rest), each with --wait: api and web carry healthchecks, so a
+# container that does not come up fails the deploy instead of a silent
+# 끝났습니다 (chore-gapless-deploy, 2026-10-22).
 #
 # Values in ${...} come from the .env next to this file. The .env is
 # chmod 600, never committed, and never copied into an image — it is
@@ -45,7 +50,14 @@ services:
       SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env (ctrlai.my)}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The whole deploy/ folder (read-only), not the Caddyfile alone: a
+      # single-file bind mount keeps the inode `git pull` replaced, so a
+      # changed Caddyfile only ever reached caddy by recreating it (found
+      # 2026-10-14). Through the directory `caddy reload` reads the new
+      # file, and update.sh reloads instead of recreating — no gap. The
+      # same folder holds deploy/maintenance.html, the 503 page
+      # (chore-gapless-deploy, 2026-10-22).
+      - ./deploy:/etc/caddy:ro
       - caddy_data:/data
       # Member apps, read-only: Caddy only serves them (builder-static-runtime).
       - apps_data:/srv/apps:ro
@@ -70,6 +82,23 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # Next.js answers its own page as soon as it listens; the api is not
+    # involved (/api/* is caddy's business in production). `up --wait`
+    # waits for this, and update.sh replaces web only after api is healthy.
+    # node:22-alpine has no curl or wget, but node has fetch.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      # Probed every 2 s while starting (Docker 25+), so a deploy sees
+      # "healthy" seconds after Ready instead of at the next 15 s tick.
+      start_interval: 2s
     mem_limit: 768m
     logging: *logging
 
@@ -113,6 +142,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+      # See web: a fast probe while starting, so the handover is short.
+      start_interval: 2s
     mem_limit: 1g
     logging: *logging
 

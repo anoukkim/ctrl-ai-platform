@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- CTRL+AI — what Caddy answers (HTTP 503) while the site is being updated
+     and web:3000 stays unreachable longer than Caddy holds a request
+     (deploy/Caddyfile, handle_errors; chore-gapless-deploy, 2026-10-22).
+     One file, no scripts, no outside resources: it must work when nothing
+     else does. The meta refresh re-opens the page every 5 seconds. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="5">
+<title>CTRL+AI</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1b1d22; --muted: #5d6270; --bg: #f6f7f9; --mark: #2f6bff; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #eef0f4; --muted: #9aa0ad; --bg: #15171c; --mark: #6b9cff; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { display: grid; place-items: center; padding: 16px; box-sizing: border-box;
+         font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; text-align: center; }
+  .mark { font-size: 40px; font-weight: 700; color: var(--mark); line-height: 1; margin-bottom: 20px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 10px; }
+  p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<main>
+  <div class="mark" aria-hidden="true">+</div>
+  <h1>CTRL+AI를 업데이트하고 있어요</h1>
+  <p>잠시 뒤 다시 열어 주세요.<br>5초마다 저절로 다시 시도합니다.</p>
+</main>
+</body>
+</html>

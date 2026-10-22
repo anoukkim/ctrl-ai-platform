@@ -7,10 +7,20 @@
 #
 # SITE_DOMAIN and MAX_UPLOAD_MB come from docker-compose.prod.yml.
 
-# The site: everything goes to the Next.js server, which serves the pages
-# and forwards /api/* to FastAPI. FastAPI itself is never exposed, so its
-# /docs page is not reachable from outside (and is off outside development
-# anyway).
+# The site: pages from the Next.js server, /api/* straight to FastAPI —
+# the same one origin the browser has always seen (the Next.js /api rewrite
+# stays for development; here caddy does that hop itself, so a request is
+# held, not failed, while api is being replaced — chore-gapless-deploy,
+# 2026-10-22). Only /api/* reaches the api from here: /docs, /_ctrlai/* and
+# everything else of FastAPI stay unreachable from the site.
+#
+# During a deploy (deploy/update.sh): api is replaced first, then web. For
+# the seconds a container is away, `lb_try_duration` keeps trying every
+# 250 ms instead of answering at once — a member's click just takes a few
+# seconds longer (a request that could not connect is always retried,
+# whatever its method; one the old api had already started is not). Only
+# when the hold runs out does handle_errors below answer: the 503 page for
+# a page, a Korean JSON `detail` for /api/*.
 {$SITE_DOMAIN} {
 	request_body {
 		max_size {$MAX_UPLOAD_MB}MB
@@ -24,9 +34,66 @@
 		-Server
 	}
 
+	@api path /api/*
+	handle @api {
+		# Next.js gzipped the api's JSON on the way through; keep that for
+		# JSON only. A chat or Builder stream (text/event-stream, sent with
+		# Cache-Control no-transform) is never touched, so the first piece
+		# reaches the member at once (measured 2026-10-07: 0.06 s vs 0.46 s).
+		encode zstd gzip {
+			match {
+				header Content-Type application/json*
+			}
+		}
+		# ~6 s is what the new api needs on the e2-medium (imports, workers);
+		# 30 s also covers a stop that waited for a long Builder call.
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 250ms
+		}
+	}
+
 	# Chat replies stream as text/event-stream; Caddy passes those through
-	# immediately without buffering.
-	reverse_proxy web:3000
+	# immediately without buffering. Next.js is back ~2 s after it is
+	# replaced; 15 s leaves room for a slow start.
+	handle {
+		reverse_proxy web:3000 {
+			lb_try_duration 15s
+			lb_try_interval 250ms
+		}
+	}
+
+	# Still nothing after the hold (a deploy that is taking longer, api or
+	# web not starting): say so, in Korean, instead of a bare 502. The
+	# page re-opens itself every 5 s (meta refresh); a script calling
+	# /api/* gets the JSON shape the frontend already shows for errors.
+	# Error routes do not get the `header` block above, so it is repeated.
+	handle_errors 502 503 504 {
+		header {
+			Strict-Transport-Security "max-age=31536000"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			X-Frame-Options "SAMEORIGIN"
+			Cache-Control "no-store"
+			Retry-After "5"
+			-Server
+		}
+		@apiError path /api/*
+		handle @apiError {
+			header Content-Type "application/json; charset=utf-8"
+			respond `{"detail":"CTRL+AI를 업데이트하고 있어요. 잠시 뒤 다시 시도해 주세요."}` 503
+		}
+		handle {
+			# deploy/ is mounted at /etc/caddy (docker-compose.prod.yml);
+			# every path becomes this one file, so nothing else there is
+			# served.
+			rewrite * /maintenance.html
+			file_server {
+				root /etc/caddy
+				status 503
+			}
+		}
+	}
 }
 
 # www.ctrlai.my -> https://ctrlai.my, keeping the path.
@@ -65,9 +132,14 @@ apps.{$SITE_DOMAIN} {
 		-Server
 	}
 
+	# The three api proxies below hold a request while api is being
+	# replaced, like the site's (chore-gapless-deploy).
 	@platform path /_ctrlai/*
 	handle @platform {
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 250ms
+		}
 	}
 
 	@shell path_regexp shell ^/([a-z2-9]{10})/$
@@ -75,7 +147,10 @@ apps.{$SITE_DOMAIN} {
 		@notRead not method GET HEAD
 		respond @notRead 405
 		rewrite * /_ctrlai/shell/{re.shell.1}
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 250ms
+		}
 	}
 
 	# P2: the end of signing in to an app — the api spends the one-time
@@ -84,7 +159,10 @@ apps.{$SITE_DOMAIN} {
 	handle @callback {
 		@notRead not method GET HEAD
 		respond @notRead 405
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 250ms
+		}
 	}
 
 	# Cache-Control no-cache (fix-app-file-cache, 2026-10-19): a member's
