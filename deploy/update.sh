@@ -44,9 +44,10 @@ caddyfile_changed=false
 if ! git diff --quiet "$before" HEAD -- deploy/Caddyfile; then
   caddyfile_changed=true
   echo "   Caddyfile가 바뀌었어요 — 먼저 검사합니다"
+  max_upload=$(env_value MAX_UPLOAD_MB)
   if ! docker run --rm -v "$PWD/deploy:/etc/caddy:ro" \
       -e "SITE_DOMAIN=$(env_value SITE_DOMAIN)" \
-      -e "MAX_UPLOAD_MB=$(env_value MAX_UPLOAD_MB)" \
+      -e "MAX_UPLOAD_MB=${max_upload:-20}" \
       caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
     echo "Caddyfile에 오류가 있어요. 아직 아무것도 바꾸지 않았습니다 — 고친 뒤 다시 ./deploy/update.sh" >&2
     exit 1
