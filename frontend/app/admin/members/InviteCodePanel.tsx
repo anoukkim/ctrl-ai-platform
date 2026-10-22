@@ -23,7 +23,6 @@ import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDial
 import { formatWhen } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import {
-  INVITE_STATUS_BADGE,
   INVITE_STATUS_LABEL,
   createInvite,
   listInvites,
@@ -31,11 +30,15 @@ import {
   signupLink,
   updateInviteMaxUses,
   type Invite,
+  type InviteStatus,
 } from "@/lib/invites";
 
 import ResultMessage, { type Result } from "../components/ResultMessage";
+import { DataTable, NumField, Pill, SaveBar, SettingsCard, Stack, type Tone } from "../components/AdminUI";
 
-import styles from "../admin.module.css";
+import styles from "./members.module.css";
+
+const STATUS_TONE: Record<InviteStatus, Tone> = { usable: "ok", expired: "off", exhausted: "warn", disabled: "err" };
 
 const EMPTY = { code: "", label: "", maxUses: "1", expiresAt: "" };
 
@@ -194,17 +197,10 @@ export default function InviteCodePanel() {
   };
 
   return (
-    <section aria-labelledby="admin-invites" className={styles.inviteSection}>
-      <h2 className="section-title" id="admin-invites">
-        초대 코드
-        <span className={styles.sectionNote}>
-          가입하려면 초대 코드가 필요합니다. 사용 중지는 새 가입만 막습니다.
-        </span>
-      </h2>
-
-      <div className={`card ${styles.modelEditor}`}>
-        <div className={styles.modelEditorGrid}>
-          <label className={styles.modelEditorField}>
+    <Stack>
+      <SettingsCard title="새 초대 코드" extra="가입하려면 초대 코드가 필요해요 · 사용 중지는 새 가입만 막아요">
+        <div className={styles.formGrid}>
+          <label className={styles.textField}>
             <span>코드 (비우면 자동으로 만듭니다)</span>
             <input
               className="field numeric"
@@ -214,7 +210,7 @@ export default function InviteCodePanel() {
               onChange={(e) => setDraft({ ...draft, code: e.target.value })}
             />
           </label>
-          <label className={styles.modelEditorField}>
+          <label className={styles.textField}>
             <span>이름표 (예: 2026 Q4 공지용)</span>
             <input
               className="field"
@@ -223,16 +219,7 @@ export default function InviteCodePanel() {
               onChange={(e) => setDraft({ ...draft, label: e.target.value })}
             />
           </label>
-          <label className={styles.modelEditorField}>
-            <span>최대 가입 수 (1이면 1회용)</span>
-            <input
-              className={`field numeric ${styles.priceInput}`}
-              inputMode="numeric"
-              value={draft.maxUses}
-              onChange={(e) => setDraft({ ...draft, maxUses: e.target.value })}
-            />
-          </label>
-          <label className={styles.modelEditorField}>
+          <label className={styles.textField}>
             <span>만료 (선택)</span>
             <input
               className="field"
@@ -242,151 +229,135 @@ export default function InviteCodePanel() {
             />
           </label>
         </div>
-        <div className={styles.modelEditorActions}>
-          <button
-            className="btn btn-sm btn-primary"
-            type="button"
-            disabled={!draftValid || busy}
-            onClick={askCreate}
-          >
+        <NumField
+          label="최대 가입 수 (1이면 1회용)"
+          unit="명"
+          type="text"
+          inputMode="numeric"
+          value={draft.maxUses}
+          onChange={(value) => setDraft({ ...draft, maxUses: value })}
+        />
+        <SaveBar note={draftValid ? undefined : "최대 가입 수는 1~1000명입니다."}>
+          <button className="btn btn-sm btn-primary" type="button" disabled={!draftValid || busy} onClick={askCreate}>
             초대 코드 만들기
           </button>
-          {!draftValid && <span className="small dim">최대 가입 수는 1~1000명입니다.</span>}
-        </div>
-      </div>
+        </SaveBar>
+      </SettingsCard>
 
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
 
-      {loadError !== null && <p className="small muted">초대 코드를 불러오지 못했습니다. {loadError}.</p>}
-      {invites !== null && invites.length === 0 && (
-        <p className="small muted">아직 만든 초대 코드가 없습니다.</p>
-      )}
+      {loadError !== null && <p className={styles.note}>초대 코드를 불러오지 못했습니다. {loadError}.</p>}
+      {invites !== null && invites.length === 0 && <p className={styles.emptyList}>아직 만든 초대 코드가 없습니다.</p>}
 
       {invites !== null && invites.length > 0 && (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">코드</th>
-                <th scope="col">이름표</th>
-                <th scope="col">사용</th>
-                <th scope="col">만료</th>
-                <th scope="col">상태</th>
-                <th scope="col">가입한 사람</th>
-                <th scope="col">
-                  <span className="sr-only">관리</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {invites.map((invite) => (
-                <tr key={invite.id}>
-                  <td>
-                    <span className={`numeric ${styles.inviteCode}`}>{invite.code}</span>
-                  </td>
-                  <td>{invite.label || "—"}</td>
-                  <td className="numeric">
-                    {editing?.id === invite.id ? (
-                      <form
-                        className={styles.inviteActions}
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          askResize(invite);
-                        }}
-                      >
-                        <span>{invite.uses} /</span>
-                        <input
-                          className={`field numeric ${styles.priceInput}`}
-                          inputMode="numeric"
-                          aria-label={`${invite.code} 최대 가입 수`}
-                          value={editing.value}
-                          min={Math.max(1, invite.uses)}
-                          max={1000}
-                          autoFocus
-                          onChange={(event) => setEditing({ id: invite.id, value: event.target.value })}
-                        />
-                        <button className="btn btn-sm btn-primary" type="submit" disabled={!editValid || busy}>
-                          바꾸기
-                        </button>
-                        <button className="btn btn-sm" type="button" onClick={() => setEditing(null)}>
-                          취소
-                        </button>
-                        {!editValid && (
-                          <span className="small dim">
-                            {Math.max(1, invite.uses)}~1000 사이로 적어 주세요
-                            {invite.uses > 0 ? ` (이미 ${invite.uses}명 가입)` : ""}.
-                          </span>
-                        )}
-                      </form>
-                    ) : (
-                      <>
-                        {invite.uses} / {invite.max_uses}{" "}
-                        <button
-                          className="btn btn-sm"
-                          type="button"
-                          aria-label={`${invite.code} 최대 가입 수 바꾸기`}
-                          disabled={busy}
-                          onClick={() => setEditing({ id: invite.id, value: String(invite.max_uses) })}
-                        >
-                          바꾸기
-                        </button>
-                      </>
-                    )}
-                  </td>
-                  <td className="numeric">
-                    {invite.expires_at ? formatWhen(invite.expires_at) : "없음"}
-                  </td>
-                  <td>
-                    <span className={`badge ${INVITE_STATUS_BADGE[invite.status]}`}>
-                      {INVITE_STATUS_LABEL[invite.status]}
-                    </span>
-                  </td>
-                  <td className={styles.inviteSignups}>
-                    {invite.signups.length === 0
-                      ? "—"
-                      : invite.signups.map((member) => member.display_name).join(", ")}
-                  </td>
-                  <td>
-                    <span className={styles.inviteActions}>
-                      <button
-                        className="btn btn-sm"
-                        type="button"
-                        onClick={() => void copy(invite.code, "코드")}
-                      >
-                        코드 복사
+        <DataTable testId="invite-codes">
+          <thead>
+            <tr>
+              <th scope="col">코드</th>
+              <th scope="col">상태</th>
+              <th scope="col" data-numeric="">
+                사용
+              </th>
+              <th scope="col">만료</th>
+              <th scope="col">가입한 사람</th>
+              <th scope="col">
+                <span className="sr-only">관리</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {invites.map((invite) => (
+              <tr key={invite.id}>
+                <td>
+                  <span className={styles.inviteCode}>{invite.code}</span>
+                  {invite.label && <div className={styles.dim}>{invite.label}</div>}
+                </td>
+                <td>
+                  <Pill tone={STATUS_TONE[invite.status]}>{INVITE_STATUS_LABEL[invite.status]}</Pill>
+                </td>
+                <td data-numeric="">
+                  {editing?.id === invite.id ? (
+                    <form
+                      className={styles.line}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        askResize(invite);
+                      }}
+                    >
+                      <span>{invite.uses} /</span>
+                      <input
+                        className={`field numeric ${styles.inviteInput}`}
+                        inputMode="numeric"
+                        aria-label={`${invite.code} 최대 가입 수`}
+                        value={editing.value}
+                        min={Math.max(1, invite.uses)}
+                        max={1000}
+                        autoFocus
+                        onChange={(event) => setEditing({ id: invite.id, value: event.target.value })}
+                      />
+                      <button className="btn btn-sm btn-primary" type="submit" disabled={!editValid || busy}>
+                        바꾸기
                       </button>
-                      <button
-                        className="btn btn-sm"
-                        type="button"
-                        onClick={() =>
-                          void copy(signupLink(window.location.origin, invite.code), "가입 링크")
-                        }
-                      >
-                        링크 복사
+                      <button className="btn btn-sm" type="button" onClick={() => setEditing(null)}>
+                        취소
                       </button>
+                      {!editValid && (
+                        <span className={styles.dim}>
+                          {Math.max(1, invite.uses)}~1000 사이로 적어 주세요
+                          {invite.uses > 0 ? ` (이미 ${invite.uses}명 가입)` : ""}.
+                        </span>
+                      )}
+                    </form>
+                  ) : (
+                    <span className={styles.line} style={{ justifyContent: "flex-end" }}>
+                      <span>
+                        {invite.uses} / {invite.max_uses}
+                      </span>
                       <button
-                        className={`btn btn-sm ${invite.is_active ? "btn-danger" : ""}`}
+                        className="btn btn-sm btn-ghost"
                         type="button"
+                        aria-label={`${invite.code} 최대 가입 수 바꾸기`}
                         disabled={busy}
-                        onClick={() => askSwitch(invite)}
+                        onClick={() => setEditing({ id: invite.id, value: String(invite.max_uses) })}
                       >
-                        {invite.is_active ? "사용 중지" : "다시 사용"}
+                        바꾸기
                       </button>
                     </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  )}
+                </td>
+                <td className={styles.dim}>{invite.expires_at ? formatWhen(invite.expires_at) : "없음"}</td>
+                <td className={styles.inviteSignups}>
+                  {invite.signups.length === 0 ? "—" : invite.signups.map((member) => member.display_name).join(", ")}
+                </td>
+                <td>
+                  <span className={styles.rowButtons}>
+                    <button className="btn btn-sm" type="button" onClick={() => void copy(invite.code, "코드")}>
+                      코드 복사
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={() => void copy(signupLink(window.location.origin, invite.code), "가입 링크")}
+                    >
+                      링크 복사
+                    </button>
+                    <button
+                      className={`btn btn-sm ${invite.is_active ? "btn-danger" : ""}`}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => askSwitch(invite)}
+                    >
+                      {invite.is_active ? "사용 중지" : "다시 사용"}
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
 
-      <ConfirmDialog
-        request={confirm}
-        onClose={() => setConfirm(null)}
-        busy={busy}
-        error={confirmError}
-      />
-    </section>
+      <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} busy={busy} error={confirmError} />
+    </Stack>
   );
 }

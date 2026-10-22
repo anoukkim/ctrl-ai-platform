@@ -1,56 +1,64 @@
 "use client";
 
 /**
- * Admin — AI Models (/admin/ai-models; 예전 /admin/claude-models)
+ * Admin › Models › Chat (/admin/models; 예전 /admin/ai-models, /admin/claude-models)
  *
- * 회원이 Chat에서 고를 수 있는 모델을 정하는 화면입니다. Video Models와 같은
- * 모양입니다. 목록은 데이터베이스에 있고 화면에는 모델 이름을 적어 두지
- * 않습니다 — 제공자의 모델 목록은 바뀌기 때문입니다.
+ * 회원이 Chat에서 고를 수 있는 모델을 정하는 화면입니다. 목록은 데이터베이스에
+ * 있고 화면에는 모델 이름을 적어 두지 않습니다 — 제공자의 모델 목록은 바뀌기
+ * 때문입니다.
  *
- * **제공자별로 묶습니다**(admin-and-nav-cleanup, 2026-10-14). 제목마다 한
- * 제공자, Anthropic(Claude)이 맨 위입니다. 연결(어댑터)이 아직 없는 제공자는
- * "연결 준비 중"으로 보이고, 그 모델은 공개하거나 기본으로 정할 수 없습니다
- * — 화면은 칸을 꺼 두고, 실제로 막는 것은 백엔드입니다.
- *
- * 모델마다 정하는 것, 칸 하나에 컨트롤 하나:
- *   공개 범위  — 회원에게 공개 / 관리자만 / 사용 안 함 (고르는 칸 하나)
- *   기본       — 새 대화와 영상 프롬프트 도움이 쓰는 모델. 하나뿐이고,
- *                회원에게 공개된 모델만 될 수 있습니다.
- *   설정       — 회원이 보는 이름과 설명, 요금(달러, 100만 토큰당), 순서
- *
- * 규칙은 백엔드가 지킵니다(`admin_chat_models.py`). 여기서는 고칠 값을
- * 보내고, 거절되면 그 한국어 이유를 보여 줄 뿐입니다. 바꾼 내용은 모두
- * 감사 기록에 남습니다.
+ * admin-ui-unify: 맨 위 카드가 제공자마다의 **연결 상태**(Anthropic은 System ›
+ * 상태판과 같은 값, 어댑터가 없는 제공자는 "연결 준비 중"), 그 아래 검색 · ? ·
+ * + 모델 추가, 그리고 제공자별로 묶은 목록(Anthropic이 먼저). 줄마다 ⋯ 설정을
+ * 누르면 오른쪽 판에서 공개 범위, 기본 모델, 이름·설명, 요금, 도구, 순서를
+ * 바꿉니다. 연결 전 제공자의 모델은 공개하거나 기본으로 정할 수 없습니다 —
+ * 화면은 칸을 꺼 두고, 실제로 막는 것은 백엔드(`admin_chat_models.py`)입니다.
+ * 거절되면 그 한국어 이유를 보여 줄 뿐이고, 바꾼 내용은 모두 감사 기록에
+ * 남습니다.
  */
 
-import { Fragment, useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
-import PageHeader from "@/app/components/PageHeader";
 import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
+import Skeleton from "@/app/components/Skeleton";
 import {
   VISIBILITY_LABEL,
   createChatModel,
   listChatModels,
   listChatProviders,
+  listProviders,
   updateChatModel,
   type AdminChatModel,
   type ChatModelVisibility,
   type ChatProvider,
+  type ProviderStatus,
 } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
 
-import Fold, { FoldGroup } from "../components/Fold";
-import StatCards from "../components/StatCards";
-import { sectionLabel } from "../sections";
+import {
+  ItemGroup,
+  ItemList,
+  ItemRow,
+  Mono,
+  NumField,
+  PanelBar,
+  PanelSection,
+  SidePanel,
+  Stack,
+  StatusStrip,
+  SwitchRow,
+  Tag,
+  type StatusItem,
+} from "../components/AdminUI";
+import { providerStatusItem } from "../components/providerStatus";
 
-import styles from "../admin.module.css";
-import Skeleton from "@/app/components/Skeleton";
+import local from "../models/models.module.css";
 
 type State =
   | { phase: "loading" }
-  | { phase: "ready"; models: AdminChatModel[]; providers: ChatProvider[] }
+  | { phase: "ready"; models: AdminChatModel[]; providers: ChatProvider[]; claude: ProviderStatus | null }
   | { phase: "error"; message: string };
 
 const VISIBILITY_ORDER: ChatModelVisibility[] = ["members", "admin", "disabled"];
@@ -78,16 +86,37 @@ function groupByProvider(models: AdminChatModel[], providers: ChatProvider[]) {
 }
 
 async function loadAll() {
-  const [models, providers] = await Promise.all([listChatModels(), listChatProviders()]);
-  return { models, providers };
+  const [models, providers, board] = await Promise.all([
+    listChatModels(),
+    listChatProviders(),
+    // System 상태판의 Claude 줄 — 읽지 못하면 카드를 안 보일 뿐입니다.
+    Promise.resolve()
+      .then(() => listProviders())
+      .catch(() => [] as ProviderStatus[]),
+  ]);
+  return { models, providers, claude: (board ?? []).find((row) => row.key === "claude") ?? null };
+}
+
+/**
+ * 캐시 읽기 요금. 모델에 따로 적힌 값이 없으면 입력 요금의 1/10 — 백엔드
+ * pricing.py와 같은 규칙입니다. 캐시 쓰기 요금은 칸이 없습니다: 언제나 입력
+ * 요금의 1.25배(5분) 또는 2배(1시간)입니다.
+ */
+function cacheReadPrice(model: AdminChatModel): number {
+  return model.cache_read_usd_per_mtok !== null
+    ? Number(model.cache_read_usd_per_mtok)
+    : Number(model.input_usd_per_mtok) / 10;
+}
+
+function visibilityTag(visibility: ChatModelVisibility) {
+  if (visibility === "members") return <Tag tone="accent">{VISIBILITY_LABEL.members}</Tag>;
+  return <Tag>{VISIBILITY_LABEL[visibility]}</Tag>;
 }
 
 export default function ModelCatalog() {
   const [state, setState] = useState<State>({ phase: "loading" });
-  const [busyId, setBusyId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [rowError, setRowError] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -116,22 +145,6 @@ export default function ModelCatalog() {
     };
   }, []);
 
-  const setVisibility = useCallback(
-    async (model: AdminChatModel, visibility: ChatModelVisibility) => {
-      setBusyId(model.id);
-      setRowError(null);
-      try {
-        await updateChatModel(model.id, { visibility });
-        await load();
-      } catch (error) {
-        setRowError(describeError(error));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [load],
-  );
-
   const askDefault = (model: AdminChatModel) => {
     setConfirmError(null);
     setConfirm({
@@ -157,91 +170,56 @@ export default function ModelCatalog() {
     });
   };
 
-  const models = state.phase === "ready" ? state.models : [];
-  const providers = state.phase === "ready" ? state.providers : [];
-  const shown = models.filter((m) =>
-    matchesQuery(query, m.label, m.provider, m.provider_label ?? "", m.model_id),
-  );
-  const groups = groupByProvider(shown, providers).filter(
-    (group) => group.models.length > 0 || !query,
-  );
+  if (state.phase === "loading") return <Skeleton label="모델 목록을 불러오는 중…" />;
+  if (state.phase === "error") {
+    return (
+      <div className="card">
+        <p className="small muted">모델 목록을 불러오지 못했습니다. {state.message}.</p>
+        <button className="btn btn-sm" type="button" onClick={() => void load()} style={{ marginTop: "0.6rem" }}>
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
+  const { models, providers } = state;
+  const shown = models.filter((m) => matchesQuery(query, m.label, m.provider, m.provider_label ?? "", m.model_id));
+  const groups = groupByProvider(shown, providers).filter((group) => group.models.length > 0 || !query);
+  const defaultModel = models.find((m) => m.is_default) ?? null;
+
+  const status: StatusItem[] = providers
+    .map((provider): StatusItem | null => {
+      if (!provider.ready) {
+        return {
+          key: provider.id,
+          name: provider.label,
+          tone: "off",
+          state: "연결 준비 중",
+          note: "요금은 미리 적어 둘 수 있지만, 연결될 때까지 공개하거나 기본으로 정할 수 없어요.",
+        };
+      }
+      if (provider.id === "anthropic") {
+        return providerStatusItem(state.claude, {
+          name: provider.label,
+          mock: "키가 없어 정해진 예시 답장만 나와요 · 비용 0 (CLAUDE_PROVIDER)",
+        });
+      }
+      return null;
+    })
+    .filter((item): item is StatusItem => item !== null);
+
+  const open = models.find((model) => model.id === openId) ?? null;
+  const openProvider = open
+    ? (providers.find((p) => p.id === open.provider) ?? { id: open.provider, label: open.provider, ready: false })
+    : null;
 
   return (
-    <section>
-      <PageHeader
-        eyebrow="Admin"
-        title={sectionLabel("ai-models")}
-        subtitle={
-          <>
-            회원이 Chat에서 대화마다 고를 수 있는 모델과 요금을 제공자별로 정합니다. 기본
-            모델은 새 대화와 영상 프롬프트 도움이 씁니다.
-          </>
-        }
-        actions={
-          <button className="btn btn-sm" type="button" onClick={() => setAdding((open) => !open)}>
-            {adding ? "추가 닫기" : "+ 모델 추가"}
-          </button>
-        }
-      />
+    <Stack>
+      <StatusStrip testId="provider-connection" items={status} />
 
-      {adding && state.phase === "ready" && (
-        <NewModelForm
-          providers={providers}
-          onCreated={async () => {
-            setAdding(false);
-            await load();
-          }}
-        />
-      )}
-
-      {state.phase === "loading" && <Skeleton label="모델 목록을 불러오는 중…" />}
-
-      {state.phase === "error" && (
-        <div className="card">
-          <p className="small muted">모델 목록을 불러오지 못했습니다. {state.message}.</p>
-          <button
-            className="btn btn-sm"
-            type="button"
-            onClick={() => void load()}
-            style={{ marginTop: "0.6rem" }}
-          >
-            다시 시도
-          </button>
-        </div>
-      )}
-
-      {state.phase === "ready" && (
-        <>
-          {/* 한눈에: 펼치지 않아도 보이는 숫자들 (ui-improvements B). */}
-          <div style={{ marginBottom: "1rem" }}>
-          <StatCards
-            cards={[
-              { key: "models", label: "모델", value: models.length, unit: "개" },
-              {
-                key: "open",
-                label: "회원 공개",
-                value: models.filter((m) => m.visibility === "members").length,
-                unit: "개",
-              },
-              {
-                key: "default",
-                label: "기본 모델",
-                value: models.find((m) => m.is_default)?.label ?? "없음",
-              },
-              {
-                key: "providers",
-                label: "제공자",
-                value: `${providers.length}곳${
-                  providers.some((p) => !p.ready)
-                    ? ` · 연결 준비 중 ${providers.filter((p) => !p.ready).length}`
-                    : ""
-                }`,
-              },
-            ]}
-          />
-          </div>
-
-          {models.length > 0 && (
+      <PanelBar
+        left={
+          models.length > 0 ? (
             <SearchBar
               value={query}
               onChange={setQuery}
@@ -249,242 +227,160 @@ export default function ModelCatalog() {
               resultCount={shown.length}
               totalCount={models.length}
             />
-          )}
-
-          {rowError !== null && (
-            <p className={styles.modelEditorError} role="alert">
-              {rowError}
+          ) : undefined
+        }
+        note={`기본 모델: ${defaultModel?.label ?? "없음"}`}
+        help={
+          <>
+            <p id={`${id}-default-rule`}>
+              기본 모델은 새 대화와 영상 프롬프트 도움이 씁니다. 회원에게 공개된 모델만 기본이 될 수 있고, 기본 모델의
+              공개 범위는 다른 모델을 먼저 기본으로 정해야 바꿀 수 있어요. 회원에게는 &lsquo;회원에게 공개&rsquo; 모델만,
+              관리자에게는 &lsquo;관리자만&rsquo; 모델도 보입니다.
             </p>
-          )}
+            <p>
+              &lsquo;1회 약&rsquo;은 회원이 모델을 고르는 창에 보이는 값과 같아요. 처음에는 입력 3,000 · 출력 800 토큰으로
+              어림하고, 실제 답장이 10회 이상 쌓이면 그 중앙값을 씁니다(Models › 보정).
+            </p>
+            <p>
+              모델은 지우지 않습니다 — 지난 답장과 사용 기록이 가리키고 있으니, 쓰지 않을 모델은 &lsquo;사용 안 함&rsquo;으로
+              둡니다. 모든 변경은 감사 기록에 남습니다.
+            </p>
+          </>
+        }
+        actions={
+          <button className="btn btn-sm btn-primary" type="button" onClick={() => setAdding(true)}>
+            + 모델 추가
+          </button>
+        }
+      />
 
-          {/* 제공자마다 접는 섹션 하나 (ui-improvements B) — 한 번에 하나만
-              펼쳐지고, 펼친 것은 기억됩니다. 검색 중에는 결과가 보여야 하므로
-              모두 펼칩니다. */}
-          <FoldGroup screen="ai-models" defaultOpen={providers[0]?.id ?? null}>
-          {groups.map(({ provider, models: rows }) => {
-            const headingId = `${id}-${provider.id}`;
-            const open = rows.filter((m) => m.visibility === "members").length;
-            return (
-              <Fold
-                key={provider.id}
-                id={provider.id}
-                forceOpen={query !== ""}
-                title={
+      <ItemList columns={["모델", "입력·출력 $/MTok", "1회 약 · 이번 분기"]} testId="chat-models">
+        {groups.map(({ provider, models: rows }) => (
+          <ItemGroup
+            key={provider.id}
+            title={
+              <>
+                {provider.label} {!provider.ready && <Tag>연결 준비 중</Tag>}
+              </>
+            }
+            meta={
+              rows.length === 0
+                ? "모델 없음"
+                : `모델 ${rows.length}개 · 회원 공개 ${rows.filter((m) => m.visibility === "members").length}개`
+            }
+          >
+            {rows.length === 0 && <p className={local.dim} style={{ padding: "0.6rem 0.9rem" }}>이 제공자의 모델이 아직 없습니다.</p>}
+            {rows.map((model) => (
+              <ItemRow
+                key={model.id}
+                testId="chat-model"
+                onClick={() => setOpenId(model.id)}
+                title={model.label}
+                tags={
                   <>
-                    {provider.label}
-                    {!provider.ready && <span className="badge badge-muted">연결 준비 중</span>}
+                    {visibilityTag(model.visibility)}
+                    {model.is_default && <Tag tone="ok">기본</Tag>}
                   </>
                 }
-                summary={
-                  rows.length === 0
-                    ? "모델 없음"
-                    : `모델 ${rows.length}개 · 회원 공개 ${open}개${
-                        rows.some((m) => m.is_default) ? " · 기본 모델 있음" : ""
-                      }`
+                sub={
+                  <>
+                    {model.description ? `${model.description} · ` : ""}
+                    <Mono>{model.model_id}</Mono>
+                  </>
                 }
-              >
-                {!provider.ready && (
-                  <p className="small dim" id={`${headingId}-why`}>
-                    아직 연결되지 않은 제공자입니다. 요금은 미리 적어 둘 수 있지만, 연결될
-                    때까지 공개하거나 기본으로 정할 수 없습니다.
-                  </p>
-                )}
-                {rows.length === 0 ? (
-                  <p className="small dim">이 제공자의 모델이 아직 없습니다.</p>
-                ) : (
-                  <div className="table-wrap">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th scope="col">모델</th>
-                          <th scope="col">모델 ID</th>
-                          <th scope="col">공개 범위</th>
-                          <th scope="col">기본</th>
-                          <th scope="col">요금 $/100만 토큰</th>
-                          <th scope="col">답장 1회 약</th>
-                          <th scope="col">이번 분기 사용</th>
-                          <th scope="col">
-                            <span className="sr-only">설정</span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((model) => (
-                          <Fragment key={model.id}>
-                            <tr>
-                              <td>
-                                <span className={styles.memberName}>
-                                  {model.label}
-                                  <span className={styles.modelDescription}>
-                                    {model.description}
-                                  </span>
-                                </span>
-                              </td>
-                              <td className={`numeric ${styles.modelIdCell}`}>
-                                {/* A long "host/model" id may break after the slash. */}
-                                {model.model_id.split("/").map((part, index, parts) => (
-                                  <Fragment key={index}>
-                                    {part}
-                                    {index < parts.length - 1 && (
-                                      <>
-                                        /<wbr />
-                                      </>
-                                    )}
-                                  </Fragment>
-                                ))}
-                              </td>
-                              <td>
-                                {/* 연결 전 제공자의 행은 열 수 없지만, 어쩌다 열려
-                                    있는 행(옛 데이터)은 닫을 수는 있어야 하므로
-                                    "사용 안 함"만 남기고 켜 둡니다. */}
-                                <select
-                                  className={`field ${styles.visibilitySelect}`}
-                                  aria-label={`${model.label} 공개 범위`}
-                                  value={model.visibility}
-                                  disabled={
-                                    busyId === model.id ||
-                                    model.is_default ||
-                                    (!provider.ready && model.visibility === "disabled")
-                                  }
-                                  aria-describedby={
-                                    !provider.ready
-                                      ? `${headingId}-why`
-                                      : model.is_default
-                                        ? `${id}-default-rule`
-                                        : undefined
-                                  }
-                                  onChange={(event) =>
-                                    void setVisibility(model, event.target.value as ChatModelVisibility)
-                                  }
-                                >
-                                  {VISIBILITY_ORDER.filter(
-                                    (value) =>
-                                      provider.ready ||
-                                      value === "disabled" ||
-                                      value === model.visibility,
-                                  ).map((value) => (
-                                    <option key={value} value={value}>
-                                      {VISIBILITY_LABEL[value]}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td>
-                                {model.is_default ? (
-                                  <span className="badge badge-ok">기본</span>
-                                ) : (
-                                  <button
-                                    className="btn btn-sm"
-                                    type="button"
-                                    disabled={model.visibility !== "members" || !provider.ready}
-                                    aria-describedby={
-                                      !provider.ready ? `${headingId}-why` : `${id}-default-rule`
-                                    }
-                                    onClick={() => askDefault(model)}
-                                  >
-                                    기본으로
-                                  </button>
-                                )}
-                              </td>
-                              {/* Two lines, not one: table cells don't wrap, and
-                                  all three prices on one line pushed 설정 past
-                                  the table's right edge at 1280px. */}
-                              <td className="numeric">
-                                <span className={styles.priceLine}>
-                                  입력 ${Number(model.input_usd_per_mtok)} · 출력 $
-                                  {Number(model.output_usd_per_mtok)}
-                                </span>
-                                <span className={`small dim ${styles.priceLine}`}>
-                                  캐시 읽기 ${cacheReadPrice(model)}
-                                </span>
-                              </td>
-                              <td className="numeric">
-                                {model.estimated_reply_krw === null
-                                  ? "—"
-                                  : formatKrw(model.estimated_reply_krw)}
-                              </td>
-                              <td className="numeric" data-testid="model-quarter-krw">
-                                {model.quarter_krw ? formatKrw(model.quarter_krw) : "—"}
-                              </td>
-                              <td>
-                                <button
-                                  className="btn btn-sm"
-                                  type="button"
-                                  onClick={() => setEditingId(editingId === model.id ? null : model.id)}
-                                  aria-expanded={editingId === model.id}
-                                >
-                                  설정
-                                </button>
-                              </td>
-                            </tr>
-                            {editingId === model.id && (
-                              <tr>
-                                <td colSpan={8}>
-                                  <ModelEditor
-                                    model={model}
-                                    onSaved={async () => {
-                                      setEditingId(null);
-                                      await load();
-                                    }}
-                                    onCancel={() => setEditingId(null)}
-                                  />
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Fold>
-            );
-          })}
+                cells={[
+                  {
+                    label: "입력·출력 $/MTok",
+                    value: (
+                      <span className={local.cellLines}>
+                        <span>
+                          ${Number(model.input_usd_per_mtok)} · ${Number(model.output_usd_per_mtok)}
+                        </span>
+                        <small>캐시 읽기 ${cacheReadPrice(model)}</small>
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "1회 약 · 이번 분기",
+                    keep: true,
+                    value: (
+                      <span>
+                        {model.estimated_reply_krw === null ? "—" : formatKrw(model.estimated_reply_krw)}
+                        {" · "}
+                        <span data-testid="model-quarter-krw">
+                          {model.quarter_krw ? formatKrw(model.quarter_krw) : "—"}
+                        </span>
+                      </span>
+                    ),
+                  },
+                ]}
+                action={
+                  <button
+                    className="btn btn-sm"
+                    type="button"
+                    aria-label={`${model.label} 설정`}
+                    onClick={() => setOpenId(model.id)}
+                  >
+                    ⋯ 설정
+                  </button>
+                }
+              />
+            ))}
+          </ItemGroup>
+        ))}
+      </ItemList>
 
-          {/* 비용 보정 moved to Models › 보정 (admin-consolidation v3). */}
-          </FoldGroup>
-
-          <p className="small dim" id={`${id}-default-rule`} style={{ marginTop: "0.6rem" }}>
-            기본 모델은 회원에게 공개된 모델만 될 수 있고, 기본 모델의 공개 범위는 다른 모델을
-            먼저 기본으로 정해야 바꿀 수 있습니다. 회원에게는 &quot;회원에게 공개&quot; 모델만
-            보이고, 관리자에게는 &quot;관리자만&quot; 모델도 보입니다. &quot;답장 1회 약&quot;은
-            회원이 모델을 고르는 창에 보이는 것과 같은 값으로, 처음에는 입력 3,000 · 출력 800
-            토큰으로 어림하고 실제 답장이 10회 이상 쌓이면 그 중앙값을 씁니다(아래 비용 보정).
-            모델은 지우지 않습니다 — 지난 답장과 사용 기록이 가리키고 있으니, 쓰지 않을 모델은
-            &quot;사용 안 함&quot;으로 둡니다.
-          </p>
-        </>
+      {open && openProvider && (
+        <ModelPanel
+          key={open.id}
+          model={open}
+          provider={openProvider}
+          onClose={() => setOpenId(null)}
+          onAskDefault={() => askDefault(open)}
+          onSaved={async () => {
+            setOpenId(null);
+            await load();
+          }}
+        />
       )}
 
-      <ConfirmDialog
-        request={confirm}
-        onClose={() => setConfirm(null)}
-        busy={confirmBusy}
-        error={confirmError}
-      />
-    </section>
+      {adding && (
+        <NewModelPanel
+          providers={providers}
+          onClose={() => setAdding(false)}
+          onCreated={async () => {
+            setAdding(false);
+            await load();
+          }}
+        />
+      )}
+
+      <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} busy={confirmBusy} error={confirmError} />
+    </Stack>
   );
 }
 
-interface EditorProps {
-  model: AdminChatModel;
-  onSaved: () => void | Promise<void>;
-  onCancel: () => void;
-}
-
 /**
- * 캐시 읽기 요금. 모델에 따로 적힌 값이 없으면 입력 요금의 1/10 — 백엔드
- * pricing.py와 같은 규칙입니다. 캐시 쓰기 요금은 칸이 없습니다: 언제나 입력
- * 요금의 1.25배(5분) 또는 2배(1시간)입니다.
+ * 한 모델의 설정 판. 공개 범위와 이름·설명·요금·도구·순서는 저장 한 번에,
+ * 기본 모델은 확인 창을 거쳐 따로 정합니다(하나뿐이라 다른 모델에서 옮겨 오는
+ * 일이기 때문). 저장하면 다음 답장부터 적용됩니다.
  */
-function cacheReadPrice(model: AdminChatModel): number {
-  return model.cache_read_usd_per_mtok !== null
-    ? Number(model.cache_read_usd_per_mtok)
-    : Number(model.input_usd_per_mtok) / 10;
-}
-
-/** 이름·설명·요금·순서를 고치는 칸. 저장하면 다음 답장부터 적용됩니다. */
-function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
+function ModelPanel({
+  model,
+  provider,
+  onClose,
+  onAskDefault,
+  onSaved,
+}: {
+  model: AdminChatModel;
+  provider: ChatProvider;
+  onClose: () => void;
+  onAskDefault: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const selectId = useId();
+  const whyId = useId();
+  const [visibility, setVisibility] = useState<ChatModelVisibility>(model.visibility);
   const [label, setLabel] = useState(model.label);
   const [description, setDescription] = useState(model.description);
   const [input, setInput] = useState(String(Number(model.input_usd_per_mtok)));
@@ -499,11 +395,20 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 연결 전 제공자의 행은 열 수 없지만, 어쩌다 열려 있는 행(옛 데이터)은 닫을
+  // 수는 있어야 하므로 "사용 안 함"만 남기고 켜 둡니다.
+  const visibilityLocked = model.is_default || (!provider.ready && model.visibility === "disabled");
+  const visibilityOptions = VISIBILITY_ORDER.filter(
+    (value) => provider.ready || value === "disabled" || value === model.visibility,
+  );
+  const canBeDefault = model.visibility === "members" && provider.ready;
+
   const save = async () => {
     setSaving(true);
     setError(null);
     try {
       await updateChatModel(model.id, {
+        ...(visibility !== model.visibility ? { visibility } : {}),
         label,
         description,
         input_usd_per_mtok: input,
@@ -524,14 +429,73 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
   };
 
   return (
-    <div className={styles.modelEditor}>
-      <div className={styles.modelEditorGrid}>
-        <label className={styles.modelEditorField}>
-          <span>회원이 보는 이름</span>
+    <SidePanel
+      title={model.label}
+      subtitle={<Mono>{`${provider.label} · ${model.model_id}`}</Mono>}
+      onClose={onClose}
+      testId="chat-model-panel"
+      footer={
+        <>
+          <button className="btn btn-sm" type="button" onClick={onClose} disabled={saving}>
+            취소
+          </button>
+          <button className="btn btn-sm btn-primary" type="button" onClick={() => void save()} disabled={saving}>
+            {saving ? "저장 중…" : "저장"}
+          </button>
+        </>
+      }
+    >
+      <PanelSection title="공개">
+        {!provider.ready && (
+          <p className={local.dim} id={whyId}>
+            아직 연결되지 않은 제공자입니다. 요금은 미리 적어 둘 수 있지만, 연결될 때까지 공개하거나 기본으로 정할 수
+            없습니다.
+          </p>
+        )}
+        <label className={local.textField} htmlFor={selectId}>
+          공개 범위
+          <select
+            id={selectId}
+            className="field"
+            aria-label={`${model.label} 공개 범위`}
+            aria-describedby={!provider.ready ? whyId : undefined}
+            value={visibility}
+            disabled={visibilityLocked || saving}
+            onChange={(event) => setVisibility(event.target.value as ChatModelVisibility)}
+          >
+            {visibilityOptions.map((value) => (
+              <option key={value} value={value}>
+                {VISIBILITY_LABEL[value]}
+              </option>
+            ))}
+          </select>
+          {model.is_default && <small>기본 모델은 다른 모델을 먼저 기본으로 정해야 공개 범위를 바꿀 수 있어요.</small>}
+        </label>
+        <SwitchRow
+          label="기본 모델"
+          hint={
+            model.is_default
+              ? "새 대화와 영상 프롬프트 도움이 이 모델을 써요"
+              : canBeDefault
+                ? "켜면 확인 창이 뜨고, 확인하면 바로 바뀝니다"
+                : "회원에게 공개된 모델만 기본이 될 수 있어요"
+          }
+          checked={model.is_default}
+          disabled={model.is_default || !canBeDefault || saving}
+          onChange={(next) => {
+            if (next) onAskDefault();
+          }}
+          testId="chat-model-default"
+        />
+      </PanelSection>
+
+      <PanelSection title="회원에게 보이는 것">
+        <label className={local.textField}>
+          회원이 보는 이름
           <input className="field" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
         </label>
-        <label className={styles.modelEditorField}>
-          <span>한 줄 설명</span>
+        <label className={local.textField}>
+          한 줄 설명
           <input
             className="field"
             value={description}
@@ -539,109 +503,47 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </label>
-        <label className={styles.modelEditorField}>
-          <span>입력 요금 ($/100만 토큰)</span>
-          <input
-            className={`field numeric ${styles.priceInput}`}
-            inputMode="decimal"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-        </label>
-        <label className={styles.modelEditorField}>
-          <span>출력 요금 ($/100만 토큰)</span>
-          <input
-            className={`field numeric ${styles.priceInput}`}
-            inputMode="decimal"
-            value={output}
-            onChange={(e) => setOutput(e.target.value)}
-          />
-        </label>
-        <label className={styles.modelEditorField}>
-          <span>캐시 읽기 요금 ($/100만 토큰)</span>
-          <input
-            className={`field numeric ${styles.priceInput}`}
-            inputMode="decimal"
-            value={cacheRead}
-            onChange={(e) => setCacheRead(e.target.value)}
-          />
-        </label>
-        <label className={styles.modelEditorField}>
-          <span>순서 (작을수록 위)</span>
-          <input
-            className={`field numeric ${styles.priceInput}`}
-            inputMode="numeric"
-            value={order}
-            onChange={(e) => setOrder(e.target.value)}
-          />
-        </label>
-        <label className={styles.modelEditorField}>
-          <span>웹 검색 1회 요금 ($)</span>
-          <input
-            className={`field numeric ${styles.priceInput}`}
-            inputMode="decimal"
-            value={searchCall}
-            onChange={(e) => setSearchCall(e.target.value)}
-          />
-        </label>
-      </div>
+        <NumField label="순서" hint="작을수록 위" value={order} onChange={setOrder} inputMode="numeric" type="text" />
+      </PanelSection>
 
-      {/* 서버 도구 — 회원이 대화에서 켤 수 있는 것(chat-plus-tools).
-          켜 두어도 회원이 대화마다 따로 켜야 쓰입니다. */}
-      <fieldset className={styles.modelEditorField} style={{ border: 0, padding: 0, margin: 0 }}>
-        <legend className="small dim">도구 — 회원이 대화에서 켤 수 있어요 (지금은 테스트 모드)</legend>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <label className="small">
-            <input
-              type="checkbox"
-              checked={webSearch}
-              onChange={(e) => setWebSearch(e.target.checked)}
-            />{" "}
-            웹 검색
-          </label>
-          <label className="small">
-            <input
-              type="checkbox"
-              checked={webFetch}
-              onChange={(e) => setWebFetch(e.target.checked)}
-            />{" "}
-            페이지 읽기
-          </label>
-          <label className="small">
-            <input
-              type="checkbox"
-              checked={codeExec}
-              onChange={(e) => setCodeExec(e.target.checked)}
-            />{" "}
-            코드 실행
-          </label>
-        </div>
-      </fieldset>
+      <PanelSection title="요금 ($ / 100만 토큰)">
+        <NumField label="입력 요금" unit="$" value={input} onChange={setInput} inputMode="decimal" type="text" />
+        <NumField label="출력 요금" unit="$" value={output} onChange={setOutput} inputMode="decimal" type="text" />
+        <NumField
+          label="캐시 읽기 요금"
+          hint="따로 정하지 않은 모델은 입력의 1/10"
+          unit="$"
+          value={cacheRead}
+          onChange={setCacheRead}
+          inputMode="decimal"
+          type="text"
+        />
+        <NumField
+          label="웹 검색 1회 요금"
+          unit="$"
+          value={searchCall}
+          onChange={setSearchCall}
+          inputMode="decimal"
+          type="text"
+        />
+      </PanelSection>
 
+      <PanelSection title="도구">
+        <p className={local.dim}>회원이 대화에서 켤 수 있어요 (지금은 테스트 모드). 켜 두어도 대화마다 따로 켜야 쓰입니다.</p>
+        <SwitchRow label="웹 검색" checked={webSearch} onChange={setWebSearch} />
+        <SwitchRow label="페이지 읽기" checked={webFetch} onChange={setWebFetch} />
+        <SwitchRow label="코드 실행" checked={codeExec} onChange={setCodeExec} />
+      </PanelSection>
+
+      <p className={local.dim}>
+        요금을 바꾸면 다음 답장부터 적용되고, 이미 차감된 기록은 그대로입니다. 감사 기록에 남습니다.
+      </p>
       {error && (
-        <p className={styles.modelEditorError} role="alert">
+        <p className={local.error} role="alert">
           {error}
         </p>
       )}
-
-      <div className={styles.modelEditorActions}>
-        <button
-          className="btn btn-sm btn-primary"
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-        >
-          {saving ? "저장 중…" : "저장"}
-        </button>
-        <button className="btn btn-sm" type="button" onClick={onCancel} disabled={saving}>
-          취소
-        </button>
-        <span className="small dim">
-          요금을 바꾸면 다음 답장부터 적용되고, 이미 차감된 기록은 그대로입니다. 감사 기록에
-          남습니다.
-        </span>
-      </div>
-    </div>
+    </SidePanel>
   );
 }
 
@@ -650,11 +552,13 @@ function ModelEditor({ model, onSaved, onCancel }: EditorProps) {
  * 제공자인지가 거기에 달려 있습니다. 들어간 모델은 "사용 안 함"으로
  * 시작합니다.
  */
-function NewModelForm({
+function NewModelPanel({
   providers,
+  onClose,
   onCreated,
 }: {
   providers: ChatProvider[];
+  onClose: () => void;
   onCreated: () => void | Promise<void>;
 }) {
   const [provider, setProvider] = useState("");
@@ -664,11 +568,7 @@ function NewModelForm({
   const chosen = providers.find((item) => item.id === provider);
 
   const ready =
-    provider &&
-    draft.model_id.trim() &&
-    draft.label.trim() &&
-    draft.input_usd_per_mtok &&
-    draft.output_usd_per_mtok;
+    provider && draft.model_id.trim() && draft.label.trim() && draft.input_usd_per_mtok && draft.output_usd_per_mtok;
 
   const save = async () => {
     setSaving(true);
@@ -684,29 +584,29 @@ function NewModelForm({
     }
   };
 
-  const field = (key: keyof typeof EMPTY_NEW, label: string, props: object = {}) => (
-    <label className={styles.modelEditorField}>
-      <span>{label}</span>
-      <input
-        className="field"
-        value={draft[key]}
-        onChange={(e) => setDraft((current) => ({ ...current, [key]: e.target.value }))}
-        {...props}
-      />
-    </label>
-  );
+  const set = (key: keyof typeof EMPTY_NEW) => (value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
   return (
-    <div className={`card ${styles.modelEditor}`} style={{ marginBottom: "1rem" }}>
-      <div className={styles.modelEditorGrid}>
-        <label className={styles.modelEditorField}>
-          <span>제공자</span>
-          <select
-            className="field"
-            value={provider}
-            onChange={(event) => setProvider(event.target.value)}
-            autoFocus
-          >
+    <SidePanel
+      title="모델 추가"
+      subtitle="새 모델은 ‘사용 안 함’으로 들어가요. 확인한 뒤 공개 범위를 바꿔 주세요."
+      onClose={onClose}
+      testId="chat-model-new"
+      footer={
+        <>
+          <button className="btn btn-sm" type="button" onClick={onClose} disabled={saving}>
+            취소
+          </button>
+          <button className="btn btn-sm btn-primary" type="button" onClick={() => void save()} disabled={saving || !ready}>
+            {saving ? "추가 중…" : "추가"}
+          </button>
+        </>
+      }
+    >
+      <PanelSection title="제공자">
+        <label className={local.textField}>
+          제공자
+          <select className="field" value={provider} onChange={(event) => setProvider(event.target.value)} autoFocus>
             <option value="">제공자를 먼저 고르세요</option>
             {providers.map((item) => (
               <option key={item.id} value={item.id}>
@@ -716,45 +616,64 @@ function NewModelForm({
             ))}
           </select>
         </label>
-      </div>
+        {chosen && !chosen.ready && (
+          <p className={local.dim}>
+            이 제공자는 아직 연결되지 않았습니다. 모델을 적어 둘 수는 있지만, 연결될 때까지 &quot;사용 안 함&quot;으로
+            남습니다.
+          </p>
+        )}
+      </PanelSection>
       {chosen && (
         <>
-          {!chosen.ready && (
-            <p className="small dim">
-              이 제공자는 아직 연결되지 않았습니다. 모델을 적어 둘 수는 있지만, 연결될
-              때까지 &quot;사용 안 함&quot;으로 남습니다.
-            </p>
-          )}
-          <div className={styles.modelEditorGrid}>
-            {field("model_id", `모델 ID (${chosen.label})`, {
-              placeholder: chosen.id === "anthropic" ? "claude-…" : "provider/model-…",
-              className: "field numeric",
-            })}
-            {field("label", "회원이 보는 이름", { maxLength: 60 })}
-            {field("description", "한 줄 설명", { maxLength: 200 })}
-            {field("input_usd_per_mtok", "입력 요금 ($/100만 토큰)", { inputMode: "decimal" })}
-            {field("output_usd_per_mtok", "출력 요금 ($/100만 토큰)", { inputMode: "decimal" })}
-          </div>
+          <PanelSection title="모델">
+            <label className={local.textField}>
+              {`모델 ID (${chosen.label})`}
+              <input
+                className="field numeric"
+                value={draft.model_id}
+                placeholder={chosen.id === "anthropic" ? "claude-…" : "provider/model-…"}
+                onChange={(e) => set("model_id")(e.target.value)}
+              />
+            </label>
+            <label className={local.textField}>
+              회원이 보는 이름
+              <input className="field" value={draft.label} maxLength={60} onChange={(e) => set("label")(e.target.value)} />
+            </label>
+            <label className={local.textField}>
+              한 줄 설명
+              <input
+                className="field"
+                value={draft.description}
+                maxLength={200}
+                onChange={(e) => set("description")(e.target.value)}
+              />
+            </label>
+          </PanelSection>
+          <PanelSection title="요금 ($ / 100만 토큰)">
+            <NumField
+              label="입력 요금"
+              unit="$"
+              value={draft.input_usd_per_mtok}
+              onChange={set("input_usd_per_mtok")}
+              inputMode="decimal"
+              type="text"
+            />
+            <NumField
+              label="출력 요금"
+              unit="$"
+              value={draft.output_usd_per_mtok}
+              onChange={set("output_usd_per_mtok")}
+              inputMode="decimal"
+              type="text"
+            />
+          </PanelSection>
         </>
       )}
       {error && (
-        <p className={styles.modelEditorError} role="alert">
+        <p className={local.error} role="alert">
           {error}
         </p>
       )}
-      <div className={styles.modelEditorActions}>
-        <button
-          className="btn btn-sm btn-primary"
-          type="button"
-          onClick={() => void save()}
-          disabled={saving || !ready}
-        >
-          {saving ? "추가 중…" : "추가"}
-        </button>
-        <span className="small dim">
-          새 모델은 &quot;사용 안 함&quot;으로 들어갑니다. 확인한 뒤 공개 범위를 바꿔 주세요.
-        </span>
-      </div>
-    </div>
+    </SidePanel>
   );
 }

@@ -1,25 +1,25 @@
 "use client";
 
 /**
- * Admin — 회원 목록 (/admin/members)
+ * Admin › Members — 회원 목록 (/admin/members)
  *
  * admin-consolidation v3 (2): 참여 신청이 이 목록 안으로 들어왔어요 — 칩
  * 전체 · 승인 대기 · 참여 중 · 미참여, 승인 대기 줄에서 바로 승인/거절, 사용률
  * 열(알림 기준 이상은 주황, 기본 80%), 초대 코드는 칩 뒤에. 줄을 누르면 오른쪽에 회원
  * 상세가 열리고(`?member=`), 모든 일을 거기서 해요.
  *
- * 찾는 화면입니다. 역할과 지원금처럼 그 사람을 보고 정해야 하는 일은
- * 상세 화면(`/admin/members/[id]`)에만 있습니다.
+ * admin-ui-unify: 구역 제목은 틀(`AdminFrame`)이 그리고, 이 화면은 숫자 카드
+ * (`Stats`) → 칩과 검색(`PanelBar`) → 목록(`ItemList`) 순서예요.
  *
- * 이전에는 줄마다 작은 버튼 세 개가 붙어 있었고, 잘못 누르면 그 자리에서
- * 남의 참여 상태가 바뀌었습니다. 지금은 "관리" 메뉴 하나이고, 고른 뒤
- * 확인창이 무슨 일이 생기는지 알려 줍니다.
+ * 줄마다 붙은 것은 단추 하나 — 승인 대기면 승인/거절, 아니면 "관리" 메뉴이고,
+ * 고른 뒤 확인창이 무슨 일이 생기는지 알려 줍니다.
  *
  * 거르기와 정렬은 브라우저 안에서 합니다. 백엔드가 분기의 전체 회원을 한
  * 번에 돌려주고, 동아리 규모에서는 그것이 수백 줄입니다. 수가 늘면 서버
  * 쪽으로 옮기면 되고, 그때 바뀌는 것은 이 파일 하나입니다.
  */
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -27,6 +27,7 @@ import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import { describeError } from "@/lib/http";
 import {
   MEMBERSHIP_LABEL,
+  NO_MEMBERSHIP_LABEL,
   formatKrw,
   listQuarterMembers,
   reviewApplication,
@@ -37,17 +38,14 @@ import {
 } from "@/lib/quarters";
 
 import { useAdminQuarter, withQuarter } from "../AdminQuarterProvider";
-import AdminTable, { type Column } from "../components/AdminTable";
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
 import InviteCodePanel from "./InviteCodePanel";
 import MemberPanel from "./MemberPanel";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 import RowMenu from "../components/RowMenu";
-import { MembershipBadge } from "../components/StatusBadge";
-import { sectionLabel } from "../sections";
+import { ItemList, ItemRow, PanelBar, Pill, Stack, Stats, Tag, type Tone } from "../components/AdminUI";
 
-import styles from "../admin.module.css";
-import SharedPageHeader from "@/app/components/PageHeader";
+import styles from "./members.module.css";
 import Skeleton from "@/app/components/Skeleton";
 
 type SortKey = "name" | "usage" | "membership";
@@ -65,6 +63,8 @@ function isOut(member: MemberWithMembership): boolean {
   return member.account_status !== "former" && member.membership_status !== "active" && !isPending(member);
 }
 
+const MEMBERSHIP_TONE: Record<MembershipStatus, Tone> = { active: "ok", inactive: "warn", former: "off" };
+
 /** 사용률 at which the bar turns amber when 알림 기준 is not loaded yet
  *  (the Dashboard alert's threshold, Admin › System). */
 const USAGE_WARN_PCT = 80;
@@ -79,11 +79,8 @@ export default function MemberList() {
   const quarterId = selected?.id ?? null;
 
   /**
-   * 불러온 줄과 그 줄이 속한 분기를 함께 들고 있습니다.
-   *
-   * 분기를 바꿀 때 목록을 `null`로 되돌리는 대신 이렇게 둡니다. 효과
-   * 본문에서 상태를 바로 바꾸면 그림이 연달아 다시 그려지고, 무엇보다
-   * 지난 분기의 줄을 새 분기의 것처럼 잠깐 보여 주게 됩니다.
+   * 불러온 줄과 그 줄이 속한 분기를 함께 들고 있습니다 — 분기를 바꿨을 때
+   * 지난 분기의 줄을 새 분기의 것처럼 잠깐 보여 주지 않도록.
    */
   const [loaded, setLoaded] = useState<{
     quarterId: number;
@@ -160,8 +157,9 @@ export default function MemberList() {
       pending: all.filter(isPending).length,
       active: all.filter((member) => member.membership_status === "active").length,
       none: all.filter(isOut).length,
+      high: all.filter((member) => (usedPct(member) ?? 0) >= warnPct).length,
     };
-  }, [members]);
+  }, [members, warnPct]);
 
   /** The member panel opens by the address, so a link can open it too. */
   const memberHref = (userId: number | null) => {
@@ -203,9 +201,8 @@ export default function MemberList() {
   /**
    * 참여 상태를 바꾸는 흐름: 확인 → 실행 → 결과 → 다시 읽기.
    *
-   * 목록에서도 바꿀 수 있게 둔 이유는 열 명을 차례로 등록하는 일이
-   * 분기 초에 실제로 있기 때문입니다. 다만 곧바로 반영되지는 않습니다 —
-   * 메뉴에서 고른 뒤 확인창이 무슨 일이 생기는지 알려 줍니다.
+   * 분기 초에 열 명을 차례로 등록하는 일이 실제로 있어 목록에서도 바꿀 수
+   * 있게 두었습니다. 메뉴에서 고른 뒤 확인창이 무슨 일이 생기는지 알려 줍니다.
    */
   const changeMembership = useCallback(
     async (member: MemberWithMembership, status: MembershipStatus) => {
@@ -229,96 +226,33 @@ export default function MemberList() {
   );
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  // 고른 쪽이 남은 쪽 수를 넘지 않게 자릅니다. 3쪽을 보던 중에 걸러서
-  // 한 쪽만 남으면 빈 화면이 나오기 때문입니다. 효과로 1쪽으로 되돌리는
-  // 대신 여기서 계산하면, 거르기를 지웠을 때 보던 쪽으로 돌아옵니다.
+  // 고른 쪽이 남은 쪽 수를 넘지 않게 자릅니다(걸러서 쪽이 줄어도 빈 화면이
+  // 나오지 않게). 거르기를 지우면 보던 쪽으로 돌아옵니다.
   const currentPage = Math.min(page, pageCount);
   const rows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (selected === null) {
     return (
-      <>
-        <PageHeader />
-        <div className="card">
-          <p className="small muted">
-            먼저 분기를 만들면 그 분기의 참여 상태를 관리할 수 있습니다.
-          </p>
-        </div>
-      </>
+      <div className="card">
+        <p className="small muted">먼저 분기를 만들면 그 분기의 참여 상태를 관리할 수 있습니다.</p>
+      </div>
     );
   }
 
   if (error !== null) {
     return (
-      <>
-        <PageHeader />
-        <div className="card">
-          <p className="small muted">회원 목록을 불러오지 못했습니다. {error}.</p>
-        </div>
-      </>
+      <div className="card">
+        <p className="small muted">회원 목록을 불러오지 못했습니다. {error}.</p>
+      </div>
     );
   }
 
   if (members === null) {
-    return (
-      <>
-        <PageHeader />
-        <Skeleton />
-      </>
-    );
+    return <Skeleton />;
   }
 
   // A closed quarter's wallets are frozen and what was left reclaimed.
   const frozen = selected.status === "closed";
-  const columns: Column<MemberWithMembership>[] = [
-    {
-      key: "member",
-      header: "회원",
-      render: (member) => (
-        <span className={styles.memberName}>
-          {member.display_name}
-          <span className={styles.memberHandle}>@{member.username}</span>
-          {member.role === "admin" && <span className="badge badge-accent" style={{ alignSelf: "flex-start" }}>관리자</span>}
-        </span>
-      ),
-    },
-    {
-      key: "membership",
-      header: "상태",
-      render: (member) =>
-        isPending(member) ? <span className="badge badge-warn">승인 대기</span> : <MembershipBadge status={member.membership_status} />,
-    },
-    {
-      key: "usage",
-      header: "사용률",
-      numeric: true,
-      render: (member) => {
-        const pct = usedPct(member);
-        if (pct === null || frozen) return <span className="small dim">—</span>;
-        return (
-          <span className={styles.usageCell} data-warn={pct >= warnPct ? "true" : undefined}>
-            <span className={styles.usageBar} aria-hidden="true">
-              <span style={{ width: `${pct}%` }} />
-            </span>
-            {pct}%
-          </span>
-        );
-      },
-    },
-    {
-      key: "left",
-      header: "남음",
-      numeric: true,
-      render: (member) =>
-        frozen && member.budget_krw ? (
-          <span className="small dim">동결 · 회수됨</span>
-        ) : member.budget_krw ? (
-          formatKrw(Math.max(0, member.budget_krw - (member.consumed_krw ?? 0)))
-        ) : (
-          <span className="small dim">—</span>
-        ),
-    },
-  ];
 
   const chips: { key: Chip; label: string; count?: number }[] = [
     { key: "all", label: "전체", count: counts.all },
@@ -328,165 +262,244 @@ export default function MemberList() {
     { key: "invites", label: "초대 코드" },
   ];
 
+  const open = (userId: number) => router.push(memberHref(userId), { scroll: false });
+
+  const usageCell = (member: MemberWithMembership) => {
+    const pct = usedPct(member);
+    if (pct === null || frozen) return <span className={styles.dim}>—</span>;
+    return (
+      <span className={styles.usageCell} data-warn={pct >= warnPct ? "true" : undefined}>
+        <span className={styles.usageBar} aria-hidden="true">
+          <span style={{ width: `${pct}%` }} />
+        </span>
+        {pct}%
+      </span>
+    );
+  };
+
+  const leftCell = (member: MemberWithMembership) =>
+    frozen && member.budget_krw ? (
+      <span className={styles.dim}>동결 · 회수됨</span>
+    ) : member.budget_krw ? (
+      formatKrw(Math.max(0, member.budget_krw - (member.consumed_krw ?? 0)))
+    ) : (
+      <span className={styles.dim}>—</span>
+    );
+
+  const rowAction = (member: MemberWithMembership) =>
+    isPending(member) ? (
+      <span className={styles.rowButtons}>
+        <button
+          className="btn btn-primary btn-sm"
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            setConfirm({
+              title: `참여 신청 승인 — ${member.display_name}`,
+              effect: `신청한 그대로 동아리 지원 ${formatKrw(member.requested_budget_krw ?? 0)}의 지갑이 만들어지고, ${member.display_name}이(가) ${selected.display_name}에 참여하게 됩니다.`,
+              confirmLabel: "승인",
+              onConfirm: () => review(member, true),
+            })
+          }
+        >
+          승인
+        </button>
+        <button
+          className="btn btn-sm"
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            setConfirm({
+              title: `참여 신청 거절 — ${member.display_name}`,
+              effect: `${member.display_name}은(는) ${selected.display_name}에 참여하지 못하고 지원금도 받지 못합니다. 신청은 다시 올릴 수 있습니다.`,
+              confirmLabel: "거절",
+              danger: true,
+              reason: { label: "거절 사유", placeholder: "예: 이번 분기 예산이 모두 배정되었습니다.", required: true },
+              onConfirm: (reason) => review(member, false, reason),
+            })
+          }
+        >
+          거절
+        </button>
+      </span>
+    ) : (
+      <RowMenu
+        items={[
+          { label: "상세 열기", onSelect: () => open(member.user_id) },
+          {
+            label: "참여 등록",
+            disabled: busy || member.membership_status === "active",
+            onSelect: () =>
+              setConfirm({
+                title: `참여 등록 — ${member.display_name}`,
+                effect: `${member.display_name}이(가) ${selected.display_name}에 참여하게 되고, 아직 지원금이 없으면 이 분기 동아리 지원 ${selected.subsidy_limit_krw.toLocaleString("ko-KR")}원이 생깁니다 (참여 신청 승인과 같아요).`,
+                confirmLabel: "참여 등록",
+                onConfirm: () => changeMembership(member, "active"),
+              }),
+          },
+          {
+            label: "참여 중지",
+            disabled: busy || member.membership_status === "inactive",
+            onSelect: () =>
+              setConfirm({
+                title: `참여 중지 — ${member.display_name}`,
+                effect: `${member.display_name}은(는) 로그인과 조회는 되지만, ${selected.display_name}에 새로 만들 수 없습니다. 이미 만든 것은 그대로 남습니다.`,
+                confirmLabel: "참여 중지",
+                onConfirm: () => changeMembership(member, "inactive"),
+              }),
+          },
+          {
+            label: "탈퇴 처리",
+            danger: true,
+            disabled: busy || member.membership_status === "former",
+            onSelect: () =>
+              setConfirm({
+                title: `탈퇴 처리 — ${member.display_name}`,
+                // 회원 상세의 탈퇴 처리와 같은 규칙(백엔드가 같은 서비스를 부릅니다).
+                // 게시 작품은 여기서 고를 수 없어 기본값인 공개 유지로 처리하고, 그렇다고 적습니다.
+                effect: [
+                  `${member.display_name}은(는) 로그인할 수 없습니다. 열려 있는 로그인도 바로 끊깁니다.`,
+                  "남은 동아리 지원은 해제됩니다. 개인 충전 잔액이 있으면 '환불 대기'가 됩니다.",
+                  `게시한 작품은 공개된 채 "탈퇴 회원"으로 표시됩니다. 게시를 취소하려면 회원 상세에서 탈퇴 처리하세요.`,
+                  "30일 안에는 회원 상세에서 복구할 수 있습니다.",
+                ],
+                confirmLabel: "탈퇴 처리",
+                danger: true,
+                onConfirm: () => changeMembership(member, "former"),
+              }),
+          },
+        ]}
+      />
+    );
+
   return (
-    <>
-      <PageHeader note={`${selected.display_name} 기준`} />
+    <Stack>
+      <Stats
+        items={[
+          { key: "active", value: `${counts.active}명`, label: "참여 중" },
+          { key: "pending", value: `${counts.pending}명`, label: "승인 대기", tone: counts.pending > 0 ? "warn" : undefined },
+          {
+            key: "high",
+            value: `${counts.high}명`,
+            label: `사용률 ${warnPct}% 이상`,
+            tone: counts.high > 0 && !frozen ? "warn" : undefined,
+          },
+          { key: "none", value: `${counts.none}명`, label: "미참여" },
+        ]}
+      />
 
-      <div className={styles.chipRow} role="group" aria-label="회원 거르기">
-        {chips.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={styles.subTab + (chip === item.key ? ` ${styles.subTabActive}` : "")}
-            aria-pressed={chip === item.key}
-            onClick={() => {
-              setChip(item.key);
-              setPage(1);
-            }}
-          >
-            {item.label}
-            {item.count !== undefined && (
-              <span className={item.key === "pending" && item.count > 0 ? styles.tabCount : styles.chipCount}>{item.count}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {chip === "invites" ? (
-        <InviteCodePanel />
-      ) : (
-        <SearchBar
-          value={query}
-          onChange={setQuery}
-          placeholder="이름이나 아이디로 검색"
-          resultCount={visible.length}
-          totalCount={members.length}
-          filters={[
-            {
-              key: "sort",
-              label: "정렬",
-              value: sort,
-              onChange: (value) => setSort(value as SortKey),
-              options: [
-                { value: "name", label: "이름순" },
-                { value: "usage", label: "사용률 높은 순" },
-                { value: "membership", label: "상태순" },
-              ],
-            },
-          ]}
-        />
-      )}
+      <PanelBar
+        left={
+          <div className={styles.chips} role="group" aria-label="회원 거르기">
+            {chips.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={styles.chip}
+                aria-pressed={chip === item.key}
+                onClick={() => {
+                  setChip(item.key);
+                  setPage(1);
+                }}
+              >
+                {item.label}
+                {item.count !== undefined && (
+                  <span className={item.key === "pending" && item.count > 0 ? styles.chipCountWarn : styles.chipCount}>
+                    {item.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        }
+        note={`${selected.display_name} 기준`}
+        help={
+          <>
+            <p>
+              줄을 누르면 오른쪽에 회원 상세가 열려요 — 지원금 ± 조정, 참여 상태, 역할, 비밀번호 재설정, 탈퇴, 사용 내역,
+              지운 작업 복구가 모두 거기 있어요.
+            </p>
+            <p>
+              승인 대기 줄은 그 자리에서 승인/거절해요. 사용률은 알림 기준({warnPct}%, Admin › System) 이상이면 주황이에요.
+              초대 코드: 가입하려면 코드가 필요해요. 사용 중지는 새 가입만 막고, 이미 가입한 계정은 그대로예요.
+            </p>
+          </>
+        }
+        actions={
+          chip === "invites" ? undefined : (
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="이름이나 아이디로 검색"
+              resultCount={visible.length}
+              totalCount={members.length}
+              filters={[
+                {
+                  key: "sort",
+                  label: "정렬",
+                  value: sort,
+                  onChange: (value) => setSort(value as SortKey),
+                  options: [
+                    { value: "name", label: "이름순" },
+                    { value: "usage", label: "사용률 높은 순" },
+                    { value: "membership", label: "상태순" },
+                  ],
+                },
+              ]}
+            />
+          )
+        }
+      />
 
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
 
-      {chip !== "invites" && (
-      <AdminTable
-        columns={columns}
-        rows={rows}
-        rowKey={(member) => member.user_id}
-        rowHref={(member) => memberHref(member.user_id)}
-        rowActions={(member) =>
-          isPending(member) ? (
-            <span className={styles.rowButtons}>
-              <button
-                className="btn btn-primary btn-sm"
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  setConfirm({
-                    title: `참여 신청 승인 — ${member.display_name}`,
-                    effect: `신청한 그대로 동아리 지원 ${formatKrw(member.requested_budget_krw ?? 0)}의 지갑이 만들어지고, ${member.display_name}이(가) ${selected.display_name}에 참여하게 됩니다.`,
-                    confirmLabel: "승인",
-                    onConfirm: () => review(member, true),
-                  })
-                }
-              >
-                승인
-              </button>
-              <button
-                className="btn btn-sm"
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  setConfirm({
-                    title: `참여 신청 거절 — ${member.display_name}`,
-                    effect: `${member.display_name}은(는) ${selected.display_name}에 참여하지 못하고 지원금도 받지 못합니다. 신청은 다시 올릴 수 있습니다.`,
-                    confirmLabel: "거절",
-                    danger: true,
-                    reason: { label: "거절 사유", placeholder: "예: 이번 분기 예산이 모두 배정되었습니다.", required: true },
-                    onConfirm: (reason) => review(member, false, reason),
-                  })
-                }
-              >
-                거절
-              </button>
-            </span>
-          ) : (
-          <RowMenu
-            items={[
-              {
-                label: "상세 열기",
-                onSelect: () => router.push(memberHref(member.user_id)),
-              },
-              {
-                label: "참여 등록",
-                disabled: busy || member.membership_status === "active",
-                onSelect: () =>
-                  setConfirm({
-                    title: `참여 등록 — ${member.display_name}`,
-                    effect: `${member.display_name}이(가) ${selected.display_name}에 참여하게 되고, 아직 지원금이 없으면 이 분기 동아리 지원 ${selected.subsidy_limit_krw.toLocaleString("ko-KR")}원이 생깁니다 (참여 신청 승인과 같아요).`,
-                    confirmLabel: "참여 등록",
-                    onConfirm: () => changeMembership(member, "active"),
-                  }),
-              },
-              {
-                label: "참여 중지",
-                disabled: busy || member.membership_status === "inactive",
-                onSelect: () =>
-                  setConfirm({
-                    title: `참여 중지 — ${member.display_name}`,
-                    effect: `${member.display_name}은(는) 로그인과 조회는 되지만, ${selected.display_name}에 새로 만들 수 없습니다. 이미 만든 것은 그대로 남습니다.`,
-                    confirmLabel: "참여 중지",
-                    onConfirm: () => changeMembership(member, "inactive"),
-                  }),
-              },
-              {
-                label: "탈퇴 처리",
-                danger: true,
-                disabled: busy || member.membership_status === "former",
-                onSelect: () =>
-                  setConfirm({
-                    title: `탈퇴 처리 — ${member.display_name}`,
-                    // 회원 상세의 탈퇴 처리와 같은 규칙으로 처리됩니다(백엔드가
-                    // 같은 서비스를 부릅니다). 게시 작품을 내릴지는 여기서 고를
-                    // 수 없어 기본값인 공개 유지로 처리하고, 그렇다고 적습니다.
-                    effect: [
-                      `${member.display_name}은(는) 로그인할 수 없습니다. 열려 있는 로그인도 바로 끊깁니다.`,
-                      "남은 동아리 지원은 해제됩니다. 개인 충전 잔액이 있으면 '환불 대기'가 됩니다.",
-                      `게시한 작품은 공개된 채 "탈퇴 회원"으로 표시됩니다. 게시를 취소하려면 회원 상세에서 탈퇴 처리하세요.`,
-                      "30일 안에는 회원 상세에서 복구할 수 있습니다.",
-                    ],
-                    confirmLabel: "탈퇴 처리",
-                    danger: true,
-                    onConfirm: () => changeMembership(member, "former"),
-                  }),
-              },
-            ]}
-          />
-          )
-        }
-        empty="조건에 맞는 회원이 없습니다."
-      />
+      {chip === "invites" ? (
+        <InviteCodePanel />
+      ) : rows.length === 0 ? (
+        <p className={styles.emptyList}>조건에 맞는 회원이 없습니다.</p>
+      ) : (
+        <ItemList columns={["회원", "사용률", "남음"]} testId="member-list">
+          {rows.map((member) => (
+            <ItemRow
+              key={member.user_id}
+              testId="member-row"
+              onClick={() => open(member.user_id)}
+              title={
+                <Link
+                  href={memberHref(member.user_id)}
+                  scroll={false}
+                  onClick={(event) => event.stopPropagation()}
+                  style={{ color: "inherit", textDecoration: "none" }}
+                >
+                  {member.display_name}
+                </Link>
+              }
+              tags={
+                <>
+                  {isPending(member) ? (
+                    <Pill tone="warn">승인 대기</Pill>
+                  ) : member.membership_status === null ? (
+                    <Pill tone="off">{NO_MEMBERSHIP_LABEL}</Pill>
+                  ) : (
+                    <Pill tone={MEMBERSHIP_TONE[member.membership_status]}>{MEMBERSHIP_LABEL[member.membership_status]}</Pill>
+                  )}
+                  {member.role === "admin" && <Tag tone="accent">관리자</Tag>}
+                </>
+              }
+              sub={`@${member.username}`}
+              cells={[
+                { label: "사용률", value: usageCell(member), keep: true },
+                { label: "남음", value: leftCell(member) },
+              ]}
+              action={rowAction(member)}
+            />
+          ))}
+        </ItemList>
       )}
 
-      {pageCount > 1 && (
+      {chip !== "invites" && pageCount > 1 && (
         <nav aria-label="쪽 이동" className={styles.pager}>
-          <button
-            className="btn btn-sm"
-            type="button"
-            disabled={currentPage === 1}
-            onClick={() => setPage(currentPage - 1)}
-          >
+          <button className="btn btn-sm" type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>
             이전
           </button>
           <span className="small muted">
@@ -513,22 +526,6 @@ export default function MemberList() {
           onChanged={() => void reload()}
         />
       )}
-    </>
-  );
-}
-
-function PageHeader({ note }: { note?: string }) {
-  return (
-    <SharedPageHeader
-      eyebrow="Admin"
-      title={sectionLabel("members")}
-      titleAddon={<>{note && <span className={styles.sectionNote}> {note}</span>}</>}
-      subtitle={
-        <>
-          참여 신청, 회원, 초대 코드. 줄을 누르면 오른쪽에 회원 상세가 열려요 — 지원금 조정,
-          참여 상태, 역할, 지운 작업 복구가 모두 거기 있어요.
-        </>
-      }
-    />
+    </Stack>
   );
 }

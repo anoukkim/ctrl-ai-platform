@@ -3,7 +3,8 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Above the admin side panel (61), under confirm dialogs (100). */
+  z-index: 70;
   display: grid;
   grid-template-rows: 1fr auto;
   place-items: center;

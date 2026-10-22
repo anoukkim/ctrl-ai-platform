@@ -13,6 +13,9 @@
  *
  * 구역 카드 격자와 화면마다 되풀이되던 숫자는 없앴습니다 — 갈 곳은 위의
  * 여섯 탭이 말해 줍니다.
+ *
+ * admin-ui-unify: 제목은 틀이 그리고, 처리할 일과 알림은 상태 카드
+ * (`StatusStrip`과 같은 모양 — 카드 전체가 링크), 이번 주는 `ItemList`.
  */
 
 import Link from "next/link";
@@ -20,12 +23,12 @@ import Link from "next/link";
 import { DEFAULT_ALERTS, formatWhenOrNever, type AdminDashboard } from "@/lib/admin";
 import { formatKrw } from "@/lib/quarters";
 
-import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
-import { tabHref } from "./sections";
-
-import styles from "./admin.module.css";
-import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
+
+import { useAdminQuarter, withQuarter } from "./AdminQuarterProvider";
+import { ItemList, ItemRow, Pill, Stack, SubHeading, type Tone } from "./components/AdminUI";
+import kit from "./components/AdminUI.module.css";
+import { tabHref } from "./sections";
 
 /** 첨부 파일 디스크 — 이만큼 차면 알림. 지원금·월 예산·백업은 알림 기준
  *  (Admin › System, `dashboard.alert_thresholds`)을 따릅니다. */
@@ -131,6 +134,52 @@ export function alertsOf(dashboard: AdminDashboard): Alert[] {
   return alerts;
 }
 
+const ALERT_PILL: Record<Alert["tone"], { tone: Tone; label: string }> = {
+  warn: { tone: "warn", label: "확인 필요" },
+  ok: { tone: "ok", label: "정상" },
+  info: { tone: "accent", label: "참고" },
+};
+
+/** 상태 카드 한 장 — 링크가 있으면 카드 전체가 링크. */
+function Card({
+  href,
+  name,
+  pill,
+  note,
+  testId,
+  tone,
+}: {
+  href?: string;
+  name: React.ReactNode;
+  pill: React.ReactNode;
+  note?: React.ReactNode;
+  testId?: string;
+  tone?: string;
+}) {
+  const body = (
+    <>
+      <div className={kit.statusRow}>
+        <b>{name}</b>
+        {pill}
+      </div>
+      {note && <small>{note}</small>}
+    </>
+  );
+  return (
+    <li data-testid={testId} data-tone={tone} style={{ display: "grid" }}>
+      {href ? (
+        <Link className={kit.statusCard} href={href} style={{ color: "inherit", textDecoration: "none" }}>
+          {body}
+        </Link>
+      ) : (
+        <div className={kit.statusCard}>{body}</div>
+      )}
+    </li>
+  );
+}
+
+const CARDS: React.CSSProperties = { listStyle: "none", margin: 0, padding: 0 };
+
 export default function AdminDashboard() {
   const { selected, dashboard, error } = useAdminQuarter();
 
@@ -148,9 +197,7 @@ export default function AdminDashboard() {
   const week = dashboard.week_top;
 
   return (
-    <div className={styles.sections}>
-      <PageHeader title="Admin" subtitle="처리할 일이 있으면 위에, 나머지는 한눈에." />
-
+    <Stack>
       {selected === null && (
         <div className="card">
           <p className="small muted">아직 분기가 없어요. 분기를 만들면 신청을 받고 지원금을 배정할 수 있어요.</p>
@@ -162,85 +209,87 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <section aria-labelledby="admin-todo">
-        <h2 className="section-title" id="admin-todo">
-          처리할 일
-        </h2>
+      <section aria-labelledby="admin-todo" className={kit.stack}>
+        <SubHeading extra="0개인 일은 보이지 않아요">
+          <span id="admin-todo">처리할 일</span>
+        </SubHeading>
         {todos.length === 0 ? (
-          <p className="small muted" data-testid="todo-empty">
+          <p className="small muted" data-testid="todo-empty" style={{ margin: 0 }}>
             지금 처리할 일이 없어요.
           </p>
         ) : (
-          <div className={styles.todoRow}>
+          <ul className={kit.status} style={CARDS}>
             {todos.map((item) => (
-              <Link className={styles.todo} href={withQuarter(item.href, selected?.id)} key={item.key}>
-                <span className={styles.todoCount}>{item.count}</span>
-                <span className={styles.todoText}>
-                  <strong>{item.label}</strong>
-                  <span className="small dim">{item.where} ›</span>
-                </span>
-              </Link>
+              <Card
+                key={item.key}
+                href={withQuarter(item.href, selected?.id)}
+                name={item.label}
+                pill={<Pill tone="warn">{item.count.toLocaleString("ko-KR")}건</Pill>}
+                note={`${item.where} ›`}
+              />
             ))}
-          </div>
-        )}
-        <p className="small dim" style={{ marginTop: "0.4rem" }}>
-          0개인 할 일은 보이지 않아요.
-        </p>
-      </section>
-
-      <section aria-labelledby="admin-alerts">
-        <h2 className="section-title" id="admin-alerts">
-          알림
-          <span className={styles.sectionNote}>기준을 넘으면 자동</span>
-        </h2>
-        {alerts.length === 0 ? (
-          <p className="small muted">지금은 알릴 것이 없어요.</p>
-        ) : (
-          <ul className={styles.alertList}>
-            {alerts.map((alert) => {
-              const body = (
-                <>
-                  <span className={styles.alertMark} data-tone={alert.tone} aria-hidden="true" />
-                  <span className={styles.todoText}>
-                    <strong>{alert.text}</strong>
-                    {alert.note && <span className="small dim">{alert.note}</span>}
-                  </span>
-                </>
-              );
-              return (
-                <li key={alert.key} data-tone={alert.tone} data-testid="admin-alert">
-                  {alert.href ? (
-                    <Link className={styles.alertItem} href={withQuarter(alert.href, selected?.id)}>
-                      {body}
-                    </Link>
-                  ) : (
-                    <span className={styles.alertItem}>{body}</span>
-                  )}
-                </li>
-              );
-            })}
           </ul>
         )}
       </section>
 
-      <section aria-labelledby="admin-week">
-        <h2 className="section-title" id="admin-week">
-          이번 주 가장 많이 쓴 곳
-        </h2>
-        {week && week.places.length > 0 ? (
-          <p className={styles.weekLine} data-testid="week-top">
-            {week.places.map((place) => `${place.label} ${place.pct}%`).join(" · ")}
-            {week.app_name && (
-              <span className="small dim">
-                {" "}
-                · 가장 많이 쓴 앱 · {week.app_name} {formatKrw(week.app_krw)}
-              </span>
-            )}
+      <section aria-labelledby="admin-alerts" className={kit.stack}>
+        <SubHeading extra="기준(System › 알림 기준)을 넘으면 자동">
+          <span id="admin-alerts">알림</span>
+        </SubHeading>
+        {alerts.length === 0 ? (
+          <p className="small muted" style={{ margin: 0 }}>
+            지금은 알릴 것이 없어요.
           </p>
         ) : (
-          <p className="small muted">이번 주에는 아직 쓴 곳이 없어요.</p>
+          <ul className={kit.status} style={CARDS}>
+            {alerts.map((alert) => (
+              <Card
+                key={alert.key}
+                testId="admin-alert"
+                tone={alert.tone}
+                href={alert.href ? withQuarter(alert.href, selected?.id) : undefined}
+                name={alert.text}
+                pill={<Pill tone={ALERT_PILL[alert.tone].tone}>{ALERT_PILL[alert.tone].label}</Pill>}
+                note={alert.note}
+              />
+            ))}
+          </ul>
         )}
       </section>
-    </div>
+
+      <section aria-labelledby="admin-week" className={kit.stack}>
+        <SubHeading>
+          <span id="admin-week">이번 주 가장 많이 쓴 곳</span>
+        </SubHeading>
+        {week && week.places.length > 0 ? (
+          <ItemList testId="week-top">
+            {week.places.map((place) => (
+              <ItemRow
+                key={place.label}
+                title={place.label}
+                cells={[
+                  { label: "비율", value: `${place.pct}%`, keep: true },
+                  { label: "금액", value: formatKrw(place.krw) },
+                ]}
+              />
+            ))}
+            {week.app_name && (
+              <ItemRow
+                title={week.app_name}
+                tags={<Pill tone="accent">가장 많이 쓴 앱</Pill>}
+                cells={[
+                  { label: "비율", value: "—", keep: true },
+                  { label: "금액", value: formatKrw(week.app_krw) },
+                ]}
+              />
+            )}
+          </ItemList>
+        ) : (
+          <p className="small muted" style={{ margin: 0 }}>
+            이번 주에는 아직 쓴 곳이 없어요.
+          </p>
+        )}
+      </section>
+    </Stack>
   );
 }

@@ -2,6 +2,7 @@
 
 /**
  * 신청 기한 연장 (ui-improvements B) — 분기의 신청 마감일을 뒤로 늦춥니다.
+ * admin-ui-unify부터 오른쪽 판(`SidePanel`)에 열립니다.
  *
  * 두 경우를 한 창이 맡습니다.
  * - 신청 접수 중인 분기: 마감일만 늦춥니다.
@@ -18,13 +19,13 @@
 
 import { useState } from "react";
 
-import DialogShell from "@/app/components/DialogShell";
 import { describeError } from "@/lib/http";
 import { todayKst } from "@/lib/quarter-code";
 import { formatDate, updateQuarter, type Quarter } from "@/lib/quarters";
 
-import confirmStyles from "@/app/components/confirm-dialog.module.css";
-import styles from "../admin.module.css";
+import { PanelSection, SidePanel } from "../components/AdminUI";
+
+import styles from "./quarters.module.css";
 
 export default function ExtendDeadlineDialog({
   quarter,
@@ -86,60 +87,62 @@ export default function ExtendDeadlineDialog({
     }
   }
 
+  const title = `${quarter.display_name} ${reopening ? "신청 다시 열기" : "신청 기한 연장"}`;
   return (
-    <DialogShell onClose={onClose} labelledBy="extend-deadline-title" describedBy="extend-deadline-effect">
-      <h2 className={confirmStyles.dialogTitle} id="extend-deadline-title">
-        {quarter.display_name} {reopening ? "신청 다시 열기" : "신청 기한 연장"}
-      </h2>
-      <ul className={`${confirmStyles.dialogEffect} ${confirmStyles.dialogEffectList}`} id="extend-deadline-effect">
-        {reopening && <li>회원이 Profile에서 이 분기에 다시 신청할 수 있게 됩니다.</li>}
-        <li>
-          지금 마감일은 {quarter.application_closes_at ? formatDate(quarter.application_closes_at) : "정해지지 않았습니다"}
-          . 새 마감일은 분기 종료일({formatDate(quarter.ends_at)}) 안이어야 합니다.
-        </li>
-        <li>이미 승인된 지갑과 신청은 그대로입니다. 감사 기록에 남습니다.</li>
-      </ul>
-
-      <div className={confirmStyles.dialogField}>
-        <label className={confirmStyles.fieldLabel} htmlFor="extend-deadline-date">
-          새 신청 마감일
-        </label>
-        <input
-          className="field"
-          id="extend-deadline-date"
-          type="date"
-          min={min}
-          max={quarter.ends_at}
-          value={closesAt}
-          onChange={(event) => setClosesAt(event.target.value)}
-        />
-        {problem !== null && closesAt !== "" && (
-          <p className={styles.fieldError} role="alert">
-            {problem}
-          </p>
-        )}
-      </div>
-
+    <SidePanel
+      title={title}
+      subtitle={`분기 종료 ${formatDate(quarter.ends_at)}`}
+      onClose={onClose}
+      testId="extend-deadline"
+      footer={
+        <>
+          <button className="btn btn-sm" type="button" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button
+            className="btn btn-sm btn-primary"
+            type="button"
+            onClick={() => void confirm()}
+            disabled={busy || problem !== null}
+          >
+            {busy ? "저장 중…" : reopening ? "신청 다시 열기" : "기한 연장"}
+          </button>
+        </>
+      }
+    >
+      <PanelSection title="신청 마감일">
+        <div className={styles.formField}>
+          <label htmlFor="extend-deadline-date">새 신청 마감일</label>
+          <input
+            id="extend-deadline-date"
+            type="date"
+            min={min}
+            max={quarter.ends_at}
+            value={closesAt}
+            onChange={(event) => setClosesAt(event.target.value)}
+          />
+          {problem !== null && closesAt !== "" && (
+            <p className={styles.error} role="alert">
+              {problem}
+            </p>
+          )}
+        </div>
+        <p className={styles.hint}>
+          지금 마감일은{" "}
+          {quarter.application_closes_at ? formatDate(quarter.application_closes_at) : "정해지지 않았어요"}. 새
+          마감일은 분기 종료일({formatDate(quarter.ends_at)}) 안이어야 해요.
+        </p>
+      </PanelSection>
+      <PanelSection title="바뀌는 것">
+        {reopening && <p className={styles.hint}>회원이 Profile에서 이 분기에 다시 신청할 수 있게 돼요.</p>}
+        <p className={styles.hint}>이미 승인된 지갑과 신청은 그대로예요. 감사 기록에 남아요.</p>
+      </PanelSection>
       {error && (
-        <p className={confirmStyles.dialogError} role="alert">
+        <p className={styles.error} role="alert">
           {error}
         </p>
       )}
-
-      <div className={confirmStyles.dialogActions}>
-        <button className="btn" type="button" onClick={onClose} disabled={busy}>
-          취소
-        </button>
-        <button
-          className="btn btn-primary"
-          type="button"
-          onClick={() => void confirm()}
-          disabled={busy || problem !== null}
-        >
-          {busy ? "저장 중…" : reopening ? "신청 다시 열기" : "기한 연장"}
-        </button>
-      </div>
-    </DialogShell>
+    </SidePanel>
   );
 }
 

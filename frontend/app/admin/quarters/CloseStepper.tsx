@@ -26,7 +26,9 @@ import { formatDate, formatKrw, updateQuarter, type Quarter } from "@/lib/quarte
 import { tabHref } from "../sections";
 import CloseQuarterDialog from "./CloseQuarterDialog";
 
-import styles from "../admin.module.css";
+import { ItemList, ItemRow, SettingsCard, Tag } from "../components/AdminUI";
+
+import styles from "./quarters.module.css";
 
 export const STEPS = ["신청 마감", "정산 확인", "휴지통 비우기", "앱 보관", "다음 분기 열기"] as const;
 /** Which steps are done (0–4), from the quarters and the audit log — in order. */
@@ -50,10 +52,13 @@ export default function CloseStepper({
   quarter,
   quarters,
   onChanged,
+  onCreateNext,
 }: {
   quarter: Quarter;
   quarters: Quarter[];
   onChanged: (message: string) => void;
+  /** 5단계의 「다음 분기 만들기」 — 새 분기 판을 엽니다. */
+  onCreateNext?: () => void;
 }) {
   const [archived, setArchived] = useState(false);
   const [deletedOpen, setDeletedOpen] = useState(false);
@@ -144,7 +149,7 @@ export default function CloseStepper({
     0: {
       text:
         quarter.status === "draft"
-          ? "이 분기는 아직 준비 중이에요. 위 분기 목록의 관리 메뉴에서 신청을 먼저 열어요."
+          ? "이 분기는 아직 준비 중이에요. 아래 분기 목록의 관리 메뉴에서 신청을 먼저 열어요."
           : "회원이 더 이상 신청하지 못하게 해요. 이미 올라온 신청은 Members의 승인 대기에서 계속 심사할 수 있어요.",
       action: (
         quarter.status === "draft" ? null : (
@@ -165,7 +170,7 @@ export default function CloseStepper({
     3: {
       text: "AI를 쓰는 앱을 데모만으로 돌려 둘지 Community › 앱에서 정해요. 끝나면 확인을 눌러요.",
       action: (
-        <span className={styles.rowButtons}>
+        <span className={styles.buttons}>
           <Link className="btn btn-sm" href={tabHref("community", "apps")}>
             Community › 앱
           </Link>
@@ -177,24 +182,22 @@ export default function CloseStepper({
     },
     4: {
       text: "다음 분기를 만들고 신청을 열어요.",
-      action: (
-        <a className="btn btn-sm btn-primary" href="#quarter-new">
+      action: onCreateNext ? (
+        <button className="btn btn-sm btn-primary" type="button" onClick={onCreateNext}>
           다음 분기 만들기
-        </a>
-      ),
+        </button>
+      ) : null,
     },
   };
   const now = current === -1 ? null : explain[current] ?? explain[1];
 
   return (
-    <section className="card" aria-labelledby="close-steps-title" data-testid="close-stepper">
-      <h2 className="section-title" id="close-steps-title">
-        분기 마감
-        <span className={styles.sectionNote}>
-          {quarter.display_name} · 마감 {formatDate(quarter.ends_at)}
-          {days >= 0 ? ` · D-${days}` : ""}
-        </span>
-      </h2>
+    <div data-testid="close-stepper">
+      <SettingsCard
+        wide
+        title="분기 마감"
+        extra={`${quarter.display_name} · 마감 ${formatDate(quarter.ends_at)}${days >= 0 ? ` · D-${days}` : ""}`}
+      >
       <ol className={styles.steps}>
         {STEPS.map((label, index) => (
           <li
@@ -212,7 +215,7 @@ export default function CloseStepper({
       </ol>
       {now ? (
         <div className={styles.stepNow}>
-          <p style={{ margin: 0 }}>
+          <p>
             <strong>
               지금 할 단계 · {current + 1} {STEPS[current]}
             </strong>{" "}
@@ -221,10 +224,10 @@ export default function CloseStepper({
           {now.action}
         </div>
       ) : (
-        <p className="small muted">이 분기의 마감이 모두 끝났어요.</p>
+        <p className={styles.foot}>이 분기의 마감이 모두 끝났어요.</p>
       )}
       {facts && !closed && (
-        <dl className={styles.stepFacts}>
+        <dl className={styles.facts}>
           <div>
             <dt>동결할 지갑</dt>
             <dd className="numeric">{facts.lines.length}개</dd>
@@ -249,24 +252,25 @@ export default function CloseStepper({
       {deletedOpen && deleted && (
         // Every member's deleted work the close will remove — 복구 is in each
         // member's panel (Members), before the close.
-        <ul className={styles.deletedList} data-testid="close-deleted">
+        <ItemList testId="close-deleted" empty="지운 작업이 없어요.">
           {deleted.map((item) => (
-            <li key={`${item.kind}-${item.id}`} className={styles.deletedRow}>
-              <span>
-                <strong>{item.name}</strong> <span className="small dim">@{item.owner_username} · {WORK_KIND_LABEL[item.kind]}</span>
-              </span>
-              <Link className="btn btn-sm" href={`/admin/members?member=${item.owner_user_id}`}>
-                회원 열기
-              </Link>
-            </li>
+            <ItemRow
+              key={`${item.kind}-${item.id}`}
+              title={item.name}
+              tags={<Tag>{WORK_KIND_LABEL[item.kind]}</Tag>}
+              sub={`@${item.owner_username}`}
+              action={
+                <Link className="btn btn-sm" href={`/admin/members?member=${item.owner_user_id}`}>
+                  회원 열기
+                </Link>
+              }
+            />
           ))}
-        </ul>
+        </ItemList>
       )}
-      <p className="small dim" style={{ margin: 0 }}>
-        되돌릴 수 없는 단계(2·3)는 누를 때 한 번 더 물어요. 단계마다 감사 기록이 남아요.
-      </p>
+      <p className={styles.foot}>되돌릴 수 없는 단계(2·3)는 누를 때 한 번 더 물어요. 단계마다 감사 기록이 남아요.</p>
       {error && !confirm && (
-        <p className="small" role="alert" style={{ color: "var(--error-text)" }}>
+        <p className={styles.error} role="alert">
           {error}
         </p>
       )}
@@ -284,6 +288,7 @@ export default function CloseStepper({
           }}
         />
       )}
-    </section>
+      </SettingsCard>
+    </div>
   );
 }

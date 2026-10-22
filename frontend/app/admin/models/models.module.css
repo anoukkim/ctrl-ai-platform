@@ -1,0 +1,163 @@
+/* Models › Chat · 한도 · 보정 (admin-ui-unify) — the few things the shared kit
+   (components/AdminUI) does not draw: a full-width text/select field in the
+   side panel, the compact 생각 깊이 grid, and small status lines. */
+
+.textField {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.textField small {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.textField :global(.field) {
+  width: 100%;
+  font-size: 0.86rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: 0.82rem;
+}
+
+.ok {
+  margin: 0;
+  color: var(--ok-text);
+  font-size: 0.82rem;
+}
+
+.dim {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.cellLines {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.cellLines small {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+/* 생각 깊이 — rows (기능 · 값) × columns (낮음 보통 높음 최고), small inputs. */
+.depth {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.depth th,
+.depth td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.depth thead th {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.depth thead th:first-child {
+  text-align: left;
+}
+
+.depth tbody th {
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.depth tbody th small {
+  margin-left: 0.3rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.depth tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.depthInput {
+  width: 100%;
+  min-width: 4.5rem;
+  max-width: 7.5rem;
+  margin-left: auto;
+  display: block;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.depthInput:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.depthWrap {
+  overflow-x: auto;
+}
+
+.rateRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rateRow > :first-child {
+  flex: 1 1 14rem;
+}
+
+.history {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.envList {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.envList dt {
+  color: var(--text-muted);
+}
+
+.envList dd {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}

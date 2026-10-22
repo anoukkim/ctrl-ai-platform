@@ -1,20 +1,19 @@
 "use client";
 
 /**
- * Admin › Apps › 앱 하나 (app-platform P4b).
+ * Admin › Community › 앱 › 앱 하나 (app-platform P4b → admin-ui-unify).
  *
- * 한 앱에 할 수 있는 모든 일이 여기 있습니다: 기능 상자 멈추기/켜기,
- * 공유 데이터 보기와 숨기기, 게시 내리기, 예시 앱의 ZIP 미리보기. 숫자는
- * 방문자의 AI 사용(오늘 · 이번 분기)과 만든 사람의 미리보기 사용을 따로
- * 보여 줍니다 — 둘 다 각자의 지원금에서 나갔습니다. 모든 작업은 확인창을
- * 지나고 감사 기록에 남습니다.
+ * 제목(앱 이름)은 틀이 빵가루 끝으로 그립니다. 맨 위 카드가 AI 사용(방문자
+ * 오늘 · 이번 분기, 만든 사람의 미리보기)과 연결 동의, 그 아래 상태 카드와
+ * 기능 상자 스위치. 공유 데이터와 예시 앱의 ZIP 미리보기는 오른쪽 판에서
+ * 엽니다. 멈추기 · 다시 켜기 · 게시 내리기는 확인창(멈추기와 내리기는 사유
+ * 필수)을 지나 감사 기록에 남습니다.
  */
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import ConfirmDialog, { type ConfirmRequest } from "@/app/components/ConfirmDialog";
-import PageHeader from "@/app/components/PageHeader";
 import { useToast } from "@/app/components/ToastProvider";
 import { setAppSdk } from "@/lib/app-platform";
 import { adminUnpublish, formatBytes, getAdminApp, type AdminAppOverview } from "@/lib/apps";
@@ -22,17 +21,20 @@ import { describeError } from "@/lib/http";
 import { relativeTime } from "@/lib/relative-time";
 
 import { useBreadcrumbTail } from "../../AdminFrame";
+import { useAdminQuarterOptional, withQuarter } from "../../AdminQuarterProvider";
+import { PanelBar, SettingsCard, SettingsGrid, Stack, Stats, SwitchRow } from "../../components/AdminUI";
 import AppDataPanel from "../../content/AppDataPanel";
 import HandoffPreview from "../../content/HandoffPreview";
-import Fact from "../../members/[id]/Fact";
 import { AppStateBadges } from "../AppsList";
 
-import styles from "../../admin.module.css";
+import styles from "../../community/community.module.css";
 
 const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
+const calls = (count: number, krw: number) => (count > 0 ? `${count}회 · ${won(krw)}` : "없음");
 
 export default function AppDetailView({ projectId }: { projectId: number }) {
   const toast = useToast();
+  const quarter = useAdminQuarterOptional();
   const [app, setApp] = useState<AdminAppOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -112,118 +114,149 @@ export default function AppDetailView({ projectId }: { projectId: number }) {
     });
   };
 
+  if (error && !app) {
+    return (
+      <p className={styles.error} role="alert">
+        {error}
+      </p>
+    );
+  }
+  if (!app) return <p className="small muted">불러오는 중…</p>;
+
   return (
-    <>
-      <PageHeader
-        eyebrow="Admin › Apps"
-        title={app ? app.name : "앱"}
-        titleAddon={app ? <AppStateBadges app={app} /> : undefined}
-        subtitle={
-          app ? (
-            <>
-              만든 사람 <Link href={`/admin/members/${app.owner_id}`}>{app.owner_name}</Link> (@{app.owner_username})
-              {app.published && app.slug && (
-                <>
-                  {" · "}
-                  <Link href={`/ctrlaistore/${app.slug}`}>CtrlAIApps에서 보기</Link>
-                </>
-              )}
-              {app.app_url && (
-                <>
-                  {" · "}
-                  <a href={app.app_url} target="_blank" rel="noreferrer">
-                    앱 열기
-                  </a>
-                </>
-              )}
-            </>
-          ) : undefined
+    <Stack>
+      <PanelBar
+        left={
+          <div className={styles.links}>
+            <AppStateBadges app={app} />
+            <span>
+              만든 사람{" "}
+              <Link href={withQuarter(`/admin/members/${app.owner_id}`, quarter?.selected?.id)}>{app.owner_name}</Link> (@
+              {app.owner_username})
+            </span>
+            {app.published && app.slug && <Link href={`/ctrlaistore/${app.slug}`}>CtrlAIApps에서 보기</Link>}
+            {app.app_url && (
+              <a href={app.app_url} target="_blank" rel="noreferrer">
+                앱 열기
+              </a>
+            )}
+          </div>
+        }
+        help={
+          <p>
+            방문자의 AI는 각자의 동아리 지원금에서, 미리보기는 만든 사람의 지원금에서 나갔어요. 1회 상한 1,000원, 하루 상한은
+            System의 설정을 따릅니다. AI 공개(데모만 · 전체 기능)는 만든 사람이 정해요. 멈추기 · 게시 내리기 · 데이터
+            숨기기는 사유를 적고 감사 기록에 남습니다.
+          </p>
+        }
+        actions={
+          <>
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => setDataOpen(true)}
+              title="이 앱이 ctrlai.db에 가진 목록과 공유 항목 — 숨기기 · 지우기"
+            >
+              공유 데이터 보기
+            </button>
+            {app.example && (
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={() => setZipOpen(true)}
+                title="회원이 내려받는 ZIP에 무엇이 들어가는지"
+              >
+                ZIP 미리보기
+              </button>
+            )}
+            {app.published && (
+              <button className="btn btn-sm btn-danger" type="button" onClick={askUnpublish}>
+                게시 내리기
+              </button>
+            )}
+          </>
         }
       />
 
       {error && (
-        <p className="small" role="alert">
+        <p className={styles.error} role="alert">
           {error}
         </p>
       )}
-      {!app && !error && <p className="small muted">불러오는 중…</p>}
 
-      {app && (
-        <>
-          <section className="card" aria-labelledby="app-ai-title">
-            <h2 className="section-title" id="app-ai-title">
-              AI 사용 (기능 상자)
-            </h2>
-            <div className={styles.factGrid} data-testid="app-ai">
-              <Fact label="오늘 · 방문자" value={app.ai.today_calls > 0 ? `${app.ai.today_calls}회 · ${won(app.ai.today_krw)}` : "없음"} mono />
-              <Fact label="이번 분기 · 방문자" value={app.ai.quarter_calls > 0 ? `${app.ai.quarter_calls}회 · ${won(app.ai.quarter_krw)}` : "없음"} mono />
-              <Fact
-                label="이번 분기 · 만든 사람의 미리보기"
-                value={app.ai.preview_quarter_calls > 0 ? `${app.ai.preview_quarter_calls}회 · ${won(app.ai.preview_quarter_krw)}` : "없음"}
-                mono
-              />
-              <Fact label="연결 동의" value={app.consents > 0 ? `${app.consents}명` : "없음"} mono />
-            </div>
-            <p className="small muted" style={{ marginTop: "0.6rem" }}>
-              방문자의 AI는 각자의 동아리 지원금에서, 미리보기는 만든 사람의 지원금에서 나갔어요. 1회 상한 1,000원, 하루 상한은 System의 설정을 따릅니다.
-            </p>
-          </section>
+      <div data-testid="app-ai">
+        <Stats
+          items={[
+            { key: "today", value: calls(app.ai.today_calls, app.ai.today_krw), label: "오늘 · 방문자 AI" },
+            { key: "quarter", value: calls(app.ai.quarter_calls, app.ai.quarter_krw), label: "이번 분기 · 방문자 AI" },
+            {
+              key: "preview",
+              value: calls(app.ai.preview_quarter_calls, app.ai.preview_quarter_krw),
+              label: "이번 분기 · 만든 사람의 미리보기",
+            },
+            { key: "consents", value: app.consents > 0 ? `${app.consents}명` : "없음", label: "연결 동의" },
+          ]}
+        />
+      </div>
 
-          <section className="card" aria-labelledby="app-state-title" style={{ marginTop: "1rem" }}>
-            <h2 className="section-title" id="app-state-title">
-              상태
-            </h2>
-            <div className={styles.factGrid} data-testid="app-state">
-              <Fact
-                label="게시"
-                value={app.published ? `v${app.version_number}${app.published_at ? ` · ${relativeTime(app.published_at)}` : ""}` : "미게시 (미리보기만)"}
-              />
-              <Fact label="기능 상자" value={app.sdk_enabled ? "켜짐" : `멈춤 — ${app.sdk_disabled_reason || "사유 없음"}`} />
-              <Fact
-                label="AI 공개 (만든 사람의 설정)"
-                value={!app.uses_ai ? "AI를 쓰지 않음" : app.ai_access === "full" ? "전체 기능 — 방문자가 자기 지원금으로" : "데모만 — 방문자의 호출은 거부 (0원)"}
-              />
-              <Fact label="데이터 (ctrlai.db)" value={app.data_items > 0 ? `${app.data_items.toLocaleString("ko-KR")}개 · ${formatBytes(app.data_bytes)}` : "없음"} mono />
-              <Fact label="열린 신고" value={app.open_reports > 0 ? `${app.open_reports}건 — Content에서 처리` : "없음"} />
-            </div>
-            <div className={styles.actionRow}>
-              <button className={app.sdk_enabled ? "btn btn-sm btn-danger" : "btn btn-sm"} type="button" onClick={askSdk}>
-                {app.sdk_enabled ? "기능 상자 멈추기" : "기능 상자 다시 켜기"}
-              </button>
-              <button
-                className="btn btn-sm"
-                type="button"
-                onClick={() => setDataOpen(true)}
-                title="이 앱이 ctrlai.db에 가진 목록과 공유 항목 — 숨기기 · 지우기"
-              >
-                공유 데이터 보기
-              </button>
-              {app.example && (
-                <button className="btn btn-sm" type="button" onClick={() => setZipOpen(true)} title="회원이 내려받는 ZIP에 무엇이 들어가는지">
-                  ZIP 미리보기
-                </button>
-              )}
-              {app.published && (
-                <button className="btn btn-sm btn-danger" type="button" onClick={askUnpublish}>
-                  게시 내리기
-                </button>
-              )}
-              {app.open_reports > 0 && (
-                <Link className="btn btn-sm" href="/admin/community">
-                  신고 보기
-                </Link>
-              )}
-            </div>
-          </section>
-        </>
-      )}
+      <SettingsGrid>
+        <SettingsCard title="기능 상자" extra={app.sdk_enabled ? "켜짐" : "멈춤"}>
+          <SwitchRow
+            label="기능 상자 켜기"
+            hint={
+              app.sdk_enabled
+                ? "끄면 이 앱의 로그인 · AI · 데이터 요청을 모두 거절해요 (사유 필수)"
+                : `멈춘 이유: ${app.sdk_disabled_reason || "사유 없음"}`
+            }
+            checked={app.sdk_enabled}
+            onChange={askSdk}
+            testId="app-sdk-switch"
+          />
+        </SettingsCard>
 
-      {app && zipOpen && <HandoffPreview projectId={app.id} name={app.name} onClose={() => setZipOpen(false)} />}
-      {app && dataOpen && (
+        <SettingsCard title="상태">
+          <dl className={styles.facts} data-testid="app-state">
+            <dt>게시</dt>
+            <dd>
+              {app.published
+                ? `v${app.version_number}${app.published_at ? ` · ${relativeTime(app.published_at)}` : ""}`
+                : "미게시 (미리보기만)"}
+            </dd>
+            <dt>기능 상자</dt>
+            <dd>{app.sdk_enabled ? "켜짐" : `멈춤 — ${app.sdk_disabled_reason || "사유 없음"}`}</dd>
+            <dt>AI 공개</dt>
+            <dd>
+              {!app.uses_ai
+                ? "AI를 쓰지 않음"
+                : app.ai_access === "full"
+                  ? "전체 기능 — 방문자가 자기 지원금으로"
+                  : "데모만 — 방문자의 호출은 거부 (0원)"}
+            </dd>
+            <dt>데이터</dt>
+            <dd>
+              {app.data_items > 0 ? `${app.data_items.toLocaleString("ko-KR")}개 · ${formatBytes(app.data_bytes)}` : "없음"}
+            </dd>
+            <dt>열린 신고</dt>
+            <dd>
+              {app.open_reports > 0 ? (
+                <>
+                  {app.open_reports}건 —{" "}
+                  <Link href={withQuarter("/admin/community", quarter?.selected?.id)}>신고 보기</Link>
+                </>
+              ) : (
+                "없음"
+              )}
+            </dd>
+          </dl>
+        </SettingsCard>
+      </SettingsGrid>
+
+      {zipOpen && <HandoffPreview projectId={app.id} name={app.name} onClose={() => setZipOpen(false)} />}
+      {dataOpen && (
         <AppDataPanel projectId={app.id} name={app.name} onChanged={load} onClose={() => setDataOpen(false)} />
       )}
 
       <ConfirmDialog busy={busy} error={confirmError} request={confirm} onClose={() => setConfirm(null)} />
-    </>
+    </Stack>
   );
 }

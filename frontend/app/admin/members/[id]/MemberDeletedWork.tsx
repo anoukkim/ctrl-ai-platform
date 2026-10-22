@@ -16,8 +16,9 @@ import { describeError } from "@/lib/http";
 import { WORK_KIND_LABEL, listDeletedItems, purgeWork, restoreWork, type DeletedItem } from "@/lib/projects";
 
 import ResultMessage, { type Result } from "../../components/ResultMessage";
+import { PanelSection, Tag } from "../../components/AdminUI";
 
-import styles from "../../admin.module.css";
+import styles from "../members.module.css";
 
 export default function MemberDeletedWork({ userId, onChanged }: { userId: number; onChanged?: () => void }) {
   const [items, setItems] = useState<DeletedItem[] | null>(null);
@@ -64,79 +65,79 @@ export default function MemberDeletedWork({ userId, onChanged }: { userId: numbe
   );
 
   return (
-    <section aria-labelledby="member-deleted" data-testid="member-deleted-work">
-      <h2 className="section-title" id="member-deleted">
-        지운 작업
-        <span className={styles.sectionNote}>분기 마감 때 남아 있으면 함께 사라져요</span>
-      </h2>
-      <ResultMessage result={result} onDismiss={() => setResult(null)} />
-      {error !== null ? (
-        <div className="card">
-          <p className="small muted">지운 작업을 불러오지 못했습니다. {error}.</p>
-        </div>
-      ) : items === null ? (
-        <p className="small muted">불러오는 중…</p>
-      ) : items.length === 0 ? (
-        <div className="card">
-          <p className="small muted">지운 작업이 없어요.</p>
-        </div>
-      ) : (
-        <ul className={styles.deletedList}>
-          {items.map((item) => (
-            <li key={`${item.kind}-${item.id}`} className={styles.deletedRow}>
-              <span>
-                <strong>{item.name}</strong>{" "}
-                <span className="small dim">
-                  {WORK_KIND_LABEL[item.kind]} · {formatWhen(item.deleted_at)}에 지움
+    <div data-testid="member-deleted-work">
+      <PanelSection
+        title={
+          <>
+            지운 작업
+            <span className={styles.sectionExtra}>분기 마감 때 남아 있으면 함께 사라져요</span>
+          </>
+        }
+      >
+        <ResultMessage result={result} onDismiss={() => setResult(null)} />
+        {error !== null ? (
+          <p className={styles.note}>지운 작업을 불러오지 못했습니다. {error}.</p>
+        ) : items === null ? (
+          <p className={styles.note}>불러오는 중…</p>
+        ) : items.length === 0 ? (
+          <p className={styles.note}>지운 작업이 없어요.</p>
+        ) : (
+          <ul className={`${styles.list} ${styles.listRows}`}>
+            {items.map((item) => (
+              <li key={`${item.kind}-${item.id}`}>
+                <span className={styles.line}>
+                  <strong>{item.name}</strong>
+                  <Tag>{WORK_KIND_LABEL[item.kind]}</Tag>
+                  <span className={styles.dim}>{formatWhen(item.deleted_at)}에 지움</span>
                 </span>
-              </span>
-              <span className={styles.rowButtons}>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={busy}
-                  onClick={() =>
-                    setConfirm({
-                      title: `복구 — ${item.name}`,
-                      effect: `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'이 다시 보이게 됩니다.`,
-                      confirmLabel: "복구",
-                      onConfirm: () => act(`'${item.name}'을(를) 복구했습니다.`, () => restoreWork(item.kind, item.id)),
-                    })
-                  }
-                >
-                  복구
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={busy}
-                  onClick={() =>
-                    setConfirm({
-                      title: `완전히 삭제 — ${item.name}`,
-                      effect: [
-                        `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'이 데이터베이스와 서버에서 사라집니다. 되살릴 수 없습니다.`,
-                        item.kind === "builder"
-                          ? "파일, 버전 기록, 앱 폴더(apps.ctrlai.my), 앱의 저장 데이터와 동의가 함께 지워집니다."
-                          : "모든 버전과 저장된 영상 파일이 함께 지워집니다.",
-                        "사용량 기록과 지갑은 그대로입니다 — 이미 쓴 돈은 그대로 남고, 내역에는 이름이 '(삭제됨)'으로 남습니다.",
-                        "사유와 함께 감사 기록에 남습니다.",
-                      ],
-                      confirmLabel: "완전히 삭제",
-                      danger: true,
-                      reason: { label: "사유", placeholder: "예: 회원이 요청함", required: true },
-                      onConfirm: (reason) =>
-                        act(`'${item.name}'을(를) 완전히 삭제했습니다.`, () => purgeWork(item.kind, item.id, reason)),
-                    })
-                  }
-                >
-                  완전히 삭제
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
-    </section>
+                <span className={styles.rowButtons}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={busy}
+                    onClick={() =>
+                      setConfirm({
+                        title: `복구 — ${item.name}`,
+                        effect: `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'이 다시 보이게 됩니다.`,
+                        confirmLabel: "복구",
+                        onConfirm: () => act(`'${item.name}'을(를) 복구했습니다.`, () => restoreWork(item.kind, item.id)),
+                      })
+                    }
+                  >
+                    복구
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={busy}
+                    onClick={() =>
+                      setConfirm({
+                        title: `완전히 삭제 — ${item.name}`,
+                        effect: [
+                          `${item.owner_display_name}의 ${WORK_KIND_LABEL[item.kind]} '${item.name}'이 데이터베이스와 서버에서 사라집니다. 되살릴 수 없습니다.`,
+                          item.kind === "builder"
+                            ? "파일, 버전 기록, 앱 폴더(apps.ctrlai.my), 앱의 저장 데이터와 동의가 함께 지워집니다."
+                            : "모든 버전과 저장된 영상 파일이 함께 지워집니다.",
+                          "사용량 기록과 지갑은 그대로입니다 — 이미 쓴 돈은 그대로 남고, 내역에는 이름이 '(삭제됨)'으로 남습니다.",
+                          "사유와 함께 감사 기록에 남습니다.",
+                        ],
+                        confirmLabel: "완전히 삭제",
+                        danger: true,
+                        reason: { label: "사유", placeholder: "예: 회원이 요청함", required: true },
+                        onConfirm: (reason) =>
+                          act(`'${item.name}'을(를) 완전히 삭제했습니다.`, () => purgeWork(item.kind, item.id, reason)),
+                      })
+                    }
+                  >
+                    완전히 삭제
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ConfirmDialog busy={busy} request={confirm} onClose={() => setConfirm(null)} />
+      </PanelSection>
+    </div>
   );
 }

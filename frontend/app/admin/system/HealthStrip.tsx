@@ -3,7 +3,8 @@
 import { useAdminQuarterOptional } from "../AdminQuarterProvider";
 
 /**
- * Admin › System — 연결 상태 한 줄 (ui-improvements B).
+ * Admin › System — 연결 상태 카드 줄 (ui-improvements B; admin-ui-unify:
+ * the kit's `StatusStrip` look, one card per place).
  *
  * 오너: "걍 연결상태를 전체적으로 health를 보고 싶은데". 서버(API) ·
  * 데이터베이스 · Claude · Higgsfield · GitHub · YouTube를 점 하나씩으로
@@ -30,17 +31,26 @@ import {
 } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 
-import styles from "../admin.module.css";
+import { PanelBar, Pill, type Tone as PillTone } from "../components/AdminUI";
+import kit from "../components/AdminUI.module.css";
+import { providerStatusItem } from "../components/providerStatus";
 
+/** `data-tone` on each card (tests and e2e read it): green · red · grey. */
 type Tone = "ok" | "error" | "muted";
 
 interface Light {
   key: string;
   name: string;
   tone: Tone;
-  /** 점 아래의 한 줄 — "연결됨", "mock", "오류 · 2026.10.16" 같은 말. */
+  /** 카드 아래의 한 줄 — "연결됨", "mock", "오류 · 2026.10.16" 같은 말. */
   detail: string;
+  /** 카드의 상태 표(없으면 `tone`에서). */
+  state?: string;
+  pill?: PillTone;
 }
+
+const PILL: Record<Tone, PillTone> = { ok: "ok", error: "err", muted: "off" };
+const STATE: Record<Tone, string> = { ok: "정상", error: "문제", muted: "—" };
 
 /** 외부 서비스 하나의 색. ProviderPanel의 카드와 같은 규칙입니다. */
 export function providerTone(provider: ProviderStatus): Tone {
@@ -89,6 +99,37 @@ export function backupLight(lines: BackupLine[] | undefined, isDevelopment: bool
     name: "백업",
     tone: local.late || offsiteLate ? "error" : "ok",
     detail: `${local.late ? "늦음 · " : ""}${formatWhenOrNever(local.at)}${where}`,
+  };
+}
+
+/**
+ * A provider's card: the shared `providerStatusItem` wording (테스트 모드 ·
+ * 키 없음 · 오류), with our colour rule on top — a success after the last
+ * error is green again.
+ */
+function providerLight(provider: ProviderStatus): Light {
+  const tone = providerTone(provider);
+  const item = providerStatusItem(provider, { mock: "mock — 바깥으로 아무것도 보내지 않아요 · 비용 0" });
+  if (tone === "ok" || item === null) {
+    return {
+      key: provider.key,
+      name: provider.name,
+      tone,
+      detail: providerDetail(provider),
+      state: provider.last_success_at === null ? "확인 전" : "연결됨",
+    };
+  }
+  return {
+    key: provider.key,
+    name: provider.name,
+    tone,
+    detail:
+      item.tone === "ok"
+        ? providerDetail(provider)
+        : String(item.note ?? providerDetail(provider)) +
+          (provider.last_error_at !== null && item.tone === "err" ? ` · ${formatWhenOrNever(provider.last_error_at)}` : ""),
+    state: tone === "error" && item.tone !== "err" ? "오류" : String(item.state),
+    pill: tone === "error" ? "err" : item.tone,
   };
 }
 
@@ -146,20 +187,22 @@ export default function HealthStrip() {
       key: "api",
       name: "서버",
       tone: health === null ? "muted" : health === "down" ? "error" : "ok",
-      detail:
-        health === null ? "확인 중" : health === "down" ? "연결할 수 없음" : `연결됨 · ${health.environment}`,
+      state: health === null ? "확인 중" : health === "down" ? "닿지 않음" : "연결됨",
+      detail: health === null ? "확인 중" : health === "down" ? "연결할 수 없음" : `환경 · ${health.environment}`,
     },
     {
       key: "db",
       name: "데이터베이스",
       tone: health === null ? "muted" : health === "down" || health.database.status !== "ok" ? "error" : "ok",
+      state:
+        health === null ? "확인 중" : health === "down" ? "알 수 없음" : health.database.status === "ok" ? "연결됨" : "닿지 않음",
       detail:
         health === null
           ? "확인 중"
           : health === "down"
             ? "서버 너머라 알 수 없음"
             : health.database.status === "ok"
-              ? "연결됨"
+              ? "PostgreSQL"
               : `연결할 수 없음 (${health.database.detail ?? "원인 미상"})`,
     },
     // admin-consolidation v3: the thumbnail server, when it is on.
@@ -169,34 +212,34 @@ export default function HealthStrip() {
             key: "thumbs",
             name: "썸네일 서버",
             tone: (thumbs === "ok" ? "ok" : "error") as Tone,
-            detail: thumbs === "ok" ? "정상" : "응답 없음 · 그동안 브라우저가 찍어요",
+            state: thumbs === "ok" ? "정상" : "응답 없음",
+            detail: thumbs === "ok" ? "서버가 앱 썸네일을 찍어요" : "그동안 브라우저가 찍어요",
           },
         ]
       : []),
     ...(backup ? [backup] : []),
-    ...(providers ?? []).map((provider) => ({
-      key: provider.key,
-      name: provider.name,
-      tone: providerTone(provider),
-      detail: providerDetail(provider),
-    })),
+    ...(providers ?? []).map(providerLight),
   ];
 
   const problems = lights.filter((light) => light.tone === "error").length;
 
   return (
-    <section className={`card ${styles.healthStrip}`} aria-labelledby="admin-health-title" data-testid="health-strip">
-      <div className={styles.healthHead}>
-        <h2 className="section-title" id="admin-health-title" style={{ marginBottom: 0 }}>
-          연결 상태
-          <span className={`badge ${problems > 0 ? "badge-warn" : "badge-ok"}`} data-testid="health-overall">
-            {problems > 0 ? `문제 ${problems}곳` : "모두 정상"}
+    <section aria-label="연결 상태" data-testid="health-strip" className={kit.stack}>
+      <PanelBar
+        left={
+          <span data-testid="health-overall">
+            <Pill tone={problems > 0 ? "err" : "ok"}>{problems > 0 ? `문제 ${problems}곳` : "모두 정상"}</Pill>
           </span>
-        </h2>
-        <div className={styles.healthActions}>
-          {checkedAt !== null && (
-            <span className="small dim">확인함 · {formatWhenOrNever(checkedAt)}</span>
-          )}
+        }
+        note={checkedAt !== null ? `확인함 · ${formatWhenOrNever(checkedAt)}` : "외부 서비스는 마지막 기록으로 보여요"}
+        help={
+          <p style={{ margin: 0 }}>
+            서버·데이터베이스는 지금 묻고, 외부 서비스의 색은 마지막 성공·오류 기록으로 정해요 — 화면을 열기만 해서는
+            바깥으로 아무것도 보내지 않아요. &lsquo;모두 확인&rsquo;을 누르면 외부 서비스를 차례로 확인해요(mock은 아무것도
+            보내지 않고, Claude는 토큰을 쓰지 않는 모델 목록 요청). 테스트 모드(mock)는 비용이 0이에요.
+          </p>
+        }
+        actions={
           <button
             className="btn btn-sm"
             type="button"
@@ -205,36 +248,22 @@ export default function HealthStrip() {
           >
             {checking ? "확인 중…" : "모두 확인"}
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      {error !== null && (
-        <p className="small muted">외부 서비스 상태를 불러오지 못했습니다. {error}.</p>
-      )}
+      {error !== null && <p className="small muted" style={{ margin: 0 }}>외부 서비스 상태를 불러오지 못했습니다. {error}.</p>}
 
-      <ul className={styles.healthLights}>
+      <ul className={kit.status} style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {lights.map((light) => (
-          <li key={light.key} className={styles.healthLight} data-testid={`health-${light.key}`} data-tone={light.tone}>
-            <span
-              className={`${styles.statusDot} ${styles.healthDot} ${
-                light.tone === "ok"
-                  ? styles.statusDotOk
-                  : light.tone === "error"
-                    ? styles.statusDotError
-                    : styles.statusDotMuted
-              }`}
-              aria-hidden="true"
-            />
-            <span className={styles.healthName}>{light.name}</span>
-            <span className={styles.healthDetail}>{light.detail}</span>
+          <li key={light.key} className={kit.statusCard} data-testid={`health-${light.key}`} data-tone={light.tone}>
+            <div className={kit.statusRow}>
+              <b>{light.name}</b>
+              <Pill tone={light.pill ?? PILL[light.tone]}>{light.state ?? STATE[light.tone]}</Pill>
+            </div>
+            <small>{light.detail}</small>
           </li>
         ))}
       </ul>
-
-      <p className="small dim" style={{ margin: 0 }}>
-        회색은 mock(테스트) — 바깥으로 아무것도 보내지 않습니다. 외부 서비스의 색은 마지막
-        기록으로 정하고, 모두 확인을 눌러야 지금 상태를 다시 봅니다.
-      </p>
     </section>
   );
 }

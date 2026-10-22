@@ -6,6 +6,8 @@
  * Dashboard의 자동 알림이 어디서 울릴지: 지원금 사용률(Members의 주황도
  * 같은 기준), Anthropic 이번 달 예산, 마지막 백업 뒤로 지난 시간. 범위는
  * 백엔드가 정하고 지킵니다. 감사 기록에 남습니다.
+ *
+ * admin-ui-unify: 설정 카드 — `NumField` 세 칸과 `SaveBar`.
  */
 
 import { useEffect, useState } from "react";
@@ -19,6 +21,8 @@ import {
   type AlertThresholds,
 } from "@/lib/admin";
 import { describeError } from "@/lib/http";
+
+import { NumField, SaveBar, SettingsCard } from "../components/AdminUI";
 
 import { useAdminQuarterOptional } from "../AdminQuarterProvider";
 
@@ -64,7 +68,11 @@ export default function AlertsPanel() {
   }, []);
 
   if (setting === null) {
-    return error === null ? <Skeleton /> : <p className="small muted">알림 기준을 불러오지 못했습니다. {error}.</p>;
+    return (
+      <SettingsCard title="알림 기준">
+        {error === null ? <Skeleton /> : <p className="small muted">알림 기준을 불러오지 못했습니다. {error}.</p>}
+      </SettingsCard>
+    );
   }
 
   const save = async () => {
@@ -97,55 +105,50 @@ export default function AlertsPanel() {
     }
   };
 
+  const changed = FIELDS.filter((field) => draft[field.key] !== String(setting[field.key])).length;
+
   return (
-    <div data-testid="alerts-panel" style={{ display: "grid", gap: "0.75rem", maxWidth: "32rem" }}>
-      {FIELDS.map((field) => {
-        const [low, high] = setting.ranges[field.key];
-        return (
-          <label
-            key={field.key}
-            className="small"
-            htmlFor={`alert-${field.key}`}
-            style={{ display: "grid", gridTemplateColumns: "1fr 6rem auto", gap: "0.5rem", alignItems: "center" }}
-          >
-            <span>
-              {field.label}{" "}
-              <span className="dim">
-                ({low}–{high})
-              </span>
-            </span>
-            <input
-              className="field"
-              id={`alert-${field.key}`}
-              type="number"
-              inputMode="numeric"
+    <SettingsCard title="알림 기준" extra="Dashboard 알림이 울리는 곳">
+      <div data-testid="alerts-panel" style={{ display: "grid", gap: "0.6rem" }}>
+        {FIELDS.map((field) => {
+          const [low, high] = setting.ranges[field.key];
+          return (
+            <NumField
+              key={field.key}
+              label={field.label}
+              hint={`${low}–${high}`}
+              unit={field.unit}
               min={low}
               max={high}
               value={draft[field.key]}
-              onChange={(event) => setDraft((value) => ({ ...value, [field.key]: event.target.value }))}
+              onChange={(value) => setDraft((current) => ({ ...current, [field.key]: value }))}
             />
-            <span className="dim">{field.unit}</span>
-          </label>
-        );
-      })}
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-        <button className="btn btn-primary btn-sm" type="button" disabled={busy} onClick={() => void save()}>
-          저장
-        </button>
-        <span className="small dim">
-          {setting.set_at ? `${setting.set_by_username || "—"} · ${formatWhen(setting.set_at)}` : "기본값 (80% · 80% · 48시간)"}
-        </span>
+          );
+        })}
+        <SaveBar
+          note={
+            changed > 0
+              ? `바뀐 값 ${changed}개`
+              : setting.set_at
+                ? `${setting.set_by_username || "—"} · ${formatWhen(setting.set_at)}`
+                : "기본값 (80% · 80% · 48시간)"
+          }
+        >
+          <button className="btn btn-primary btn-sm" type="button" disabled={busy} onClick={() => void save()}>
+            저장
+          </button>
+        </SaveBar>
+        {error !== null && (
+          <p className="small" role="alert" style={{ color: "var(--error-text)", margin: 0 }}>
+            {error}
+          </p>
+        )}
+        {saved && (
+          <p className="small" role="status" style={{ margin: 0 }}>
+            저장했어요. Dashboard 알림이 이 기준을 따라요.
+          </p>
+        )}
       </div>
-      {error !== null && (
-        <p className="small" role="alert">
-          {error}
-        </p>
-      )}
-      {saved && (
-        <p className="small" role="status">
-          저장했어요. Dashboard 알림이 이 기준을 따라요.
-        </p>
-      )}
-    </div>
+    </SettingsCard>
   );
 }

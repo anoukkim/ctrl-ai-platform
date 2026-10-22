@@ -21,6 +21,8 @@ import type { ConfirmRequest } from "@/app/components/ConfirmDialog";
 import { resetMemberPassword, type MemberDetail, type PasswordReset as Reset } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 
+import styles from "../members.module.css";
+
 interface Props {
   member: MemberDetail;
   busy: boolean;
@@ -72,34 +74,32 @@ export default function PasswordReset({ member, busy, askToConfirm, closeConfirm
   };
 
   return (
-    <div data-testid="password-reset" style={{ marginTop: "0.7rem", display: "grid", gap: "0.5rem" }}>
+    <div data-testid="password-reset" className={styles.detail} style={{ gap: "0.5rem" }}>
       <div>
         <button className="btn btn-sm" type="button" disabled={busy || working} onClick={ask}>
           비밀번호 재설정
         </button>
       </div>
       {error !== null && (
-        <p className="small" role="alert">
+        <p className={styles.error} role="alert">
           {error}
         </p>
       )}
       {issued !== null && (
-        <div className="card" data-testid="temporary-password">
+        <div className={styles.box} data-testid="temporary-password">
           <p className="small" role="status" style={{ margin: 0 }}>
             @{issued.username}의 임시 비밀번호를 만들었어요 — 이 창을 닫으면 다시 볼 수 없어요.
           </p>
-          <p style={{ margin: "0.4rem 0", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-            <code className="mono" style={{ fontSize: "1.05rem", userSelect: "all" }}>
-              {issued.temporary_password}
-            </code>
+          <div className={styles.line}>
+            <code className={styles.password}>{issued.temporary_password}</code>
             <button className="btn btn-sm" type="button" onClick={() => void copy()}>
               {copied ? "복사했어요" : "복사"}
             </button>
             <button className="btn btn-sm btn-ghost" type="button" onClick={() => setIssued(null)}>
               닫기
             </button>
-          </p>
-          <p className="small dim" style={{ margin: 0 }}>
+          </div>
+          <p className={styles.note}>
             로그인 {issued.sessions_ended}곳{issued.app_sessions_ended ? `, 회원 앱 ${issued.app_sessions_ended}곳` : ""}을 끝냈어요. 본인에게 직접 전하고, Profile › 로그인 방법에서 바꾸게 해 주세요.
           </p>
         </div>

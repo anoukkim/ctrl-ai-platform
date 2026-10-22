@@ -17,9 +17,9 @@ import { describeError } from "@/lib/http";
 import { formatDate, formatKrw } from "@/lib/quarters";
 
 import { useAdminQuarter } from "../../AdminQuarterProvider";
-import StatCards from "../../components/StatCards";
+import { PanelSection, Stats } from "../../components/AdminUI";
 
-import styles from "../../admin.module.css";
+import styles from "../members.module.css";
 
 const TOKENS = new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFractionDigits: 1 });
 
@@ -49,89 +49,90 @@ export default function MemberUsagePanel({ userId }: { userId: number }) {
   }, [userId, selected]);
 
   return (
-    <section aria-labelledby="member-usage" data-testid="member-usage">
-      <h2 className="section-title" id="member-usage">
-        사용 내역
-        {selected && <span className={styles.sectionNote}>{selected.display_name}</span>}
-      </h2>
-      {error !== null ? (
-        <div className="card">
-          <p className="small muted">사용 내역을 불러오지 못했습니다. {error}.</p>
-        </div>
-      ) : usage === null ? (
-        <p className="small muted">불러오는 중…</p>
-      ) : (
-        <>
-          <StatCards
-            cards={[
-              { key: "used", label: "사용", value: formatKrw(usage.used_krw) },
-              { key: "pct", label: "사용률", value: usage.used_pct === null ? "—" : `${usage.used_pct}%`, accent: (usage.used_pct ?? 0) >= warnPct },
-              { key: "left", label: "남음", value: formatKrw(usage.remaining_krw) },
-              { key: "calls", label: "호출", value: usage.calls, unit: "번" },
-              { key: "runs-out", label: "소진 예상", value: usage.runs_out_on ? formatDate(usage.runs_out_on) : "—" },
-            ]}
-          />
-          <div className={styles.analysisGrid}>
-            <section className="card">
-              <h3 className="section-title">기능별</h3>
-              {usage.by_feature.length === 0 ? (
-                <p className="small muted">아직 쓴 곳이 없어요.</p>
-              ) : (
-                <ul className={styles.analysisList}>
-                  {usage.by_feature.map((share) => (
-                    <li key={share.label}>
-                      <span>{share.label}</span>
-                      <span className="numeric">{formatKrw(share.krw)}</span>
+    <div data-testid="member-usage">
+      <PanelSection
+        title={
+          <>
+            사용 내역
+            {selected && <span className={styles.sectionExtra}>{selected.display_name}</span>}
+          </>
+        }
+      >
+        {error !== null ? (
+          <p className={styles.note}>사용 내역을 불러오지 못했습니다. {error}.</p>
+        ) : usage === null ? (
+          <p className={styles.note}>불러오는 중…</p>
+        ) : (
+          <>
+            <Stats
+              items={[
+                { key: "used", label: "사용", value: formatKrw(usage.used_krw) },
+                {
+                  key: "pct",
+                  label: "사용률",
+                  value: usage.used_pct === null ? "—" : `${usage.used_pct}%`,
+                  tone: (usage.used_pct ?? 0) >= warnPct ? "warn" : undefined,
+                },
+                { key: "left", label: "남음", value: formatKrw(usage.remaining_krw) },
+                { key: "calls", label: "호출", value: `${usage.calls}번` },
+                { key: "runs-out", label: "소진 예상", value: usage.runs_out_on ? formatDate(usage.runs_out_on) : "—" },
+              ]}
+            />
+            <div className={styles.split}>
+              <div className={styles.box}>
+                <b>기능별</b>
+                {usage.by_feature.length === 0 ? (
+                  <p className={styles.note}>아직 쓴 곳이 없어요.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {usage.by_feature.map((share) => (
+                      <li key={share.label}>
+                        <span>{share.label}</span>
+                        <span className="numeric">{formatKrw(share.krw)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className={styles.box}>
+                <b>모델별</b>
+                {usage.by_model.length === 0 ? (
+                  <p className={styles.note}>아직 쓴 모델이 없어요.</p>
+                ) : (
+                  <ul className={styles.list}>
+                    {usage.by_model.map((line) => (
+                      <li key={line.model_id}>
+                        <span>
+                          {line.label}
+                          <span className={styles.dim}> · {TOKENS.format(line.input_tokens + line.output_tokens)} 토큰</span>
+                        </span>
+                        <span className="numeric">{formatKrw(line.krw)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            {usage.recent.length > 0 && (
+              <div className={styles.box}>
+                <b>최근 호출</b>
+                <ul className={styles.list}>
+                  {usage.recent.map((call, index) => (
+                    <li key={index}>
+                      <span>
+                        {call.place}
+                        {call.model && <span className={styles.dim}> · {call.model}</span>}
+                        <span className={styles.dim}> · {formatWhen(call.when)}</span>
+                      </span>
+                      <span className="numeric">{formatKrw(call.krw)}</span>
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-            <section className="card">
-              <h3 className="section-title">모델별</h3>
-              {usage.by_model.length === 0 ? (
-                <p className="small muted">아직 쓴 모델이 없어요.</p>
-              ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th scope="col">모델</th>
-                      <th scope="col">토큰</th>
-                      <th scope="col">원</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usage.by_model.map((line) => (
-                      <tr key={line.model_id}>
-                        <td>{line.label}</td>
-                        <td className="numeric">{TOKENS.format(line.input_tokens + line.output_tokens)}</td>
-                        <td className="numeric">{formatKrw(line.krw)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </section>
-          </div>
-          {usage.recent.length > 0 && (
-            <section className="card">
-              <h3 className="section-title">최근 호출</h3>
-              <ul className={styles.analysisList}>
-                {usage.recent.map((call, index) => (
-                  <li key={index}>
-                    <span>
-                      {call.place}
-                      {call.model && <span className="small dim"> · {call.model}</span>}
-                      <span className="small dim"> · {formatWhen(call.when)}</span>
-                    </span>
-                    <span className="numeric">{formatKrw(call.krw)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </>
-      )}
-    </section>
+              </div>
+            )}
+          </>
+        )}
+      </PanelSection>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
-/* ZIP 미리보기의 파일 내용. */
+/* ZIP 미리보기의 파일 내용(오른쪽 판 안). */
 .content {
-  max-height: 55dvh;
+  max-height: 60dvh;
   margin: 0;
   padding: 0.7rem 0.8rem;
   overflow: auto;
@@ -20,15 +20,13 @@
   outline-offset: 2px;
 }
 
-/* 데이터 시트(app-platform P3): 공유 항목 목록. */
+/* 데이터 판(app-platform P3): 공유 항목 목록 — 판이 스크롤하므로 따로 자르지 않아요. */
 .items {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
   gap: 0.6rem;
-  max-height: 50dvh;
-  overflow: auto;
 }
 
 .item {

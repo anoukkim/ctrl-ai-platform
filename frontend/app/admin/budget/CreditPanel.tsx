@@ -25,10 +25,21 @@ import {
 import { describeError } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
 
-import AdminTable from "../components/AdminTable";
+import {
+  DataTable,
+  ItemList,
+  ItemRow,
+  Mono,
+  NumField,
+  PanelBar,
+  PanelSection,
+  SidePanel,
+  Stack,
+  Tag,
+} from "../components/AdminUI";
 import ResultMessage, { type Result } from "../components/ResultMessage";
 
-import styles from "../admin.module.css";
+import styles from "../quarters/quarters.module.css";
 
 const PROVIDER_OPTIONS = [
   { value: "claude", label: "Claude (Anthropic)" },
@@ -50,13 +61,14 @@ export default function CreditPanel({
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const [draft, setDraft] = useState(() => ({
     provider: "claude",
     purchased_on: today(),
     amount_usd: "",
     paid_krw: "",
     memo: "",
-  });
+  }));
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -96,7 +108,8 @@ export default function CreditPanel({
           setOpen(false);
           onChanged();
         } catch (error) {
-          setResult({ kind: "error", text: describeError(error) });
+          // Shown inside the panel: the page's message sits under it.
+          setPanelError(describeError(error));
         } finally {
           setBusy(false);
           setConfirm(null);
@@ -106,51 +119,96 @@ export default function CreditPanel({
   }
 
   return (
-    <>
-
-      <div className={styles.providerGrid}>
+    <Stack>
+      <ItemList columns={["제공자", "구매", "사용 (장부)", "남은 크레딧 (추정)", "이번 분기 사용"]} testId="credit-providers">
         {credit.providers.map((line) => (
-          <ProviderCard key={line.provider} line={line} />
+          <ProviderRow key={line.provider} line={line} />
         ))}
-      </div>
+      </ItemList>
 
       <ResultMessage result={result} onDismiss={() => setResult(null)} />
 
-      <h3 className="section-title" style={{ fontSize: "0.95rem", marginTop: "1.2rem" }}>
-        구매 기록
-        <span className={styles.sectionNote}>덧붙이기만 · 고치거나 지울 수 없음</span>
-      </h3>
-      <AdminTable
-        columns={[
-          { key: "date", header: "구매일", render: (row) => row.purchased_on.replaceAll("-", ".") },
-          { key: "provider", header: "제공자", render: (row) => row.provider_label },
-          { key: "usd", header: "크레딧", numeric: true, render: (row) => formatUsd(row.amount_usd) },
-          { key: "krw", header: "실제 결제", numeric: true, render: (row) => formatKrw(row.paid_krw) },
-          { key: "memo", header: "메모", render: (row) => row.memo || "–" },
-          { key: "by", header: "기록", render: (row) => `@${row.created_by_username || "–"}` },
-        ]}
-        rows={credit.purchases}
-        rowKey={(row) => row.id}
-        empty="아직 구매 기록이 없습니다. 크레딧을 사면 아래에서 적어 주세요."
-        caption="크레딧 구매 기록"
+      <PanelBar
+        left={<b style={{ fontSize: "0.88rem" }}>구매 기록</b>}
+        note="덧붙이기만 · 고치거나 지울 수 없음"
+        help={
+          <p>
+            틀리게 적었으면 음수 금액과 &ldquo;정정&rdquo; 메모로 한 줄을 더 적어요. 적을 때마다 감사 기록에 남아요.
+            남은 크레딧은 모든 구매 − 장부의 모든 사용으로 낸 추정이고, 최종 기준은 제공자 콘솔이에요.
+          </p>
+        }
+        actions={
+          <>
+            <a className="btn btn-sm" href={exportUrl.purchases()} download>
+              구매 기록 CSV
+            </a>
+            <button className="btn btn-sm btn-primary" type="button" onClick={() => {
+                setPanelError(null);
+                setOpen(true);
+              }}>
+              구매 기록 추가
+            </button>
+          </>
+        }
       />
+      <DataTable testId="credit-purchases">
+        <caption className="sr-only">크레딧 구매 기록</caption>
+        <thead>
+          <tr>
+            <th scope="col">구매일</th>
+            <th scope="col">제공자</th>
+            <th scope="col" data-numeric="">크레딧</th>
+            <th scope="col" data-numeric="">실제 결제</th>
+            <th scope="col">메모</th>
+            <th scope="col">기록</th>
+          </tr>
+        </thead>
+        <tbody>
+          {credit.purchases.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="small dim">
+                아직 구매 기록이 없어요. 크레딧을 사면 「구매 기록 추가」로 적어 주세요.
+              </td>
+            </tr>
+          ) : (
+            credit.purchases.map((row) => (
+              <tr key={row.id}>
+                <td>{row.purchased_on.replaceAll("-", ".")}</td>
+                <td>{row.provider_label}</td>
+                <td data-numeric="">{formatUsd(row.amount_usd)}</td>
+                <td data-numeric="">{formatKrw(row.paid_krw)}</td>
+                <td>{row.memo || "–"}</td>
+                <td>
+                  <Mono>@{row.created_by_username || "–"}</Mono>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </DataTable>
 
-      {!open ? (
-        <div className={styles.actionRow}>
-          <button className="btn btn-sm btn-primary" type="button" onClick={() => setOpen(true)}>
-            구매 기록 추가
-          </button>
-          <a className="btn btn-sm" href={exportUrl.purchases()} download>
-            구매 기록 CSV
-          </a>
-        </div>
-      ) : (
-        <div className={`card ${styles.quarterForm}`} data-testid="purchase-form">
-          <div className={styles.formGrid}>
-            <label className={styles.fieldRow}>
-              <span className={styles.fieldLabel}>제공자</span>
+      {open && (
+        <SidePanel
+          title="크레딧 구매 기록"
+          subtitle="덧붙이기만 · 감사 기록에 남아요"
+          onClose={() => setOpen(false)}
+          testId="purchase-form"
+          footer={
+            <>
+              <button className="btn btn-sm" type="button" onClick={() => setOpen(false)}>
+                취소
+              </button>
+              <button className="btn btn-sm btn-primary" type="button" disabled={!valid || busy} onClick={submit}>
+                기록하기
+              </button>
+            </>
+          }
+        >
+          <PanelSection title="구매">
+            <div className={styles.formField}>
+              <label htmlFor="purchase-provider">제공자</label>
               <select
-                className="field"
+                id="purchase-provider"
                 value={draft.provider}
                 onChange={(event) => setDraft({ ...draft, provider: event.target.value })}
               >
@@ -160,127 +218,113 @@ export default function CreditPanel({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className={styles.fieldRow}>
-              <span className={styles.fieldLabel}>구매일</span>
+            </div>
+            <div className={styles.formField}>
+              <label htmlFor="purchase-date">구매일</label>
               <input
-                className="field"
+                id="purchase-date"
                 type="date"
                 value={draft.purchased_on}
                 onChange={(event) => setDraft({ ...draft, purchased_on: event.target.value })}
               />
-            </label>
-            <label className={styles.fieldRow}>
-              <span className={styles.fieldLabel}>크레딧 (USD)</span>
-              <input
-                className="field"
-                inputMode="decimal"
-                placeholder="10.00"
-                value={draft.amount_usd}
-                onChange={(event) => setDraft({ ...draft, amount_usd: event.target.value })}
-              />
-            </label>
-            <label className={styles.fieldRow}>
-              <span className={styles.fieldLabel}>실제 결제 (원)</span>
-              <input
-                className="field"
-                inputMode="numeric"
-                placeholder="카드에 찍힌 금액"
-                value={draft.paid_krw}
-                onChange={(event) => setDraft({ ...draft, paid_krw: event.target.value })}
-              />
-            </label>
-          </div>
-          <label className={styles.fieldRow}>
-            <span className={styles.fieldLabel}>메모</span>
-            <input
-              className="field"
-              placeholder="예: 2026 Q4 첫 구매, 영수증 Concur 제출함"
-              value={draft.memo}
-              onChange={(event) => setDraft({ ...draft, memo: event.target.value })}
+            </div>
+          </PanelSection>
+          <PanelSection title="금액">
+            <NumField
+              label="크레딧 (USD)"
+              unit="$"
+              type="text"
+              inputMode="decimal"
+              value={draft.amount_usd}
+              onChange={(value) => setDraft({ ...draft, amount_usd: value })}
             />
-          </label>
-          <p className={styles.fieldHint}>
-            실제 결제는 카드 명세서의 원화 금액(수수료와 은행 환율 포함)입니다. 앞선 기록을
-            바로잡을 때만 음수를 쓰고, 메모에 무엇을 바로잡는지 적어 주세요.
-          </p>
-          <div className={styles.actionRow}>
-            <button
-              className="btn btn-sm btn-primary"
-              type="button"
-              disabled={!valid || busy}
-              onClick={submit}
-            >
-              기록하기
-            </button>
-            <button className="btn btn-sm" type="button" onClick={() => setOpen(false)}>
-              취소
-            </button>
-          </div>
-        </div>
+            <NumField
+              label="실제 결제 (원)"
+              unit="원"
+              type="text"
+              inputMode="numeric"
+              value={draft.paid_krw}
+              onChange={(value) => setDraft({ ...draft, paid_krw: value })}
+            />
+            <p className={styles.hint}>
+              실제 결제는 카드 명세서의 원화 금액(수수료와 은행 환율 포함)이에요. 앞선 기록을 바로잡을 때만 음수를 쓰고,
+              메모에 무엇을 바로잡는지 적어 주세요.
+            </p>
+          </PanelSection>
+          <PanelSection title="메모">
+            <div className={styles.formField}>
+              <label htmlFor="purchase-memo">메모</label>
+              <input
+                id="purchase-memo"
+                placeholder="예: 2026 Q4 첫 구매, 영수증 Concur 제출함"
+                value={draft.memo}
+                onChange={(event) => setDraft({ ...draft, memo: event.target.value })}
+              />
+            </div>
+          </PanelSection>
+          {panelError && (
+            <p className="small" role="alert" style={{ color: "var(--error-text)", margin: 0 }}>
+              {panelError}
+            </p>
+          )}
+        </SidePanel>
       )}
 
       <ConfirmDialog request={confirm} busy={busy} onClose={() => setConfirm(null)} />
-    </>
+    </Stack>
   );
 }
 
-function ProviderCard({ line }: { line: ProviderCredit }) {
+function ProviderRow({ line }: { line: ProviderCredit }) {
   const remaining = Number(line.remaining_usd);
   const low = Number(line.purchased_usd) > 0 && remaining < Number(line.purchased_usd) * 0.2;
   return (
-    <div className={styles.provider} data-testid={`credit-${line.provider}`}>
-      <p className={styles.providerName}>{line.label}</p>
-      <dl className={styles.factGrid}>
-        <div className={styles.fact}>
-          <dt className={styles.factLabel}>구매</dt>
-          <dd className={styles.factValue}>
-            {formatUsd(line.purchased_usd)}
-            <span className="small dim"> · {formatKrw(line.paid_krw)} 결제</span>
-          </dd>
-        </div>
-        <div className={styles.fact}>
-          <dt className={styles.factLabel}>사용 (장부)</dt>
-          <dd className={styles.factValue}>
-            {line.unpriced_events > 0 && Number(line.used_usd) === 0
-              ? "달러 비용 미기록"
-              : formatUsd(line.used_usd)}
-            <span className="small dim"> · 회원 차감 {formatKrw(line.used_krw)}</span>
-          </dd>
-        </div>
-        <div className={styles.fact}>
-          <dt className={styles.factLabel}>남은 크레딧 (추정)</dt>
-          <dd className={styles.factValue} data-testid={`remaining-${line.provider}`}>
-            <strong style={low ? { color: "var(--warn-text)" } : undefined}>
+    <ItemRow
+      testId={`credit-${line.provider}`}
+      title={line.label}
+      tags={low ? <Tag tone="warn">얼마 안 남음</Tag> : undefined}
+      sub={
+        <>
+          {Number(line.absorbed_usd) > 0 && (
+            <span style={{ display: "block" }}>
+              그중 {formatUsd(line.absorbed_usd)}는 회원에게 청구하지 않은 실패한 호출(동아리 부담)이에요.
+            </span>
+          )}
+          {line.unpriced_events > 0 && (
+            <span style={{ display: "block" }}>
+              달러 비용이 없는 사용 {line.unpriced_events.toLocaleString("ko-KR")}건(영상 등)은 원화로만 세요.
+            </span>
+          )}
+          {line.provider === "claude" && (
+            <span style={{ display: "block" }}>
+              Anthropic 콘솔이 최종 기준이에요 — Console › Billing의 잔액과 다르면 콘솔을 믿고, 「대조」로 어느 날이
+              다른지 찾아요.
+            </span>
+          )}
+        </>
+      }
+      cells={[
+        { label: "구매", value: `${formatUsd(line.purchased_usd)} · ${formatKrw(line.paid_krw)}` },
+        {
+          label: "사용 (장부)",
+          value: `${
+            line.unpriced_events > 0 && Number(line.used_usd) === 0 ? "달러 비용 미기록" : formatUsd(line.used_usd)
+          } · 회원 차감 ${formatKrw(line.used_krw)}`,
+        },
+        {
+          label: "남은 크레딧 (추정)",
+          keep: true,
+          value: (
+            <strong data-testid={`remaining-${line.provider}`} style={low ? { color: "var(--warn-text)" } : undefined}>
               {formatUsd(line.remaining_usd)}
             </strong>
-          </dd>
-        </div>
-        <div className={styles.fact}>
-          <dt className={styles.factLabel}>이번 분기 사용</dt>
-          <dd className={styles.factValue}>
-            {formatUsd(line.used_usd_quarter)}
-            <span className="small dim"> · {formatKrw(line.used_krw_quarter)}</span>
-          </dd>
-        </div>
-      </dl>
-      {Number(line.absorbed_usd) > 0 && (
-        <p className="small dim">
-          그중 {formatUsd(line.absorbed_usd)}는 회원에게 청구하지 않은 실패한 호출(동아리 부담)입니다.
-        </p>
-      )}
-      {line.unpriced_events > 0 && (
-        <p className="small dim">
-          달러 비용이 없는 사용 {line.unpriced_events.toLocaleString("ko-KR")}건(영상 등)은 원화로만
-          셉니다.
-        </p>
-      )}
-      {line.provider === "claude" && (
-        <p className="small dim">
-          Anthropic 콘솔이 최종 기준입니다 — Console › Billing의 잔액과 다르면 콘솔을 믿고,
-          아래 &ldquo;Anthropic 비용과 대조&rdquo;로 어느 날이 다른지 찾으세요.
-        </p>
-      )}
-    </div>
+          ),
+        },
+        {
+          label: "이번 분기 사용",
+          value: `${formatUsd(line.used_usd_quarter)} · ${formatKrw(line.used_krw_quarter)}`,
+        },
+      ]}
+    />
   );
 }

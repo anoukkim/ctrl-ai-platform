@@ -16,9 +16,8 @@ import { useState } from "react";
 import { refreshExchangeRate } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 
+import { ItemList, ItemRow, SettingsCard } from "../components/AdminUI";
 import { tabHref } from "../sections";
-
-import styles from "../admin.module.css";
 
 export default function MaintenancePanel() {
   const [busy, setBusy] = useState(false);
@@ -39,30 +38,32 @@ export default function MaintenancePanel() {
   };
 
   return (
-    <div className={`card ${styles.maintenance}`} data-testid="maintenance">
-      <div className={styles.maintenanceRow}>
-        <span>
-          <strong>게시된 앱 썸네일 다시 만들기</strong>
-          <span className="small dim"> · Community › 앱의 썸네일 만들기에서</span>
-        </span>
-        <Link className="btn btn-sm" href={tabHref("community", "apps")}>
-          열기
-        </Link>
-      </div>
-      <div className={styles.maintenanceRow}>
-        <span>
-          <strong>환율 지금 새로 고침</strong>
-          <span className="small dim"> · Frankfurter(ECB) · 감사 기록에 남아요</span>
-        </span>
-        <button className="btn btn-sm" type="button" disabled={busy} onClick={() => void refresh()}>
-          {busy ? "받는 중…" : "새로 고침"}
-        </button>
-      </div>
+    <SettingsCard title="유지보수" extra="가끔 누르는 일">
+      <ItemList testId="maintenance">
+        <ItemRow
+          title="앱 썸네일 다시 만들기"
+          sub="Community › 앱의 썸네일 만들기에서"
+          action={
+            <Link className="btn btn-sm" href={tabHref("community", "apps")}>
+              열기
+            </Link>
+          }
+        />
+        <ItemRow
+          title="환율 지금 새로 고침"
+          sub="Frankfurter(ECB) · 감사 기록에 남아요"
+          action={
+            <button className="btn btn-sm" type="button" disabled={busy} onClick={() => void refresh()}>
+              {busy ? "받는 중…" : "새로 고침"}
+            </button>
+          }
+        />
+      </ItemList>
       {note && (
         <p className="small muted" role="status" style={{ margin: 0 }}>
           {note}
         </p>
       )}
-    </div>
+    </SettingsCard>
   );
 }

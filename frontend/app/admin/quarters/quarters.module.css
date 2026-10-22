@@ -1,0 +1,281 @@
+/* Quarters › 분기 · 예산 | 사용 분석 (admin-ui-unify). The shared parts come
+   from components/AdminUI; these are the pieces only these screens draw. */
+
+/* ---------- 오른쪽 판의 칸: 이름 위, 입력칸 아래(날짜·글·선택) ---------- */
+
+.formField {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.formField label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.formField :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.formField :is(input, select):focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.formPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: 0.76rem;
+}
+
+/* ---------- 줄 안의 작은 날짜 범위 ---------- */
+
+.range {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- 돈의 흐름 막대 ---------- */
+
+.flowBar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.flowBar span[data-part="used"],
+.swatch[data-part="used"] {
+  background: var(--accent);
+}
+
+.flowBar span[data-part="unused"],
+.swatch[data-part="unused"] {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.flowBar span[data-part="reserve"],
+.swatch[data-part="reserve"] {
+  background: var(--border-strong);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.foot {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+/* ---------- 분기 마감 다섯 단계 ---------- */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+.step[data-state="now"] {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.step[data-state="done"] {
+  color: var(--text-muted);
+}
+
+.stepMark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 0.72rem;
+}
+
+.step[data-state="now"] .stepMark {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.step[data-state="done"] .stepMark {
+  border-color: var(--ok);
+  color: var(--ok-text);
+}
+
+.stepNow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-size: 0.85rem;
+}
+
+.stepNow p {
+  margin: 0;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.6rem;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 400;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .formPair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 사용 분석 ---------- */
+
+.rank {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.rank li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.rank li span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 6.5rem;
+}
+
+.trend span {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
+/* ---------- 분기 마감 확인창 안 ---------- */
+
+.previewScroll {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.dialogField {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.8rem 0;
+}
