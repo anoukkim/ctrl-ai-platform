@@ -11,6 +11,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import BrandMark from "@/app/components/BrandMark";
+import BackButton from "@/app/components/BackButton";
 
 import styles from "./legal.module.css";
 
@@ -28,6 +29,7 @@ export default function LegalPage({
     <div className={styles.screen}>
       <article className={styles.doc}>
         <header className={styles.head}>
+          <BackButton className={styles.back} />
           <Link className={styles.brand} href="/">
             <BrandMark size={18} variant="glyph" />
             CTRL+AI

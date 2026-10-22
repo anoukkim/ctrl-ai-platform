@@ -20,7 +20,7 @@ Context: member apps are static (apps.ctrlai.my: HTML/CSS/JS only, CSP connect-s
 ## 이 앱의 기획 (운영자 원문)
 
 App 3 — 문서 챗봇 메이커
-- Two sample docs (동아리 회칙, 서비스 이용 안내) + 30 sample conversation logs. Upload .txt/.md (PDF → "AI 연결 후 지원"); auto-chunking.
+- Sample doc: 근로기준법 in full (국가법령정보센터, 2026-10-08 in force; owner 2026-10-23 — "회사원들 상대") + 30 sample conversation logs; a "위키백과에서 가져오기" box (ko.wikipedia API, keyless). Earlier: two made-up docs (동아리 회칙, 서비스 이용 안내). Upload .txt/.md (PDF → "AI 연결 후 지원"); auto-chunking.
 - Bot settings: 이름, 말투(친근/공식), 환영 메시지, 못 찾을 때 문구.
 - Q&A: in-browser BM25 over chunks (isolate retrieval behind one function so it can later be swapped), answer = the best-matching passage(s) quoted with source (문서명 · 단락/페이지), streamed character-by-character; below a score threshold → the "문서에서 찾을 수 없어요" text. Badge "데모 · 문서 문장을 그대로 보여 줘요 (AI 연결 후 Claude가 정리)".
 - Embed: generate a one-line snippet (pointing at this app's widget page) + live widget preview in an iframe.

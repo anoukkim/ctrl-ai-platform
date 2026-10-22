@@ -280,7 +280,7 @@ def test_the_club_s_showcases_publish_as_full_and_are_known_to_use_ai(
     cli.import_examples(db_session, dev_user, settings)
     db_session.commit()
     projects = db_session.query(BuilderProject).filter_by(owner_user_id=dev_user.id).all()
-    assert len(projects) == 3
+    assert len(projects) == len(cli.EXAMPLES)
     for project in projects:
         assert project.ai_access == "full" and project.published_uses_ai is True, project.name
 

@@ -483,12 +483,13 @@ code {
 .page-header-stacked .page-subtitle {
   display: block;
   margin-top: 0.35rem;
-  max-width: 720px;
+  max-width: min(100%, 68rem);
 }
 
 .page-subtitle {
   min-width: 0;
-  max-width: 720px;
+  /* Wide screens read a longer line (owner, 2026-10-23: the intro wrapped early on desktop). */
+  max-width: min(100%, 68rem);
   color: var(--text-muted);
   font-size: var(--fs-page-subtitle);
   line-height: var(--lh-body);

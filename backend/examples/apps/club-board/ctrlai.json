@@ -1,0 +1,7 @@
+{
+  "db": [
+    { "name": "posts", "shared": true },
+    { "name": "comments", "shared": true },
+    { "name": "reactions", "shared": true }
+  ]
+}

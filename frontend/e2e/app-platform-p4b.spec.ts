@@ -99,7 +99,7 @@ test("문서 챗봇 LIVE: the quote is free, AI로 정리 answers with its sourc
   const before = await spentKrw(context.request);
 
   // A question the documents cover: the free answer first (the quote, 0원) …
-  await frame.getByLabel("질문").fill("회비는 얼마예요?");
+  await frame.getByLabel("질문").fill("연차는 며칠이에요?");
   await frame.getByRole("button", { name: "보내기" }).click();
   const aiButton = frame.locator(".msg.bot").last().locator("[data-ai]");
   await expect(aiButton).toBeVisible({ timeout: 15_000 });
