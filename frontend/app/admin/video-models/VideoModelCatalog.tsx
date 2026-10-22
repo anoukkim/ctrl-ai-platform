@@ -8,7 +8,8 @@
  * 제공자의 모델 목록은 바뀌기 때문입니다.
  *
  * 스위치는 두 개이고 뜻이 다릅니다.
- *   사용 가능       — CTRL+AI가 이 모델을 호출해도 되는가
+ *   CTRL+AI에서 사용 — CTRL+AI가 이 모델을 호출해도 되는가 (연결과는 별개:
+ *                      맨 위 한 줄이 Higgsfield 연결 상태입니다)
  *   회원에게 공개   — 회원이 직접 고를 수 있는가
  * 회원에게는 둘 다 켜진 모델만 보입니다. 사용 가능을 끄면 백엔드가
  * 회원에게 공개도 함께 끕니다.
@@ -32,15 +33,30 @@ import { formatKrw } from "@/lib/quarters";
 
 import VideoModelEditor from "./VideoModelEditor";
 
+import { type ProviderStatus, listProviders } from "@/lib/admin";
+import ProviderConnectionNotice, { isConnected } from "../ProviderConnectionNotice";
 import { sectionLabel } from "../sections";
 
 import styles from "../admin.module.css";
 import PageHeader from "@/app/components/PageHeader";
 import Skeleton from "@/app/components/Skeleton";
 
+const VIDEO_COPY = {
+  mockTitle: "Higgsfield는 아직 연결 전이에요.",
+  mockBody:
+    "실제 연결(Phase 6)이 아직 만들어지지 않아서, 지금은 테스트용 예시 영상만 나오고 Higgsfield에는 아무것도 보내지 않아요(비용 0). Video Generator도 회원에게 잠겨 있어요. 아래 모델들은 연결을 시험하려고 넣어 둔 예시예요.",
+};
+
+/** Admin › System 상태판의 영상 줄 — 읽지 못하면 줄을 안 보일 뿐입니다. */
+function videoProvider(): Promise<ProviderStatus | null> {
+  return listProviders()
+    .then((rows) => rows.find((row) => row.key === "video") ?? null)
+    .catch(() => null);
+}
+
 type State =
   | { phase: "loading" }
-  | { phase: "ready"; models: AdminVideoModel[] }
+  | { phase: "ready"; models: AdminVideoModel[]; provider: ProviderStatus | null }
   | { phase: "error"; message: string };
 
 export default function VideoModelCatalog() {
@@ -53,7 +69,7 @@ export default function VideoModelCatalog() {
     setState((current) =>
       current.phase === "ready"
         ? {
-            phase: "ready",
+            ...current,
             models: current.models.map((m) => (m.id === updated.id ? updated : m)),
           }
         : current,
@@ -62,8 +78,8 @@ export default function VideoModelCatalog() {
 
   const load = useCallback(async () => {
     try {
-      const models = await listAdminVideoModels();
-      setState({ phase: "ready", models });
+      const [models, provider] = await Promise.all([listAdminVideoModels(), videoProvider()]);
+      setState({ phase: "ready", models, provider });
     } catch (error) {
       setState({ phase: "error", message: describeError(error) });
     }
@@ -73,9 +89,9 @@ export default function VideoModelCatalog() {
   useEffect(() => {
     let cancelled = false;
 
-    listAdminVideoModels()
-      .then((models) => {
-        if (!cancelled) setState({ phase: "ready", models });
+    Promise.all([listAdminVideoModels(), videoProvider()])
+      .then(([models, provider]) => {
+        if (!cancelled) setState({ phase: "ready", models, provider });
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({ phase: "error", message: describeError(error) });
@@ -94,7 +110,7 @@ export default function VideoModelCatalog() {
         setState((current) =>
           current.phase === "ready"
             ? {
-                phase: "ready",
+                ...current,
                 models: current.models.map((m) => (m.id === updated.id ? updated : m)),
               }
             : current,
@@ -141,6 +157,7 @@ export default function VideoModelCatalog() {
 
       {state.phase === "ready" && (
         <>
+          <ProviderConnectionNotice provider={state.provider} copy={VIDEO_COPY} />
           {state.models.length > 0 && (
             <SearchBar
               value={query}
@@ -162,7 +179,7 @@ export default function VideoModelCatalog() {
                   <th scope="col">모델</th>
                   <th scope="col">제공자</th>
                   <th scope="col">모델 ID</th>
-                  <th scope="col">사용 가능</th>
+                  <th scope="col">CTRL+AI에서 사용</th>
                   <th scope="col">회원에게 공개</th>
                   <th scope="col">순서</th>
                   <th scope="col">옵션 · 초당 가격</th>
@@ -181,7 +198,8 @@ export default function VideoModelCatalog() {
                   <tr>
                     <td>
                       <span className={styles.memberName}>
-                        {model.display_name}
+                        {model.display_name}{" "}
+                        {!isConnected(state.provider) && <span className="badge badge-warn">연결 전</span>}
                         <span className={styles.modelDescription}>{model.description}</span>
                       </span>
                     </td>
@@ -197,7 +215,7 @@ export default function VideoModelCatalog() {
                         disabled={busyId === model.id}
                         aria-pressed={model.enabled}
                       >
-                        {model.enabled ? "사용 가능" : "사용 안 함"}
+                        {model.enabled ? "CTRL+AI에서 사용" : "사용 안 함"}
                       </button>
                     </td>
                     <td>
@@ -212,7 +230,7 @@ export default function VideoModelCatalog() {
                         title={
                           model.enabled
                             ? undefined
-                            : "먼저 사용 가능으로 바꿔야 회원에게 공개할 수 있습니다"
+                            : "먼저 ‘CTRL+AI에서 사용’을 켜야 회원에게 공개할 수 있습니다"
                         }
                       >
                         {model.member_visible ? "회원에게 공개" : "숨김"}
@@ -280,7 +298,7 @@ export default function VideoModelCatalog() {
           </div>
 
           <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            회원에게는 사용 가능과 회원에게 공개가 모두 켜진 모델만 보입니다. 사용 가능을
+            회원에게는 CTRL+AI에서 사용과 회원에게 공개가 모두 켜진 모델만 보입니다. CTRL+AI에서 사용을
             끄면 회원에게 공개도 함께 꺼집니다. 모델 ID는 여기서 바꾸지 않습니다 — 이미
             만들어진 버전이 가리키는 값이기 때문입니다.
           </p>
