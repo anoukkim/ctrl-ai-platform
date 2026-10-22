@@ -124,14 +124,15 @@ def test_the_wallet_is_checked_before_every_call_and_a_short_wallet_stops_it(
     client: TestClient, db_session: Session, budgeted, config
 ) -> None:
     # Measure one cut call first (continuation off), then give the member
-    # enough for about one and a half of them.
+    # enough for one and a little (a continuation reads the cached prompt,
+    # so it costs less than the first call).
     limits(db_session, total_cap_krw=0)
     first = new_conversation(client)
     one_call = done_of(events_of(send(client, first, "[mock-long:3000]").text))["charged_krw"]
     assert one_call > 0
     limits(db_session)  # continuation back on
     wallet = allocation(db_session)
-    wallet.budget_krw = wallet.consumed_krw + int(one_call * 1.6)
+    wallet.budget_krw = wallet.consumed_krw + int(one_call * 1.2)
     db_session.commit()
 
     conversation = new_conversation(client)
