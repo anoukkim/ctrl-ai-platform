@@ -153,7 +153,8 @@ vi.mock("@/app/admin/admin.module.css", () => ({ default: { usageCell: "usageCel
 const { default: MemberList } = await import("@/app/admin/members/MemberList");
 
 function rows() {
-  return screen.getAllByRole("row").slice(1); // 머리글 줄 제외
+  // admin-ui-unify: the list is the kit's ItemList — one ItemRow per member.
+  return screen.getAllByTestId("member-row");
 }
 
 describe("회원 목록의 칩과 사용률 (admin-consolidation v3)", () => {

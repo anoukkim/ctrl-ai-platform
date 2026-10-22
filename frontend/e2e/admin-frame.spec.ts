@@ -35,7 +35,7 @@ test("six sections, tabs inside, old addresses land in the new place, search fin
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${SITE}/admin`);
-  const tabs = page.getByRole("navigation", { name: "현재 위치" }).locator("xpath=following-sibling::*[1]").getByRole("link");
+  const tabs = page.getByRole("list", { name: "Admin 구역" }).getByRole("link");
   await expect(tabs.first()).toBeVisible();
   const names = (await tabs.allInnerTexts()).map((text) => text.replace(/\d+$/, "").trim());
   expect(names).toEqual(["Dashboard", "Members", "Quarters", "Models", "Community", "System"]);
@@ -93,7 +93,8 @@ test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four t
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${SITE}/admin/members`);
   await expect(page.getByRole("button", { name: /^전체/ })).toBeVisible();
-  await page.getByRole("row", { name: new RegExp(`@${USER}`) }).first().click();
+  // admin-ui-unify: the list is ItemRows, not table rows.
+  await page.getByTestId("member-row").filter({ hasText: `@${USER}` }).first().click();
   const panel = page.getByTestId("member-panel");
   await expect(panel).toBeVisible();
   await expect(panel.getByTestId("member-deleted-work")).toBeVisible();
@@ -118,9 +119,11 @@ test("batch 2: the member panel, 돈의 흐름 and 분기 마감, Models' four t
 
   await page.goto(`${SITE}/admin/models`);
   const tabs = page.getByRole("list", { name: /안의 탭/ }).getByRole("link");
-  await expect(tabs).toHaveText(["Chat", "Video", "한도", "보정"]);
+  await expect(tabs).toHaveText(["Chat", "Video", "Image", "한도", "보정"]);
+  // admin-ui-unify: the section's title is drawn once by the frame.
+  await expect(page.getByTestId("admin-section-head").getByRole("heading", { level: 1 })).toHaveText("Models");
   await page.goto(`${SITE}/admin/models?tab=limits`);
-  await expect(page.getByRole("heading", { name: "채팅 한도" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "생각 깊이" })).toBeVisible();
   await page.goto(`${SITE}/admin/community`);
   await expect(page.getByRole("list", { name: /안의 탭/ }).getByRole("link")).toHaveText([/^신고/, "의견", "앱"]);
   await page.goto(`${SITE}/admin/system`);
@@ -159,7 +162,7 @@ test("batch 4: 공지 띠 follows System on every page; 백업 and 알림 기준
     await expect(page.getByRole("region", { name: /공지|베타 안내/ })).toHaveCount(0);
 
     await page.goto(`${SITE}/admin/system`);
-    await page.getByRole("button", { name: /알림 기준/ }).click();
+    // admin-ui-unify: 알림 기준 is an always-open settings card.
     await expect(page.getByTestId("alerts-panel").getByLabel(/지원금을 이만큼/)).toHaveValue(/\d+/);
   } finally {
     await reset();

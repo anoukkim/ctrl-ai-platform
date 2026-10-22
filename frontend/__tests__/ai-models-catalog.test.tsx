@@ -1,8 +1,8 @@
 /**
- * Admin › AI Models — 화면 쪽 (admin-and-nav-cleanup).
+ * Admin › Models › Chat — 화면 쪽 (admin-and-nav-cleanup; admin-ui-unify).
  *
- * 제공자별 묶음(Anthropic이 먼저), 연결 준비 중 제공자의 컨트롤이 꺼져
- * 있는지, + 모델 추가가 제공자를 먼저 묻는지를 봅니다. 실제로 막는 쪽
+ * 제공자별 묶음(Anthropic이 먼저), 연결 준비 중 제공자의 컨트롤이(오른쪽
+ * 설정 판에서) 꺼져 있는지, + 모델 추가가 제공자를 먼저 묻는지를 봅니다. 실제로 막는 쪽
  * (check_open)은 백엔드 테스트가 봅니다 (`backend/tests/test_chat_models.py`).
  */
 
@@ -14,12 +14,14 @@ import type { AdminChatModel, ChatProvider } from "@/lib/admin";
 
 const listChatModels = vi.fn();
 const listChatProviders = vi.fn();
+const listProviders = vi.fn();
 vi.mock("@/lib/admin", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/admin")>();
   return {
     ...actual,
     listChatModels: () => listChatModels(),
     listChatProviders: () => listChatProviders(),
+    listProviders: () => listProviders(),
   };
 });
 
@@ -68,35 +70,43 @@ const CATALOGUE = [
 function serve(models: AdminChatModel[]) {
   listChatModels.mockResolvedValue(models);
   listChatProviders.mockResolvedValue(PROVIDERS);
+  listProviders.mockResolvedValue([]);
 }
 
-describe("Admin › AI Models — 제공자별 묶음", () => {
-  test("제공자마다 제목 하나, Anthropic이 먼저, 연결 준비 중 배지", async () => {
+/** 그 모델의 ⋯ 설정 판을 엽니다. */
+async function openPanel(user: ReturnType<typeof userEvent.setup>, label: string) {
+  await user.click(await screen.findByRole("button", { name: `${label} 설정` }));
+  return screen.getByTestId("chat-model-panel");
+}
+
+describe("Admin › Models › Chat — 제공자별 묶음", () => {
+  test("제공자마다 묶음 하나, Anthropic이 먼저, 연결 준비 중 표시", async () => {
     serve(CATALOGUE);
     render(<ModelCatalog />);
 
-    const headings = await screen.findAllByRole("heading", { level: 2 });
-    expect(headings[0].textContent).toContain("Anthropic (Claude)");
-    expect(headings[1].textContent).toContain("DeepSeek (미국 호스팅)");
-    expect(headings[1].textContent).toContain("연결 준비 중");
-    expect(headings[0].textContent).not.toContain("연결 준비 중");
-    // 첫 제공자(Anthropic)만 펼쳐져 있고, 나머지는 접힌 줄에 요약만 보입니다.
-    expect(screen.getByRole("button", { name: /Anthropic \(Claude\)/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: /DeepSeek/ }).getAttribute("aria-expanded")).toBe("false");
+    const list = await screen.findByTestId("chat-models");
+    const text = list.textContent ?? "";
+    expect(text.indexOf("Anthropic (Claude)")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("Anthropic (Claude)")).toBeLessThan(text.indexOf("DeepSeek (미국 호스팅)"));
     expect(screen.getByText("모델 1개 · 회원 공개 0개")).toBeTruthy();
-    expect(screen.queryByLabelText("DeepSeek V4.1 Flash 공개 범위")).toBeNull();
+    // 연결 상태는 맨 위 카드에서 — DeepSeek는 연결 준비 중.
+    const status = within(screen.getByTestId("provider-connection"));
+    expect(status.getByText("DeepSeek (미국 호스팅)")).toBeTruthy();
+    expect(status.getByText("연결 준비 중")).toBeTruthy();
+    // 목록 안에는 입력칸이 없습니다 — 바꾸는 일은 오른쪽 판에서.
+    expect(within(list).queryByRole("combobox")).toBeNull();
   });
 
-  test("검색 중에는 모든 제공자가 펼쳐지고, 위 숫자 카드는 늘 보인다", async () => {
+  test("검색하면 맞는 모델만 남고, 기본 모델은 늘 보인다", async () => {
     serve(CATALOGUE);
     const user = userEvent.setup();
     render(<ModelCatalog />);
 
-    expect((await screen.findAllByText("기본 모델")).length).toBeGreaterThan(0);
-    // 기본 모델 카드에 한 번, 펼쳐진 Anthropic 표에 한 번.
-    expect(screen.getAllByText("균형 잡힌 답변 (Sonnet 5.5)").length).toBe(2);
+    expect(await screen.findByText("기본 모델: 균형 잡힌 답변 (Sonnet 5.5)")).toBeTruthy();
+    expect(screen.getAllByTestId("chat-model")).toHaveLength(2);
     await user.type(screen.getByRole("searchbox"), "flash");
-    expect(await screen.findByLabelText("DeepSeek V4.1 Flash 공개 범위")).toBeTruthy();
+    expect(screen.getAllByTestId("chat-model")).toHaveLength(1);
+    expect(screen.getByTestId("chat-model").textContent).toContain("DeepSeek V4.1 Flash");
   });
 
   test("연결 준비 중 제공자의 닫힌 모델은 열 수도, 기본으로 정할 수도 없다", async () => {
@@ -104,14 +114,20 @@ describe("Admin › AI Models — 제공자별 묶음", () => {
     const user = userEvent.setup();
     render(<ModelCatalog />);
 
-    // 제공자 섹션은 접혀 있고 한 번에 하나만 펼쳐집니다 (ui-improvements B).
-    await user.click(await screen.findByRole("button", { name: /DeepSeek \(미국 호스팅\)/ }));
-    const select = await screen.findByLabelText("DeepSeek V4.1 Flash 공개 범위");
-    expect((select as HTMLSelectElement).disabled).toBe(true);
+    const panel = within(await openPanel(user, "DeepSeek V4.1 Flash"));
+    const select = panel.getByLabelText("DeepSeek V4.1 Flash 공개 범위") as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect((panel.getByTestId("chat-model-default") as HTMLInputElement).disabled).toBe(true);
+  });
 
-    const deepseekRow = select.closest("tr") as HTMLElement;
-    const defaultButton = within(deepseekRow).getByRole("button", { name: "기본으로" });
-    expect((defaultButton as HTMLButtonElement).disabled).toBe(true);
+  test("기본 모델 스위치는 확인 창을 거친다", async () => {
+    serve([model({ id: 1, is_default: true }), model({ id: 4, label: "빠른 답변", is_default: false })]);
+    const user = userEvent.setup();
+    render(<ModelCatalog />);
+
+    const panel = within(await openPanel(user, "빠른 답변"));
+    await user.click(panel.getByTestId("chat-model-default"));
+    expect(await screen.findByText("빠른 답변을 기본 모델로 정할까요?")).toBeTruthy();
   });
 
   test("연결 전 제공자인데 열려 있는 옛 행은 '사용 안 함'으로 닫을 수는 있다", async () => {
@@ -128,8 +144,8 @@ describe("Admin › AI Models — 제공자별 묶음", () => {
     const user = userEvent.setup();
     render(<ModelCatalog />);
 
-    await user.click(await screen.findByRole("button", { name: /openrouter/ }));
-    const select = (await screen.findByLabelText("옛 행 공개 범위")) as HTMLSelectElement;
+    const panel = within(await openPanel(user, "옛 행"));
+    const select = panel.getByLabelText("옛 행 공개 범위") as HTMLSelectElement;
     expect(select.disabled).toBe(false);
     const values = [...select.options].map((option) => option.value);
     expect(values).toContain("disabled");
@@ -142,7 +158,7 @@ describe("Admin › AI Models — 제공자별 묶음", () => {
     const user = userEvent.setup();
     render(<ModelCatalog />);
 
-    await screen.findAllByRole("heading", { level: 2 });
+    await screen.findByTestId("chat-models");
     await user.click(screen.getByRole("button", { name: "+ 모델 추가" }));
 
     const providerSelect = screen.getByLabelText("제공자");

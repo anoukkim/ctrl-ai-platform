@@ -58,7 +58,7 @@ describe("사용 분석", () => {
     const page = await screen.findByTestId("usage-analysis");
     expect(page.textContent).toContain("89,100원");
     expect(page.textContent).toContain("96,410원");
-    const providers = within(screen.getByRole("table")).getAllByRole("row");
+    const providers = within(screen.getByTestId("usage-providers")).getAllByRole("row");
     expect(providers[1].textContent).toContain("$188.80");
     expect(page.textContent).toContain("Project Builder");
     expect(page.textContent).toContain("58%");
