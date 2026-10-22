@@ -145,6 +145,8 @@
 
 /* 돌아가기 — "자세히"로 들어온 글에서 원래 화면으로 */
 .back {
+  align-self: flex-start;
+  width: fit-content;
   display: inline-flex;
   align-items: center;
   gap: 6px;

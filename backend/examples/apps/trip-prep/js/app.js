@@ -387,6 +387,8 @@
       render();
     }
   });
+  // 예시로 바로 그리고, 저장된 입력과 AI 스위치 상태가 오면 다시 그려요 (첫 화면이 늦게 뜨지 않게).
+  render();
   Promise.all([store.get(KEY), sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo"])
     .then(([saved, aiMode]) => {
       if (saved && saved.form && P.DESTINATIONS.some((d) => d.name === saved.form.dest)) {
