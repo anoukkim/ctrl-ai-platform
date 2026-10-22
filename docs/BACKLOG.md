@@ -37,8 +37,9 @@ for 2026-10-19), and its operational checklist went to the owner.
 - **Point 10 — closed 2026-10-19**: production runs real Claude
   (`CLAUDE_PROVIDER=anthropic`) and members' chats are charged real usage.
   The wrong-key message check stays optional.
-- **owner-polish point 12** — image provider research; a real provider is
-  a paid resource (CLAUDE.md §10), so the owner decides (Next 5).
+- **owner-polish point 12** — decided 2026-10-22: Gemini; built as
+  image-generation (merged `fb32614`, mock, locked). Left: the owner buys
+  a billed Google key and turns it on (docs/deployment.md › 이미지 만들기).
 - **usage-analytics** — mostly delivered by admin-consolidation batch 3
   (Quarters › 사용 분석, the member panel's 사용 내역); the owner closes it
   or names what is left (*After the prototype*).
@@ -147,9 +148,9 @@ each entry below says whether it is pre-approved.
     [`archive/done-specs.md`](archive/done-specs.md#owner-polish-2026-10-16--next-entry-and-the-owners-words-all-but-point-12-merged-2026-10-16).
     Left in this item:
     - **12 (image provider research)** — spec below
-      ("owner-polish-2026-10-16 — point 12"); a real provider is a paid
-      resource (CLAUDE.md §10), so it waits for the owner. Pairs with
-      **image-generation** (*After the beta*).
+      ("owner-polish-2026-10-16 — point 12"). The owner chose Gemini on
+      2026-10-22 and **image-generation** merged (mock, locked); what is
+      left is the owner's billed key — docs/deployment.md › 이미지 만들기.
 
 ---
 
@@ -244,9 +245,6 @@ specs are at the end of this file; the research behind them is in
   잊었어요" becomes Google sign-in → set a new password within 10 minutes.
   Added by the owner on 2026-10-14. **Spec only — the beta keeps sign-up
   as deployed.** Spec below.
-- **image-generation** · M2 — raster images through an
-  `ImageGenerationProvider` (mock first; Gemini image models the first
-  real candidate). Waits on the budget-by-provider decision.
 - **more-chat-providers** (optional) · M3 — Gemini, Grok, DeepSeek
   (hosted outside China only) or an aggregator as further catalogue
   providers, on the seam `chat-model-choice` left.
@@ -1115,65 +1113,6 @@ it yearly).
 → **Archived specs** moved to [`archive/done-specs.md`](archive/done-specs.md#archived-specs).
 
 → **chat-plus-tools — full spec (merged 2026-10-14)** moved to [`archive/done-specs.md`](archive/done-specs.md#chat-plus-tools--full-spec-merged-2026-10-14).
-
-## image-generation — full spec
-
-After the beta · M2 · branch `feat-image-generation`. Effort: **M** (3–5
-days). Added 2026-10-07. **Started 2026-10-22 on the owner's word** ("구글이니까
-제미나이로 ㄱㄱ" — Gemini first; GPT Image 2 and FLUX.2 klein were the
-alternatives compared). Built mock-first: the `image_models` catalogue
-(Nano Banana 2.1 visible, Nano Banana Pro hidden, example prices), the
-이미지 만들기 card in Chat (`[[action:image|…]]`), `IMAGE_PROVIDER=mock|gemini`
-with the paid-project guard, its own 기능 열기 switch (locked), Admin ›
-Models › Image. Image spending counts under 채팅 on the wallet card (the
-owner's four lines stay) and is labelled 이미지 in the ledger; Google is a
-purchase provider in Admin › 크레딧 구매. **Before a real key:** the owner
-creates a billed Google project (a paid resource — CLAUDE.md §10), checks
-whether its prepaid credit gives Concur receipts, and confirms the prices.
-
-1. **Claude cannot make raster images** (Anthropic's docs). What Chat can
-   already do without this item: SVG, HTML and chart code, previewed by
-   `chat-plus-artifacts` — token cost only (≈ 14–42원 Haiku, 28–84원
-   Sonnet for a typical drawing).
-2. **A provider interface with a mock**, as for video:
-   `ImageGenerationProvider` behind `IMAGE_PROVIDER` (`mock` default |
-   `gemini`), and an image model catalogue like Video Models (provider,
-   model id, label, per-image price in won by size, visibility).
-3. **First real candidate: Google's Gemini image models** — Nano Banana
-   2.1 about **$0.034 (≈ 47원) per 1K image**, 2K ≈ 71원, 4K ≈ 158원;
-   Gemini 3 Pro Image ≈ 188원. xAI's image models (≈ 28–70원) are the
-   alternative. Imagen 4 is shut down. (Research doc.)
-4. **In Chat:** 이미지 만들기 in the composer, or Claude offering it the
-   way it offers the Builder and Video buttons. Claude may improve the
-   prompt (tokens); the image provider generates (per image); both from
-   the member's one wallet; the result is stored through the storage interface
-   as a chat attachment with 다운로드.
-5. **Which budget — settled by `single-wallet` (2026-10-08):** the
-   member's one wallet, recorded with `provider="gemini"` (or whichever
-   image provider) so Admin › Budget shows it as its own line. Google is a
-   different prepaid provider and credit cannot move between Anthropic and
-   Google, so it becomes a **third per-provider purchase** forecast from
-   usage by provider under budget-by-provider — no third member pot.
-6. **Data terms.** Gemini's *free* tier uses submitted content for
-   training and lets humans read it — **member prompts must only ever go
-   through a paid (billed) project**. A key on an unbilled project
-   silently becomes free tier, so startup refuses `IMAGE_PROVIDER=gemini`
-   unless `GEMINI_BILLING_CONFIRMED=true`, and `docs/deployment.md` says
-   why. Gemini's terms require users to be 18 or over.
-
-**Charged:** the image budget per image at the catalogue price (in won,
-snapshotted like video prices); Build for Claude's prompt help.
-
-**Tests:** mock generation end to end (budget check before, charge after,
-nothing on failure); the price by size from the catalogue; hidden and
-disabled image models refused; the billing-confirmation guard; the image
-stored and downloadable by its owner only.
-
-**Risks:** a new provider pot and receipt trail for Concur (whether
-Gemini's prepaid purchases produce downloadable receipts is *unverified*
-— check before buying). The data terms above. Content safety (provider
-filters; a refusal shown in Korean and not charged). Generated images on
-the VM disk count toward the member's attachment quota.
 
 ## more-chat-providers — full spec (optional)
 

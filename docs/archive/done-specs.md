@@ -5,6 +5,65 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## image-generation — full spec (merged 2026-10-22)
+
+After the beta · M2 · branch `feat-image-generation`. Effort: **M** (3–5
+days). Added 2026-10-07. **Started 2026-10-22 on the owner's word** ("구글이니까
+제미나이로 ㄱㄱ" — Gemini first; GPT Image 2 and FLUX.2 klein were the
+alternatives compared). Built mock-first: the `image_models` catalogue
+(Nano Banana 2.1 visible, Nano Banana Pro hidden, example prices), the
+이미지 만들기 card in Chat (`[[action:image|…]]`), `IMAGE_PROVIDER=mock|gemini`
+with the paid-project guard, its own 기능 열기 switch (locked), Admin ›
+Models › Image. Image spending counts under 채팅 on the wallet card (the
+owner's four lines stay) and is labelled 이미지 in the ledger; Google is a
+purchase provider in Admin › 크레딧 구매. **Before a real key:** the owner
+creates a billed Google project (a paid resource — CLAUDE.md §10), checks
+whether its prepaid credit gives Concur receipts, and confirms the prices.
+
+1. **Claude cannot make raster images** (Anthropic's docs). What Chat can
+   already do without this item: SVG, HTML and chart code, previewed by
+   `chat-plus-artifacts` — token cost only (≈ 14–42원 Haiku, 28–84원
+   Sonnet for a typical drawing).
+2. **A provider interface with a mock**, as for video:
+   `ImageGenerationProvider` behind `IMAGE_PROVIDER` (`mock` default |
+   `gemini`), and an image model catalogue like Video Models (provider,
+   model id, label, per-image price in won by size, visibility).
+3. **First real candidate: Google's Gemini image models** — Nano Banana
+   2.1 about **$0.034 (≈ 47원) per 1K image**, 2K ≈ 71원, 4K ≈ 158원;
+   Gemini 3 Pro Image ≈ 188원. xAI's image models (≈ 28–70원) are the
+   alternative. Imagen 4 is shut down. (Research doc.)
+4. **In Chat:** 이미지 만들기 in the composer, or Claude offering it the
+   way it offers the Builder and Video buttons. Claude may improve the
+   prompt (tokens); the image provider generates (per image); both from
+   the member's one wallet; the result is stored through the storage interface
+   as a chat attachment with 다운로드.
+5. **Which budget — settled by `single-wallet` (2026-10-08):** the
+   member's one wallet, recorded with `provider="gemini"` (or whichever
+   image provider) so Admin › Budget shows it as its own line. Google is a
+   different prepaid provider and credit cannot move between Anthropic and
+   Google, so it becomes a **third per-provider purchase** forecast from
+   usage by provider under budget-by-provider — no third member pot.
+6. **Data terms.** Gemini's *free* tier uses submitted content for
+   training and lets humans read it — **member prompts must only ever go
+   through a paid (billed) project**. A key on an unbilled project
+   silently becomes free tier, so startup refuses `IMAGE_PROVIDER=gemini`
+   unless `GEMINI_BILLING_CONFIRMED=true`, and `docs/deployment.md` says
+   why. Gemini's terms require users to be 18 or over.
+
+**Charged:** the image budget per image at the catalogue price (in won,
+snapshotted like video prices); Build for Claude's prompt help.
+
+**Tests:** mock generation end to end (budget check before, charge after,
+nothing on failure); the price by size from the catalogue; hidden and
+disabled image models refused; the billing-confirmation guard; the image
+stored and downloadable by its owner only.
+
+**Risks:** a new provider pot and receipt trail for Concur (whether
+Gemini's prepaid purchases produce downloadable receipts is *unverified*
+— check before buying). The data terms above. Content safety (provider
+filters; a refusal shown in Korean and not charged). Generated images on
+the VM disk count toward the member's attachment quota.
+
 ## publish-summary — full spec (merged 2026-10-16)
 
 Branch `feat-publish-summary`. Moved here from BACKLOG › Next on merge; text unchanged.
