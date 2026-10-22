@@ -94,6 +94,23 @@ archived in
 [`archive/done-specs.md`](archive/done-specs.md#backlog-now-and-next-pre-approvals-2026-10-14--2026-10-16-moved-2026-10-17);
 each entry below says whether it is pre-approved.
 
+00. **chat-search-tools** · M3 · branch `feat-chat-search-tools`
+   *Owner's questions 2026-10-23, not started — branch, test, report, WAIT.*
+   Chat finds pictures only on Wikimedia Commons (Claude's web search gives
+   page addresses, not image files) and cannot read Naver blogs (they are
+   hardly in Claude's search index). Give Claude two server tools: **image
+   search** through Openverse (keyless, CC-licensed images with their file
+   address, author and licence) and **Naver search** (blog · news) through
+   the Naver Search API — needs the owner's free client id/secret from Naver
+   Developers, kept in the server `.env`, `NAVER_SEARCH_PROVIDER=mock|naver`.
+   Also: Claude still narrates ("…에서 찾아볼게요") despite the rule.
+
+01. **plain-words-pass** · M1 · one small branch per screen
+   *Owner, 2026-10-23: "더 user friendly 하게 … 모든 문구 be simple and clear".*
+   The showcase apps and the CtrlAIApps intro were rewritten on 2026-10-23;
+   go through the rest of the site screen by screen (Chat, Builder, Usage,
+   Profile, Admin) with short, plain sentences.
+
 0. **web-search-and-images** · M3 · branch `feat-web-search-and-images`
    **A (app AI web search) merged 2026-10-19** as `feat-app-ai-web-search`; B (images) next.
    *Owner's request 2026-10-19 — direction decided, built in the stated
