@@ -1130,3 +1130,4 @@ def test_chat_may_show_https_images_found_by_a_tool() -> None:
     assert "The screen shows https images" in CHAT_SYSTEM_PROMPT
     assert "never one from memory" in CHAT_SYSTEM_PROMPT
     assert "commons.wikimedia.org/wiki/Special:FilePath/" in CHAT_SYSTEM_PROMPT
+    assert 'search "site:commons.wikimedia.org"' in CHAT_SYSTEM_PROMPT
