@@ -119,6 +119,29 @@ describe("연결 상태 한 줄", () => {
     expect(await screen.findByText(/확인함 ·/)).toBeTruthy();
   });
 
+  test("서버에 잠깐 닿지 않아도 다시 물어 돌아온다 (fix-health-strip-retry)", async () => {
+    // 배포 중 몇 초, 또는 네트워크가 잠깐 끊긴 사이에 연 화면: 첫 요청은
+    // 실패하고 두 번째가 성공합니다. 새로 고치지 않아도 초록으로 돌아와야 합니다.
+    fetchHealth.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(<HealthStrip retryMs={20} refreshMs={60_000} />);
+
+    await waitFor(() => expect(screen.getByTestId("health-api").getAttribute("data-tone")).toBe("error"));
+    expect(screen.getByTestId("health-api").textContent).toContain("다시 확인 중");
+
+    await waitFor(() => expect(screen.getByTestId("health-api").getAttribute("data-tone")).toBe("ok"));
+    expect(screen.getByTestId("health-db").getAttribute("data-tone")).toBe("ok");
+    expect(fetchHealth).toHaveBeenCalledTimes(2);
+  });
+
+  test("닿지 않는 동안 마지막으로 닿은 때를 적는다", async () => {
+    render(<HealthStrip retryMs={20} refreshMs={20} />);
+    await waitFor(() => expect(screen.getByTestId("health-api").getAttribute("data-tone")).toBe("ok"));
+
+    fetchHealth.mockRejectedValue(new TypeError("Failed to fetch"));
+    await waitFor(() => expect(screen.getByTestId("health-api").getAttribute("data-tone")).toBe("error"));
+    expect(screen.getByTestId("health-api").textContent).toContain("마지막 연결");
+  });
+
   test("색의 규칙: mock은 회색, 키 없는 실제 연결은 빨강, 오류 뒤 성공은 초록", () => {
     expect(providerTone(provider({ is_mock: true }))).toBe("muted");
     expect(providerTone(provider({ is_mock: false, has_key: false }))).toBe("error");
