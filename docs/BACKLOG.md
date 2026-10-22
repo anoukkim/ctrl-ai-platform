@@ -164,7 +164,7 @@ each entry below says whether it is pre-approved.
 
 ---
 
-6. **app-libraries** · M3 · branch `feat-app-libraries`
+6. ~~**app-libraries**~~ · **closed 2026-10-22** (owner: "닫아도 되고") — superseded by app-open-services: apps load these libraries from jsDelivr/cdnjs. Kept below for the record.
     *Direction, not pre-approved — review after app-platform P4; order to
     be set by the owner.* (Renumbered as items joined and merged on
     2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
