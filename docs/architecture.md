@@ -42,6 +42,7 @@ that route — there is no second check further in.
 | `require_admin` | Is this person an `admin`? | 403 |
 | `require_active_member` | Are they **participating in the current quarter**? | 403 |
 | `require_video_open` | `require_active_member`, and is the **Video Generator open** to members (Admin › System › 상태 › 기능 열기, locked by default; the 관리자 is never locked out)? | 403 "다음 단계에서 열려요" |
+| `require_image_open` | The same for **이미지 만들기 (Chat)** — its own switch, locked by default (image-generation) | 403 "이미지 만들기는 다음 단계에서 열려요" |
 
 `require_active_member` builds on `get_current_user`, so signing in is
 assumed. A **missing** `QuarterMembership` row means "not participating":
@@ -125,6 +126,8 @@ the same commit that adds it.
 | `GET /api/chat/attachments/{id}/file` | `get_current_user` | The member's own stored copy — works while not taking part |
 | `GET /api/chat/conversations/{id}/attachments/estimate` | `get_current_user` | What the waiting files add to a reply |
 | `GET /api/chat/conversations/{id}/attachments/pending` | `get_current_user` | Files uploaded, not sent yet |
+| `GET /api/chat/image-models` | `get_current_user` | image-generation: what the 이미지 만들기 card offers, whether it is open, whether the provider is mock |
+| `POST /api/chat/messages/{id}/images` | **`require_image_open`** | image-generation: one picture from the card on the member's own reply — spends the wallet; price checked before the provider, nothing charged or stored on a refusal or failure; the picture becomes an attachment on that reply (never sent back to Claude) |
 | `GET /api/builder/projects` | `get_current_user` | Reading your own work |
 | `GET /api/builder/projects/{id}` | `get_current_user` | Reading your own work |
 | `POST /api/builder/projects` | **`require_active_member`** | Creating |
@@ -203,6 +206,8 @@ the same commit that adds it.
 | `POST /api/admin/top-ups/{id}/confirm` | `require_admin` | |
 | `GET /api/admin/video-models` | `require_admin` | |
 | `PATCH /api/admin/video-models/{id}` | `require_admin` | |
+| `GET /api/admin/image-models` | `require_admin` | image-generation |
+| `PATCH /api/admin/image-models/{id}` | `require_admin` | Switches and per-image prices; every change audited (`image_model.updated`) |
 | `GET /api/admin/audit` | `require_admin` | Read-only; the log is append-only |
 | `GET /api/admin/features`, `POST /api/admin/features/{key}` | `require_admin` | Admin › System › 기능 열기 (owner-polish 6): run-time switches, the first locks the Video Generator for members; audited |
 | `GET /api/admin/invites` | `require_admin` | Invite codes, with who signed up with each |
@@ -273,7 +278,7 @@ endpoint as an inactive, unenrolled, active and admin member.
 
 Every external provider sits behind an interface with a **mock
 implementation selected by an environment variable**, mock by default
-(`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `GITHUB_PROVIDER`,
+(`CLAUDE_PROVIDER`, `VIDEO_PROVIDER`, `IMAGE_PROVIDER`, `GITHUB_PROVIDER`,
 `YOUTUBE_PROVIDER`, `FX_PROVIDER`, `GOOGLE_LOGIN_PROVIDER` for Google
 sign-in, and `THUMBNAIL_RENDERER` — `browser`, the in-browser capture, is
 its "mock"; `server` is the headless Chromium container below). See the
@@ -287,6 +292,7 @@ than a rewrite.
 Backend
   ├─ ClaudeProvider      ── MockClaude      | Anthropic
   ├─ VideoProvider       ── MockVideo       | Higgsfield
+  ├─ ImageProvider       ── MockImage       | Gemini (image-generation; paid project only)
   ├─ GitHubProvider      ── MockGitHub      | GitHub App
   ├─ YouTubeProvider     ── MockYouTube     | Google OAuth
   ├─ FxProvider          ── MockFx          | Frankfurter (ECB)
