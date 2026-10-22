@@ -515,6 +515,19 @@ Chat is the opening screen and a real conversation with Claude, behind
   without a reload. A stopped or cap-stopped reply settles the same way; a
   server-reported failure says 청구되지 않았어요 (and only that case — a
   dropped connection still charges for what streamed, like 중지).
+- **자동 (추천) — the default 생각 깊이** (auto-depth, owner 2026-10-22: "빌더도
+  중간에 멈추니까 그냥 기본적으로 자동으로 두고 선택하고 싶으면 하는거고"). A
+  switch above the slider, on by default for every conversation, project and
+  member with nothing chosen. The server picks per request, by rules
+  (`depth.auto_level`, no extra call, 0원): Chat — 높음 for code, analysis,
+  comparison, planning, attachments, a code block or a long message, 낮음 for a
+  short one-liner, otherwise 보통; Builder — 높음 for the first build or a long
+  request, otherwise 보통, fixed for a whole run by its plan. 자동 never picks
+  최고. Its "최대 M원" is 높음's cap (Admin › Models › 한도). The usage event
+  and the receipt record the depth used ("Sonnet 5.5 · 자동 · 높음"); the
+  conversation or project stays on 자동. Pressing a slider stop chooses by
+  hand; turning 자동 off lands on 보통. Models without depths (Haiku) have no
+  switch.
 - **Model + 생각 깊이** (quality-tuning Q1). One picker — Chat's composer
   and welcome screen, the Builder's Claude panel, Profile › 기본 모델 — shows
   "<모델> · <깊이>"; its popover (a bottom sheet at 390 px) lists the models
