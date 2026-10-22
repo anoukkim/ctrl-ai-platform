@@ -15,6 +15,7 @@
     let paragraph = 0;
     let underHeading = 0;
     let buffer = [];
+    let keywords = ""; // "(쉬운 말 색인: …)" 줄 — 찾기에만 쓰고 화면에는 안 보여요
     const flush = () => {
       const text = buffer.join(" ").trim();
       buffer = [];
@@ -29,7 +30,9 @@
           // 제목 아래 두 번째 단락부터는 "· 2단락"을 붙여 구분해요.
           label: heading ? `${heading}${underHeading > 1 ? ` · ${underHeading}단락` : ""}` : `${paragraph}단락`,
           text: piece,
+          keywords,
         });
+        keywords = ""; // 조문의 첫 단락에만
       });
     };
     const lines = doc.text.replace(/\r\n?/g, "\n").split("\n");
@@ -41,6 +44,12 @@
         // 문서 맨 위 제목(#)은 문서 이름과 같으니 단락 이름으로 쓰지 않아요.
         heading = /^#\s/.test(line) ? "" : h[1].trim();
         underHeading = 0;
+        keywords = "";
+        continue;
+      }
+      const index = line.match(/^\(쉬운 말 색인:\s*(.*)\)$/);
+      if (index) {
+        keywords = index[1];
         continue;
       }
       if (!line) {
@@ -94,7 +103,7 @@
   // ---------------------------------------------------------------- BM25
   B.buildIndex = function (chunks) {
     const docs = chunks.map((c) => {
-      const terms = B.tokens(`${c.label} ${c.text}`);
+      const terms = B.tokens(`${c.label} ${c.keywords || ""} ${c.text}`);
       const tf = new Map();
       terms.forEach((t) => tf.set(t, (tf.get(t) || 0) + 1));
       return { chunk: c, tf, length: terms.length };
