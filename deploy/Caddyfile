@@ -7,16 +7,20 @@
 #
 # SITE_DOMAIN and MAX_UPLOAD_MB come from docker-compose.prod.yml.
 
-# The site: everything goes to the Next.js server, which serves the pages
-# and forwards /api/* to FastAPI. FastAPI itself is never exposed, so its
-# /docs page is not reachable from outside (and is off outside development
-# anyway).
+# The site: pages from the Next.js server, /api/* straight to FastAPI —
+# the same one origin the browser has always seen (the Next.js /api rewrite
+# stays for development; here caddy does that hop itself, so a request is
+# held, not failed, while api is being replaced — chore-gapless-deploy,
+# 2026-10-22). Only /api/* reaches the api from here: /docs, /_ctrlai/* and
+# everything else of FastAPI stay unreachable from the site.
 #
-# During a deploy (deploy/update.sh) web is replaced after api. For the
-# seconds it is away, `lb_try_duration` keeps trying every 250 ms instead
-# of answering at once (chore-gapless-deploy, 2026-10-22). Only when the
-# hold runs out does handle_errors below answer: the 503 page for a page,
-# a Korean JSON `detail` for /api/*.
+# During a deploy (deploy/update.sh): api is replaced first, then web. For
+# the seconds a container is away, `lb_try_duration` keeps trying every
+# 250 ms instead of answering at once — a member's click just takes a few
+# seconds longer (a request that could not connect is always retried,
+# whatever its method; one the old api had already started is not). Only
+# when the hold runs out does handle_errors below answer: the 503 page for
+# a page, a Korean JSON `detail` for /api/*.
 {$SITE_DOMAIN} {
 	request_body {
 		max_size {$MAX_UPLOAD_MB}MB
@@ -30,12 +34,33 @@
 		-Server
 	}
 
+	@api path /api/*
+	handle @api {
+		# Next.js gzipped the api's JSON on the way through; keep that for
+		# JSON only. A chat or Builder stream (text/event-stream, sent with
+		# Cache-Control no-transform) is never touched, so the first piece
+		# reaches the member at once (measured 2026-10-07: 0.06 s vs 0.46 s).
+		encode zstd gzip {
+			match {
+				header Content-Type application/json*
+			}
+		}
+		# ~6 s is what the new api needs on the e2-medium (imports, workers);
+		# 30 s also covers a stop that waited for a long Builder call.
+		reverse_proxy api:8000 {
+			lb_try_duration 30s
+			lb_try_interval 250ms
+		}
+	}
+
 	# Chat replies stream as text/event-stream; Caddy passes those through
 	# immediately without buffering. Next.js is back ~2 s after it is
 	# replaced; 15 s leaves room for a slow start.
-	reverse_proxy web:3000 {
-		lb_try_duration 15s
-		lb_try_interval 250ms
+	handle {
+		reverse_proxy web:3000 {
+			lb_try_duration 15s
+			lb_try_interval 250ms
+		}
 	}
 
 	# Still nothing after the hold (a deploy that is taking longer, api or
