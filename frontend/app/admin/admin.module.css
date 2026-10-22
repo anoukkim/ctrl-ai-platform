@@ -1831,3 +1831,72 @@ a.alertItem:hover {
   background: var(--accent);
 }
 
+
+/* ---------- 이미지 모델 (image-generation): 모델마다 카드 하나 ---------- */
+
+.imageModels {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.imageModel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.imageModelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+}
+
+.imageModelName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.imageModelSwitches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.imagePrices {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 9rem) auto;
+  align-items: center;
+  gap: 0.45rem 1rem;
+  max-width: 26rem;
+}
+
+.imagePriceRow {
+  display: contents;
+}
+
+.imagePriceInput {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.imagePriceInput .field {
+  padding: 0.35rem 0.55rem;
+  text-align: right;
+}
+
+.imageModelFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
