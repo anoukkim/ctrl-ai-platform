@@ -8,6 +8,13 @@ import type { ProviderStatus } from "@/lib/admin";
 
 import type { StatusItem } from "./AdminUI";
 
+/** An error counts only while nothing has succeeded since it — an old 401
+ *  fixed by a new key must not keep the card red. */
+export function failingNow(provider: ProviderStatus): boolean {
+  if (!provider.last_error_message || provider.last_error_at === null) return false;
+  return provider.last_success_at === null || Date.parse(provider.last_success_at) < Date.parse(provider.last_error_at);
+}
+
 export function isConnected(provider: ProviderStatus | null): boolean {
   return provider !== null && !provider.is_mock && provider.has_key;
 }
@@ -24,7 +31,7 @@ export function providerStatusItem(
   if (!provider.has_key) {
     return { key: provider.key, name, tone: "err", state: "키 없음", note: `${provider.setting}이 실제 연결인데 키가 없어요.` };
   }
-  if (provider.last_error_message) {
+  if (failingNow(provider)) {
     return { key: provider.key, name, tone: "err", state: "오류", note: `마지막 오류: ${provider.last_error_message}` };
   }
   return {
