@@ -9,9 +9,15 @@
  *
  * background-runs (2026-10-17): 답장과 만들기는 이제 화면을 떠나도 서버에서
  * 계속돼요. 그래서 점은 **서버가 말해 주는 것**도 함께 보여 줘요 —
- * `useServerRunsSync`가 몇 초마다 `/api/chat/running`을 읽어 `setServerRuns`로
+ * `useServerRunsSync`가 `/api/chat/running`을 읽어 `setServerRuns`로
  * 채웁니다(새로 고침한 페이지도, 다른 탭에서 시작한 답장도). 이 탭이 직접
  * 시작한 일은 그 사이에도 바로 보이도록 `startRun`이 그대로 남아요.
+ *
+ * running-poll-idle (2026-10-22): 그 읽기는 **뭔가 돌고 있을 때만 잦아요**.
+ * 점이 하나라도 있으면(서버가 말했든 이 탭이 시작했든) 2초마다, 아무것도
+ * 없으면 30초마다, 탭이 안 보이는 동안은 아예 멈추고 다시 보일 때 한 번
+ * 바로 읽어요. 하루 종일 열어 둔 탭 하나가 2초마다 서버를 두드리던 것이
+ * 운영 로그의 대부분이었고, 배포 중에도 그 탭들이 서버를 때렸으니까요.
  */
 
 import { useEffect, useSyncExternalStore } from "react";
@@ -67,8 +73,18 @@ export function handOverRun(kind: RunKind, id: number): void {
   save();
 }
 
-/** How often the open page asks the server what is running. */
-export const SERVER_POLL_MS = 5000;
+/** How often the page asks the server while a run is listed (a dot is showing). */
+export const FAST_POLL_MS = 2000;
+/** How often it asks while nothing is running — the sidebar only has to notice a reply started elsewhere. */
+export const IDLE_POLL_MS = 30_000;
+
+/** An event (visible, focus) asks again only when the last ask is older than this. */
+const EVENT_GAP_MS = 1000;
+
+/** The delay until the next poll, from what the store shows right now. */
+export function pollDelayMs(): number {
+  return runs.length > 0 ? FAST_POLL_MS : IDLE_POLL_MS;
+}
 
 /** Ask once: `{ conversations, projects }`, or null when it could not. */
 export async function fetchServerRuns(): Promise<{ conversations: number[]; projects: number[] } | null> {
@@ -81,30 +97,76 @@ export async function fetchServerRuns(): Promise<{ conversations: number[]; proj
   }
 }
 
+function tabHidden(): boolean {
+  return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+
 /**
  * Keeps the server's runs in the store while the page is open: at once,
- * every `SERVER_POLL_MS` while the tab is visible, and when it comes back
- * into view. Mounted once, in the app shell.
+ * then every `FAST_POLL_MS` while a run is listed and every `IDLE_POLL_MS`
+ * while none is; not at all while the tab is hidden, and once more the
+ * moment it is visible again. A run starting or ending in this tab re-times
+ * the waiting poll. Mounted once, in the app shell.
  */
 export function useServerRunsSync(enabled = true): void {
   useEffect(() => {
     if (!enabled) return;
     let stopped = false;
+    let inFlight = false;
+    let timer: number | null = null;
+    let timerDelay = 0;
+    let lastPullAt = -Infinity;
+
+    const clear = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = null;
+    };
+    const schedule = () => {
+      clear();
+      if (stopped || tabHidden()) return;
+      timerDelay = pollDelayMs();
+      timer = window.setTimeout(() => {
+        timer = null;
+        void pull();
+      }, timerDelay);
+    };
     const pull = async () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      // A pull already on its way schedules the next one when it lands.
+      if (stopped || inFlight || tabHidden()) return;
+      inFlight = true;
+      lastPullAt = Date.now();
       const found = await fetchServerRuns();
-      if (!stopped && found) setServerRuns(found.conversations, found.projects);
+      inFlight = false;
+      if (stopped) return;
+      if (found) setServerRuns(found.conversations, found.projects);
+      schedule();
     };
     void pull();
-    const timer = window.setInterval(() => void pull(), SERVER_POLL_MS);
-    const onVisible = () => void pull();
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
+
+    // Switching to the tab fires visibilitychange, then focus: one request,
+    // not two — an event asks only when the last ask is not fresh.
+    const pullForEvent = () => {
+      if (Date.now() - lastPullAt < EVENT_GAP_MS) return;
+      void pull();
+    };
+    const onVisibility = () => {
+      if (tabHidden()) clear();
+      else pullForEvent();
+    };
+    const onFocus = () => pullForEvent();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    // A run started or ended here while a poll was waiting: re-time it when
+    // that changes the pace (a long wait must not hide a fresh run for 30 s).
+    const unsubscribe = subscribe(() => {
+      if (timer !== null && pollDelayMs() !== timerDelay) schedule();
+    });
     return () => {
       stopped = true;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
+      clear();
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
   }, [enabled]);
 }

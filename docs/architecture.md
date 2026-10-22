@@ -1034,8 +1034,13 @@ processes, so everything a second page needs goes through the database:
   saved already (it then only points the row at it). A dead build becomes
   `partial`/`failed` (이어서 만들기). A task's flush learns if its row was
   ended and stops; `finish` never reopens an ended row.
-- **The running dots** read `GET /api/chat/running` every 5 s (and on
-  focus) and merge it with what the page itself started (`lib/running`).
+- **The running dots** read `GET /api/chat/running` and merge it with
+  what the page itself started (`lib/running`). The pace follows the dots
+  (running-poll-idle, 2026-10-22): every 2 s while a run is listed (the
+  server's or this tab's), every 30 s while none is, nothing while the tab
+  is hidden, and once at the moment it is visible again (and on window
+  focus). One idle tab used to ask every few seconds all day — the bulk
+  of the API log, and what members' tabs hammered during a deploy.
 
 
 
