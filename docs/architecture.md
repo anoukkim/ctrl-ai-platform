@@ -70,6 +70,7 @@ the same commit that adds it.
 | `GET /api/health` | none | Must answer while the database is down |
 | `GET /api/site` | none | Beta banner, test-mode labels, the sign-up data-location notice — needed before signing in |
 | `GET /_ctrlai/sdk.js`, `GET /_ctrlai/shell.js` | none | The app platform's two scripts (apps origin only, outside `/api`) |
+| `GET /_ctrlai/tiles/{z}/{x}/{y}.png` | none | Map tiles for member apps: OpenStreetMap's, fetched by the api with the club's User-Agent and Referer, cached 7 days (`map_tiles`, `MAP_TILE_PROVIDER`) |
 | `GET /_ctrlai/fonts.css`, `GET /_ctrlai/fonts/{name}` | none | The font catalogue for member apps: public OFL files, CORS `*` (feat-app-fonts) |
 | `GET /_ctrlai/shell/{slug}` | none | The trusted shell of a published app or a working copy; 404 otherwise |
 | `GET /_ctrlai/v1/app`, `POST /_ctrlai/v1/login/start`, `POST /_ctrlai/v1/logout` | `app_call` | `app_request` (`X-CtrlAI-App` naming a live app, same-origin) + who is signed in to this app — only its own `ctrlai_app_<slug>` cookie, never the site's session |
@@ -692,11 +693,18 @@ ctrlai.my (Builder / CtrlAIApps)
   `ctrlai.db` rows, AI answers) — the 개인정보 처리방침 says so. Chat
   follows suit: reply images load from https (no referrer), and html
   previews may use CDN libraries. The Builder's app rules (`_OUTSIDE_RULES`
-  in `claude_provider.py`) steer Claude to keyless services — Leaflet +
-  OpenStreetMap tiles for maps (MapLibre never loads its tiles in an
-  opaque-origin frame), jsDelivr/cdnjs libraries, Open-Meteo, Frankfurter,
-  Wikimedia Commons — never a key in the code, never an address from
-  memory.
+  in `claude_provider.py`) name the only services checked to work inside
+  the frame and forbid every other host: jsDelivr/cdnjs libraries;
+  Leaflet with CTRL+AI's own tile route `/_ctrlai/tiles/{z}/{x}/{y}.png`
+  (fix-app-map-tiles — the frame sends no Referer, and OpenStreetMap's
+  servers answer such requests with "Access blocked"; `map_tiles` fetches
+  for it with the club's User-Agent and Referer, keeps tiles 7 days in
+  `STORAGE_DIR/map-tiles` under `MAP_TILE_CACHE_MB`, at most 300 upstream
+  fetches a minute per process, and is never an open proxy — the host is
+  fixed, only z/x/y come in); Open-Meteo; api.frankfurter.dev (the .app
+  host redirects, and a redirect fails in the frame); Wikimedia Commons
+  searched at run time. MapLibre never loads its tiles in an opaque-origin
+  frame. Never a key in the code, never an address from memory.
 * **The tab icon** (app-tab-icon, 2026-10-17; revised the same day by the
   owner, option 1): the shell page carries a `<link rel="icon">` whose href
   is the constant `app_shell.APP_FAVICON` — one shared 「앱」 icon (four

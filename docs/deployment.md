@@ -390,6 +390,16 @@ Admin › System › 상태 › 환율에 보입니다. 손으로 한 번 보려
 docker compose -f docker-compose.prod.yml exec -T api python -m app.jobs.refresh_fx --dry-run
 ```
 
+**회원 앱의 지도 타일** (fix-app-map-tiles): `.env`에 `MAP_TILE_PROVIDER=osm`이면
+api가 OpenStreetMap 타일을 동아리 User-Agent로 대신 받아 `api_storage`
+볼륨의 `map-tiles/`에 7일 보관하고 `apps.<도메인>/_ctrlai/tiles/…`로
+줍니다(최대 `MAP_TILE_CACHE_MB`, 기본 300MB — 오래된 것부터 지움). 키 없음.
+`mock`이면 회색 타일. 확인:
+
+```bash
+curl -sI https://apps.ctrlai.my/_ctrlai/tiles/11/1746/793.png | head -3
+```
+
 서버 시계는 UTC입니다(`timedatectl`로 확인). 19:15 UTC는 **한국 시각 새벽
 4:15**입니다. 다음 날 `tail ~/ctrlai-jobs.log`로 돌았는지 봅니다.
 

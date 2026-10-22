@@ -100,9 +100,11 @@
   };
 
   // ------------------------------------------------------------ 진짜 지도
-  // Leaflet + OpenStreetMap 타일 (키 없이 무료). 이용 규칙대로 출처를 밝히고,
-  // 타일 요청에는 앱 주소(apps.ctrlai.my)만 알려 줘요(referrer).
-  const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  // Leaflet + OpenStreetMap 타일 (키 없이 무료). 앱 칸은 보낸 곳(referrer)을
+  // 알리지 못해 OpenStreetMap이 직접 요청을 막으므로, CTRL+AI가 대신 받아
+  // 둔 타일을 같은 주소(apps.ctrlai.my/_ctrlai/tiles)에서 받아요.
+  // CTRL+AI 밖(내려받아 연 파일)에서는 타일이 없어 단순 지도가 남아요.
+  const TILES = "/_ctrlai/tiles/{z}/{x}/{y}.png";
   const MAP_WAIT_MS = 10000; // 이만큼 기다려도 타일이 안 오면 단순 지도로
   let live = null;
   let waiting = null; // 첫 타일을 기다리는 타이머
@@ -136,7 +138,6 @@
     waiting = setTimeout(() => giveUp("시간 초과"), MAP_WAIT_MS);
     window.L.tileLayer(TILES, {
       maxZoom: 19,
-      referrerPolicy: "strict-origin-when-cross-origin",
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 기여자',
     })
       .on("tileload", () => {

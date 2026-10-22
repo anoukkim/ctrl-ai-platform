@@ -16,7 +16,7 @@ from app.services import app_publish, builder_files, builder_versions
 #: The one URL an app may contain: the SVG namespace, which is a name, not a request.
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 #: The outside services the example apps use (app-open-services).
-OUTSIDE_ALLOWED = ("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/", "https://tile.openstreetmap.org/", "https://www.openstreetmap.org/copyright")
+OUTSIDE_ALLOWED = ("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/", "https://www.openstreetmap.org/copyright")
 
 
 @pytest.fixture

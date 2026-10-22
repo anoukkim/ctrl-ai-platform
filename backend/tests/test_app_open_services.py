@@ -94,8 +94,13 @@ def test_every_app_prompt_carries_the_outside_service_rules() -> None:
         assert _OUTSIDE_RULES in prompt
         assert "No external scripts" not in prompt
     # Free and keyless first; never a key; never an address from memory.
-    assert "tile.openstreetmap.org" in _OUTSIDE_RULES and "© OpenStreetMap" in _OUTSIDE_RULES
-    assert "strict-origin-when-cross-origin" in _OUTSIDE_RULES  # OSM's tile policy wants a referrer
+    # Only services checked inside the app frame (fix-app-map-tiles): map
+    # tiles from CTRL+AI, never from a tile host directly.
+    assert '"/_ctrlai/tiles/{z}/{x}/{y}.png"' in _OUTSIDE_RULES and "© OpenStreetMap" in _OUTSIDE_RULES
+    for host in ("api.open-meteo.com", "api.frankfurter.dev", "commons.wikimedia.org", "cdn.jsdelivr.net"):
+        assert host in _OUTSIDE_RULES, host
+    assert "api.frankfurter.app" not in _OUTSIDE_RULES  # redirects, and a redirect fails in the frame
+    assert "use ONLY these" in _OUTSIDE_RULES and "not available in CTRL+AI yet" in _OUTSIDE_RULES
     assert "Never put an API key" in _OUTSIDE_RULES
     assert "Never write a photo, file or API address from memory" in _OUTSIDE_RULES
-    assert "never http" in _OUTSIDE_RULES
+    assert "http://" not in _OUTSIDE_RULES
