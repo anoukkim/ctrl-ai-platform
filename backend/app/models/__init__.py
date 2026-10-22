@@ -63,6 +63,7 @@ from app.models.quarter import (
     QuarterApplication,
     QuarterStatus,
 )
+from app.models.image import ImageModel
 from app.models.usage import FundingSource, UsageEvent, UsageFeature
 from app.models.milestone import SpendMilestone
 from app.models.notification import Notification
@@ -171,6 +172,7 @@ __all__ = [
     "UserRole",
     "UserSession",
     "VideoModel",
+    "ImageModel",
     "VideoProject",
     "VideoProjectStatus",
     "VIDEO_VERSION_KIND_LABEL",

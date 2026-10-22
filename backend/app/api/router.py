@@ -26,6 +26,7 @@ from app.api.routes import (
     auth,
     builder,
     chat,
+    images,
     feedback,
     google_auth,
     health,
@@ -52,6 +53,7 @@ api_router.include_router(apps.router)
 api_router.include_router(tube.router)
 api_router.include_router(admin_tube.router)
 api_router.include_router(chat.router)
+api_router.include_router(images.router)
 api_router.include_router(video.router)
 api_router.include_router(quarters.router)
 api_router.include_router(usage.router)

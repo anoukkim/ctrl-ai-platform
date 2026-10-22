@@ -55,6 +55,14 @@ PROVIDERS: list[dict[str, str]] = [
         "phase": "Phase 6",
     },
     {
+        "key": "image",
+        "name": "Google Gemini",
+        "purpose": "이미지 생성 (Chat)",
+        "setting": "IMAGE_PROVIDER",
+        "real_mode": "gemini",
+        "phase": "image-generation",
+    },
+    {
         "key": "github",
         "name": "GitHub",
         "purpose": "회원 저장소 연결과 푸시",
@@ -197,6 +205,8 @@ def check(db: Session, provider: str, settings: Settings) -> CheckResult:
         result = _check_claude(settings)
     elif provider == "fx":
         result = _check_fx(settings)
+    elif provider == "image":
+        result = _check_gemini(settings)
     else:
         # The real adapter does not exist yet. Saying so is better than a
         # green light that means nothing, and better than a fake request.
@@ -281,3 +291,38 @@ def _check_claude(settings: Settings) -> CheckResult:
         # The status line only. A response body can echo request details.
         detail=f"HTTP {response.status_code}",
     )
+
+
+def _check_gemini(settings: Settings) -> CheckResult:
+    """List the models — validates the key without making a picture.
+
+    `GET /v1beta/models` is not billed, so the button costs nothing. It
+    cannot tell a paid project from a free one; GEMINI_BILLING_CONFIRMED is
+    the owner's word for that (checked at startup).
+    """
+    import httpx2 as httpx
+
+    try:
+        response = httpx.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            headers={"x-goog-api-key": settings.gemini_api_key},
+            params={"pageSize": 1},
+            timeout=10.0,
+        )
+    except Exception as error:  # noqa: BLE001 — never the text: it may repeat the request
+        logger.warning("Gemini connection check failed: %s", type(error).__name__)
+        return CheckResult(
+            ok=False,
+            message=explain(ProviderErrorKind.UNAVAILABLE),
+            error_kind=ProviderErrorKind.UNAVAILABLE,
+            detail=type(error).__name__,
+        )
+    if response.status_code == 200:
+        return CheckResult(ok=True, message="연결됐습니다. API 키가 정상입니다.")
+    kind = {
+        400: ProviderErrorKind.AUTH,  # Gemini answers 400 API_KEY_INVALID
+        401: ProviderErrorKind.AUTH,
+        403: ProviderErrorKind.AUTH,
+        429: ProviderErrorKind.RATE_LIMITED,
+    }.get(response.status_code, ProviderErrorKind.UNAVAILABLE)
+    return CheckResult(ok=False, message=explain(kind), error_kind=kind, detail=f"HTTP {response.status_code}")

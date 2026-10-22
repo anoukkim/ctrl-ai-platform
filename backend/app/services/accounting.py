@@ -71,9 +71,9 @@ PART_LABEL: dict[str, str] = {
 #: Ledger providers that are one purchase (as in quarter_budget).
 PROVIDER_KEY = {"anthropic": "claude"}
 #: Same names as Admin › Budget's 제공자별 사용액 (quarter_budget.PROVIDER_LABEL).
-PROVIDER_LABEL = {"claude": "Claude (Anthropic)", "higgsfield": "Higgsfield"}
+PROVIDER_LABEL = {"claude": "Claude (Anthropic)", "higgsfield": "Higgsfield", "gemini": "Google Gemini"}
 #: Purchases can be recorded for these, Anthropic first.
-PURCHASE_PROVIDERS: tuple[str, ...] = ("claude", "higgsfield")
+PURCHASE_PROVIDERS: tuple[str, ...] = ("claude", "higgsfield", "gemini")
 GROUP_LABEL = {"chat": "채팅", "build": "빌더", "video": "영상", "other": "기타"}
 
 

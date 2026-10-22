@@ -17,12 +17,17 @@ from app.services import audit
 #: The Video Generator, for members. Locked until the owner opens it.
 VIDEO = "video"
 
-DEFAULTS: dict[str, bool] = {VIDEO: False}
+#: image-generation: 이미지 만들기 in Chat. Locked until the owner opens
+#: it — under IMAGE_PROVIDER=mock a member would pay for a sample picture.
+IMAGE = "image"
 
-LABELS: dict[str, str] = {VIDEO: "Video Generator"}
+DEFAULTS: dict[str, bool] = {VIDEO: False, IMAGE: False}
+
+LABELS: dict[str, str] = {VIDEO: "Video Generator", IMAGE: "이미지 만들기 (Chat)"}
 
 #: What a member is told when the area is locked. Names what still works.
 VIDEO_LOCKED = "Video Generator는 다음 단계에서 열려요 — 지금은 준비 중이에요."
+IMAGE_LOCKED = "이미지 만들기는 다음 단계에서 열려요 — 지금은 준비 중이에요."
 
 
 def current(db: Session, key: str) -> FeatureSwitch | None:

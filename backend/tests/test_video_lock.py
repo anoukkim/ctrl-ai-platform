@@ -44,7 +44,9 @@ def test_opening_the_switch_lets_members_in_and_is_audited(
     client: TestClient, db_session: Session, other_user, other_participating, dev_user
 ) -> None:
     assert client.get("/api/admin/features").json() == [
-        {"key": "video", "label": "Video Generator", "open": False, "note": "", "set_by_username": "", "set_at": None}
+        {"key": "video", "label": "Video Generator", "open": False, "note": "", "set_by_username": "", "set_at": None},
+        # image-generation: the second switch, locked by default too.
+        {"key": "image", "label": "이미지 만들기 (Chat)", "open": False, "note": "", "set_by_username": "", "set_at": None},
     ]
 
     opened = client.post("/api/admin/features/video", json={"open": True, "note": "2027 Q1부터"})

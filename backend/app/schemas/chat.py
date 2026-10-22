@@ -125,6 +125,10 @@ class AttachmentRead(BaseModel):
     estimated_tokens: int
     #: None until the message carrying it is sent.
     message_id: int | None = None
+    #: image-generation: the image model that made it (None: the member
+    #: uploaded it), and the description it was made from.
+    generated_model: str | None = None
+    prompt: str = ""
 
 
 class AttachmentEstimate(BaseModel):
@@ -152,6 +156,8 @@ class ChatMessageRead(BaseModel):
     status: ChatMessageStatus
     action: ChatAction | None = None
     action_title: str = ""
+    #: image-generation: the description an 이미지 만들기 card starts from.
+    action_prompt: str = ""
     #: For a reply: the provider's model id that wrote it, and the 생각 깊이
     #: it ran at (None: the model has none) — the receipt shows both.
     model_id: str | None = None

@@ -37,6 +37,7 @@ PROVIDER_LABEL = {
     "claude": "Claude (Anthropic)",
     "anthropic": "Claude (Anthropic)",
     "higgsfield": "Higgsfield",
+    "gemini": "Google Gemini",
 }
 
 #: Ledger providers that are one purchase. Older Claude rows say `claude`;

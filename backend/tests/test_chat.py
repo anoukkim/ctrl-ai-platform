@@ -1057,7 +1057,7 @@ def test_an_overlong_marker_is_text_everywhere() -> None:
     marker = chat_service.MarkerFilter()
     shown = "".join(marker.feed(raw[i : i + 7]) for i in range(0, len(raw), 7)) + marker.finish()
     assert shown == raw
-    assert chat_service.action_of(raw) == (None, "")
+    assert chat_service.action_of(raw) == (None, "", "")
     assert chat_service.visible_text(raw) == raw.strip()
 
 

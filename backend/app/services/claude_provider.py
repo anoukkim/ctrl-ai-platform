@@ -537,6 +537,7 @@ website, game or tool, end your reply with this exact line on its own:
 [[action:builder|NAME]]
 When they want to make a video, end with:
 [[action:video|NAME]]
+For a picture: [[action:image|ENGLISH DESCRIPTION]] (one line, max 300 chars, no [])
 NAME is a short Korean project name of at most 20 characters. Use at most \
 one such line, never mention it, and leave it out for everything else. The \
 screen turns it into a button that opens that workspace with their idea \
@@ -1266,6 +1267,13 @@ _CHAT_RULES: list[tuple[re.Pattern[str], str, str | None]] = [
         None,
     ),
     (
+        # A picture — unless the member is asking for an app that draws.
+        re.compile(r"^(?!.*(앱|어플|프로그램|사이트|웹|게임|도구)).*(사진|이미지|그림|그려|일러스트|포스터|캐릭터|배경화면)", re.DOTALL),
+        "좋아요, 그림으로 만들어 볼게요! 아래 카드에서 설명을 확인하고 크기와 비율을 고른 뒤 "
+        "만들기를 누르면 이 대화에 그림이 붙어요.",
+        "image",
+    ),
+    (
         re.compile(r"영상|비디오|쇼츠|숏폼|클립|유튜브|youtube|촬영|장면", re.IGNORECASE),
         "영상으로 만들면 좋겠네요! Video Generator에서 장면을 설명하면 짧은 영상으로 "
         "만들어 볼 수 있어요. 아래 단추를 누르면 지금 하신 이야기를 그대로 들고 갑니다.",
@@ -1740,7 +1748,12 @@ class MockClaudeProvider:
 
                 reply = json.dumps(sample_for(schema), ensure_ascii=False)
             action = None
-        if action:
+        if action == "image":
+            # The real model writes an English description; the mock keeps
+            # the member's words, made safe for the marker.
+            described = " ".join(re.sub(r"[\[\]]", " ", last).split())[:400]
+            reply = f"{reply}\n[[action:image|A friendly illustration of: {described}]]"
+        elif action:
             reply = f"{reply}\n[[action:{action}|{short_title(last)}]]"
         if continued_from is not None:
             # The rest, from where the previous call stopped (the real model

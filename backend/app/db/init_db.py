@@ -28,6 +28,7 @@ from app.models import (
     User,
     UserRole,
     VideoModel,
+    ImageModel,
 )
 
 DEV_USER_EMAIL = "dev@ctrl.ai"
@@ -266,6 +267,66 @@ def seed_wallet(db: Session, user: User) -> PersonalBalance:
     return balance
 
 
+#: image-generation: Google's two Gemini image models, example prices in
+#: won (Google's list price at about 1,400원/$, rounded up). The migration
+#: `f3b7d1a9c5e2` writes the same rows on a server; this copy is for the
+#: tests' `create_all` database.
+_IMAGE_RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"]
+SEED_IMAGE_MODELS = [
+    {
+        "provider": "gemini",
+        "model_id": "gemini-nano-banana-2.1",
+        "display_name": "Nano Banana 2.1",
+        "description": "빠르고 저렴합니다. 대부분의 그림에 알맞은 기본 모델입니다.",
+        "enabled": True,
+        "member_visible": True,
+        "sort_order": 10,
+        "capabilities": {
+            "sizes": ["1K", "2K", "4K"],
+            "aspect_ratios": _IMAGE_RATIOS,
+            "price_per_image_krw": {"1K": 50, "2K": 75, "4K": 160},
+            "usd_per_image": {"1K": 0.0336, "2K": 0.0504, "4K": 0.113},
+            "defaults": {"size": "1K", "aspect_ratio": "1:1"},
+            "prices_are_examples": True,
+        },
+    },
+    {
+        "provider": "gemini",
+        "model_id": "gemini-3-pro-image",
+        "display_name": "Nano Banana Pro",
+        "description": "글자와 세부 표현이 더 정확한 고품질 모델입니다. 가격이 약 4배입니다.",
+        "enabled": True,
+        "member_visible": False,
+        "sort_order": 20,
+        "capabilities": {
+            "sizes": ["1K", "2K", "4K"],
+            "aspect_ratios": _IMAGE_RATIOS,
+            "price_per_image_krw": {"1K": 190, "2K": 190, "4K": 340},
+            "usd_per_image": {"1K": 0.134, "2K": 0.134, "4K": 0.24},
+            "defaults": {"size": "1K", "aspect_ratio": "1:1"},
+            "prices_are_examples": True,
+        },
+    },
+]
+
+
+def seed_image_models(db: Session) -> int:
+    """Insert missing image catalogue rows; existing rows are left alone."""
+    created = 0
+    for spec in SEED_IMAGE_MODELS:
+        exists = db.scalar(
+            select(ImageModel.id).where(
+                ImageModel.provider == spec["provider"], ImageModel.model_id == spec["model_id"]
+            )
+        )
+        if exists is None:
+            db.add(ImageModel(**spec))
+            created += 1
+    if created:
+        db.commit()
+    return created
+
+
 def seed_video_models(db: Session) -> int:
     """Insert missing catalogue rows.
 
@@ -420,6 +481,7 @@ def main() -> None:
         if admin is not None:
             seed_wallet(db, admin)
         models = seed_video_models(db)
+        seed_image_models(db)
         invite = seed_dev_invite(db)
         members = seed_sign_in_accounts(db)
 
