@@ -55,7 +55,7 @@ CTRL+AI 안에서는 `app.js`의 `live` 상태가 앱 위쪽 CTRL+AI 줄의 스�
 ## 만들어진 조건 (CTRL+AI 안에서)
 
 - 서버 없이 브라우저에서만 도는 **정적 앱**: HTML · CSS · JavaScript만.
-- **네트워크 없음**: CSP가 `connect-src 'self'`라 다른 곳에 요청할 수 없고, CDN 스크립트도 안 돼요.
+- **바깥 서비스는 https만**: CTRL+AI 안에서도 지도·사진·CDN 라이브러리·키 없는 API는 쓸 수 있어요(2026-10-22부터). 이 앱은 쓰지 않아요. API 키는 코드에 넣지 마세요 — 누구나 볼 수 있어요.
 - **크기 제한**: 파일 30개, 파일 하나 200KB, 전체 2MB, 폴더 깊이 3단계, 확장자 .css .html .js .json .md .svg .txt.
 - `alert` · `confirm` 금지 — 화면 안에서 확인받아요.
 

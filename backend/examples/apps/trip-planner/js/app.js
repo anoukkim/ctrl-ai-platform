@@ -351,8 +351,8 @@
         </section>
         <aside class="sideCol">
           <section class="card mapCard" aria-label="${day + 1}일차 지도">
-            ${T.routeMap(trip, day)}
-            <p class="muted small">번호 = 방문 순서 · 흐린 점 = 다른 날 장소 · 지도 타일 없이 그린 단순 지도</p>
+            <div class="mapHolder">${T.routeMap(trip, day)}</div>
+            <p class="muted small">번호 = 방문 순서 · 흐린 점 = 다른 날 장소</p>
           </section>
           <section class="card budgetCard" aria-labelledby="budget-title">
             <h3 id="budget-title">예산</h3>
@@ -441,12 +441,15 @@
     if (shared) {
       main.innerHTML = resultHtml(shared, true);
       bindResult(shared, true);
+      T.mountMap(shared, Math.min(state.day, shared.days.length - 1));
     } else if (state.view === "form" || !state.trip) {
       main.innerHTML = formHtml();
       bindForm();
+      T.mountMap(null);
     } else {
       main.innerHTML = resultHtml(state.trip, false);
       bindResult(state.trip, false);
+      T.mountMap(state.trip, Math.min(state.day, state.trip.days.length - 1));
     }
   }
 

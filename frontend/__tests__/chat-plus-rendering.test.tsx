@@ -82,11 +82,29 @@ describe("ChatMarkdown", () => {
     expect(safeUrl("#x\njavascript:alert(1)")).toBe("");
   });
 
-  test("an image is not loaded; its description shows instead", () => {
+  test("an https image is shown, without a referrer (app-open-services)", () => {
     const { container } = render(<ChatMarkdown text="![지도](https://example.com/map.png)" />);
-    expect(container.querySelector("img")).toBeNull();
-    expect(container.textContent).toContain("지도");
+    const img = container.querySelector("img")!;
+    expect(img.getAttribute("src")).toBe("https://example.com/map.png");
+    expect(img.getAttribute("alt")).toBe("지도");
+    expect(img.getAttribute("referrerpolicy")).toBe("no-referrer");
   });
+
+  test("an image that fails to load becomes its description", () => {
+    const { container } = render(<ChatMarkdown text="![지도](https://example.com/map.png)" />);
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.textContent).toContain("[그림: 지도]");
+  });
+
+  test.each(["http://example.com/map.png", "javascript:alert(1)", "data:image/png;base64,AAAA", "/api/x.png"])(
+    "an image at %s is not loaded",
+    (src) => {
+      const { container } = render(<ChatMarkdown text={`![지도](${src})`} />);
+      expect(container.querySelector("img")).toBeNull();
+      expect(container.textContent).toContain("지도");
+    },
+  );
 
   describe("복사", () => {
     let writeText: ReturnType<typeof vi.fn>;

@@ -15,7 +15,9 @@ The isolation lives in three places, each of which alone would hold:
 1. **What the api asks for** — never a URL from a request. `published_url`
    builds it from `APPS_BASE_URL` and the project's own slug (ten letters
    and digits), to the app's files under `/_app/`, which the apps origin
-   serves under a `sandbox … connect-src 'none'` policy.
+   serves under a sandboxed policy (`app_shell.app_files_csp`). Apps may
+   load outside https services since app-open-services; the worker below
+   still refuses them, so such an app is photographed without them.
 2. **The worker** (`thumbs/worker.py`) — checks the shared secret, checks
    the URL again against its own allowed host and path pattern, and runs
    Chromium with every other host name refused and every request to

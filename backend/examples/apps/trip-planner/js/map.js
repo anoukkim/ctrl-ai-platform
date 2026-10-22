@@ -1,5 +1,7 @@
-// 여행 일정 메이커 — 손으로 그린 SVG 지도와 예산 도넛.
-// 지도 타일을 받아 오지 않아요: 도시 윤곽은 아주 단순하게 그린 것이에요.
+// 여행 일정 메이커 — 동선 지도와 예산 도넛.
+// 진짜 지도: Leaflet + OpenStreetMap 타일(키 없이 무료)을 바깥에서
+// 불러와요. 불러오지 못하면(인터넷이 없거나 막혀 있으면) 손으로 그린 단순한
+// SVG 지도가 그대로 남아요 — 그래서 지도가 없어서 앱이 멈추는 일은 없어요.
 
 (function () {
   const T = window.TRIP;
@@ -95,6 +97,78 @@
       <g class="north" transform="translate(${W - 30},34)"><path d="M0,-16 L7,6 L0,1 L-7,6Z"/><text y="22" text-anchor="middle">N</text></g>
       <text class="waterLabel" x="${W - 16}" y="${H - 16}" text-anchor="end">${T.esc(city.waterLabel)} · 단순화한 윤곽</text>
     </svg>`;
+  };
+
+  // ------------------------------------------------------------ 진짜 지도
+  // Leaflet + OpenStreetMap 타일 (키 없이 무료). 이용 규칙대로 출처를 밝히고,
+  // 타일 요청에는 앱 주소(apps.ctrlai.my)만 알려 줘요(referrer).
+  const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const MAP_WAIT_MS = 10000; // 이만큼 기다려도 타일이 안 오면 단순 지도로
+  let live = null;
+  let waiting = null; // 첫 타일을 기다리는 타이머
+
+  // 하루 동선을 진짜 지도 위에 — 번호 핀, 점선 경로, 흐린 점(다른 날).
+  T.mountMap = function (trip, dayIndex) {
+    clearTimeout(waiting);
+    if (live) {
+      live.remove();
+      live = null;
+    }
+    const holder = document.querySelector(".mapHolder");
+    if (!trip || !holder || !window.L) return;
+    const stops = T.schedule(trip, dayIndex).map((it) => it.place);
+    const others = trip.days.flatMap((ids, d) => (d === dayIndex ? [] : ids.map((id) => T.place(trip, id))));
+    const focus = stops.length ? stops : T.city(trip).places;
+    const el = document.createElement("div");
+    el.className = "liveMap";
+    holder.appendChild(el);
+    const map = window.L.map(el, { scrollWheelZoom: false }); // 페이지 스크롤을 뺏지 않게
+    live = map;
+    let ready = false;
+    let errors = 0;
+    const giveUp = (why) => {
+      if (ready || live !== map) return;
+      console.warn("진짜 지도를 불러오지 못해 단순 지도를 보여 줘요:", why);
+      map.remove();
+      el.remove();
+      live = null;
+    };
+    waiting = setTimeout(() => giveUp("시간 초과"), MAP_WAIT_MS);
+    window.L.tileLayer(TILES, {
+      maxZoom: 19,
+      referrerPolicy: "strict-origin-when-cross-origin",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 기여자',
+    })
+      .on("tileload", () => {
+        if (ready) return;
+        ready = true;
+        clearTimeout(waiting);
+        holder.classList.add("live");
+      })
+      .on("tileerror", () => {
+        errors += 1;
+        if (errors >= 4) giveUp("타일 오류");
+      })
+      .addTo(map);
+    map.fitBounds(
+      focus.map((p) => [p.lat, p.lng]),
+      { padding: [36, 36], maxZoom: 14 },
+    );
+    const coral = getComputedStyle(document.documentElement).getPropertyValue("--coral").trim() || "#ff7a59";
+    if (stops.length > 1) {
+      window.L.polyline(stops.map((p) => [p.lat, p.lng]), { color: coral, weight: 3, dashArray: "8 6" }).addTo(map);
+    }
+    others.forEach((p) =>
+      window.L.circleMarker([p.lat, p.lng], { radius: 5, stroke: false, fillColor: "#5b6a94", fillOpacity: 0.7 })
+        .bindTooltip(`${T.esc(p.name)} (다른 날)`)
+        .addTo(map),
+    );
+    stops.forEach((p, i) =>
+      window.L.marker([p.lat, p.lng], {
+        title: `${i + 1}. ${p.name}`,
+        icon: window.L.divIcon({ className: "livePin", html: `<b>${i + 1}</b><span>${T.esc(p.name)}</span>`, iconSize: null, iconAnchor: [13, 13] }),
+      }).addTo(map),
+    );
   };
 
   T.BUDGET_COLORS = { 숙박: "#7aa7ff", 식비: "#ff7a59", 교통: "#ffd166", 체험: "#5fe0c0" };

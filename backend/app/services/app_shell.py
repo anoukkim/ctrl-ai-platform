@@ -8,9 +8,13 @@ arrangement is a constant here, so the Caddyfile, the local apps server
 and the tests all read the same text:
 
 * `APP_FILES_CSP` — the member's files. `sandbox` makes them opaque even
-  when opened on their own; `connect-src 'none'`: no network at all; the
-  SDK is the only way out. Only the shell (and the club's site above it)
-  may frame them.
+  when opened on their own. Outside services over https are allowed
+  (app-open-services, owner 2026-10-22): maps, photos, CDN libraries,
+  keyless APIs — `OUTSIDE`. The opaque origin is what keeps CTRL+AI's own
+  data out of reach: a request from it is cross-site, so neither the
+  site's session cookie (SameSite=Lax) nor the app session (Strict) rides
+  along, and the API answers no CORS. CTRL+AI features still go through
+  the SDK. Only the shell (and the club's site above it) may frame them.
 * `SHELL_CSP` — our page: our scripts only, frames from this origin only.
 * `APP_SANDBOX` — the `sandbox` attribute of the app frame (shell.js).
 
@@ -46,12 +50,19 @@ SLUG_PATTERN = re.compile(r"^[a-z2-9]{10}$")
 APP_SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads"
 
 
+#: Where an app may load from besides its own files (app-open-services):
+#: any https host — never plain http or ws. Workers come from the app's own
+#: code (`blob:`), as some libraries do.
+OUTSIDE = "https:"
+
+
 def app_files_csp(frame_ancestors: str) -> str:
     """The policy on every member file under `/<slug>/_app/`."""
     return (
-        f"sandbox {APP_SANDBOX}; default-src 'self'; script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; "
-        f"font-src 'self' data:; connect-src 'none'; frame-ancestors {frame_ancestors}"
+        f"sandbox {APP_SANDBOX}; default-src 'self'; script-src 'self' 'unsafe-inline' {OUTSIDE}; "
+        f"style-src 'self' 'unsafe-inline' {OUTSIDE}; img-src 'self' data: blob: {OUTSIDE}; "
+        f"media-src 'self' data: blob: {OUTSIDE}; font-src 'self' data: {OUTSIDE}; "
+        f"connect-src {OUTSIDE}; worker-src 'self' blob:; frame-ancestors {frame_ancestors}"
     )
 
 

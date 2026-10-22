@@ -12,8 +12,9 @@
  *   `allow-modals`, `allow-downloads`를 붙이지 않습니다. 그래서 액자는
  *   **출처가 없는**(opaque) 문서이고, CTRL+AI의 쿠키·저장소·/api에 닿을 수
  *   없습니다.
- * - srcdoc의 **맨 앞**은 CSP 메타 태그: 네트워크가 없습니다(fetch, 바깥
- *   이미지, 비컨 모두 실패).
+ * - srcdoc의 **맨 앞**은 CSP 메타 태그: 바깥 서비스는 `https`만
+ *   (app-open-services, owner 2026-10-22 — 지도, 그림, CDN 라이브러리).
+ *   `http`, 소켓, `eval`은 없습니다. CTRL+AI에는 출처가 없어서 닿지 못합니다.
  * - SVG를 `innerHTML`로 화면에 넣지 않습니다 — SVG에도 `<script>`와 이벤트
  *   처리기가 들어갈 수 있으니 같은 액자 안에서만 그립니다.
  * - **미리보기 열기를 눌러야** 돌아갑니다(멈추지 않는 반복문이 탭을 얼릴 수
@@ -39,9 +40,10 @@ import AuroraCard, { AuroraReveal, chipsFromCode } from "./AuroraCard";
 import PreviewFullscreen from "./PreviewFullscreen";
 import styles from "./ArtifactPreview.module.css";
 
-/** 액자 안 문서의 맨 앞에 붙는 CSP — 네트워크 없음, 인라인만. */
+/** 액자 안 문서의 맨 앞에 붙는 CSP — 인라인과 바깥 https만. */
 export const PREVIEW_CSP =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:";
+  "default-src 'none'; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; " +
+  "img-src data: blob: https:; font-src data: https:; media-src data: blob: https:; connect-src https:; worker-src blob:";
 /** 액자의 샌드박스 — 정확히 이것 하나. */
 export const PREVIEW_SANDBOX = "allow-scripts";
 /** 이보다 큰 블록은 코드만. */

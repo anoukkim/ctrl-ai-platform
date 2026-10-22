@@ -8,8 +8,8 @@ Three rules, all enforced here:
   output is untrusted: every path and size is checked (`check_files`), and
   anything that is not plain HTML / CSS / JS / JSON / SVG / Markdown / text
   is refused. Nothing is ever run on the backend — the files run only in
-  the member's browser, inside a sandboxed preview with no network and no
-  access to CTRL+AI (CLAUDE.md section 20).
+  the member's browser, inside a sandboxed frame with no access to
+  CTRL+AI (CLAUDE.md section 20).
 * **Paid like any Claude call.** The wallet is checked against the worst
   case before the call (the whole output budget), the tokens actually used
   are charged afterwards, and the files land in the same transaction as

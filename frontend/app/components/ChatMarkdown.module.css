@@ -197,3 +197,12 @@
 .imageAlt {
   color: var(--text-muted);
 }
+
+.image {
+  display: block;
+  max-width: 100%;
+  max-height: 420px;
+  height: auto;
+  margin: 8px 0;
+  border-radius: var(--radius-sm);
+}

@@ -45,7 +45,10 @@ describe("법적 문서 페이지", () => {
     render(<PrivacyPage />);
 
     expect(screen.getByRole("heading", { name: "개인정보 처리방침" })).toBeTruthy();
-    expect(screen.getByText(/시행일 2026-10-14/)).toBeTruthy();
+    expect(screen.getByText(/시행일 2026-10-22 · v2/)).toBeTruthy();
+    // app-open-services: outside services receive the visitor's IP.
+    expect(screen.getByText(/바깥 https 서비스를 불러올 수/)).toBeTruthy();
+    expect(screen.queryByText(/외부로 나가는 요청이 없습니다/)).toBeNull();
     for (const heading of [
       /모으는 정보/,
       /어디에 쓰나/,

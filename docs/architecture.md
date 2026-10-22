@@ -405,8 +405,11 @@ caddy ── web ── api ──── unix socket /run/thumbs/thumbs.sock ─
    dialogs dismissed, popups closed, a fresh browser per picture,
    navigation capped at 15 s and the whole job at 20 s, one job at a
    time behind a lock (a second caller waits, then gets 503). The files
-   themselves are served under the apps origin's `sandbox …
-   connect-src 'none'` policy, a third fence. The api, for its part,
+   themselves are served under the apps origin's sandboxed policy
+   (`app_shell.app_files_csp`); since app-open-services that policy lets
+   an app reach outside https hosts, and the worker's own host filter is
+   what keeps a thumbnail render off the network (an app that needs an
+   outside service is photographed without it). The api, for its part,
    reads the answer as a stream and stops at the first sign of trouble
    (not `image/png`, no or too large a `Content-Length`, more than 4 MB
    arriving, the deadline passing), so a misbehaving worker cannot make
@@ -671,11 +674,29 @@ ctrlai.my (Builder / CtrlAIApps)
   deleted projects; a draft slug is the Builder's 미리보기 mode);
   `/<slug>/_app/<file>` → the static file from `apps_data`, with
   `app_shell.app_files_csp` (a `sandbox` CSP, so the files are fenced in
-  even when opened on their own; `connect-src 'none'`; framed only by the
-  shell and the site; never a cookie); `/_ctrlai/*` → the api router
+  even when opened on their own; framed only by the shell and the site;
+  never a cookie); `/_ctrlai/*` → the api router
   `app/api/routes/app_platform.py`, mounted **outside `/api`** — the site
   forwards only `/api/*`, so none of it is reachable from `ctrlai.my`;
   `/<slug>` and `/<slug>/<file>` (old addresses) → 301 to the new ones.
+* **Outside services** (app-open-services, owner 2026-10-22): the files'
+  CSP allows `https:` for scripts, styles, images, media, fonts and
+  `connect-src` (no `http:`, no sockets, no `eval`; workers from `blob:`).
+  CTRL+AI's own data stays out of reach by three standing rules, each held
+  by `tests/test_app_open_services.py`: the frame is opaque (no
+  `allow-same-origin`), so its requests are cross-site and the session
+  cookie (SameSite=Lax — a deployed server refuses `None`) never rides on
+  them; the api answers no CORS (`Origin: null` included); every
+  state-changing route needs a JSON body. What can leave is the visitor's
+  IP and what the app itself holds (what the visitor typed, public
+  `ctrlai.db` rows, AI answers) — the 개인정보 처리방침 says so. Chat
+  follows suit: reply images load from https (no referrer), and html
+  previews may use CDN libraries. The Builder's app rules (`_OUTSIDE_RULES`
+  in `claude_provider.py`) steer Claude to keyless services — Leaflet +
+  OpenStreetMap tiles for maps (MapLibre never loads its tiles in an
+  opaque-origin frame), jsDelivr/cdnjs libraries, Open-Meteo, Frankfurter,
+  Wikimedia Commons — never a key in the code, never an address from
+  memory.
 * **The tab icon** (app-tab-icon, 2026-10-17; revised the same day by the
   owner, option 1): the shell page carries a `<link rel="icon">` whose href
   is the constant `app_shell.APP_FAVICON` — one shared 「앱」 icon (four

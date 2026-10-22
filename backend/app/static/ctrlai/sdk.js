@@ -5,9 +5,10 @@
  * page of a member app when its files are written (app_runtime.SDK_TAG).
  *
  * The app runs in a sandboxed frame with an opaque origin: it has no
- * cookies, no storage and no network of its own (CSP connect-src 'none').
- * Everything goes through the trusted shell page around it, by
- * postMessage, and only to that parent.
+ * cookies and no storage of its own, and may reach outside https services
+ * but none of CTRL+AI's (app-open-services). Every CTRL+AI feature goes
+ * through the trusted shell page around it, by postMessage, and only to
+ * that parent.
  *
  *   ctrlai.storage.get(key)          → Promise<value | null>
  *   ctrlai.storage.set(key, value)   → Promise<void>   (any JSON value)

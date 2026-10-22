@@ -267,9 +267,10 @@ each entry below says whether it is pre-approved.
        (`app_files_csp` in `backend/app/services/app_shell.py` and the
        same line in `deploy/Caddyfile`, kept equal by a test) allows
        `https:` in `connect-src`, `img-src`, `media-src`, `script-src`,
-       `style-src` and `font-src` (plus today's `'self' data: blob:`); no
-       `http:`, no `ws:`. Unchanged: the sandbox (never
-       `allow-same-origin`), `frame-ancestors`, and the shell's own CSP.
+       `style-src` and `font-src` (plus today's `'self' data: blob:`) and
+       `worker-src 'self' blob:`; no `http:`, no `ws:`. Unchanged: the
+       sandbox (never `allow-same-origin`), `frame-ancestors`, the shell's
+       own CSP, and the Builder's srcdoc fallback preview (no network).
     2. **Our own API stays shut to apps.** With `https:` open, an app can
        send requests to `ctrlai.my/api/*`. The standing rules (host-only
        session cookie, JSON bodies on every state-changing route, no CORS)
@@ -284,8 +285,9 @@ each entry below says whether it is pre-approved.
        wallets). Covered by the notice (point 5), not by code.
     4. **Claude uses services by itself.** The Builder's app rules say:
        outside https services may be used; prefer free, keyless,
-       well-known ones — maps **MapLibre + OpenFreeMap** ("© OpenStreetMap
-       contributors"), weather Open-Meteo, rates Frankfurter, libraries
+       well-known ones — maps **Leaflet + OpenStreetMap tiles** ("©
+       OpenStreetMap", referrer on tile requests; MapLibre was tried and
+       never loads its tiles in an opaque-origin frame), weather Open-Meteo, rates Frankfurter, libraries
        from cdnjs/jsDelivr with pinned versions, photos from Wikimedia
        Commons (licence and author shown); **never put an API key in app
        code** (anyone can read it); **never write image addresses from
@@ -297,9 +299,10 @@ each entry below says whether it is pre-approved.
        visitor's IP address and whatever that app or answer sends. Same
        PR: that section still says the beta answers with a mock and sends
        nothing out — no longer true (production runs real Claude), fix it.
-    6. **Maps first:** 여행 일정 메이커 gets a real map as the first user.
-       If OpenFreeMap ever stops, the fallback is a self-hosted Protomaps
-       file (OpenStreetMap, no key) on our own Caddy.
+    6. **Maps first:** 여행 일정 메이커 gets a real map as the first user,
+       keeping its hand-drawn SVG map when tiles do not arrive. If OSM's
+       tile servers ever refuse us, the options are another keyless raster
+       source or self-hosted tiles on our own Caddy.
     7. **Thumbnails:** the server renderer (`thumbs` worker) keeps its
        network isolation for now — an app whose look depends on outside
        loads may photograph without them. Revisit only if it matters.

@@ -421,6 +421,14 @@ class Settings(BaseSettings):
             problems.append(
                 "CORS_ALLOW_ORIGINS must not list the member apps' origin (APPS_BASE_URL)."
             )
+        # Member apps may call any https host (app-open-services), ours
+        # included; their requests are cross-site, and only Lax/Strict keeps
+        # the session cookie off them.
+        if self.session_cookie_samesite.strip().lower() not in ("lax", "strict"):
+            problems.append(
+                "SESSION_COOKIE_SAMESITE must be lax or strict: member apps can send "
+                "requests to the site, and SameSite=None would sign them in."
+            )
 
         if self.admin_password:
             problem = admin_password_problem(self.admin_password)
