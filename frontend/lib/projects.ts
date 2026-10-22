@@ -252,6 +252,8 @@ export interface GenerateEstimate extends StarterEstimate {
   /** quality-tuning Q1: 이 프로젝트의 모델·깊이와 고르기 창의 목록. */
   chat_model_id?: number | null;
   depth?: DepthLevel | null;
+  /** auto-depth: 이 프로젝트의 설정("auto" = 자동). 고르기 창은 이 값을 보여 줘요. */
+  depth_setting?: DepthLevel;
   max_krw?: number;
   models?: BuilderModelOption[];
 }

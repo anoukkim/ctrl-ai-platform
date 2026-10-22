@@ -10,6 +10,10 @@
  * 안내, "1회 약 N원 (최대 M원)"이 있습니다. 깊이 조절이 없는 모델은
  * 막대 대신 "이 모델은 깊이 조절이 없어요"라고만 말합니다.
  *
+ * auto-depth: 막대 위에 **자동 (추천)** 스위치가 있고 기본으로 켜져
+ * 있습니다. 켜져 있으면 서버가 요청마다 낮음 · 보통 · 높음 중에서 고르고
+ * 막대는 흐리게 보여요. 막대의 칸을 누르면 직접 고르기로 바뀝니다.
+ *
  * 고르는 즉시 `onChange`가 불립니다 — 저장은 부르는 쪽(대화, 프로젝트,
  * 회원 기본값)이 합니다. 숫자는 서버가 보낸 것을 보여 줄 뿐입니다.
  */
@@ -21,6 +25,7 @@ import {
   continueText,
   type DepthLevel,
   levelFor,
+  MANUAL_DEFAULT,
   modelCostText,
   type PickerModel,
   priceText,
@@ -81,11 +86,14 @@ export default function ModelDepthPicker({
   if (models.length === 0) return null;
 
   const step = current ? levelFor(current, level) : null;
-  const stepIndex = current && step ? current.levels.findIndex((row) => row.level === step.level) : -1;
+  const isAuto = step?.level === "auto";
+  // 자동일 때 막대는 보통 자리에 흐리게 — 직접 고르면 거기서 시작합니다.
+  const sliderLevel = isAuto ? MANUAL_DEFAULT : step?.level;
+  const stepIndex = current && step ? current.levels.findIndex((row) => row.level === sliderLevel) : -1;
 
   const pickModel = (model: PickerModel) => {
-    // 새 모델에 같은 깊이가 없으면 보통으로(levelFor가 고릅니다).
-    const next = levelFor(model, level)?.level ?? level ?? "medium";
+    // 새 모델에 같은 깊이가 없으면 보통으로(levelFor가 고릅니다). 자동은 자동 그대로.
+    const next = levelFor(model, level)?.level ?? level ?? MANUAL_DEFAULT;
     onChange(model, next);
   };
 
@@ -152,15 +160,32 @@ export default function ModelDepthPicker({
                   </p>
                 ) : (
                   <>
+                    {current.auto && (
+                      <label className={styles.autoRow} data-testid="depth-auto">
+                        <span>
+                          <span className={styles.autoLabel}>자동 (추천)</span>
+                          <span className={styles.autoHint}>{current.auto.hint}</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          className={styles.autoSwitch}
+                          checked={isAuto}
+                          aria-checked={isAuto}
+                          onChange={(event) => onChange(current, event.target.checked ? "auto" : MANUAL_DEFAULT)}
+                          data-testid="depth-auto-switch"
+                        />
+                      </label>
+                    )}
                     <input
-                      className={styles.slider}
+                      className={`${styles.slider} ${isAuto ? styles.sliderAuto : ""}`}
                       type="range"
                       min={0}
                       max={current.levels.length - 1}
                       step={1}
                       value={stepIndex}
                       aria-labelledby={sliderId}
-                      aria-valuetext={step.label}
+                      aria-valuetext={isAuto ? "자동" : step.label}
                       onChange={(event) => {
                         const next = current.levels[Number(event.target.value)];
                         if (next) onChange(current, next.level);
@@ -175,17 +200,20 @@ export default function ModelDepthPicker({
                         <button
                           key={row.level}
                           type="button"
-                          className={`${styles.stop} ${row.level === step.level ? styles.stopOn : ""}`}
+                          className={`${styles.stop} ${!isAuto && row.level === step.level ? styles.stopOn : ""}`}
                           onClick={() => onChange(current, row.level)}
-                          aria-pressed={row.level === step.level}
+                          aria-pressed={!isAuto && row.level === step.level}
                         >
                           {row.label}
                         </button>
                       ))}
                     </div>
-                    <p className={styles.hint} data-testid="depth-hint">
-                      {step.hint}
-                    </p>
+                    {!isAuto && (
+                      // 자동이면 스위치가 이미 같은 말을 해요.
+                      <p className={styles.hint} data-testid="depth-hint">
+                        {step.hint}
+                      </p>
+                    )}
                     {step.level === "max" && current.depth_note && (
                       <p className={styles.hint}>{current.depth_note}</p>
                     )}

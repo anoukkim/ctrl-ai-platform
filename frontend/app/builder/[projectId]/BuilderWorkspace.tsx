@@ -100,7 +100,7 @@ import {
   type PlanInput,
 } from "@/lib/generation";
 import { NO_PROGRESS, PlanCard, StartForm, stepState, type Progress } from "./StagedGeneration";
-import type { DepthLevel, PickerModel } from "@/lib/depth";
+import { DEFAULT_DEPTH, type DepthLevel, type PickerModel } from "@/lib/depth";
 import { usePref, useMediaQuery, writePref } from "@/lib/layout-prefs";
 
 import ClaudeHistory from "./ClaudeHistory";
@@ -1678,7 +1678,7 @@ export default function BuilderWorkspace({ projectId }: { projectId: string }) {
                       .map(builderPickerModel)
                       .find((model) => model.id === generateEstimate.chat_model_id) ?? null
                   }
-                  level={generateEstimate.depth ?? "medium"}
+                  level={generateEstimate.depth_setting ?? generateEstimate.depth ?? DEFAULT_DEPTH}
                   onChange={(model, level) => void chooseBuildModel(model, level)}
                   disabled={!mayCreate || generating}
                   footnote="금액은 이 프로젝트 크기로 어림한 값이에요. 실제로는 쓴 만큼만 차감되고, 괄호 안 금액을 넘지 않아요."

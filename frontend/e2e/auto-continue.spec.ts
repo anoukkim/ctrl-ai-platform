@@ -45,7 +45,8 @@ async function writeLimits(request: APIRequestContext, limits: Limits, medium: R
   const payload: Record<string, unknown> = {};
   for (const key of keys) payload[key] = limits[key];
   const levels = JSON.parse(JSON.stringify(limits.depth_levels));
-  levels.chat.medium = { ...levels.chat.medium, ...medium };
+  // auto-depth: 자동 (the default) may pick any of these for the test message.
+  for (const name of ["low", "medium", "high"]) levels.chat[name] = { ...levels.chat[name], ...medium };
   const response = await request.post(`${SITE}/api/admin/claude-pricing/chat-limits`, { data: { ...payload, depth_levels: levels } });
   expect(response.ok(), await response.text()).toBeTruthy();
 }
@@ -56,7 +57,6 @@ test("a long reply is continued by the server into one bubble, and the preview o
   await page.addInitScript(() => window.localStorage.setItem("ctrlai.guide-done", "1"));
   await page.setViewportSize({ width: 1440, height: 900 });
   const before = await readLimits(page.context().request);
-  const medium = before.depth_levels.chat.medium;
   await writeLimits(page.context().request, before, { max_tokens: 1024, cap_krw: 200, total_cap_krw: 1500 });
   try {
     await page.goto(`${SITE}/`); // Chat is the opening screen
@@ -97,6 +97,7 @@ test("a long reply is continued by the server into one bubble, and the preview o
     await theme(page, "light");
     await page.screenshot({ path: `${SHOTS}/390-light-merged.png`, fullPage: true });
   } finally {
-    await writeLimits(page.context().request, before, medium);
+    // Restores every level exactly as it was (no overrides).
+    await writeLimits(page.context().request, before, {});
   }
 });
