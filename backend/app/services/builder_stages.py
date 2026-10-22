@@ -225,7 +225,7 @@ def plan(
         raise StarterError(f"요청이 너무 깁니다({MAX_REQUEST_CHARS:,}자까지).", 400)
     style = style.strip()[:100]
 
-    choice = builder_choice.choose(db, settings, user, project)
+    choice = builder_choice.choose(db, settings, user, project, request=request)
     chat_models.require_adapter(choice.model)
     files = builder_versions.current_files(db, project)
     creating = builder_files.ENTRY_FILE not in files
@@ -332,7 +332,11 @@ def run_estimate(
     db: Session, settings: Settings, user: User, project: BuilderProject, generation: BuilderGeneration
 ) -> tuple[int, int]:
     """(약 N원 for the rest of the run, 최대 M원 per call) — shown by 시작."""
-    choice = builder_choice.choose(db, settings, user, project)
+    # auto-depth: the run keeps the depth its plan was made at — the plan's
+    # kind, not files written meanwhile, says whether this is the first build.
+    choice = builder_choice.choose(
+        db, settings, user, project, request=generation.request, creating=generation.kind == "create"
+    )
     files = builder_versions.current_files(db, project)
     remaining = [step for step in generation.plan if step[0] not in set(generation.files_done)]
     following = remaining[0][0] if remaining else "index.html"
@@ -441,7 +445,11 @@ def run(
     db.commit()
 
     project = db.get(BuilderProject, generation.project_id)
-    choice = builder_choice.choose(db, settings, user, project)
+    # auto-depth: the run keeps the depth its plan was made at — the plan's
+    # kind, not files written meanwhile, says whether this is the first build.
+    choice = builder_choice.choose(
+        db, settings, user, project, request=generation.request, creating=generation.kind == "create"
+    )
     plan_steps = [(step[0], step[1]) for step in generation.plan]
     planned_paths = {path for path, _ in plan_steps}
     builder_versions.ensure_baseline(db, project)

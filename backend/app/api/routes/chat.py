@@ -169,7 +169,7 @@ def chat_info(
         models=[_option(db, row, default, rate, limits) for row in chat_models.models_for(db, user)],
         default_model_id=default.id if default else None,
         member_default_model_id=member_default,
-        member_default_depth=user.default_depth or depth_service.DEFAULT_LEVEL,
+        member_default_depth=user.default_depth or depth_service.AUTO,
     )
 
 
@@ -206,6 +206,7 @@ def _option(db: Session, row, default, rate, limits=None) -> ChatModelOption:
         levels=depth_service.options(
             limits.depth_levels if limits else None, "chat", row.model_id, estimate.krw
         ),
+        auto=depth_service.auto_option(limits.depth_levels if limits else None, "chat", row.model_id, estimate.krw),
         flat_max_krw=depth_service.table(limits.depth_levels if limits else None, "chat")[
             depth_service.DEFAULT_LEVEL
         ].cap_krw,

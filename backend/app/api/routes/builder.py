@@ -772,6 +772,7 @@ def generate_estimate(
         max_output_tokens=figures.max_output_tokens,
         chat_model_id=figures.chat_model_id,
         depth=figures.depth,
+        depth_setting=figures.depth_setting,
         max_krw=figures.max_krw,
         models=[BuilderModelOption(**option) for option in figures.models],
     )

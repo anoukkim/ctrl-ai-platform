@@ -180,6 +180,19 @@ def isolated_storage(tmp_path) -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def pinned_auto_depth(request, monkeypatch) -> None:
+    """auto-depth made 자동 the default 생각 깊이. Tests written before it
+    measure rooms and caps at what used to be the default, 보통 — so 자동
+    resolves to 보통 for them. `tests/test_auto_depth.py` runs the real
+    rules (`@pytest.mark.real_auto_depth`)."""
+    if request.node.get_closest_marker("real_auto_depth"):
+        return
+    from app.services import depth as depth_service
+
+    monkeypatch.setattr(depth_service, "auto_level", lambda surface, hint: "medium")
+
+
+@pytest.fixture(autouse=True)
 def empty_mock_prompt_cache() -> Generator[None, None, None]:
     """Each test starts with the mock's prompt cache empty.
 

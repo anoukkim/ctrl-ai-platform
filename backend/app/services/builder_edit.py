@@ -50,6 +50,9 @@ class EditEstimate:
     #: quality-tuning Q1: the project's choice, and what the picker offers.
     chat_model_id: int | None = None
     depth: str | None = None
+    #: auto-depth: what the project is set to ("auto" when nothing was
+    #: chosen) — the picker shows this; `depth` is what 자동 picked now.
+    depth_setting: str = "auto"
     max_krw: int = 0
     models: tuple = ()
 
@@ -68,7 +71,12 @@ def estimate(
     """At the project's model and depth: what 만들기 / 고치기 will cost — the
     request, the files, the app's pictures named to Claude and the waiting
     참고 사진 (builder-images), as the staged plan's pre-check counts them."""
-    choice = builder_choice.choose(db, settings, user, project)
+    # auto-depth: before the request is known, 자동 is shown at its worst
+    # case (높음 — what a long request would run at), so "최대 M원" is never
+    # below what 만들기 / 고치기 can reserve.
+    choice = builder_choice.choose(
+        db, settings, user, project, request=request, creating=True if not request.strip() else None
+    )
     files = builder_versions.current_files(db, project)
     tokens_in = _input_estimate(project, files, request or "x" * 120)
     # builder-images (1): the pictures waiting in the request box.
@@ -92,6 +100,7 @@ def estimate(
         max_output_tokens=room,
         chat_model_id=choice.model.row_id,
         depth=choice.depth,
+        depth_setting=project.depth or user.default_depth or "auto",
         max_krw=choice.level.cap_krw,
         models=tuple(
             builder_choice.options(
@@ -130,7 +139,7 @@ def generate(
     if len(request) > MAX_REQUEST_CHARS:
         raise StarterError("요청이 너무 깁니다(2,000자까지).", 400)
 
-    choice = builder_choice.choose(db, settings, user, project)
+    choice = builder_choice.choose(db, settings, user, project, request=request)
     model, price = choice.model, choice.price
     chat_models.require_adapter(model)
     files = builder_versions.current_files(db, project)

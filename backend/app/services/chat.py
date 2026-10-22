@@ -571,7 +571,12 @@ def prepare_turn(
     # 생각 깊이 (quality-tuning Q1): the conversation's, else the member's
     # default; the server turns the name into effort, room and cap.
     level, effort = depth_service.resolve(
-        limits.depth_levels, "chat", model.model_id, conversation.depth or user.default_depth
+        limits.depth_levels,
+        "chat",
+        model.model_id,
+        conversation.depth or user.default_depth,
+        # auto-depth: what 자동 looks at — this message and its files.
+        hint=depth_service.AutoHint(text=text, files=len(new_files)),
     )
 
     history = messages_of(db, conversation)

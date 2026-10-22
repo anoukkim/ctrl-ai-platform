@@ -26,6 +26,7 @@ tokens or 200원, so 보통 keeps 200원 and doubles the room.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 #: Level names, in slider order. The API effort has the same name.
@@ -41,6 +42,59 @@ HINTS = {
 }
 
 SURFACES = ("chat", "builder")
+
+# ------------------------------------------------------------ 자동 (auto-depth)
+#
+# Owner, 2026-10-22: "빌더도 중간에 멈추니까 그냥 기본적으로 자동으로 두고
+# 선택하고 싶으면 하는거고". 자동 is the default (a conversation, a project
+# or a member with nothing chosen); the server picks 낮음 · 보통 · 높음 for
+# each request by the rules in `auto_level` — no extra call, nothing
+# charged. It never picks 최고: the member chooses that one. So 자동's
+# "최대 M원" is 높음's cap, which the admin already sets in Models › 한도.
+AUTO = "auto"
+AUTO_LABEL = "자동"
+AUTO_HINT = "요청에 맞춰 낮음 · 보통 · 높음 중에서 골라요"
+AUTO_MAX = "high"
+
+#: Words that mean the request needs more thought — code, analysis,
+#: comparison, planning, long writing, maths.
+_HARD = re.compile(
+    r"코드|코딩|함수|버그|에러|오류|디버그|리팩터|알고리즘|구현|"
+    r"비교|분석|설계|계획|전략|기획|보고서|논문|요약해|정리해|단계별|자세히|"
+    r"수학|증명|계산|문제 풀|왜 그런|원인|"
+    r"code|debug|error|function|algorithm|analy[sz]e|compare|design|plan",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class AutoHint:
+    """What 자동 looks at for one request."""
+
+    text: str = ""
+    #: Files attached to this message (chat).
+    files: int = 0
+    #: The Builder is writing the app for the first time.
+    creating: bool = False
+
+
+def auto_level(surface: str, hint: AutoHint | None) -> str:
+    """The depth 자동 picks for one request: 낮음, 보통 or 높음.
+
+    Chat — 높음 for code, analysis, planning, attachments, a code block or a
+    long message; 낮음 for a short one-liner with none of that; else 보통.
+    Builder — 높음 for the first build or a long change request (so a
+    whole app is not cut at 보통's per-call cap); else 보통.
+    """
+    hint = hint or AutoHint()
+    text = hint.text.strip()
+    if surface == "builder":
+        return "high" if hint.creating or len(text) > 300 else "medium"
+    if hint.files or "```" in text or len(text) > 600 or _HARD.search(text):
+        return "high"
+    if len(text) <= 30:
+        return "low"
+    return "medium"
 
 
 @dataclass(frozen=True)
@@ -115,15 +169,24 @@ def table(stored: dict | None, surface: str) -> dict[str, Level]:
     return out
 
 
-def resolve(stored: dict | None, surface: str, model_id: str, level: str | None) -> tuple[Level, str | None]:
+def resolve(
+    stored: dict | None,
+    surface: str,
+    model_id: str,
+    level: str | None,
+    hint: AutoHint | None = None,
+) -> tuple[Level, str | None]:
     """The level a call runs at, and the effort to send (None = send none).
 
-    A level the model does not offer — or any made-up value — falls back to
-    보통: the client's word never sets a number. A model without effort runs
-    at 보통's room and cap.
+    Nothing chosen, or 자동, picks by `auto_level` (auto-depth). A level the
+    model does not offer — or any made-up value — falls back to 보통: the
+    client's word never sets a number. A model without effort runs at
+    보통's room and cap.
     """
     levels = table(stored, surface)
     offered = levels_for(model_id)
+    if offered and (level is None or level == AUTO):
+        level = auto_level(surface, hint)
     if level in offered:
         chosen = levels[level]
         return chosen, chosen.effort
@@ -131,13 +194,13 @@ def resolve(stored: dict | None, surface: str, model_id: str, level: str | None)
 
 
 def clean(level: str | None) -> str | None:
-    """A level name as stored, or None. Unknown names are refused by the
-    caller with `is_level`."""
-    return level if level in LEVELS else None
+    """A level name as stored (자동 included), or None. Unknown names are
+    refused by the caller with `is_level`."""
+    return level if is_level(level) else None
 
 
 def is_level(level: str | None) -> bool:
-    return level in LEVELS
+    return level in LEVELS or level == AUTO
 
 
 #: "1회 약 N원" per depth, relative to the model's typical reply (the
@@ -168,6 +231,27 @@ def options(stored: dict | None, surface: str, model_id: str, base_krw: int | No
             }
         )
     return out
+
+
+def auto_option(stored: dict | None, surface: str, model_id: str, base_krw: int | None) -> dict | None:
+    """The picker's 자동 switch for one model: its estimate (보통's) and its
+    maximum (높음's cap — the most 자동 can pick). None when the model has no
+    depths."""
+    if not levels_for(model_id):
+        return None
+    levels = table(stored, surface)
+    top = levels[AUTO_MAX]
+    estimate = None
+    if base_krw is not None:
+        estimate = max(1, min(round(base_krw * ESTIMATE_FACTORS["medium"]), top.cap_krw))
+    return {
+        "level": AUTO,
+        "label": AUTO_LABEL,
+        "hint": AUTO_HINT,
+        "estimate_krw": estimate,
+        "max_krw": top.cap_krw,
+        "total_krw": top.total_cap_krw,
+    }
 
 
 def note_for(model_id: str) -> str:
