@@ -40,12 +40,12 @@
     properties: { intent: { type: "string", enum: ["rain", "cheap", "relax", "none"] }, reply: { type: "string" } },
   };
   function placesText(city) {
-    return T.CITIES[city].places.map((p) => `${p.id} ${p.name} (${p.pref}${p.indoor ? "·실내" : ""}, ${p.minutes}분, 1인 ${p.cost}원)`).join("\n");
+    return city.places.map((p) => `${p.id} ${p.name} (${p.pref}${p.indoor ? "·실내" : ""}, ${p.minutes}분, 1인 ${p.cost}원)`).join("\n");
   }
   function planOptions(input) {
     return {
       system: "여행 일정을 짜는 도우미예요. 주어진 장소 목록의 id만 써서 날짜별 동선(하루 3~5곳, 맛집은 하루 1~2곳, 가까운 곳끼리)을 JSON으로 만들어요. 같은 장소는 한 번만. notes에는 한국어 한 줄 조언을 최대 3개.",
-      prompt: `도시 ${input.city}, ${input.days}일, ${input.people}명, 총예산 ${input.budget}원, 취향 ${input.prefs.join("·")}.\n장소 목록:\n${placesText(input.city)}`,
+      prompt: `도시 ${input.city}, ${input.days}일, ${input.people}명, 총예산 ${input.budget}원, 취향 ${input.prefs.join("·")}.\n장소 목록:\n${placesText(T.CITIES[input.city])}`,
       json: PLAN_SCHEMA,
       maxTokens: 700,
     };
@@ -106,7 +106,7 @@
   async function planWithAi(input) {
     const result = await sdk.ai.ask(planOptions(input));
     const trip = T.plan(input);
-    const valid = new Set(T.CITIES[input.city].places.map((p) => p.id));
+    const valid = new Set(T.CITIES[input.city].places.map((p) => p.id)); // 서울·부산·제주 (다른 곳은 planAnywhere)
     const used = new Set();
     const replacedDays = new Set();
     const days = Array.isArray(result.json && result.json.days) ? result.json.days : [];
@@ -198,7 +198,13 @@
               ${miniOutline(c)}<b>${c.name}</b><small>장소 ${c.places.length}곳</small></label>`,
           )
           .join("")}
+        <label class="cityCard anywhere"><input type="radio" name="city" value="${T.ANYWHERE}" ${f.city === T.ANYWHERE ? "checked" : ""}>
+          <span class="mini pin" aria-hidden="true">📍</span><b>다른 곳</b><small>실제 AI + 지도 검색</small></label>
       </fieldset>
+      <label class="anywhereField" ${f.city === T.ANYWHERE ? "" : "hidden"}>국내 어디로 갈까요?
+        <input name="place" maxlength="20" placeholder="예: 강릉, 경주, 남해" value="${esc(f.place || "")}">
+        <small>${live.on && sdk ? "Claude가 갈 만한 곳을 고르고, 지도 검색으로 위치를 찾아요 — 「AI로 일정 짜기」를 눌러요." : "실제 AI가 필요해요 — 위쪽 CTRL+AI 줄의 스위치를 켜 주세요."}</small>
+      </label>
       <div class="formRow">
         <label>기간
           <select name="days">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${f.days === n ? "selected" : ""}>${n === 1 ? "당일치기" : `${n - 1}박 ${n}일`}</option>`).join("")}</select>
@@ -237,6 +243,7 @@
     const data = new FormData(form);
     return {
       city: data.get("city") || "서울",
+      place: String(data.get("place") || "").trim().slice(0, 20),
       days: Number(data.get("days")) || 1,
       budget: Math.max(0, Math.round(Number(data.get("budget")) || 0)),
       people: state.form.people,
@@ -244,10 +251,54 @@
     };
   }
 
+  // "다른 곳": 지역 찾기 → Claude가 장소 고르기(1회) → 지도 검색으로 위치 → 데모 플래너가 일정 (anywhere.js).
+  function planAnywhere(input, useAi, error) {
+    if (!input.place) return (error.textContent = "어디로 갈지 적어 주세요 (예: 강릉).");
+    if (!useAi) {
+      error.textContent = live.on && sdk ? "다른 곳은 「AI로 일정 짜기」로 만들어요." : "다른 곳은 실제 AI가 필요해요 — 위쪽 CTRL+AI 줄의 스위치를 켜 주세요.";
+      return;
+    }
+    live.busy = true;
+    error.textContent = "";
+    const button = $("#plan-ai");
+    button.disabled = true;
+    button.textContent = "Claude가 고르고 지도에서 찾는 중…";
+    T.buildArea(input.place, sdk, (n, total) => (button.textContent = `지도에서 찾는 중… ${n}/${total}`)).then(
+      ({ city, krw, asked }) => {
+        undo = state.trip ? JSON.stringify(state.trip) : null;
+        state.form = input;
+        const trip = T.plan({ ...input, city: city.name }, city);
+        trip.ai = { krw, days: input.days, total: input.days };
+        state.trip = trip;
+        state.day = 0;
+        state.view = "result";
+        const missed = asked - city.places.length;
+        message = { text: `Claude가 고른 ${asked}곳 중 ${city.places.length}곳을 지도에서 찾아 일정을 짰어요${missed ? ` (${missed}곳은 지도에서 못 찾아 뺐어요)` : ""}. 머무는 시간·비용은 대략이에요.`, kind: "wait" };
+        live.busy = false;
+        save();
+        render();
+        main.focus();
+        say(`${city.name} ${input.days}일 일정을 만들었어요.`);
+      },
+      (err) => {
+        live.busy = false;
+        button.disabled = false;
+        button.textContent = "AI로 일정 짜기";
+        error.textContent =
+          err && err.code === "demo"
+            ? "지금은 데모예요 — 다른 곳은 실제 AI가 켜져 있을 때 만들 수 있어요."
+            : err && err.message
+              ? err.message
+              : "일정을 만들지 못했어요. 다시 해 보세요.";
+      },
+    );
+  }
+
   function bindForm() {
     const form = $("#plan-form");
     form.addEventListener("input", () => {
       state.form = readForm();
+      $(".anywhereField", form).hidden = state.form.city !== T.ANYWHERE;
       $("#budget-text").textContent = won(state.form.budget);
       save();
     });
@@ -267,6 +318,7 @@
       if (!input.prefs.length) return (error.textContent = "취향을 하나 이상 골라 주세요.");
       if (input.budget < 50000) return (error.textContent = "총예산은 5만 원 이상으로 적어 주세요.");
       if (live.busy) return; // 이미 짜는 중이에요
+      if (input.city === T.ANYWHERE) return planAnywhere(input, useAi, error);
       undo = state.trip ? JSON.stringify(state.trip) : null;
       state.form = input;
       const finish = (trip, note) => {
@@ -298,7 +350,10 @@
     });
     // 실제 AI: 짜기 버튼 옆에 가격을 먼저 보여 줘요 (입력이 바뀌면 다시).
     if (live.on && sdk) {
-      const refreshPrice = () => updatePrice($("#plan-price"), "plan", planOptions(readForm()));
+      const refreshPrice = () => {
+        const f = readForm();
+        updatePrice($("#plan-price"), "plan", f.city === T.ANYWHERE ? T.anywhereOptions(f.place || "여행지") : planOptions(f));
+      };
       refreshPrice();
       form.addEventListener("input", debounce(refreshPrice, 400));
     }
@@ -478,6 +533,7 @@
       $("#adopt").addEventListener("click", () => {
         state.trip = JSON.parse(JSON.stringify(shared));
         state.form = { ...shared.input, prefs: [...shared.input.prefs] };
+        if (shared.cityData) Object.assign(state.form, { city: T.ANYWHERE, place: shared.input.city });
         state.view = "result";
         state.day = 0;
         save();
@@ -729,7 +785,7 @@
     sdk && sdk.ai.mode ? sdk.ai.mode().catch(() => "demo") : "demo",
   ])
     .then(([saved, aiMode]) => {
-      if (saved && saved.trip && saved.trip.input && T.CITIES[saved.trip.input.city]) state = saved;
+      if (saved && saved.trip && saved.trip.input && (T.CITIES[saved.trip.input.city] || saved.trip.cityData)) state = saved;
       // CTRL+AI 줄의 스위치가 정해요 (만든 사람의 '데모만'이면 늘 데모).
       live.on = Boolean(sdk && aiMode === "live");
       modeBadge();

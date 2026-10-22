@@ -394,7 +394,9 @@ docker compose -f docker-compose.prod.yml exec -T api python -m app.jobs.refresh
 api가 OpenStreetMap 타일을 동아리 User-Agent로 대신 받아 `api_storage`
 볼륨의 `map-tiles/`에 7일 보관하고 `apps.<도메인>/_ctrlai/tiles/…`로
 줍니다(최대 `MAP_TILE_CACHE_MB`, 기본 300MB — 오래된 것부터 지움). 키 없음.
-`mock`이면 회색 타일. 확인:
+`mock`이면 회색 타일. **장소 검색**(feat-trip-country): `PLACE_SEARCH_PROVIDER=photon`이면
+`apps.<도메인>/_ctrlai/places?q=…`로 OpenStreetMap 장소 검색을 대신 해 줘요(1초에 한 번,
+30일 기억, `map-places/`). 확인:
 
 ```bash
 curl -sI https://apps.ctrlai.my/_ctrlai/tiles/11/1746/793.png | head -3
@@ -904,9 +906,9 @@ SHA(Actions 기록에 나옵니다)로 바꾸고 `dc up -d --wait`. 그 업데�
 
 ### 쇼케이스 앱 세 개를 CtrlAIApps에 올리기 (feat-showcase-apps)
 
-영수증 가계부 · 여행 일정 메이커 · 문서 챗봇 메이커(모두 **데모** — AI 결과는
-미리 만든 것이고 화면에 그렇게 표시됨)를 **관리자의 이름으로** 게시합니다.
-AI를 부르지 않고 지원금도 쓰지 않습니다.
+출장·여행 준비 도우미 · 여행 일정 메이커 · 문서 챗봇 메이커를 **관리자의 이름으로**
+게시합니다. AI를 부르지 않고 지원금도 쓰지 않습니다. (2026-10-22: 영수증 가계부는
+출장·여행 준비 도우미로 바뀌었어요 — `--replace`가 영수증 가계부를 내리고 새 앱을 올려요.)
 
 ```bash
 cd ~/ctrl-ai-platform

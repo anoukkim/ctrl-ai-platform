@@ -30,13 +30,14 @@ SPEC.md
 
 ## 구조
 
-- **불러오는 순서**: `places.js` → `planner.js` → `map.js` → `app.js` (`<script src>`, 모듈·빌드 없음). 모두 전역 객체 하나 `window.TRIP`(파일 안에서는 `T`)에 붙어요. `T.esc`·`T.won`은 `map.js`에 있지만 `planner.js`도 실행 중에 쓰므로, `app.js`가 시작되기 전에 네 파일이 다 있어야 해요.
+- **불러오는 순서**: `places.js` → `planner.js` → `anywhere.js` → `map.js` → `app.js` (`<script src>`, 모듈·빌드 없음). 모두 전역 객체 하나 `window.TRIP`(파일 안에서는 `T`)에 붙어요. `T.esc`·`T.won`은 `map.js`에 있지만 `planner.js`도 실행 중에 쓰므로, `app.js`가 시작되기 전에 네 파일이 다 있어야 해요.
 - **장소 데이터**: `TRIP.CITIES.서울/부산/제주`마다 `move`(이동 수단: 속도 km/h, 대기 분, 1인 요금, 제주는 `perKm` 기름값과 `perDay` 렌터카), `lodging`(알뜰·보통·좋음 1박 값), `outline`·`islands`·`water`(지도용 [위도, 경도] 목록), `places`. 장소 한 줄은 `[id, 이름, 취향, 실내?, 위도, 경도, 머무는 분, 1인 비용, 설명]`이고 `tripRow`가 객체로 바꿔요. id는 `s01`·`b01`·`j01`처럼 도시 머리글자 + 번호.
 - **일정(trip) 모양**: `{ input: {city, days, budget, people, prefs}, lodging, rain, cheap, relaxed, days: [[장소 id, ...], ...], notes: [] }` (+ 하루 다시 만들기 횟수 `attempts`). 하루는 장소 id 배열일 뿐이고, 시각·이동·비용은 매번 `T.schedule`·`T.budget`이 다시 계산해요.
 - **앱 상태**(`app.js`): `state = { trip, day, view: "form"|"result", form }`. 저장 안 하는 것: `undo`(바로 전 일정 JSON), `message`, `shareUrl`, `shared`(주소로 받은 일정).
 - **데모 플래너**(`planner.js`): `T.plan(input)`이 날마다 `buildDay`를 불러요 — 점수(`score`: 취향 일치 3점·아니면 1점, 비 오는 날 실내 ±2, 알뜰 모드면 비용만큼 감점)가 높은 맛집 아닌 곳으로 시작해, "점수 × 10 − 이동 분 ÷ 3"이 가장 큰 곳을 하나씩 덧붙이는 욕심쟁이 방식. 하루 540분·5곳(여유 모드 420분·3곳), 맛집 최대 2곳, 쇼핑 최대 2곳. 그다음 `fitBudget`이 숙소 등급을 낮추고 가장 비싼 곳을 더 싼 곳으로 바꾸며 `notes`에 이유를 남겨요.
 - **이동과 예산**: `T.leg`가 `T.haversine` 직선 거리 × 1.3(도로 우회)으로 시간을 5분 단위로 계산 — 1.2km 이하는 도보(4.5km/h), 아니면 도시의 이동 수단. `T.budget`은 숙박(박 수 × 2명당 방 1개) / 식비(맛집 비용 + 나머지 끼니 1인 `T.MEAL_ALLOWANCE` 10,000원) / 교통 / 체험 네 갈래.
 - **진짜 지도**(`map.js` `T.mountMap`): `index.html`이 jsDelivr에서 Leaflet 1.9.4를 불러오고, 타일은 CTRL+AI가 대신 받아 주는 OpenStreetMap 타일(`/_ctrlai/tiles/{z}/{x}/{y}.png`, 키 없음, 출처 표시 — 앱 칸은 referrer를 못 보내서 OSM에 직접 요청하면 막혀요; CTRL+AI 밖에서는 타일이 없어 단순 지도). `.mapHolder` 안 SVG 지도 위에 겹쳐 그리고 첫 타일이 오면 보여요. 10초 안에 타일이 안 오거나 타일 오류가 4번이면 지워서 SVG 지도가 남아요. 번호 핀(`.livePin`), 점선 경로, 다른 날 흐린 점. 휠 확대는 끔(페이지 스크롤을 뺏지 않게), +/− 버튼으로. 그릴 때마다 이전 지도를 `remove()`. MapLibre는 sandbox(출처 없는 페이지) 안에서 타일을 못 불러와서 쓰지 않아요.
+- **다른 곳**(`js/anywhere.js`): 입력 화면의 네 번째 카드(`T.ANYWHERE`). `T.buildArea(지역, sdk)`가 `/_ctrlai/places`(CTRL+AI가 OpenStreetMap 검색을 1초에 한 번씩 대신 해 주는 주소 — 공용 검색은 한꺼번에 많이 물으면 막아요)로 지역을 찾고, `ctrlai.ai.ask` 한 번으로 Claude가 장소 12~16곳(이름·취향·실내·머무는 분·비용·한 줄)을 고르면, 장소마다 같은 검색으로 위치를 붙여요(지역 중심 40km 안, 한국만, 못 찾으면 빼요). 결과는 서울·부산·제주와 같은 모양의 "도시"(`T.areaCity`)라서 플래너·지도·예산이 그대로 써요. 그 일정은 `trip.cityData`에 장소 목록을 갖고, 공유 링크에도 실려요(`T.decode`가 한국 안의 위치·짧은 글만 받아요). 실제 AI가 꺼져 있으면 이 카드는 안내만 해요.
 - **단순 지도**(`map.js` `T.routeMap`): 지도 타일 없이 SVG 문자열로 그려요. `projector`가 그날 장소들이 꽉 차게 위도·경도를 화면 좌표로 바꾸고(가로는 cos(위도)만큼 줄임, 최소 약 5km 범위), 도시 윤곽·한강 선 → 다른 날 장소(흐린 점) → 방문 순서 선 → 번호 표시를 그려요. 이름표는 오른쪽·왼쪽·위·아래 중 겹치지 않는 자리에, 자리가 없으면 번호만. 축척 막대와 북쪽 화살표 포함. 판 크기는 600×440, 폭 560px 미만이면 380×400(넘나들 때 다시 그림).
 - **그리기**: `render()`가 `main.innerHTML`을 통째로 바꾸고 `bindForm()`/`bindResult()`가 이벤트를 다시 달아요. 일정을 바꾸는 동작은 모두 `change(fn, note)`를 거쳐요 — 되돌리기용 복사 → 바꾸기 → 저장 → 다시 그리기 → `say()`로 `#status`에 알림.
 

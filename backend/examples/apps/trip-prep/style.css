@@ -1,0 +1,105 @@
+/* 출장·여행 준비 도우미 — 밝은 "보딩 패스" 느낌. 회사 노트북에서도 눈이 편하게. */
+:root {
+  --bg: #f4f1ea;
+  --panel: #ffffff;
+  --line: #e4ddd0;
+  --text: #1f2430;
+  --muted: #6b6f7a;
+  --accent: #2557d6;
+  --accent-ink: #ffffff;
+  --warm: #f2a33a;
+  --ok: #1f8a5b;
+  --warn: #c2410c;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Pretendard", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  max-width: 1120px; margin: 0 auto; padding: 22px 20px 8px;
+}
+.brand { display: flex; gap: 12px; align-items: center; }
+.logo {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--accent); color: var(--accent-ink); font-size: 1.3rem; transform: rotate(-8deg);
+}
+h1 { margin: 0; font-size: 1.2rem; letter-spacing: -0.02em; }
+h2 { margin: 0 0 14px; font-size: 1.15rem; }
+h3 { margin: 0 0 8px; font-size: 1rem; }
+.badge { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: 999px; background: #ffe7c2; color: #8a4b00; font-size: 0.75rem; }
+
+.main { max-width: 1120px; margin: 0 auto; padding: 8px 20px 24px; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+.results { display: grid; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: 0 1px 2px rgba(31, 36, 48, 0.05); }
+.formCard { position: sticky; top: 12px; }
+
+.sentence { display: grid; gap: 6px; font-weight: 600; }
+textarea, input, select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fbfaf7;
+}
+textarea { resize: vertical; }
+.sentenceActions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0 16px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fields label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.fields small { font-size: 0.75rem; }
+
+button { cursor: pointer; border-radius: 10px; padding: 9px 14px; border: 1px solid var(--line); background: var(--panel); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+button:disabled { opacity: 0.6; cursor: wait; }
+.ghost { background: transparent; }
+.aiBtn::after { content: ""; }
+.price, .muted { color: var(--muted); font-size: 0.85rem; }
+.small { font-size: 0.78rem; }
+.demo { color: var(--muted); font-size: 0.85rem; }
+.note { min-height: 1.2em; margin: 12px 0 0; font-size: 0.88rem; }
+.note.ok { color: var(--ok); }
+.note.warn { color: var(--warn); }
+
+.ticket {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px 14px;
+  background: linear-gradient(120deg, #1f3c9c, var(--accent)); color: #fff; border: 0;
+}
+.ticket .code { display: block; font-size: 2rem; font-weight: 800; letter-spacing: 0.04em; }
+.ticket small { opacity: 0.85; }
+.ticket .plane { text-align: center; font-size: 1.4rem; border-top: 2px dashed rgba(255, 255, 255, 0.5); padding-top: 4px; }
+.ticket p { grid-column: 1 / -1; margin: 6px 0 0; font-weight: 600; }
+
+.links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.linkBtn {
+  flex: 1 1 160px; text-align: center; padding: 12px; border-radius: 12px; text-decoration: none; font-weight: 700;
+  background: #eef3ff; color: var(--accent); border: 1px solid #d6e1ff;
+}
+.linkBtn:hover { background: #e2eaff; }
+
+.weather { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.day { display: grid; gap: 2px; padding: 10px; border-radius: 12px; background: #faf7f0; border: 1px solid var(--line); font-size: 0.85rem; }
+.day small { color: var(--muted); }
+.big { font-size: 1.35rem; font-weight: 800; margin: 4px 0; }
+.convert { display: grid; gap: 4px; margin-top: 10px; font-size: 0.85rem; color: var(--muted); max-width: 220px; }
+
+.checks { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.checks input { width: auto; margin-right: 6px; }
+.foot { max-width: 1120px; margin: 0 auto; padding: 0 20px 28px; color: var(--muted); font-size: 0.78rem; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .formCard { position: static; }
+}
+@media (max-width: 480px) {
+  .fields, .checks { grid-template-columns: 1fr; }
+  .ticket .code { font-size: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

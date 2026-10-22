@@ -182,6 +182,11 @@ class Settings(BaseSettings):
     map_tile_provider: str = "mock"
     #: The tile cache's size cap (in STORAGE_DIR/map-tiles), oldest out.
     map_tile_cache_mb: int = 300
+    #: feat-trip-country: place search for member apps, served by CTRL+AI at
+    #: apps.<domain>/_ctrlai/places. `photon` = photon.komoot.io (OpenStreetMap),
+    #: one question a second, answers kept 30 days; `mock` = invented places
+    #: near the given position, no network. Keyless.
+    place_search_provider: str = "mock"
     #: thumbnail-render-worker: who photographs a published app for its
     #: card. `browser` (the default, today's behaviour): the maker's or the
     #: admin's own browser. `server`: a headless Chromium in its own
@@ -453,6 +458,7 @@ class Settings(BaseSettings):
             "youtube": self.youtube_provider,
             "fx": self.fx_provider,
             "map_tiles": self.map_tile_provider,
+            "place_search": self.place_search_provider,
             "thumbnail": self.thumbnail_renderer,
         }[provider].strip().lower()
 
@@ -465,7 +471,7 @@ class Settings(BaseSettings):
         Returned to the Admin screen as a yes/no. The key itself is not
         exposed by any route, logged, or put in an audit row.
         """
-        if provider in ("fx", "map_tiles"):
+        if provider in ("fx", "map_tiles", "place_search"):
             return True  # keyless by design (owner-polish-3): no paid service, ever
         return bool(
             {

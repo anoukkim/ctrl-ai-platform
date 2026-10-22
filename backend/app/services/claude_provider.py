@@ -692,6 +692,10 @@ and its .css) with the tile URL "/_ctrlai/tiles/{z}/{x}/{y}.png" (CTRL+AI \
 serves OpenStreetMap's tiles) and the attribution "© OpenStreetMap". Never \
 tile.openstreetmap.org or another tile host directly, never MapLibre or \
 other WebGL maps — they do not load in the app frame;
+  · places in Korea (a name → a position, e.g. pins for a list of spots): \
+"/_ctrlai/places?q=NAME&lat=…&lon=…" (CTRL+AI asks OpenStreetMap for the \
+app, one question a second — search one at a time) → {"places": [{name, lat, \
+lng, kind, country}]}; keep country "KR";
   · weather: https://api.open-meteo.com/v1/forecast;
   · currency rates: https://api.frankfurter.dev/v1/latest;
   · photos: Wikimedia Commons — search while the app runs with \

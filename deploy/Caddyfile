@@ -177,7 +177,7 @@ apps.{$SITE_DOMAIN} {
 		respond @notRead 405
 		header {
 			Cache-Control "no-cache"
-			Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src https:; worker-src 'self' blob:; frame-ancestors https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}"
+			Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads; default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src https:; worker-src 'self' blob:; frame-ancestors https://apps.{$SITE_DOMAIN} https://{$SITE_DOMAIN}"
 			-Set-Cookie
 		}
 		root * /srv/apps

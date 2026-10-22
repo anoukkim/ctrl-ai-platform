@@ -16,7 +16,16 @@ from app.services import app_publish, builder_files, builder_versions
 #: The one URL an app may contain: the SVG namespace, which is a name, not a request.
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 #: The outside services the example apps use (app-open-services).
-OUTSIDE_ALLOWED = ("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/", "https://www.openstreetmap.org/copyright")
+OUTSIDE_ALLOWED = (
+    "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/",
+    "https://www.openstreetmap.org/copyright",
+    "https://api.open-meteo.com/v1/forecast",
+    "https://api.frankfurter.dev/v1/latest",
+    "https://flight.naver.com/flights/",
+    "https://www.google.com/travel/flights",
+    "https://open-meteo.com",
+    "https://frankfurter.dev",
+)
 
 
 @pytest.fixture
@@ -46,7 +55,8 @@ def test_each_showcase_is_a_static_korean_demo_within_the_builder_rules(example)
         # (app-open-services); an app still works when they do not load.
         for address in re.findall(r"https?://[^\s\"'`)<>]+", content.replace(SVG_NAMESPACE, "")):
             assert address.startswith(OUTSIDE_ALLOWED), (path, address)
-        assert not re.search(r"\bfetch\(|XMLHttpRequest|WebSocket|@import|sendBeacon", content), path
+        # fetch() is fine now (to the hosts above, or CTRL+AI's own /_ctrlai/); no sockets or beacons.
+        assert not re.search(r"XMLHttpRequest|WebSocket|@import|sendBeacon", content), path
         # Dialogs are blocked in the sandboxed preview frame.
         assert not re.search(r"\b(alert|confirm|prompt)\(", content), path
     # Storage can throw in a sandboxed frame: every app guards it (try, or
@@ -62,7 +72,7 @@ def test_each_showcase_is_a_static_korean_demo_within_the_builder_rules(example)
 
 def test_each_showcase_keeps_its_original_spec() -> None:
     spec = {e.folder: cli.example_files(e)["SPEC.md"] for e in cli.EXAMPLES}
-    assert "App 1 — 영수증 가계부" in spec["receipt-ledger"]
+    assert "App 1 — 출장·여행 준비 도우미" in spec["trip-prep"]
     assert "App 2 — 여행 일정 메이커" in spec["trip-planner"]
     assert "App 3 — 문서 챗봇 메이커" in spec["doc-chatbot"]
     assert all("faithful STATIC DEMOS" in text for text in spec.values())
@@ -205,7 +215,7 @@ def test_update_brings_existing_examples_to_the_image_s_files_as_a_published_ver
 
     updated = cli.import_examples(db_session, dev_user, settings, root, update=True)
     db_session.commit()
-    assert dict(updated) == {"문서 챗봇 메이커": "unchanged", "여행 일정 메이커": "updated", "영수증 가계부": "unchanged"}
+    assert dict(updated) == {"문서 챗봇 메이커": "unchanged", "여행 일정 메이커": "updated", "출장·여행 준비 도우미": "unchanged"}
     trip = db_session.query(BuilderProject).filter_by(name="여행 일정 메이커").one()
     assert trip.published_version_number == 2
     assert builder_versions.current_files(db_session, trip)["README.md"] == "# 새 안내"

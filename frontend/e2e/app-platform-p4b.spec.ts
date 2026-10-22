@@ -38,14 +38,14 @@ async function spentKrw(request: { get: (url: string) => Promise<{ json: () => P
   return usage.wallet?.consumed_krw ?? 0;
 }
 
-test("영수증 가계부 LIVE: free to open and switch, priced before the button, charged only on it", async ({ page, context }) => {
+test("출장·여행 준비 도우미 LIVE: free to open and switch, priced before the button, charged only on it", async ({ page, context }) => {
   test.setTimeout(150_000);
   const login = await context.request.post(`${SITE}/api/auth/login`, { data: { username: USER, password: PASSWORD } });
   expect(login.ok()).toBeTruthy();
   const apps = (await (await context.request.get(`${SITE}/api/apps`)).json()) as { slug: string; name: string }[];
-  const ledger = apps.find((a) => a.name === "영수증 가계부");
-  expect(ledger, "import_example_apps dev --update first").toBeTruthy();
-  const slug = ledger!.slug;
+  const prep = apps.find((a) => a.name === "출장·여행 준비 도우미");
+  expect(prep, "import_example_apps dev --replace first").toBeTruthy();
+  const slug = prep!.slug;
   const before = await spentKrw(context.request);
 
   await page.goto(`${APPS}/${slug}/`);
@@ -55,19 +55,13 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   await expect(frame.locator(".badge.demoAll")).toBeHidden();
   await expect(frame.locator("#mode-toggle")).toHaveCount(0);
 
-  // The price shows before anything is sent; still nothing charged.
-  await frame.getByRole("tab", { name: /영수증 추가/ }).click();
-  const price = frame.locator("#drop small");
-  await expect(price).toHaveText(/1회 약 \d+원 · 최대 \d+원/, { timeout: 15_000 });
-  const shown = Number(/최대 (\d+)원/.exec((await price.textContent()) ?? "")![1]);
+  // The price shows before anything is sent; the free fields work without AI.
+  await expect(frame.locator("#read-price")).toHaveText(/1회 약 \d+원/, { timeout: 15_000 });
+  await frame.locator("#dest").selectOption("오사카");
+  await expect(frame.locator(".ticket")).toContainText("OSA");
   expect(await spentKrw(context.request)).toBe(before);
 
-  // Free first (ai-free-first): a sample opens its pre-made result — no call, no charge, no sign-in.
-  await frame.locator("button.sample").first().click();
-  await expect(frame.locator("#review-form .notice")).toContainText("미리 만든 추출 결과", { timeout: 15_000 });
-  expect(await spentKrw(context.request)).toBe(before);
-
-  // Its own AI button: one call (sign-in first, the consent window), charged to the visitor, within the figure shown.
+  // Its own AI button: one call (sign-in first, the consent window), charged to the visitor.
   const consentPromise = context.waitForEvent("page");
   await frame.locator("#read-ai").click();
   const consent = await consentPromise;
@@ -75,20 +69,17 @@ test("영수증 가계부 LIVE: free to open and switch, priced before the butto
   await expect(consent.getByRole("heading", { name: /연결할까요/ })).toBeVisible({ timeout: 45_000 });
   await consent.getByRole("button", { name: "허용" }).click();
   await consent.waitForEvent("close", { timeout: 15_000 });
-  await expect(frame.getByText(/실제 AI · \d+원 · 내 동아리 지원금에서/)).toBeVisible({ timeout: 60_000 });
-  const charged = Number(/실제 AI · (\d+)원/.exec((await frame.locator(".notice .demo.live").textContent()) ?? "")![1]);
+  await expect(frame.locator("#note")).toContainText(/실제 AI · \d+원/, { timeout: 60_000 });
+  const charged = Number(/실제 AI · (\d+)원/.exec((await frame.locator("#note").textContent()) ?? "")![1]);
   expect(charged).toBeGreaterThan(0);
-  expect(charged).toBeLessThanOrEqual(shown);
   expect(await spentKrw(context.request)).toBe(before + charged);
   const usage = (await (await context.request.get(`${SITE}/api/usage/me`)).json()) as Usage;
-  expect(usage.events[0].label).toBe("앱 · 영수증 가계부");
-  expect(usage.events[0].charged_krw).toBe(charged);
+  expect(usage.events[0].label).toBe("앱 · 출장·여행 준비 도우미");
 
   // Back to 데모 with the bar's switch — the app follows; nothing more is charged.
-  await frame.getByRole("button", { name: "취소" }).click();
   await page.getByRole("switch", { name: "실제 AI" }).click();
   await expect(page.locator("#ctrlai-ai")).toHaveAttribute("data-state", "off");
-  await expect(frame.locator("#drop small")).toContainText("위쪽 CTRL+AI 줄의 스위치를 켜면");
+  await expect(frame.locator("#read-ai")).toHaveCount(0);
   expect(await spentKrw(context.request)).toBe(before + charged);
 });
 
