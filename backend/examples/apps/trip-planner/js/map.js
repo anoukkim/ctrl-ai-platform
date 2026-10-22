@@ -105,9 +105,11 @@
   const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
   const MAP_WAIT_MS = 10000; // 이만큼 기다려도 타일이 안 오면 단순 지도로
   let live = null;
+  let waiting = null; // 첫 타일을 기다리는 타이머
 
   // 하루 동선을 진짜 지도 위에 — 번호 핀, 점선 경로, 흐린 점(다른 날).
   T.mountMap = function (trip, dayIndex) {
+    clearTimeout(waiting);
     if (live) {
       live.remove();
       live = null;
@@ -131,7 +133,7 @@
       el.remove();
       live = null;
     };
-    const timer = setTimeout(() => giveUp("시간 초과"), MAP_WAIT_MS);
+    waiting = setTimeout(() => giveUp("시간 초과"), MAP_WAIT_MS);
     window.L.tileLayer(TILES, {
       maxZoom: 19,
       referrerPolicy: "strict-origin-when-cross-origin",
@@ -140,7 +142,7 @@
       .on("tileload", () => {
         if (ready) return;
         ready = true;
-        clearTimeout(timer);
+        clearTimeout(waiting);
         holder.classList.add("live");
       })
       .on("tileerror", () => {
@@ -158,7 +160,7 @@
     }
     others.forEach((p) =>
       window.L.circleMarker([p.lat, p.lng], { radius: 5, stroke: false, fillColor: "#5b6a94", fillOpacity: 0.7 })
-        .bindTooltip(`${p.name} (다른 날)`)
+        .bindTooltip(`${T.esc(p.name)} (다른 날)`)
         .addTo(map),
     );
     stops.forEach((p, i) =>

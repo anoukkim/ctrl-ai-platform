@@ -251,8 +251,9 @@ number); with unsaved work Builder first asks "저장 안 한 작업이 있어�
 files to the apps volume (a random slug; **미리보기 갱신** writes them
 again by hand). `apps.ctrlai.my/<app-slug>/` is CTRL+AI's own **shell**
 page; the app runs inside it in a frame with an opaque origin, from
-`/<app-slug>/_app/` (sandboxed even when opened on its own, no network,
-no cookies). The shell's tab shows one shared 「앱」 icon — four tiles on
+`/<app-slug>/_app/` (sandboxed even when opened on its own, no cookies;
+outside https services allowed since app-open-services, CTRL+AI's own
+data never). The shell's tab shows one shared 「앱」 icon — four tiles on
 the Primary gradient (sky → blue), the same for every app, told apart
 from CTRL+AI's own brand-gradient + (app-tab-icon, 2026-10-17, revised by
 the owner the same day, option 1;
@@ -439,7 +440,8 @@ Chat is the opening screen and a real conversation with Claude, behind
   preview runs only after **미리보기 열기**, in an `<iframe srcdoc>` with
   `sandbox="allow-scripts"` and nothing else — an opaque origin with no
   access to CTRL+AI's cookies, storage or `/api` — and the srcdoc starts
-  with a CSP that allows no network; SVG is never put into the page
+  with a CSP that allows inline code and outside https only (CDN
+  libraries, maps, images — app-open-services); SVG is never put into the page
   itself. A label over the frame says not to type passwords there. Blocks
   over 200 KB show code only; a block cut off by the reply's length says
   "계속"이라고 보내 주세요. Claude is told to write one self-contained
