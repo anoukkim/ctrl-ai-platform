@@ -143,7 +143,7 @@ class PreferencesUpdate(BaseModel):
     spend_notifications: bool | None = None
     default_chat_model_id: int | None = None
     #: A level name only (the server decides every number).
-    default_depth: Literal["low", "medium", "high", "max"] | None = None
+    default_depth: Literal["auto", "low", "medium", "high", "max"] | None = None
 
 
 def _preferences(user: User) -> PreferencesRead:

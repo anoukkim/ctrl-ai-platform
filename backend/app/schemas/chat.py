@@ -26,7 +26,7 @@ class ConversationCreate(BaseModel):
     show_thinking: bool = False
     #: 생각 깊이 (quality-tuning Q1): a level **name** only — "low",
     #: "medium", "high" or "max". The server decides every number.
-    depth: Literal["low", "medium", "high", "max"] | None = None
+    depth: Literal["auto", "low", "medium", "high", "max"] | None = None
 
 
 class ConversationUpdate(BaseModel):
@@ -44,7 +44,7 @@ class ConversationUpdate(BaseModel):
     show_thinking: bool | None = None
     #: 생각 깊이 (quality-tuning Q1): a level **name** only — "low",
     #: "medium", "high" or "max". The server decides every number.
-    depth: Literal["low", "medium", "high", "max"] | None = None
+    depth: Literal["auto", "low", "medium", "high", "max"] | None = None
 
 
 class ConversationRead(BaseModel):
@@ -293,6 +293,9 @@ class ChatModelOption(BaseModel):
     #: 생각 깊이 steps this model offers, in order. Empty: the model has no
     #: effort parameter — "이 모델은 깊이 조절이 없어요", and none is sent.
     levels: list[DepthOption] = []
+    #: auto-depth: the 자동 switch — 보통's estimate, 높음's cap. None
+    #: when the model has no depths.
+    auto: DepthOption | None = None
     #: What runs when it has none: 보통's room and cap.
     flat_max_krw: int | None = None
     #: One line when a depth needs thinking on (Sonnet 5.5 at 최고).

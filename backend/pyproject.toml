@@ -9,3 +9,6 @@ norecursedirs = ["alembic"]
 # Makes `from app...` imports work without installing the package.
 pythonpath = ["."]
 addopts = "-q"
+markers = [
+    "real_auto_depth: run 자동 (auto-depth) by its real rules instead of pinning it to 보통",
+]

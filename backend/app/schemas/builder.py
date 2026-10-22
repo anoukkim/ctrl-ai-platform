@@ -68,7 +68,7 @@ class BuilderProjectUpdate(BaseModel):
     #: quality-tuning Q1: the panel's model and 생각 깊이, remembered per
     #: project. A level name only — the server decides every number.
     chat_model_id: int | None = None
-    depth: Literal["low", "medium", "high", "max"] | None = None
+    depth: Literal["auto", "low", "medium", "high", "max"] | None = None
 
 
 class BuilderProjectRead(BuilderProjectBase):
@@ -158,6 +158,8 @@ class BuilderModelOption(BaseModel):
     #: "1회 약 N원" at 보통 for this project. None without a rate.
     estimated_krw: int | None
     levels: list[DepthOption] = []
+    #: auto-depth: the 자동 switch (None without depths).
+    auto: DepthOption | None = None
     #: The cap a model without depths runs under.
     flat_max_krw: int = 0
     depth_note: str = ""
@@ -177,6 +179,8 @@ class GenerateRequest(BaseModel):
 
 
 class EditEstimateRead(BaseModel):
+    #: auto-depth: the project's 생각 깊이 setting ("auto" = 자동).
+    depth_setting: str = "auto"
     """Shown next to 만들기 before anything is spent."""
 
     estimated_krw: int

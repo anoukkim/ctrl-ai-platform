@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 
 import ModelDepthPicker from "@/app/components/ModelDepthPicker";
 import { currentModel, getChatInfo, toPickerModel, type ChatInfo } from "@/lib/chat";
-import type { DepthLevel, PickerModel } from "@/lib/depth";
+import { DEFAULT_DEPTH, type DepthLevel, type PickerModel } from "@/lib/depth";
 import { describeError } from "@/lib/http";
 import { setPreferences } from "@/lib/spend";
 
@@ -30,7 +30,7 @@ export default function DefaultModelSection() {
   if (!info || info.models.length === 0) return null;
 
   const selected = currentModel(info, null);
-  const level: DepthLevel = info.member_default_depth ?? "medium";
+  const level: DepthLevel = info.member_default_depth ?? DEFAULT_DEPTH;
 
   async function choose(model: PickerModel, next: DepthLevel) {
     setError(null);

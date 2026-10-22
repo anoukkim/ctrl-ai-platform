@@ -226,6 +226,8 @@ export interface ChatModelOption {
   thinking_basis?: "recent" | "formula";
   /** 생각 깊이 막대(quality-tuning Q1). 비어 있으면 깊이 조절이 없는 모델. */
   levels?: DepthOption[];
+  /** auto-depth: 자동 스위치(없으면 null). */
+  auto?: DepthOption | null;
   flat_max_krw?: number;
   depth_note?: string;
 }
@@ -258,6 +260,7 @@ export function toPickerModel(model: ChatModelOption): PickerModel {
     estimate_krw: model.estimated_reply_krw,
     estimate_basis: model.estimate_basis,
     levels: model.levels ?? [],
+    auto: model.auto ?? null,
     flat_max_krw: model.flat_max_krw ?? 0,
     depth_note: model.depth_note ?? "",
   };

@@ -531,7 +531,7 @@ describe("ChatWorkspace", () => {
     typeAndSend("안녕");
 
     await waitFor(() =>
-      expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id, expect.anything(), "medium"),
+      expect(chatApi.createConversation).toHaveBeenCalledWith(HAIKU.id, expect.anything(), "auto"), // auto-depth: 자동 is the default
     );
     expect(chatApi.setConversationModel).not.toHaveBeenCalled();
     // The reply names the model that wrote it.
@@ -553,7 +553,7 @@ describe("ChatWorkspace", () => {
       fireEvent.click(screen.getByRole("button", { name: /빠른 답변/ }));
     });
 
-    expect(chatApi.setConversationModel).toHaveBeenCalledWith(CONVERSATION.id, HAIKU.id, "medium");
+    expect(chatApi.setConversationModel).toHaveBeenCalledWith(CONVERSATION.id, HAIKU.id, "auto"); // auto-depth: the setting stays 자동
     expect(await screen.findByRole("button", { name: /답장 방식: 빠른 답변/ })).toBeTruthy();
   });
 

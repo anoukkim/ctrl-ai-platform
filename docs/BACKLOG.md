@@ -221,7 +221,9 @@ each entry below says whether it is pre-approved.
     The mock-ups live in the owner's desktop session; the owner shows them
     when the item starts.
 
-8. **auto-depth** · M3 · branch `feat-auto-depth`
+8. **auto-depth** · M3 · branch `feat-auto-depth` — *built 2026-10-22 (owner:
+    "최종적으로 thinking 자동으로 하는거까지 하고 테스트하고 사이트에 올리는 것까지");
+    the admin on/off of point 4 was not built: 자동's cap is 높음's.*
     *Owner's direction 2026-10-22, not pre-approved — branch, test, report,
     WAIT; order to be set by the owner.* Owner: **"빌더도 중간에 멈추니까 그냥
     기본적으로 자동으로 두고 선택하고 싶으면 하는거고"** — the 생각 깊이 picker

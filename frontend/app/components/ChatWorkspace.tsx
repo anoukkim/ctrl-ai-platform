@@ -87,7 +87,7 @@ import {
   stopReply,
   type LiveRun,
 } from "@/lib/chat";
-import { type DepthLevel, type PickerModel, levelFor, receiptHead } from "@/lib/depth";
+import { DEFAULT_DEPTH, type DepthLevel, type PickerModel, levelFor, receiptHead } from "@/lib/depth";
 import { describeError } from "@/lib/http";
 import { CHAT_EXAMPLES, type ChatExample } from "@/lib/chat-examples";
 import { CACHE_EXPLAINER, ROUND_UP_NOTE, formatWonPart } from "@/lib/money";
@@ -1338,7 +1338,7 @@ export default function ChatWorkspace() {
   const selectedModel = currentModel(info, chosenModelId);
   const pickerModels = info ? info.models.map(toPickerModel) : [];
   const selectedPicker = selectedModel ? toPickerModel(selectedModel) : null;
-  const effectiveDepth: DepthLevel = chosenDepth ?? info?.member_default_depth ?? "medium";
+  const effectiveDepth: DepthLevel = chosenDepth ?? info?.member_default_depth ?? DEFAULT_DEPTH;
   /** 고른 모델·깊이의 "1회 약 N원" — 지갑 확인과 '이어서 쓰기'가 씁니다. */
   const replyEstimateKrw = selectedPicker
     ? (levelFor(selectedPicker, effectiveDepth)?.estimate_krw ?? selectedPicker.estimate_krw)

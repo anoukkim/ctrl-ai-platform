@@ -249,3 +249,79 @@
     width: 100%;
   }
 }
+
+/* auto-depth: the 자동 (추천) switch above the slider. */
+.autoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  cursor: pointer;
+}
+
+.autoLabel {
+  display: block;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.autoHint {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.autoSwitch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.autoSwitch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--panel);
+  transition: transform 0.15s ease;
+}
+
+.autoSwitch:checked {
+  background: var(--accent);
+}
+
+.autoSwitch:checked::after {
+  transform: translateX(16px);
+}
+
+.autoSwitch:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sliderAuto {
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .autoSwitch,
+  .autoSwitch::after {
+    transition: none;
+  }
+}

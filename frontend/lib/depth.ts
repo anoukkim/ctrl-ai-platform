@@ -7,11 +7,20 @@
  * 보여 줄 뿐입니다.
  */
 
-export type DepthLevel = "low" | "medium" | "high" | "max";
+/**
+ * auto-depth (owner, 2026-10-22): "auto" — 자동, the default. The server
+ * picks 낮음 · 보통 · 높음 for each request; 최고 is only ever the member's
+ * own choice.
+ */
+export type DepthLevel = "auto" | "low" | "medium" | "high" | "max";
 
-export const DEFAULT_DEPTH: DepthLevel = "medium";
+export const DEFAULT_DEPTH: DepthLevel = "auto";
+
+/** The slider's middle — where turning 자동 off lands. */
+export const MANUAL_DEFAULT: DepthLevel = "medium";
 
 export const DEPTH_LABEL: Record<DepthLevel, string> = {
+  auto: "자동",
   low: "낮음",
   medium: "보통",
   high: "높음",
@@ -44,6 +53,8 @@ export interface PickerModel {
   estimate_basis?: "recent" | "formula";
   /** 비어 있으면 깊이 조절이 없는 모델(Haiku) — 막대를 숨깁니다. */
   levels: DepthOption[];
+  /** 자동 스위치(보통의 어림값, 높음의 1회 한도). 깊이가 없는 모델은 null. */
+  auto?: DepthOption | null;
   /** 깊이 조절이 없는 모델의 1회 한도. */
   flat_max_krw: number;
   /** 한 깊이가 생각을 켜야 할 때의 한 줄(예: Sonnet 5.5의 최고). */
@@ -51,15 +62,19 @@ export interface PickerModel {
 }
 
 export function isDepth(value: unknown): value is DepthLevel {
-  return value === "low" || value === "medium" || value === "high" || value === "max";
+  return value === "auto" || value === "low" || value === "medium" || value === "high" || value === "max";
 }
 
-/** 이 모델에서 실제로 쓰일 깊이 칸. 없는 깊이를 골랐으면 보통, 막대가 없으면 null. */
+/**
+ * 이 모델에서 쓰일 깊이: 자동(또는 아무것도 고르지 않음)이면 자동 칸,
+ * 막대의 깊이면 그 칸, 없는 깊이면 보통. 깊이가 없는 모델은 null.
+ */
 export function levelFor(model: PickerModel, level: DepthLevel | null | undefined): DepthOption | null {
   if (model.levels.length === 0) return null;
+  if ((level === "auto" || level === null || level === undefined) && model.auto) return model.auto;
   return (
     model.levels.find((step) => step.level === level) ??
-    model.levels.find((step) => step.level === DEFAULT_DEPTH) ??
+    model.levels.find((step) => step.level === MANUAL_DEFAULT) ??
     model.levels[0]
   );
 }
@@ -102,8 +117,12 @@ export function modelCostText(model: PickerModel, level: DepthLevel | null = DEF
     : `1회 약 ${won(estimate)}`;
 }
 
-/** 영수증 앞머리: "Sonnet 5.5 · 높음". 깊이가 없으면 모델 이름만. */
-export function receiptHead(modelLabel: string, depth: string | null | undefined): string {
+/**
+ * 영수증 앞머리: "Sonnet 5.5 · 높음", 자동이 고른 깊이면 "Sonnet 5.5 · 자동 · 높음".
+ * 깊이가 없으면 모델 이름만.
+ */
+export function receiptHead(modelLabel: string, depth: string | null | undefined, auto = false): string {
   if (!modelLabel) return "";
-  return isDepth(depth) ? `${modelLabel} · ${DEPTH_LABEL[depth]}` : modelLabel;
+  if (!isDepth(depth)) return modelLabel;
+  return auto && depth !== "auto" ? `${modelLabel} · 자동 · ${DEPTH_LABEL[depth]}` : `${modelLabel} · ${DEPTH_LABEL[depth]}`;
 }

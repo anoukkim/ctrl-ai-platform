@@ -61,17 +61,34 @@ def _usable(db: Session, user: User, chat_model_id: int | None) -> ChatModel | N
 
 
 def choose(
-    db: Session, settings: Settings, user: User, project: BuilderProject | None = None
+    db: Session,
+    settings: Settings,
+    user: User,
+    project: BuilderProject | None = None,
+    request: str = "",
+    creating: bool | None = None,
 ) -> BuildChoice:
-    """The project's model and depth, else the member's defaults, else the
-    catalogue default at 보통."""
+    """The project's model and depth, else the member's defaults, else 자동
+    (auto-depth): 높음 for the first build or a long request, else 보통.
+    `creating` is worked out from the project's files when not given."""
     row = _usable(db, user, project.chat_model_id if project is not None else None)
     if row is None:
         row = _usable(db, user, user.default_chat_model_id)
     model = chat_models.ChosenModel.of(row) if row is not None else chat_models.default_model(db, settings)
     wanted = (project.depth if project is not None else None) or user.default_depth
+    if creating is None and (wanted is None or wanted == depth_service.AUTO):
+        if project is None:
+            creating = True
+        else:
+            from app.services import builder_files, builder_versions
+
+            creating = builder_files.ENTRY_FILE not in builder_versions.current_files(db, project)
     level, effort = depth_service.resolve(
-        chat_limits.current(db).depth_levels, "builder", model.model_id, wanted
+        chat_limits.current(db).depth_levels,
+        "builder",
+        model.model_id,
+        wanted,
+        hint=depth_service.AutoHint(text=request, creating=bool(creating)),
     )
     return BuildChoice(model=model, price=pricing.price_for(db, model), level=level, effort=effort)
 
@@ -111,6 +128,16 @@ def options(
                 step["max_krw"] = min(step["max_krw"], price.krw(input_tokens, max(choice.room(input_tokens), 0)))
                 if step["estimate_krw"] is not None:
                     step["estimate_krw"] = min(step["estimate_krw"], step["max_krw"])
+            auto = depth_service.auto_option(stored, "builder", row.model_id, estimate)
+            if auto is not None:
+                top = BuildChoice(
+                    model=chosen, price=price, level=table[depth_service.AUTO_MAX], effort=depth_service.AUTO_MAX
+                )
+                auto["max_krw"] = min(auto["max_krw"], price.krw(input_tokens, max(top.room(input_tokens), 0)))
+                if auto["estimate_krw"] is not None:
+                    auto["estimate_krw"] = min(auto["estimate_krw"], auto["max_krw"])
+        else:
+            auto = depth_service.auto_option(stored, "builder", row.model_id, estimate)
         out.append(
             {
                 "id": row.id,
@@ -121,6 +148,7 @@ def options(
                 "is_default": row.id == default_id,
                 "estimated_krw": estimate,
                 "levels": levels,
+                "auto": auto,
                 "flat_max_krw": depth_service.table(stored, "builder")[depth_service.DEFAULT_LEVEL].cap_krw,
                 "depth_note": depth_service.note_for(row.model_id),
             }
