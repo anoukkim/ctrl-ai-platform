@@ -1120,3 +1120,13 @@ def test_two_consecutive_turns_share_a_byte_identical_cached_prefix(
     # Byte-identical once serialised the same way — what the cache compares.
     assert dumps(second["messages"][: len(first["messages"])]) == dumps(first["messages"])
     assert dumps(second["system"]) == dumps(first["system"])
+
+
+def test_chat_may_show_https_images_found_by_a_tool() -> None:
+    """app-open-services: the screen shows https images, so Claude is told
+    it may — with an address a tool gave it, never one from memory."""
+    from app.services.claude_provider import CHAT_SYSTEM_PROMPT
+
+    assert "The screen shows https images" in CHAT_SYSTEM_PROMPT
+    assert "never one from memory" in CHAT_SYSTEM_PROMPT
+    assert "commons.wikimedia.org/wiki/Special:FilePath/" in CHAT_SYSTEM_PROMPT

@@ -141,15 +141,15 @@ def test_the_picker_price_is_the_cap_the_pre_check_enforces(
     db_session.add(
         ChatLimits(
             reply_cap_krw=200, long_history_tokens=8000, daily_cap_krw=0,
-            depth_levels={"chat": {"low": {"cap_krw": 15}}},
+            depth_levels={"chat": {"low": {"cap_krw": 18}}},
         )
     )
     db_session.commit()
     info = client.get("/api/chat/info").json()
     sonnet = next(row for row in info["models"] if row["model_id"] == "claude-sonnet-5-5")
     low = next(step for step in sonnet["levels"] if step["level"] == "low")
-    assert low["max_krw"] == 15
-    assert low["estimate_krw"] <= 15
+    assert low["max_krw"] == 18
+    assert low["estimate_krw"] <= 18
     assert [step["level"] for step in sonnet["levels"]] == ["low", "medium", "high", "max"]
     haiku = next(row for row in info["models"] if row["model_id"] == "claude-haiku-4-5")
     assert haiku["levels"] == []
@@ -158,12 +158,13 @@ def test_the_picker_price_is_the_cap_the_pre_check_enforces(
     done = [data for name, data in events_of(send(client, conversation, "길게 " * 50).text) if name == "done"]
     assert done
     # The cap is per call (feat-auto-continue): a reply that reaches it is
-    # continued by a new call, each held to the same 15원, and the reply's
+    # continued by a new call, each held to the same 18원, and the reply's
     # total is what those calls charged. (Before image-generation the
     # mock reply fitted one call at exactly 15원; the longer system prompt
-    # tipped it into a continuation.)
+    # tipped it into a continuation; the cap rose from 15 to 18원 when the
+    # chat prompt learned about images, so the first call still fits.)
     calls = db_session.query(UsageEvent).all()
-    assert calls and all(call.charged_krw <= 15 for call in calls)
+    assert calls and all(call.charged_krw <= 18 for call in calls)
     assert done[0]["charged_krw"] == sum(call.charged_krw for call in calls)
 
 
@@ -202,7 +203,7 @@ def test_continuing_a_capped_reply_is_a_new_charged_reply(
     db_session.add(
         ChatLimits(
             reply_cap_krw=200, long_history_tokens=8000, daily_cap_krw=0,
-            depth_levels={"chat": {"medium": {"cap_krw": 15, "total_cap_krw": 0}}},
+            depth_levels={"chat": {"medium": {"cap_krw": 18, "total_cap_krw": 0}}},
         )
     )
     db_session.commit()
