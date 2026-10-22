@@ -34,8 +34,10 @@ import { formatWhen, type MemberDetail } from "@/lib/admin";
 import { describeError } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
 
-import styles from "../../admin.module.css";
-import Fact from "./Fact";
+import { PanelSection } from "../../components/AdminUI";
+
+import styles from "../members.module.css";
+import { FactItem as Fact, Facts } from "./MemberFacts";
 
 interface Props {
   member: MemberDetail;
@@ -71,17 +73,18 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
   }
 
   return (
-    <section aria-labelledby="member-withdrawal">
-      <h2 className="section-title" id="member-withdrawal">
-        회원 탈퇴
-        <span className={styles.sectionNote}>
-          30일 안에는 복구할 수 있습니다
-        </span>
-      </h2>
+    <PanelSection
+      title={
+        <>
+          회원 탈퇴
+          <span className={styles.sectionExtra}>30일 안에는 복구할 수 있어요</span>
+        </>
+      }
+    >
 
       {open && withdrawal ? (
         <>
-          <div className={`card ${styles.factGrid}`}>
+          <Facts>
             <Fact
               label="탈퇴"
               value={`${formatWhen(withdrawal.withdrawn_at)} · ${
@@ -97,12 +100,12 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
             <Fact
               label="환불"
               value={
-                <span className={styles.stackCell}>
+                <span className={styles.line}>
                   <span className={`badge ${REFUND_STATUS_BADGE[withdrawal.refund_status]}`}>
                     {REFUND_STATUS_LABEL[withdrawal.refund_status]}
                   </span>
                   {withdrawal.refund_status !== "none" && (
-                    <span className="small dim">
+                    <span className={styles.dim}>
                       {formatKrw(withdrawal.refund_amount_krw)}
                       {withdrawal.refund_recorded_at &&
                         ` · ${formatWhen(withdrawal.refund_recorded_at)}`}
@@ -114,16 +117,16 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
             />
             <Fact label="해제한 동아리 지원" value={formatKrw(withdrawal.released_krw)} mono />
             <Fact label="게시한 작품" value={PUBLISHED_WORK_LABEL[withdrawal.published_work]} />
-          </div>
+          </Facts>
 
           {withdrawal.refund_status === "pending" && (
-            <p className="small muted" style={{ marginTop: "0.5rem" }}>
+            <p className={styles.note}>
               개인 충전 잔액이 남아 있습니다. 환불을 기록하기 전에는 유예 기간이 지나도 개인정보를
               삭제하지 않습니다.
             </p>
           )}
 
-          <div className={styles.actionRow}>
+          <div className={styles.line}>
             {withdrawal.refund_status === "pending" && (
               <button
                 className="btn btn-sm"
@@ -170,7 +173,7 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
               </button>
             )}
             {!withdrawal.can_restore && (
-              <span className="small dim">
+              <span className={styles.note}>
                 {withdrawal.anonymised_at
                   ? "개인정보가 삭제되어 복구할 수 없습니다."
                   : "유예 기간이 지나 복구할 수 없습니다."}
@@ -179,24 +182,24 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
           </div>
         </>
       ) : member.account_status === "former" ? (
-        <div className="card">
-          <p className="small muted">
+        <div className={styles.box}>
+          <p className={styles.note}>
             탈퇴 기록이 생기기 전에 탈퇴 처리된 계정입니다. 되돌린 돈이나 환불 대기가 기록되어 있지
             않으므로, 다시 받아들이려면 참여 상태에서 참여 등록을 하세요.
           </p>
         </div>
       ) : (
-        <div className={`card ${styles.dangerCard}`}>
+        <div className={`${styles.box} ${styles.boxDanger}`}>
           {withdrawal?.restored_at && (
-            <p className="small dim" style={{ marginBottom: "0.5rem" }}>
+            <p className={styles.note}>
               {formatWhen(withdrawal.withdrawn_at)}에 탈퇴했다가 {formatWhen(withdrawal.restored_at)}
               에 복구되었습니다.
             </p>
           )}
-          <fieldset className={styles.withdrawChoice}>
-            <legend className="small muted">게시한 작품</legend>
+          <fieldset className={styles.radio}>
+            <legend>게시한 작품</legend>
             {(["keep", "unpublish"] as const).map((value) => (
-              <label className={styles.withdrawOption} key={value}>
+              <label key={value}>
                 <input
                   type="radio"
                   name="admin-published-work"
@@ -208,7 +211,7 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
               </label>
             ))}
           </fieldset>
-          <div className={styles.actionRow}>
+          <div>
             <button
               className="btn btn-sm btn-danger"
               type="button"
@@ -220,6 +223,6 @@ export default function WithdrawalPanel({ member, busy, run, askToConfirm, onErr
           </div>
         </div>
       )}
-    </section>
+    </PanelSection>
   );
 }

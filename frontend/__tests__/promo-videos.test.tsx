@@ -271,12 +271,15 @@ describe("Admin › Content", () => {
     ]);
     render(<AdminContentPage />);
     const table = await screen.findByTestId("tube-reports");
-    const row = within(table).getAllByRole("row")[1];
+    const row = within(table).getAllByTestId("tube-report")[0];
     expect(row.textContent).toContain("CTRL+AI 한눈에 보기");
     expect(row.textContent).toContain("남의 댓글");
     expect(row.textContent).toContain("minji");
-    expect(within(row).getByRole("button", { name: "댓글 숨기기" })).toBeTruthy();
-    expect(within(row).getByRole("button", { name: "댓글 지우기" })).toBeTruthy();
-    expect(within(row).getByRole("button", { name: "신고 닫기" })).toBeTruthy();
+    // admin-ui-unify: the row opens a side panel that holds the three actions.
+    await userEvent.setup().click(within(row).getByRole("button", { name: /신고 처리/ }));
+    const panel = await screen.findByRole("dialog", { name: "CTRL+AI 한눈에 보기" });
+    expect(within(panel).getByRole("button", { name: "댓글 숨기기" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "댓글 지우기" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "신고 닫기" })).toBeTruthy();
   });
 });

@@ -6,7 +6,7 @@
  * 내용 일부와 "항목 숨기기"가 나옵니다.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -185,7 +185,10 @@ describe("Admin › Apps › 공유 데이터", () => {
 
     const excerpt = await screen.findByTestId("report-excerpt");
     expect(excerpt.textContent).toContain('{"text": "이상한 글"}');
-    await user.click(screen.getByRole("button", { name: "항목 숨기기" }));
+    // admin-ui-unify: the actions live in the side panel the row opens.
+    await user.click(screen.getByRole("button", { name: "'동아리 게시판' 신고 처리" }));
+    const panel = await screen.findByRole("dialog", { name: "동아리 게시판" });
+    await user.click(within(panel).getByRole("button", { name: "항목 숨기기" }));
     const confirm = await screen.findByRole("dialog", { name: "신고된 항목 숨기기" });
     expect(confirm.textContent).toContain("이상한 글");
   });
@@ -195,6 +198,9 @@ describe("Admin › Apps › 공유 데이터", () => {
     render(<AdminContentPage />);
     const excerpt = await screen.findByTestId("report-excerpt");
     expect(excerpt.textContent).toContain("이미 숨기거나 지웠어요");
+    fireEvent.click(screen.getByRole("button", { name: "'동아리 게시판' 신고 처리" }));
+    const panel = await screen.findByRole("dialog", { name: "동아리 게시판" });
+    expect(within(panel).getByRole("button", { name: "게시 내리기" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "항목 숨기기" })).toBeNull();
   });
 });

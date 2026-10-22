@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 새 분기를 만드는 양식.
+ * 새 분기를 만드는 양식 — 오른쪽 판(`SidePanel`)에 열립니다(admin-ui-unify).
  *
  * 지금까지 분기를 만드는 길은 `POST /api/admin/quarters`를 직접 부르는
  * 것뿐이었습니다. 그것은 이 제품을 쓰는 사람에게 요구할 수 있는 일이
@@ -23,7 +23,9 @@ import { useMemo, useRef, useState } from "react";
 import { CODE_ERROR, autofill, parseQuarterCode } from "@/lib/quarter-code";
 import { formatKrw } from "@/lib/quarters";
 
-import styles from "../admin.module.css";
+import { PanelSection, SidePanel } from "../components/AdminUI";
+
+import styles from "./quarters.module.css";
 
 export interface QuarterInput {
   code: string;
@@ -47,8 +49,11 @@ export default function QuarterForm({
   busy,
   onSubmit,
   onCancel,
+  error,
 }: {
   busy: boolean;
+  /** The last create attempt's failure — shown here, the page's message is under the panel. */
+  error?: string | null;
   /** 확인창에 보여 줄 요약을 함께 넘깁니다. */
   onSubmit: (input: QuarterInput, summary: string) => void;
   onCancel: () => void;
@@ -169,16 +174,30 @@ export default function QuarterForm({
   }
 
   return (
-    <div className={`card ${styles.quarterForm}`}>
-      <div className={styles.formGrid}>
+    <SidePanel
+      title="새 분기"
+      subtitle="준비 상태로 만들어져요 · 신청은 만든 뒤 따로 열어요"
+      onClose={onCancel}
+      testId="quarter-form"
+      footer={
+        <>
+          <button className="btn btn-sm" type="button" disabled={busy} onClick={onCancel}>
+            취소
+          </button>
+          <button className="btn btn-primary btn-sm" type="button" disabled={busy} onClick={submit}>
+            분기 만들기
+          </button>
+        </>
+      }
+    >
+      <PanelSection title="이름">
         <Field
           htmlFor="quarter-code"
           label="분기 코드"
-          hint="2026-Q4 꼴. 적으면 이름과 날짜가 채워집니다(고칠 수 있음)."
+          hint="2026-Q4 꼴. 적으면 이름과 날짜가 채워져요(고칠 수 있음)."
           error={errorFor("code")}
         >
           <input
-            className="field"
             id="quarter-code"
             value={code}
             placeholder="2026-Q4"
@@ -188,94 +207,90 @@ export default function QuarterForm({
 
         <Field htmlFor="quarter-name" label="화면에 보일 이름" error={errorFor("displayName")}>
           <input
-            className="field"
             id="quarter-name"
             value={displayName}
             placeholder="2026 Q4"
             onChange={(event) => edit("displayName", event.target.value)}
           />
         </Field>
+      </PanelSection>
 
-        <Field htmlFor="quarter-starts" label="분기 시작일" error={errorFor("startsAt")}>
-          <input
-            className="field"
-            id="quarter-starts"
-            type="date"
-            value={startsAt}
-            onChange={(event) => edit("startsAt", event.target.value)}
-          />
-        </Field>
+      <PanelSection title="분기 기간">
+        <div className={styles.formPair}>
+          <Field htmlFor="quarter-starts" label="분기 시작일" error={errorFor("startsAt")}>
+            <input
+              id="quarter-starts"
+              type="date"
+              value={startsAt}
+              onChange={(event) => edit("startsAt", event.target.value)}
+            />
+          </Field>
 
-        <Field htmlFor="quarter-ends" label="분기 종료일" error={errorFor("endsAt")}>
-          <input
-            className="field"
-            id="quarter-ends"
-            type="date"
-            value={endsAt}
-            min={startsAt || undefined}
-            onChange={(event) => edit("endsAt", event.target.value)}
-          />
-        </Field>
+          <Field htmlFor="quarter-ends" label="분기 종료일" error={errorFor("endsAt")}>
+            <input
+              id="quarter-ends"
+              type="date"
+              value={endsAt}
+              min={startsAt || undefined}
+              onChange={(event) => edit("endsAt", event.target.value)}
+            />
+          </Field>
+        </div>
+      </PanelSection>
 
-        <Field
-          htmlFor="quarter-opens"
-          label="신청 시작일"
-          hint="비워 두면 나중에 정할 수 있습니다."
-          error={errorFor("opensAt")}
-        >
-          <input
-            className="field"
-            id="quarter-opens"
-            type="date"
-            value={opensAt}
-            max={endsAt || undefined}
-            onChange={(event) => edit("opensAt", event.target.value)}
-          />
-        </Field>
+      <PanelSection title="신청 기간">
+        <div className={styles.formPair}>
+          <Field htmlFor="quarter-opens" label="신청 시작일" error={errorFor("opensAt")}>
+            <input
+              id="quarter-opens"
+              type="date"
+              value={opensAt}
+              max={endsAt || undefined}
+              onChange={(event) => edit("opensAt", event.target.value)}
+            />
+          </Field>
 
-        <Field htmlFor="quarter-closes" label="신청 마감일" error={errorFor("closesAt")}>
-          <input
-            className="field"
-            id="quarter-closes"
-            type="date"
-            value={closesAt}
-            min={opensAt || startsAt || undefined}
-            max={endsAt || undefined}
-            onChange={(event) => edit("closesAt", event.target.value)}
-          />
-        </Field>
+          <Field htmlFor="quarter-closes" label="신청 마감일" error={errorFor("closesAt")}>
+            <input
+              id="quarter-closes"
+              type="date"
+              value={closesAt}
+              min={opensAt || startsAt || undefined}
+              max={endsAt || undefined}
+              onChange={(event) => edit("closesAt", event.target.value)}
+            />
+          </Field>
+        </div>
+        <p className={styles.hint}>비워 두면 나중에 정할 수 있어요.</p>
+      </PanelSection>
 
+      <PanelSection title="지원금">
         <Field
           htmlFor="quarter-limit"
           label="1인 지원금 (원)"
-          hint="참여 신청 한 번이 받는 금액입니다. 채팅·영상 등 모든 기능이 이 지갑 하나에서 씁니다. 나중에 바꿔도 이미 승인된 지갑은 그대로입니다."
+          hint="참여 신청 한 번이 받는 금액 · 모든 기능이 이 지갑 하나에서 써요. 나중에 바꿔도 이미 승인된 지갑은 그대로예요."
           error={errorFor("limit")}
         >
           <input
-            className="field"
             id="quarter-limit"
             inputMode="numeric"
             value={limit}
             onChange={(event) => setLimit(event.target.value)}
           />
         </Field>
-      </div>
+      </PanelSection>
 
-      {attempted && !valid && (
-        <p className="small" role="alert" style={{ color: "var(--error-text)" }}>
-          적지 않았거나 잘못된 칸이 있습니다. 위의 빨간 글씨를 확인해 주세요.
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
         </p>
       )}
-
-      <div className={styles.actionRow}>
-        <button className="btn btn-primary btn-sm" type="button" disabled={busy} onClick={submit}>
-          분기 만들기
-        </button>
-        <button className="btn btn-sm" type="button" disabled={busy} onClick={onCancel}>
-          취소
-        </button>
-      </div>
-    </div>
+      {attempted && !valid && (
+        <p className={styles.error} role="alert">
+          적지 않았거나 잘못된 칸이 있어요. 빨간 글씨를 확인해 주세요.
+        </p>
+      )}
+    </SidePanel>
   );
 }
 
@@ -286,7 +301,7 @@ export default function QuarterForm({
  * 화면 낭독기가 "분기 코드, 입력란"이라고 읽어 주는 것이 전부 이 연결에
  * 달려 있습니다. 그래서 칸의 id를 Field가 받습니다.
  */
-function Field({
+export function Field({
   htmlFor,
   label,
   hint,
@@ -300,17 +315,15 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={styles.fieldRow}>
-      <label className={styles.fieldLabel} htmlFor={htmlFor}>
-        {label}
-      </label>
+    <div className={styles.formField}>
+      <label htmlFor={htmlFor}>{label}</label>
       {children}
       {error ? (
-        <span className={styles.fieldError} role="alert">
+        <span className={styles.error} role="alert">
           {error}
         </span>
       ) : (
-        hint && <span className={styles.fieldHint}>{hint}</span>
+        hint && <span className={styles.hint}>{hint}</span>
       )}
     </div>
   );

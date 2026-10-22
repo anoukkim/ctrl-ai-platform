@@ -1,0 +1,333 @@
+/* Admin › Members — what the shared kit (components/AdminUI) does not have:
+   the filter chips, the 사용률 bar, the facts grid and the small forms of
+   the member panel. Colours come from globals.css tokens only. */
+
+/* ---------- 거르기 칩 ---------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chipCount {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip[aria-pressed="true"] .chipCount {
+  color: inherit;
+}
+
+.chipCountWarn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ---------- 목록 ---------- */
+
+.handle {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.usageCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.usageCell[data-warn="true"] {
+  color: var(--warn-text);
+  font-weight: 650;
+}
+
+.usageBar {
+  position: relative;
+  display: inline-block;
+  width: 3.5rem;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.usageBar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.usageCell[data-warn="true"] .usageBar span {
+  background: var(--warn-text);
+}
+
+.dim {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.rowButtons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+}
+
+.emptyList {
+  margin: 0;
+  padding: 1.2rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ---------- 회원 상세 ---------- */
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.2rem;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.6rem 0.9rem;
+}
+
+.fact {
+  display: grid;
+  gap: 0.15rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.factLabel {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.factValue {
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lineSpread {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: 0.8rem;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 100%;
+}
+
+.segmented :global(.chip[aria-pressed="true"]:disabled) {
+  opacity: 1;
+  cursor: default;
+}
+
+.meter {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.meterLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.box {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.boxDanger {
+  border-color: var(--error-border);
+  background: var(--error-soft);
+}
+
+.textField {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.textField > span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.6rem 0.9rem;
+}
+
+.list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.6rem;
+  font-size: 0.84rem;
+}
+
+.listRows li {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.7rem;
+}
+
+.radio {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.radio legend {
+  margin-bottom: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.radio label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.password {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  user-select: all;
+}
+
+.sectionExtra {
+  margin-left: 0.4rem;
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ---------- 초대 코드 ---------- */
+
+.inviteCode {
+  font-family: var(--mono);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.inviteSignups {
+  max-width: 16rem;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+.inviteInput {
+  width: 5rem;
+}

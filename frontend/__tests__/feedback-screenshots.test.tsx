@@ -318,6 +318,9 @@ describe("Admin › Feedback — 스크린샷", () => {
     const user = userEvent.setup();
     render(<FeedbackAdmin />);
 
+    // admin-ui-unify: a row opens the side panel with the text and its pictures.
+    expect((await screen.findAllByTestId("feedback-item"))[0].textContent).toContain("사진 2장");
+    await user.click(screen.getByRole("button", { name: "의견 열기: 버튼이 안 눌려요" }));
     const shots = await screen.findByTestId("feedback-shots");
     const thumbs = Array.from(shots.querySelectorAll("img")); // alt="" — 단추가 이름을 가집니다
     expect(thumbs).toHaveLength(2);
@@ -347,8 +350,9 @@ describe("Admin › Feedback — 스크린샷", () => {
     render(<FeedbackAdmin />);
     await screen.findByText("버튼이 안 눌려요");
 
-    await user.click(screen.getAllByRole("button", { name: "지우기" })[0]);
-    const dialog = screen.getByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "의견 열기: 버튼이 안 눌려요" }));
+    await user.click(within(screen.getByTestId("feedback-panel")).getByRole("button", { name: "지우기" }));
+    const dialog = screen.getByRole("dialog", { name: "의견 지우기" });
     expect(dialog.textContent).toContain("붙은 사진 2장도 함께 지워집니다");
     await user.click(within(dialog).getByRole("button", { name: "지우기" }));
 

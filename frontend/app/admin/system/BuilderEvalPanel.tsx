@@ -16,6 +16,8 @@ import { formatWhen } from "@/lib/admin";
 import { describeError, request } from "@/lib/http";
 import { formatKrw } from "@/lib/quarters";
 
+import { PanelBar, Stack } from "../components/AdminUI";
+
 import styles from "../admin.module.css";
 
 interface BuilderEvalReport {
@@ -43,31 +45,35 @@ export default function BuilderEvalPanel() {
   }, []);
 
   return (
-    <>
-      <div className="card">
-        <p className="small dim">서버에서 이렇게 돌립니다(예산 한도를 넘기지 않아요):</p>
-        <pre className={styles.command}>
-          <code>{BUILDER_EVAL_COMMAND}</code>
-        </pre>
-        {error && (
-          <p className="small" role="alert" style={{ color: "var(--error-text)" }}>
-            {error}
+    <Stack>
+      <PanelBar
+        note="보고서는 읽기만 해요 — 점검은 서버에서 돌려요"
+        help={
+          <p>
+            단계별 만들기를 정해 둔 예시 아이디어 다섯 개로 실제 Claude에 돌려 보고(관리자 지갑에서 차감, 예산 한도를
+            넘기지 않아요) 성공 여부 · 걸린 시간 · 쓴 돈 · 파일 수 · 점검이 고친 파일을 남겨요.
           </p>
-        )}
-        {reports !== null && reports.length === 0 && (
-          <p className="small dim">아직 점검한 적이 없어요.</p>
-        )}
-        {reports?.map((report, index) => (
-          <details key={report.id} open={index === 0} className={styles.evalReport}>
-            <summary>
-              {formatWhen(report.created_at)} · 성공 {report.succeeded}/{report.ideas} ·{" "}
-              {formatKrw(report.total_krw)} · {report.provider === "mock" ? "mock" : "실제 Claude"}
-              {report.run_by_username ? ` · ${report.run_by_username}` : ""}
-            </summary>
-            <ChatMarkdown text={report.markdown} />
-          </details>
-        ))}
-      </div>
-    </>
+        }
+      />
+      <pre className={styles.command}>
+        <code>{BUILDER_EVAL_COMMAND}</code>
+      </pre>
+      {error && (
+        <p className="small" role="alert" style={{ color: "var(--error-text)", margin: 0 }}>
+          {error}
+        </p>
+      )}
+      {reports !== null && reports.length === 0 && <p className="small dim" style={{ margin: 0 }}>아직 점검한 적이 없어요.</p>}
+      {reports?.map((report, index) => (
+        <details key={report.id} open={index === 0} className={styles.evalReport}>
+          <summary>
+            {formatWhen(report.created_at)} · 성공 {report.succeeded}/{report.ideas} · {formatKrw(report.total_krw)} ·{" "}
+            {report.provider === "mock" ? "mock" : "실제 Claude"}
+            {report.run_by_username ? ` · ${report.run_by_username}` : ""}
+          </summary>
+          <ChatMarkdown text={report.markdown} />
+        </details>
+      ))}
+    </Stack>
   );
 }

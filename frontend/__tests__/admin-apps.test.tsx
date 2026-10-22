@@ -105,7 +105,8 @@ beforeEach(() => {
 describe("Admin › Apps", () => {
   test("게시된 앱과 미게시 앱이 한 줄씩, AI는 방문자와 미리보기를 따로", async () => {
     render(<AppsList />);
-    const rows = await screen.findAllByRole("row");
+    // admin-ui-unify: one ItemRow per app (no table rows any more).
+    const rows = await screen.findAllByTestId("admin-app");
     const text = rows.map((row) => row.textContent ?? "");
     const board = text.find((t) => t.includes("동아리 게시판"))!;
     expect(board).toContain("게시 v3");
@@ -126,7 +127,7 @@ describe("Admin › Apps", () => {
 
   test("thumbnail-render-worker: browser mode opens the hidden frame in this browser", async () => {
     render(<AppsList />);
-    await screen.findAllByRole("row");
+    await screen.findAllByTestId("admin-app");
     expect(screen.getByTestId("thumbnail-maker").textContent).toContain("이 브라우저에서 하나씩");
     fireEvent.click(screen.getByRole("button", { name: "썸네일 만들기" }));
     expect((await screen.findByTestId("hidden-capture")).textContent).toContain("http://apps.test/abcdefgh23/");
@@ -141,7 +142,7 @@ describe("Admin › Apps", () => {
       .mockResolvedValueOnce({ ...ROWS[0], thumbnail_at: "2026-10-17T00:00:00Z" })
       .mockRejectedValueOnce(new Error("서버에서 썸네일을 찍지 못했어요."));
     render(<AppsList />);
-    await screen.findAllByRole("row");
+    await screen.findAllByTestId("admin-app");
     await waitFor(() => expect(screen.getByTestId("thumbnail-maker").textContent).toContain("서버의 브라우저가"));
     fireEvent.click(screen.getByRole("button", { name: "썸네일 만들기" }));
     await waitFor(() => expect(adminRenderThumbnail).toHaveBeenCalledTimes(2));

@@ -78,7 +78,8 @@ test("a long reply is continued by the server into one bubble, and the preview o
     await expect(page.getByTestId("continuing")).toHaveCount(0);
     await expect(page.getByTestId("continue-reply")).toHaveCount(0);
     await expect(page.getByTestId("artifact-cut-off")).toHaveCount(0);
-    const open = page.getByRole("button", { name: /미리보기/ }).first();
+    // chat-artifact-panel: the reply is a card; pressing it opens the result in the side panel.
+    const open = page.getByTestId("artifact").first();
     await expect(open).toBeVisible();
     await open.click();
     await expect(page.locator("iframe[sandbox='allow-scripts']")).toBeVisible({ timeout: 15_000 });
