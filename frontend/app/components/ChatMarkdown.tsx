@@ -8,8 +8,10 @@
  *   글자 그대로 보입니다(`plainText`).
  * - 링크는 `http(s)`와 `mailto`만 남깁니다. 나머지(`javascript:` 등)는
  *   링크가 아닌 글자가 됩니다. 남은 링크는 새 탭에서 열립니다.
- * - 그림(`![...](...)`)은 불러오지 않고 설명 글자만 보여 줍니다. 답장이
- *   가리키는 바깥 서버에 회원의 접속 정보가 새지 않게 하려는 것입니다.
+ * - 그림(`![...](...)`)은 `https` 주소만 불러옵니다(app-open-services,
+ *   owner 2026-10-22). 그 서버에는 회원의 IP가 전달되고 — 개인정보
+ *   처리방침에 적혀 있습니다 — 보내는 쪽 주소(referrer)는 보내지 않습니다.
+ *   다른 주소이거나 불러오지 못하면 설명 글자만 보여 줍니다.
  *
  * 답장이 오는 중(`streaming`)에는 덜 온 마지막 줄(울타리, 제목 밑줄)과
  * 머리줄만 온 표를 잠시 감춥니다 — 그래야 백틱(```)이나 세로줄(|)이
@@ -47,6 +49,31 @@ const SAFE_URL = /^(https?:\/\/|mailto:|#\S+$)/i;
 /** 허용하지 않는 주소는 빈 문자열이 되고, 아래 `a`가 글자로 바꿉니다. */
 export function safeUrl(url: string): string {
   return SAFE_URL.test(url.trim()) ? url : "";
+}
+
+/** 답장 속 그림으로 불러오는 주소. */
+const HTTPS_IMAGE = /^https:\/\/\S+$/i;
+
+function ImageAlt({ alt }: { alt?: string }) {
+  return alt ? <span className={styles.imageAlt}>[그림: {alt}]</span> : null;
+}
+
+/** 바깥 그림 하나. 불러오지 못하면 설명 글자로 바뀝니다. */
+function ReplyImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <ImageAlt alt={alt} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- 답장이 가리키는 바깥 그림
+    <img
+      className={styles.image}
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 /** 백틱 울타리. 여는 줄의 정보(언어 이름)에는 백틱이 들어갈 수 없습니다. */
@@ -290,8 +317,9 @@ const COMPONENTS: Components = {
       </a>
     );
   },
-  img({ alt }) {
-    return alt ? <span className={styles.imageAlt}>[그림: {alt}]</span> : null;
+  img({ src, alt }) {
+    if (typeof src === "string" && HTTPS_IMAGE.test(src.trim())) return <ReplyImage src={src.trim()} alt={alt ?? ""} />;
+    return <ImageAlt alt={alt} />;
   },
   table({ children }) {
     return (

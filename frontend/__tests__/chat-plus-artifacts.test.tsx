@@ -72,8 +72,10 @@ describe("샌드박스 — 정확히", () => {
     const srcdoc = frame.getAttribute("srcdoc") ?? "";
     expect(srcdoc.startsWith(`<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`)).toBe(true);
     expect(PREVIEW_CSP).toBe(
-      "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:",
+      "default-src 'none'; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; " +
+        "img-src data: blob: https:; font-src data: https:; media-src data: blob: https:; connect-src https:",
     );
+    expect(PREVIEW_CSP).not.toMatch(/http:|ws:|\*|unsafe-eval/);
     expect(srcdoc).toContain("<h1>안녕</h1>");
     expect(screen.getByText(PREVIEW_LABEL)).toBeTruthy();
     // The page's script did not run in this document.
