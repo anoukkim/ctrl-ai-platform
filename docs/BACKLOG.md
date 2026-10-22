@@ -1119,8 +1119,17 @@ it yearly).
 ## image-generation — full spec
 
 After the beta · M2 · branch `feat-image-generation`. Effort: **M** (3–5
-days). Added 2026-10-07. **Waits on the budget-by-provider decision**
-(see *After the prototype*).
+days). Added 2026-10-07. **Started 2026-10-22 on the owner's word** ("구글이니까
+제미나이로 ㄱㄱ" — Gemini first; GPT Image 2 and FLUX.2 klein were the
+alternatives compared). Built mock-first: the `image_models` catalogue
+(Nano Banana 2.1 visible, Nano Banana Pro hidden, example prices), the
+이미지 만들기 card in Chat (`[[action:image|…]]`), `IMAGE_PROVIDER=mock|gemini`
+with the paid-project guard, its own 기능 열기 switch (locked), Admin ›
+Models › Image. Image spending counts under 채팅 on the wallet card (the
+owner's four lines stay) and is labelled 이미지 in the ledger; Google is a
+purchase provider in Admin › 크레딧 구매. **Before a real key:** the owner
+creates a billed Google project (a paid resource — CLAUDE.md §10), checks
+whether its prepaid credit gives Concur receipts, and confirms the prices.
 
 1. **Claude cannot make raster images** (Anthropic's docs). What Chat can
    already do without this item: SVG, HTML and chart code, previewed by

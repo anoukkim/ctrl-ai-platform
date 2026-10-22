@@ -156,7 +156,15 @@ def test_the_picker_price_is_the_cap_the_pre_check_enforces(
 
     conversation = conversation_with(client, depth="low")
     done = [data for name, data in events_of(send(client, conversation, "길게 " * 50).text) if name == "done"]
-    assert done and done[0]["charged_krw"] <= 15
+    assert done
+    # The cap is per call (feat-auto-continue): a reply that reaches it is
+    # continued by a new call, each held to the same 15원, and the reply's
+    # total is what those calls charged. (Before image-generation the
+    # mock reply fitted one call at exactly 15원; the longer system prompt
+    # tipped it into a continuation.)
+    calls = db_session.query(UsageEvent).all()
+    assert calls and all(call.charged_krw <= 15 for call in calls)
+    assert done[0]["charged_krw"] == sum(call.charged_krw for call in calls)
 
 
 def test_the_members_default_is_remembered(

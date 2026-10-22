@@ -394,6 +394,7 @@ export const PROVIDER_LABEL: Record<string, string> = {
   claude: "Claude",
   anthropic: "Claude",
   higgsfield: "Higgsfield",
+  gemini: "Google Gemini",
 };
 
 export function providerName(id: string): string {
@@ -408,6 +409,7 @@ export const PROVIDER_FRIENDLY: Record<string, string> = {
   claude: "Claude · 대화와 글",
   anthropic: "Claude · 대화와 글",
   higgsfield: "Higgsfield · 영상",
+  gemini: "Gemini · 이미지",
 };
 
 export function providerFriendly(id: string): string {

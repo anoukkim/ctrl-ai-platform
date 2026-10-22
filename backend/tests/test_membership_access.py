@@ -417,6 +417,10 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("GET", "/api/chat/attachments/{attachment_id}/file"): "get_current_user",
     ("GET", "/api/chat/conversations/{conversation_id}/attachments/estimate"): "get_current_user",
     ("GET", "/api/chat/conversations/{conversation_id}/attachments/pending"): "get_current_user",
+    # image-generation: the card reads the catalogue; making a picture
+    # spends the wallet and waits for Admin › System › 기능 열기.
+    ("GET", "/api/chat/image-models"): "get_current_user",
+    ("POST", "/api/chat/messages/{message_id}/images"): "require_image_open",
     # Builder — reads open, writes gated.
     ("GET", "/api/builder/projects"): "get_current_user",
     ("GET", "/api/builder/projects/{project_id}"): "get_current_user",
@@ -607,6 +611,8 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/admin/top-ups/{top_up_id}/confirm"): "require_admin",
     ("GET", "/api/admin/video-models"): "require_admin",
     ("PATCH", "/api/admin/video-models/{model_id}"): "require_admin",
+    ("GET", "/api/admin/image-models"): "require_admin",
+    ("PATCH", "/api/admin/image-models/{model_id}"): "require_admin",
     ("GET", "/api/admin/audit"): "require_admin",
     # Read-only Admin screens: the dashboard and the member detail page.
     ("GET", "/api/admin/dashboard"): "require_admin",

@@ -119,6 +119,7 @@ import { useMayCreate, useMyQuarter } from "./MyQuarterProvider";
 import { useSpendFeedback } from "./SpendFeedbackProvider";
 import { modelShortName } from "@/lib/spend";
 import CarryToBuilder from "./CarryToBuilder";
+import ImageCard from "./ImageCard";
 import ArtifactPanel from "./ArtifactPanel";
 import { ArtifactPanelContext, type OpenArtifact } from "./artifact-panel-context";
 import { codeFiles, codeZip, conversationMarkdown, printableHtml, safeTitle, saveBlob } from "@/lib/export-conversation";
@@ -166,6 +167,9 @@ interface ViewMessage {
   status: ChatMessageStatus;
   action: ChatAction | null;
   actionTitle: string;
+  /** image-generation: 이미지 만들기 카드의 그림 설명, 그리고 카드가 쓰는 저장된 답장 id. */
+  actionPrompt?: string;
+  messageId?: number;
   /** 답장을 쓴 모델의 ID. 내 메시지와 오고 있는 답장은 null. */
   modelId: string | null;
   /** 답장을 쓴 생각 깊이(quality-tuning Q1). */
@@ -204,6 +208,8 @@ function toView(message: ChatMessage): ViewMessage {
     status: message.status,
     action: message.action,
     actionTitle: message.action_title,
+    actionPrompt: message.action_prompt ?? "",
+    messageId: message.id,
     modelId: message.model_id,
     depth: message.depth ?? null,
     cappedKrw: message.capped_krw ?? null,
@@ -1667,8 +1673,9 @@ export default function ChatWorkspace() {
                     <span className={styles.messageRole}>
                       {message.role === "user" ? "나" : "CTRL+AI"}
                     </span>
-                    {(message.attachments?.length ?? 0) > 0 && (
-                      <MessageFiles files={message.attachments ?? []} />
+                    {(message.attachments ?? []).some((file) => !file.generated_model) && (
+                      // 만든 그림은 아래 이미지 카드에 크게 보입니다.
+                      <MessageFiles files={(message.attachments ?? []).filter((file) => !file.generated_model)} />
                     )}
                     {(message.content || message.streaming) && (
                       <div className={styles.bubble}>
@@ -1788,7 +1795,28 @@ export default function ChatWorkspace() {
                         </button>
                       )}
                     {message.action && !message.streaming && (
-                      message.action === "builder" && previews.length > 0 ? (
+                      message.action === "image" ? (
+                        message.messageId !== undefined && (
+                          <ImageCard
+                            messageId={message.messageId}
+                            prompt={message.actionPrompt ?? ""}
+                            images={(message.attachments ?? []).filter((file) => file.generated_model)}
+                            disabled={!mayCreate}
+                            onMade={(attachment, chargedKrw) => {
+                              const key = message.key;
+                              setMessages((rows) =>
+                                rows.map((row) =>
+                                  row.key === key
+                                    ? { ...row, attachments: [...(row.attachments ?? []), attachment] }
+                                    : row,
+                                ),
+                              );
+                              reportCharge({ chargedKrw, label: "채팅 · 이미지" });
+                              void refreshQuarter();
+                            }}
+                          />
+                        )
+                      ) : message.action === "builder" && previews.length > 0 ? (
                         // chat-to-builder-carry: the 미리보기 goes, not just the words.
                         <CarryToBuilder
                           previews={previews}

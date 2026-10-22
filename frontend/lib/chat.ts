@@ -85,7 +85,7 @@ export function tidySources(sources: ReplySource[]): ReplySource[] {
 
 export type ChatRole = "user" | "assistant";
 export type ChatMessageStatus = "complete" | "stopped" | "truncated" | "refused";
-export type ChatAction = "builder" | "video";
+export type ChatAction = "builder" | "video" | "image";
 
 export interface ChatMessage {
   id: number;
@@ -94,6 +94,8 @@ export interface ChatMessage {
   status: ChatMessageStatus;
   action: ChatAction | null;
   action_title: string;
+  /** image-generation: 이미지 만들기 카드가 시작하는 그림 설명(영어). 다른 단추면 "". */
+  action_prompt?: string;
   /** 답장을 쓴 모델의 ID (예: "claude-haiku-4-5"). 내 메시지는 null. */
   model_id: string | null;
   /** 답장을 쓴 생각 깊이(quality-tuning Q1). 깊이가 없는 모델이면 null. */
@@ -652,6 +654,89 @@ export const CARRY_LABEL = "이 미리보기로 Builder 시작";
 export const ACTION_LABEL: Record<ChatAction, string> = {
   builder: "Project Builder에서 예시 앱 만들기",
   video: "Video Generator 열기",
+  image: "이미지 만들기",
+};
+
+// ------------------------------------------------------------ image-generation
+
+export type ImageSize = "1K" | "2K" | "4K";
+
+export interface ImageModel {
+  id: number;
+  provider: string;
+  model_id: string;
+  display_name: string;
+  description: string;
+  sort_order: number;
+  capabilities: {
+    sizes: ImageSize[];
+    aspect_ratios: string[];
+    price_per_image_krw: Record<string, number>;
+    usd_per_image: Record<string, number>;
+    defaults: { size: ImageSize; aspect_ratio: string };
+    prices_are_examples: boolean;
+  };
+}
+
+export interface ImageModelList {
+  models: ImageModel[];
+  /** Admin › System › 기능 열기에서 열렸는지 (관리자는 언제나 true). */
+  open: boolean;
+  /** IMAGE_PROVIDER=mock — 카드가 "예시 그림"이라고 알립니다. */
+  mock: boolean;
+}
+
+export interface ImageMade {
+  attachment: ChatAttachment;
+  charged_krw: number;
+}
+
+export function getImageModels(): Promise<ImageModelList> {
+  return request<ImageModelList>("/chat/image-models");
+}
+
+/** 그림 한 장 — 몇 초에서 수십 초 걸리므로 대기 시간이 깁니다. */
+export function makeImage(
+  messageId: number,
+  body: { prompt: string; model: number; size: string; aspect_ratio: string; expected_krw?: number },
+): Promise<ImageMade> {
+  return request<ImageMade>(`/chat/messages/${messageId}/images`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    timeoutMs: 150_000,
+  });
+}
+
+export interface AdminImageModel extends ImageModel {
+  enabled: boolean;
+  member_visible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function listAdminImageModels(): Promise<AdminImageModel[]> {
+  return request<AdminImageModel[]>("/admin/image-models");
+}
+
+export function updateAdminImageModel(
+  id: number,
+  changes: Partial<Pick<AdminImageModel, "enabled" | "member_visible" | "sort_order">> & {
+    capabilities?: ImageModel["capabilities"];
+  },
+): Promise<AdminImageModel> {
+  return request<AdminImageModel>(`/admin/image-models/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(changes),
+  });
+}
+
+/** 비율을 회원이 읽는 이름으로. */
+export const RATIO_LABEL: Record<string, string> = {
+  "1:1": "정사각형 1:1",
+  "3:4": "세로 3:4",
+  "4:3": "가로 4:3",
+  "9:16": "세로 9:16 (휴대폰)",
+  "16:9": "가로 16:9 (화면)",
 };
 
 /** chat-to-builder-carry: one 미리보기 (a whole ```html block) in a reply. */

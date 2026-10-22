@@ -166,3 +166,18 @@ def require_video_open(
     if user.role is not UserRole.ADMIN and not feature_switches.is_open(db, feature_switches.VIDEO):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=feature_switches.VIDEO_LOCKED)
     return user
+
+
+def require_image_open(
+    user: User = Depends(require_active_member),
+    db: Session = Depends(get_db),
+) -> User:
+    """Guard for making a picture in Chat (image-generation).
+
+    Like `require_video_open`: participation, and the area must be open
+    (Admin › System › 기능 열기, locked by default). The 관리자 is never
+    locked out, so the wiring can be tried before members see it.
+    """
+    if user.role is not UserRole.ADMIN and not feature_switches.is_open(db, feature_switches.IMAGE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=feature_switches.IMAGE_LOCKED)
+    return user

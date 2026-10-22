@@ -66,6 +66,11 @@ def _label_for(db: Session, event) -> str:
             db.get(Conversation, event.conversation_id) if event.conversation_id else None
         )
         return f"Chat — {conversation.title}" if conversation and conversation.title else "Chat"
+    if event.feature == "image_generate":
+        conversation = (
+            db.get(Conversation, event.conversation_id) if event.conversation_id else None
+        )
+        return f"이미지 — {conversation.title}" if conversation and conversation.title else "이미지"
     if event.feature in ("app_ai", "app_ai_preview"):
         # app-platform P2: AI inside a member app, paid by the visitor; P4:
         # the maker trying it in the Builder's 미리보기.

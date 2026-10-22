@@ -506,6 +506,52 @@ Chat에서 짧은 메시지 하나를 보내 답이 한 글자씩 나오는지, 
 키를 잘못 넣으면 서버는 켜지지만 Chat이 한국어로 "API 키가 거부되었습니다"를
 보여 주고, 아무것도 차감하지 않습니다.
 
+### 이미지 만들기 — 진짜 Gemini 연결 (image-generation)
+
+`IMAGE_PROVIDER=mock`인 동안 Chat의 이미지 만들기 카드는 예시 그림을 그립니다.
+**회원에게는 잠겨 있어야 합니다**(Admin › System › 기능 열기 › 이미지 만들기
+(Chat), 기본 잠김) — 예시 그림에 돈을 받지 않도록. 진짜로 바꾸면 그림 한 장마다
+**실제 돈**이 동아리의 Google 선불 크레딧에서 나갑니다(Nano Banana 2.1 1K 약
+$0.034).
+
+**Google AI Studio에서 (https://aistudio.google.com):**
+
+1. **API keys › Create API key** — 키와 프로젝트(예: `ctrlai-image`)가 함께
+   생깁니다.
+2. **Projects**에서 그 프로젝트의 **Billing Tier** 칸 › **Set up billing** →
+   나라·연락처·카드 → **Prepay**(선불, 최소 $5, 최대 $5,000). 선불 크레딧은
+   **12개월 뒤 사라지고 보통 환불되지 않습니다** — 처음에는 $5–10, 한 분기
+   써 본 뒤 Admin › Quarters › 사용 분석의 Google Gemini 줄을 보고 정합니다.
+3. **Billing**에서 **Auto-reload가 꺼져 있는지**, **Spend › Monthly spend
+   cap**에 월 한도(예: $10)를 정합니다(실험 기능 — 약 10분 늦게 반영).
+4. **반드시 확인:** Projects의 Billing Tier나 API keys의 Plan이 **Paid**.
+   무료 등급 키는 같은 키로 조용히 돌아가면서 **프롬프트를 학습에 씁니다** —
+   그래서 아래 `GEMINI_BILLING_CONFIRMED=true`는 이것을 본 뒤에만 넣습니다.
+5. 충전 내역은 Billing 탭에 있습니다. Concur 영수증을 내려받을 수 있는지는
+   공식 문서에 없으니 첫 충전 때 확인합니다.
+
+**서버에서:**
+
+```bash
+cd ~/ctrl-ai-platform
+nano .env
+#   IMAGE_PROVIDER=gemini
+#   GEMINI_API_KEY=... (방금 복사한 키)
+#   GEMINI_BILLING_CONFIRMED=true
+dc up -d --force-recreate api
+dc ps                                   # api 가 (healthy)
+```
+
+키나 `GEMINI_BILLING_CONFIRMED`가 없으면 api가 시작을 거부하고 빠진 값을
+알려 줍니다.
+
+**확인하고 열기:** Admin › System › 상태 › **모두 확인** → Google Gemini 칸이
+정상(모델 목록만 읽어서 무료) → Admin › Models › Image에서 가격을 보고 **가격
+확인** → 관리자로 Chat에서 한 장 만들어 봄(관리자는 잠금과 상관없음) →
+Admin › System › 기능 열기 › **이미지 만들기 (Chat)** 켜기 → Admin › Quarters ›
+크레딧 구매에 "Google Gemini $5"를 기록. 크레딧이 0이 되면 그림 만들기만
+멈추고(회원에게 "돈은 빠져나가지 않았어요"), 다른 기능은 그대로입니다.
+
 ### 진짜 Claude에서 서버 도구(웹 검색 등)는 돈이 듭니다
 
 Chat의 서버 도구(웹 검색 · 페이지 읽기 · 코드 실행, chat-plus-tools)는

@@ -33,6 +33,7 @@ import styles from "../admin.module.css";
 const PROVIDER_OPTIONS = [
   { value: "claude", label: "Claude (Anthropic)" },
   { value: "higgsfield", label: "Higgsfield" },
+  { value: "gemini", label: "Google Gemini" },
 ];
 
 function today(): string {

@@ -65,6 +65,9 @@ class UsageFeature(str, enum.Enum):
     #: chat-to-builder-carry: naming a 미리보기 that has no title — a
     #: club-absorbed row (0원 to the member).
     PROJECT_NAME = "project_name"
+    #: image-generation: one picture from an 이미지 만들기 card in Chat
+    #: (`conversation_id` names the conversation).
+    IMAGE_GENERATE = "image_generate"
 
 
 #: How a member's spending is broken down on their wallet card: 채팅 /
@@ -82,6 +85,9 @@ SPENDING_GROUP: dict[str, str] = {
     UsageFeature.VIDEO_GENERATE.value: "video",
     UsageFeature.VIDEO_EDIT.value: "video",
     UsageFeature.VIDEO_EXTEND.value: "video",
+    # image-generation: made in Chat, so it counts as 채팅 (the owner's four
+    # lines stay); the ledger row itself says 이미지.
+    UsageFeature.IMAGE_GENERATE.value: "chat",
 }
 
 

@@ -97,12 +97,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "models",
     href: "/admin/models",
     label: "Models",
-    description: "Chat · Video 모델과 요금. 연결 전인 제공자도 목록에 있어요.",
+    description: "Chat · Video · Image 모델과 요금. 연결 전인 제공자도 목록에 있어요.",
     Icon: Bot,
     // 한도 (채팅 한도, from System) and 보정 (비용 보정) sit with the models (v3).
     tabs: [
       { key: "ai-models", label: "Chat" },
       { key: "video-models", label: "Video" },
+      { key: "image-models", label: "Image" },
       { key: "limits", label: "한도" },
       { key: "calibration", label: "보정" },
     ],

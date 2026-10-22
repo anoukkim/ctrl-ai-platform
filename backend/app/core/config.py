@@ -168,6 +168,8 @@ class Settings(BaseSettings):
     # with no keys and no network.
     claude_provider: str = "mock"
     video_provider: str = "mock"
+    #: image-generation: "mock" (the default) or "gemini".
+    image_provider: str = "mock"
     github_provider: str = "mock"
     youtube_provider: str = "mock"
     #: owner-polish-3 (b): the daily USD→KRW rate. `frankfurter` is the
@@ -201,6 +203,12 @@ class Settings(BaseSettings):
     # nothing — so it is not required to start.
     anthropic_model: str = ""
     hf_credentials: str = ""
+    #: image-generation: the Gemini API key, from a **paid** (billed) Google
+    #: project. GEMINI_BILLING_CONFIRMED says so — an unbilled project's key
+    #: silently runs on the free tier, which keeps prompts for training, so
+    #: IMAGE_PROVIDER=gemini refuses to start without it.
+    gemini_api_key: str = ""
+    gemini_billing_confirmed: bool = False
     github_client_secret: str = ""
     google_client_secret: str = ""
 
@@ -425,6 +433,7 @@ class Settings(BaseSettings):
         return {
             "claude": self.claude_provider,
             "video": self.video_provider,
+            "image": self.image_provider,
             "github": self.github_provider,
             "youtube": self.youtube_provider,
             "fx": self.fx_provider,
@@ -446,6 +455,7 @@ class Settings(BaseSettings):
             {
                 "claude": self.anthropic_api_key,
                 "video": self.hf_credentials,
+                "image": self.gemini_api_key,
                 "github": self.github_client_secret,
                 "youtube": self.google_client_secret,
             }[provider].strip()
@@ -465,6 +475,15 @@ class Settings(BaseSettings):
                 missing.append("CLAUDE_PROVIDER (mock 또는 anthropic)")
             if not self.anthropic_api_key.strip():
                 missing.append("ANTHROPIC_API_KEY")
+        if not self.provider_is_mock("image"):
+            if self.provider_mode("image") != "gemini":
+                missing.append("IMAGE_PROVIDER (mock 또는 gemini)")
+            if not self.gemini_api_key.strip():
+                missing.append("GEMINI_API_KEY")
+            if not self.gemini_billing_confirmed:
+                missing.append(
+                    "GEMINI_BILLING_CONFIRMED=true (결제가 켜진 프로젝트의 키만 — 무료 등급은 프롬프트를 학습에 씁니다)"
+                )
         admin_report = self.anthropic_admin_provider.strip().lower()
         if admin_report not in {"mock", "anthropic"}:
             missing.append("ANTHROPIC_ADMIN_PROVIDER (mock 또는 anthropic)")

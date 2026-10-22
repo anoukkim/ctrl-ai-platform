@@ -107,13 +107,14 @@ def test_mock_mode_is_reported_for_every_provider(client: TestClient) -> None:
     """The default configuration is mock everywhere (CLAUDE.md section 20)."""
     rows = client.get("/api/admin/providers").json()
 
-    assert [row["key"] for row in rows] == ["claude", "video", "github", "youtube", "fx"]
+    assert [row["key"] for row in rows] == ["claude", "video", "image", "github", "youtube", "fx"]
     assert all(row["is_mock"] for row in rows)
     assert all(row["mode"] == "mock" for row in rows)
     # Which environment variable to change is part of the answer.
     assert {row["setting"] for row in rows} == {
         "CLAUDE_PROVIDER",
         "VIDEO_PROVIDER",
+        "IMAGE_PROVIDER",  # image-generation: Gemini, mock by default
         "GITHUB_PROVIDER",
         "YOUTUBE_PROVIDER",
         "FX_PROVIDER",  # owner-polish-3 (b): keyless, mock by default like the rest

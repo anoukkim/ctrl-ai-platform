@@ -83,24 +83,29 @@ class ChatRefusal(Exception):
 
 #: How a reply asks for an action button. See `CHAT_SYSTEM_PROMPT`. The
 #: title is capped so the streaming filter (`_MARKER_LONGEST`) and the saved
-#: reply always agree on what is a marker.
-ACTION_MARKER = re.compile(r"\[\[action:(builder|video)(?:\|([^\]\n]{0,140}))?\]\]")
+#: reply always agree on what is a marker. An `image` marker carries the
+#: picture's description instead of a title, so it may run longer.
+ACTION_MARKER = re.compile(
+    r"\[\[action:(?:(builder|video)(?:\|([^\]\n]{0,140}))?|(image)(?:\|([^\]\n]{0,600}))?)\]\]"
+)
 
 
 #: The start every marker shares, and the most a marker's title may run to
 #: before the held text is let go as ordinary text.
 _MARKER_START = "[[action:"
 _MARKER_REST = re.compile(
-    r"(b(u(i(l(d(er?)?)?)?)?)?|v(i(d(eo?)?)?)?)?|(builder|video)(\|[^\]\n]*)?\]?"
+    r"(b(u(i(l(d(er?)?)?)?)?)?|v(i(d(eo?)?)?)?|i(m(a(ge?)?)?)?)?|(builder|video|image)(\|[^\]\n]*)?\]?"
 )
 _MARKER_LONGEST = 160
+_IMAGE_MARKER_LONGEST = 620
 
 
 def _could_become_marker(text: str) -> bool:
     """Whether `text` (starting with "[") may still turn into a marker."""
     if len(text) <= len(_MARKER_START):
         return _MARKER_START.startswith(text)
-    if not text.startswith(_MARKER_START) or len(text) > _MARKER_LONGEST:
+    longest = _IMAGE_MARKER_LONGEST if text.startswith(_MARKER_START + "image") else _MARKER_LONGEST
+    if not text.startswith(_MARKER_START) or len(text) > longest:
         return False
     return _MARKER_REST.fullmatch(text[len(_MARKER_START) :]) is not None
 
@@ -151,12 +156,17 @@ class MarkerFilter:
         return rest
 
 
-def action_of(raw: str) -> tuple[ChatAction | None, str]:
-    """The action button a full reply asked for, and its suggested title."""
+def action_of(raw: str) -> tuple[ChatAction | None, str, str]:
+    """The action button a full reply asked for, its suggested title, and —
+    for an 이미지 만들기 card — the picture's description."""
     match = ACTION_MARKER.search(raw)
     if match is None:
-        return None, ""
-    return ChatAction(match.group(1)), (match.group(2) or "").strip()[:100]
+        return None, "", ""
+    action = ChatAction(match.group(1) or match.group(3))
+    payload = (match.group(2) or match.group(4) or "").strip()
+    if action is ChatAction.IMAGE:
+        return action, "", payload
+    return action, payload[:100], ""
 
 
 def visible_text(raw: str) -> str:
@@ -243,7 +253,10 @@ def build_context(
     # (role, text, files) per turn.
     turns: list[tuple[str, str, list[ChatAttachment]]] = []
     for message in history:
-        files = attachments.get(message.id, [])
+        # A picture CTRL+AI made sits on the reply that offered it; it is
+        # never sent back — an assistant turn may not carry an image, and
+        # the member can attach it themselves to ask about it.
+        files = [f for f in attachments.get(message.id, []) if f.generated_model is None]
         if not message.content.strip() and not files:
             continue
         if message.role is ChatRole.ASSISTANT and message.status is ChatMessageStatus.REFUSED:
@@ -1186,7 +1199,7 @@ def save_reply(
                 seen.add(source.get("url"))
                 sources.append(source)
 
-    action, action_title = action_of(raw_text)
+    action, action_title, action_prompt = action_of(raw_text)
     text = visible_text(raw_text)
     status = _status_for(last)
     if stop is not None and status is ChatMessageStatus.COMPLETE:
@@ -1233,6 +1246,7 @@ def save_reply(
             status=status,
             action=action if status is not ChatMessageStatus.REFUSED else None,
             action_title=action_title,
+            action_prompt=action_prompt if status is not ChatMessageStatus.REFUSED else "",
             model_id=turn.model_id,
             depth=turn.depth,
             # The whole prompt, cached or not — what the reply was written from.

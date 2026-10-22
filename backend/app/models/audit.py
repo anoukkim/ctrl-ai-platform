@@ -101,6 +101,9 @@ class AuditAction:
     # A model's catalogue entry — its options and per-second prices. Logged
     # because a price change moves what every later generation costs.
     VIDEO_MODEL_UPDATED = "video_model.updated"
+    # image-generation: the same for an image model — its sizes, ratios,
+    # per-image prices and switches.
+    IMAGE_MODEL_UPDATED = "image_model.updated"
     # Claude's per-model token prices and the won-per-dollar rate. Logged
     # for the same reason: they decide what every later chat reply costs.
     CLAUDE_PRICE_UPDATED = "claude_price.updated"
@@ -189,6 +192,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.ALLOCATION_RELEASED: "지원금 해제",
     AuditAction.REFUND_RECORDED: "환불 완료 기록",
     AuditAction.VIDEO_MODEL_UPDATED: "영상 모델 설정 변경",
+    AuditAction.IMAGE_MODEL_UPDATED: "이미지 모델 설정 변경",
     AuditAction.CLAUDE_PRICE_UPDATED: "Claude 요금 변경",
     AuditAction.EXCHANGE_RATE_SET: "환율 변경",
     AuditAction.EXCHANGE_RATE_AUTO: "환율 자동 반영",

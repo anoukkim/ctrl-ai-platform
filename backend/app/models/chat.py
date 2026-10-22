@@ -49,6 +49,9 @@ class ChatAction(str, enum.Enum):
 
     BUILDER = "builder"
     VIDEO = "video"
+    #: image-generation: an 이미지 만들기 card. The image is made in the
+    #: conversation itself, from `ChatMessage.action_prompt`.
+    IMAGE = "image"
 
 
 class Conversation(TimestampMixin, Base):
@@ -135,6 +138,9 @@ class ChatMessage(Base):
         status_enum(ChatAction, "chataction"), nullable=True
     )
     action_title: Mapped[str] = mapped_column(String(100), default="", nullable=False)
+    #: image-generation: the prompt an 이미지 만들기 card starts from —
+    #: Claude's English description of the picture. Empty for other actions.
+    action_prompt: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
     #: For an assistant reply: the catalogue model that wrote it (the
     #: provider's id, e.g. "claude-haiku-4-5" — also under the mock, which
@@ -238,6 +244,12 @@ class ChatAttachment(Base):
     #: The same figure the browser shows and the budget pre-check adds.
     estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_key: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    #: image-generation: set when CTRL+AI made this picture rather than the
+    #: member uploading it — the image model's id, and the prompt it was
+    #: made from. Such a file sits on the reply that offered it and is
+    #: never sent back to Claude (`chat.build_context`).
+    generated_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    prompt: Mapped[str] = mapped_column(Text, default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

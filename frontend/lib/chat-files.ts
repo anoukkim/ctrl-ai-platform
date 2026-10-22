@@ -27,6 +27,10 @@ export interface ChatAttachment {
   /** 어림 토큰 — 입력창의 예상 비용과 백엔드의 사전 확인이 같은 숫자를 씁니다. */
   estimated_tokens: number;
   message_id: number | null;
+  /** image-generation: CTRL+AI가 만든 그림이면 그 이미지 모델 ID, 회원이 올린 파일이면 null. */
+  generated_model?: string | null;
+  /** 만든 그림의 설명. */
+  prompt?: string;
 }
 
 export interface AttachmentEstimate {
