@@ -11,7 +11,8 @@ import { useAdminQuarterOptional } from "../AdminQuarterProvider";
  * 한 줄에 보여 줍니다 — 초록(연결됨) · 빨강(마지막 기록이 오류, 또는 닿지
  * 않음) · 회색(mock, 또는 아직 모름).
  *
- * 자료는 이미 있는 두 곳에서 옵니다: `/api/health`(서버·DB)와
+ * 자료는 이미 있는 두 곳에서 옵니다: `/api/health`(서버·DB — 화면이 열려
+ * 있는 동안 30초마다 다시 묻고, 실패하면 3초 간격으로 세 번 더)와
  * `/admin/providers`(외부 서비스의 마지막 성공·오류 기록). 화면을 열 때
  * 외부 서비스를 실제로 부르지는 않습니다 — 보기만 해도 돈이 나가는 화면을
  * 만들지 않기 위해서입니다. "모두 확인"을 누르면 네 곳의 연결 확인을
@@ -133,11 +134,25 @@ function providerLight(provider: ProviderStatus): Light {
   };
 }
 
-export default function HealthStrip() {
+/** 서버·DB 확인이 실패한 뒤 다시 묻는 간격, 그 횟수, 그리고 평소의 간격. */
+export const HEALTH_RETRY_MS = 3_000;
+export const HEALTH_RETRIES = 3;
+export const HEALTH_REFRESH_MS = 30_000;
+
+interface HealthStripProps {
+  /** 테스트용 — 실패 뒤 다시 묻는 간격(ms). */
+  retryMs?: number;
+  /** 테스트용 — 평소에 다시 묻는 간격(ms). */
+  refreshMs?: number;
+}
+
+export default function HealthStrip({ retryMs = HEALTH_RETRY_MS, refreshMs = HEALTH_REFRESH_MS }: HealthStripProps = {}) {
   const dashboard = useAdminQuarterOptional()?.dashboard;
   const thumbs = dashboard?.thumbnail_server;
   const backup = backupLight(dashboard?.backups, dashboard?.is_development ?? false);
   const [health, setHealth] = useState<HealthResponse | null | "down">(null);
+  /** 서버가 마지막으로 답한 때 — 빨간 카드에 "마지막 연결"로 보여 줍니다. */
+  const [reachedAt, setReachedAt] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderStatus[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -146,14 +161,33 @@ export default function HealthStrip() {
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
-    fetchHealth(controller.signal)
-      .then((value) => {
-        if (!cancelled) setHealth(value);
-      })
-      .catch(() => {
-        if (!cancelled) setHealth("down");
-      });
+    let controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
+
+    // 서버·DB는 한 번 묻고 마는 게 아니라 계속 묻습니다 (fix-health-strip-retry,
+    // 2026-10-22): 배포로 API가 몇 초 재시작하는 사이나 잠깐의 네트워크
+    // 끊김에 열린 화면이 "연결할 수 없음"으로 굳어 버렸고, 새로 고치기 전에는
+    // 돌아오지 않았습니다. 실패하면 곧 다시(HEALTH_RETRIES번), 그 뒤로는
+    // 느리게 — /api/health는 SELECT 1 하나라 비용이 없습니다.
+    const ask = async () => {
+      controller = new AbortController();
+      try {
+        const value = await fetchHealth(controller.signal);
+        if (cancelled) return;
+        failures = 0;
+        setHealth(value);
+        setReachedAt(new Date().toISOString());
+        timer = setTimeout(() => void ask(), refreshMs);
+      } catch {
+        if (cancelled) return;
+        failures += 1;
+        setHealth("down");
+        timer = setTimeout(() => void ask(), failures < HEALTH_RETRIES ? retryMs : refreshMs);
+      }
+    };
+    void ask();
+
     listProviders()
       .then((rows) => {
         if (!cancelled) setProviders(rows);
@@ -164,8 +198,9 @@ export default function HealthStrip() {
     return () => {
       cancelled = true;
       controller.abort();
+      if (timer !== undefined) clearTimeout(timer);
     };
-  }, [version]);
+  }, [version, retryMs, refreshMs]);
 
   const checkAll = useCallback(async () => {
     if (providers === null) return;
@@ -188,7 +223,12 @@ export default function HealthStrip() {
       name: "서버",
       tone: health === null ? "muted" : health === "down" ? "error" : "ok",
       state: health === null ? "확인 중" : health === "down" ? "닿지 않음" : "연결됨",
-      detail: health === null ? "확인 중" : health === "down" ? "연결할 수 없음" : `환경 · ${health.environment}`,
+      detail:
+        health === null
+          ? "확인 중"
+          : health === "down"
+            ? `연결할 수 없음 · 다시 확인 중${reachedAt !== null ? ` · 마지막 연결 ${formatWhenOrNever(reachedAt)}` : ""}`
+            : `환경 · ${health.environment}`,
     },
     {
       key: "db",
