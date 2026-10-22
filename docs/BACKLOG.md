@@ -79,7 +79,7 @@ run after the real key goes into the server `.env`.
 ## Next (in order)
 
 **Owner's order, 2026-10-22:** after image-generation is deployed,
-**auto-depth (8)** is next, then **app-maps (9)** — ahead of the other
+**auto-depth (8)** is next, then **app-open-services (9)** (maps first) — ahead of the other
 items below (each still branch, test, report, WAIT).
 
 **The numbered list below is the authority on order** — numbers written
@@ -243,32 +243,40 @@ each entry below says whether it is pre-approved.
        decision model such as TypeSafe's Jev once out of early access) is a
        later option behind the same seam, not part of this item.
 
-9. **app-maps** · M3 · branch `feat-app-maps`
+9. **app-open-services** · M3 · branch `feat-app-open-services`
     *Owner's direction 2026-10-22, not pre-approved — branch, test, report,
-    WAIT; order to be set by the owner; **free option only** (owner: "무료옵션으로").*
-    From 여행 일정 메이커: its map shows numbered pins on a blank background,
-    and the owner wants to see roughly where things are. Not Gemini (an image
-    model invents streets; ~50원 a view) and not a paid tile service.
-    1. **Data and rendering, all open source and self-hosted:**
-       OpenStreetMap data (ODbL — "© OpenStreetMap contributors" shown on
-       every map) in one **Protomaps PMTiles** file served by our own Caddy
-       under `apps.ctrlai.my/_maps/…` (HTTP range requests, no tile server),
-       drawn by **MapLibre GL JS** shipped by us (pinned version, no CDN —
-       pairs with app-libraries). No key, no per-view cost, no outside request.
-    2. **Coverage vs disk:** the whole planet in full detail is far too large
-       for the beta VM. Start with the world at low zoom plus street level
-       for Korea and a short list of travel cities; **measure the extract
-       sizes first** and check them against the VM disk before choosing.
-       Refreshed rarely (by hand or a quarterly job).
-    3. **Security:** member apps keep `connect-src 'none'` except one
-       same-origin path, the map file; no other network. A test holds it.
-    4. **SDK:** `ctrlai.map(element, { center, zoom, pins, route })` with
-       Claude's coordinates (famous places are good enough); the Builder's
-       app rules teach it; 여행 일정 메이커 is the first user. Free to members
-       (no AI, no charge).
-    5. Later, not this item: place search (Nominatim is heavy to self-host;
-       the public one forbids service use).
-
+    WAIT; after auto-depth; **free services only**.* Started as "app-maps"
+    (여행 일정 메이커's map is pins on a blank background); the owner then
+    asked for the general case: **"it may not only be maps … each time do i
+    have to add something to the server. i just want the claude to do it"**
+    and "do what u think is best".
+    1. **One admin-managed allow-list of outside services** (Admin › Community
+       › 앱, audited), seeded with free, keyless, well-known hosts: maps
+       (**OpenFreeMap** — OpenStreetMap, MapLibre-ready, whole world), images
+       (Wikimedia), weather (Open-Meteo), libraries (cdnjs, jsDelivr —
+       covers most of app-libraries), and a few data APIs (countries,
+       Frankfurter rates). Each entry: host, what it is for, which CSP
+       directives (`connect-src`, `img-src`, `script-src`, `style-src`,
+       `font-src`), on/off. **Adding one is a switch, not a deploy.**
+    2. **Each app's CSP is built from the list** (exact hosts, https only;
+       everything else stays blocked). Never allowed: hosts where anyone can
+       post and read data back (paste sites, webhooks, request bins, open
+       proxies, URL shorteners) — they would carry visitor data out; a test
+       holds a deny list and the shape checks.
+    3. **Claude uses them by itself:** the Builder's app rules list the
+       hosts in force (and how to use the map one: MapLibre + OpenFreeMap
+       style, "© OpenStreetMap contributors"). Asked for something not on
+       the list, Claude says so and the member can send a 요청 the admin
+       approves with one click.
+    4. **Privacy:** visitors' IP addresses reach the listed services — one
+       line in the 개인정보 처리방침; no cookies or `ctrlai.user` data are
+       sent by the shell.
+    5. **Maps first:** 여행 일정 메이커 gets a real map as the first user. If
+       OpenFreeMap ever stops, the fallback is a self-hosted Protomaps file
+       (OpenStreetMap, no key) on our own Caddy — the apps do not change.
+    Overlaps to settle at its start: app-libraries (CDN hosts) and
+    web-search-and-images B (server-fetched images) — keep whichever is
+    simpler for each case.
 ---
 
 ## After the beta (specced, not in Next)
