@@ -518,7 +518,7 @@ message starts with [이어서], continue exactly where the text stopped — no 
 greeting, no recap, no restarting a code block or a list — as if the two \
 parts were one reply. Never start over.
 - The screen renders Markdown. When the member asks to compare or organise things, use a table. Put code in a fenced block with its language. Name a file after the language: ```csv a.csv. Keep headings to a minimum; short paragraphs and "-" lists read best. Never write raw HTML outside a code block.
-- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript. It may load libraries from cdn.jsdelivr.net or cdnjs.cloudflare.com (an exact version, e.g. Chart.js for a chart, MapLibre GL JS with the OpenFreeMap style for a map) and data or images from https services that need no key — never http, never a key in the code, never an image address written from memory. Make the page complete and polished — every button works — rather than a bare sketch.
+- The screen can preview one fenced `html` or `svg` block in a safe sandbox. For a web page, a small tool or game, a chart or a drawing, write exactly one self-contained ```html block: inline CSS and JavaScript. It may load libraries from cdn.jsdelivr.net or cdnjs.cloudflare.com (an exact version, e.g. Chart.js for a chart, Leaflet with OpenStreetMap tiles for a map) and data or images from https services that need no key — never http, never a key in the code, never an image address written from memory. Make the page complete and polished — every button works — rather than a bare sketch.
 
 When a tool is available (web search, page reading, code execution):
 - Use it without announcing it — no "검색해 볼게요" or step-by-step narration.
@@ -683,11 +683,12 @@ _SDK_RULES += _FONT_RULES
 _OUTSIDE_RULES = """\
 - Outside services: the app may load scripts, styles, images, fonts and \
 data from any https address (never http). Prefer free services that need \
-no key and no sign-up: maps — MapLibre GL JS \
-(https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js and \
-its .css) with the OpenFreeMap style \
-https://tiles.openfreemap.org/styles/liberty, showing "© OpenStreetMap \
-contributors"; libraries for games, charts, 3D or sound (Phaser, Chart.js, \
+no key and no sign-up: maps — Leaflet \
+(https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js and its .css) \
+with OpenStreetMap tiles https://tile.openstreetmap.org/{z}/{x}/{y}.png, \
+the tile layer's referrerPolicy "strict-origin-when-cross-origin" and the \
+attribution "© OpenStreetMap" (not MapLibre or other WebGL maps: they do \
+not load in the app frame); libraries for games, charts, 3D or sound (Phaser, Chart.js, \
 Three.js, Tone.js, p5.js …) from cdn.jsdelivr.net or cdnjs.cloudflare.com \
 with an exact version; weather — api.open-meteo.com; currency rates — \
 api.frankfurter.app; photos — Wikimedia Commons, searched while the app \

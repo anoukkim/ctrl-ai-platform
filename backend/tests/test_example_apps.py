@@ -15,6 +15,8 @@ from app.services import app_publish, builder_files, builder_versions
 
 #: The one URL an app may contain: the SVG namespace, which is a name, not a request.
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+#: The outside services the example apps use (app-open-services).
+OUTSIDE_ALLOWED = ("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/", "https://tile.openstreetmap.org/", "https://www.openstreetmap.org/copyright")
 
 
 @pytest.fixture
@@ -40,8 +42,10 @@ def test_each_showcase_is_a_static_korean_demo_within_the_builder_rules(example)
     for path, content in files.items():
         if path.endswith(".md"):
             continue
-        # No external scripts, styles, fonts or requests — the CSP blocks them.
-        assert not re.search(r"https?://", content.replace(SVG_NAMESPACE, "")), path
+        # Outside addresses are https only, and only the known free services
+        # (app-open-services); an app still works when they do not load.
+        for address in re.findall(r"https?://[^\s\"'`)<>]+", content.replace(SVG_NAMESPACE, "")):
+            assert address.startswith(OUTSIDE_ALLOWED), (path, address)
         assert not re.search(r"\bfetch\(|XMLHttpRequest|WebSocket|@import|sendBeacon", content), path
         # Dialogs are blocked in the sandboxed preview frame.
         assert not re.search(r"\b(alert|confirm|prompt)\(", content), path

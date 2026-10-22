@@ -201,6 +201,21 @@ legend { font-weight: 700; margin-bottom: 8px; }
 
 .mapCard { padding: 10px; }
 .map { width: 100%; height: auto; display: block; border-radius: 12px; }
+/* 진짜 지도: 단순 지도 자리 위에 겹쳐서, 다 뜨면 보여요 */
+.mapHolder { position: relative; }
+.liveMap { position: absolute; inset: 0; border-radius: 12px; overflow: hidden; opacity: 0; transition: opacity 0.3s; }
+.mapHolder.live .liveMap { opacity: 1; }
+.liveMap.leaflet-container { background: #0b1a33; font: inherit; }
+.livePin { display: flex; align-items: center; gap: 6px; background: none; border: 0; }
+.livePin b {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--coral); color: var(--coral-ink); font-size: 13px; font-weight: 900;
+  border: 3px solid var(--bg);
+}
+.livePin span {
+  font-size: 12px; font-weight: 700; color: #1b2440; background: rgba(255, 255, 255, 0.88);
+  padding: 2px 6px; border-radius: 6px; white-space: nowrap;
+}
 .map .sea { fill: #0b1a33; }
 .map .gridlines line { stroke: rgba(122, 167, 255, 0.07); }
 .map .land { fill: #1b2a52; stroke: #36508f; stroke-width: 1.5; }

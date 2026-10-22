@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>여행 일정 메이커</title>
+  <!-- 진짜 지도 (Leaflet + OpenStreetMap) — 못 불러오면 단순 지도로 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,6 +27,7 @@
     장소 정보는 데모용 예시예요 — 운영 시간·가격은 실제와 다를 수 있어요. 일정은 이 기기의 브라우저에만 저장돼요.
   </footer>
   <div id="status" class="visually-hidden" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/places.js"></script>
   <script src="js/planner.js"></script>
   <script src="js/map.js"></script>

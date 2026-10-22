@@ -52,7 +52,7 @@ APP_SANDBOX = "allow-scripts allow-forms allow-popups allow-downloads"
 
 #: Where an app may load from besides its own files (app-open-services):
 #: any https host — never plain http or ws. Workers come from the app's own
-#: code (`blob:`), which map libraries such as MapLibre need.
+#: code (`blob:`), as some libraries do.
 OUTSIDE = "https:"
 
 

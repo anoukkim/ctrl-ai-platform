@@ -41,7 +41,7 @@ def test_apps_may_load_from_any_https_host_and_nothing_else() -> None:
             assert word not in ("*", "http:", "ws:", "wss:", "'unsafe-eval'"), (name, word)
             assert not word.startswith("http://"), (name, word)
     assert policy["default-src"] == ["'self'"]
-    # Map libraries start workers from their own code.
+    # Libraries may start workers from their own code.
     assert policy["worker-src"] == ["'self'", "blob:"]
     assert policy["frame-ancestors"] == ["https://apps.ctrlai.my", "https://ctrlai.my"]
 
@@ -94,7 +94,8 @@ def test_every_app_prompt_carries_the_outside_service_rules() -> None:
         assert _OUTSIDE_RULES in prompt
         assert "No external scripts" not in prompt
     # Free and keyless first; never a key; never an address from memory.
-    assert "tiles.openfreemap.org" in _OUTSIDE_RULES and "© OpenStreetMap" in _OUTSIDE_RULES
+    assert "tile.openstreetmap.org" in _OUTSIDE_RULES and "© OpenStreetMap" in _OUTSIDE_RULES
+    assert "strict-origin-when-cross-origin" in _OUTSIDE_RULES  # OSM's tile policy wants a referrer
     assert "Never put an API key" in _OUTSIDE_RULES
     assert "Never write a photo, file or API address from memory" in _OUTSIDE_RULES
     assert "never http" in _OUTSIDE_RULES
