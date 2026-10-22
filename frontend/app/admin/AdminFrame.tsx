@@ -98,45 +98,8 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
   return (
     <BreadcrumbTailContext.Provider value={setTailStable}>
       <div className={styles.frame}>
-        <nav aria-label="현재 위치" className={styles.breadcrumbs}>
-          <Link className={styles.crumb} href={withQuarter("/admin", selected?.id)}>
-            Admin
-          </Link>
-          {current && current.key !== "dashboard" && (
-            <>
-              <span aria-hidden="true" className={styles.crumbSeparator}>
-                ›
-              </span>
-              {tail === null ? (
-                <span aria-current="page" className={styles.crumbCurrent}>
-                  {current.label}
-                  {tab && current.tabs.length > 1 && tab.key !== current.tabs[0].key ? ` › ${tab.label}` : ""}
-                </span>
-              ) : (
-                // A detail screen: back to the tab it belongs to (an app → Community › 앱).
-                <Link
-                  className={styles.crumb}
-                  href={withQuarter(detailParent(current, pathname), selected?.id)}
-                >
-                  {current.label}
-                </Link>
-              )}
-            </>
-          )}
-          {tail !== null && (
-            <>
-              <span aria-hidden="true" className={styles.crumbSeparator}>
-                ›
-              </span>
-              <span aria-current="page" className={styles.crumbCurrent}>
-                {tail}
-              </span>
-            </>
-          )}
-        </nav>
-
         <div className={styles.tabsRow}>
-          <ul className={styles.tabs}>
+          <ul className={styles.tabs} aria-label="Admin 구역">
             {sections.map((section) => {
               const isActive = current?.key === section.key;
 
@@ -184,6 +147,49 @@ export default function AdminFrame({ children }: { children: React.ReactNode }) 
             </div>
           )}
         </div>
+
+        {/* admin-ui-unify: the section's title and one line, drawn once here —
+            the tab screens no longer repeat a page header of their own. */}
+        <header className={styles.sectionHead} data-testid="admin-section-head">
+        <nav aria-label="현재 위치" className={styles.breadcrumbs}>
+            <Link className={styles.crumb} href={withQuarter("/admin", selected?.id)}>
+              Admin
+            </Link>
+            {current && current.key !== "dashboard" && (
+              <>
+                <span aria-hidden="true" className={styles.crumbSeparator}>
+                  ›
+                </span>
+                {tail === null ? (
+                  <span aria-current="page" className={styles.crumbCurrent}>
+                    {current.label}
+                    {tab && current.tabs.length > 1 && tab.key !== current.tabs[0].key ? ` › ${tab.label}` : ""}
+                  </span>
+                ) : (
+                  // A detail screen: back to the tab it belongs to (an app → Community › 앱).
+                  <Link
+                    className={styles.crumb}
+                    href={withQuarter(detailParent(current, pathname), selected?.id)}
+                  >
+                    {current.label}
+                  </Link>
+                )}
+              </>
+            )}
+            {tail !== null && (
+              <>
+                <span aria-hidden="true" className={styles.crumbSeparator}>
+                  ›
+                </span>
+                <span aria-current="page" className={styles.crumbCurrent}>
+                  {tail}
+                </span>
+              </>
+            )}
+          </nav>
+          <h1 className={styles.sectionTitle}>{tail ?? current?.label ?? "Admin"}</h1>
+          {current && tail === null && <p className={styles.sectionLine}>{current.description}</p>}
+        </header>
 
         {current && current.tabs.length > 1 && tab && (
           // admin-consolidation v3: the section's own tabs (the old sections).

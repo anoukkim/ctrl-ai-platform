@@ -55,7 +55,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "dashboard",
     href: "/admin",
     label: "Dashboard",
-    description: "처리할 일이 있으면 위에, 나머지는 한눈에.",
+    description: "처리할 일과 알림, 이번 주 가장 많이 쓴 곳.",
     Icon: LayoutDashboard,
     tabs: [{ key: "dashboard", label: "Dashboard" }],
   },
@@ -64,7 +64,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "members",
     href: "/admin/members",
     label: "Members",
-    description: "참여 신청, 회원, 초대 코드. 줄을 누르면 회원 상세.",
+    description: "회원과 참여 신청, 초대 코드. 줄을 누르면 오른쪽에 회원 상세가 열려요.",
     Icon: Users,
     // admin-consolidation v3 (2): 참여 신청 is the list's 승인 대기 chip now,
     // and 지운 작업 is in the member panel.
@@ -74,7 +74,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "quarters",
     href: "/admin/quarters",
     label: "Quarters",
-    description: "분기와 예산 — 산 돈이 어디로 나뉘었나. 분기는 위쪽에서 바꿔요.",
+    description: "분기와 예산, 사용 분석. 보고 있는 분기는 오른쪽 위에서 바꿔요.",
     Icon: CalendarRange,
     // 분기 · 예산 = "산 돈이 어디로 나뉘었나" (돈의 흐름, 분기 마감), 사용 분석 =
     // "어디에 썼나" (v3, batch 3 — the former Budget screen's place).
@@ -97,7 +97,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "models",
     href: "/admin/models",
     label: "Models",
-    description: "Chat · Video · Image 모델과 요금. 연결 전인 제공자도 목록에 있어요.",
+    description: "회원이 쓰는 AI 모델과 요금, 한도. 연결 상태는 맨 위 줄에서, 설정은 줄의 ⋯에서 바꿔요.",
     Icon: Bot,
     // 한도 (채팅 한도, from System) and 보정 (비용 보정) sit with the models (v3).
     tabs: [
@@ -113,7 +113,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "community",
     href: "/admin/community",
     label: "Community",
-    description: "신고 · 의견 · 앱.",
+    description: "회원이 올린 신고와 의견, 게시된 앱.",
     Icon: MessagesSquare,
     tabs: [
       { key: "content", label: "신고" },
@@ -126,7 +126,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     key: "system",
     href: "/admin/system",
     label: "System",
-    description: "상태, 유지보수, 감사 기록.",
+    description: "서버와 제공자 상태, 기능 열기, 유지보수, 감사 기록.",
     Icon: Server,
     tabs: [
       { key: "system", label: "상태" },

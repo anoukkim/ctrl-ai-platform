@@ -1,77 +1,87 @@
 "use client";
 
 /**
- * Admin — 영상 모델 (/admin/video-models)
+ * Admin › Models › Video (admin-ui-unify)
  *
  * 회원에게 어떤 영상 모델을 열어 줄지 정하는 화면입니다. 목록은
- * 데이터베이스에 있고, 프런트엔드에는 모델 이름을 적어 두지 않습니다.
- * 제공자의 모델 목록은 바뀌기 때문입니다.
+ * 데이터베이스에 있고, 화면에 모델 이름을 적어 두지 않습니다 — 제공자의
+ * 모델 목록은 바뀌기 때문입니다.
  *
- * 스위치는 두 개이고 뜻이 다릅니다.
- *   CTRL+AI에서 사용 — CTRL+AI가 이 모델을 호출해도 되는가 (연결과는 별개:
- *                      맨 위 한 줄이 Higgsfield 연결 상태입니다)
+ * 맨 위 카드가 Higgsfield **연결 상태**(Admin › System 상태판과 같은 값)
+ * 입니다. 실제 연결(Phase 6)이 아직 없어 지금은 테스트 모드예요. 줄의
+ * ⋯ 설정을 누르면 오른쪽 판이 열립니다:
+ *   CTRL+AI에서 사용 — CTRL+AI가 이 모델을 호출해도 되는가 (연결과는 별개)
  *   회원에게 공개   — 회원이 직접 고를 수 있는가
- * 회원에게는 둘 다 켜진 모델만 보입니다. 사용 가능을 끄면 백엔드가
- * 회원에게 공개도 함께 끕니다.
- *
- * 모델마다 "설정"을 열면 카탈로그 항목 — 길이·비율·화질·소리, 수정과
- * 이어서 만들기 지원, 기본값, 화질별 초당 가격 — 을 고칠 수 있습니다.
- * 아직 아무도 확인하지 않은 예시 가격에는 "예시"가 붙습니다.
+ * 그리고 카탈로그 항목(길이·비율·화질·소리, 수정·이어서, 기본값, 화질별
+ * 초당 가격). 아직 아무도 확인하지 않은 가격에는 "예시 가격"이 붙습니다.
  */
 
-import { Fragment, useCallback, useEffect, useState } from "react";
-
-import {
-  describeError,
-  listAdminVideoModels,
-  updateAdminVideoModel,
-  type AdminVideoModel,
-} from "@/lib/projects";
-
-import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
-import { formatKrw } from "@/lib/quarters";
-
-import VideoModelEditor from "./VideoModelEditor";
+import { useCallback, useEffect, useState } from "react";
 
 import { type ProviderStatus, listProviders } from "@/lib/admin";
-import ProviderConnectionNotice, { isConnected } from "../ProviderConnectionNotice";
-import { sectionLabel } from "../sections";
+import { describeError, listAdminVideoModels, updateAdminVideoModel, type AdminVideoModel } from "@/lib/projects";
+import { formatKrw } from "@/lib/quarters";
 
-import styles from "../admin.module.css";
-import PageHeader from "@/app/components/PageHeader";
+import SearchBar, { matchesQuery } from "@/app/components/SearchBar";
 import Skeleton from "@/app/components/Skeleton";
 
-const VIDEO_COPY = {
-  mockTitle: "Higgsfield는 아직 연결 전이에요.",
-  mockBody:
-    "실제 연결(Phase 6)이 아직 만들어지지 않아서, 지금은 테스트용 예시 영상만 나오고 Higgsfield에는 아무것도 보내지 않아요(비용 0). Video Generator도 회원에게 잠겨 있어요. 아래 모델들은 연결을 시험하려고 넣어 둔 예시예요.",
-};
-
-/** Admin › System 상태판의 영상 줄 — 읽지 못하면 줄을 안 보일 뿐입니다. */
-function videoProvider(): Promise<ProviderStatus | null> {
-  return listProviders()
-    .then((rows) => rows.find((row) => row.key === "video") ?? null)
-    .catch(() => null);
-}
+import {
+  ItemList,
+  ItemRow,
+  Mono,
+  PanelBar,
+  PanelSection,
+  SidePanel,
+  Stack,
+  StatusStrip,
+  SwitchRow,
+  Tag,
+} from "../components/AdminUI";
+import { providerStatusItem } from "../components/providerStatus";
+import VideoModelEditor from "./VideoModelEditor";
 
 type State =
   | { phase: "loading" }
   | { phase: "ready"; models: AdminVideoModel[]; provider: ProviderStatus | null }
   | { phase: "error"; message: string };
 
+/** Admin › System 상태판의 영상 줄 — 읽지 못하면 카드를 안 보일 뿐입니다. */
+function videoProvider(): Promise<ProviderStatus | null> {
+  return listProviders()
+    .then((rows) => rows.find((row) => row.key === "video") ?? null)
+    .catch(() => null);
+}
+
+function options(model: AdminVideoModel): string {
+  const caps = model.capabilities;
+  return [
+    `${caps.durations.join("·")}초`,
+    caps.aspect_ratios.join(" "),
+    caps.sound ? "소리" : "",
+    caps.supports_edit ? "수정" : "",
+    caps.supports_extend ? "이어서" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function prices(model: AdminVideoModel): string {
+  return model.capabilities.resolutions
+    .map((resolution) => `${resolution} ${formatKrw(model.capabilities.price_per_second_krw[resolution] ?? 0)}`)
+    .join(" · ");
+}
+
 export default function VideoModelCatalog() {
   const [state, setState] = useState<State>({ phase: "loading" });
-  const [busyId, setBusyId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
 
   const replace = useCallback((updated: AdminVideoModel) => {
     setState((current) =>
       current.phase === "ready"
-        ? {
-            ...current,
-            models: current.models.map((m) => (m.id === updated.id ? updated : m)),
-          }
+        ? { ...current, models: current.models.map((m) => (m.id === updated.id ? updated : m)) }
         : current,
     );
   }, []);
@@ -85,10 +95,8 @@ export default function VideoModelCatalog() {
     }
   }, []);
 
-  // 효과 본문에서 바로 상태를 바꾸지 않도록, 약속이 끝난 뒤에만 반영합니다.
   useEffect(() => {
     let cancelled = false;
-
     Promise.all([listAdminVideoModels(), videoProvider()])
       .then(([models, provider]) => {
         if (!cancelled) setState({ phase: "ready", models, provider });
@@ -96,214 +104,166 @@ export default function VideoModelCatalog() {
       .catch((error: unknown) => {
         if (!cancelled) setState({ phase: "error", message: describeError(error) });
       });
-
     return () => {
       cancelled = true;
     };
   }, []);
 
   const toggle = useCallback(
-    async (model: AdminVideoModel, field: "enabled" | "member_visible") => {
-      setBusyId(model.id);
+    async (model: AdminVideoModel, field: "enabled" | "member_visible", next: boolean) => {
+      setBusy(true);
+      setPanelError(null);
       try {
-        const updated = await updateAdminVideoModel(model.id, { [field]: !model[field] });
-        setState((current) =>
-          current.phase === "ready"
-            ? {
-                ...current,
-                models: current.models.map((m) => (m.id === updated.id ? updated : m)),
-              }
-            : current,
-        );
+        replace(await updateAdminVideoModel(model.id, { [field]: next }));
       } catch (error) {
-        setState({ phase: "error", message: describeError(error) });
+        setPanelError(describeError(error));
       } finally {
-        setBusyId(null);
+        setBusy(false);
       }
     },
-    [],
+    [replace],
   );
 
+  if (state.phase === "loading") return <Skeleton label="모델 목록을 불러오는 중…" />;
+  if (state.phase === "error") {
+    return (
+      <div className="card">
+        <p className="small muted">모델 목록을 불러오지 못했습니다. {state.message}.</p>
+        <button className="btn btn-sm" type="button" onClick={() => void load()} style={{ marginTop: "0.6rem" }}>
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
+  const shown = state.models.filter((m) => matchesQuery(query, m.display_name, m.provider, m.model_id));
+  const open = state.models.find((model) => model.id === openId) ?? null;
+
   return (
-    <section>
-      <PageHeader
-        eyebrow="Admin"
-        title={sectionLabel("video-models")}
-        subtitle={
-          <>
-            회원에게 어떤 영상 모델을 열어 줄지 정합니다. 목록은 데이터베이스에 있고, 화면에
-            모델 이름을 적어 두지 않습니다 — 제공자의 모델 목록은 바뀌기 때문입니다.
-          </>
-        }
+    <Stack>
+      <StatusStrip
+        testId="provider-connection"
+        items={[
+          providerStatusItem(state.provider, {
+            name: "Higgsfield",
+            mockState: "연결 전 · 테스트 모드",
+            mock: "실제 연결(Phase 6)이 아직 없어 예시 영상만 나와요 · 비용 0 · Video Generator는 회원에게 잠겨 있어요",
+          }),
+        ].filter((item) => item !== null)}
       />
-
-      {state.phase === "loading" && <Skeleton label="모델 목록을 불러오는 중…" />}
-
-      {state.phase === "error" && (
-        <div className="card">
-          <p className="small muted">
-            모델 목록을 불러오지 못했습니다. {state.message}.
-          </p>
-          <button
-            className="btn btn-sm"
-            type="button"
-            onClick={() => void load()}
-            style={{ marginTop: "0.6rem" }}
-          >
-            다시 시도
-          </button>
-        </div>
-      )}
-
-      {state.phase === "ready" && (
-        <>
-          <ProviderConnectionNotice provider={state.provider} copy={VIDEO_COPY} />
-          {state.models.length > 0 && (
+      <PanelBar
+        left={
+          state.models.length > 0 && (
             <SearchBar
               value={query}
               onChange={setQuery}
               placeholder="모델 이름, 제공자, 모델 ID로 검색"
-              resultCount={
-                state.models.filter((m) =>
-                  matchesQuery(query, m.display_name, m.provider, m.model_id),
-                ).length
-              }
+              resultCount={shown.length}
               totalCount={state.models.length}
             />
-          )}
+          )
+        }
+        help={
+          <>
+            <p>
+              회원에게는 &lsquo;CTRL+AI에서 사용&rsquo;과 &lsquo;회원에게 공개&rsquo;가 모두 켜진 모델만 보여요. 사용을 끄면
+              공개도 함께 꺼집니다.
+            </p>
+            <p>
+              모델 ID는 여기서 바꾸지 않습니다 — 이미 만든 영상이 가리키는 값이기 때문이에요. &lsquo;예시 가격&rsquo;은 아직
+              아무도 확인하지 않은 값이고, 설정에서 저장하면 확인된 가격이 됩니다.
+            </p>
+          </>
+        }
+      />
+      <ItemList columns={["모델", "길이 · 비율", "초당 가격"]} empty={shown.length === 0 ? "찾는 모델이 없어요." : undefined}>
+        {shown.map((model) => (
+          <ItemRow
+            key={model.id}
+            testId="video-model"
+            onClick={() => {
+              setPanelError(null);
+              setOpenId(model.id);
+            }}
+            title={model.display_name}
+            tags={
+              <>
+                {!model.enabled ? (
+                  <Tag>사용 안 함</Tag>
+                ) : model.member_visible ? (
+                  <Tag tone="accent">회원에게 공개</Tag>
+                ) : (
+                  <Tag>숨김</Tag>
+                )}
+                {model.capabilities.prices_are_examples && <Tag tone="warn">예시 가격</Tag>}
+              </>
+            }
+            sub={
+              <>
+                {model.description} · <Mono>{`${model.provider}/${model.model_id}`}</Mono>
+              </>
+            }
+            cells={[
+              { label: "길이 · 비율", value: options(model) },
+              { label: "초당", value: prices(model), keep: true },
+            ]}
+            action={
+              <button className="btn btn-sm" type="button" onClick={() => {
+              setPanelError(null);
+              setOpenId(model.id);
+            }}>
+                ⋯ 설정
+              </button>
+            }
+          />
+        ))}
+      </ItemList>
 
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">모델</th>
-                  <th scope="col">제공자</th>
-                  <th scope="col">모델 ID</th>
-                  <th scope="col">CTRL+AI에서 사용</th>
-                  <th scope="col">회원에게 공개</th>
-                  <th scope="col">순서</th>
-                  <th scope="col">옵션 · 초당 가격</th>
-                  <th scope="col">
-                    <span className="sr-only">설정</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.models
-                  .filter((model) =>
-                    matchesQuery(query, model.display_name, model.provider, model.model_id),
-                  )
-                  .map((model) => (
-                  <Fragment key={model.id}>
-                  <tr>
-                    <td>
-                      <span className={styles.memberName}>
-                        {model.display_name}{" "}
-                        {!isConnected(state.provider) && <span className="badge badge-warn">연결 전</span>}
-                        <span className={styles.modelDescription}>{model.description}</span>
-                      </span>
-                    </td>
-                    <td>{model.provider}</td>
-                    <td className="numeric">{model.model_id}</td>
-                    <td>
-                      <button
-                        className={`badge ${model.enabled ? "badge-ok" : "badge-muted"} ${
-                          styles.toggle
-                        }`}
-                        type="button"
-                        onClick={() => void toggle(model, "enabled")}
-                        disabled={busyId === model.id}
-                        aria-pressed={model.enabled}
-                      >
-                        {model.enabled ? "CTRL+AI에서 사용" : "사용 안 함"}
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        className={`badge ${
-                          model.member_visible ? "badge-accent" : "badge-muted"
-                        } ${styles.toggle}`}
-                        type="button"
-                        onClick={() => void toggle(model, "member_visible")}
-                        disabled={busyId === model.id || !model.enabled}
-                        aria-pressed={model.member_visible}
-                        title={
-                          model.enabled
-                            ? undefined
-                            : "먼저 ‘CTRL+AI에서 사용’을 켜야 회원에게 공개할 수 있습니다"
-                        }
-                      >
-                        {model.member_visible ? "회원에게 공개" : "숨김"}
-                      </button>
-                    </td>
-                    <td className="numeric">{model.sort_order}</td>
-                    <td>
-                      <span className={styles.modelOptions}>
-                        <span>
-                          {model.capabilities.durations.join("·")}초 ·{" "}
-                          {model.capabilities.aspect_ratios.join(" ")}
-                          {model.capabilities.sound ? " · 소리" : ""}
-                          {model.capabilities.supports_edit ? " · 수정" : ""}
-                          {model.capabilities.supports_extend ? " · 이어서" : ""}
-                        </span>
-                        <span>
-                          {model.capabilities.resolutions
-                            .map(
-                              (resolution) =>
-                                `${resolution} ${formatKrw(
-                                  model.capabilities.price_per_second_krw[resolution] ?? 0,
-                                )}`,
-                            )
-                            .join(" · ")}
-                          {model.capabilities.prices_are_examples && (
-                            <span
-                              className="badge badge-warn"
-                              title="아직 아무도 확인하지 않은 예시 가격입니다. 저장하면 확인된 가격이 됩니다."
-                            >
-                              예시
-                            </span>
-                          )}
-                        </span>
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-sm"
-                        type="button"
-                        onClick={() => setEditingId(editingId === model.id ? null : model.id)}
-                        aria-expanded={editingId === model.id}
-                      >
-                        설정
-                      </button>
-                    </td>
-                  </tr>
-                  {editingId === model.id && (
-                    <tr>
-                      <td colSpan={8}>
-                        <VideoModelEditor
-                          model={model}
-                          onSaved={(updated) => {
-                            replace(updated);
-                            setEditingId(null);
-                          }}
-                          onCancel={() => setEditingId(null)}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="small dim" style={{ marginTop: "0.6rem" }}>
-            회원에게는 CTRL+AI에서 사용과 회원에게 공개가 모두 켜진 모델만 보입니다. CTRL+AI에서 사용을
-            끄면 회원에게 공개도 함께 꺼집니다. 모델 ID는 여기서 바꾸지 않습니다 — 이미
-            만들어진 버전이 가리키는 값이기 때문입니다.
-          </p>
-        </>
+      {open && (
+        <SidePanel
+          key={open.id}
+          width="wide"
+          title={open.display_name}
+          subtitle={<Mono>{`${open.provider} · ${open.model_id} · 순서 ${open.sort_order}`}</Mono>}
+          onClose={() => {
+            setOpenId(null);
+            setPanelError(null);
+          }}
+          testId="video-model-panel"
+        >
+          <PanelSection title="공개">
+            <SwitchRow
+              label="CTRL+AI에서 사용"
+              hint="이 모델을 써도 되는지 — 연결 여부와는 별개예요"
+              checked={open.enabled}
+              disabled={busy}
+              onChange={(next) => void toggle(open, "enabled", next)}
+            />
+            <SwitchRow
+              label="회원에게 공개"
+              hint={open.enabled ? "켜야 Video Generator에 보여요" : "먼저 ‘CTRL+AI에서 사용’을 켜야 해요"}
+              checked={open.member_visible}
+              disabled={busy || !open.enabled}
+              onChange={(next) => void toggle(open, "member_visible", next)}
+            />
+            {panelError && (
+              <p className="small" role="alert" style={{ color: "var(--error-text)", margin: 0 }}>
+                {panelError}
+              </p>
+            )}
+          </PanelSection>
+          <PanelSection title="길이 · 비율 · 화질 · 가격">
+            <VideoModelEditor
+              model={open}
+              onSaved={(updated) => {
+                replace(updated);
+                setOpenId(null);
+              }}
+              onCancel={() => setOpenId(null)}
+            />
+          </PanelSection>
+        </SidePanel>
       )}
-    </section>
+    </Stack>
   );
 }
