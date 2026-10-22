@@ -1,0 +1,219 @@
+/* 이미지 만들기 카드 (image-generation). ArtifactPreview의 카드와 같은 모양. */
+
+.card {
+  margin-top: 0.6rem;
+  max-width: 560px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.mock {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  font-size: var(--fs-chip);
+}
+
+.results {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.7rem;
+  list-style: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.result {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.resultActions,
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem;
+}
+
+.label {
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hint,
+.meta {
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  font-weight: 400;
+}
+
+.prompt {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-body);
+  resize: vertical;
+}
+
+.prompt:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 1rem;
+}
+
+.option {
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+}
+
+.option select {
+  min-height: 32px;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sizes legend {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+}
+
+.chip,
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-meta);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chip:hover:not(:disabled),
+.button:hover,
+.button:focus-visible {
+  border-color: var(--accent);
+}
+
+.chipOn {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.make {
+  min-height: 36px;
+  padding: 0.35rem 1rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: var(--fw-strong);
+  cursor: pointer;
+}
+
+.make:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.make:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.note {
+  margin: 0;
+  padding: 0 0.7rem 0.6rem;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+}
+
+.form .note {
+  padding: 0;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text);
+  font-size: var(--fs-meta);
+}
+
+.head + .note {
+  padding-top: 0.6rem;
+}
+
+@media (max-width: 520px) {
+  .card {
+    max-width: 100%;
+  }
+}
