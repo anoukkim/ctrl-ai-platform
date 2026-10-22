@@ -217,6 +217,28 @@ each entry below says whether it is pre-approved.
     The mock-ups live in the owner's desktop session; the owner shows them
     when the item starts.
 
+8. **auto-depth** · M3 · branch `feat-auto-depth`
+    *Owner's direction 2026-10-22, not pre-approved — branch, test, report,
+    WAIT; order to be set by the owner.* Owner: **"빌더도 중간에 멈추니까 그냥
+    기본적으로 자동으로 두고 선택하고 싶으면 하는거고"** — the 생각 깊이 picker
+    (Chat and Builder) gets **자동 (추천)** as its first option and the
+    **default**; 낮음 · 보통 · 높음 · 최고 stay for members who want to choose.
+    1. **How 자동 picks** — rules on the server, no extra call (0원): short
+       talk → 낮음; code, comparison, planning, long or attached input → 높음;
+       otherwise 보통. Builder: a new app or a large change gets the room of
+       높음 so a build is less often cut at the per-call cap (the "중간에
+       멈춤" the owner sees); a small fix stays 보통. The rules live in one
+       place and are tested by examples.
+    2. **The price before sending** — the picker shows the highest cap 자동
+       may use ("자동 · 최대 N원", Admin-set), and the pre-check holds the
+       reply to it; the receipt says which depth 자동 chose.
+    3. Sonnet/Opus keep adaptive thinking (Claude already decides how much to
+       think inside the depth); Haiku has no depth, so 자동 is hidden there.
+    4. Admin › Models › 한도: 자동's cap and an on/off; usage rows record the
+       chosen depth (already a column). A router model (Haiku ≈ 1원, or a
+       decision model such as TypeSafe's Jev once out of early access) is a
+       later option behind the same seam, not part of this item.
+
 ---
 
 ## After the beta (specced, not in Next)
