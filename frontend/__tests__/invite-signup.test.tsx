@@ -4,9 +4,9 @@
  * 규칙(코드가 쓸 수 있는지, 마지막 한 자리를 둘이 동시에 못 가져가는지)은
  * 백엔드 테스트가 증명합니다. 여기서는 화면이 그 규칙을 따르는지 봅니다.
  *
- *   1. 가입 폼에 초대 코드 칸이 있고, 비어 있으면 보낼 수 없다.
- *   2. `/signup?code=…` 링크로 오면 칸이 미리 채워져 있고, 그 코드가
- *      그대로 백엔드로 간다.
+ *   1. 가입은 Google로만(signup-google-first): `/signup?code=…` 링크의
+ *      코드는 Google 설정 화면까지 따라가고, 거기서 비어 있으면 보낼 수
+ *      없으며, 채워진 코드가 그대로 백엔드로 간다.
  *   3. 관리 화면은 상태를 한국어로 보이고, 링크 복사는 코드가 채워진
  *      가입 주소를 복사한다.
  *   4. 사용 중지는 확인을 받은 뒤에만 일어나고, 이미 가입한 계정은
@@ -19,11 +19,28 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { Invite } from "@/lib/invites";
 
-const register = vi.fn();
+const fetchGooglePending = vi.fn();
+const completeGoogleSignup = vi.fn();
 vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
-  return { ...actual, register: (...args: unknown[]) => register(...args) };
+  return {
+    ...actual,
+    fetchGooglePending: () => fetchGooglePending(),
+    completeGoogleSignup: (...args: unknown[]) => completeGoogleSignup(...args),
+  };
 });
+vi.mock("@/app/components/SiteProvider", () => ({
+  useSite: () => ({
+    environment: "development",
+    is_development: true,
+    is_beta: false,
+    data_location_notice: "",
+    top_ups_enabled: true,
+    google_login: true,
+    test_mode: { chat: false, builder: false, video: false, community: false },
+  }),
+  useSiteLoaded: () => true,
+}));
 vi.mock("@/app/components/CurrentUserProvider", () => ({
   useCurrentUser: () => ({ refresh: vi.fn().mockResolvedValue(undefined) }),
 }));
@@ -39,27 +56,38 @@ vi.mock("@/lib/invites", async (importOriginal) => {
   };
 });
 
-async function fillSignup(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("아이디"), "newmember");
-  await user.type(screen.getByLabelText("이름"), "새 회원");
-  await user.type(screen.getByLabelText("이메일"), "new@ctrl.ai");
+const PENDING = {
+  email: "new@example.com",
+  email_verified: true,
+  name: "새 회원",
+  suggested_username: "newmember",
+  needs_invite_code: true,
+  email_taken: false,
+};
+
+async function fillSetup(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByText("new@example.com");
   await user.type(screen.getByLabelText("비밀번호"), "a-good-password");
+  await user.type(screen.getByLabelText("비밀번호 확인"), "a-good-password");
   // privacy-and-terms: 동의해야 가입 단추가 켜집니다.
   await user.click(screen.getByRole("checkbox"));
 }
 
 describe("가입 화면", () => {
   beforeEach(() => {
-    register.mockReset();
-    register.mockResolvedValue({});
+    completeGoogleSignup.mockReset();
+    completeGoogleSignup.mockResolvedValue({});
+    fetchGooglePending.mockReset();
+    fetchGooglePending.mockResolvedValue(PENDING);
+    window.sessionStorage.clear();
   });
 
   test("초대 코드 없이는 가입 단추가 눌리지 않는다", async () => {
-    const { default: SignupForm } = await import("@/app/signup/SignupForm");
+    const { default: GoogleSetupForm } = await import("@/app/signup/google/GoogleSetupForm");
     const user = userEvent.setup();
-    render(<SignupForm />);
+    render(<GoogleSetupForm />);
 
-    await fillSignup(user);
+    await fillSetup(user);
     const submit = screen.getByRole("button", { name: "가입하고 시작하기" });
     expect((submit as HTMLButtonElement).disabled).toBe(true);
 
@@ -67,23 +95,27 @@ describe("가입 화면", () => {
     expect((submit as HTMLButtonElement).disabled).toBe(false);
   });
 
-  test("링크로 받은 코드가 채워져 있고 그대로 보내진다", async () => {
+  test("링크로 받은 코드가 설정 화면에 채워져 있고 그대로 보내진다", async () => {
     const { default: SignupForm } = await import("@/app/signup/SignupForm");
+    const { default: GoogleSetupForm } = await import("@/app/signup/google/GoogleSetupForm");
     const user = userEvent.setup();
-    render(<SignupForm initialCode="CTRL-AB12-CD34" />);
+    const { unmount } = render(<SignupForm initialCode="CTRL-AB12-CD34" />);
+    expect(screen.getByRole("link", { name: "Google로 계속하기" })).toBeTruthy();
+    unmount();
 
+    render(<GoogleSetupForm />);
+    await fillSetup(user);
     expect((screen.getByLabelText("초대 코드") as HTMLInputElement).value).toBe("CTRL-AB12-CD34");
-    await fillSignup(user);
     await user.click(screen.getByRole("button", { name: "가입하고 시작하기" }));
 
-    await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
-    expect(register.mock.calls[0][0]).toMatchObject({ invite_code: "CTRL-AB12-CD34" });
+    await waitFor(() => expect(completeGoogleSignup).toHaveBeenCalledTimes(1));
+    expect(completeGoogleSignup.mock.calls[0][0]).toMatchObject({ invite_code: "CTRL-AB12-CD34" });
   });
 
   test("페이지는 ?code= 를 폼에 넘긴다", async () => {
     const { default: SignupPage } = await import("@/app/signup/page");
     render(await SignupPage({ searchParams: Promise.resolve({ code: "LINK-CODE" }) }));
-    expect((screen.getByLabelText("초대 코드") as HTMLInputElement).value).toBe("LINK-CODE");
+    expect(window.sessionStorage.getItem("ctrlai.invite-code")).toBe("LINK-CODE");
   });
 });
 
