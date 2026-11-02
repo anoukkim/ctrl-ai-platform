@@ -8,9 +8,9 @@ feature names, not the plan.
 | | Milestone | Status |
 | - | --------- | ------ |
 | M0 | Foundation | ✅ done |
-| **M1** | **Beta launch** | **in progress — every item shipped except owner-polish point 12; the real-Claude check (BACKLOG › Now, point 10) waits for the owner** |
-| M2 | Real creation | in progress — the Builder shipped; real Higgsfield, builder-python and image-generation open |
-| M3 | Sharing | in progress — CtrlAIApps and the app platform (P1–P4b) shipped; GitHub, YouTube and app-platform P5 open |
+| **M1** | **Beta launch** | **shipped — every item merged and production runs real Claude (2026-10-19); open: plain-words-pass, and the owner's billed Gemini key for image-generation** |
+| M2 | Real creation | in progress — the Builder and image-generation (mock, locked) shipped; real Higgsfield and builder-python open |
+| M3 | Sharing | in progress — CtrlAIApps, the app platform (P1–P4b), app-open-services and app AI web search shipped; chat-search-tools, app-platform P5, quarter-end-apps, GitHub and YouTube open |
 | M4 | Running costs | needs discussion |
 | Later | Secure runtime | not started |
 
@@ -23,7 +23,7 @@ ui-naming, fix-video-workspace-hang, ui-tube-watch, ui-apps-detail.
 
 **M1 Beta launch** — an invite-only beta on `ctrlai.my` with real Claude
 chat, everything else labelled test mode.
-✅ video-higgsfield-only [6, mock] · ✅ Phase 2 Chat [2] (real-key check still open) ·
+✅ video-higgsfield-only [6, mock] · ✅ Phase 2 Chat [2] ·
 ✅ chat-model-choice · ✅ single-wallet · ✅ prompt-caching ·
 ✅ cost-calibration · ✅ chat-builder-starter · ✅ invite-only-signup ·
 ✅ test-database-isolation · ✅ google-login · ✅ ui-friendly-motion ·
@@ -35,8 +35,10 @@ AI Models by provider) · ✅ fix-beta-blockers · ✅ personal-topup-off ·
 execution in Chat; merged 2026-10-14) · ✅ cost-clarity · ✅ chat-plus-files ·
 ✅ chat-plus-artifacts · ✅ chat-thinking-view · ✅ offsite-backups 💳 ·
 ✅ monitoring 💳 · ✅ quality-tuning (Q0–Q3) · ✅ owner-polish-2026-10-16
-(all but point 12, image provider research — the owner's decision) ·
+(point 12 became image-generation, under M2) ·
 ✅ motion-modern · ✅ admin-consolidation (v3, four batches, 2026-10-17) ·
+✅ auto-depth (2026-10-22) · ✅ admin-ui-unify (2026-10-22) ·
+✅ gapless-deploy (2026-10-22) · ⬜ plain-words-pass (screen by screen) ·
 anonymous-feedback-board — not built: the owner chose admin-only feedback
 with screenshots instead (✅ feedback-screenshots, 2026-10-16) ·
 ✅ prep-beta-launch [9, beta subset] (merged 2026-10-13; deployed to
@@ -56,7 +58,8 @@ spend-toast-compact, logo A. Dates and merges in
 ⬜ real Higgsfield adapter [6] · ⬜ builder-python (after builder-static-runtime) ·
 ✅ builder-static-runtime (the Builder
 MVP [3] plus static member apps on `apps.ctrlai.my`; merged 2026-10-14) ·
-⬜ image-generation (waits on the budget-by-provider decision).
+✅ image-generation (merged 2026-10-22 — Gemini behind `IMAGE_PROVIDER`,
+mock and locked until the owner's billed key goes in).
 Also shipped for the Builder: project-export-handoff, quality-tuning Q2
 (generation in stages), publish-summary, app-fonts, builder-snapshots,
 builder-images, thumbnail-render-worker (live 2026-10-17), background-runs,
@@ -68,9 +71,12 @@ stood here is removed.)
 ⬜ GitHub [4] · ✅ CtrlAIApps [5] (ctrlaiapps-publish and example-apps
 2026-10-14, showcase-apps 2026-10-15, comments and reactions in
 ctrlaiapps-reactions 2026-10-17) · ✅ app-platform P1–P4b ("CTRL+AI 기능
-상자", 2026-10-15 → 2026-10-16) · ✅ app-ai-access · ⬜ app-platform P5
-(`ctrlai.files`) · ⬜ quarter-end-apps · ⬜ app-remix · ⬜ app-libraries ·
-⬜ dino-avatars · ⬜ signup-google-first (after the beta) · ⬜ YouTube [7] ·
+상자", 2026-10-15 → 2026-10-16) · ✅ app-ai-access · ✅ app-ai-web-search
+(2026-10-19) · ✅ app-open-services (2026-10-22; closed app-libraries) ·
+✅ showcase apps (trip-country, showcase-polish, 2026-10-22 → 23) ·
+⬜ chat-search-tools · ⬜ app-platform P5 (`ctrlai.files`) ·
+⬜ quarter-end-apps · ⬜ signup-google-first (after the beta) · ⬜ YouTube [7] ·
+(app-remix and dino-avatars dropped 2026-11-02) ·
 ◐ CtrlAITube [8] (first slice: promo-videos 2026-10-16 — the club's own
 video with reactions and comments; the YouTube feed not started) ·
 ⬜ more-chat-providers (optional; Gemini, Grok, DeepSeek or an aggregator —
