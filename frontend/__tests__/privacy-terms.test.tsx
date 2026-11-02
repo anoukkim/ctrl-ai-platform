@@ -37,7 +37,24 @@ vi.mock("@/app/components/SiteProvider", async (importOriginal) => {
 
 const { default: PrivacyPage } = await import("@/app/privacy/page");
 const { default: TermsPage } = await import("@/app/terms/page");
-const { default: SignupForm } = await import("@/app/signup/SignupForm");
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    // signup-google-first: 가입은 Google 설정 화면에서만. 그 화면에 동의 칸이 있습니다.
+    fetchGooglePending: () =>
+      Promise.resolve({
+        email: "new@example.com",
+        email_verified: true,
+        name: "새 회원",
+        suggested_username: "newmember",
+        needs_invite_code: true,
+        email_taken: false,
+      }),
+  };
+});
+
+const { default: GoogleSetupForm } = await import("@/app/signup/google/GoogleSetupForm");
 const { PUBLIC_PATHS } = await import("@/app/components/CurrentUserProvider");
 
 describe("법적 문서 페이지", () => {
@@ -106,12 +123,12 @@ describe("법적 문서 페이지", () => {
 describe("가입 동의", () => {
   test("체크하기 전에는 가입 단추가 잠겨 있고, 링크는 새 탭으로 연다", async () => {
     const user = userEvent.setup();
-    render(<SignupForm initialCode="CLUB-2026" />);
+    render(<GoogleSetupForm />);
 
-    await user.type(screen.getByLabelText("아이디"), "newmember");
-    await user.type(screen.getByLabelText("이름"), "새 회원");
-    await user.type(screen.getByLabelText("이메일"), "new@ctrl.ai");
+    await screen.findByText("new@example.com");
     await user.type(screen.getByLabelText("비밀번호"), "a-good-password");
+    await user.type(screen.getByLabelText("비밀번호 확인"), "a-good-password");
+    await user.type(screen.getByLabelText("초대 코드"), "CLUB-2026");
 
     const submit = screen.getByRole("button", { name: "가입하고 시작하기" }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
