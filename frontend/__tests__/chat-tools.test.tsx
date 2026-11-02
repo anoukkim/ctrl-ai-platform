@@ -14,7 +14,7 @@ const chatApi = {
   getConversation: vi.fn(),
   createConversation: vi.fn(),
   setConversationModel: vi.fn(),
-  setConversationTool: vi.fn(),
+  setConversationTools: vi.fn(),
   renameConversation: vi.fn(),
   deleteConversation: vi.fn(),
   sendMessage: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock("@/lib/chat", async (importOriginal) => {
     getConversation: (...args: unknown[]) => chatApi.getConversation(...args),
     createConversation: (...args: unknown[]) => chatApi.createConversation(...args),
     setConversationModel: (...args: unknown[]) => chatApi.setConversationModel(...args),
-    setConversationTool: (...args: unknown[]) => chatApi.setConversationTool(...args),
+    setConversationTools: (...args: unknown[]) => chatApi.setConversationTools(...args),
     renameConversation: (...args: unknown[]) => chatApi.renameConversation(...args),
     deleteConversation: (...args: unknown[]) => chatApi.deleteConversation(...args),
     sendMessage: (...args: unknown[]) => chatApi.sendMessage(...args),
@@ -148,22 +148,22 @@ describe("도구 토글", () => {
   }
 
   test("도구 판에 비용이 먼저 보이고, 스위치로 켠다", async () => {
-    chatApi.setConversationTool.mockResolvedValue({ ...CONVERSATION, use_web_search: true });
+    chatApi.setConversationTools.mockResolvedValue({ ...CONVERSATION, use_web_search: true });
     await openConversation();
 
     fireEvent.click(await screen.findByTestId("tools-button"));
-    const toggle = screen.getByRole("switch", { name: "웹 검색" });
+    const toggle = screen.getByRole("switch", { name: "웹 사용" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByTestId("tool-price-web_search").textContent).toBe("검색 1회 약 15원");
-    // 모델이 허용하지 않는 도구는 줄 자체가 없다.
+    expect(screen.getByTestId("tool-price-web").textContent).toBe("검색 1회 약 15원");
+    // 웹 검색과 페이지 읽기는 "웹 사용" 한 줄 — 이 모델은 페이지 읽기를 열지 않아 검색 가격만 보인다.
     expect(screen.queryByRole("switch", { name: "페이지 읽기" })).toBeNull();
 
     fireEvent.click(toggle);
     await waitFor(() =>
-      expect(chatApi.setConversationTool).toHaveBeenCalledWith(5, "web_search", true),
+      expect(chatApi.setConversationTools).toHaveBeenCalledWith(5, ["web_search"], true),
     );
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: "웹 검색" }).getAttribute("aria-checked")).toBe(
+      expect(screen.getByRole("switch", { name: "웹 사용" }).getAttribute("aria-checked")).toBe(
         "true",
       ),
     );
@@ -177,13 +177,13 @@ describe("도구 토글", () => {
       messages: [],
       long_history: null,
     });
-    chatApi.setConversationTool.mockResolvedValue({ ...CONVERSATION, use_web_search: false });
+    chatApi.setConversationTools.mockResolvedValue({ ...CONVERSATION, use_web_search: false });
     await openConversation();
 
     // 켠 도구는 버튼 옆 칩(이름 + ✕)으로 남고, ✕가 바로 끈다.
-    fireEvent.click(await screen.findByRole("button", { name: "웹 검색 끄기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "웹 사용 끄기" }));
     await waitFor(() =>
-      expect(chatApi.setConversationTool).toHaveBeenCalledWith(5, "web_search", false),
+      expect(chatApi.setConversationTools).toHaveBeenCalledWith(5, ["web_search"], false),
     );
   });
 
@@ -308,12 +308,12 @@ describe("새 대화 화면의 도구 (fix-new-chat-tools)", () => {
     await renderChat();
 
     fireEvent.click(await screen.findByTestId("tools-button"));
-    fireEvent.click(screen.getByRole("switch", { name: "웹 검색" }));
+    fireEvent.click(screen.getByRole("switch", { name: "웹 사용" }));
     fireEvent.click(screen.getByRole("switch", { name: "생각 과정 보기" }));
     // 켠 것은 칩으로 남는다 — 아직 대화를 만들지 않았다.
-    expect(screen.getByRole("button", { name: "웹 검색 끄기" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "웹 사용 끄기" })).toBeTruthy();
     expect(chatApi.createConversation).not.toHaveBeenCalled();
-    expect(chatApi.setConversationTool).not.toHaveBeenCalled();
+    expect(chatApi.setConversationTools).not.toHaveBeenCalled();
 
     const box = screen.getByLabelText("CTRL+AI에게 보낼 메시지");
     fireEvent.change(box, { target: { value: "서울 인구 검색해 줘" } });
@@ -333,15 +333,15 @@ describe("새 대화 화면의 도구 (fix-new-chat-tools)", () => {
   test("모델을 바꾸면 그 모델이 열지 않은 도구는 줄도 칩도 사라진다", async () => {
     await renderChat();
     fireEvent.click(await screen.findByTestId("tools-button"));
-    fireEvent.click(screen.getByRole("switch", { name: "웹 검색" }));
-    expect(screen.getByRole("button", { name: "웹 검색 끄기" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "웹 사용" }));
+    expect(screen.getByRole("button", { name: "웹 사용 끄기" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /답장 방식/ }));
     fireEvent.click(within(screen.getByRole("option", { name: /Haiku/ })).getByRole("button"));
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: "웹 검색 끄기" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "웹 사용 끄기" })).toBeNull());
     // 판은 열린 채 — 새 모델의 줄만 남는다.
-    expect(screen.queryByRole("switch", { name: "웹 검색" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "웹 사용" })).toBeNull();
     expect(screen.getByRole("switch", { name: "생각 과정 보기" })).toBeTruthy();
   });
 });

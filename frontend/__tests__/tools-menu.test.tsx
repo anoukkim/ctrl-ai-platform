@@ -1,7 +1,7 @@
 /**
  * fix-composer-toolbar — 입력창 아래 "도구" 버튼과 판.
  *
- * 버튼 하나, 켠 개수, 관리자가 열지 않은 도구는 숨김, 모든 가격이 같은 꼴
+ * 버튼 하나, 켠 개수, 웹 검색 + 페이지 읽기 = "웹 사용" 한 줄(merge-web-tools), 관리자가 열지 않은 도구는 숨김, 모든 가격이 같은 꼴
  * (백엔드가 준 숫자 그대로), 켠 것은 이름 + ✕ 칩, 키보드로 열고 닫기.
  */
 
@@ -39,15 +39,22 @@ const OFF: Record<ToolOption, boolean> = {
 describe("가격과 보이는 도구", () => {
   test("모든 가격이 같은 꼴, 백엔드 숫자 그대로", () => {
     expect(toolPrice("thinking", MODEL)).toBe("답장마다 +약 5원");
-    expect(toolPrice("web_search", MODEL)).toBe("검색 1회 약 14원");
-    expect(toolPrice("web_fetch", MODEL)).toBe("읽기 1회 약 7원");
+    expect(toolPrice("web", MODEL)).toBe("검색 1회 약 14원 + 페이지당 약 7원");
     expect(toolPrice("code_execution", { ...MODEL, tools_code_execution: true })).toBe("약 3원");
     expect(toolPrice("thinking", { ...MODEL, thinking_extra_krw: 0 })).toBe("추가 비용 없음");
-    expect(toolPrice("web_search", { ...MODEL, web_search_krw_per_call: 1234 })).toBe("검색 1회 약 1,234원");
+    expect(toolPrice("web", { ...MODEL, web_search_krw_per_call: 1234 })).toBe(
+      "검색 1회 약 1,234원 + 페이지당 약 7원",
+    );
+    // 관리자가 한쪽만 열었으면 그쪽 가격만.
+    expect(toolPrice("web", { ...MODEL, tools_web_fetch: false })).toBe("검색 1회 약 14원");
+    expect(toolPrice("web", { ...MODEL, tools_web_search: false })).toBe("페이지당 약 7원");
   });
 
   test("관리자가 열지 않은 도구는 숨긴다", () => {
-    expect(availableTools(MODEL)).toEqual(["thinking", "web_search", "web_fetch"]);
+    expect(availableTools(MODEL)).toEqual(["thinking", "web"]);
+    expect(availableTools({ ...MODEL, tools_web_search: false, tools_web_fetch: false })).toEqual([
+      "thinking",
+    ]);
     expect(availableTools(null)).toEqual([]);
   });
 });
@@ -58,10 +65,16 @@ describe("도구 버튼과 판", () => {
     expect(screen.getByTestId("tools-button").textContent).toBe("도구");
     expect(screen.queryAllByTestId("tool-on-chip")).toHaveLength(0);
 
-    rerender(<ToolsMenu model={MODEL} on={{ ...OFF, thinking: true, web_search: true }} onToggle={vi.fn()} />);
+    rerender(
+      <ToolsMenu
+        model={MODEL}
+        on={{ ...OFF, thinking: true, web_search: true, web_fetch: true }}
+        onToggle={vi.fn()}
+      />,
+    );
     expect(screen.getByRole("button", { name: "도구 2개 켜짐" }).textContent).toBe("도구2");
     const chips = screen.getAllByTestId("tool-on-chip");
-    expect(chips.map((chip) => chip.textContent)).toEqual(["생각 과정 보기", "웹 검색"]);
+    expect(chips.map((chip) => chip.textContent)).toEqual(["생각 과정 보기", "웹 사용"]);
     // 칩에는 가격이 없다.
     expect(chips.some((chip) => /원/.test(chip.textContent ?? ""))).toBe(false);
   });
@@ -69,28 +82,40 @@ describe("도구 버튼과 판", () => {
   test("판의 줄마다 이름 · 설명 · 가격 · 스위치, 숨긴 도구는 줄이 없다", async () => {
     const onToggle = vi.fn();
     const user = userEvent.setup();
-    render(<ToolsMenu model={MODEL} on={{ ...OFF, web_fetch: true }} onToggle={onToggle} />);
+    render(<ToolsMenu model={MODEL} on={OFF} onToggle={onToggle} />);
 
     await user.click(screen.getByTestId("tools-button"));
     expect(screen.getByTestId("tools-button").getAttribute("aria-expanded")).toBe("true");
     const switches = screen.getAllByRole("switch");
-    expect(switches).toHaveLength(3);
+    expect(switches).toHaveLength(2);
     expect(screen.queryByRole("switch", { name: "코드 실행" })).toBeNull();
-    expect(screen.getByTestId("tool-price-web_fetch").textContent).toBe("읽기 1회 약 7원");
-    expect(screen.getByRole("switch", { name: "페이지 읽기" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByRole("switch", { name: "웹 검색" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "페이지 읽기" })).toBeNull();
+    expect(screen.getByTestId("tool-price-web").textContent).toBe("검색 1회 약 14원 + 페이지당 약 7원");
     // 열리면 첫 스위치에 초점.
     expect(document.activeElement).toBe(screen.getByRole("switch", { name: "생각 과정 보기" }));
 
-    await user.click(screen.getByRole("switch", { name: "웹 검색" }));
-    expect(onToggle).toHaveBeenCalledWith("web_search", true);
+    // "웹 사용" 하나가 웹 검색과 페이지 읽기를 함께 켠다.
+    await user.click(screen.getByRole("switch", { name: "웹 사용" }));
+    expect(onToggle).toHaveBeenCalledWith(["web_search", "web_fetch"], true);
+  });
+
+  test("예전 대화처럼 하나만 켜져 있어도 '웹 사용'은 켜짐, 끄면 둘 다 끈다", async () => {
+    const onToggle = vi.fn();
+    const user = userEvent.setup();
+    render(<ToolsMenu model={MODEL} on={{ ...OFF, web_fetch: true }} onToggle={onToggle} />);
+    await user.click(screen.getByTestId("tools-button"));
+    expect(screen.getByRole("switch", { name: "웹 사용" }).getAttribute("aria-checked")).toBe("true");
+    await user.click(screen.getByRole("switch", { name: "웹 사용" }));
+    expect(onToggle).toHaveBeenCalledWith(["web_search", "web_fetch"], false);
   });
 
   test("✕는 그 도구를 끈다", async () => {
     const onToggle = vi.fn();
     const user = userEvent.setup();
     render(<ToolsMenu model={MODEL} on={{ ...OFF, web_search: true }} onToggle={onToggle} />);
-    await user.click(screen.getByRole("button", { name: "웹 검색 끄기" }));
-    expect(onToggle).toHaveBeenCalledWith("web_search", false);
+    await user.click(screen.getByRole("button", { name: "웹 사용 끄기" }));
+    expect(onToggle).toHaveBeenCalledWith(["web_search", "web_fetch"], false);
   });
 
   test("Esc로 닫고 버튼으로 초점이 돌아온다; 바깥을 누르면 닫힌다", async () => {
