@@ -4,11 +4,19 @@ The presentation page for the first all-member meeting, copied from the
 Artifact "CTRL+AI 시연" (version 1793659542-0c83, 2026-11-02) so it can be
 opened on any computer.
 
+**Sign-up re-recorded 2026-11-03** (after `signup-google-first` went live):
+`s01` (login, with 비밀번호를 잊었어요), `s02` (sign-up is Google only),
+the new `s03a` and `s03` (the 거의 다 됐어요 setup screen: 아이디, 이름,
+비밀번호 twice, 초대 코드 pre-filled), the 대본 text for 0:20–1:05 and the
+first frames of `v2/gif/0-signup-join.gif`. Google's own account chooser is
+not shown (on the local copy it is a development mock). The published
+Artifact was updated to match.
+
 | File | What it is |
 | --- | --- |
 | `index.html` | The presentation: real ctrlai.my screens in a Chrome-window frame. Tabs 시작하기 · 채팅에서 앱까지 · 남이 만든 앱의 AI · 화면 둘러보기 · 움짤 · 대본 |
 | `script.md` | The 5-minute Korean script (same text as the page's 「대본」 tab) |
-| `v2/img/` | 55 screenshots the page plays |
+| `v2/img/` | 56 screenshots the page plays |
 | `v2/gif/` | 6 GIF clips (the 「움짤」 tab) |
 
 ## How to run it

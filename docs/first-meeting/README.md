@@ -10,8 +10,10 @@ anoukkim, plus a local copy for the parts a signed-in member cannot
 replay), shown as a moving page in a Chrome-window frame with GIF clips.
 The clips follow one member's path:
 
-1. **Sign up and get in** — invite link → sign-up form (초대 코드, 아이디,
-   이름, 이메일, 비밀번호) → first-time guide (처음 안내).
+1. **Sign up and get in** — invite link → 「Google로 계속하기」 (sign-up is
+   Google only since 2026-11-03) → 거의 다 됐어요 (아이디, 이름, 비밀번호
+   twice, 초대 코드 pre-filled from the link) → first-time guide (처음 안내).
+   The login screen's 비밀번호를 잊었어요 is mentioned in passing.
 2. **Join the quarter** — Chat is locked until then ("Profile에서 참여
    신청하기") → Profile › 「이번 분기 참여」 → 승인 대기 → an admin approves
    in Admin › Members → the 80,000원 동아리 지원 wallet appears.
@@ -36,7 +38,7 @@ while recording are to be deleted afterwards.
 
 ## Recorded on the local copy (test data, not production)
 
-Signup, 처음 안내, 참여 신청, 승인 대기, the admin's 승인 dialog and invite
+Signup (re-recorded 2026-11-03 for the Google-only flow), 처음 안내, 참여 신청, 승인 대기, the admin's 승인 dialog and invite
 codes, the approved 80,000원 wallet, the account menu, and light-mode
 Profile and Chat. Caveats when showing them: the local screens carry a
 "테스트 모드 – 실제 AI 결과가 아닙니다" strip, and the local 신청 기간
