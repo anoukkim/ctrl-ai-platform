@@ -307,7 +307,7 @@ def test_admin_cache_stats_per_model_and_kst_day(
     own rate. 23:50 and 00:10 UTC land on different KST days only when
     the KST boundary (15:00 UTC) sits between them.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
     from decimal import Decimal
 
     from app.models import UsageFeature
@@ -326,19 +326,26 @@ def test_admin_cache_stats_per_model_and_kst_day(
             created_at=created,
         )
 
-    # 14:50 UTC and 15:10 UTC straddle KST midnight: Oct 10 vs Oct 11 KST.
-    db_session.add(event(datetime(2026, 10, 10, 14, 50, tzinfo=timezone.utc), 0))
-    db_session.add(event(datetime(2026, 10, 10, 15, 10, tzinfo=timezone.utc), 1_000_000))
+    # 14:50 UTC and 15:10 UTC straddle KST midnight: day D vs day D+1 KST.
+    # `cache_stats` keeps the last 14 days, so the dates are relative to
+    # now (fixed 2026-10-10 dates fell out of the window on 2026-10-25).
+    base = (datetime.now(timezone.utc) - timedelta(days=3)).replace(
+        hour=14, minute=50, second=0, microsecond=0
+    )
+    day_d = base.date().isoformat()
+    day_d1 = (base.date() + timedelta(days=1)).isoformat()
+    db_session.add(event(base, 0))
+    db_session.add(event(base + timedelta(minutes=20), 1_000_000))
     db_session.commit()
 
     rows = client.get("/api/admin/chat-models/cache-stats").json()
     by_day = {row["day"]: row for row in rows if row["model_id"] == "claude-sonnet-5-5"}
 
-    first = by_day["2026-10-10"]
+    first = by_day[day_d]
     assert (first["replies"], first["cache_hit_replies"], first["read_tokens"]) == (1, 0, 0)
     assert first["saved_krw"] == 0
 
-    second = by_day["2026-10-11"]
+    second = by_day[day_d1]
     assert (second["replies"], second["cache_hit_replies"]) == (1, 1)
     assert second["read_tokens"] == 1_000_000
     # 1M tokens x ($2 - $0.10)/MTok x 1,400원 = 2,660원.
