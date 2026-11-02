@@ -77,6 +77,12 @@ describe("로그인", () => {
     expect(screen.getByLabelText("비밀번호")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Google로 계속하기" })).toBeNull();
   });
+
+  test("비밀번호를 잊으면 운영진에게 말하라는 한 줄이 있다", () => {
+    site = siteWith(true);
+    render(<LoginForm />);
+    expect(screen.getByText(/비밀번호를 잊으셨나요\? 운영진에게 말씀해 주세요/)).toBeTruthy();
+  });
 });
 
 describe("회원가입", () => {
