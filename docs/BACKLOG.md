@@ -45,8 +45,12 @@ for 2026-10-19), and its operational checklist went to the owner.
   or names what is left (*After the prototype*).
 - **Chat history at quarter end** — on hold until the owner has asked the
   members (quarter-end-apps, Next 4).
-- **chat-search-tools** needs the owner's free Naver Developers client
-  id/secret before it can go live (Next 1).
+- **Paid keys — not now** (owner, 2026-11-02: "제미나이 네이버는 돈 내는거잖아
+  … 지금할건 아님"): the Gemini key for image-generation and the Naver
+  key for chat-search-tools (Next 1) wait. Neither item starts until the
+  owner says so.
+- **Real launch 2026-11-03**: the owner invites ordinary members
+  tomorrow; the queue is on hold behind that.
 - The order of the open Next items after the first two (app-platform P5,
   quarter-end-apps, builder-python); none is pre-approved.
 
@@ -104,7 +108,8 @@ archived in
 each entry below says whether it is pre-approved.
 
 1. **chat-search-tools** · M3 · branch `feat-chat-search-tools`
-   *Owner's questions 2026-10-23, not started — branch, test, report, WAIT.*
+   *Owner's questions 2026-10-23, not started — branch, test, report, WAIT.
+   On hold 2026-11-02: the Naver key is paid, "지금할건 아님".*
    Chat finds pictures only on Wikimedia Commons (Claude's web search gives
    page addresses, not image files) and cannot read Naver blogs (they are
    hardly in Claude's search index). Give Claude two server tools: **image
