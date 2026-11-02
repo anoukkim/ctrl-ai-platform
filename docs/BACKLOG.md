@@ -199,8 +199,11 @@ specs are at the end of this file; the research behind them is in
   screen asks for invite code, username, display name, password and its
   confirmation, so every member has both sign-in methods; "비밀번호를
   잊었어요" becomes Google sign-in → set a new password within 10 minutes.
-  Added by the owner on 2026-10-14. **Spec only — the beta keeps sign-up
-  as deployed.** Spec below.
+  Added by the owner on 2026-10-14; **pulled forward and built on
+  2026-11-03** for the real launch (owner: "가입할때 구글로만 가입할 수
+  있게 … 아이디 비번은 구글 계정 연결하고 생성 (필수) … 현재 회원중 두개
+  연동 안된 사람도 그렇게 하게 접속하면 공지") — branch
+  `feat-signup-google-first`. Spec below.
 - **more-chat-providers** (optional) · M3 — Gemini, Grok, DeepSeek
   (hosted outside China only) or an aggregator as further catalogue
   providers, on the seam `chat-model-choice` left.
@@ -547,9 +550,12 @@ Rules all three follow:
 
 ## signup-google-first — full spec
 
-After the beta · M3 · branch `feat-signup-google-first`. Added by the
-owner on 2026-10-14. **Spec only: sign-up stays as deployed for the beta**
-(Google, or invite code + username + email + password). Saved as written:
+M3 · branch `feat-signup-google-first`. Added by the owner on 2026-10-14;
+**built 2026-11-03** for the real launch (the owner's addition that day,
+verbatim: "가입할때 구글로만 가입할 수 있게 하면 좋겠는데 그래야 다들
+구글계정이 하나씩 있고. 아이디 비번은 구글 계정 연결하고 생성 (필수) 로
+하는 방법으로 현재 회원중 두개 연동 안된 사람도 그렇게 하게 접속하면
+공지"). Saved as written:
 
 > sign-up through Google only, setup screen requires invite code + username + display name + password + confirm; every member has both methods; "forgot password" = Google sign-in → set new password within 10 minutes.
 
@@ -562,8 +568,10 @@ Notes for whoever builds it:
   by a fresh Google sign-in (a row with an expiry, not a cookie flag),
   consumed by the set-password form; the existing password-change rules
   (Argon2id, attempt limiter, sessions ended) apply.
-- **Existing username/password-only accounts** keep signing in as today
-  and are asked to link Google from Profile; nothing is migrated.
+- **Existing accounts with one method** (password-only or Google-only,
+  admins too) keep signing in as today and see a notice on every screen
+  until they add the other from Profile › 로그인 방법; nothing is
+  migrated and the removal rules (never the last method) stand.
 - The operator's `set_password` CLI stays as the fallback for a member
   without access to their Google account.
 - Update the terms' §3 sentence ("비밀번호를 잊으면 운영진에게 알려
