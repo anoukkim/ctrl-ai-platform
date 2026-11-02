@@ -17,7 +17,15 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { fetchCurrentUser, logout as logoutRequest, type CurrentUser } from "@/lib/auth";
 
 /** 로그인하지 않아도 볼 수 있는 화면. */
-export const PUBLIC_PATHS = ["/login", "/login/password", "/signup", "/signup/google", "/privacy", "/terms"];
+export const PUBLIC_PATHS = [
+  "/login",
+  "/login/password",
+  "/login/reset",
+  "/signup",
+  "/signup/google",
+  "/privacy",
+  "/terms",
+];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname);

@@ -343,8 +343,14 @@ body {
   --banner-h: 0px;
 }
 
-html[data-beta] {
+html[data-beta],
+html[data-signin-notice] {
   --banner-h: 2rem;
+}
+
+/* 둘 다 보일 때(베타 공지 + 로그인 방법 안내, signup-google-first): 두 줄. */
+html[data-beta][data-signin-notice] {
+  --banner-h: 4rem;
 }
 
 body {

@@ -246,13 +246,13 @@ export default function SignInMethodsSection() {
   );
 
   return (
-    <section className="card" aria-labelledby={`${id}-title`}>
+    <section className="card" id="sign-in-methods" aria-labelledby={`${id}-title`}>
       <h2 className="section-title" id={`${id}-title`} tabIndex={-1}>
         로그인 방법
       </h2>
       <p className={styles.connectionHint}>
-        Google 계정이나 아이디·비밀번호로 로그인해요. 로그인 방법은 하나 이상 있어야 해서,
-        하나만 있을 때는 없앨 수 없어요.
+        앞으로는 Google 계정과 아이디·비밀번호가 둘 다 필요해요. 하나만 있다면 여기서 만들어
+        주세요. 로그인 방법은 하나 이상 있어야 해서, 하나만 있을 때는 없앨 수 없어요.
       </p>
       {note && (
         <p className={styles.connectionHint} role="status">
