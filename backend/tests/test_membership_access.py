@@ -376,7 +376,6 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("DELETE", "/api/feedback/images/{image_id}"): "get_current_user",
     ("GET", "/api/admin/feedback/images/{image_id}/file"): "require_admin",
     ("DELETE", "/api/admin/feedback/{feedback_id}"): "require_admin",
-    ("POST", "/api/auth/register"): None,
     ("POST", "/api/auth/login"): None,
     ("POST", "/api/auth/logout"): None,
     # google-login. Starting, the callback, the mock consent page and the
@@ -388,6 +387,12 @@ EXPECTED_GUARDS: dict[tuple[str, str], str | None] = {
     ("POST", "/api/auth/google/complete"): None,
     ("GET", "/api/auth/google/mock-consent"): None,
     ("GET", "/api/auth/google/mock-consent/approve"): None,
+    # signup-google-first: 비밀번호를 잊었어요. A fresh Google sign-in makes
+    # a ten-minute single-use grant (a row); the form reads and spends it
+    # through its HttpOnly cookie. No account is signed in until the end.
+    ("GET", "/api/auth/google/reset/start"): None,
+    ("GET", "/api/auth/google/reset/pending"): None,
+    ("POST", "/api/auth/google/reset/complete"): None,
     # Linking needs the signed-in member; reading the link status too.
     ("GET", "/api/account/google/link/start"): "get_current_user",
     ("GET", "/api/account/google"): "get_current_user",
@@ -738,11 +743,13 @@ def test_no_write_route_is_left_on_get_current_user() -> None:
     must be behind `require_active_member` or `require_admin`.
     """
     allowed_write_exceptions = {
-        ("POST", "/api/auth/register"),
         ("POST", "/api/auth/login"),
         ("POST", "/api/auth/logout"),
-        # Finishing a Google sign-up creates the account, like register.
+        # Finishing a Google sign-up creates the account — the one sign-up
+        # since signup-google-first.
         ("POST", "/api/auth/google/complete"),
+        # Setting a new password with a Google-made grant: no session yet.
+        ("POST", "/api/auth/google/reset/complete"),
         # Applying is the way out of being inactive.
         ("POST", "/api/quarters/{quarter_id}/apply"),
         ("POST", "/api/quarters/applications/{application_id}/cancel"),

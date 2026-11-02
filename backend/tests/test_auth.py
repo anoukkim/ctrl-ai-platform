@@ -14,16 +14,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from tests.conftest import DEV_PASSWORD, INVITE_CODE, MEMBER_PASSWORD
-
-GOOD_SIGNUP = {
-    "username": "newmember",
-    "email": "new@ctrl.ai",
-    "password": "a-good-password",
-    "display_name": "새 회원",
-    "invite_code": INVITE_CODE,
-    "terms_accepted": True,
-}
+from app.core.security import verify_password
+from app.models import User
+from tests.conftest import DEV_PASSWORD, MEMBER_PASSWORD, SIGNUP_PASSWORD, google_signup
 
 
 @pytest.fixture(autouse=True)
@@ -31,68 +24,109 @@ def _signups_need_a_code(invite_code):
     """Every signup here uses the shared code from conftest."""
 
 
-# ---------------------------------------------------------------- register
+# ---------------------------------------------------------------- sign-up
+#
+# signup-google-first (2026-11-03): the only way in is the Google setup
+# screen, which also takes a password — so a new member has both methods.
 
 
-def test_register_creates_an_account_and_signs_in(anon_client: TestClient) -> None:
-    response = anon_client.post("/api/auth/register", json=GOOD_SIGNUP)
+def test_the_password_sign_up_route_is_gone(anon_client: TestClient) -> None:
+    response = anon_client.post(
+        "/api/auth/register",
+        json={"username": "x", "email": "x@ctrl.ai", "password": SIGNUP_PASSWORD, "display_name": "x"},
+    )
+    assert response.status_code in (404, 405)
 
-    assert response.status_code == 201
+
+def test_google_setup_creates_an_account_with_both_methods(
+    anon_client: TestClient, db_session: Session
+) -> None:
+    response = google_signup(anon_client, username="newmember")
+
+    assert response.status_code == 201, response.text
     body = response.json()
     assert body["username"] == "newmember"
     assert body["display_name"] == "새 회원"
     # A new account is an ordinary member, never an admin.
     assert body["role"] == "member"
     assert body["is_admin"] is False
+    # Both ways in from the first day: nothing to add on Profile.
+    assert body["has_password"] is True and body["has_google"] is True
 
     # The response set a session cookie, so the client is now signed in.
     assert anon_client.get("/api/auth/me").status_code == 200
 
+    # Argon2id, usable from the password form at once.
+    stored = db_session.query(User).filter_by(username="newmember").one()
+    assert stored.password_hash.startswith("$argon2id$")
+    assert verify_password(SIGNUP_PASSWORD, stored.password_hash)
+    anon_client.post("/api/auth/logout")
+    anon_client.cookies.clear()
+    login = anon_client.post(
+        "/api/auth/login", json={"username": "newmember", "password": SIGNUP_PASSWORD}
+    )
+    assert login.status_code == 200, login.text
 
-def test_register_never_returns_the_password_hash(anon_client: TestClient) -> None:
-    response = anon_client.post("/api/auth/register", json=GOOD_SIGNUP)
+
+def test_sign_up_never_returns_the_password_hash(anon_client: TestClient) -> None:
+    response = google_signup(anon_client, username="newmember")
 
     assert "password_hash" not in response.json()
     assert "password" not in response.json()
     # Not anywhere in the raw body either, hashed or otherwise.
-    assert GOOD_SIGNUP["password"] not in response.text
+    assert SIGNUP_PASSWORD not in response.text
     assert "argon2" not in response.text
 
 
-def test_register_rejects_a_duplicate_username(anon_client: TestClient) -> None:
-    anon_client.post("/api/auth/register", json=GOOD_SIGNUP)
+def test_sign_up_rejects_a_duplicate_username(anon_client: TestClient) -> None:
+    google_signup(anon_client, username="newmember")
+    anon_client.cookies.clear()
 
-    response = anon_client.post(
-        "/api/auth/register",
-        json={**GOOD_SIGNUP, "email": "different@ctrl.ai"},
-    )
+    response = google_signup(anon_client, username="newmember", email="different@ctrl.ai", sub="g-2")
 
     assert response.status_code == 409
     assert "아이디" in response.json()["detail"]
 
 
-def test_register_rejects_a_duplicate_email(anon_client: TestClient) -> None:
-    anon_client.post("/api/auth/register", json=GOOD_SIGNUP)
+def test_sign_up_rejects_a_duplicate_email(anon_client: TestClient) -> None:
+    google_signup(anon_client, username="newmember", email="new@ctrl.ai")
+    anon_client.cookies.clear()
 
-    response = anon_client.post(
-        "/api/auth/register",
-        json={**GOOD_SIGNUP, "username": "differentname"},
-    )
+    response = google_signup(anon_client, username="differentname", email="new@ctrl.ai", sub="g-2")
 
     assert response.status_code == 409
     assert "이메일" in response.json()["detail"]
 
 
-def test_register_rejects_a_short_password(anon_client: TestClient) -> None:
-    response = anon_client.post("/api/auth/register", json={**GOOD_SIGNUP, "password": "short"})
+@pytest.mark.parametrize(
+    ("password", "confirm", "word"),
+    [
+        ("short", "short", "8자"),
+        (SIGNUP_PASSWORD, SIGNUP_PASSWORD + "x", "달라요"),
+        ("", "", "8자"),
+    ],
+)
+def test_sign_up_requires_a_password_typed_twice(
+    anon_client: TestClient, db_session: Session, invite_code, password: str, confirm: str, word: str
+) -> None:
+    """Short, different or missing: refused in Korean, no account, and the
+    invite code keeps its use."""
+    response = google_signup(
+        anon_client, username="newmember", password=password, password_confirm=confirm
+    )
 
-    assert response.status_code == 422
+    assert response.status_code == 400, response.text
+    assert word in response.json()["detail"]
+    assert db_session.query(User).filter_by(username="newmember").count() == 0
+    db_session.refresh(invite_code)
+    assert invite_code.uses == 0
 
 
-def test_register_rejects_a_username_with_punctuation(anon_client: TestClient) -> None:
-    response = anon_client.post("/api/auth/register", json={**GOOD_SIGNUP, "username": "bad name!"})
+def test_sign_up_rejects_a_username_with_punctuation(anon_client: TestClient) -> None:
+    response = google_signup(anon_client, username="bad name!")
 
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert "아이디" in response.json()["detail"]
 
 
 # ------------------------------------------------------------------- login

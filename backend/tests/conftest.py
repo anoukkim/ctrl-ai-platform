@@ -236,6 +236,64 @@ DEV_PASSWORD = "devpassword"
 MEMBER_PASSWORD = "memberpassword"
 #: A usable invite code (`invite_code` fixture) — signing up needs one.
 INVITE_CODE = "TEST-CODE-0001"
+#: The password the Google setup screen gets in tests (signup-google-first).
+SIGNUP_PASSWORD = "a-good-password"
+
+
+def google_signup(
+    client: TestClient,
+    *,
+    username: str,
+    invite_code: str | None = INVITE_CODE,
+    email: str | None = None,
+    sub: str | None = None,
+    display_name: str = "새 회원",
+    password: str = SIGNUP_PASSWORD,
+    password_confirm: str | None = None,
+    terms_accepted: bool = True,
+    verified: bool = True,
+    **changes: object,
+):
+    """Sign up the only way there is since signup-google-first: through the
+    mock Google round trip, then the setup screen. Returns the setup
+    screen's response; on 201 the client is signed in.
+
+    The mock Google provider is the default outside the beta, so this
+    works under the plain test settings.
+    """
+    import urllib.parse
+
+    from app.services.google_login import GoogleIdentity, MockGoogleLogin
+
+    started = client.get("/api/auth/google/start", follow_redirects=False)
+    assert started.status_code == 302, started.text
+    query = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(started.headers["location"]).query))
+    code = MockGoogleLogin.make_code(
+        GoogleIdentity(
+            sub=sub or f"g-{username}",
+            email=email or f"{username}@example.com",
+            email_verified=verified,
+            name=display_name,
+        ),
+        query["code_challenge"],
+    )
+    back = client.get(
+        "/api/auth/google/callback",
+        params={"code": code, "state": query["state"]},
+        follow_redirects=False,
+    )
+    assert back.headers["location"].startswith("/signup/google"), back.headers["location"]
+    body: dict[str, object] = {
+        "username": username,
+        "display_name": display_name,
+        "terms_accepted": terms_accepted,
+        "password": password,
+        "password_confirm": password if password_confirm is None else password_confirm,
+        **changes,
+    }
+    if invite_code is not None:
+        body["invite_code"] = invite_code
+    return client.post("/api/auth/google/complete", json=body)
 
 
 @pytest.fixture
