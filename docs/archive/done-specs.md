@@ -5,6 +5,48 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## signup-google-first — full spec (merged 2026-11-03)
+
+M3 · branch `feat-signup-google-first`. Added by the owner on 2026-10-14;
+**built 2026-11-03** for the real launch (the owner's addition that day,
+verbatim: "가입할때 구글로만 가입할 수 있게 하면 좋겠는데 그래야 다들
+구글계정이 하나씩 있고. 아이디 비번은 구글 계정 연결하고 생성 (필수) 로
+하는 방법으로 현재 회원중 두개 연동 안된 사람도 그렇게 하게 접속하면
+공지"). Saved as written:
+
+> sign-up through Google only, setup screen requires invite code + username + display name + password + confirm; every member has both methods; "forgot password" = Google sign-in → set new password within 10 minutes.
+
+Notes for whoever builds it:
+
+- **Linking stays by Google's `sub`** (CLAUDE.md §5), never by email; the
+  setup screen is the one `google-login` already shows after a first
+  Google sign-in, with the password and confirmation added.
+- **"Within 10 minutes"** means a short-lived, single-use grant created
+  by a fresh Google sign-in (a row with an expiry, not a cookie flag),
+  consumed by the set-password form; the existing password-change rules
+  (Argon2id, attempt limiter, sessions ended) apply.
+- **Existing accounts with one method** (password-only or Google-only,
+  admins too) keep signing in as today and see a notice on every screen
+  until they add the other from Profile › 로그인 방법; nothing is
+  migrated and the removal rules (never the last method) stand.
+- The operator's `set_password` CLI stays as the fallback for a member
+  without access to their Google account.
+- Update the terms' §3 sentence ("비밀번호를 잊으면 운영진에게 알려
+  주세요") when this ships.
+
+**Built 2026-11-03** (branch `feat-signup-google-first`): `POST /api/auth/register`
+removed; `POST /api/auth/google/complete` takes `password` + `password_confirm`
+(8+, equal) and stores the Argon2id hash; `password_reset_grants`
+(`a1c4e7b9d2f6`) + `GET /api/auth/google/reset/start` · `/pending` ·
+`POST …/complete` (ten minutes, single use spent by an UPDATE on
+`used_at IS NULL`, other sessions ended, this browser signed in, audit
+`account.password_reset_by_google`); `/me` gains `has_google`; the
+SignInMethodBanner strip (`<html data-signin-notice>` grows `--banner-h`)
+links to Profile › 로그인 방법; `/signup` is Google only; `/login/reset`;
+terms v2. Not done, deliberately: nothing is migrated for existing
+members, and the reset form has no password-attempt limiter — there is
+no password to guess, the grant is the only secret and it is single use.
+
 ## auto-depth — Next entry (merged 2026-10-22, moved 2026-11-02)
 
 Moved from BACKLOG › Next on 2026-11-02; it had stayed listed after the merge (`059b522`). The Next entry as it stood:
