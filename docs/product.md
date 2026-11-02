@@ -53,7 +53,7 @@ principles.
 | Backend `/api/health` | Real and working                                                                  |
 | PostgreSQL            | Real, via Docker Compose; Alembic owns the schema                                 |
 | Authentication        | **Built** — Google or username/password for every member (both allowed, at least one kept); invite code to sign up; Argon2 hashes; HttpOnly session cookie |
-| Claude                | Real adapter built behind `CLAUDE_PROVIDER` (mock by default); not yet run with a real key |
+| Claude                | Real adapter behind `CLAUDE_PROVIDER` (mock by default); production runs `anthropic` with the owner's key since 2026-10-19 |
 | Higgsfield            | Mock provider behind `VIDEO_PROVIDER`; real adapter not built                     |
 | GitHub / YouTube      | Not started (Phases 4 and 7)                                                      |
 

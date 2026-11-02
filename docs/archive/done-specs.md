@@ -5,6 +5,240 @@ Full specs of merged items, and the older archived specs, moved out of
 open work. Text unchanged; headings keep their original levels and
 merge dates. The merge summaries are in [`done.md`](done.md).
 
+## auto-depth — Next entry (merged 2026-10-22, moved 2026-11-02)
+
+Moved from BACKLOG › Next on 2026-11-02; it had stayed listed after the merge (`059b522`). The Next entry as it stood:
+
+8. **auto-depth** · M3 · branch `feat-auto-depth` — *built 2026-10-22 (owner:
+    "최종적으로 thinking 자동으로 하는거까지 하고 테스트하고 사이트에 올리는 것까지");
+    the admin on/off of point 4 was not built: 자동's cap is 높음's.*
+    *Owner's direction 2026-10-22, not pre-approved — branch, test, report,
+    WAIT; order to be set by the owner.* Owner: **"빌더도 중간에 멈추니까 그냥
+    기본적으로 자동으로 두고 선택하고 싶으면 하는거고"** — the 생각 깊이 picker
+    (Chat and Builder) gets **자동 (추천)** as its first option and the
+    **default**; 낮음 · 보통 · 높음 · 최고 stay for members who want to choose.
+    1. **How 자동 picks** — rules on the server, no extra call (0원): short
+       talk → 낮음; code, comparison, planning, long or attached input → 높음;
+       otherwise 보통. Builder: a new app or a large change gets the room of
+       높음 so a build is less often cut at the per-call cap (the "중간에
+       멈춤" the owner sees); a small fix stays 보통. The rules live in one
+       place and are tested by examples.
+    2. **The price before sending** — the picker shows the highest cap 자동
+       may use ("자동 · 최대 N원", Admin-set), and the pre-check holds the
+       reply to it; the receipt says which depth 자동 chose.
+    3. Sonnet/Opus keep adaptive thinking (Claude already decides how much to
+       think inside the depth); Haiku has no depth, so 자동 is hidden there.
+    4. Admin › Models › 한도: 자동's cap and an on/off; usage rows record the
+       chosen depth (already a column). A router model (Haiku ≈ 1원, or a
+       decision model such as TypeSafe's Jev once out of early access) is a
+       later option behind the same seam, not part of this item.
+
+## web-search-and-images — full spec (A merged 2026-10-19, B superseded 2026-10-22; moved 2026-11-02)
+
+The Next entry as it stood on 2026-11-02:
+
+0. **web-search-and-images** · M3 · branch `feat-web-search-and-images`
+   **A (app AI web search) merged 2026-10-19** as `feat-app-ai-web-search`; B (images) next.
+   *Owner's request 2026-10-19 — direction decided, built in the stated
+   order, tests and a report at each step, WAIT before merging.*
+   `ctrlai.ai.ask({ webSearch: true })` (Anthropic's server web search,
+   search only, ≤ 3 uses, paid by the visitor inside the 1,000원 cap,
+   `web_search_count` on the usage row, off in 데모 and under 기능 상자
+   멈추기) and one shared **image fetch service** for apps and Chat: the
+   server fetches from a code-fixed allow-list (`upload.wikimedia.org`),
+   checks and re-encodes, and serves by its own id from our origins — never
+   an open URL proxy; `IMAGE_FETCH_PROVIDER=mock|web` (mock default; real
+   only after every security test passes and the owner turns it on); Chat
+   shows such images only behind a switch that starts off. Full spec:
+   [web-search-and-images](#web-search-and-images--full-spec).
+   **B superseded 2026-10-22 by app-open-services (9):** apps and Chat
+   load outside images directly (https), so the image fetch service is
+   not built; A stays as merged.
+
+
+Owner's request, 2026-10-19 (from Film Atlas: "없다" for films Claude does
+not remember, and no posters — the apps' CSP is `img-src 'self' data:
+blob:`, `connect-src 'none'`; Chat's `ChatMarkdown` turns images into
+`[그림: …]`). Order: (1) safety rules and security tests first, (2) the
+image service with a mock provider, (3) app AI web search, (4) images in
+apps (mock), (5) the real fetch provider (still off by default), (6)
+images in Chat (off by default). Tests and a report after each step.
+
+**A. App AI web search** — `ctrlai.ai.ask({ webSearch: true })`: reuse
+Chat's server-tool price and caps (`web_search_usd_per_call`,
+`web_search_max_uses`), search only (no `web_fetch`), at most 3 searches
+a call, fewer when the 1,000원 cap would be passed; the visitor's wallet
+via `usage.charge()` (feature `app_ai`); nothing in 데모; the count on the
+usage row; documented in the 기능 상자 guide and the Builder's app rules;
+covered by 기능 상자 멈추기.
+
+*Superseded 2026-10-22 by app-open-services (9) — apps and Chat load
+outside images directly; B is not built. Kept for the record.*
+
+**B. Image fetch (apps and Chat)** — the browser never calls an outside
+address: the server fetches and serves from our origin (apps:
+`apps.ctrlai.my`, CSP unchanged). `IMAGE_FETCH_PROVIDER=mock|web`, mock
+by default, in `.env.example`.
+
+**Safety rules (each held by a test):** (1) a code-fixed allow-list,
+starting with `upload.wikimedia.org` — never widened by env or member
+input; (2) https on the standard port only, no userinfo; (3) SSRF: refuse
+private, loopback, link-local and metadata addresses after DNS, pin the
+address used, no redirects (or re-check each); (4) sniff content — png,
+jpeg, webp only (no SVG/GIF), size (e.g. 2 MB) and pixel limits, connect
+and read timeouts; (5) decode and re-encode (metadata dropped; undecodable
+discarded); (6) served by a server-made id only — no endpoint takes a URL
+to fetch on demand; (7) fixed `Content-Type`, `nosniff`, no cookies or
+credentials sent out, the visitor's IP never exposed; (8) signed-in active
+members only, rate-limited, usage tied to member and quarter; (9) a total
+storage cap, one copy per source URL, old images removed; (10) an admin
+switch "이미지 가져오기 멈추기", admin removal of an image, audited; (11)
+failures fall back quietly (text, or the app's default card); (12) the
+standing rules hold — host-only cookie, JSON bodies, no CORS to the apps
+origin; (13) any key only in the server `.env`; (14) a docs note on image
+licences and attribution; (15) the real provider is connected only after
+the security tests (internal IP, DNS rebinding, redirects, SVG, a fake
+extension, a huge file, a slow reply, a domain not allowed) all pass.
+
+**Part B review — 2026-10-19 (waiting for the owner's OK on D1–D5).**
+D1: the server looks images up itself — `ctrlai.images.find(query)` asks
+Wikimedia's API and fetches only addresses from its answer, so no URL ever
+comes from an app (the allow-list gains `*.wikipedia.org/w/api.php`,
+read-only). D2: Commons files only (`/wikipedia/commons/…`) with licence
+and author shown — Wikipedia's fair-use posters are not ours to reuse;
+posters would be a separate decision (e.g. TMDB with its terms). D3:
+fetching needs a signed-in participating member; viewing is public by an
+unguessable id (a sandboxed app's image requests carry no cookies); CSP
+stays `img-src 'self'`. D4: apps first, Chat later behind a switch that
+starts off (the server looks images up while saving a reply). D5: 500 MB
+in all, 2 MB and 1600 px per image, unused for 30 days → removed by the
+daily job. Wikimedia's User-Agent policy: a descriptive UA with the club's
+contact address. Checkpoints, each with tests and a report: (1) the
+security tests, (2) the service with the mock provider, (3) the SDK and a
+real-browser CSP check, (4) admin stop / remove / audit, (5) the real
+provider, off until the owner turns it on, (6) Chat, its own branch.
+
+## app-libraries — Next entry (closed 2026-10-22, moved 2026-11-02)
+
+6. ~~**app-libraries**~~ · **closed 2026-10-22** (owner: "닫아도 되고") — superseded by app-open-services: apps load these libraries from jsDelivr/cdnjs. Kept below for the record.
+    *Direction, not pre-approved — review after app-platform P4; order to
+    be set by the owner.* (Renumbered as items joined and merged on
+    2026-10-16.) Owner, 2026-10-16: **"회원이 만드는 앱의 수준을
+    높인다."** Member apps have no network (CSP `connect-src 'none'`, no
+    CDN), so a game or a chart today means hand-written code. Review a
+    bundle of **approved libraries that CTRL+AI hosts itself** on the apps
+    origin — `/_ctrlai/lib/<name>@<version>/…` — pinned versions, served
+    with the same headers as the SDK, allowed by the member-file CSP
+    (`script-src 'self'` already covers the apps origin): **Phaser**
+    (2D games), **Three.js** (3D), **Chart.js** (charts), **Leaflet**
+    (maps — tiles are a network call, so offline/embedded tiles or a
+    CTRL+AI tile proxy would be part of the review), **Tone.js** (sound),
+    **p5.js** (creative coding). The Builder's prompt learns the list and
+    the `<script src="/_ctrlai/lib/…">` form; the handoff README names
+    the CDN equivalents for outside CTRL+AI. Licences (all MIT/BSD),
+    sizes and a load-time check belong to the review. **Example apps the
+    owner wants:** 테트리스 (Phaser or plain canvas), 사주 (date maths +
+    Chart.js/p5 for the chart) — the same two named under builder-python.
+    **Mostly superseded 2026-10-22 by app-open-services (9):** apps may
+    load these libraries from cdnjs/jsDelivr (pinned versions), and the
+    Builder's app rules name them there. Close this item when 9 merges,
+    unless the owner still wants self-hosted copies (no outside load).
+
+## after-the-queue — UI request (done 2026-10-17 → 2026-10-19, moved 2026-11-02)
+
+All seven points are done (BACKLOG › Now, "Done — after-the-queue"). The entry as it stood:
+
+- **after-the-queue (coordinator, after ⑤ chat-to-builder-carry)** — owner,
+  2026-10-17, verbatim: "5번까지 다 끝나고 해야할 것 … 1. 깃리포지터리 정리
+  chore-promo-videos 사이트에 올라간 것들 다른 곳에 있다면 정리해도 됨 2. 깃
+  리드미 정리 (사이트 스크린샷도 함께) 3. … 베타 버전이니까 그거 추가하고 …
+  아이콘을 추가한다던가 … 사이트들 비슷하게 정리 4. 그리고 채팅에 뭐가 바뀌었고
+  화면들어가서 뭘 보면 좋을지". (1) delete `origin/chore-promo-videos` only
+  after checking every file it holds is on main (else list what would be lost
+  and ask); (2) README rewritten like well-kept open-source repos: logo, one
+  line, badges (BETA, version, stack, license), screenshots of Chat, Project
+  Builder, CtrlAIApps, CtrlAITube, Admin taken with test accounts (no member
+  data), features, stack, run locally, docs links; (3) repository
+  description/topics/website; site-side beta marks or icons only after
+  asking; (4) a "what changed and where to look" guide in the desktop chat.
+  **Then (owner, 2026-10-17, verbatim):** "after all that finishes do a full
+  check everything thouroghly, drop me a list of what needs updates or
+  confirmation and then prune? the repo" — (5) a thorough check of
+  production and the repo: every screen against the deployed features
+  (signed in as admin and as a test member), the money path (estimate →
+  charge → Usage), the isolation checks of the thumbs worker, backups,
+  the full test suites, docs vs code (BACKLOG Next/Done, product.md,
+  architecture.md, deployment.md, CLAUDE.md §3 sections count), stale
+  specs; (6) a list for the owner: what needs updating and what needs their
+  confirmation; (7) prune the repo: merged branches (local + remote),
+  worktrees, untracked scratch files, superseded mock-ups — anything not
+  merged or not obviously dead is listed and asked about first.
+  **Status (2026-10-17):** ✅ (2) README rewritten (`0dc7215`) · ✅ (5)
+  the thorough check · ✅ (6) the list for the owner · this docs tidy-up
+  in progress (`docs-tidy-1017`) · unused-code removal on a parallel
+  branch (`chore-tidy-code`).
+
+## Dropped 2026-11-02 — dino-avatars and app-remix (owner: "get rid of dinoavatars and app-remix")
+
+Neither was built (no code, no migration, no branch). Their Next entries are kept here only for the record; members keep the letter avatar, and the profile-photo UI request stands on its own again.
+
+7. **dino-avatars** · M3 · branch `feat-dino-avatars`
+    *Later item, order unchanged, not pre-approved.* Owner, 2026-10-16
+    (decided in another session after four mock-ups; relayed): **"CTRL+AI
+    공룡" profile avatars** replace the letter avatar. **No uploaded
+    profile photos** — this instead. Decided:
+    1. **Egg → dinosaur.** Sign-up gives an egg; the first activity (first
+       chat or first project) hatches it into the member's dinosaur.
+    2. **Choosing, in this order:** ① species, five — 아기 티라노,
+       트리케라톱스, 브라키오, 스테고, 프테라 (the five on the owner's
+       reference sheet); ② colour with a picker (saturation square + hue
+       bar + hex + eyedropper via Chrome's `EyeDropper` + recent and
+       suggested colours); the background colour has the same picker. No
+       AI — recoloured in the browser: each drawing has three slots
+       (light, dark, black outline); the chosen colour is the light slot
+       and the dark slot is derived (HLS lightness ×0.72, saturation
+       ×0.85, so deep pinks and reds do not turn harsh). If body and
+       background are too close: "바탕과 비슷해서 작게 보면 잘 안 보여요 —
+       그래도 할까요?".
+    3. **The egg:** the owner's white egg (black outline, cross-shaped
+       speckles + shadow, grey shading below); the speckles take the
+       chosen body colour.
+    4. **Art:** 브라키오 is the owner's own 24×24 pixel drawing (2×2 eyes +
+       sparkle + blush read as cute). The other four species must be drawn
+       new at 24×24 with the same three-slot colour rule — the reference
+       sheet is stock art and is **not** to be used (owner/club members
+       draw, or a licensed set). Each species also gets a small face-only
+       drawing (about 12×12) for 20–32 px spots — a long-necked dinosaur
+       cropped from the full drawing was too small.
+    5. **Quarter titles**, decided at 분기 마감 and worn all next quarter,
+       with a "지난 칭호" collection on Profile: **천사** (spent ≥ 80 % of
+       the wallet **and** published ≥ 1 app or video — spending alone
+       would reward waste), **왕** (the 2 members with the most published
+       apps, counting only apps actually used, e.g. ≥ 10 visits),
+       **팡파레** (the 2 with the most reactions — once app reactions
+       exist), **쉬는 중** (not taking part this quarter; a sleeping
+       dinosaur, Zzz), **화석** (탈퇴 회원; their apps stay under the fossil
+       name). A title is a prop layered over the drawing (halo, crown,
+       party hat + confetti, …).
+    6. **Still the owner's call:** how often the colour may change — once
+       at sign-up (a gift) / any time / once per quarter or title.
+    The mock-ups live in the owner's desktop session; the owner shows them
+    when the item starts.
+
+4. **app-remix** · M3 · branch `feat-app-remix`
+    *Not pre-approved — order to be set by the owner.* From H4's optional
+    point 4 (project-export-handoff), split out because it is not small: on
+    a published CtrlAIApps listing the owner ticks "다른 회원이 이 앱으로
+    시작하기 허용"; other members then get "내 프로젝트로 복사" — a fresh
+    Builder project from the **published** version, credited "원작: <이름>".
+    Needs a migration (`allow_remix` on the project; `remixed_from_project_id`
+    + the credited name kept even if the original is deleted), the toggle in
+    the publish dialog, a copy route behind `require_active_member` that
+    refuses unpublished/deleted/not-allowed apps (404) and copies no
+    HISTORY or requests of the original's owner, the credit on the new
+    project and its listing, audit-free (it is a member action), and tests
+    (allowed/not allowed, deleted original, own app, inactive member).
+
 ## image-generation — full spec (merged 2026-10-22)
 
 After the beta · M2 · branch `feat-image-generation`. Effort: **M** (3–5
