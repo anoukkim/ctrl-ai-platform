@@ -1,0 +1,367 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>CTRL+AI 시연</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a projector stage holding one real Chrome window; the window's address bar follows each scene. Dark single look around the product's dark UI. */
+:root {
+  --bg: #0b0b10;
+  --panel: #16151d;
+  --line: #2a2834;
+  --fg: #ecebf2;
+  --muted: #9a97aa;
+  --accent: #8f7bff;
+  --accent-soft: rgba(143,123,255,.16);
+  --won: #f2c26b;
+  --chrome-top: #202124;
+  --chrome-tab: #35363a;
+  --chrome-bar: #35363a;
+  --chrome-field: #202124;
+  --chrome-text: #e8eaed;
+  --chrome-dim: #9aa0a6;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.6; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 20px; }
+.brand { font-weight: 700; font-size: 22px; letter-spacing: -.01em; }
+.brand b { color: var(--accent); }
+.brand span { font-weight: 400; color: var(--muted); font-size: 15px; margin-left: 10px; }
+.tracks { display: flex; flex-wrap: wrap; gap: 6px; }
+.tracks button {
+  font: 500 14px var(--sans); color: var(--muted); background: transparent; border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer;
+}
+.tracks button[aria-pressed="true"] { color: var(--fg); background: var(--accent-soft); border-color: var(--accent); }
+
+.rail { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.rail button {
+  flex: 1 0 auto; text-align: left; font: 500 13px var(--sans); color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  position: relative; overflow: hidden;
+}
+.rail button .n { font-family: var(--mono); font-size: 11px; display: block; }
+.rail button.on { color: var(--fg); border-color: var(--accent); }
+.rail button.on .n { color: var(--accent); }
+.rail button .fill { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); width: 0; }
+
+/* Chrome window */
+.win { border-radius: 10px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px #3c3d41; background: #000; max-width: 100%; }
+.tabbar { background: var(--chrome-top); display: flex; align-items: flex-end; gap: 10px; padding: 8px 10px 0; }
+.lights { display: flex; gap: 7px; padding: 0 6px 10px 2px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights i:nth-child(1) { background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.ctab {
+  background: var(--chrome-tab); color: var(--chrome-text); font: 400 12px var(--sans);
+  border-radius: 8px 8px 0 0; padding: 7px 14px; min-width: 0; max-width: 240px; display: flex; align-items: center; gap: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ctab .fav { color: var(--accent); font-weight: 700; font-size: 14px; line-height: 1; }
+.ctab .x { color: var(--chrome-dim); margin-left: auto; padding-left: 10px; }
+.newtab { color: var(--chrome-dim); padding: 0 0 8px; font-size: 16px; }
+.toolbar { background: var(--chrome-bar); display: flex; align-items: center; gap: 12px; padding: 6px 12px; color: var(--chrome-dim); font-size: 14px; }
+.toolbar .nav { display: flex; gap: 14px; }
+.omni {
+  flex: 1; min-width: 0; background: var(--chrome-field); border-radius: 999px; padding: 5px 14px;
+  font: 400 13px var(--sans); color: var(--chrome-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.omni .lock { color: var(--chrome-dim); margin-right: 8px; }
+.omni .path { color: var(--chrome-dim); }
+.stage { position: relative; aspect-ratio: 1470 / 707; max-width: 100%; background: #0e0e12; cursor: pointer; }
+.stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .45s ease; }
+.stage img.hide { opacity: 0; }
+.won {
+  position: absolute; right: 14px; top: 12px; font: 500 13px var(--mono); color: #1a1408; background: var(--won);
+  padding: 3px 10px; border-radius: 999px; transition: opacity .3s; box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}
+.won.hide { opacity: 0; }
+
+.bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.below { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; align-items: start; }
+.cap { min-width: 0; }
+.cap h2 { margin: 0; font-size: 21px; line-height: 1.35; text-wrap: balance; }
+.cap p { margin: 4px 0 0; color: var(--muted); max-width: 64ch; }
+.ctrl { display: flex; gap: 6px; align-items: center; }
+.ctrl button {
+  font: 500 14px var(--sans); color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; height: 38px; min-width: 42px; padding: 0 12px; cursor: pointer;
+}
+.ctrl button.play { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 76px; }
+.ctrl .count { font: 500 13px var(--mono); color: var(--muted); padding: 0 6px; font-variant-numeric: tabular-nums; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint { color: var(--muted); font-size: 13px; }
+.hint kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+
+/* GIF and script views */
+.gifs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.gifs figure { margin: 0; display: grid; gap: 8px; }
+.gifs img { width: 100%; border-radius: 8px; box-shadow: 0 0 0 1px var(--line); background: #0e0e12; }
+.gifs figcaption { font-size: 14px; color: var(--muted); }
+.gifs figcaption b { color: var(--fg); display: block; font-weight: 500; }
+.script { display: grid; gap: 4px; max-width: 760px; }
+.script section { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 4px 18px; padding: 14px 0; border-top: 1px solid var(--line); }
+.script .t { font: 500 13px var(--mono); color: var(--accent); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.script h3 { margin: 0 0 4px; font-size: 16px; }
+.script p { margin: 0; font-size: 16px; line-height: 1.8; }
+.script .cue { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.note { font-size: 14px; color: var(--muted); max-width: 70ch; }
+
+@media (max-width: 680px) {
+  .below { grid-template-columns: 1fr; }
+  .cap h2 { font-size: 18px; }
+  .rail button { flex: 0 0 auto; }
+  .gifs { grid-template-columns: 1fr; }
+  .script section { grid-template-columns: 1fr; }
+  .toolbar .nav, .newtab { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .stage img { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">CTRL<b>+</b>AI <span>실제 화면 시연 · 2026.11.04</span></div>
+    <div class="tracks" role="group" aria-label="보기 선택">
+      <button data-v="start" aria-pressed="true">시작하기</button>
+      <button data-v="demo" aria-pressed="false">채팅에서 앱까지</button>
+      <button data-v="others" aria-pressed="false">남이 만든 앱의 AI</button>
+      <button data-v="tour" aria-pressed="false">화면 둘러보기</button>
+      <button data-v="gif" aria-pressed="false">움짤</button>
+      <button data-v="script" aria-pressed="false">대본</button>
+    </div>
+  </header>
+
+  <div id="player">
+    <div class="wrap" style="gap:14px">
+      <nav class="rail" id="rail" aria-label="장면"></nav>
+      <div class="win">
+        <div class="tabbar">
+          <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="ctab"><span class="fav">+</span><span id="tabTitle">CTRL+AI</span><span class="x">×</span></div>
+          <div class="newtab" aria-hidden="true">+</div>
+        </div>
+        <div class="toolbar">
+          <div class="nav" aria-hidden="true"><span>←</span><span>→</span><span>↻</span></div>
+          <div class="omni"><span class="lock">🔒</span>ctrlai.my<span class="path" id="path">/</span></div>
+        </div>
+        <div class="stage" id="stage" title="눌러서 재생/정지">
+          <img id="imgA" alt="">
+          <img id="imgB" alt="" class="hide">
+          <div class="won hide" id="won"></div>
+        </div>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="below">
+        <div class="cap" aria-live="polite">
+          <h2 id="title"></h2>
+          <p id="desc"></p>
+        </div>
+        <div class="ctrl">
+          <button id="prev" aria-label="이전 장면">◀</button>
+          <button id="play" class="play">일시정지</button>
+          <button id="next" aria-label="다음 장면">▶</button>
+          <span class="count" id="count"></span>
+        </div>
+      </div>
+      <div class="hint">실제 ctrlai.my 화면이에요 (2026.11.03). 「시작하기」만 테스트 계정 민지로 찍었어요. 노란 테두리가 볼 곳. <kbd>←</kbd> <kbd>→</kbd> 장면 이동 · <kbd>Space</kbd> 재생/정지</div>
+    </div>
+  </div>
+
+  <div id="gifView" hidden>
+    <div class="gifs">
+      <figure><img src="v2/gif/0-signup-join.gif" alt="가입하고 분기에 참여하는 움짤"><figcaption><b>0. 가입 → 분기 참여 → 승인 → 80,000원</b>노란 테두리가 누를 곳이에요.</figcaption></figure>
+      <figure><img src="v2/gif/1-chat-question.gif" alt="Chat에 요청하고 답이 써지는 움짤"><figcaption><b>1. Chat에 한 줄</b>답이 써지고, 든 돈이 원 단위로 보여요.</figcaption></figure>
+      <figure><img src="v2/gif/2-chat-preview-refine.gif" alt="Chat에서 미리보기를 열고 다듬는 움짤"><figcaption><b>2. 미리보기 → 말로 다듬기</b>오른쪽에서 바로 눌러 보고, 고쳐 달라고 하면 새 버전.</figcaption></figure>
+      <figure><img src="v2/gif/3-builder.gif" alt="Builder로 보내 AI 버튼을 넣는 움짤"><figcaption><b>3. Builder로 보내기</b>지도와 ✦ AI 버튼이 붙은 진짜 앱.</figcaption></figure>
+      <figure><img src="v2/gif/4-someone-elses-app-ai.gif" alt="남이 만든 앱에서 AI를 쓰는 움짤"><figcaption><b>4. 남이 만든 앱의 AI</b>누른 내 지원금에서 10원.</figcaption></figure>
+      <figure><img src="v2/gif/5-light-mode.gif" alt="밝은 화면으로 바꾸는 움짤"><figcaption><b>5. 밝은 화면 · 의견 보내기</b>왼쪽 아래 내 이름을 누르면 나오는 메뉴.</figcaption></figure>
+    </div>
+  </div>
+
+  <div id="scriptView" hidden>
+    <div class="script">
+      <p class="note">5분 분량 · 화면 탭 순서대로 「시작하기」 → 「채팅에서 앱까지」 → 「남이 만든 앱의 AI」 → 「화면 둘러보기」. 화면에는 짧은 제목만 있고, 설명은 전부 여기 있어요.</p>
+      <section><div class="t">0:00–0:20</div><div><h3>인사</h3><p>안녕하세요. 오늘은 앞으로 같이 쓸 CTRL+AI를 5분 동안 실제 화면으로 보여드릴게요. 한 줄로 말하면, 하고 싶은 걸 한국어로 말하면 CTRL+AI가 만들어 주고, 그걸 다 같이 나누는 곳이에요. 코딩도, API 키도, 개발 환경도 몰라도 됩니다. 오늘은 가입부터 앱을 만들고 남의 앱을 써 보는 데까지, 여러분이 실제로 하게 될 순서 그대로 갈게요.</p></div></section>
+      <section><div class="t">0:20–1:05</div><div><h3>가입하고 이번 분기에 참여하기</h3><p>먼저 가입이에요. 제가 보내 드리는 초대 링크로 들어가면 가입 화면이 나와요. 노란 테두리 보세요. 초대 코드는 링크에 이미 들어 있고, 아이디·이름·이메일·비밀번호만 적으면 끝이에요. Google 계정으로 들어와도 돼요. 들어오면 처음 안내가 다섯 장 떠요. 건너뛰어도 되고, 나중에 다시 볼 수도 있어요.</p><p>그런데 가입만 하면 채팅이 아직 잠겨 있어요. 보시면 "이번 분기에 참여하지 않아…"라고 나오죠. 여기 「Profile에서 참여 신청하기」를 누르거나 Profile로 가서, 이 파란 버튼 「이번 분기 참여」를 누르세요. 그러면 「승인 대기」가 되고, 제가 운영진 화면에서 「승인」을 누르면 — 바로 이 화면이에요 — 여러분 Profile에 동아리 지원 80,000원이 생겨요. 분기마다 한 번씩, 이 8만 원 안에서 채팅이든 앱 만들기든 전부 쓰고, 개인 돈은 안 들어요. 다 쓰면 그 분기는 거기까지예요.</p><p class="cue">화면: 「시작하기」 탭 1 가입 → 2 처음 안내 → 3 분기 참여 → 4 운영진 승인 → 5 지원금</p></div></section>
+      <section><div class="t">1:05–1:30</div><div><h3>Chat의 옵션</h3><p>승인되면 첫 화면이 Chat이에요. 입력창 아래 「균형 잡힌 답변」을 누르면 모델을 고를 수 있어요. 빠른 답변, 균형 잡힌 답변, 깊이 있는 답변 세 가지이고, 생각 깊이도 조절돼요. 한 번에 약 얼마인지가 고르기 전에 적혀 있으니까, 그냥 기본인 균형 잡힌 답변으로 쓰시면 돼요. 옆에 「도구」에는 생각 과정 보기, 웹 사용, 코드 실행이 있어요. 생각 과정 보기를 켜면 Claude가 어떤 순서로 생각했는지 답 아래에서 펼쳐 볼 수 있어요.</p><p class="cue">화면: 「화면 둘러보기」 탭 1 Chat 옵션</p></div></section>
+      <section><div class="t">1:30–2:15</div><div><h3>Chat에 한 줄, 바로 미리보기</h3><p>이제 진짜 만들어 볼게요. 저는 "주말 여행지 탐색기 만들어 줘. 장소를 치면 지도, 이번 주말 날씨, 위키백과 소개, 사진까지"라고만 썼어요. 답이 실시간으로 써지고, 아래에 지금까지 든 돈이 원 단위로 계속 보여요. 이 답 하나에 79원이에요. 답 안에 「주말 여행지 탐색기 · HTML 페이지」 카드가 생기는데, 누르면 오른쪽에 미리보기가 바로 열려요. 채팅을 보면서 옆에서 눌러 볼 수 있어요. 날씨는 진짜 이번 주말 예보고, 사진과 소개는 위키백과에서 그때그때 가져온 거예요. 인터넷에서 가져오는 것도 되고, AI를 붙이는 것도 된다는 거죠.</p><p class="cue">화면: 「채팅에서 앱까지」 탭 1 물어보기 → 2 미리보기</p></div></section>
+      <section><div class="t">2:15–2:45</div><div><h3>말로 다듬기</h3><p>마음에 안 드는 건 그냥 말로 고쳐요. "지도가 안 나와, 고쳐 주고, 별을 누르면 즐겨찾기 되게 해 줘." 그러면 무엇을 바꿨는지 먼저 설명하고 새 버전을 만들어요. 이번엔 124원. 새 버전을 열면 아래에 「내 즐겨찾기」가 생겼죠. 이렇게 채팅에서 몇 번 주고받으면서 최종본을 만들어요. 코드는 한 줄도 안 봐도 돼요.</p><p class="cue">화면: 3 다듬기</p></div></section>
+      <section><div class="t">2:45–3:35</div><div><h3>Builder로 보내서 진짜 앱으로, 게시까지</h3><p>최종본이 마음에 들면 미리보기 아래 「Builder로 보내기」 한 번이면 돼요. 채팅에서 만든 그대로 Project Builder에 프로젝트로 들어와요. Builder에서는 더 큰 걸 시킬 수 있어요. "지도 제대로 나오게 하고, AI로 1박 2일 코스 짜는 버튼 넣어 줘." Claude가 파일을 하나씩 쓰는 게 그대로 보이고, 1분 반쯤 걸려서 393원. 이제 지도가 나오고, 앱 안에 ✦ AI 버튼이 생겼어요. 버튼 옆에 "1회 약 10원"처럼 값이 미리 적혀 있어요. 다 됐으면 오른쪽 위 「CtrlAIApps에 게시」를 누르면 모두가 쓸 수 있고, 「내보내기」로 ZIP이나 내 Claude로 가져갈 수도 있어요.</p><p class="cue">화면: 4 Builder로</p></div></section>
+      <section><div class="t">3:35–4:15</div><div><h3>남이 만든 앱, AI는 내 지원금에서</h3><p>CtrlAIApps에는 다른 사람이 게시한 앱이 모여요. 「여행 일정 메이커」에 들어가 볼게요. 위쪽 띠에 "AI 버튼을 누를 때만 내 지원금에서 나가요"라고 적혀 있죠. 「일정 만들기」는 공짜고, 「✦ AI로 일정 짜기」만 돈이 들어요. 누르면 AI가 강릉에서 갈 곳을 골라 지도 위에 동선을 그려 주고, 아래에 "앱 AI 10원, 내 동아리 지원금에서"라고 떠요. 앱을 만든 사람 돈이 아니라 버튼을 누른 내 지원금에서 나가요. AI를 안 쓰고 싶으면 위쪽 스위치를 꺼서 데모로 보면 0원이에요. 좋아요랑 댓글도 남길 수 있어요.</p><p class="cue">화면: 「남이 만든 앱의 AI」 탭</p></div></section>
+      <section><div class="t">4:15–4:40</div><div><h3>Usage — 어디에 얼마 썼는지</h3><p>내가 어디에 얼마 썼는지는 Usage에서 건별로 다 보여요. 채팅·빌더·영상으로 나뉘어 있는데, 이건 보기 편하라고 나눈 거지 따로 한도가 있는 건 아니에요. 전부 8만 원 하나에서 나가요. 왼쪽 아래 사이드바에도 남은 돈이 항상 보이고, 돈이 빠질 때마다 "12원을 사용했어요" 같은 알림이 떠요. 영상 만들기는 다음 단계에서 열려요.</p><p class="cue">화면: 「화면 둘러보기」 탭 2 둘러보기 — Usage</p></div></section>
+      <section><div class="t">4:40–5:00</div><div><h3>밝은 화면, 의견 보내기, 마무리</h3><p>마지막으로 두 가지. 왼쪽 아래 내 이름을 누르면 메뉴가 나오는데, 여기 「밝은 화면으로」를 누르면 지금 보신 어두운 화면 대신 밝은 화면으로 바뀌어요. 그리고 같은 메뉴에 「의견 보내기」가 있어요. 막히거나 이상한 게 있으면 여기로 바로 보내 주세요. 제가 다 읽어요. 오늘부터는 Chat에 하고 싶은 걸 한 줄만 써 보세요. 감사합니다.</p><p class="cue">화면: 「시작하기」 탭 6 화면·의견 (또는 움짤 5)</p></div></section>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = 1.6, M = 3, L = 4.8;
+const C = "/", B = "/builder/30", A = "/ctrlaistore/7x2qn76s4r";
+const TRACKS = {
+  start: [
+    { ch: "가입", items: [
+      ["s01", M, "/login", "로그인", "로그인 화면", "Google 또는 아이디·비밀번호"],
+      ["s02", S, "/signup", "가입", "초대 링크로 가입", ""],
+      ["s03", L, "/signup", "가입", "초대 코드 · 아이디 · 비밀번호", "노란 칸만 채우면 돼요"],
+    ]},
+    { ch: "처음 안내", items: [
+      ["s04", S, "/", "Chat", "처음 안내 1/5", ""],
+      ["s05", S, "/", "Chat", "처음 안내 2/5", ""],
+      ["s06", S, "/", "Chat", "처음 안내 3/5", "건너뛰어도 돼요"],
+    ]},
+    { ch: "분기 참여", items: [
+      ["s07", L, "/", "Chat", "아직은 잠겨 있어요", "「Profile에서 참여 신청하기」"],
+      ["s08", L, "/profile", "Profile", "「이번 분기 참여」", ""],
+      ["s09", M, "/profile", "Profile", "승인 대기", ""],
+    ]},
+    { ch: "운영진 승인", items: [
+      ["s10", L, "/admin/members", "Admin", "운영진이 「승인」", ""],
+      ["s11", M, "/admin/members", "Admin", "한 번 더 확인", ""],
+      ["s12", S, "/admin/members", "Admin", "승인 완료", ""],
+      ["s13", S, "/admin/members", "Admin", "초대 코드는 여기서 나와요", ""],
+    ]},
+    { ch: "지원금", items: [
+      ["s14", L, "/profile", "Profile", "동아리 지원 80,000원", "이번 분기 전부 여기서", "80,000원"],
+    ]},
+    { ch: "화면·의견", items: [
+      ["s15", L, "/profile", "Profile", "내 이름을 누르면 메뉴", "「밝은 화면으로」 · 「의견 보내기」"],
+      ["l01", M, "/profile", "Profile", "밝은 화면", ""],
+      ["l02", M, "/", "Chat", "밝은 화면의 Chat", ""],
+    ]},
+  ],
+  demo: [
+    { ch: "물어보기", items: [
+      ["c01", M, C, "Chat", "Chat에 한 줄", ""],
+      ["c02", M, C, "Chat", "“주말 여행지 탐색기 만들어 줘”", "지도 · 주말 날씨 · 위키백과 · 사진"],
+      ["c03", S, C, "Chat", "답이 써지는 중", "", "약 27원"],
+      ["c04", S, C, "Chat", "페이지를 만드는 중", "", "약 67원"],
+      ["c05", S, C, "Chat", "든 돈이 계속 보여요", "", "약 125원"],
+      ["c06", L, C, "Chat", "완성 · 79원", "", "79원"],
+    ]},
+    { ch: "미리보기", items: [
+      ["c07", M, C, "Chat", "답 안의 페이지 카드", "누르면 열려요"],
+      ["c08", L, C, "Chat", "오른쪽에 바로 미리보기", "아래 「Builder로 보내기」"],
+    ]},
+    { ch: "다듬기", items: [
+      ["c11", M, C, "Chat", "말로 고쳐요", "“지도 고쳐 주고, ⭐ 즐겨찾기 넣어 줘”"],
+      ["c12", S, C, "Chat", "새 버전 만드는 중", "", "약 59원"],
+      ["c13", S, C, "Chat", "새 버전 만드는 중", "", "약 220원"],
+      ["c14", L, C, "Chat", "두 번째 버전 · 124원", "「이 미리보기로 Builder 시작」", "124원"],
+      ["c15", M, C, "Chat", "새 버전", "「내 즐겨찾기」가 생겼어요"],
+      ["c09", M, C, "Chat", "진짜 이번 주말 예보", ""],
+      ["c10", M, C, "Chat", "위키백과 사진과 소개", ""],
+      ["c16", M, C, "Chat", "⭐ 즐겨찾기", ""],
+    ]},
+    { ch: "Builder로", items: [
+      ["b01", L, B, "Project Builder", "Builder로 들어온 최종본", "여기까지 0원"],
+      ["b02", M, B, "Project Builder", "더 크게 시켜요", "“지도 제대로, ✦ AI 코스 버튼”"],
+      ["b03", S, B, "Project Builder", "파일을 하나씩", ""],
+      ["b04", S, B, "Project Builder", "코드가 그대로 보여요", "", "약 55원"],
+      ["b05", S, B, "Project Builder", "만드는 중", "", "약 137원"],
+      ["b06", L, B, "Project Builder", "완성 · 393원", "", "393원"],
+      ["b07", M, B, "Project Builder", "지도가 나와요", ""],
+      ["b08", M, B, "Project Builder", "지도 + 날씨", ""],
+      ["b09", L, B, "Project Builder", "앱 안에 ✦ AI 버튼", "1회 약 10원"],
+      ["b10", M, B, "Project Builder", "경주 → 신라 유물 사진", ""],
+    ]},
+  ],
+  others: [
+    { ch: "남이 만든 앱", items: [
+      ["a01", L, A, "CtrlAIApps", "남이 만든 앱", "위쪽 띠: AI 버튼만 내 지원금"],
+      ["a02", M, A, "CtrlAIApps", "공짜 버튼 · AI 버튼", ""],
+      ["a03", S, A, "CtrlAIApps", "AI가 고르는 중", ""],
+      ["a04", L, A, "CtrlAIApps", "앱 AI · 10원 · 내 지원금에서", "", "10원"],
+      ["a05", L, A, "CtrlAIApps", "지도 위에 동선", "좋아요 · 댓글"],
+    ]},
+  ],
+  tour: [
+    { ch: "Chat 옵션", items: [
+      ["t01", L, C, "Chat", "모델 · 생각 깊이", "값이 미리 보여요"],
+      ["t02", L, C, "Chat", "도구", "생각 과정 보기 · 웹 사용 · 코드 실행"],
+      ["t06", L, C, "Chat", "생각 과정 보기", ""],
+    ]},
+    { ch: "둘러보기", items: [
+      ["t03", L, "/ctrlaistore", "CtrlAIApps", "CtrlAIApps", ""],
+      ["t04", L, "/usage", "Usage", "Usage", "건별로 다 보여요"],
+      ["t05", L, "/profile", "Profile", "Profile", ""],
+    ]},
+  ],
+};
+
+const $ = id => document.getElementById(id);
+let track, flat = [], idx = 0, playing = true, t0 = 0, dur = 0, front = $("imgA"), back = $("imgB"), view = "demo";
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function build() {
+  flat = [];
+  track.forEach((c, ci) => c.items.forEach(it => flat.push({ ci, src: `v2/img/${it[0]}.jpg`, d: it[1], path: it[2], tab: it[3], t: it[4], p: it[5], w: it[6] })));
+  const rail = $("rail"); rail.innerHTML = "";
+  track.forEach((c, ci) => {
+    const b = document.createElement("button");
+    b.innerHTML = `<span class="n">${ci + 1}</span>${c.ch}<span class="fill"></span>`;
+    b.onclick = () => go(flat.findIndex(f => f.ci === ci));
+    rail.appendChild(b);
+  });
+  rail.hidden = track.length < 2;
+  flat.forEach(f => { const i = new Image(); i.src = f.src; });
+}
+function show() {
+  const f = flat[idx];
+  back.src = f.src; back.alt = f.t;
+  back.classList.remove("hide"); front.classList.add("hide");
+  [front, back] = [back, front];
+  $("title").textContent = f.t; $("desc").textContent = f.p;
+  $("path").textContent = f.path; $("tabTitle").textContent = `${f.tab} — CTRL+AI`;
+  const w = $("won"); if (f.w) { w.textContent = f.w; w.classList.remove("hide"); } else w.classList.add("hide");
+  $("count").textContent = `${idx + 1} / ${flat.length}`;
+  [...$("rail").children].forEach((b, ci) => {
+    b.classList.toggle("on", ci === f.ci);
+    const all = flat.filter(x => x.ci === ci).length, done = flat.slice(0, idx + 1).filter(x => x.ci === ci).length;
+    b.querySelector(".fill").style.width = (100 * done / all) + "%";
+  });
+  dur = f.d * 1000; t0 = performance.now();
+}
+function tick(now) {
+  if (playing && !$("player").hidden) {
+    const p = Math.min(1, (now - t0) / dur);
+    $("bar").style.width = (100 * (idx + p) / flat.length) + "%";
+    if (p >= 1) { idx = (idx + 1) % flat.length; show(); }
+  }
+  requestAnimationFrame(tick);
+}
+function go(i) { idx = (i + flat.length) % flat.length; show(); $("bar").style.width = (100 * idx / flat.length) + "%"; }
+function setPlay(v) { playing = v; $("play").textContent = v ? "일시정지" : "재생"; if (v) t0 = performance.now(); }
+function setView(v) {
+  view = v;
+  document.querySelectorAll(".tracks button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v));
+  $("player").hidden = !TRACKS[v]; $("gifView").hidden = v !== "gif"; $("scriptView").hidden = v !== "script";
+  $("stage").style.aspectRatio = v === "start" ? "1512 / 785" : "1470 / 707";
+  if (TRACKS[v]) { track = TRACKS[v]; build(); go(0); if (!reduce) setPlay(true); }
+}
+document.querySelectorAll(".tracks button").forEach(b => b.onclick = () => setView(b.dataset.v));
+$("prev").onclick = () => go(idx - 1);
+$("next").onclick = () => go(idx + 1);
+$("play").onclick = () => setPlay(!playing);
+$("stage").onclick = () => setPlay(!playing);
+addEventListener("keydown", e => {
+  if ($("player").hidden) return;
+  if (e.key === "ArrowRight") go(idx + 1);
+  else if (e.key === "ArrowLeft") go(idx - 1);
+  else if (e.key === " ") { e.preventDefault(); setPlay(!playing); }
+});
+const start = location.hash.slice(1);
+setView(["start", "demo", "others", "tour", "gif", "script"].includes(start) ? start : "start");
+if (reduce) setPlay(false);
+requestAnimationFrame(tick);
+</script>
+
+</body></html>

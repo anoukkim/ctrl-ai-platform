@@ -28,9 +28,10 @@ The clips follow one member's path:
    밝은 화면으로 / 어두운 화면으로 · 처음 안내 다시 보기 · 의견 보내기 ·
    로그아웃.
 
-The page, images, GIFs and the Korean script live in the presenter's
-scratchpad (not committed — ~40 full-width screenshots); the published
-page is the Artifact "CTRL+AI demo". Demo projects created on ctrlai.my
+The page, its 55 screenshots, 6 GIFs and the Korean script are in
+[`presentation/`](presentation/) (open `presentation/index.html`; the
+script is also `presentation/script.md`); the published page is the
+Artifact "CTRL+AI 시연". Demo projects created on ctrlai.my
 while recording are to be deleted afterwards.
 
 ## Recorded on the local copy (test data, not production)
