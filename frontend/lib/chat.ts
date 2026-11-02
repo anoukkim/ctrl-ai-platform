@@ -346,7 +346,16 @@ export function setConversationTool(
   tool: ToolKind,
   enabled: boolean,
 ): Promise<Conversation> {
-  const field =
+  return setConversationTools(id, [tool], enabled);
+}
+
+/** 여러 도구를 한 번에 켜고 끕니다 — "웹 사용"은 웹 검색과 페이지 읽기를 함께 바꿉니다. */
+export function setConversationTools(
+  id: number,
+  tools: ToolKind[],
+  enabled: boolean,
+): Promise<Conversation> {
+  const field = (tool: ToolKind) =>
     tool === "web_search"
       ? "use_web_search"
       : tool === "web_fetch"
@@ -354,7 +363,7 @@ export function setConversationTool(
         : "use_code_execution";
   return request<Conversation>(`/chat/conversations/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ [field]: enabled }),
+    body: JSON.stringify(Object.fromEntries(tools.map((tool) => [field(tool), enabled]))),
   });
 }
 

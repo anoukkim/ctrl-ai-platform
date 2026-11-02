@@ -74,7 +74,7 @@ import {
   type ChatModelOption,
   type Conversation,
   setConversationThinking,
-  setConversationTool,
+  setConversationTools,
   thinkingSteps,
   toPickerModel,
   type LongHistory,
@@ -1355,21 +1355,25 @@ export default function ChatWorkspace() {
    * 쓰기라서 참여하지 않은 회원은 백엔드가 거절합니다.
    */
   const setTool = useCallback(
-    (kind: ToolOption, next: boolean) => {
+    (kinds: ToolOption[], next: boolean) => {
       if (streaming) return;
+      // "웹 사용"은 웹 검색과 페이지 읽기를 함께 바꿉니다(merge-web-tools).
+      const tools = kinds.filter((kind): kind is ToolKind => kind !== "thinking");
       if (activeId === null) {
         // 새 대화: 첫 메시지 때 대화를 만들면서 함께 보냅니다.
-        if (kind === "thinking") setShowThinking(next);
-        else setToolFlags((flags) => ({ ...flags, [kind]: next }));
+        if (kinds.includes("thinking")) setShowThinking(next);
+        if (tools.length > 0) {
+          setToolFlags((flags) => ({ ...flags, ...Object.fromEntries(tools.map((kind) => [kind, next])) }));
+        }
         return;
       }
       const run = async () => {
-        if (kind === "thinking") {
+        if (kinds.includes("thinking")) {
           const updated = await setConversationThinking(activeId, next);
           setShowThinking(updated.show_thinking ?? false);
-          return;
         }
-        const updated = await setConversationTool(activeId, kind, next);
+        if (tools.length === 0) return;
+        const updated = await setConversationTools(activeId, tools, next);
         setToolFlags({
           web_search: updated.use_web_search ?? false,
           web_fetch: updated.use_web_fetch ?? false,
