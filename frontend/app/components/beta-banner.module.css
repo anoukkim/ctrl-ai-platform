@@ -1,5 +1,6 @@
-/* 베타 배너. 높이는 globals.css의 --banner-h — 화면 높이를 계산하는
-   규칙들이 같은 값을 뺍니다. */
+/* 베타 배너와 로그인 방법 안내(SignInMethodBanner)가 같이 씁니다. 한 띠는
+   2rem; 보이는 띠의 합이 globals.css의 --banner-h이고, 화면 높이를
+   계산하는 규칙들이 그 값을 뺍니다. 두 번째 띠는 첫 띠 아래에 붙습니다. */
 
 .banner {
   position: sticky;
@@ -9,7 +10,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  height: var(--banner-h);
+  /* 한 줄의 높이. --banner-h는 보이는 띠의 합이라 여기서 쓰지 않습니다. */
+  height: 2rem;
   padding: 0 0.9rem;
   overflow: hidden;
   background: var(--warn-soft);
@@ -46,4 +48,9 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+}
+
+/* 두 띠가 함께 보일 때 둘째 띠는 첫 띠 아래에 고정됩니다. */
+.banner + .banner {
+  top: 2rem;
 }

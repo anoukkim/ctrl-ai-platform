@@ -278,6 +278,10 @@ def set_password(
         )
     member.password_hash = hash_password(payload.new_password)
     end_other_sessions(db, member.id, _session_token(request, settings))
+    # A 비밀번호를 잊었어요 started before this change must not still work.
+    from app.api.routes.google_auth import forget_grants
+
+    forget_grants(db, member.id)
     audit.record(
         db,
         actor=member,

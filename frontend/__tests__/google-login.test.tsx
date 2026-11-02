@@ -2,11 +2,13 @@
  * google-login — Google이 기본 로그인입니다.
  *
  * 증명하는 것:
- *   - Google 로그인이 켜진 곳: 로그인·가입 화면에 "Google로 계속하기"와
+ *   - Google 로그인이 켜진 곳: 로그인 화면에 "Google로 계속하기"와
  *     아이디·비밀번호 칸이 함께 있다(member-password-login). 꺼진 곳은 칸만.
- *   - 초대 링크의 코드는 설정 화면까지 따라간다.
- *   - 설정 화면: 초대 코드가 필요한 사람에게만 칸이 있고, 같은 이메일의 계정이
- *     있으면 새로 만들지 않고 연결하라고 안내한다.
+ *   - 가입은 Google로만(signup-google-first); 초대 링크의 코드는 설정
+ *     화면까지 따라간다.
+ *   - 설정 화면: 비밀번호를 두 번 적어야 하고, 초대 코드가 필요한 사람에게만
+ *     칸이 있고, 같은 이메일의 계정이 있으면 새로 만들지 않고 연결하라고
+ *     안내한다.
  *   - Profile: 연결 상태와 연결하기 링크.
  */
 
@@ -78,10 +80,19 @@ describe("로그인", () => {
     expect(screen.queryByRole("link", { name: "Google로 계속하기" })).toBeNull();
   });
 
-  test("비밀번호를 잊으면 운영진에게 말하라는 한 줄이 있다", () => {
+  test("비밀번호를 잊었어요는 Google 확인으로 가는 링크다", () => {
     site = siteWith(true);
     render(<LoginForm />);
-    expect(screen.getByText(/비밀번호를 잊으셨나요\? 운영진에게 말씀해 주세요/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: "비밀번호를 잊었어요" });
+    expect(link.getAttribute("href")).toBe("/api/auth/google/reset/start");
+    expect(screen.queryByText(/운영진에게 말씀해 주세요/)).toBeNull();
+  });
+
+  test("Google이 꺼진 서버에서는 운영진에게 말하라는 한 줄만 있다", () => {
+    site = siteWith(false);
+    render(<LoginForm />);
+    expect(screen.queryByRole("link", { name: "비밀번호를 잊었어요" })).toBeNull();
+    expect(screen.getByText(/운영진에게 말씀해 주세요/)).toBeTruthy();
   });
 });
 
@@ -93,18 +104,25 @@ describe("회원가입", () => {
     expect(window.sessionStorage.getItem("ctrlai.invite-code")).toBe("CLUB-2026");
   });
 
-  test("아이디·이메일·비밀번호로도 가입할 수 있고, 초대 코드는 그쪽도 필요하다", () => {
+  test("아이디·이메일·비밀번호 가입 폼은 없다 — Google뿐이다", () => {
     site = siteWith(true);
     render(<SignupForm initialCode="CLUB-2026" />);
-    expect(screen.getByLabelText("비밀번호")).toBeTruthy();
-    expect(screen.getByLabelText("이메일")).toBeTruthy();
-    expect((screen.getByLabelText("초대 코드") as HTMLInputElement).value).toBe("CLUB-2026");
-    expect((screen.getByLabelText("초대 코드") as HTMLInputElement).required).toBe(true);
+    expect(screen.queryByLabelText("이메일")).toBeNull();
+    expect(screen.queryByLabelText("비밀번호")).toBeNull();
+    expect(screen.queryByRole("button", { name: "가입하고 시작하기" })).toBeNull();
+    expect(screen.getByText(/비밀번호도 함께 만들어요/)).toBeTruthy();
+  });
+
+  test("Google이 꺼진 서버에서는 가입할 수 없다고 말한다", () => {
+    site = siteWith(false);
+    render(<SignupForm />);
+    expect(screen.queryByRole("link", { name: "Google로 계속하기" })).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("가입할 수 없어요");
   });
 });
 
 describe("Google 설정 화면", () => {
-  test("아이디·이름·초대 코드를 정해 가입한다", async () => {
+  test("아이디·이름·비밀번호·초대 코드를 정해 가입한다", async () => {
     window.sessionStorage.setItem("ctrlai.invite-code", "CLUB-2026");
     fetchGooglePending.mockResolvedValue({
       email: "new@example.com",
@@ -123,14 +141,44 @@ describe("Google 설정 화면", () => {
     await user.clear(screen.getByLabelText("아이디"));
     await user.type(screen.getByLabelText("아이디"), "newbie");
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "가입하고 시작하기" }));
+    // 비밀번호 없이는 가입 단추가 꺼져 있다(signup-google-first).
+    const submit = screen.getByRole("button", { name: "가입하고 시작하기" }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    await user.type(screen.getByLabelText("비밀번호"), "a-good-password");
+    await user.type(screen.getByLabelText("비밀번호 확인"), "a-good-passwor");
+    expect(submit.disabled).toBe(true);
+    expect(screen.getByText("두 칸의 비밀번호가 달라요.")).toBeTruthy();
+    await user.type(screen.getByLabelText("비밀번호 확인"), "d");
+    expect(submit.disabled).toBe(false);
+    await user.click(submit);
 
     expect(completeGoogleSignup).toHaveBeenCalledWith({
       username: "newbie",
       display_name: "새 회원",
       invite_code: "CLUB-2026",
       terms_accepted: true,
+      password: "a-good-password",
+      password_confirm: "a-good-password",
     });
+  });
+
+  test("8자보다 짧은 비밀번호로는 보낼 수 없다", async () => {
+    fetchGooglePending.mockResolvedValue({
+      email: "new@example.com",
+      email_verified: true,
+      name: "새 회원",
+      suggested_username: "newbie",
+      needs_invite_code: false,
+      email_taken: false,
+    });
+    const user = userEvent.setup();
+    render(<GoogleSetupForm />);
+    await screen.findByText("new@example.com");
+    await user.click(screen.getByRole("checkbox"));
+    await user.type(screen.getByLabelText("비밀번호"), "short");
+    await user.type(screen.getByLabelText("비밀번호 확인"), "short");
+    expect((screen.getByRole("button", { name: "가입하고 시작하기" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(completeGoogleSignup).not.toHaveBeenCalled();
   });
 
   test("관리자 이메일이면 초대 코드 칸이 없다", async () => {

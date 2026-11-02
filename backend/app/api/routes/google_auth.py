@@ -17,12 +17,18 @@ The flow:
    * a linked account signs in;
    * a link request attaches the `sub` to the member who asked;
    * an unknown `sub` becomes a `PendingGoogleSignup`, and the member
-     finishes on the setup screen (username, display name, invite code).
+     finishes on the setup screen (username, display name, invite code,
+     password and its confirmation);
+   * for 비밀번호를 잊었어요 (`purpose="reset"`), a linked `sub` becomes a
+     `PasswordResetGrant` — ten minutes, single use — and the member sets
+     a new password on `/login/reset`. An unknown `sub` is refused: the
+     grant proves who the member is, so it needs an account to point at.
 
-Accounts made this way start with no usable password. Since
-member-password-login (2026-10-14) every member may also sign in by
-username and password; Profile › 로그인 방법 sets one
-(`routes/sign_in_methods.py`). Linking Google needs a recent sign-in.
+signup-google-first (owner, 2026-11-03): **sign-up is Google only**, and
+the setup screen asks for a password too, so every new member leaves it
+with both ways in. Members from before may still miss one; the app shows
+them a notice until Profile › 로그인 방법 (`routes/sign_in_methods.py`)
+has both. Linking Google needs a recent sign-in.
 """
 
 from __future__ import annotations
@@ -37,20 +43,21 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.routes.auth import TERMS_REQUIRED, as_current_user, _start_session
 from app.core.config import Settings, get_settings
-from app.core.security import UNUSABLE_PASSWORD_HASH
+from app.core.security import MIN_PASSWORD_LENGTH, hash_password
 from app.db.session import get_db
 from app.models import (
     AccountStatus,
     AuditAction,
     ConnectedAccount,
     OAuthState,
+    PasswordResetGrant,
     PendingGoogleSignup,
     User,
     UserRole,
@@ -74,8 +81,18 @@ router = APIRouter(tags=["auth"])
 
 STATE_COOKIE = "ctrlai_oauth_state"
 SIGNUP_COOKIE = "ctrlai_google_signup"
+RESET_COOKIE = "ctrlai_password_reset"
 STATE_LIFETIME = timedelta(minutes=10)
 PENDING_LIFETIME = timedelta(minutes=30)
+#: 비밀번호를 잊었어요: how long a Google sign-in lets the member set a new
+#: password ("within 10 minutes", signup-google-first).
+RESET_LIFETIME = timedelta(minutes=10)
+
+#: The password rule in Korean — the setup screen and the reset form.
+PASSWORD_TOO_SHORT = f"비밀번호는 {MIN_PASSWORD_LENGTH}자 이상이어야 해요."
+PASSWORD_MISMATCH = "두 칸의 비밀번호가 달라요."
+RESET_GONE = "비밀번호를 바꿀 수 있는 시간이 지났어요. 로그인 화면에서 다시 시작해 주세요."
+RESET_NONE = "비밀번호를 바꿀 수 있는 상태가 아니에요. 로그인 화면에서 비밀번호를 잊었어요를 눌러 주세요."
 
 #: The username rule the password sign-up uses (schemas/auth.py).
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,50}$")
@@ -170,6 +187,17 @@ def google_start(
     return _begin(db, settings, "signin", None, rate_limit.client_address(request, settings))
 
 
+@router.get("/auth/google/reset/start", summary="비밀번호를 잊었어요 — prove who you are with Google")
+def google_reset_start(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    """The same Google round trip as a sign-in, but what comes back is a
+    short-lived permission to set a new password, not a session."""
+    return _begin(db, settings, "reset", None, rate_limit.client_address(request, settings))
+
+
 @router.get("/account/google/link/start", summary="Link Google to the signed-in account")
 def google_link_start(
     request: Request,
@@ -231,6 +259,8 @@ def google_callback(
 
     def fail(reason: str) -> RedirectResponse:
         target = "/profile" if row is not None and row.purpose == "link" else "/login"
+        # A reset that goes wrong lands on the login screen too, which is
+        # where 비밀번호를 잊었어요 lives.
         response = _to(target, google=reason)
         _clear(response, settings, STATE_COOKIE)
         return response
@@ -302,6 +332,36 @@ def google_callback(
         db.commit()
         response = _to("/profile", google="linked")
         _clear(response, settings, STATE_COOKIE)
+        return response
+
+    if row.purpose == "reset":
+        # 비밀번호를 잊었어요: no session is made. The member proved they
+        # own the Google account; the grant lets them set a new password
+        # on /login/reset for ten minutes, once.
+        if linked is None:
+            return fail("reset_unknown")
+        member = db.get(User, linked.user_id)
+        if member is None or not member.can_sign_in:
+            return fail("blocked")
+        now = datetime.now(timezone.utc)
+        db.execute(
+            delete(PasswordResetGrant)
+            .where(PasswordResetGrant.expires_at < now)
+            .execution_options(synchronize_session=False)
+        )
+        token = secrets.token_urlsafe(32)
+        db.add(
+            PasswordResetGrant(
+                token=token,
+                user_id=member.id,
+                created_at=now,
+                expires_at=now + RESET_LIFETIME,
+            )
+        )
+        db.commit()
+        response = _to("/login/reset")
+        _clear(response, settings, STATE_COOKIE)
+        _cookie(response, settings, RESET_COOKIE, token, int(RESET_LIFETIME.total_seconds()))
         return response
 
     # Sign in: by `sub` only.
@@ -395,6 +455,21 @@ class CompleteRequest(BaseModel):
     invite_code: str = ""
     #: 개인정보 처리방침·이용약관 동의 (privacy-and-terms).
     terms_accepted: bool = False
+    #: signup-google-first: the password, typed twice, so the new member
+    #: can sign in by username too. Checked here (Korean messages), not by
+    #: the schema.
+    password: str = ""
+    password_confirm: str = ""
+
+
+def check_new_password(password: str, confirm: str) -> None:
+    """The one password rule, for the setup screen and the reset form."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(status_code=400, detail=PASSWORD_TOO_SHORT)
+    if len(password) > 128:
+        raise HTTPException(status_code=400, detail="비밀번호는 128자까지예요.")
+    if password != confirm:
+        raise HTTPException(status_code=400, detail=PASSWORD_MISMATCH)
 
 
 def _suggest(email: str) -> str:
@@ -427,7 +502,7 @@ def google_pending(
     "/auth/google/complete",
     response_model=CurrentUser,
     status_code=status.HTTP_201_CREATED,
-    summary="Finish a Google sign-up: username, display name, invite code",
+    summary="Finish a Google sign-up: username, display name, invite code, password",
 )
 def google_complete(
     payload: CompleteRequest,
@@ -451,6 +526,9 @@ def google_complete(
         raise HTTPException(status_code=400, detail="아이디는 영문, 숫자, 밑줄(_)로 3자 이상이어야 합니다.")
     if not display_name or len(display_name) > 100:
         raise HTTPException(status_code=400, detail="이름을 1~100자로 적어 주세요.")
+    # Both ways in from the first day (signup-google-first). Checked before
+    # the invite code so a typo here costs no code attempt.
+    check_new_password(payload.password, payload.password_confirm)
 
     if not pending.email_verified:
         # An unconfirmed address could be someone else's, and taking it
@@ -498,7 +576,7 @@ def google_complete(
     member = User(
         username=username,
         email=pending.email,
-        password_hash=UNUSABLE_PASSWORD_HASH,
+        password_hash=hash_password(payload.password),
         display_name=display_name,
         role=UserRole.ADMIN if is_admin else UserRole.MEMBER,
         account_status=AccountStatus.ACTIVE,
@@ -536,7 +614,126 @@ def google_complete(
 
     _clear(response, settings, SIGNUP_COOKIE)
     _start_session(db, response, member, settings)
-    return as_current_user(member)
+    return as_current_user(member, db)
+
+
+# ------------------------------------------------------------- 비밀번호를 잊었어요
+
+
+def _grant(db: Session, request: Request) -> PasswordResetGrant | None:
+    """The unexpired, unused grant this browser's cookie names, or None."""
+    token = request.cookies.get(RESET_COOKIE, "")
+    if not token:
+        return None
+    grant = db.get(PasswordResetGrant, token)
+    if grant is None or grant.used_at is not None:
+        return None
+    expires = grant.expires_at if grant.expires_at.tzinfo else grant.expires_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) >= expires:
+        return None
+    return grant
+
+
+def _gone_message(request: Request) -> str:
+    """"시간이 지났어요" only when there was a grant to begin with."""
+    return RESET_GONE if request.cookies.get(RESET_COOKIE, "") else RESET_NONE
+
+
+def forget_grants(db: Session, user_id: int) -> None:
+    """Drop a member's unused grants — the password changed another way
+    (Profile, an admin reset), so a reset started earlier must not still
+    work. Does not commit."""
+    db.execute(
+        delete(PasswordResetGrant)
+        .where(PasswordResetGrant.user_id == user_id, PasswordResetGrant.used_at.is_(None))
+        .execution_options(synchronize_session=False)
+    )
+
+
+class ResetPending(BaseModel):
+    username: str
+    #: Seconds left on the grant, so the form can say how long it has.
+    seconds_left: int
+
+
+class ResetRequest(BaseModel):
+    password: str = ""
+    password_confirm: str = ""
+
+
+@router.get("/auth/google/reset/pending", response_model=ResetPending, summary="Whose password may be reset")
+def google_reset_pending(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> ResetPending:
+    _provider_or_404(settings)
+    grant = _grant(db, request)
+    if grant is None:
+        raise HTTPException(status_code=404, detail=_gone_message(request))
+    member = db.get(User, grant.user_id)
+    if member is None or not member.can_sign_in:
+        raise HTTPException(status_code=404, detail=RESET_GONE)
+    expires = grant.expires_at if grant.expires_at.tzinfo else grant.expires_at.replace(tzinfo=timezone.utc)
+    left = int((expires - datetime.now(timezone.utc)).total_seconds())
+    return ResetPending(username=member.username, seconds_left=max(left, 0))
+
+
+@router.post("/auth/google/reset/complete", response_model=CurrentUser, summary="Set the new password and sign in")
+def google_reset_complete(
+    payload: ResetRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> CurrentUser:
+    """Save the new password, spend the grant and sign the member in here.
+
+    Every other browser is signed out, as for every password change
+    (member-password-login): whoever knew the old password should not
+    stay in. The grant is spent atomically — an UPDATE that only matches
+    while `used_at` is NULL — so two requests with the same cookie cannot
+    both set a password.
+    """
+    _provider_or_404(settings)
+    # The grant first: a request without one learns nothing about the rules.
+    grant = _grant(db, request)
+    if grant is None:
+        raise HTTPException(status_code=400, detail=_gone_message(request))
+    member = db.get(User, grant.user_id)
+    if member is None or not member.can_sign_in:
+        raise HTTPException(status_code=400, detail=RESET_GONE)
+    check_new_password(payload.password, payload.password_confirm)
+
+    from app.api.routes.sign_in_methods import end_other_sessions
+
+    now = datetime.now(timezone.utc)
+    spent = db.execute(
+        update(PasswordResetGrant)
+        .where(PasswordResetGrant.token == grant.token, PasswordResetGrant.used_at.is_(None))
+        .values(used_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    if spent.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=RESET_GONE)
+    member.password_hash = hash_password(payload.password)
+    end_other_sessions(db, member.id, "")
+    audit.record(
+        db,
+        actor=member,
+        action=AuditAction.PASSWORD_RESET_BY_GOOGLE,
+        target_type="user",
+        target_id=member.id,
+        target_label=member.username,
+        summary=f"{member.username} 회원이 Google 확인을 거쳐 비밀번호를 새로 만들었습니다.",
+    )
+    db.commit()
+    db.refresh(member)
+
+    _clear(response, settings, RESET_COOKIE)
+    _start_session(db, response, member, settings)
+    return as_current_user(member, db)
 
 
 class GoogleConnection(BaseModel):

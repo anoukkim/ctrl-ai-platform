@@ -85,6 +85,12 @@ export default function SignInMethodsSection() {
       });
     const message = googleResultMessage(new URLSearchParams(window.location.search).get("google"));
     if (message) queueMicrotask(() => setNote(message));
+    // 안내 띠의 링크(/profile#sign-in-methods, signup-google-first)로 왔다면 이
+    // 칸으로. 화면은 로그인 확인 뒤에 그려지므로 브라우저의 해시 스크롤이
+    // 먼저 지나가 버립니다.
+    if (window.location.hash === "#sign-in-methods") {
+      setTimeout(() => document.getElementById("sign-in-methods")?.scrollIntoView({ block: "start" }), 0);
+    }
     return () => {
       cancelled = true;
     };
@@ -246,13 +252,13 @@ export default function SignInMethodsSection() {
   );
 
   return (
-    <section className="card" aria-labelledby={`${id}-title`}>
+    <section className={`card ${styles.signInMethods}`} id="sign-in-methods" aria-labelledby={`${id}-title`}>
       <h2 className="section-title" id={`${id}-title`} tabIndex={-1}>
         로그인 방법
       </h2>
       <p className={styles.connectionHint}>
-        Google 계정이나 아이디·비밀번호로 로그인해요. 로그인 방법은 하나 이상 있어야 해서,
-        하나만 있을 때는 없앨 수 없어요.
+        앞으로는 Google 계정과 아이디·비밀번호가 둘 다 필요해요. 하나만 있다면 여기서 만들어
+        주세요. 로그인 방법은 하나 이상 있어야 해서, 하나만 있을 때는 없앨 수 없어요.
       </p>
       {note && (
         <p className={styles.connectionHint} role="status">

@@ -4,9 +4,14 @@
  * 처음 Google로 들어온 사람의 설정 화면(google-login).
  *
  * Google에서 돌아오면 백엔드가 그 Google 계정을 잠시 붙잡아 두고 이리로
- * 보냅니다. 여기서 아이디와 이름을 정하고 초대 코드를 적으면 계정이
- * 만들어지고 바로 로그인됩니다. 이 화면에는 Google의 토큰이 없습니다 —
- * 백엔드가 쿠키로 기억하는 "가입 대기"가 있을 뿐입니다.
+ * 보냅니다. 여기서 아이디와 이름, 비밀번호를 정하고 초대 코드를 적으면
+ * 계정이 만들어지고 바로 로그인됩니다. 이 화면에는 Google의 토큰이
+ * 없습니다 — 백엔드가 쿠키로 기억하는 "가입 대기"가 있을 뿐입니다.
+ *
+ * 비밀번호는 필수입니다(signup-google-first, 2026-11-03): 가입은 Google로만
+ * 받되, 모든 회원이 첫날부터 Google과 아이디·비밀번호 둘 다로 로그인할
+ * 수 있게 하자는 운영진의 결정입니다. 8자 이상, 두 칸이 같아야 합니다 —
+ * 백엔드가 같은 규칙을 다시 확인합니다.
  *
  * 같은 이메일로 이미 가입한 계정이 있으면 새로 만들지 않고, 그 계정으로
  * 로그인한 뒤 Profile에서 Google을 연결하라고 안내합니다. 이메일이 같다는
@@ -22,6 +27,7 @@ import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import { describeError } from "@/lib/http";
 import {
   INVITE_CODE_STORAGE_KEY,
+  MIN_PASSWORD_LENGTH,
   USERNAME_PATTERN,
   completeGoogleSignup,
   fetchGooglePending,
@@ -44,6 +50,8 @@ export default function GoogleSetupForm() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,6 +61,8 @@ export default function GoogleSetupForm() {
   const usernameId = useId();
   const nameId = useId();
   const codeId = useId();
+  const passwordId = useId();
+  const confirmId = useId();
   const termsId = useId();
 
   useEffect(() => {
@@ -82,12 +92,16 @@ export default function GoogleSetupForm() {
   const trimmedUsername = username.trim();
   const usernameValid = trimmedUsername.length >= 3 && USERNAME_PATTERN.test(trimmedUsername);
   const needsCode = state.phase === "ready" && state.pending.needs_invite_code;
+  const passwordLongEnough = password.length >= MIN_PASSWORD_LENGTH;
+  const passwordsMatch = password === passwordConfirm;
   const canSubmit =
     state.phase === "ready" &&
     !state.pending.email_taken &&
     state.pending.email_verified &&
     usernameValid &&
     displayName.trim().length > 0 &&
+    passwordLongEnough &&
+    passwordsMatch &&
     (!needsCode || inviteCode.trim().length > 0) &&
     termsAccepted;
 
@@ -102,6 +116,8 @@ export default function GoogleSetupForm() {
         display_name: displayName.trim(),
         invite_code: inviteCode.trim(),
         terms_accepted: termsAccepted,
+        password,
+        password_confirm: passwordConfirm,
       });
       try {
         window.sessionStorage.removeItem(INVITE_CODE_STORAGE_KEY);
@@ -126,7 +142,7 @@ export default function GoogleSetupForm() {
 
         <div>
           <h1 className={styles.title}>거의 다 됐어요</h1>
-          <p className={styles.subtitle}>CTRL+AI에서 쓸 아이디와 이름을 정해 주세요.</p>
+          <p className={styles.subtitle}>CTRL+AI에서 쓸 아이디, 이름, 비밀번호를 정해 주세요.</p>
         </div>
 
         {state.phase === "loading" && <Skeleton />}
@@ -216,6 +232,54 @@ export default function GoogleSetupForm() {
                   required
                 />
                 <span className={styles.hint}>다른 회원에게 보이는 이름입니다.</span>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor={passwordId}>
+                  비밀번호
+                </label>
+                <input
+                  className="field"
+                  id={passwordId}
+                  name="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  maxLength={128}
+                  required
+                />
+                <span
+                  className={`${styles.hint} ${
+                    password ? (passwordLongEnough ? styles.hintOk : styles.hintError) : ""
+                  }`}
+                >
+                  {MIN_PASSWORD_LENGTH}자 이상. Google 없이도 아이디로 로그인할 수 있게 해 줘요.
+                </span>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor={confirmId}>
+                  비밀번호 확인
+                </label>
+                <input
+                  className="field"
+                  id={confirmId}
+                  name="password_confirm"
+                  type="password"
+                  value={passwordConfirm}
+                  onChange={(event) => setPasswordConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  maxLength={128}
+                  required
+                />
+                <span
+                  className={`${styles.hint} ${
+                    passwordConfirm ? (passwordsMatch ? styles.hintOk : styles.hintError) : ""
+                  }`}
+                >
+                  {passwordConfirm && !passwordsMatch ? "두 칸의 비밀번호가 달라요." : "같은 비밀번호를 한 번 더 적어 주세요."}
+                </span>
               </div>
 
               {needsCode && (

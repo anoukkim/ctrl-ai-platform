@@ -23,7 +23,7 @@ import { useCurrentUser } from "@/app/components/CurrentUserProvider";
 import GoogleButton from "@/app/components/GoogleButton";
 import { useSite, useSiteLoaded } from "@/app/components/SiteProvider";
 import { describeError } from "@/lib/http";
-import { GOOGLE_START_URL, googleResultMessage, login } from "@/lib/auth";
+import { GOOGLE_RESET_START_URL, GOOGLE_START_URL, googleResultMessage, login } from "@/lib/auth";
 
 import styles from "./auth.module.css";
 import Skeleton from "@/app/components/Skeleton";
@@ -159,11 +159,20 @@ export default function LoginForm() {
             회원가입
           </Link>
         </p>
-        {/* 스스로 바꾸는 길은 아직 없습니다 (signup-google-first가 오면 생김).
-            관리자가 Admin › Members에서 임시 비밀번호를 만들어 줍니다. */}
+        {/* 비밀번호를 잊었어요(signup-google-first): Google로 본인을 확인하면
+            10분 동안 새 비밀번호를 만들 수 있습니다. Google이 꺼진 서버에서는
+            운영진이 Admin › Members에서 임시 비밀번호를 만들어 줍니다. */}
         <p className={styles.forgot}>
-          비밀번호를 잊으셨나요? 운영진에게 말씀해 주세요. 새 비밀번호를 만들어
-          드려요.
+          {withGoogle ? (
+            <>
+              <a className={styles.footerLink} href={GOOGLE_RESET_START_URL}>
+                비밀번호를 잊었어요
+              </a>
+              <span> — Google로 확인하고 새 비밀번호를 만들어요.</span>
+            </>
+          ) : (
+            "비밀번호를 잊으셨나요? 운영진에게 말씀해 주세요. 새 비밀번호를 만들어 드려요."
+          )}
         </p>
       </div>
     </div>

@@ -71,7 +71,7 @@ disabled, so the shell is never mistaken for working functionality.
 | Route                 | Screen          | Notes                                        |
 | --------------------- | --------------- | -------------------------------------------- |
 | `/login`              | 로그인          | Korean sign-in; logged-out visitors land here |
-| `/signup`             | 회원가입        | Korean sign-up; consent to the two documents below is required (privacy-and-terms) |
+| `/signup`             | 회원가입        | Google only (signup-google-first); the setup screen after Google asks for username, name, password ×2 and the invite code; consent to the two documents below is required (privacy-and-terms) |
 | `/privacy`            | 개인정보 처리방침 | Korean privacy policy; logged out too          |
 | `/terms`              | 이용약관        | Korean terms of use; logged out too            |
 | `/`                   | Chat            | Default landing page (requires sign-in)      |
@@ -373,14 +373,39 @@ rewrites prompt text, never generates video, and is charged to the member's
 wallet by the token, exactly like a Chat reply (below), recorded as Claude
 spend.
 
-## Signing in (member-password-login)
+## Signing in (member-password-login · signup-google-first)
 
 Every member may sign in with **Google로 계속하기** or with **username and
-password**, or keep both. `/login` shows the Google button with the
+password** — and since signup-google-first (owner, 2026-11-03) every
+member is meant to have **both**. `/login` shows the Google button with the
 username/password form below it (the form alone where Google sign-in is
-off); `/login/password` redirects there. Sign-up is with Google (then a
-setup screen: username, name, invite code) or with username + email +
-password + invite code. An invite code is required either way.
+off); `/login/password` redirects there.
+
+**Sign-up is Google only.** `/signup` offers Google로 계속하기 (and, where
+Google sign-in is off, says sign-up is not possible); the setup screen
+after Google asks for username, name, **password and its confirmation**
+(8 characters or more, equal), the invite code and consent. The invite
+code from a `/signup?code=…` link is carried to that screen. There is no
+username + email + password sign-up any more; its route is gone.
+
+**로그인 방법을 하나 더 만들어 주세요.** A member who has only one method —
+an account from before, or one who removed a method — sees a one-line
+notice at the top of every screen (beside the beta strip), with a link to
+Profile › 로그인 방법 that names the missing one (Google 연결하기 or
+비밀번호 만들기). It is a notice, not a block; admins see it too. It
+disappears once both exist.
+
+**비밀번호를 잊었어요** (on `/login`, where Google sign-in is on): a Google
+sign-in → the backend makes a **ten-minute, single-use grant** (a row,
+`password_reset_grants`) for the member whose Google `sub` matches →
+`/login/reset` asks for the new password twice → saved (Argon2id), the
+grant is spent, every other browser is signed out, this one is signed in,
+and the audit log says "Google 확인으로 비밀번호 재설정". A Google account
+nobody linked gets "이 Google 계정과 연결된 회원이 없어요"; an expired or
+used grant gets "시간이 지났어요" and a link back to `/login`. Where Google
+sign-in is off, the login screen keeps "운영진에게 말씀해 주세요" and the
+admin's temporary password (Admin › Members) or the operator's
+`set_password` CLI is the way.
 
 **Profile › 로그인 방법** lists both methods:
 

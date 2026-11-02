@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="이용약관" effective="시행일 2026-10-14 · v1">
+    <LegalPage title="이용약관" effective="시행일 2026-11-03 · v2">
       <p className={styles.lead}>
         CTRL+AI는 동아리 회원끼리 쓰는 초대제 베타 서비스입니다. 가입하면
         아래 내용에 동의한 것으로 봅니다 — 짧으니 한 번 읽어 주세요.
@@ -59,7 +59,12 @@ export default function TermsPage() {
       <h2>3. 계정</h2>
       <ul>
         <li>1인 1계정입니다. 계정과 초대 코드를 다른 사람과 나누지 마세요.</li>
-        <li>비밀번호는 본인이 관리합니다. 잊으면 운영진에게 알려 주세요.</li>
+        <li>
+          가입은 Google 계정으로 하고, 가입할 때 아이디와 비밀번호도 만듭니다. 두 방법을
+          모두 유지해 주세요. 비밀번호는 본인이 관리합니다. 잊으면 로그인 화면의
+          &quot;비밀번호를 잊었어요&quot;에서 Google로 확인하고 새로 만들 수 있고, 그래도 안
+          되면 운영진에게 알려 주세요.
+        </li>
         <li>
           규칙을 어기거나 공용 크레딧을 고의로 소진시키면 운영진이 계정을
           멈출 수 있습니다.

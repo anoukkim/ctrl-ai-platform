@@ -16,7 +16,12 @@ from app.models.app_platform import (
 )
 from app.models.accounting import AdjustmentKind, CreditPurchase, WalletAdjustment
 from app.models.audit import AUDIT_ACTION_LABEL, AuditAction, AuditLog
-from app.models.connected_account import ConnectedAccount, OAuthState, PendingGoogleSignup
+from app.models.connected_account import (
+    ConnectedAccount,
+    OAuthState,
+    PasswordResetGrant,
+    PendingGoogleSignup,
+)
 from app.models.chat import (
     AttachmentKind,
     ChatAction,
@@ -165,6 +170,7 @@ __all__ = [
     "AuditLog",
     "ConnectedAccount",
     "OAuthState",
+    "PasswordResetGrant",
     "PendingGoogleSignup",
     "SignupAttempt",
     "LoginAttempt",

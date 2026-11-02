@@ -63,7 +63,7 @@ No longer up for debate:
 | Roles | **`admin` and `member` only.** |
 | Quarter support | **One 동아리 지원 wallet per member per quarter** (owner, 2026-10-08, `single-wallet`) — 80,000원 by default, set per quarter. Chat, video and every other paid feature spend from it; there is no Build/Video split. The club still buys credit per provider, forecast from usage by provider. See section 4. |
 | Personal top-ups | **Not offered** (owner, 2026-10-14, `personal-topup-off`). Members see only the 동아리 지원 wallet; the tables, routes and admin screen are kept behind `PERSONAL_TOPUP_ENABLED=false` for `personal-topup-ui` later. See section 4. |
-| Sign-in | **Google or username/password — both, for everyone** (owner, 2026-10-14, `member-password-login`). See section 5. |
+| Sign-in | **Google or username/password — both, for everyone** (owner, 2026-10-14, `member-password-login`); **sign-up Google only, with a password chosen at setup** (owner, 2026-11-03, `signup-google-first`). See section 5. |
 | Feedback | **No menu item** (`admin-and-nav-cleanup`, 2026-10-14). The 의견 보내기 button in the sidebar footer is the one way a member sends a note; `/issues` is gone (redirects to Chat). |
 | Club name | **CTRL+AI**, shown wherever a member reads the name. Product names and routes are unchanged. |
 | Deleted work | **Kept until 분기 마감, then purged** (owner, 2026-10-16, `ui-improvements` B). A member's 삭제 is soft and sits in the member panel's 지운 작업 (Admin › Members), where an admin can restore it or — with a reason, audited — remove it for good; **분기 마감 removes everything still there that was deleted by the quarter's last day** (a late close does not take this week's deletions; they wait for their own quarter), in the same transaction as the wallet freeze, with one audit row listing the items. Rows, files, versions, app folders and stored videos go; **money rows never do** — usage events keep their amounts, lose the project link (`ON DELETE SET NULL`) and keep the project's name (`UsageEvent.work_label`), so Usage still says what each charge was for. |
@@ -159,10 +159,16 @@ member work is restored from the member panel's **지운 작업**.
 # 5. Accounts and sign-in
 
 **Members sign in with Google or with username and password — both, for
-everyone** (`member-password-login`, 2026-10-14). Sign-up is with Google
-(first sign-in leads to a username/display-name setup screen) or with
-username + email + password; **an invite code is required either way**
-(`invite-only-signup`).
+everyone** (`member-password-login`, 2026-10-14). **Sign-up is Google
+only** (`signup-google-first`, owner 2026-11-03): the first Google sign-in
+leads to a setup screen that asks for username, display name **and a
+password (typed twice)**, so every new member has both methods from day
+one; **an invite code is required** (`invite-only-signup`). Members from
+before who have only one method see a notice on every screen until they
+add the other from Profile › 로그인 방법. "비밀번호를 잊었어요" on the login
+screen is a Google sign-in that grants ten minutes, once, to set a new
+password (`password_reset_grants`); the operator's `set_password` CLI stays
+the fallback.
 
 - Sign-in scopes are `openid email profile` only; YouTube's upload scope
   is asked for later by incremental authorization (Phase 7).

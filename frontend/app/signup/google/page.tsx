@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "가입 마무리 — CTRL+AI",
 };
 
-/** 처음 Google로 들어온 사람이 아이디와 초대 코드를 정하는 화면(google-login). */
+/** 처음 Google로 들어온 사람이 아이디·비밀번호와 초대 코드를 정하는 화면(google-login, signup-google-first). */
 export default function GoogleSetupPage() {
   return <GoogleSetupForm />;
 }

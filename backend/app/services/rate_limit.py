@@ -2,7 +2,7 @@
 
 Two limits, both counted per client address:
 
-* **attempts** — every `POST /api/auth/register`, successful or not;
+* **attempts** — every sign-up (`POST /api/auth/google/complete`), successful or not;
 * **failed codes** — attempts whose invite code was missing or unusable.
   Tighter, because guessing codes is the thing to slow down.
 

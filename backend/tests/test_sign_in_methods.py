@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AuditLog, ConnectedAccount, User
 from app.models.audit import AuditAction
-from tests.conftest import DEV_PASSWORD
+from tests.conftest import DEV_PASSWORD, SIGNUP_PASSWORD
 from tests.test_google_login import google_says, make_code, settings_for, start  # noqa: F401
 from tests.conftest import JSON_HEADERS
 
@@ -25,14 +25,29 @@ def development(settings_for):  # noqa: F811
 
 
 def google_member(client: TestClient, db: Session, *, username="gmember", sub="g-gm") -> None:
-    """Sign up with Google only and stay signed in."""
+    """A member with Google only, signed in.
+
+    Since signup-google-first the setup screen takes a password, so such a
+    member can only come from before (or from 없애기): sign up, then drop
+    the password the way Profile does.
+    """
     make_code(db)
     google_says(client, start(client), sub=sub, email=f"{username}@example.com")
     made = client.post(
         "/api/auth/google/complete",
-        json={"terms_accepted": True, "username": username, "display_name": "구글 회원", "invite_code": "CLUB-2026"},
+        json={
+            "terms_accepted": True,
+            "username": username,
+            "display_name": "구글 회원",
+            "invite_code": "CLUB-2026",
+            "password": SIGNUP_PASSWORD,
+            "password_confirm": SIGNUP_PASSWORD,
+        },
     )
     assert made.status_code == 201, made.text
+    dropped = client.post("/api/account/password/remove", json={"current_password": SIGNUP_PASSWORD})
+    assert dropped.status_code == 200, dropped.text
+    assert dropped.json()["password"] is False
 
 
 def sign_out(client: TestClient) -> None:
@@ -226,32 +241,23 @@ def test_a_member_who_set_a_password_withdraws_with_it(
     assert done.status_code == 200, done.text
 
 
-def test_a_password_member_signs_up_and_signs_in_without_google(
-    anon_client: TestClient, invite_code
+def test_a_member_from_before_with_only_a_password_is_told_to_add_google(
+    anon_client: TestClient, other_user
 ) -> None:
-    made = anon_client.post(
-        "/api/auth/register",
-        json={
-            "terms_accepted": True,
-            "username": "pwmember",
-            "email": "pw@example.com",
-            "password": NEW_PASSWORD,
-            "display_name": "비번 회원",
-            "invite_code": invite_code.code,
-        },
+    """Accounts made before signup-google-first keep signing in as they do;
+    /me says what is missing so the app can show the notice."""
+    from tests.conftest import MEMBER_PASSWORD
+
+    login = anon_client.post(
+        "/api/auth/login", json={"username": other_user.username, "password": MEMBER_PASSWORD}
     )
-    assert made.status_code == 201, made.text
+    assert login.status_code == 200, login.text
+    me = anon_client.get("/api/auth/me").json()
+    assert me["has_password"] is True and me["has_google"] is False
     assert methods(anon_client) == {
         "password": True,
         "google": {"available": True, "linked": False, "email": ""},
     }
-    sign_out(anon_client)
-    assert (
-        anon_client.post(
-            "/api/auth/login", json={"username": "pwmember", "password": NEW_PASSWORD}
-        ).status_code
-        == 200
-    )
 
 
 def test_removing_both_at_once_leaves_one(pg_engine) -> None:
@@ -452,21 +458,23 @@ def test_withdrawal_password_guesses_count_towards_the_limit(
     assert client.post("/api/account/withdrawal", json={"password": DEV_PASSWORD}).status_code == 429
 
 
-def test_an_email_in_other_case_is_taken(anon_client: TestClient, invite_code, dev_user) -> None:
+def test_an_email_in_other_case_is_taken(anon_client: TestClient, db_session: Session, dev_user) -> None:
+    make_code(db_session)
+    google_says(anon_client, start(anon_client), sub="g-copy", email=dev_user.email.upper())
+    assert anon_client.get("/api/auth/google/pending").json()["email_taken"] is True
     made = anon_client.post(
-        "/api/auth/register",
+        "/api/auth/google/complete",
         json={
             "terms_accepted": True,
             "username": "copycat",
-            "email": dev_user.email.upper(),
-            "password": NEW_PASSWORD,
             "display_name": "x",
-            "invite_code": invite_code.code,
+            "invite_code": "CLUB-2026",
+            "password": SIGNUP_PASSWORD,
+            "password_confirm": SIGNUP_PASSWORD,
         },
     )
     assert made.status_code == 409
     assert "이메일" in made.json()["detail"]
-
 
 
 # ------------------------------------------------------------- review round 2

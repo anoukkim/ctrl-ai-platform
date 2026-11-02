@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import AdminNavProvider from "@/app/components/AdminNavProvider";
 import AppShell from "@/app/components/AppShell";
 import BetaBanner from "@/app/components/BetaBanner";
+import SignInMethodBanner from "@/app/components/SignInMethodBanner";
 import CurrentUserProvider from "@/app/components/CurrentUserProvider";
 import MotionRoot from "@/app/components/MotionRoot";
 import SpendFeedbackProvider from "./components/SpendFeedbackProvider";
@@ -46,6 +47,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <CurrentUserProvider>
               <ToastProvider>
                 <BetaBanner />
+                {/* 로그인 방법이 하나뿐인 회원에게: 둘 다 있을 때까지(signup-google-first). */}
+                <SignInMethodBanner />
                 <MyQuarterProvider>
                   {/* 사이드바의 Admin 묶음이 쓰는 숫자. 관리자가 아니면 아무것도
                       부르지 않습니다. */}

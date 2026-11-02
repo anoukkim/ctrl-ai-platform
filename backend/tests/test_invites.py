@@ -13,15 +13,14 @@ from app.core.config import Settings, get_settings
 from app.main import app
 from app.models import AuditLog, InviteCode, User
 from app.services import invites, rate_limit
-from tests.conftest import DEV_PASSWORD
+from tests.conftest import DEV_PASSWORD, SIGNUP_PASSWORD, google_signup
 from tests.conftest import JSON_HEADERS
 
 SIGNUP = {
     "username": "invited",
     "email": "invited@ctrl.ai",
-    "password": "a-good-password",
+    "password": SIGNUP_PASSWORD,
     "display_name": "초대받은 회원",
-    "terms_accepted": True,
 }
 
 
@@ -34,10 +33,10 @@ def make_code(db: Session, code: str = "CLUB-2026", **fields) -> InviteCode:
 
 
 def signup(client: TestClient, code: str | None, **changes):
+    """Sign up through the Google setup screen (the only way since
+    signup-google-first); the code rules are checked there."""
     body = {**SIGNUP, **changes}
-    if code is not None:
-        body["invite_code"] = code
-    return client.post("/api/auth/register", json=body)
+    return google_signup(client, invite_code=code, sub=f"g-{body['username']}", **body)
 
 
 def users(db: Session) -> int:
@@ -303,10 +302,15 @@ def test_attempts_older_than_a_day_are_pruned(
 
 
 def test_a_code_is_required_in_the_beta_too(
-    anon_client: TestClient, db_session: Session, settings_override
+    anon_client: TestClient, db_session: Session, settings_override, monkeypatch
 ) -> None:
-    """prep-beta-launch point 2's first bullet, checked under APP_ENV=beta."""
+    """prep-beta-launch point 2's first bullet, checked under APP_ENV=beta.
+    Real Google cannot be called from the suite, so the mock stands in."""
+    from app.api.routes import google_auth
+    from app.services.google_login import MockGoogleLogin
+
     app.dependency_overrides[get_settings] = lambda: Settings(app_env="beta")
+    monkeypatch.setattr(google_auth, "get_google_login", lambda settings: MockGoogleLogin())
     make_code(db_session)
 
     assert signup(anon_client, None).status_code == 400

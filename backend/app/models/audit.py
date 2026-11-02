@@ -148,6 +148,9 @@ class AuditAction:
     ALLOCATION_CARRIED_OVER = "allocation.carried_over"
     #: admin-consolidation v3 (4): an admin gave a member a temporary password.
     PASSWORD_RESET_BY_ADMIN = "account.password_reset_by_admin"
+    #: signup-google-first: 비밀번호를 잊었어요 — a fresh Google sign-in
+    #: let the member set a new password themselves.
+    PASSWORD_RESET_BY_GOOGLE = "account.password_reset_by_google"
     #: The top strip's text and switches; the Dashboard's alert thresholds.
     BANNER_SET = "site.banner_set"
     ALERTS_SET = "site.alerts_set"
@@ -218,6 +221,7 @@ AUDIT_ACTION_LABEL: dict[str, str] = {
     AuditAction.QUARTER_APPS_ARCHIVED: "앱 보관 확인",
     AuditAction.ALLOCATION_CARRIED_OVER: "지원금 이월",
     AuditAction.PASSWORD_RESET_BY_ADMIN: "관리자가 비밀번호 재설정",
+    AuditAction.PASSWORD_RESET_BY_GOOGLE: "Google 확인으로 비밀번호 재설정",
     AuditAction.BANNER_SET: "공지 띠 변경",
     AuditAction.ALERTS_SET: "알림 기준 변경",
 }

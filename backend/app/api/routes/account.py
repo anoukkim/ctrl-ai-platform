@@ -121,7 +121,7 @@ def update_profile(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이름을 1~100자로 적어 주세요.")
     user.display_name = display_name
     db.commit()
-    return as_current_user(user)
+    return as_current_user(user, db)
 
 
 # --------------------------------------------- preferences (spend feedback)

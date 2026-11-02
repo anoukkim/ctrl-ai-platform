@@ -99,13 +99,15 @@ the same commit that adds it.
 | `DELETE /api/feedback/images/{image_id}` | `get_current_user` | ✕ on a picture not sent yet — own and waiting only, else 404 |
 | `GET /api/notifications`, `GET /api/notifications/unread` | `get_current_user` | One's own notification list (feat-notifications) and the bell's count — spends nothing, works while not taking part; reading prunes rows older than 90 days. Only approvals, 게시 완료, 반응을 얻었어요 and 신고 처리 are listed or counted (owner-polish-3) |
 | `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`, `POST /api/notifications/clear` | `get_current_user` | Marking one's own rows read (JSON body `{}`; the bell does read-all when it opens) and 지우기 (`{ids}` or `{}` = all of mine — no history kept); another member's row is a 404 or simply untouched |
-| `POST /api/auth/register` | none | Creating the account — needs a usable invite code; limited per address, counted in `signup_attempts` |
 | `POST /api/auth/login` | none | `former` is refused here, 403 |
 | `POST /api/auth/logout` | none | Signing out must always work |
 | `GET /api/auth/google/start` | none | Google로 계속하기: a single-use state + PKCE verifier, then to Google (404 where Google sign-in is off) |
 | `GET /api/auth/google/callback` | none | State must match the cookie and an unexpired row; matched by Google `sub` only |
 | `GET /api/auth/google/pending` | none | The setup screen's Google sign-up, from its HttpOnly cookie |
-| `POST /api/auth/google/complete` | none | Creates the account: username, name, invite code (none for a verified ADMIN_EMAIL) |
+| `POST /api/auth/google/complete` | none | Creates the account — the only sign-up (signup-google-first): username, name, password ×2 (8+, equal), invite code (none for a verified ADMIN_EMAIL); limited per address, counted in `signup_attempts` |
+| `GET /api/auth/google/reset/start` | none | 비밀번호를 잊었어요: the same Google round trip with `purpose=reset` |
+| `GET /api/auth/google/reset/pending` | none | Whose password the browser's grant cookie may reset, and the seconds left; 404 once expired or used |
+| `POST /api/auth/google/reset/complete` | none | Saves the new password (8+, equal), spends the grant atomically (`used_at`), signs out every other browser, signs this one in; audited |
 | `GET /api/auth/google/mock-consent` (+ `/approve`) | none | Development's stand-in Google page; 404 elsewhere |
 | `GET /api/account/google` | `get_current_user` | Is Google linked |
 | `GET /api/account/google/link/start` | `get_current_user` | Profile › 연결하기 |

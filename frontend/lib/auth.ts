@@ -24,21 +24,12 @@ export interface CurrentUser {
   account_status: AccountStatus;
   /** 관리 메뉴를 보여 줄지 결정합니다. 권한 자체는 백엔드가 다시 확인합니다. */
   is_admin: boolean;
-  /** Google로 만든 계정은 비밀번호가 없습니다 — 탈퇴 확인은 아이디로 합니다. */
+  /** 비밀번호가 없는 계정(예전 Google 가입자) — 탈퇴 확인은 아이디로 합니다. */
   has_password: boolean;
+  /** Google 계정이 연결되어 있는지(signup-google-first). 둘 중 하나가 없으면 안내 띠가 보입니다. */
+  has_google?: boolean;
   /** Profile › 알림 › 사용 알림 표시(feat-spend-feedback). 예전 서버면 없습니다. */
   spend_notifications?: boolean;
-}
-
-export interface SignupInput {
-  username: string;
-  email: string;
-  password: string;
-  display_name: string;
-  /** 초대 코드. 대소문자와 앞뒤 공백은 백엔드가 정리합니다. */
-  invite_code: string;
-  /** 개인정보 처리방침·이용약관 동의 — 백엔드가 다시 확인합니다. */
-  terms_accepted: boolean;
 }
 
 export const MIN_PASSWORD_LENGTH = 8;
@@ -46,11 +37,14 @@ export const MIN_PASSWORD_LENGTH = 8;
 /** 아이디 규칙. 백엔드의 USERNAME_PATTERN과 같습니다. */
 export const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/;
 
-export function register(input: SignupInput): Promise<CurrentUser> {
-  return request<CurrentUser>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+/**
+ * 로그인 방법이 둘 다 있는지(signup-google-first). 하나라도 없으면 화면
+ * 맨 위에 "하나 더 만들어 주세요" 띠가 보입니다. 예전 서버(has_google이
+ * 없음)에서는 띠를 보이지 않습니다 — 모르는 것을 경고하지 않습니다.
+ */
+export function hasBothSignInMethods(user: CurrentUser): boolean {
+  if (user.has_google === undefined) return true;
+  return user.has_password && user.has_google;
 }
 
 export function login(username: string, password: string): Promise<CurrentUser> {
@@ -105,10 +99,36 @@ export function completeGoogleSignup(input: {
   invite_code: string;
   /** 개인정보 처리방침·이용약관 동의 — 백엔드가 다시 확인합니다. */
   terms_accepted: boolean;
+  /** 비밀번호와 확인(signup-google-first) — 가입하는 날부터 두 방법 모두. */
+  password: string;
+  password_confirm: string;
 }): Promise<CurrentUser> {
   return request<CurrentUser>("/auth/google/complete", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+// ------------------------------------------------------------ 비밀번호를 잊었어요 (signup-google-first)
+
+/** Google로 본인을 확인하고 돌아오면 10분 동안 새 비밀번호를 만들 수 있습니다. */
+export const GOOGLE_RESET_START_URL = "/api/auth/google/reset/start";
+
+export interface ResetPending {
+  username: string;
+  /** 남은 시간(초). 백엔드가 셉니다. */
+  seconds_left: number;
+}
+
+export function fetchResetPending(): Promise<ResetPending> {
+  return request<ResetPending>("/auth/google/reset/pending");
+}
+
+/** 새 비밀번호를 저장하고 바로 로그인합니다. 다른 브라우저는 로그아웃됩니다. */
+export function completePasswordReset(password: string, passwordConfirm: string): Promise<CurrentUser> {
+  return request<CurrentUser>("/auth/google/reset/complete", {
+    method: "POST",
+    body: JSON.stringify({ password, password_confirm: passwordConfirm }),
   });
 }
 
@@ -165,6 +185,8 @@ export const GOOGLE_RESULT_MESSAGE: Record<string, string> = {
   already: "이미 이 계정에 연결된 Google 계정이에요.",
   other: "이 계정에는 이미 다른 Google 계정이 연결되어 있어요.",
   reauth: "보안을 위해 로그아웃한 뒤 다시 로그인하고 연결해 주세요. 로그인한 지 10분이 지났어요.",
+  reset_unknown:
+    "이 Google 계정과 연결된 회원이 없어요. 가입할 때 쓴 Google 계정으로 다시 해 보거나, 운영진에게 말씀해 주세요.",
 };
 
 /** `?google=` 값에 맞는 문장. 모르는 값(또는 `constructor` 같은 이름)은 null. */
