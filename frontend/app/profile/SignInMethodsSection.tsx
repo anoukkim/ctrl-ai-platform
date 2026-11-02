@@ -85,6 +85,12 @@ export default function SignInMethodsSection() {
       });
     const message = googleResultMessage(new URLSearchParams(window.location.search).get("google"));
     if (message) queueMicrotask(() => setNote(message));
+    // 안내 띠의 링크(/profile#sign-in-methods, signup-google-first)로 왔다면 이
+    // 칸으로. 화면은 로그인 확인 뒤에 그려지므로 브라우저의 해시 스크롤이
+    // 먼저 지나가 버립니다.
+    if (window.location.hash === "#sign-in-methods") {
+      setTimeout(() => document.getElementById("sign-in-methods")?.scrollIntoView({ block: "start" }), 0);
+    }
     return () => {
       cancelled = true;
     };
