@@ -12,6 +12,9 @@ google-login (2026-10-13): Google is the main way to sign in.
   PKCE verifier, and what the sign-in is for. Single-use, minutes long.
 * `PendingGoogleSignup` — a Google identity that has no account yet, held
   while the member chooses a username on the setup screen.
+* `PasswordResetGrant` — "비밀번호를 잊었어요" (signup-google-first): a
+  fresh Google sign-in proves who the member is, and this row lets them
+  set a new password for ten minutes, once.
 """
 
 from datetime import datetime
@@ -89,4 +92,25 @@ class PendingGoogleSignup(Base):
     )
 
 
+class PasswordResetGrant(Base):
+    """One "set a new password" permission, made by a Google sign-in.
 
+    A row, not a cookie flag: the expiry is checked against the database
+    clock and `used_at` makes it single use — the second request carrying
+    the same token finds it spent, whatever the browser says.
+    """
+
+    __tablename__ = "password_reset_grants"
+
+    #: The random value in the HttpOnly cookie that ties the form to it.
+    token: Mapped[str] = mapped_column(String(100), primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    #: Ten minutes after creation (`google_auth.RESET_LIFETIME`).
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    #: Set when the new password was saved; a used grant is never reused.
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -1,4 +1,8 @@
-"""Registration, sign-in and sign-out.
+"""Sign-in and sign-out.
+
+Sign-up is not here: since signup-google-first (2026-11-03) an account is
+made only on the Google setup screen (`google_auth.py`), where the member
+also chooses a password — so everyone leaves sign-up with both ways in.
 
 The session cookie is set here and nowhere else. It is `HttpOnly`, so no
 JavaScript on the page can read it — which is the point of proxying
@@ -12,27 +16,33 @@ Error messages are Korean, because members read them.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import Settings, get_settings
-from app.core.security import (
-    UNUSABLE_PASSWORD_HASH,
-    hash_password,
-    new_session_token,
-    verify_password,
-)
+from app.core.security import UNUSABLE_PASSWORD_HASH, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import AccountStatus, User, UserRole, UserSession
-from app.schemas.auth import CurrentUser, LoginRequest, RegisterRequest
-from app.services import invites, rate_limit
+from app.models import ConnectedAccount, User, UserRole, UserSession
+from app.schemas.auth import CurrentUser, LoginRequest
+from app.services import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def as_current_user(user: User) -> CurrentUser:
+def has_google(db: Session, user_id: int) -> bool:
+    """Whether a Google account is linked (by `sub`, in `connected_accounts`)."""
+    return (
+        db.scalar(
+            select(ConnectedAccount.id).where(
+                ConnectedAccount.user_id == user_id, ConnectedAccount.provider == "google"
+            )
+        )
+        is not None
+    )
+
+
+def as_current_user(user: User, db: Session) -> CurrentUser:
     """The signed-in member as every account route answers them."""
     return CurrentUser(
         id=user.id,
@@ -43,6 +53,7 @@ def as_current_user(user: User) -> CurrentUser:
         account_status=user.account_status,
         is_admin=user.role is UserRole.ADMIN,
         has_password=user.password_hash != UNUSABLE_PASSWORD_HASH,
+        has_google=has_google(db, user.id),
         spend_notifications=user.spend_notifications,
     )
 
@@ -75,110 +86,9 @@ def _start_session(db: Session, response: Response, user: User, settings: Settin
     )
 
 
-#: privacy-and-terms: shown when the consent box was not ticked. The
-#: Google completion route uses the same sentence.
+#: privacy-and-terms: shown when the consent box was not ticked on the
+#: Google setup screen (`google_auth.py`).
 TERMS_REQUIRED = "개인정보 처리방침과 이용약관에 동의해야 가입할 수 있습니다."
-
-
-@router.post(
-    "/register",
-    response_model=CurrentUser,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create an account with an invite code and sign in",
-)
-def register(
-    payload: RegisterRequest,
-    request: Request,
-    response: Response,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> CurrentUser:
-    """Sign up — only with an invite code (invite-only-signup).
-
-    The order of the checks is deliberate:
-
-    1. **Rate limits**, per client address, before anything else.
-    2. **The code**, before the username and email. Without a usable code
-       nobody learns whether a username or email is taken, so the form
-       cannot be used to probe who is a member.
-    3. **Duplicates** — a taken username or email is refused *without*
-       using up the code.
-    4. **One use is taken atomically** (`invites.claim`) in the same
-       transaction that creates the account. If someone took the last use
-       a moment earlier, the claim changes nothing and this signup gets
-       the same "unusable" message.
-    """
-    # Consent first: a pure payload check that reveals nothing, costs
-    # nothing and must hold on every path (privacy-and-terms). The
-    # browser disables the button, but the backend is the rule.
-    if not payload.terms_accepted:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=TERMS_REQUIRED)
-
-    address = rate_limit.client_address(request, settings)
-    if rate_limit.blocked(db, address, settings):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="가입 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-        )
-    attempt = rate_limit.record(db, address)
-
-    def refuse_code(message: str) -> HTTPException:
-        rate_limit.mark_failed(db, attempt)
-        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
-
-    code = invites.normalise(payload.invite_code)
-    if not code:
-        raise refuse_code(invites.CODE_REQUIRED)
-    invite = invites.find_usable(db, code)
-    if invite is None:
-        raise refuse_code(invites.CODE_UNUSABLE)
-
-    # The email compared without case: Victim@gmail.com and victim@gmail.com
-    # are one mailbox, and Google sign-up compares them the same way.
-    taken = db.scalar(
-        select(User).where(
-            (User.username == payload.username)
-            | (func.lower(User.email) == payload.email.strip().lower())
-        )
-    )
-    if taken is not None:
-        # Which field collided is safe to say: both are visible to anyone
-        # who tries to register, and a vague message only frustrates.
-        field = "아이디" if taken.username == payload.username else "이메일"
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"이미 사용 중인 {field}입니다.",
-        )
-
-    if not invites.claim(db, invite.id):
-        db.rollback()
-        raise refuse_code(invites.CODE_UNUSABLE)
-
-    user = User(
-        username=payload.username,
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        display_name=payload.display_name,
-        role=UserRole.MEMBER,
-        account_status=AccountStatus.ACTIVE,
-        invite_code_id=invite.id,
-        terms_accepted_at=datetime.now(timezone.utc),
-    )
-    db.add(user)
-    try:
-        db.commit()
-    except IntegrityError:
-        # The same username or email registered a moment ago: the claimed
-        # use is rolled back with the account.
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="이미 사용 중인 아이디 또는 이메일입니다.",
-        ) from None
-    db.refresh(user)
-
-    _start_session(db, response, user, settings)
-    return as_current_user(user)
 
 
 @router.post("/login", response_model=CurrentUser, summary="Sign in")
@@ -216,7 +126,7 @@ def login(
         )
 
     _start_session(db, response, user, settings)
-    return as_current_user(user)
+    return as_current_user(user, db)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Sign out")
@@ -251,5 +161,5 @@ def logout(
 
 
 @router.get("/me", response_model=CurrentUser, summary="Who am I")
-def me(user: User = Depends(get_current_user)) -> CurrentUser:
-    return as_current_user(user)
+def me(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> CurrentUser:
+    return as_current_user(user, db)
