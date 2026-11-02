@@ -29,9 +29,12 @@ in **CtrlAIApps** and **CtrlAITube**. The club owns provider access: members
 never hold API keys, and every won spent comes out of one 동아리 지원 wallet
 per member per quarter, recorded per member, quarter and provider.
 
-> **Beta, invite-only.** The site runs at [ctrlai.my](https://ctrlai.my) for
-> invited members. Every external provider also has a **mock**, so the whole
-> platform runs locally with no API keys.
+> **Invite-only.** The site runs at [ctrlai.my](https://ctrlai.my) for
+> invited members: sign-up is with a Google account plus an invite code, and
+> every member also chooses a username and password at sign-up, so both ways
+> in exist from day one (a forgotten password is reset through Google).
+> Every external provider also has a **mock**, so the whole platform runs
+> locally with no API keys.
 
 ## Screens
 
@@ -63,6 +66,11 @@ per member per quarter, recorded per member, quarter and provider.
   Community · System): 처리할 일 and alerts, a member panel with every action,
   the quarter's money flow and close-out steps, usage analysis with a Concur
   CSV, the site banner, audit log.
+- **Accounts** — Google sign-in and username/password for everyone; sign-up
+  through Google only (invite code required), with the password chosen on
+  the setup screen; "비밀번호를 잊었어요" is a Google sign-in that grants ten
+  minutes, once, to set a new password; a member missing one method sees a
+  notice until both exist.
 
 ## How it fits together
 
@@ -128,8 +136,9 @@ cd frontend; npm.cmd install; npm.cmd run dev
 </details>
 
 Open **http://localhost:3000** and sign in as `dev` / `devpassword`
-(development only — the seed refuses to run anywhere else), or with the
-mock Google page. Member apps locally: `python -m app.dev_apps_server` on
+(development only — the seed refuses to run anywhere else), or sign up
+through the mock Google page (sign-up is Google only; the setup screen
+also takes a password). Member apps locally: `python -m app.dev_apps_server` on
 `:8300` with `APPS_BASE_URL=http://localhost:8300`. Reset the local data
 with `python -m app.db.reset_dev`. Everything else — environment files,
 sign-in, troubleshooting — is in [`docs/development.md`](docs/development.md).
