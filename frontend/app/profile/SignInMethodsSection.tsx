@@ -252,7 +252,7 @@ export default function SignInMethodsSection() {
   );
 
   return (
-    <section className="card" id="sign-in-methods" aria-labelledby={`${id}-title`}>
+    <section className={`card ${styles.signInMethods}`} id="sign-in-methods" aria-labelledby={`${id}-title`}>
       <h2 className="section-title" id={`${id}-title`} tabIndex={-1}>
         로그인 방법
       </h2>

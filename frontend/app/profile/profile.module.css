@@ -471,3 +471,8 @@
 
 /* ---------- 알림 목록 (feat-notifications) ---------- */
 
+
+/* 안내 띠의 링크로 왔을 때 제목이 띠 밑에 숨지 않게(signup-google-first). */
+.signInMethods {
+  scroll-margin-top: calc(var(--banner-h) + 1rem);
+}
