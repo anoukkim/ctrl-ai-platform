@@ -161,7 +161,7 @@ describe("로그인 방법 안내 띠", () => {
     render(<SignInMethodBanner />);
     const region = screen.getByRole("region", { name: "로그인 방법 안내" });
     expect(region.textContent).toContain("로그인 방법을 하나 더 만들어 주세요");
-    expect(region.textContent).toContain("Google 계정과 아이디·비밀번호가 둘 다 필요해요");
+    expect(region.textContent).toContain("Google 계정과 아이디·비밀번호 둘 다요");
     const link = screen.getByRole("link", { name: "Google 연결하기" });
     expect(link.getAttribute("href")).toBe("/profile#sign-in-methods");
     expect(document.documentElement.dataset.signinNotice).toBe("");

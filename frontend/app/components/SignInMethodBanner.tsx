@@ -46,10 +46,7 @@ export default function SignInMethodBanner() {
 
   return (
     <div className={styles.banner} role="region" aria-label="로그인 방법 안내">
-      <span className={styles.text}>
-        로그인 방법을 하나 더 만들어 주세요. 앞으로는 Google 계정과 아이디·비밀번호가 둘 다
-        필요해요.
-      </span>
+      <span className={styles.text}>로그인 방법을 하나 더 만들어 주세요. Google 계정과 아이디·비밀번호 둘 다요.</span>
       <Link className={styles.feedback} href="/profile#sign-in-methods">
         {user.has_password ? "Google 연결하기" : "비밀번호 만들기"}
       </Link>

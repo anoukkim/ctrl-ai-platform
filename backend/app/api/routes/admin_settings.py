@@ -93,6 +93,10 @@ def reset_member_password(
     # Whoever held the old password (or a cookie from it) is out — of the
     # site and of every member app, whose own sessions can spend the wallet.
     ended = account_sessions.end_everywhere(db, member)
+    # A 비밀번호를 잊었어요 the member started earlier must not still work.
+    from app.api.routes.google_auth import forget_grants
+
+    forget_grants(db, member.id)
     audit.record(
         db,
         actor=admin,

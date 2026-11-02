@@ -92,6 +92,7 @@ RESET_LIFETIME = timedelta(minutes=10)
 PASSWORD_TOO_SHORT = f"비밀번호는 {MIN_PASSWORD_LENGTH}자 이상이어야 해요."
 PASSWORD_MISMATCH = "두 칸의 비밀번호가 달라요."
 RESET_GONE = "비밀번호를 바꿀 수 있는 시간이 지났어요. 로그인 화면에서 다시 시작해 주세요."
+RESET_NONE = "비밀번호를 바꿀 수 있는 상태가 아니에요. 로그인 화면에서 비밀번호를 잊었어요를 눌러 주세요."
 
 #: The username rule the password sign-up uses (schemas/auth.py).
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,50}$")
@@ -633,6 +634,22 @@ def _grant(db: Session, request: Request) -> PasswordResetGrant | None:
     return grant
 
 
+def _gone_message(request: Request) -> str:
+    """"시간이 지났어요" only when there was a grant to begin with."""
+    return RESET_GONE if request.cookies.get(RESET_COOKIE, "") else RESET_NONE
+
+
+def forget_grants(db: Session, user_id: int) -> None:
+    """Drop a member's unused grants — the password changed another way
+    (Profile, an admin reset), so a reset started earlier must not still
+    work. Does not commit."""
+    db.execute(
+        delete(PasswordResetGrant)
+        .where(PasswordResetGrant.user_id == user_id, PasswordResetGrant.used_at.is_(None))
+        .execution_options(synchronize_session=False)
+    )
+
+
 class ResetPending(BaseModel):
     username: str
     #: Seconds left on the grant, so the form can say how long it has.
@@ -653,7 +670,7 @@ def google_reset_pending(
     _provider_or_404(settings)
     grant = _grant(db, request)
     if grant is None:
-        raise HTTPException(status_code=404, detail=RESET_GONE)
+        raise HTTPException(status_code=404, detail=_gone_message(request))
     member = db.get(User, grant.user_id)
     if member is None or not member.can_sign_in:
         raise HTTPException(status_code=404, detail=RESET_GONE)
@@ -679,13 +696,14 @@ def google_reset_complete(
     both set a password.
     """
     _provider_or_404(settings)
-    check_new_password(payload.password, payload.password_confirm)
+    # The grant first: a request without one learns nothing about the rules.
     grant = _grant(db, request)
     if grant is None:
-        raise HTTPException(status_code=400, detail=RESET_GONE)
+        raise HTTPException(status_code=400, detail=_gone_message(request))
     member = db.get(User, grant.user_id)
     if member is None or not member.can_sign_in:
         raise HTTPException(status_code=400, detail=RESET_GONE)
+    check_new_password(payload.password, payload.password_confirm)
 
     from app.api.routes.sign_in_methods import end_other_sessions
 

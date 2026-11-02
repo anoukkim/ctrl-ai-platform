@@ -188,7 +188,31 @@ def test_a_blocked_member_gets_no_grant(
 
 def test_without_a_cookie_there_is_nothing_to_reset(anon_client: TestClient) -> None:
     assert anon_client.get("/api/auth/google/reset/pending").status_code == 404
+    refused = anon_client.post("/api/auth/google/reset/complete", json={"password": "x", "password_confirm": "y"})
+    assert refused.status_code == 400
+    # Not "시간이 지났어요" (there never was a grant), and not the password
+    # rule either: without a grant the rules are not even looked at.
+    assert "상태가 아니에요" in refused.json()["detail"]
+
+
+def test_a_password_changed_meanwhile_voids_the_grant(
+    anon_client: TestClient, db_session: Session, member: str
+) -> None:
+    """Profile › 비밀번호 바꾸기 (or an admin reset) while a 비밀번호를 잊었어요
+    is open: the earlier grant must not still set a third password."""
+    forgot(anon_client)
+    elsewhere = TestClient(app, headers=JSON_HEADERS)
+    elsewhere.post("/api/auth/login", json={"username": "forgetful", "password": SIGNUP_PASSWORD})
+    changed = elsewhere.put(
+        "/api/account/password",
+        json={"current_password": SIGNUP_PASSWORD, "new_password": "changed-on-profile"},
+    )
+    assert changed.status_code == 200, changed.text
+
+    assert grants(db_session) == []
     assert anon_client.post("/api/auth/google/reset/complete", json=PW).status_code == 400
+    stored = db_session.scalar(select(User).where(User.username == "forgetful"))
+    assert verify_password("changed-on-profile", stored.password_hash)
 
 
 def test_where_google_sign_in_is_off_the_reset_does_not_exist(
