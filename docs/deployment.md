@@ -390,6 +390,13 @@ Admin › System › 상태 › 환율에 보입니다. 손으로 한 번 보려
 docker compose -f docker-compose.prod.yml exec -T api python -m app.jobs.refresh_fx --dry-run
 ```
 
+**자동 배포** (feat-auto-deploy, 2026-11-02): 같은 crontab에 한 줄 더 —
+`main`에 합쳐진 작업을 서버가 스스로 올립니다(9단계에 자세히):
+
+```cron
+*/10 * * * * $HOME/ctrl-ai-platform/deploy/auto-deploy.sh
+```
+
 **회원 앱의 지도 타일** (fix-app-map-tiles): `.env`에 `MAP_TILE_PROVIDER=osm`이면
 api가 OpenStreetMap 타일을 동아리 User-Agent로 대신 받아 `api_storage`
 볼륨의 `map-tiles/`에 7일 보관하고 `apps.<도메인>/_ctrlai/tiles/…`로
@@ -723,6 +730,22 @@ dc up -d
 ---
 
 ## 9. 업데이트 — 작업 하나가 `main`에 합쳐질 때마다
+
+**2026-11-02부터는 서버가 스스로 합니다** (feat-auto-deploy). cron이
+10분마다 `deploy/auto-deploy.sh`를 돌려, `main`이 앞서 있고 그 커밋의 이미지
+세 개(api·web·thumbs, 테스트를 통과해야 만들어집니다)가 ghcr에 있으면 아래
+2번의 `update.sh`를 그대로 실행합니다. 그러니 할 일은 **머지 → 20분쯤 뒤
+사이트 확인**뿐입니다. 기록은 `~/ctrlai-autodeploy.log`, 지금 상태는
+`./deploy/auto-deploy.sh --status`. 메일(6-1의 "CTRL+AI 서버 오류")이 오는
+경우 두 가지: 배포가 실패했을 때, 그리고 main 커밋이 90분 넘게 이미지가 없을
+때(GitHub 빌드가 깨진 것). 잘 된 배포는 메일을 보내지 않습니다. 설치는
+6단계의 crontab에 한 줄:
+
+```cron
+*/10 * * * * $HOME/ctrl-ai-platform/deploy/auto-deploy.sh
+```
+
+손으로 하려면(자동 배포를 기다리기 싫을 때, 또는 cron을 넣기 전):
 
 1. GitHub → **Actions** → **images**: 방금 합친 커밋이 **초록 체크**인지
    봅니다(테스트 → 이미지 만들기, 10분 안쪽). 빨간 X면 새 이미지가 없습니다 —

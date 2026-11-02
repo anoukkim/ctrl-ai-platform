@@ -411,7 +411,10 @@ git branch -d feat-token-guard
 git status                           # confirm clean
 ```
 
-Then confirm to the developer that `git status` is clean.
+Then confirm to the developer that `git status` is clean. **The push is
+the deploy** (feat-auto-deploy, 2026-11-02): the server picks `main` up
+within about 20 minutes once the images build is green, so merge only
+what may go live, and say so in the report.
 
 ## Documentation commits while a branch is in progress
 
