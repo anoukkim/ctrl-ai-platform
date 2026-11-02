@@ -159,6 +159,12 @@ export default function LoginForm() {
             회원가입
           </Link>
         </p>
+        {/* 스스로 바꾸는 길은 아직 없습니다 (signup-google-first가 오면 생김).
+            관리자가 Admin › Members에서 임시 비밀번호를 만들어 줍니다. */}
+        <p className={styles.forgot}>
+          비밀번호를 잊으셨나요? 운영진에게 말씀해 주세요. 새 비밀번호를 만들어
+          드려요.
+        </p>
       </div>
     </div>
   );
