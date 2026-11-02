@@ -150,8 +150,10 @@ See [`docs/development.md` › Verifying the project](docs/development.md#verify
 
 The beta runs on one Google Cloud VM (Seoul) with `docker-compose.prod.yml`:
 Caddy, web, api, PostgreSQL and the `thumbs` worker. GitHub Actions builds
-the images on every push to `main`; the server only pulls them, and
-`deploy/update.sh` backs up, migrates and restarts. Step by step, in Korean:
+the images on every push to `main`; the server pulls them by itself
+(`deploy/auto-deploy.sh` from cron, every 10 minutes, once the images for
+that commit exist) and `deploy/update.sh` backs up, migrates and restarts
+without a gap. Step by step, in Korean:
 [`docs/deployment.md`](docs/deployment.md). Secrets live only in the
 server's `.env` (`chmod 600`, never committed).
 

@@ -124,6 +124,14 @@
   font-weight: 650;
 }
 
+/* 비밀번호를 잊었을 때: 스스로 바꾸는 길이 없어 운영진에게 말하라는 한 줄. */
+.forgot {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* 회원가입: 정보가 어디에 저장되는지. 문구는 서버 .env에서 옵니다. */
 .notice {
   margin: 0;
