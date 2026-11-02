@@ -569,8 +569,10 @@ Chat is the opening screen and a real conversation with Claude, behind
   대화 / 생각 깊이를 높여 suggestion. The daily cap counts every paid feature
   per KST day and refuses before anything is spent. Builder calls do not
   continue: they write whole files per stage under their own caps.
-- **Tools in Chat** (chat-plus-tools — **mock only** until Phase 9: no
-  real API call, no real fee). 웹 검색, 웹 페이지 읽기 and 코드 실행 as
+- **Tools in Chat** (chat-plus-tools; **real spend** since production runs
+  real Claude, 2026-10-19 — a search about 14원, a page read about 7원,
+  shown on the switch). 웹 사용 (= 웹 검색 + 웹 페이지 읽기, one switch
+  since merge-web-tools 2026-11-02) and 코드 실행 as
   Anthropic server tools. An admin opens each tool per model in Admin ›
   Models › Chat; the member switches it on per conversation next to the model
   picker, and sees the cost first (search ≈ 14원 each plus result tokens).

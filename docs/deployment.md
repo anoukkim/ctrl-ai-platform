@@ -354,8 +354,9 @@ curl.exe -I https://www.ctrlai.my      # 301 → https://ctrlai.my/
   링크가 복사되니, 그 링크를 회원에게 보내면 됩니다. 코드가 새어 나가면
   **사용 중지** — 새 가입만 막히고 이미 가입한 계정은 그대로입니다.
 - 관리자로 분기를 만들고(Admin › Quarters), 신청을 엽니다.
-- Video Generator, Project Builder, CtrlAIApps, CtrlAITube에 "테스트 모드"
-  표시가 보이는지 봅니다. 아직 목업이라는 뜻이고, 정상입니다.
+- Video Generator에만 "테스트 모드" 표시가 보이는지 봅니다(영상은 아직
+  목업). Chat·Builder는 진짜 Claude라 표시가 없고, 이미지 만들기는 잠겨
+  있습니다(Admin › System › 기능 열기, Gemini 키 전에는 열지 않습니다).
 
 ---
 
