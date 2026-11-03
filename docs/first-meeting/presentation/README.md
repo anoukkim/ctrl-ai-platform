@@ -16,7 +16,7 @@ Artifact was updated to match.
 | --- | --- |
 | `index.html` | The presentation: real ctrlai.my screens in a Chrome-window frame. Tabs 시작하기 · 채팅에서 앱까지 · 남이 만든 앱의 AI · 화면 둘러보기 · 움짤 · 대본 |
 | `script.md` | The 5-minute Korean script (same text as the page's 「대본」 tab) |
-| `live-demo-prompts.md` | Copy-paste prompts for a live demo on ctrlai.my (web search · Chat preview → Builder · Builder update) |
+| `live-demo-prompts.md` | Copy-paste prompts for a live demo on ctrlai.my: web research → table + chart; a quiz-show game grown in Chat → Builder; Builder turns it into a shared app (명예의 전당, 문제 은행) the audience joins by phone |
 | `v2/img/` | 56 screenshots the page plays |
 | `v2/gif/` | 6 GIF clips (the 「움짤」 tab) |
 
