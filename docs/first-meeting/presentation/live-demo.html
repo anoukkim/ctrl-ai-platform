@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>직접 시연 프롬프트</title>
+<style>
+/* One column of steps; each prompt is a block with a big copy button. Dark to match the deck. */
+:root {
+  --bg: #0b0b10; --panel: #16151d; --panel-2: #1d1c26; --line: #2a2834;
+  --fg: #ecebf2; --muted: #9a97aa; --accent: #8f7bff; --accent-soft: rgba(143,123,255,.14);
+  --warn: #f2c26b; --warn-soft: rgba(242,194,107,.10); --ok: #5fd39a;
+  --sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f6f5fa; --panel: #ffffff; --panel-2: #f0eef7; --line: #dedbe8;
+  --fg: #1a1823; --muted: #615d72; --accent: #5b45e0; --accent-soft: rgba(91,69,224,.10);
+  --warn: #9a6700; --warn-soft: rgba(154,103,0,.08); --ok: #137a4a;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 var(--sans); padding: 24px 16px 64px; }
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
+h1 b { color: var(--accent); }
+.sub { color: var(--muted); font-size: 14px; margin: 2px 0 0; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.tools a, .tools button {
+  font: 500 13px var(--sans); color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; text-decoration: none;
+}
+nav.jump { display: flex; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0; }
+nav.jump a {
+  font: 500 14px var(--sans); color: var(--muted); text-decoration: none; border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 12px; background: var(--panel);
+}
+nav.jump a.done { color: var(--ok); border-color: var(--ok); }
+
+.flow { color: var(--muted); font-size: 15px; margin: 0; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+.box h2 { margin: 0 0 8px; font-size: 16px; }
+.box ul { margin: 0; padding-left: 20px; }
+.box li + li { margin-top: 4px; }
+.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: var(--warn-soft); }
+.warn h2 { color: var(--warn); }
+
+section.step { display: grid; gap: 14px; scroll-margin-top: 64px; }
+.step-head { display: flex; align-items: center; gap: 12px; }
+.num {
+  width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none;
+  background: var(--accent); color: #fff; font: 700 18px var(--sans);
+}
+.step-head h2 { margin: 0; font-size: 21px; line-height: 1.3; }
+.where { font-size: 13px; color: var(--muted); }
+.setup { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+.chip { font: 500 13px var(--sans); color: var(--fg); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; padding: 2px 10px; }
+
+.prompt { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.prompt.optional { border-style: dashed; }
+.p-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.p-head .key { font: 600 12px var(--mono); color: var(--accent); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
+.p-head .label { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; }
+.p-head .label small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.copy {
+  font: 600 15px var(--sans); color: #fff; background: var(--accent); border: 0; border-radius: 8px;
+  padding: 8px 18px; cursor: pointer; min-width: 92px; flex: none;
+}
+.copy.copied { background: var(--ok); }
+.prompt pre {
+  margin: 0; padding: 14px 16px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere;
+  font: 15px/1.7 var(--sans); color: var(--fg);
+}
+.sent { display: flex; align-items: center; gap: 8px; padding: 8px 16px 12px; font-size: 14px; color: var(--muted); }
+.sent input { width: 18px; height: 18px; accent-color: var(--ok); }
+.prompt.is-sent { opacity: .6; }
+
+.then { font-size: 15px; color: var(--muted); margin: 0; }
+.then b { color: var(--fg); font-weight: 600; }
+.look { background: var(--panel); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 15px; }
+.look strong { display: block; font-size: 13px; color: var(--accent); margin-bottom: 2px; }
+.look ul { margin: 0; padding-left: 18px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 8px 0; }
+.hint { font-size: 13px; color: var(--muted); }
+.hint kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: var(--ok); color: #0b0b10; font-weight: 600; padding: 8px 16px; border-radius: 999px; transition: .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (max-width: 600px) {
+  .p-head { flex-wrap: wrap; }
+  .copy { width: 100%; padding: 10px; }
+  .step-head h2 { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>CTRL<b>+</b>AI 직접 시연</h1>
+      <p class="sub">2026.11.04 1차 모임 · 프롬프트는 「복사」 → ctrlai.my에 붙여 넣기</p>
+    </div>
+    <div class="tools">
+      <a href="index.html">녹화본 열기</a>
+      <button id="reset" type="button">체크 초기화</button>
+      <button id="theme" type="button">밝은 화면</button>
+    </div>
+  </header>
+
+  <nav class="jump" aria-label="단계">
+    <a href="#before">준비</a>
+    <a href="#s1" data-step="1">1 웹 검색</a>
+    <a href="#s2" data-step="2">2 Chat → Builder</a>
+    <a href="#s3" data-step="3">3 Builder · 진짜 AI</a>
+    <a href="#after">끝나고</a>
+  </nav>
+
+  <p class="flow"><b>1</b> 웹에서 대회 정보를 모아 표·차트로 → <b>2</b> Chat에서 "AI 아이디어 코치" 화면을 만들고 말로 다듬기 (앱 안 AI는 아직 데모) → Builder로 → <b>3</b> Builder에서 진짜 AI(코칭·웹 검색)와 공유 데이터를 붙이고 게시 → 모두가 휴대폰으로 아이디어를 올리고 AI 코치를 써 봄.</p>
+
+  <div class="box" id="before">
+    <h2>시작 전</h2>
+    <ul>
+      <li>ctrlai.my에 로그인하고 새 대화 열어 두기</li>
+      <li>남은 지원금 확인 — 전부 합쳐 대략 1,500~3,000원</li>
+      <li><b>한 번 끝까지 리허설.</b> 리허설에서 만든 앱은 "예비"로 남겨 두기 — Builder가 오래 걸리면 그걸 열면 돼요</li>
+      <li>오늘 가입한 사람이 AI를 써 보게 하려면 Admin › Members에서 미리 <b>승인</b></li>
+      <li>녹화본 탭도 열어 두기</li>
+    </ul>
+  </div>
+
+  <div class="box warn">
+    <h2>피할 것 · 막히면</h2>
+    <ul>
+      <li>Chat 미리보기 안의 <b>지도</b>는 안 나와요 — 지도는 넣지 않기.</li>
+      <li>Builder 앱의 <b>✦ AI 버튼</b>이 안 보이거나 멈춘 적이 있어요. 먼저 앱 위쪽 CTRL+AI 줄의 <b>실제 AI 스위치</b> 확인 → 그래도 안 되면 CtrlAIApps의 <b>「여행 일정 메이커」</b>로 넘어가 앱 안 AI를 보여 주기.</li>
+      <li>앱 AI 요금이 Usage에 바로 안 보인 적이 있어요 — Usage는 녹화본으로.</li>
+    </ul>
+  </div>
+
+  <!-- 1 -->
+  <section class="step" id="s1">
+    <div class="step-head"><div class="num">1</div><div><h2>인터넷 검색 — 조사해서 표와 차트로</h2><div class="where">Chat · 새 대화</div></div></div>
+    <div class="setup">먼저 켜기: <span class="chip">도구 › 웹 사용</span><span class="chip">도구 › 코드 실행</span><span class="chip">생각 과정 보기</span> 모델 <span class="chip">깊이 있는 답변</span></div>
+
+    <div class="prompt" data-id="p1">
+      <div class="p-head"><span class="key">1</span><span class="label">대회 조사</span><button class="copy" type="button">복사</button></div>
+<pre>우리 AI 동아리가 올해 겨울에 팀을 꾸려서 대회에 나가 보려고 해. 웹에서 찾아서 정리해 줘.
+
+1. 지금 참가 신청이 열려 있거나 곧 열리는 국내 대학생 대상 AI·코딩 해커톤이나 공모전 5개 — 주최, 신청 마감일, 대회 날짜, 상금, 참가 조건(팀 인원·전공 제한), 공식 링크를 표로. 마감이 이미 지난 건 빼 줘.
+2. 코딩을 처음 해 보는 사람이 섞인 팀이 도전하기 좋은 곳 2개를 골라서 이유를 한 줄씩.
+3. 최근 한 달 사이 나온 AI 소식 중에 대회 주제로 쓸 만한 것 3개 — 무슨 일인지 한 줄, 우리가 만들어 볼 수 있는 아이디어 한 줄.
+
+모든 항목에 출처 링크를 달고, 확인이 안 되는 정보는 "확인 필요"라고 적어 줘.</pre>
+      <label class="sent"><input type="checkbox"> 보냈어요</label>
+    </div>
+
+    <div class="prompt" data-id="p2">
+      <div class="p-head"><span class="key">2</span><span class="label">차트 <small>같은 대화에 이어서</small></span><button class="copy" type="button">복사</button></div>
+<pre>1번 표에서 대회마다 신청 마감까지 며칠 남았는지 계산해서, 마감이 가까운 순서로 가로 막대 차트로 그려 줘. 막대 옆에 상금도 적어 줘.</pre>
+      <label class="sent"><input type="checkbox"> 보냈어요</label>
+    </div>
+
+    <div class="look"><strong>보여 줄 곳</strong>생각 과정 → 검색하는 모습 → 출처 링크 → 영수증 줄 「검색 N회 · M원」 → 차트</div>
+  </section>
+
+  <hr>
+
+  <!-- 2 -->
+  <section class="step" id="s2">
+    <div class="step-head"><div class="num">2</div><div><h2>Chat에서 "AI 아이디어 코치" 만들기 → Builder로</h2><div class="where">Chat · 새 대화 (웹 사용은 꺼도 돼요)</div></div></div>
+    <p class="then">말할 것: <b>"채팅에서는 모양을 잡고, 진짜 AI는 Builder에서 붙여요."</b> Chat 미리보기 안에서는 앱의 AI가 「데모」 답을 보여 줘요.</p>
+
+    <div class="prompt" data-id="p3">
+      <div class="p-head"><span class="key">3</span><span class="label">화면 만들기</span><button class="copy" type="button">복사</button></div>
+<pre>동아리 회원들이 만들고 싶은 앱 아이디어를 올리고, AI 코치가 그 아이디어를 만들 수 있게 도와주는 "아이디어 코치" 웹페이지 만들어 줘.
+
+- 위쪽: 「아이디어 올리기」 칸 — 앱 이름, 한 줄 설명, 분류(공부·게임·생활·동아리·기타)
+- 가운데: 올라온 아이디어 카드 목록 — 분류 색깔 태그, ❤️ 좋아요 수, 최신순/인기순 정렬, 분류 필터, 검색
+- 카드를 누르면 오른쪽에 상세 보기가 열리고, 거기에 「✦ AI 코치에게 물어보기」 버튼
+- AI 코치 결과는 이렇게 보여 줘: 한 줄 평, 난이도 별 1~5개, 꼭 필요한 기능 3~5개 체크리스트, 3단계 만들기 계획, 그리고 "CTRL+AI Chat에 그대로 붙여 넣을 첫 프롬프트" 상자와 「복사」 버튼
+- 처음부터 예시 아이디어 5개가 들어 있게
+- 깔끔한 어두운 화면, 카드에 살짝 떠오르는 효과</pre>
+      <label class="sent"><input type="checkbox"> 보냈어요</label>
+    </div>
+
+    <p class="then">답 안의 <b>페이지 카드</b>를 눌러 미리보기 열기 → 카드 하나 열고 「✦ AI 코치」 → <b>데모</b> 답 확인.</p>
+
+    <div class="prompt" data-id="p4">
+      <div class="p-head"><span class="key">4</span><span class="label">다듬기 <small>같은 대화에 이어서</small></span><button class="copy" type="button">복사</button></div>
+<pre>좋아, 이렇게 바꿔 줘.
+1. 상세 보기에 「🔎 비슷한 서비스 찾기」 버튼도 넣어 줘 — 이미 있는 비슷한 앱 3개와 우리 아이디어가 다른 점을 보여 주는 칸
+2. 아이디어마다 진행 단계(아이디어 → 만드는 중 → 완성)를 바꿀 수 있게 하고, 위쪽에 단계별 개수 막대
+3. 좋아요를 누르면 하트가 톡 튀는 애니메이션
+4. 휴대폰 세로 화면에서는 상세 보기가 아래에서 올라오는 시트로</pre>
+      <label class="sent"><input type="checkbox"> 보냈어요</label>
+    </div>
+
+    <p class="then">새 버전 확인 → 미리보기 아래 <b>「Builder로 보내기」</b>. 여기까지 넘어가는 데는 0원.</p>
+    <div class="look"><strong>보여 줄 곳</strong>무엇을 바꿨는지 설명이 먼저 나오는 것 · 답마다 든 돈 · Builder로 넘어가는 데 0원</div>
+  </section>
+
+  <hr>
+
+  <!-- 3 -->
+  <section class="step" id="s3">
+    <div class="step-head"><div class="num">3</div><div><h2>Builder에서 진짜 AI 붙이고, 모두가 쓰는 앱으로</h2><div class="where">Project Builder · 2~3분 걸려요 (그동안 계획과 파일이 써지는 걸 설명)</div></div></div>
+
+    <div class="prompt" data-id="p5">
+      <div class="p-head"><span class="key">5</span><span class="label">진짜 AI + 공유 데이터</span><button class="copy" type="button">복사</button></div>
+<pre>이 아이디어 코치를 CTRL+AI 기능 상자로 진짜 앱으로 만들어 줘.
+
+1. 아이디어와 좋아요를 CTRL+AI 공유 데이터에 저장해서, 동아리 사람 모두가 같은 목록을 보게 해 줘. 올린 사람 이름을 카드에 작게. 로그인 안 한 사람은 보기만 할 수 있고, 올리거나 좋아요를 누르면 로그인 안내.
+2. 「✦ AI 코치에게 물어보기」는 진짜 Claude로: "smart" 모델, 결과는 JSON 스키마로 받아서(한 줄 평, 난이도 1~5, 기능 목록, 3단계 계획, 첫 프롬프트) 지금 화면 그대로 채워 줘. 받은 코칭은 그 아이디어에 같이 저장해서 다음 사람은 다시 돈 쓰지 않고 볼 수 있게.
+3. 「🔎 비슷한 서비스 찾기」는 웹 검색을 켜고 Claude가 실제로 찾아보게 해 줘. 결과마다 링크.
+4. 각 AI 버튼 옆에 1회 예상 금액을 보여 주고, 끝나면 실제 든 금액을 결과 위에 작게.</pre>
+      <label class="sent"><input type="checkbox"> 보냈어요</label>
+    </div>
+
+    <div class="look"><strong>보여 줄 곳</strong>
+      <ul>
+        <li>만들 계획 → 파일을 하나씩 쓰는 모습 (공유 목록을 적는 <code>ctrlai.json</code> 포함) → 점검</li>
+        <li>미리보기: AI 버튼 옆 「1회 약 N원 · 최대 M원」</li>
+        <li>「✦ AI 코치」 → 진짜 코칭 + 「미리보기 사용 · N원 · 내 지원금에서」 (미리보기는 만든 사람이 내요)</li>
+        <li>마무리: 「복사」한 첫 프롬프트를 새 Chat에 붙여 넣으면 그 아이디어로 또 앱이 만들어져요</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <h2>게시하고 다 같이 써 보기</h2>
+      <ul>
+        <li>오른쪽 위 <b>「CtrlAIApps에 게시」</b> — AI 사용을 묻으면 <b>「전체 기능」</b> 고르기 (새 AI 앱은 「데모만」으로 시작해요)</li>
+        <li>앱 주소를 화면에 띄우고 "휴대폰으로 들어와서 아이디어 하나씩 올려 보세요"</li>
+        <li>각자 「✦ AI 코치」를 누르면 <b>누른 사람의</b> 지원금에서 나가요. 승인 전인 회원에게는 「데모」 답이 나와요</li>
+        <li>게시한 앱의 데이터는 미리보기와 따로라서 빈 목록에서 시작해요</li>
+      </ul>
+    </div>
+
+    <div class="prompt optional" data-id="p6">
+      <div class="p-head"><span class="key">6</span><span class="label">선택 · 스케치 사진 <small>리허설에서 잘 됐을 때만</small></span><button class="copy" type="button">복사</button></div>
+<pre>아이디어 올리기에 「📷 스케치 사진」을 추가해 줘. 종이에 그린 화면 스케치를 찍어 올리면, AI 코치가 사진을 보고 화면 구성을 설명하고 빠진 기능을 짚어 주게. 사진은 저장하지 말고 코칭에만 써 줘.</pre>
+      <label class="sent"><input type="checkbox"> 보냈어요</label>
+    </div>
+  </section>
+
+  <div class="box" id="after">
+    <h2>끝나고</h2>
+    <ul>
+      <li>게시한 아이디어 코치는 남겨 둬도 좋아요 (동아리 아이디어 모음). 지우려면 게시 취소 후 삭제</li>
+      <li>시연용 대화·예비 프로젝트 정리</li>
+      <li>이상했던 점은 <code>docs/first-meeting/README.md</code>의 "Found while recording"에 추가</li>
+    </ul>
+  </div>
+
+  <p class="hint">키보드 <kbd>1</kbd>~<kbd>6</kbd>을 누르면 그 번호의 프롬프트가 바로 복사돼요.</p>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const prompts = [...document.querySelectorAll(".prompt")];
+const toast = document.getElementById("toast");
+let toastTimer;
+
+function say(msg) {
+  toast.textContent = msg; toast.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 1400);
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch {}
+  ta.remove(); return ok;
+}
+
+async function copyPrompt(p) {
+  const btn = p.querySelector(".copy");
+  const ok = await copyText(p.querySelector("pre").textContent.trim());
+  if (!ok) { say("복사가 안 됐어요 — 글을 직접 선택해 주세요"); return; }
+  btn.textContent = "복사됨 ✓"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = "복사"; btn.classList.remove("copied"); }, 1500);
+  say(`${p.querySelector(".key").textContent}번 프롬프트를 복사했어요`);
+}
+
+function refreshSteps() {
+  document.querySelectorAll("nav.jump a[data-step]").forEach(a => {
+    const list = [...document.querySelectorAll(`#s${a.dataset.step} .prompt:not(.optional)`)];
+    a.classList.toggle("done", list.length > 0 && list.every(p => p.classList.contains("is-sent")));
+  });
+}
+
+prompts.forEach(p => {
+  const box = p.querySelector(".sent input"), key = "demo-sent-" + p.dataset.id;
+  box.checked = store.get(key) === "1";
+  p.classList.toggle("is-sent", box.checked);
+  box.addEventListener("change", () => {
+    p.classList.toggle("is-sent", box.checked);
+    box.checked ? store.set(key, "1") : store.del(key);
+    refreshSteps();
+  });
+  p.querySelector(".copy").addEventListener("click", () => copyPrompt(p));
+});
+refreshSteps();
+
+document.getElementById("reset").addEventListener("click", () => {
+  prompts.forEach(p => { const b = p.querySelector(".sent input"); b.checked = false; p.classList.remove("is-sent"); store.del("demo-sent-" + p.dataset.id); });
+  refreshSteps(); say("체크를 지웠어요");
+});
+
+const themeBtn = document.getElementById("theme");
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  themeBtn.textContent = t === "light" ? "어두운 화면" : "밝은 화면";
+  store.set("demo-theme", t);
+}
+setTheme(store.get("demo-theme") === "light" ? "light" : "dark");
+themeBtn.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
+
+addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const p = prompts.find(x => x.querySelector(".key").textContent === e.key);
+  if (p) { e.preventDefault(); copyPrompt(p); }
+});
+</script>
+</body>
+</html>
