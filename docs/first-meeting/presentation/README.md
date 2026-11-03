@@ -1,4 +1,4 @@
-# 1차 모임 발표자료 — 2026-11-04
+# 1차 모임 발표자료 — 2026-11-03
 
 The presentation page for the first all-member meeting, copied from the
 Artifact "CTRL+AI 시연" (version 1793659542-0c83, 2026-11-02) so it can be
