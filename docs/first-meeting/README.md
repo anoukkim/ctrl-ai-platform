@@ -1,4 +1,4 @@
-# First meeting — 2026-11-04 (1차 모임)
+# First meeting — 2026-11-03 (1차 모임)
 
 Material for the first all-member presentation of CTRL+AI, and what
 preparing it turned up. Written 2026-11-03.
