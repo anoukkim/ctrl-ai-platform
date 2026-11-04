@@ -37,7 +37,7 @@ _docs = settings.is_development
 
 app = FastAPI(
     title="Ctrl AI Backend",
-    version="0.1.0",
+    version="1.0.0",
     description="Core API for the Ctrl AI community platform.",
     docs_url="/docs" if _docs else None,
     redoc_url="/redoc" if _docs else None,
