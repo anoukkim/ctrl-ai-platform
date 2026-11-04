@@ -3126,7 +3126,7 @@ Branch `feat-promo-videos`. Moved here from BACKLOG › Next on merge; text unch
     *Not pre-approved — branch, test, report, WAIT. Order: after
     publish-summary (merged 2026-10-16).* **Status 2026-10-16: built on
     the branch, tests green, waiting for the owner** — see
-    `progress/RUN-2026-10-16.md` › PV. Owner, 2026-10-16 (relayed from another session,
+    `archive/progress-2026-10/RUN-2026-10-16.md` › PV. Owner, 2026-10-16 (relayed from another session,
     their words): "영상 소스 있음 https://github.com/anoukkim/ctrl-ai-platform/tree/chore-promo-videos/promo-videos
     — 2번(데스크탑), 3번(모바일 영상) — 이거를 각각 가이드 마지막(화면
     임베디드, 크게 보기 가능) 그리고 ctrl tube에 그냥 기본적으로 나오는
@@ -3199,12 +3199,12 @@ The owner's words for every point stay in BACKLOG › "owner-polish-2026-10-16"
   `charged_krw` only; reduced motion = plain toast.
 - Checks at merge: backend 1063 (PG on, exit 0), frontend 535,
   tsc/lint/build OK, Playwright 14/14, screenshots
-  `progress/screens/owner-polish-a/`; `/code-review high` findings fixed.
+  `archive/screens-2026-10/owner-polish-a/`; `/code-review high` findings fixed.
 
 ## ui-improvements-a — delivery notes (merged 2026-10-16)
 
 Branch `feat-ui-improvements-a`, merged `89efa9c` under the owner's written
-pre-approval of 2026-10-16 (quoted in `progress/RUN-2026-10-16.md` › UI-A):
+pre-approval of 2026-10-16 (quoted in `archive/progress-2026-10/RUN-2026-10-16.md` › UI-A):
 own `/code-review high` and `/security-review`, every gate green, main
 merged with one Alembic head, the coordinating session asked before the
 merge. The owner's words stay in BACKLOG › "owner-polish-2026-10-16"
@@ -3276,7 +3276,7 @@ points 3–6, is another session's branch). What was built:
   CtrlAIApps card and head, the detail frame fits 390 × 844, pin · 이름순
   · ★ survive a reload, Profile's two switches align and the list has no
   image. Final: backend 1076, frontend 547, tsc/lint/build, Playwright
-  6/6 (with promo-videos), screenshots `progress/screens/ui-improvements-a/`.
+  6/6 (with promo-videos), screenshots `archive/screens-2026-10/ui-improvements-a/`.
 - **Reviews.** `/code-review high` 9 findings fixed in `028c5eb` (the
   `updated_at` bump, the pin guard, pruned pictures, one decoder, the SDK
   payload, the favourite race, manifest-only parsing, the `<img>` retry,
@@ -3339,7 +3339,7 @@ with the owner's words:
 
 Branch `feat-ui-improvements-b`, built in the worktree `../ctrl-ai-ui-b`
 under the owner's written pre-approval of 2026-10-16 (quoted in
-`progress/RUN-2026-10-16.md` › UI-B): own `/code-review high` and
+`archive/progress-2026-10/RUN-2026-10-16.md` › UI-B): own `/code-review high` and
 `/security-review`, every gate green, main merged with one Alembic head,
 the coordinating session asked before the merge. What was built:
 
@@ -3405,7 +3405,7 @@ the coordinating session asked before the merge. What was built:
   table row for the purge route. Frontend: `admin-fold`,
   `admin-health-strip`, `admin-extend-deadline`, `admin-deleted`,
   `cost-clarity` (purge count), catalogue and wallet tests adapted to the
-  folds. Screenshots `progress/screens/ui-improvements-b/` (18, by
+  folds. Screenshots `archive/screens-2026-10/ui-improvements-b/` (18, by
   `e2e/ui-b-shots.mjs`).
 - **Reviews.** `/security-review` (subagent on the worktree diff): no
   findings; one note applied (`remove_files` catches `StorageKeyError`).
@@ -3485,7 +3485,7 @@ on the coordinating session's "시작해". What was built:
   보기, the choice survives a reload, nothing charged throughout; live
   and signed out → the sign-in window opens. Final: backend full (PG
   on) exit 0, frontend 570, tsc/lint/build, Playwright 19/19;
-  screenshots `progress/screens/app-ai-access/` (14, by
+  screenshots `archive/screens-2026-10/app-ai-access/` (14, by
   `e2e/app-ai-access-shots.mjs`).
 - **Review** (one read-only subagent on the worktree diff, code +
   security): 5 findings fixed in `50da2b0` — the shell's gate on a
@@ -3502,7 +3502,7 @@ merge + deploy … Build directly"); the coordinating session confirmed the
 turn and the go before the merge. The owner's words (owner-polish 2):
 "프로필 정리 뭔가 알림 같은 것도 추가하면 좋겠어. 게시가 완료됐습니다 !
 사용이 차감됐습니다 etc". The build log with the safest defaults chosen is
-in `progress/RUN-2026-10-16.md` › NT. What was built:
+in `archive/progress-2026-10/RUN-2026-10-16.md` › NT. What was built:
 
 - **Rows** (`notifications`, migration `c4e8a2d6f0b3`; `services/
   notifications.py`): kind, title, body, link (literal site paths plus
@@ -3531,7 +3531,7 @@ in `progress/RUN-2026-10-16.md` › NT. What was built:
   Profile above the switches (now under 알림 설정), `#notifications`.
 - **Tests**: backend `test_notifications.py` (12) + guard rows; frontend
   `notifications.test.tsx` (5); Playwright `notifications.spec.ts` (1),
-  screenshots `progress/screens/notifications/`. Final after merging
+  screenshots `archive/screens-2026-10/notifications/`. Final after merging
   main: backend 1118, frontend 575, tsc/lint/build, Playwright 1/1.
 - **Not built, on purpose**: no row for an admin's reply to 의견 (no
   reply feature exists; noted in product.md).
@@ -3911,7 +3911,7 @@ above.)
     always available, "이어서 쓰는 중… 지금까지 N원", one charge per call
     with the wallet checked each time, one 전체 한도 per depth in Admin ›
     System, the pieces joined so the preview opens; see
-    `progress/RUN-2026-10-16.md` › AC). Original words: **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
+    `archive/progress-2026-10/RUN-2026-10-16.md` › AC). Original words: **"뭔가 한번 끊기면 비용 예측해서 ex 진짜 많이 쓰일 수도 있는데
     가겠냐고 물어보고 그냥 쭉 할 수 있게 (중단도 가능하니)"** (2026-10-16,
     after a 강아지 SVG on Opus · 보통 stopped twice at the 200원 cap) —
     when a reply stops at max_tokens or the per-reply cap, show the
@@ -3942,7 +3942,7 @@ above.)
 
 ## thumbnail-render-worker — full spec (merged 2026-10-17, live 2026-10-17)
 
-Merged `7599a1f`; switched on after four fixes (`ad1c75c`, `7def1ae`, `29a42f7`, `642e73c`) — live on the fourth attempt (`progress/RUN-2026-10-16.md` › TRW-ON). Was BACKLOG › After the beta:
+Merged `7599a1f`; switched on after four fixes (`ad1c75c`, `7def1ae`, `29a42f7`, `642e73c`) — live on the fourth attempt (`archive/progress-2026-10/RUN-2026-10-16.md` › TRW-ON). Was BACKLOG › After the beta:
 
 **Scheduled and pre-approved (owner, 2026-10-17, verbatim):** "서버에서 진짜
 브라우저로 썸네일 찍는 것(thumbnail-render-worker) 만들어줘. 격리 조건 그대로,
@@ -4317,13 +4317,13 @@ Moved out of BACKLOG › UI requests on 2026-10-17. Merges: chat-pins `d224240`;
 
 ## admin-consolidation — Next entry (v3, merged 2026-10-17 in four batches)
 
-Batches: (1) `feat-admin-frame` `20eee8f`, (2) `feat-admin-merges` `0e8d2b2`, (3) `feat-admin-usage` `8e45e40`, (4) `feat-admin-settings` `a7190f8`. The decisions, mock-up and branch plan stay in [`../ui-requests/admin-consolidation.md`](../ui-requests/admin-consolidation.md). The Next entry as it stood:
+Batches: (1) `feat-admin-frame` `20eee8f`, (2) `feat-admin-merges` `0e8d2b2`, (3) `feat-admin-usage` `8e45e40`, (4) `feat-admin-settings` `a7190f8`. The decisions, mock-up and branch plan stay in [`ui-requests-2026-10/admin-consolidation.md`](ui-requests-2026-10/admin-consolidation.md). The Next entry as it stood:
 
 8. **admin-consolidation** · M1 · eight small branches, one per row of the plan
     **Scheduled and pre-approved** (owner, 2026-10-17, verbatim:
     "admin-consolidation(v3 기준, 4묶음)도 ⑤ 다음에 같은 규칙으로 해줘") — after
     chat-to-builder-carry, built from the **v3** revision in
-    `ui-requests/admin-consolidation.md` (mock `admin-consolidation-v3.html`) in
+    `archive/ui-requests-2026-10/admin-consolidation.md` (mock `admin-consolidation-v3.html`) in
     **four batches**, each: review clean + tests pass → merge + deploy. Owner, 2026-10-17 (desktop
     session): Admin has too many sections and repeats itself — cut **13
     sections to 6** (Dashboard · Members · Quarters · Models · Community ·
@@ -4332,7 +4332,7 @@ Batches: (1) `feat-admin-frame` `20eee8f`, (2) `feat-admin-merges` `0e8d2b2`, (3
     only after the batch deploy now running has gone out.** Decisions
     (미참여 not 미신청; orange means "needs action"), the mock-up, the
     branch plan and the open questions are in
-    [`ui-requests/admin-consolidation.md`](../ui-requests/admin-consolidation.md)
+    [`archive/ui-requests-2026-10/admin-consolidation.md`](ui-requests-2026-10/admin-consolidation.md)
     (mock: `admin-consolidation.html`). Supersedes the *Admin › 사용량 분석*
     part of **usage-analytics** (decide at the start whether to merge the
     two specs). Open: 공지 보내기 now or later; keep the old `/admin/*`

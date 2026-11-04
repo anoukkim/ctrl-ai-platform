@@ -160,7 +160,7 @@ same loop). Branch `fix-ui-polish-admin`.
   wider than its box at 1280px, any fact value spilling out of its cell,
   and an active sidebar item hidden below the fold; member detail is
   checked for every member; it was run with real usage data present.
-- Screenshots: 104 jpgs (5.1 MB) in `docs/progress/screens/fix-ui-polish-admin/`
+- Screenshots: 104 jpgs (5.1 MB) in `docs/archive/screens-2026-10/fix-ui-polish-admin/`
   — `admin-<page>-<theme>-<width>`, `sidebar-{admin,member}-{expanded,collapsed,menu}-…`,
   `dialog-<name>-<theme>-<width>`, `public-{privacy,terms}-…`,
   `page-{apps,tube,builder,video}-dark-…`.

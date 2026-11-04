@@ -22,7 +22,7 @@ Check: https://api.github.com/repos/anoukkim/ctrl-ai-platform/actions/runs?per_p
 
 Has a migration (`a8c4e2f6b1d9`: `segment_event_ids`, `stop_note`); update.sh backs up first.
 Then check: a long chat reply continues by itself and stops at the won ceiling / 8 calls;
-CtrlAITube poster is the 0:08 frame. Add a "deployed" row to `docs/progress/RUN-2026-10-16.md`
+CtrlAITube poster is the 0:08 frame. Add a "deployed" row to `docs/archive/progress-2026-10/RUN-2026-10-16.md`
 and tell window 0c the deploy is done (it may then push).
 
 ## Step 2 — the running batch (pre-approved, BACKLOG "Owner, 2026-10-16 (evening…)")
