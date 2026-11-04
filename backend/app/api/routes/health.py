@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
 SERVICE_NAME = "ctrl-ai-backend"
-SERVICE_VERSION = "0.1.0"
+SERVICE_VERSION = "1.0.0"
 
 
 def check_database(db: Session) -> DatabaseHealth:

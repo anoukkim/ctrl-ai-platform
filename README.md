@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img alt="status: beta" src="https://img.shields.io/badge/status-beta-a63cf6?style=flat-square">
+  <a href="https://github.com/anoukkim/ctrl-ai-platform/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/anoukkim/ctrl-ai-platform?style=flat-square&color=a63cf6"></a>
   <img alt="site" src="https://img.shields.io/badge/site-ctrlai.my-3a6df0?style=flat-square">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-React%20·%20TypeScript-1b2a7a?style=flat-square&logo=nextdotjs">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-Python%20·%20PostgreSQL-1b2a7a?style=flat-square&logo=fastapi">
@@ -29,8 +29,9 @@ in **CtrlAIApps** and **CtrlAITube**. The club owns provider access: members
 never hold API keys, and every won spent comes out of one 동아리 지원 wallet
 per member per quarter, recorded per member, quarter and provider.
 
-> **Invite-only.** The site runs at [ctrlai.my](https://ctrlai.my) for
-> invited members: sign-up is with a Google account plus an invite code, and
+> **Live since [1.0.0](CHANGELOG.md) (2026-11-04).** The site runs at
+> [ctrlai.my](https://ctrlai.my) for the club's members, invite-only:
+> sign-up is with a Google account plus an invite code, and
 > every member also chooses a username and password at sign-up, so both ways
 > in exist from day one (a forgotten password is reset through Google).
 > Every external provider also has a **mock**, so the whole platform runs
@@ -157,7 +158,7 @@ See [`docs/development.md` › Verifying the project](docs/development.md#verify
 
 ## Deployment
 
-The beta runs on one Google Cloud VM (Seoul) with `docker-compose.prod.yml`:
+The site runs on one Google Cloud VM (Seoul) with `docker-compose.prod.yml`:
 Caddy, web, api, PostgreSQL and the `thumbs` worker. GitHub Actions builds
 the images on every push to `main`; the server pulls them by itself
 (`deploy/auto-deploy.sh` from cron, every 10 minutes, once the images for
@@ -178,6 +179,7 @@ One branch per item, small commits, all tests and the build before a merge.
 | Document | What it holds |
 | -------- | ------------- |
 | [`CLAUDE.md`](CLAUDE.md) | The settled decisions, the standing rules every change follows, and the working method |
+| [`CHANGELOG.md`](CHANGELOG.md) | Releases: what each one means for members and the club |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Milestones M0–M4 and what is done in each |
 | [`docs/archive/phases.md`](docs/archive/phases.md) | The long phase plan (Phases 0–9) and the Phase 0–1c delivery history |
 | [`docs/BACKLOG.md`](docs/BACKLOG.md) | **The order of work**: Now, Next, open specs, UI requests |

@@ -49,8 +49,11 @@ for 2026-10-19), and its operational checklist went to the owner.
   … 지금할건 아님"): the Gemini key for image-generation and the Naver
   key for chat-search-tools (Next 1) wait. Neither item starts until the
   owner says so.
-- **Real launch 2026-11-03**: the owner invites ordinary members
-  tomorrow; the queue is on hold behind that.
+- **Real launch 2026-11-03 — done**: the owner invited ordinary members
+  and the first meeting introduced the site; released as **1.0.0** on
+  2026-11-04 ([`CHANGELOG.md`](../CHANGELOG.md)). The five findings in
+  [`first-meeting/README.md`](first-meeting/README.md) are candidates for
+  Next; none is scheduled.
 - The order of the open Next items after the first two (app-platform P5,
   quarter-end-apps, builder-python); none is pre-approved.
 

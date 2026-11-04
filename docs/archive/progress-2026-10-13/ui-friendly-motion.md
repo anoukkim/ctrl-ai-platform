@@ -68,7 +68,7 @@ Branch `feat-ui-friendly-motion`. Spec: `docs/BACKLOG.md` › ui-friendly-motion
     libraries already had an explanation and one action.
 16. ✅ `FirstVisitGuide` (4 steps, `ctrlai.guide-done`, reopened by the sidebar's ?).
 17. ✅ tokens only; Pretendard; dark default; focus and labels kept.
-18. ✅ `docs/progress/screens/ui-friendly-motion/` — Chat, Builder, Video,
+18. ✅ `docs/archive/screens-2026-10/ui-friendly-motion/` — Chat, Builder, Video,
     Usage, Admin at 1280, 1920 and 390 px, the guide (light), three empty states.
 19–22. ✅ `__tests__/ui-friendly-motion.test.tsx` (reduced-motion CSS rule and
     the wallet number; guide once + reopen + four steps; empty states;

@@ -8,7 +8,7 @@ feature names, not the plan.
 | | Milestone | Status |
 | - | --------- | ------ |
 | M0 | Foundation | ✅ done |
-| **M1** | **Beta launch** | **shipped — every item merged and production runs real Claude (2026-10-19); open: plain-words-pass, and the owner's billed Gemini key for image-generation** |
+| **M1** | **Beta launch** | **shipped — every item merged and production runs real Claude (2026-10-19); members invited 2026-11-03, released as [1.0.0](../CHANGELOG.md) on 2026-11-04; open: plain-words-pass, and the owner's billed Gemini key for image-generation** |
 | M2 | Real creation | in progress — the Builder and image-generation (mock, locked) shipped; real Higgsfield and builder-python open |
 | M3 | Sharing | in progress — CtrlAIApps, the app platform (P1–P4b), app-open-services and app AI web search shipped; chat-search-tools, app-platform P5, quarter-end-apps, GitHub and YouTube open |
 | M4 | Running costs | needs discussion |
